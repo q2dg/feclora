@@ -14,10 +14,10 @@ smartmontools
 e2fsprogs
 xfsprogs
 btrfs-progs
- dosfstools
+dosfstools
 ntfs-3g
 
 # Diagnostics
 pciutils
 usbutils
- lshw
+lshw
