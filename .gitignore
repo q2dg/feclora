@@ -1,0 +1,7 @@
+/out/
+/results/
+*.iso
+*.img
+*.qcow2
+*.log
+__pycache__/
