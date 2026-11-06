@@ -1,0 +1,23 @@
+# Candidate Fedora package names; verify availability in Fedora 43 before use.
+lorax
+lorax-lmc-novirt
+
+# Storage and inspection candidates
+parted
+util-linux
+lvm2
+cryptsetup
+nvme-cli
+smartmontools
+
+# Filesystem tooling candidates
+e2fsprogs
+xfsprogs
+btrfs-progs
+ dosfstools
+ntfs-3g
+
+# Diagnostics
+pciutils
+usbutils
+ lshw
