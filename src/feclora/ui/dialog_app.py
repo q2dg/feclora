@@ -159,7 +159,7 @@ def _clone_disk(inventory: dict[str, Any]) -> None:
     if target_path is None:
         return
     phrase = f"ERASE {target_path}"
-    typed = _input("Destructive confirmation", f"Source: {source['path']}\\nDestination: {target_path}\\nType exactly:\\n{phrase}")
+    typed = _input("Destructive confirmation", f"Source: {source['path']}\nDestination: {target_path}\nType exactly:\n{phrase}")
     if typed != phrase:
         _message("Clone cancelled", "The confirmation did not match. No write was started.")
         return
@@ -187,8 +187,8 @@ def _clone_disk(inventory: dict[str, Any]) -> None:
             gauge.wait()
         _message(
             "Clone completed",
-            f"Copied {copied} bytes from {source['path']} to {target_path}.\\n"
             f"Copied {copied} bytes from {source['path']} to {target_path}.\n"
+            "The destination was flushed by dd. Read-back verification is not yet implemented."
         )
     except DiskCloneCancelled as exc:
         _message("Clone cancelled", str(exc) + "\nThe destination may contain a partial clone.")
