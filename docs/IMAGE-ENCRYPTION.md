@@ -49,3 +49,18 @@ enforce signature policy. Until that integration is complete, do not treat an
 image as encrypted or signed merely because the tools are installed. The
 adapters have mocked tests; they are not a substitute for testing against the
 real age/minisign binaries on Fedora Live.
+
+## Interactive capture choices
+
+Each disk or partition capture asks independently whether to encrypt and/or
+sign. Both are optional; choosing neither leaves a conventional unencrypted,
+unsigned image. The UI asks for an age recipients file only when encryption is
+selected, and for a minisign secret-key path only when signing is selected.
+Private keys are not copied into the image repository.
+
+Compression is also selected per capture: none, gzip, or xz. When gzip or xz
+is selected, the UI asks for a compression level. gzip accepts levels 1-9;
+xz accepts levels 0-9. The selected level is recorded in the artifact
+manifest. Compression is performed before age encryption. The current capture
+writer intentionally exposes only gzip and xz until additional compressors
+have safe streaming implementations and restore support.
