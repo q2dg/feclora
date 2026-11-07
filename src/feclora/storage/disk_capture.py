@@ -17,6 +17,16 @@ from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationErro
 from .source_safety import SourceSafetyError, check_capture_source_safe
 
 
+class _CountingReader:
+    def __init__(self, stream):
+        self.stream = stream
+        self.bytes_read = 0
+    def read(self, size=-1):
+        chunk = self.stream.read(size)
+        self.bytes_read += len(chunk)
+        return chunk
+
+
 class DiskCaptureError(RuntimeError):
     """Raised when a whole-disk image cannot be safely committed."""
 
@@ -146,9 +156,10 @@ def capture_disk(
                 (source_safety_check or check_capture_source_safe)(source_path)
             except SourceSafetyError as exc:
                 raise DiskCaptureError(f"capture source became unsafe before dd: {exc}") from exc
+            counted = _CountingReader(process.stdout)
             try:
                 disk_artifact = write_artifact(
-                    stage, disk_filename, process.stdout,
+                    stage, disk_filename, counted,
                     role="disk-image", image_format="raw", compression=compression,
                 )
             except ArtifactWriteError as exc:
@@ -169,8 +180,10 @@ def capture_disk(
             stderr_file.close()
             process = None
 
-        if disk_artifact.size_bytes <= 0:
-            raise DiskCaptureError("dd produced an empty disk image")
+        if counted.bytes_read != source_size:
+            raise DiskCaptureError(
+                f"whole-disk capture size mismatch: expected {source_size}, read {counted.bytes_read}"
+            )
         manifest = ImageManifest.from_dict({
             "schema_version": 1,
             "image_id": image_id,
