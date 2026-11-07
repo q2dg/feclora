@@ -111,9 +111,10 @@ def capture_partition_image(
         repository_fd = os.open(
             repo, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
         )
-        publish_names = [artifact_name, manifest_name]
+        publish_names = [artifact_name]
         if signature_name is not None:
             publish_names.append(signature_name)
+        publish_names.append(manifest_name)
         for name in publish_names:
             os.link(os.path.join(stage, name), name, dst_dir_fd=repository_fd, follow_symlinks=False)
             published.append(name)
