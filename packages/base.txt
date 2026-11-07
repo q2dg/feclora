@@ -1,23 +1,31 @@
-# Candidate Fedora package names; verify availability in Fedora 43 before use.
-lorax
-lorax-lmc-novirt
+# Runtime packages for the initial feclora rescue live image.
+# Keep this list aligned with kickstart/feclora-live.ks.
+kernel
+tar
+sudo
+NetworkManager
 
-# Storage and inspection candidates
+# Live-media boot support
+dracut-config-generic
+dracut-network
+dracut-live
+grub2-efi-x64
+grub2-pc-modules
+shim-x64
+syslinux
+
+# Storage and inspection
 parted
 util-linux
 lvm2
 cryptsetup
 nvme-cli
 smartmontools
-
-# Filesystem tooling candidates
 e2fsprogs
 xfsprogs
 btrfs-progs
 dosfstools
 ntfs-3g
-
-# Diagnostics
 pciutils
 usbutils
 lshw
