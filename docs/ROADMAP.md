@@ -19,15 +19,15 @@
 - [x] Document the build-host preparation, ISO build, artifact checks, and VM acceptance procedure in [the build runbook](BUILD.md).
 
 ## Milestone 2 — Core imaging workflow
-- [x] Discover the presence of standard storage utilities without executing them.
+- [x] Discover the presence of standard storage utilities without executing them, including filesystem-specific Partclone executables.
 - [x] Implement a tested, non-destructive whole-disk source/target selection gate.
 - [x] Add an independent live-root dependency probe using `findmnt` and inverse `lsblk` metadata.
 - [ ] Integrate root protection and selection into the TUI with a read-only plan preview.
 - [ ] Validate root protection against Fedora Live BIOS/UEFI sessions, including overlay/loop-backed root layouts.
-- [ ] Create and restore partition or disk images using established utilities where possible.
-- [ ] Support compression and integrity verification.
+- [ ] Reproduce Clonezilla's `savedisk`/`saveparts`/`restoredisk`/`restoreparts` workflows using Partclone, sfdisk and dd; do not invent a new image engine.
+- [ ] Reuse Clonezilla-compatible compression and checksum choices and image metadata.
 - [ ] Record image metadata and operation logs.
-- [ ] Validate source/target selection and destructive-operation safeguards.
+- [ ] Port and test Clonezilla's busy-device, endpoint-identity and source/target checks before enabling writes.
 
 ## Milestone 3 — Compatibility expansion
 - [ ] Add filesystem-aware and raw imaging modes.
