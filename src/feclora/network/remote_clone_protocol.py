@@ -75,18 +75,22 @@ class CloneSessionHeader:
             parsed = uuid.UUID(self.session_id)
         except (ValueError, TypeError, AttributeError) as exc:
             raise RemoteCloneProtocolError("session_id must be a UUID") from exc
-        if str(parsed) != self.session_id.lower():
+        if str(parsed) != self.session_id:
             raise RemoteCloneProtocolError("session_id must use canonical UUID notation")
         _bounded_string(self.source_identity, "source_identity")
         _bounded_string(self.receiver_identity, "receiver_identity")
         if (not isinstance(self.source_device, str) or not self.source_device.startswith("/dev/")
-                or len(self.source_device) > 256 or any(ord(c) < 32 for c in self.source_device)):
-            raise RemoteCloneProtocolError("source_device must be a valid /dev path")
+                or len(self.source_device) > 256 or any(ord(c) < 32 for c in self.source_device)
+                or "/../" in self.source_device or self.source_device.endswith("/..")
+                or "//" in self.source_device):
+            raise RemoteCloneProtocolError("source_device must be a normalized /dev path")
         _positive_integer(self.source_size_bytes, "source_size_bytes")
-        if isinstance(self.logical_sector_size, bool) or self.logical_sector_size not in {512, 4096}:
+        if (isinstance(self.logical_sector_size, bool) or not isinstance(self.logical_sector_size, int)
+                or self.logical_sector_size not in {512, 4096}):
             raise RemoteCloneProtocolError("logical_sector_size must be 512 or 4096")
         _validate_chunk_size(self.chunk_size_bytes)
-        if isinstance(self.schema_version, bool) or self.schema_version != PROTOCOL_VERSION:
+        if (isinstance(self.schema_version, bool) or not isinstance(self.schema_version, int)
+                or self.schema_version != PROTOCOL_VERSION):
             raise RemoteCloneProtocolError("unsupported remote clone protocol version")
 
     def to_dict(self) -> dict[str, Any]:
@@ -119,20 +123,27 @@ class CloneSessionHeader:
 
 @dataclass(frozen=True)
 class CloneStreamResult:
+    session_id: str
     byte_count: int
     sha256: str
 
     def __post_init__(self) -> None:
+        try:
+            parsed = uuid.UUID(self.session_id)
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise RemoteCloneProtocolError("terminal session_id must be a UUID") from exc
+        if str(parsed) != self.session_id:
+            raise RemoteCloneProtocolError("terminal session_id must use canonical UUID notation")
         _positive_integer(self.byte_count, "byte_count")
         if not isinstance(self.sha256, str) or not _HEX_SHA256.fullmatch(self.sha256):
             raise RemoteCloneProtocolError("sha256 must be a lowercase 64-character hexadecimal digest")
 
     def to_dict(self) -> dict[str, Any]:
-        return {"byte_count": self.byte_count, "sha256": self.sha256}
+        return {"session_id": self.session_id, "byte_count": self.byte_count, "sha256": self.sha256}
 
     @classmethod
     def from_dict(cls, value: Any) -> "CloneStreamResult":
-        if not isinstance(value, dict) or set(value) != {"byte_count", "sha256"}:
+        if not isinstance(value, dict) or set(value) != {"session_id", "byte_count", "sha256"}:
             raise RemoteCloneProtocolError("terminal result has missing or unknown fields")
         return cls(**value)
 
@@ -202,10 +213,11 @@ def send_disk_stream(
     source: BinaryIO,
     expected_size: int,
     *,
+    session_id: str,
     chunk_size: int = DEFAULT_CHUNK_BYTES,
     cancel_check: Callable[[], bool] | None = None,
 ) -> CloneStreamResult:
-    """Send exactly expected_size bytes and return the digest in a terminal frame."""
+    """Send exactly expected_size bytes and return the session-bound digest frame."""
     _positive_integer(expected_size, "expected_size")
     _validate_chunk_size(chunk_size)
     digest = hashlib.sha256()
@@ -223,7 +235,7 @@ def send_disk_stream(
         total += len(chunk)
     if source.read(1):
         raise RemoteCloneProtocolError("source contains bytes beyond the declared disk size")
-    result = CloneStreamResult(total, digest.hexdigest())
+    result = CloneStreamResult(session_id, total, digest.hexdigest())
     send_terminal_result(sock, result)
     return result
 
@@ -233,10 +245,11 @@ def receive_disk_stream(
     destination: BinaryIO,
     expected_size: int,
     *,
+    session_id: str,
     chunk_size: int = DEFAULT_CHUNK_BYTES,
     cancel_check: Callable[[], bool] | None = None,
 ) -> CloneStreamResult:
-    """Receive exactly expected_size bytes, write incrementally, and verify sender digest."""
+    """Receive exactly expected_size bytes and verify the session-bound sender digest."""
     _positive_integer(expected_size, "expected_size")
     _validate_chunk_size(chunk_size)
     digest = hashlib.sha256()
@@ -253,10 +266,11 @@ def receive_disk_stream(
             digest.update(view[:written])
             total += written
             view = view[written:]
-    local = CloneStreamResult(total, digest.hexdigest())
+    local = CloneStreamResult(session_id, total, digest.hexdigest())
     remote = receive_terminal_result(sock)
-    if remote.byte_count != local.byte_count or not hmac.compare_digest(remote.sha256, local.sha256):
-        raise RemoteCloneProtocolError("source and receiver stream byte counts or SHA-256 digests differ")
+    if (remote.session_id != session_id or remote.byte_count != local.byte_count
+            or not hmac.compare_digest(remote.sha256, local.sha256)):
+        raise RemoteCloneProtocolError("session binding, byte counts or source/receiver SHA-256 digests differ")
     return local
 
 
