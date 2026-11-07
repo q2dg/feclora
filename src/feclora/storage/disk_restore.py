@@ -68,7 +68,7 @@ def _verified_artifact_stream(repository: str, artifact: ImageArtifact,
         if not age_identity_file:
             raise DiskRestoreError("this image is age-encrypted; an identity file is required")
         try:
-            staged = decrypt_artifact_to_temp(
+            staged = decrypt_artifact_stream_to_temp(
                 stored, age_identity_file,
                 repository, age_executable=age_executable,
             )
