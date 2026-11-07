@@ -29,7 +29,7 @@
 - [x] Implement verified whole-disk restore with raw dd and none/gzip/xz/zstd/lz4 decompression, target geometry checks and typed confirmation (mocked tests; runtime validation pending).
 - [x] Implement partition restore with Partclone and raw fallback (mocked tests; runtime validation pending).
 - [x] Implement direct local whole-disk-to-whole-disk clone using bounded raw dd, source/target safety checks and explicit confirmation (mocked tests; runtime validation pending).
-- [ ] Implement one-to-one remote disk-to-disk clone between separate source and receiver machines over authenticated, integrity-protected transport.
+- [ ] Complete one-to-one remote disk-to-disk clone between separate source and receiver machines over authenticated, integrity-protected transport (initial protocol primitives are implemented; device/runtime integration remains).
 - [x] Implement zstd/lz4 streaming compression and decompression through Fedora system CLI tools (unit and real-binary CI validation pending).
 - [ ] Complete repository-level manifest transactions.
 - [ ] Support GPT/MBR, LVM, LUKS and boot-area/bootloader workflows.
@@ -45,14 +45,16 @@
 - [x] Add an append-only JSONL operation/error journal for capture, restore and local clone, with per-operation IDs, serialized writes, file/directory fsync and symlink/ownership checks.
 - [ ] Validate Partclone progress parsing and operator cancellation with the packaged Partclone build.
 - [ ] Validate raw partition read-back SHA-256 and Partclone read-only filesystem consistency checks on disposable devices.
-- [ ] Run operation-journal tests and validate persistent capture/restore/clone event records.
+- [x] Add unit tests for operation-journal append, completion, failure, cancellation and symlink rejection.
+- [ ] Validate persistent capture/restore/clone event records in the booted Live ISO.
 - [ ] Add journal recovery/reconciliation for operations left in started state after a crash.
 - [ ] Validate all destructive paths on disposable BIOS/UEFI VMs.
 
 ## Milestone 3 — Network client and server modes in the same ISO
 - [x] Define and validate the shared versioned deployment job schema (no networking or storage writes).
 - [x] Implement the in-memory Server deployment coordinator and client lifecycle state machine (no network transport or storage writes).
-- [ ] Define the image manifest and authenticated, integrity-protected client/server protocol, including one-to-one remote disk clone sessions.
+- [x] Specify the one-to-one remote clone protocol and implement initial TLS 1.3 mutual-authentication contexts, exact peer identity checks, role/device-bound local authorization, bounded framing/streaming, session-bound SHA-256 and receiver verification acknowledgements (end-to-end device runtime remains pending).
+- [ ] Define the separate authenticated, integrity-protected PXE client/server deployment protocol.
 - [ ] Implement client identity, allowlisting and explicit job arming.
 - [ ] Implement Client mode runtime using the same generic imaging commands.
 - [ ] Implement Server mode control plane, repository management and job lifecycle.
