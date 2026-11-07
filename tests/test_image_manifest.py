@@ -166,6 +166,26 @@ class ImageManifestTests(unittest.TestCase):
                          format="raw", compression="none", partition_id=None),
             ]))
 
+    def test_zstd_and_lz4_compression_levels_are_validated(self):
+        for codec, level in (("zstd", 19), ("lz4", 12)):
+            with self.subTest(codec=codec):
+                manifest = ImageManifest.from_dict({
+                    "schema_version": 1, "image_id": "codec-image", "image_type": "partition",
+                    "source_size_bytes": 4096, "logical_sector_size": 512,
+                    "partition_table": "none",
+                    "artifacts": [artifact(filename=f"partition.img.{codec}", compression=codec, compression_level=level)],
+                })
+                self.assertEqual(manifest.artifacts[0].compression_level, level)
+        for codec, level in (("zstd", 20), ("lz4", 13)):
+            with self.subTest(codec=codec, invalid=level):
+                with self.assertRaises(ManifestValidationError):
+                    ImageManifest.from_dict({
+                        "schema_version": 1, "image_id": "codec-image", "image_type": "partition",
+                        "source_size_bytes": 4096, "logical_sector_size": 512,
+                        "partition_table": "none",
+                        "artifacts": [artifact(filename=f"partition.img.{codec}", compression=codec, compression_level=level)],
+                    })
+
     def test_rejects_unknown_encryption_metadata(self):
         with self.assertRaisesRegex(ManifestValidationError, "encryption"):
             ImageManifest.from_dict(disk_manifest(artifacts=[
