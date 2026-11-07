@@ -24,7 +24,6 @@ from feclora.storage.restore_profile import (
 from feclora.storage.inventory import collect_inventory
 
 DEFAULT_PROFILE_DIRECTORY = Path("/home/feclora/profiles")
-DEFAULT_CONSUMPTION_LEDGER = Path("/home/feclora/logs/consumed-restore-profiles.jsonl")
 _MAX_LEDGER_BYTES = 8 * 1024 * 1024
 
 
@@ -103,6 +102,39 @@ def _consume_profile_once(profile_id: str, ledger_path: str | os.PathLike[str]) 
         raise RestoreProfileError(f"cannot persist one-time profile authorization: {exc}") from exc
 
 
+def _require_persistent_ledger(
+    ledger_path: str | os.PathLike[str],
+    *,
+    runner: Any = subprocess.run,
+) -> None:
+    """Refuse an ephemeral Live overlay as the single-use replay ledger."""
+    parent = Path(ledger_path).parent
+    try:
+        info = os.lstat(parent)
+    except OSError as exc:
+        raise RestoreProfileError(f"profile ledger directory must already exist on persistent storage: {exc}") from exc
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid():
+        raise RestoreProfileError("profile ledger directory must be a real directory owned by the live operator")
+    findmnt = shutil.which("findmnt")
+    if not findmnt:
+        raise RestoreProfileError("findmnt is required to verify persistent profile-ledger storage")
+    try:
+        result = runner(
+            [findmnt, "--noheadings", "--output", "FSTYPE,TARGET", "--target", str(parent)],
+            check=True, capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RestoreProfileError(f"cannot verify profile ledger mount: {exc}") from exc
+    fields = result.stdout.split()
+    if len(fields) < 2:
+        raise RestoreProfileError("findmnt did not identify the profile ledger filesystem")
+    filesystem, mountpoint = fields[0].lower(), fields[-1]
+    if filesystem in {"overlay", "tmpfs", "ramfs", "rootfs", "squashfs", "devtmpfs"} or mountpoint == "/":
+        raise RestoreProfileError(
+            "single-use restore ledger must reside on a dedicated persistent mounted filesystem, not the Live root"
+        )
+
+
 def _matching_target(profile: RestoreProfile, inventory: dict[str, Any]) -> dict[str, Any]:
     matches = [
         device for device in inventory.get("devices", [])
@@ -124,9 +156,9 @@ def execute_unattended_restore_profile(
     *,
     profile_trusted_key: str | os.PathLike[str],
     image_trusted_key: str | os.PathLike[str],
+    consumption_ledger: str | os.PathLike[str],
     repository: str | os.PathLike[str] = "/home/feclora/images",
     age_identity_file: str | os.PathLike[str] | None = None,
-    consumption_ledger: str | os.PathLike[str] = DEFAULT_CONSUMPTION_LEDGER,
     operation_log_path: str | os.PathLike[str] = DEFAULT_LOG_PATH,
     inventory: dict[str, Any] | None = None,
     restore_function: Any = restore_disk,
@@ -144,6 +176,7 @@ def execute_unattended_restore_profile(
         )
     if not profile.single_use or not profile.verify_after_restore:
         raise RestoreProfileError("unattended profile must be single-use and require read-back verification")
+    _require_persistent_ledger(consumption_ledger, runner=command_runner)
     current_inventory = inventory if inventory is not None else collect_inventory()
     target = _matching_target(profile, current_inventory)
     profile.authorize(target)
@@ -197,6 +230,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile-trusted-key", required=True, help="Trusted minisign public key for the profile")
     parser.add_argument("--image-trusted-key", required=True, help="Trusted minisign public key for the image manifest")
     parser.add_argument("--repository", default="/home/feclora/images")
+    parser.add_argument("--consumption-ledger", required=True, help="JSONL replay ledger on a dedicated persistent mounted filesystem")
     parser.add_argument("--age-identity", help="Protected path to the age identity; never stored in the profile")
     args = parser.parse_args(argv)
     try:
@@ -204,6 +238,7 @@ def main(argv: list[str] | None = None) -> int:
             args.profile,
             profile_trusted_key=args.profile_trusted_key,
             image_trusted_key=args.image_trusted_key,
+            consumption_ledger=args.consumption_ledger,
             repository=args.repository,
             age_identity_file=args.age_identity,
         )
