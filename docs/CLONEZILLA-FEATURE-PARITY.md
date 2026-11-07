@@ -19,7 +19,8 @@ Clonezilla Live and Clonezilla Server Edition define the user-visible feature ta
 | Discover disks, partitions and filesystems | lsblk, blkid, findmnt, udev | Inventory exists; safety checks incomplete |
 | Save/restore whole-disk images | partclone.*, dd, sfdisk, sgdisk | Implemented in code and Local rescue UI; mocked tests only, runtime validation pending |
 | Save/restore individual partitions | partclone.*, dd | Implemented in code and Local rescue UI; mocked tests only, runtime validation pending |
-| Direct disk-to-disk cloning on one machine | dd direct block copy with source/target safety and exact byte limit | Implemented in code and Local rescue UI; mocked tests only, runtime validation pending |\n| Direct disk-to-disk cloning between two machines | Authenticated client/server stream over TLS; generic raw or Partclone data plane | Planned; not implemented |
+| Direct disk-to-disk cloning on one machine | dd direct block copy with source/target safety and exact byte limit | Implemented in code and Local rescue UI; mocked tests only, runtime validation pending |
+| Direct disk-to-disk cloning between two machines | Authenticated client/server stream over TLS; generic raw or Partclone data plane | Planned; not implemented |
 | Filesystem-aware used-block imaging | Partclone filesystem-specific programs | Discovery only |
 | Raw imaging for unsupported filesystems | dd | Not implemented |
 | Compression and integrity verification | gzip, pigz, zstd, xz, sha256sum | Discovery only |
@@ -88,13 +89,14 @@ the job policy before destructive writes.
 
 ## Delivery strategy
 
-1. Complete and test single-machine inventory, save, restore and disk-to-disk clone workflows first.
-2. Define a stable image manifest and a client job protocol.
-3. Implement the Client mode and a one-client PXE/iPXE boot and unattended restore path.
-4. Implement Server mode job management, client identity/allowlisting and result reporting.
-5. Add unicast deployment to multiple clients.
-6. Add multicast/broadcast transport using a generic transport such as UDPcast, with client-count/deadline start conditions and recovery/error reporting.
-7. Add Wake-on-LAN, capacity controls, network isolation guidance and a repeatable multi-client test lab.
+1. Complete and validate single-machine inventory, save, restore and direct disk-to-disk cloning.
+2. Define a stable image manifest and an authenticated, integrity-protected client/server protocol.
+3. Implement one-to-one remote disk cloning: the source host streams to an explicitly authorized receiver host, with independent source/target safety checks and end-to-end verification.
+4. Implement the Client mode and a one-client PXE/iPXE boot and unattended restore path.
+5. Implement Server mode job management, client identity/allowlisting and result reporting.
+6. Add unicast deployment to multiple clients.
+7. Add multicast/broadcast transport using a generic transport such as UDPcast, with client-count/deadline start conditions and recovery/error reporting.
+8. Add Wake-on-LAN, capacity controls, network isolation guidance and a repeatable multi-client test lab.
 
 ## Acceptance
 
