@@ -17,6 +17,10 @@ from .privilege import PrivilegeError, privileged_argv
 class DiskRestoreError(RuntimeError):
     """A whole-disk restore was rejected or failed."""
 
+
+class DiskRestoreCancelled(DiskRestoreError):
+    """The operator cancelled a running whole-disk restore."""
+
 def _open_artifact(repository: str, artifact: ImageArtifact):
     path = os.path.join(repository, artifact.filename)
     try:
@@ -108,6 +112,7 @@ def restore_disk(
     popen_factory: Callable[..., Any] | None = None,
     target_safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> ImageManifest:
     """Restore a verified raw whole-disk image to a whole-disk block device.
 
@@ -210,6 +215,8 @@ def restore_disk(
                             raise DiskRestoreError("dd input pipe stopped accepting data")
                         written += count
                         view = view[count:]
+                    if progress_callback is not None:
+                        progress_callback(written, manifest.source_size_bytes)
                 process.stdin.close()
             except (BrokenPipeError, OSError, EOFError, lzma.LZMAError, zlib.error) as exc:
                 if process.poll() is None:
