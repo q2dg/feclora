@@ -60,7 +60,7 @@ def _verify_stored(stream: Any, artifact: Any) -> None:
         raise PartitionRestoreError("partition artifact size or SHA-256 mismatch")
     stream.seek(0)
 
-def _decompress_to_temp(source: Any, compression: str, expected_raw_size: int | None):
+def _decompress_to_temp(source: Any, compression: str, expected_raw_size: int | None, directory: str):
     if compression == "none":
         decoder = source
     elif compression == "gzip":
@@ -69,7 +69,7 @@ def _decompress_to_temp(source: Any, compression: str, expected_raw_size: int | 
         decoder = lzma.LZMAFile(source, mode="rb")
     else:
         raise PartitionRestoreError("partition restore supports none, gzip and xz compression")
-    output = tempfile.TemporaryFile(mode="w+b")
+    output = tempfile.TemporaryFile(mode="w+b", dir=directory)
     total = 0
     try:
         while True:
@@ -95,24 +95,24 @@ def _decompress_to_temp(source: Any, compression: str, expected_raw_size: int | 
     source.seek(0)
     return output, total
 
-def _target_geometry(target: str, lsblk: str, runner: Callable[..., Any]) -> int:
+def _target_geometry(target: str, lsblk: str, runner: Callable[..., Any]) -> tuple[int, int]:
     try:
         result = runner(
-            [lsblk, "--bytes", "--noheadings", "--nodeps", "--output", "SIZE,TYPE", target],
+            [lsblk, "--bytes", "--noheadings", "--nodeps", "--output", "SIZE,TYPE,LOG-SEC", target],
             check=True, capture_output=True, text=True, timeout=20,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise PartitionRestoreError(f"cannot inspect target partition: {exc}") from exc
     fields = result.stdout.split()
-    if len(fields) != 2 or fields[1] != "part":
+    if len(fields) != 3 or fields[1] != "part":
         raise PartitionRestoreError("restore target must be exactly one partition")
     try:
-        size = int(fields[0])
+        size, sector_size = int(fields[0]), int(fields[2])
     except ValueError as exc:
         raise PartitionRestoreError("lsblk returned invalid partition size") from exc
-    if size <= 0:
-        raise PartitionRestoreError("target partition size is invalid")
-    return size
+    if size <= 0 or sector_size not in {512, 4096}:
+        raise PartitionRestoreError("target partition geometry is invalid")
+    return size, sector_size
 
 def restore_partition(
     manifest_path: str | os.PathLike[str],
@@ -162,7 +162,9 @@ def restore_partition(
     if not lsblk:
         raise PartitionRestoreError("lsblk is required for partition restore")
     run = runner or subprocess.run
-    target_size = _target_geometry(target_path, lsblk, run)
+    target_size, target_sector_size = _target_geometry(target_path, lsblk, run)
+    if target_sector_size != manifest.logical_sector_size:
+        raise PartitionRestoreError("target logical sector size differs from the image")
     if target_size < manifest.source_size_bytes:
         raise PartitionRestoreError("target partition is smaller than the source partition")
     if artifact.format == "partclone":
@@ -188,14 +190,16 @@ def restore_partition(
         staged, decoded_size = _decompress_to_temp(
             image, artifact.compression,
             manifest.source_size_bytes if artifact.format == "raw" else None,
+            repo,
         )
         try:
             # Validate the block-device role and safety again immediately before
             # starting the destructive process.
             if not validator(target_path):
                 raise PartitionRestoreError("target block-device identity changed")
-            if _target_geometry(target_path, lsblk, run) < manifest.source_size_bytes:
-                raise PartitionRestoreError("target partition capacity changed")
+            refreshed_size, refreshed_sector = _target_geometry(target_path, lsblk, run)
+            if refreshed_size < manifest.source_size_bytes or refreshed_sector != manifest.logical_sector_size:
+                raise PartitionRestoreError("target partition geometry changed")
             try:
                 safety(target_path)
             except SourceSafetyError as exc:
