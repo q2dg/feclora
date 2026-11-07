@@ -28,6 +28,10 @@ if [[ -f "$ROOT_DIR/build/build-iso.sh" ]]; then
   fi
 fi
 
+if [[ -f "$ROOT_DIR/src/feclora/data/feclora-restore-profile-env" ]]; then
+  bash -n "$ROOT_DIR/src/feclora/data/feclora-restore-profile-env" || fail "Unattended restore environment wrapper has invalid Bash syntax."
+fi
+
 if ! grep -qx 'dialog' "$ROOT_DIR/packages/base.txt"; then
   fail "Runtime package list does not include dialog."
 fi
