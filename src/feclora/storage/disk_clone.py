@@ -6,7 +6,6 @@ import os
 import shutil
 import stat
 import subprocess
-import tempfile
 from typing import Any, Callable
 
 from .privilege import PrivilegeError, privileged_argv
@@ -15,6 +14,10 @@ from .source_safety import SourceSafetyError, check_capture_source_safe
 
 class DiskCloneError(RuntimeError):
     """A direct disk clone was rejected or failed."""
+
+
+class DiskCloneCancelled(DiskCloneError):
+    """The operator cancelled a running direct disk clone."""
 
 
 def _geometry(path: str, lsblk: str, runner: Callable[..., Any]) -> tuple[int, int, bool, str]:
@@ -56,6 +59,7 @@ def clone_disk(
     popen_factory: Callable[..., Any] | None = None,
     device_safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
+    progress_callback: Callable[[int, str], None] | None = None,
 ) -> int:
     """Clone one offline whole disk directly to another with GNU dd."""
     for label, path in (("source", source_path), ("target", target_path)):
@@ -128,21 +132,42 @@ def clone_disk(
     except PrivilegeError as exc:
         raise DiskCloneError(f"cannot obtain non-interactive root privileges: {exc}") from exc
 
-    stderr = tempfile.TemporaryFile(mode="w+b")
     process = None
     try:
         factory = popen_factory or subprocess.Popen
         try:
             process = factory(
                 argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                stderr=stderr, close_fds=True,
+                stderr=subprocess.PIPE, close_fds=True,
             )
         except (OSError, PrivilegeError) as exc:
             raise DiskCloneError(f"could not start dd: {exc}") from exc
+        progress_buffer = bytearray()
+        stderr_tail = bytearray()
+        stderr_stream = getattr(process, "stderr", None)
+        if stderr_stream is not None:
+            while True:
+                byte = stderr_stream.read(1)
+                if not byte:
+                    break
+                if len(stderr_tail) >= 8192:
+                    del stderr_tail[:1]
+                stderr_tail.extend(byte)
+                if byte in (b"\\r", b"\\n"):
+                    line = progress_buffer.decode("utf-8", errors="replace").strip()
+                    progress_buffer.clear()
+                    if progress_callback and line:
+                        try:
+                            copied = int(line.split()[0].replace(",", ""))
+                            percent = min(100, int(copied * 100 / source_size))
+                            progress_callback(percent, line)
+                        except (ValueError, IndexError):
+                            progress_callback(0, line)
+                else:
+                    progress_buffer.extend(byte)
         return_code = process.wait()
         if return_code != 0:
-            stderr.seek(0)
-            detail = stderr.read(8192).decode("utf-8", errors="replace").strip()
+            detail = stderr_tail.decode("utf-8", errors="replace").strip()
             raise DiskCloneError(
                 f"dd exited with status {return_code}" + (f": {detail}" if detail else "")
             )
@@ -152,9 +177,18 @@ def clone_disk(
                 run(repair, check=True, capture_output=True, text=True, timeout=60)
             except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
                 raise DiskCloneError(f"disk data copied but backup GPT relocation failed: {exc}") from exc
+    except DiskCloneCancelled:
+        if process is not None and process.poll() is None:
+            process.terminate()
+            process.wait()
+        raise
+    except (BrokenPipeError, OSError) as exc:
+        if process is not None and process.poll() is None:
+            process.terminate()
+            process.wait()
+        raise DiskCloneCancelled(f"disk clone progress UI closed; operation stopped: {exc}") from exc
     finally:
         if process is not None and process.poll() is None:
             process.terminate()
             process.wait()
-        stderr.close()
     return source_size
