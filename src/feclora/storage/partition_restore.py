@@ -219,8 +219,8 @@ def restore_partition(
             stderr = tempfile.TemporaryFile(mode="w+b")
             process = None
             try:
-            if initial_device_number is not None and os.stat(target_path).st_rdev != initial_device_number:
-                raise PartitionRestoreError("block-device identity changed before restore")
+                if initial_device_number is not None and os.stat(target_path).st_rdev != initial_device_number:
+                    raise PartitionRestoreError("block-device identity changed before restore")
                 factory = popen_factory or subprocess.Popen
                 try:
                     process = factory(
