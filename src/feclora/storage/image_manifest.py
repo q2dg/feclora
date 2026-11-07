@@ -84,6 +84,8 @@ class ImageArtifact:
         if not isinstance(encryption, str) or encryption not in {"none", "age"}:
             raise ManifestValidationError("Artifact encryption must be none or age")
         compression_level = value.get("compression_level")
+        if compression == "none" and compression_level is not None:
+            raise ManifestValidationError("Uncompressed artifacts must not specify compression_level")
         if compression_level is not None and (
             isinstance(compression_level, bool) or not isinstance(compression_level, int)
             or (compression == "gzip" and not 1 <= compression_level <= 9)
@@ -93,8 +95,6 @@ class ImageArtifact:
             or compression not in {"gzip", "xz", "zstd", "lz4"}
         ):
             raise ManifestValidationError("gzip 1-9; xz 0-9; zstd 1-19; lz4 1-12")
-        if compression == "none" and compression_level is not None:
-            raise ManifestValidationError("Uncompressed artifacts must not specify compression_level")
         supported_filesystems = {"btrfs", "ext2", "ext3", "ext4", "exfat", "fat", "fat12", "fat16", "fat32", "vfat", "f2fs", "ntfs", "xfs"}
         if filesystem is not None and (not isinstance(filesystem, str) or filesystem not in supported_filesystems):
             raise ManifestValidationError("Unsupported artifact filesystem")
