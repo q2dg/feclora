@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
+import socket
 import stat
 import subprocess
 import tempfile
@@ -47,6 +48,14 @@ class RemoteDiskCloneError(RuntimeError):
 
 class RemoteDiskCloneCancelled(RemoteDiskCloneError):
     """The operator cancelled a remote disk clone."""
+
+
+def _shutdown_tls(tls_socket: Any) -> None:
+    """Wake the peer immediately when a session fails instead of leaving it idle."""
+    try:
+        tls_socket.shutdown(socket.SHUT_RDWR)
+    except (AttributeError, OSError):
+        pass
 
 
 def _resolve(executables: dict[str, str | None], name: str) -> str:
@@ -344,11 +353,15 @@ def send_remote_disk(
         raise RemoteDiskCloneError("expected receiver identity is required")
     verify_peer_identity(tls_socket, expected_peer_identity)
     target = f"{header.source_device} -> {header.receiver_identity}:{header.receiver_target_device}"
-    with operation_record(
-        "remote-disk-send", target, image_id=header.session_id,
-        log_path=operation_log_path,
-    ):
-        return _send_remote_disk_impl(tls_socket, header, **kwargs)
+    try:
+        with operation_record(
+            "remote-disk-send", target, image_id=header.session_id,
+            log_path=operation_log_path,
+        ):
+            return _send_remote_disk_impl(tls_socket, header, **kwargs)
+    except BaseException:
+        _shutdown_tls(tls_socket)
+        raise
 
 
 def receive_remote_disk(
@@ -361,20 +374,24 @@ def receive_remote_disk(
     expected_peer_identity = kwargs.get("expected_peer_identity")
     if not isinstance(expected_peer_identity, str):
         raise RemoteDiskCloneError("expected source identity is required")
-    verify_peer_identity(tls_socket, expected_peer_identity)
-    header = receive_session_header(tls_socket)
-    target = header.receiver_target_device
-    with operation_record(
-        "remote-disk-receive", target, image_id=header.session_id,
-        log_path=operation_log_path,
-    ):
-        result = _receive_remote_disk_impl(
-            tls_socket, header=header, **kwargs,
-        )
-    # The receiver journal's completed event is durable before the sender is
-    # told that the destructive operation succeeded.
-    send_verification_result(tls_socket, result)
-    return result
+    try:
+        verify_peer_identity(tls_socket, expected_peer_identity)
+        header = receive_session_header(tls_socket)
+        target = header.receiver_target_device
+        with operation_record(
+            "remote-disk-receive", target, image_id=header.session_id,
+            log_path=operation_log_path,
+        ):
+            result = _receive_remote_disk_impl(
+                tls_socket, header=header, **kwargs,
+            )
+        # The receiver journal's completed event is durable before the sender
+        # is told that the destructive operation succeeded.
+        send_verification_result(tls_socket, result)
+        return result
+    except BaseException:
+        _shutdown_tls(tls_socket)
+        raise
 
 
 def serve_remote_clone_once(
