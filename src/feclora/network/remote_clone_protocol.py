@@ -407,8 +407,9 @@ def receive_disk_stream(
         view = memoryview(chunk)
         while view:
             written = destination.write(view)
-            if written is None or written <= 0:
-                raise RemoteCloneProtocolError("destination writer stopped accepting data")
+            if (isinstance(written, bool) or not isinstance(written, int)
+                    or written <= 0 or written > len(view)):
+                raise RemoteCloneProtocolError("destination writer returned an invalid byte count")
             digest.update(view[:written])
             total += written
             view = view[written:]
