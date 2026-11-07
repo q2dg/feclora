@@ -1,0 +1,318 @@
+"""Bounded framing and integrity primitives for one-to-one remote disk cloning.
+
+TLS setup and local device authorization are deliberately separate concerns.
+Callers must wrap the socket in a mutually authenticated TLS session, verify
+both peer identities, obtain explicit authorization at both endpoints, and
+pass only already-validated streams/devices to these functions.
+"""
+from __future__ import annotations
+
+import hashlib
+import hmac
+import ipaddress
+import json
+import re
+import socket
+import ssl
+import struct
+import uuid
+from dataclasses import dataclass
+from typing import Any, BinaryIO, Callable
+
+PROTOCOL_VERSION = 1
+MAX_HEADER_BYTES = 16 * 1024
+MAX_TERMINAL_BYTES = 1024
+MIN_CHUNK_BYTES = 64 * 1024
+MAX_CHUNK_BYTES = 4 * 1024 * 1024
+DEFAULT_CHUNK_BYTES = 1024 * 1024
+_MAX_DEVICE_BYTES = (1 << 63) - 1
+_HEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+
+
+class RemoteCloneProtocolError(RuntimeError):
+    """A remote clone frame, stream, or peer identity is invalid."""
+
+
+class RemoteCloneCancelled(RemoteCloneProtocolError):
+    """The operator cancelled the remote clone transfer."""
+
+
+def _positive_integer(value: Any, field: str, maximum: int = _MAX_DEVICE_BYTES) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= maximum:
+        raise RemoteCloneProtocolError(f"{field} must be an integer between 1 and {maximum}")
+    return value
+
+
+def _bounded_string(value: Any, field: str, maximum: int = 256) -> str:
+    if not isinstance(value, str) or not value or len(value) > maximum:
+        raise RemoteCloneProtocolError(f"{field} must be a non-empty string of at most {maximum} characters")
+    if any(ord(char) < 32 for char in value):
+        raise RemoteCloneProtocolError(f"{field} contains control characters")
+    return value
+
+
+def _validate_chunk_size(value: Any) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not MIN_CHUNK_BYTES <= value <= MAX_CHUNK_BYTES:
+        raise RemoteCloneProtocolError(
+            f"chunk_size_bytes must be between {MIN_CHUNK_BYTES} and {MAX_CHUNK_BYTES}"
+        )
+    return value
+
+
+@dataclass(frozen=True)
+class CloneSessionHeader:
+    session_id: str
+    source_identity: str
+    receiver_identity: str
+    source_device: str
+    source_size_bytes: int
+    logical_sector_size: int
+    chunk_size_bytes: int = DEFAULT_CHUNK_BYTES
+    schema_version: int = PROTOCOL_VERSION
+
+    def __post_init__(self) -> None:
+        try:
+            parsed = uuid.UUID(self.session_id)
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise RemoteCloneProtocolError("session_id must be a UUID") from exc
+        if str(parsed) != self.session_id.lower():
+            raise RemoteCloneProtocolError("session_id must use canonical UUID notation")
+        _bounded_string(self.source_identity, "source_identity")
+        _bounded_string(self.receiver_identity, "receiver_identity")
+        if (not isinstance(self.source_device, str) or not self.source_device.startswith("/dev/")
+                or len(self.source_device) > 256 or any(ord(c) < 32 for c in self.source_device)):
+            raise RemoteCloneProtocolError("source_device must be a valid /dev path")
+        _positive_integer(self.source_size_bytes, "source_size_bytes")
+        if isinstance(self.logical_sector_size, bool) or self.logical_sector_size not in {512, 4096}:
+            raise RemoteCloneProtocolError("logical_sector_size must be 512 or 4096")
+        _validate_chunk_size(self.chunk_size_bytes)
+        if isinstance(self.schema_version, bool) or self.schema_version != PROTOCOL_VERSION:
+            raise RemoteCloneProtocolError("unsupported remote clone protocol version")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "session_id": self.session_id,
+            "source_identity": self.source_identity,
+            "receiver_identity": self.receiver_identity,
+            "source_device": self.source_device,
+            "source_size_bytes": self.source_size_bytes,
+            "logical_sector_size": self.logical_sector_size,
+            "chunk_size_bytes": self.chunk_size_bytes,
+        }
+
+    @classmethod
+    def from_dict(cls, value: Any) -> "CloneSessionHeader":
+        if not isinstance(value, dict):
+            raise RemoteCloneProtocolError("session header must be a JSON object")
+        required = {
+            "schema_version", "session_id", "source_identity", "receiver_identity",
+            "source_device", "source_size_bytes", "logical_sector_size", "chunk_size_bytes",
+        }
+        if set(value) != required:
+            raise RemoteCloneProtocolError("session header has missing or unknown fields")
+        try:
+            return cls(**value)
+        except TypeError as exc:
+            raise RemoteCloneProtocolError(f"invalid session header fields: {exc}") from exc
+
+
+@dataclass(frozen=True)
+class CloneStreamResult:
+    byte_count: int
+    sha256: str
+
+    def __post_init__(self) -> None:
+        _positive_integer(self.byte_count, "byte_count")
+        if not isinstance(self.sha256, str) or not _HEX_SHA256.fullmatch(self.sha256):
+            raise RemoteCloneProtocolError("sha256 must be a lowercase 64-character hexadecimal digest")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"byte_count": self.byte_count, "sha256": self.sha256}
+
+    @classmethod
+    def from_dict(cls, value: Any) -> "CloneStreamResult":
+        if not isinstance(value, dict) or set(value) != {"byte_count", "sha256"}:
+            raise RemoteCloneProtocolError("terminal result has missing or unknown fields")
+        return cls(**value)
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise RemoteCloneProtocolError(f"duplicate JSON field: {key}")
+        result[key] = value
+    return result
+
+
+def _send_frame(sock: Any, payload: bytes, maximum: int) -> None:
+    if not payload or len(payload) > maximum:
+        raise RemoteCloneProtocolError("protocol frame is empty or exceeds the configured maximum")
+    sock.sendall(struct.pack("!I", len(payload)) + payload)
+
+
+def _recv_exact(sock: Any, count: int) -> bytes:
+    chunks = bytearray()
+    while len(chunks) < count:
+        chunk = sock.recv(count - len(chunks))
+        if not chunk:
+            raise RemoteCloneProtocolError("peer disconnected before the frame or disk stream completed")
+        chunks.extend(chunk)
+    return bytes(chunks)
+
+
+def _recv_frame(sock: Any, maximum: int) -> bytes:
+    length = struct.unpack("!I", _recv_exact(sock, 4))[0]
+    if length == 0 or length > maximum:
+        raise RemoteCloneProtocolError("peer sent an empty or oversized protocol frame")
+    return _recv_exact(sock, length)
+
+
+def send_session_header(sock: Any, header: CloneSessionHeader) -> None:
+    payload = json.dumps(header.to_dict(), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    _send_frame(sock, payload, MAX_HEADER_BYTES)
+
+
+def receive_session_header(sock: Any) -> CloneSessionHeader:
+    payload = _recv_frame(sock, MAX_HEADER_BYTES)
+    try:
+        value = json.loads(payload.decode("utf-8"), object_pairs_hook=_reject_duplicate_keys)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise RemoteCloneProtocolError(f"invalid session header JSON: {exc}") from exc
+    return CloneSessionHeader.from_dict(value)
+
+
+def send_terminal_result(sock: Any, result: CloneStreamResult) -> None:
+    payload = json.dumps(result.to_dict(), sort_keys=True, separators=(",", ":")).encode("ascii")
+    _send_frame(sock, payload, MAX_TERMINAL_BYTES)
+
+
+def receive_terminal_result(sock: Any) -> CloneStreamResult:
+    payload = _recv_frame(sock, MAX_TERMINAL_BYTES)
+    try:
+        value = json.loads(payload.decode("ascii"), object_pairs_hook=_reject_duplicate_keys)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise RemoteCloneProtocolError(f"invalid terminal result JSON: {exc}") from exc
+    return CloneStreamResult.from_dict(value)
+
+
+def send_disk_stream(
+    sock: Any,
+    source: BinaryIO,
+    expected_size: int,
+    *,
+    chunk_size: int = DEFAULT_CHUNK_BYTES,
+    cancel_check: Callable[[], bool] | None = None,
+) -> CloneStreamResult:
+    """Send exactly expected_size bytes and return the digest in a terminal frame."""
+    _positive_integer(expected_size, "expected_size")
+    _validate_chunk_size(chunk_size)
+    digest = hashlib.sha256()
+    total = 0
+    while total < expected_size:
+        if cancel_check is not None and cancel_check():
+            raise RemoteCloneCancelled("source operator cancelled the remote clone")
+        chunk = source.read(min(chunk_size, expected_size - total))
+        if not isinstance(chunk, (bytes, bytearray)) or not chunk:
+            raise RemoteCloneProtocolError("source ended before the declared disk byte count")
+        if len(chunk) > expected_size - total:
+            raise RemoteCloneProtocolError("source returned more bytes than requested")
+        sock.sendall(chunk)
+        digest.update(chunk)
+        total += len(chunk)
+    if source.read(1):
+        raise RemoteCloneProtocolError("source contains bytes beyond the declared disk size")
+    result = CloneStreamResult(total, digest.hexdigest())
+    send_terminal_result(sock, result)
+    return result
+
+
+def receive_disk_stream(
+    sock: Any,
+    destination: BinaryIO,
+    expected_size: int,
+    *,
+    chunk_size: int = DEFAULT_CHUNK_BYTES,
+    cancel_check: Callable[[], bool] | None = None,
+) -> CloneStreamResult:
+    """Receive exactly expected_size bytes, write incrementally, and verify sender digest."""
+    _positive_integer(expected_size, "expected_size")
+    _validate_chunk_size(chunk_size)
+    digest = hashlib.sha256()
+    total = 0
+    while total < expected_size:
+        if cancel_check is not None and cancel_check():
+            raise RemoteCloneCancelled("receiver operator cancelled the remote clone")
+        chunk = _recv_exact(sock, min(chunk_size, expected_size - total))
+        view = memoryview(chunk)
+        while view:
+            written = destination.write(view)
+            if written is None or written <= 0:
+                raise RemoteCloneProtocolError("destination writer stopped accepting data")
+            digest.update(view[:written])
+            total += written
+            view = view[written:]
+    local = CloneStreamResult(total, digest.hexdigest())
+    remote = receive_terminal_result(sock)
+    if remote.byte_count != local.byte_count or not hmac.compare_digest(remote.sha256, local.sha256):
+        raise RemoteCloneProtocolError("source and receiver stream byte counts or SHA-256 digests differ")
+    return local
+
+
+def create_mutual_tls_context(
+    role: str,
+    *,
+    ca_file: str,
+    certificate_file: str,
+    private_key_file: str,
+) -> ssl.SSLContext:
+    """Create a TLS 1.3-only context that requires a trusted peer certificate."""
+    if role == "client":
+        context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=ca_file)
+        context.check_hostname = True
+    elif role == "server":
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_verify_locations(cafile=ca_file)
+        context.verify_mode = ssl.CERT_REQUIRED
+    else:
+        raise RemoteCloneProtocolError("TLS role must be 'client' or 'server'")
+    context.minimum_version = ssl.TLSVersion.TLSv1_3
+    context.maximum_version = ssl.TLSVersion.TLSv1_3
+    context.load_cert_chain(certfile=certificate_file, keyfile=private_key_file)
+    return context
+
+
+def verify_peer_identity(tls_socket: Any, expected_identity: str) -> None:
+    """Require an exact SAN identity or a SHA-256 pin after TLS handshake."""
+    _bounded_string(expected_identity, "expected_identity")
+    certificate_der = tls_socket.getpeercert(binary_form=True)
+    if not certificate_der:
+        raise RemoteCloneProtocolError("TLS peer did not present a certificate")
+    if expected_identity.startswith("sha256:"):
+        expected = expected_identity[7:].lower()
+        if not _HEX_SHA256.fullmatch(expected):
+            raise RemoteCloneProtocolError("expected SHA-256 certificate pin is malformed")
+        actual = hashlib.sha256(certificate_der).hexdigest()
+        if not hmac.compare_digest(actual, expected):
+            raise RemoteCloneProtocolError("TLS peer certificate fingerprint does not match the approved pin")
+        return
+    certificate = tls_socket.getpeercert()
+    if not isinstance(certificate, dict):
+        raise RemoteCloneProtocolError("TLS peer certificate details are unavailable")
+    kind, separator, value = expected_identity.partition(":")
+    if not separator or kind not in {"DNS", "IP", "URI", "EMAIL"} or not value:
+        raise RemoteCloneProtocolError("peer identity must use DNS:, IP:, URI:, EMAIL: or sha256: notation")
+    if kind == "IP":
+        try:
+            value = str(ipaddress.ip_address(value))
+        except ValueError as exc:
+            raise RemoteCloneProtocolError("expected IP peer identity is invalid") from exc
+    subject_alt_names = certificate.get("subjectAltName", ())
+    matched = any(
+        san_kind == {"DNS": "DNS", "IP": "IP Address", "URI": "URI", "EMAIL": "email"}[kind]
+        and san_value.lower() == value.lower()
+        for san_kind, san_value in subject_alt_names
+    )
+    if not matched:
+        raise RemoteCloneProtocolError("TLS peer certificate does not contain the approved exact SAN identity")
