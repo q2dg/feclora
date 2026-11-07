@@ -88,9 +88,11 @@ class ImageArtifact:
             isinstance(compression_level, bool) or not isinstance(compression_level, int)
             or (compression == "gzip" and not 1 <= compression_level <= 9)
             or (compression == "xz" and not 0 <= compression_level <= 9)
-            or compression not in {"gzip", "xz"}
+            or (compression == "zstd" and not 1 <= compression_level <= 19)
+            or (compression == "lz4" and not 1 <= compression_level <= 12)
+            or compression not in {"gzip", "xz", "zstd", "lz4"}
         ):
-            raise ManifestValidationError("gzip level must be 1-9; xz level must be 0-9")
+            raise ManifestValidationError("gzip 1-9; xz 0-9; zstd 1-19; lz4 1-12")
         if compression == "none" and compression_level is not None:
             raise ManifestValidationError("Uncompressed artifacts must not specify compression_level")
         supported_filesystems = {"btrfs", "ext2", "ext3", "ext4", "exfat", "fat", "fat12", "fat16", "fat32", "vfat", "f2fs", "ntfs", "xfs"}
