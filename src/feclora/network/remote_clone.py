@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 from typing import Any, Callable
 
+from feclora.storage.operation_log import DEFAULT_LOG_PATH, operation_record
 from feclora.storage.disk_clone import DiskCloneError, _geometry
 from feclora.storage.privilege import PrivilegeError, privileged_argv
 from feclora.storage.source_safety import SourceSafetyError, check_capture_source_safe
@@ -138,7 +139,7 @@ def _readback_digest(
         stderr.close()
 
 
-def send_remote_disk(
+def _send_remote_disk_impl(
     tls_socket: Any,
     header: CloneSessionHeader,
     *,
@@ -218,7 +219,7 @@ def send_remote_disk(
         raise RemoteDiskCloneError(str(exc)) from exc
 
 
-def receive_remote_disk(
+def _receive_remote_disk_impl(
     tls_socket: Any,
     *,
     local_identity: str,
@@ -232,14 +233,15 @@ def receive_remote_disk(
     effective_uid: Callable[[], int] | None = None,
     cancel_check: Callable[[], bool] | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
+    header: CloneSessionHeader | None = None,
 ) -> CloneVerificationResult:
-    """Receive one disk, write it with dd, read it back, and acknowledge only verified data."""
+    """Receive one disk, write it with dd, and verify the complete read-back."""
     available = executables or {}
     validator = device_validator or (lambda path: stat.S_ISBLK(os.stat(path).st_mode))
     safety = safety_check or check_capture_source_safe
     lsblk = _resolve(available, "lsblk")
     dd = _resolve(available, "dd")
-    header = receive_session_header(tls_socket)
+    header = header or receive_session_header(tls_socket)
     try:
         verify_peer_identity(tls_socket, expected_peer_identity)
         approval = authorize_endpoint(
@@ -312,7 +314,6 @@ def receive_remote_disk(
                 readback_sha256=readback,
                 error="receiver disk read-back SHA-256 differs from the received stream",
             )
-            send_verification_result(tls_socket, failure)
             raise RemoteDiskCloneError(failure.error)
         result = CloneVerificationResult(
             session_id=header.session_id, status="verified",
@@ -320,7 +321,6 @@ def receive_remote_disk(
             stream_sha256=stream_result.sha256,
             readback_sha256=readback,
         )
-        send_verification_result(tls_socket, result)
         if progress_callback is not None:
             progress_callback(header.source_size_bytes, header.source_size_bytes)
         return result
@@ -328,3 +328,49 @@ def receive_remote_disk(
         raise RemoteDiskCloneCancelled(str(exc)) from exc
     except (RemoteCloneProtocolError, PrivilegeError, OSError, subprocess.SubprocessError) as exc:
         raise RemoteDiskCloneError(str(exc)) from exc
+
+
+def send_remote_disk(
+    tls_socket: Any,
+    header: CloneSessionHeader,
+    *,
+    operation_log_path: str = str(DEFAULT_LOG_PATH),
+    **kwargs: Any,
+) -> CloneVerificationResult:
+    """Journal a source operation and send only after peer identity is checked."""
+    expected_peer_identity = kwargs.get("expected_peer_identity")
+    if not isinstance(expected_peer_identity, str):
+        raise RemoteDiskCloneError("expected receiver identity is required")
+    verify_peer_identity(tls_socket, expected_peer_identity)
+    target = f"{header.source_device} -> {header.receiver_identity}:{header.receiver_target_device}"
+    with operation_record(
+        "remote-disk-send", target, image_id=header.session_id,
+        log_path=operation_log_path,
+    ):
+        return _send_remote_disk_impl(tls_socket, header, **kwargs)
+
+
+def receive_remote_disk(
+    tls_socket: Any,
+    *,
+    operation_log_path: str = str(DEFAULT_LOG_PATH),
+    **kwargs: Any,
+) -> CloneVerificationResult:
+    """Journal the receiver operation before writing and acknowledge after durable completion."""
+    expected_peer_identity = kwargs.get("expected_peer_identity")
+    if not isinstance(expected_peer_identity, str):
+        raise RemoteDiskCloneError("expected source identity is required")
+    verify_peer_identity(tls_socket, expected_peer_identity)
+    header = receive_session_header(tls_socket)
+    target = header.receiver_target_device
+    with operation_record(
+        "remote-disk-receive", target, image_id=header.session_id,
+        log_path=operation_log_path,
+    ):
+        result = _receive_remote_disk_impl(
+            tls_socket, header=header, **kwargs,
+        )
+    # The receiver journal's completed event is durable before the sender is
+    # told that the destructive operation succeeded.
+    send_verification_result(tls_socket, result)
+    return result
