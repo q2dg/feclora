@@ -1,6 +1,7 @@
 import json
 import subprocess
 import unittest
+from types import SimpleNamespace
 
 from feclora.storage.source_safety import SourceSafetyError, check_capture_source_safe
 
@@ -19,7 +20,7 @@ class SourceSafetyTests(unittest.TestCase):
             check_capture_source_safe(
                 "/dev/sda1", runner=self.runner_for(tree), which=lambda name: name,
                 root_disk_resolver=lambda **kwargs: {"/dev/nvme0n1"},
-                swaps_path="/dev/null",
+                swaps_path="/dev/null", stat_device=lambda _path: SimpleNamespace(st_mode=0),
             )
 
     def test_rejects_live_root_backing_disk(self):
@@ -29,7 +30,7 @@ class SourceSafetyTests(unittest.TestCase):
             check_capture_source_safe(
                 "/dev/sda1", runner=self.runner_for(tree), which=lambda name: name,
                 root_disk_resolver=lambda **kwargs: {"/dev/sda"},
-                swaps_path="/dev/null",
+                swaps_path="/dev/null", stat_device=lambda _path: SimpleNamespace(st_mode=0),
             )
 
     def test_rejects_unverifiable_root_protection(self):
