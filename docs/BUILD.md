@@ -58,9 +58,23 @@ test -c /dev/kvm && echo "KVM device available" || echo "KVM unavailable"
 df -h .
 ```
 
-The expected architecture is `x86_64`. If `/dev/kvm` is unavailable, fix
-host virtualization permissions/configuration before building; the normal
+The expected host is Fedora 43 on `x86_64`. If `/dev/kvm` is unavailable,
+fix host virtualization permissions/configuration before building; the normal
 build path requires QEMU virtualization.
+
+After setting `FEDORA_INSTALL_ISO` in the next section, run the automated
+preflight before the build:
+
+```bash
+make preflight FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
+```
+
+The preflight checks the Fedora release, architecture, input files, required
+commands, KVM access, and free space on the output filesystem. It reserves a
+conservative default minimum of 20 GiB; override this with
+`FECLORA_MIN_FREE_GIB` only after checking the actual space requirements for
+the selected installer ISO and build workload. Passing preflight does not
+guarantee that the build will fit or complete.
 
 ## 3. Obtain and verify the Fedora installer ISO
 
@@ -94,6 +108,7 @@ Before building:
 ```bash
 make validate
 make test
+make preflight FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
 ```
 
 These checks cover shell syntax/project validation and hardware-independent
@@ -110,8 +125,9 @@ make build FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
 
 The target invokes `build/build-iso.sh` with root privileges. The script:
 
-1. Checks the input ISO, Kickstart, host architecture, privileges, and required
-   executables.
+1. Runs the host preflight: checks Fedora 43, x86_64, the input ISO,
+   Kickstart, application source, required executables, KVM access, and a
+   configurable minimum of free output space.
 2. Stages the Python application at `out/feclora-app/src/feclora`.
 3. Uses `mkksiso --add` to add that payload and the Kickstart to a temporary
    installer ISO named `out/feclora-installer.iso`.
