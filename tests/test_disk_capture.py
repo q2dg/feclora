@@ -5,6 +5,7 @@ import unittest
 from types import SimpleNamespace
 
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
+from feclora.storage.capture import CaptureCancelled
 
 
 class FakeProcess:
@@ -55,6 +56,33 @@ class DiskCaptureTests(unittest.TestCase):
         )
         self.assertEqual(len(manifest.artifacts), 2)
 
+    def test_reports_raw_read_progress(self):
+        payload = b"whole disk bytes"
+        progress = []
+        capture_disk(
+            "/dev/fake", "progress-image", self.temp.name,
+            executables=self.executables, device_validator=lambda _path: True,
+            runner=self.runner, source_safety_check=lambda _path: None,
+            effective_uid=lambda: 0,
+            popen_factory=lambda *_args, **_kwargs: FakeProcess(payload),
+            progress_callback=lambda done, total: progress.append((done, total)),
+        )
+        self.assertEqual(progress[-1], (len(payload), len(payload)))
+    def test_cancellation_does_not_publish_payload_or_manifest(self):
+        proc = FakeProcess(b"partial payload")
+        def cancel(_done, _total):
+            raise CaptureCancelled("operator cancelled")
+        with self.assertRaisesRegex(CaptureCancelled, "cancelled"):
+            capture_disk(
+                "/dev/fake", "cancelled-image", self.temp.name,
+                executables=self.executables, device_validator=lambda _path: True,
+                runner=self.runner, source_safety_check=lambda _path: None,
+                effective_uid=lambda: 0,
+                popen_factory=lambda *_args, **_kwargs: proc,
+                progress_callback=cancel,
+            )
+        self.assertEqual(os.listdir(self.temp.name), [])
+        self.assertTrue(proc.terminated)
     def test_failed_dd_leaves_no_published_files(self):
         proc = FakeProcess(b"partial", returncode=1)
         with self.assertRaisesRegex(DiskCaptureError, "status 1"):
