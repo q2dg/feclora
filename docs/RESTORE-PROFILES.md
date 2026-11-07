@@ -98,3 +98,38 @@ streaming write and read-back SHA-256 verification.
 The current unattended executor supports whole-disk images with the
 `preserve` layout policy. It rejects `proportional` rather than silently
 pretending to resize partitions. The Local rescue TUI can create and sign unattended profiles. Automatic startup scheduling/systemd enablement is not enabled by default; an operator must explicitly configure it after mounting persistent profile, image, trust and audit storage.
+
+
+## Optional boot-time execution
+
+The Live image installs `feclora-restore-profile.service` and its environment
+wrapper, but the service is **disabled by default**. To enable it deliberately:
+
+1. Mount the persistent restore medium at `/mnt/restore-media` during boot
+   (for example through an explicit fstab entry). The service has
+   `RequiresMountsFor=/mnt/restore-media`.
+2. Create `/etc/feclora/restore-profile.env` as a root-owned file readable by
+   the `feclora` group (mode 0640). It contains paths only, never key material:
+
+```ini
+FECLORA_PROFILE=/mnt/restore-media/profiles/lab.json
+FECLORA_PROFILE_TRUSTED_KEY=/mnt/restore-media/trust/profile.pub
+FECLORA_IMAGE_TRUSTED_KEY=/mnt/restore-media/trust/images.pub
+FECLORA_IMAGE_REPOSITORY=/mnt/restore-media/images
+FECLORA_CONSUMPTION_LEDGER=/mnt/restore-media/audit/consumed-profiles.jsonl
+FECLORA_OPERATION_LOG=/mnt/restore-media/audit/operations.jsonl
+FECLORA_AGE_IDENTITY=
+```
+
+3. Ensure the profile, image manifest, detached signatures, public keys,
+   age identity (if used), audit directory and mount are all readable/writable
+   as appropriate by the live `feclora` account.
+4. Enable the service explicitly with
+   `systemctl enable feclora-restore-profile.service`.
+
+The unit runs before the interactive tty1 login to avoid racing the rescue
+menu. It does not start DHCP, PXE or other network services. The service is
+not enabled by the ISO build. The profile's persistent one-time ledger is the
+replay barrier; if the same profile is attempted again, the executor exits
+before writing. Disable the unit after the intended deployment if repeated
+boot attempts are not wanted.
