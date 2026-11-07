@@ -69,7 +69,7 @@ class DiskCloneTests(unittest.TestCase):
         )
         self.assertEqual(progress, [50, 100])
     def test_progress_dialog_closure_cancels_dd(self):
-        proc = FakeProcess(stderr=b"50000 bytes copied\r")
+        proc = FakeProcess(returncode=None, stderr=b"50000 bytes copied\r")
         with self.assertRaises(DiskCloneCancelled):
             clone_disk(
                 "/dev/source", "/dev/target", confirmation="ERASE /dev/target",
