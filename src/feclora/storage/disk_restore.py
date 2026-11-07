@@ -12,7 +12,7 @@ import zlib
 from contextlib import contextmanager
 from typing import Any, Callable
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
-from .image_security import ImageSecurityError, decrypt_artifact_to_temp, verify_manifest_signature
+from .image_security import ImageSecurityError, decrypt_artifact_stream_to_temp, verify_manifest_signature
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 
@@ -69,7 +69,7 @@ def _verified_artifact_stream(repository: str, artifact: ImageArtifact,
             raise DiskRestoreError("this image is age-encrypted; an identity file is required")
         try:
             staged = decrypt_artifact_to_temp(
-                os.path.join(repository, artifact.filename), age_identity_file,
+                stored, age_identity_file,
                 repository, age_executable=age_executable,
             )
         except ImageSecurityError as exc:
