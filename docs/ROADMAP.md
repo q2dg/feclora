@@ -31,7 +31,9 @@
 - [ ] Validate all destructive paths on disposable BIOS/UEFI VMs.
 
 ## Milestone 3 — Network client and server modes in the same ISO
-- [x] Define and validate the shared versioned deployment job schema (no networking or storage writes).\n- [ ] Define the image manifest and authenticated, integrity-protected client/server protocol.
+- [x] Define and validate the shared versioned deployment job schema (no networking or storage writes).
+- [x] Implement the in-memory Server deployment coordinator and client lifecycle state machine (no network transport or storage writes).
+- [ ] Define the image manifest and authenticated, integrity-protected client/server protocol.
 - [ ] Implement client identity, allowlisting and explicit job arming.
 - [ ] Implement Client mode runtime using the same generic imaging commands.
 - [ ] Implement Server mode control plane, repository management and job lifecycle.
