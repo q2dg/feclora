@@ -29,5 +29,4 @@ runs after a successful write.
 **Destructive boundary:** once `dd` starts, a hardware or power failure can
 leave the target partially overwritten. SHA-256 here detects accidental
 artifact corruption; it does not authenticate who created the manifest.
-The Local rescue TUI invokes this primitive after exact typed confirmation. The TUI shows live progress and supports cancellation. Tests are mocked; no VM
-or hardware restore has been validated. Tests are mocked; no VM or hardware restore has been validated. Never test against a disk containing needed data.
+The Local rescue TUI invokes this primitive after exact typed confirmation. The TUI shows live progress and supports cancellation. Tests are mocked; no VM or hardware restore has been validated. Never test against a disk containing needed data.
