@@ -1,17 +1,18 @@
 import gzip
 import hashlib
+import io
 import json
 import os
 import tempfile
 import unittest
 from types import SimpleNamespace
-from feclora.storage.partition_restore import PartitionRestoreError, restore_partition
+from feclora.storage.partition_restore import PartitionRestoreCancelled, PartitionRestoreError, restore_partition
 
 
 class FakeProcess:
     def __init__(self):
         self.returncode = 0
-        self.stdin = None
+        self.stdin = io.BytesIO()
         self.argv = None
     def wait(self):
         return self.returncode
@@ -34,6 +35,7 @@ class PartitionRestoreTests(unittest.TestCase):
         self.calls = []
         self.stdin_data = None
         self.partclone_data = None
+        self.active_process = None
     def write_manifest(self, image_format, filesystem, size):
         artifact = {
             "filename": "partition.img.gz", "role": "partition-image",
@@ -57,9 +59,7 @@ class PartitionRestoreTests(unittest.TestCase):
         def factory(argv, **opts):
             self.calls.append((argv, opts))
             if argv[0] == "dd":
-                image_path = next(arg[3:] for arg in argv if arg.startswith("if="))
-                with open(image_path, "rb") as image:
-                    self.stdin_data = image.read()
+                self.active_process = proc
             elif argv[0].startswith("partclone."):
                 with open(argv[3], "rb") as image:
                     self.partclone_data = image.read()
@@ -72,12 +72,38 @@ class PartitionRestoreTests(unittest.TestCase):
             target_safety_check=lambda _path: None, effective_uid=lambda: 0,
             popen_factory=factory, **kwargs,
         )
+        if self.active_process is not None:
+            self.stdin_data = self.active_process.stdin.getvalue()
         return result
     def test_raw_restore_uses_dd_and_verified_decompressed_file(self):
         self.restore()
         argv, options = self.calls[0]
         self.assertEqual(argv[0], "dd")
         self.assertEqual(self.stdin_data, self.payload)
+    def test_raw_restore_reports_progress(self):
+        progress = []
+        self.restore(progress_callback=lambda done, total: progress.append((done, total)))
+        self.assertEqual(progress[-1], (len(self.payload), len(self.payload)))
+    def test_raw_restore_cancellation_stops_writer(self):
+        proc = FakeProcess()
+        class RunningProcess(FakeProcess):
+            def poll(self):
+                return -15 if self.returncode == -15 else None
+        proc = RunningProcess()
+        def factory(argv, **opts):
+            self.calls.append((argv, opts))
+            return proc
+        with self.assertRaisesRegex(PartitionRestoreCancelled, "cancel"):
+            restore_partition(
+                self.manifest, self.temp.name, "/dev/sda1",
+                confirmation="ERASE /dev/sda1",
+                executables={"lsblk": "lsblk", "dd": "dd"},
+                runner=self.runner, device_validator=lambda _path: True,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=factory,
+                progress_callback=lambda *_args: (_ for _ in ()).throw(PartitionRestoreCancelled("operator cancel")),
+            )
+        self.assertEqual(proc.returncode, -15)
     def test_partclone_restore_uses_filesystem_specific_executable(self):
         self.write_manifest("partclone", "ext4", len(self.payload))
         self.restore()
