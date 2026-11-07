@@ -84,6 +84,16 @@ class DiskCaptureTests(unittest.TestCase):
             self.assertEqual(stream.read(), b"preserve")
         self.assertEqual(os.listdir(self.temp.name), ["taken.disk.raw"])
 
+    def test_short_read_does_not_publish_a_disk_manifest(self):
+        with self.assertRaisesRegex(DiskCaptureError, "size mismatch"):
+            capture_disk(
+                "/dev/fake", "short-image", self.temp.name,
+                executables=self.executables, device_validator=lambda _path: True,
+                runner=self.runner, source_safety_check=lambda _path: None,
+                popen_factory=lambda *_args, **_kwargs: FakeProcess(b"short"),
+            )
+        self.assertEqual(os.listdir(self.temp.name), [])
+
     def test_invalid_geometry_fails_before_capture(self):
         def bad_runner(command, **kwargs):
             return SimpleNamespace(stdout="bad geometry\n")
