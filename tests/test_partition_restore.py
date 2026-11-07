@@ -59,7 +59,8 @@ class PartitionRestoreTests(unittest.TestCase):
             self.manifest, self.temp.name, "/dev/sda1",
             confirmation="ERASE /dev/sda1",
             executables={"lsblk": "lsblk", "dd": "dd", "partclone.ext4": "partclone.ext4"},
-            runner=self.runner, target_safety_check=lambda _path: None,
+            runner=self.runner, device_validator=lambda _path: True,
+            target_safety_check=lambda _path: None,
             popen_factory=factory, **kwargs,
         )
         return result
@@ -95,7 +96,8 @@ class PartitionRestoreTests(unittest.TestCase):
             restore_partition(
                 self.manifest, self.temp.name, "/dev/sda1",
                 confirmation="ERASE /dev/sda1", executables={"lsblk": "lsblk", "dd": "dd"},
-                runner=small, target_safety_check=lambda _path: None,
+                runner=small, device_validator=lambda _path: True,
+                target_safety_check=lambda _path: None,
                 popen_factory=lambda *a, **k: self.fail("writer must not start"),
             )
 
