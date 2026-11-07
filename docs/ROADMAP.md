@@ -18,6 +18,8 @@
 - [ ] Validate inventory and UI against real BIOS/UEFI virtual-machine storage.
 - [x] Document the build-host preparation, ISO build, artifact checks, and VM acceptance procedure in [the build runbook](BUILD.md).
 
+See [the Clonezilla Live functional-parity target](CLONEZILLA-FEATURE-PARITY.md) and [ADR 0003](adr/0003-clonezilla-workflow.md): use generic Linux utilities only; no Clonezilla or `ocs-*` runtime dependencies.
+
 ## Milestone 2 — Core imaging workflow
 - [x] Discover the presence of standard storage utilities without executing them, including filesystem-specific Partclone executables.
 - [x] Implement a tested, non-destructive whole-disk source/target selection gate.
