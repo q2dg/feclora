@@ -4,7 +4,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 errors=0
 fail() { printf 'ERROR: %s\n' "$*" >&2; errors=$((errors + 1)); }
 
-for file in "$ROOT_DIR/build/build-iso.sh" "$ROOT_DIR/build/install-host-deps.sh" "$ROOT_DIR/kickstart/feclora-live.ks" "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/src/feclora/storage/inventory.py" "$ROOT_DIR/src/feclora/ui/dialog_app.py" "$ROOT_DIR/scripts/feclora-ui.sh"; do
+for file in "$ROOT_DIR/build/build-iso.sh" "$ROOT_DIR/build/preflight.sh" "$ROOT_DIR/build/install-host-deps.sh" "$ROOT_DIR/kickstart/feclora-live.ks" "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/src/feclora/storage/inventory.py" "$ROOT_DIR/src/feclora/ui/dialog_app.py" "$ROOT_DIR/scripts/feclora-ui.sh"; do
   [[ -f "$file" ]] || fail "Required project file is missing: $file"
 done
 
@@ -18,6 +18,7 @@ if [[ -f "$ROOT_DIR/kickstart/feclora-live.ks" ]]; then
 fi
 
 if [[ -f "$ROOT_DIR/build/build-iso.sh" ]]; then
+  grep -Fq 'bash "${ROOT_DIR}/build/preflight.sh"' "$ROOT_DIR/build/build-iso.sh" || fail "Build script must run host preflight before staging the ISO."
   grep -q -- '--make-iso' "$ROOT_DIR/build/build-iso.sh" || fail "Build script does not request ISO output."
   grep -Fq "mkksiso --add \"\${APP_STAGE}\" \"\${KS_FILE}\" \"\${INSTALL_ISO}\" \"\${AUGMENTED_ISO}\"" "$ROOT_DIR/build/build-iso.sh" || fail "mkksiso must receive the app payload, Kickstart, input ISO and output ISO in that order."
   if grep -Eq '^[[:space:]]+--no-virt([[:space:]]|$)' "$ROOT_DIR/build/build-iso.sh"; then
