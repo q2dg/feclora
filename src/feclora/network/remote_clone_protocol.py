@@ -65,6 +65,7 @@ class CloneSessionHeader:
     source_identity: str
     receiver_identity: str
     source_device: str
+    receiver_target_device: str
     source_size_bytes: int
     logical_sector_size: int
     chunk_size_bytes: int = DEFAULT_CHUNK_BYTES
@@ -84,6 +85,13 @@ class CloneSessionHeader:
                 or "/../" in self.source_device or self.source_device.endswith("/..")
                 or "//" in self.source_device):
             raise RemoteCloneProtocolError("source_device must be a normalized /dev path")
+        if (not isinstance(self.receiver_target_device, str) or not self.receiver_target_device.startswith("/dev/")
+                or len(self.receiver_target_device) > 256 or any(ord(c) < 32 for c in self.receiver_target_device)
+                or "/../" in self.receiver_target_device or self.receiver_target_device.endswith("/..")
+                or "//" in self.receiver_target_device):
+            raise RemoteCloneProtocolError("receiver_target_device must be a normalized /dev path")
+        if self.source_device == self.receiver_target_device:
+            raise RemoteCloneProtocolError("source and receiver device paths must differ")
         _positive_integer(self.source_size_bytes, "source_size_bytes")
         if (isinstance(self.logical_sector_size, bool) or not isinstance(self.logical_sector_size, int)
                 or self.logical_sector_size not in {512, 4096}):
@@ -100,6 +108,7 @@ class CloneSessionHeader:
             "source_identity": self.source_identity,
             "receiver_identity": self.receiver_identity,
             "source_device": self.source_device,
+            "receiver_target_device": self.receiver_target_device,
             "source_size_bytes": self.source_size_bytes,
             "logical_sector_size": self.logical_sector_size,
             "chunk_size_bytes": self.chunk_size_bytes,
@@ -111,7 +120,7 @@ class CloneSessionHeader:
             raise RemoteCloneProtocolError("session header must be a JSON object")
         required = {
             "schema_version", "session_id", "source_identity", "receiver_identity",
-            "source_device", "source_size_bytes", "logical_sector_size", "chunk_size_bytes",
+            "source_device", "receiver_target_device", "source_size_bytes", "logical_sector_size", "chunk_size_bytes",
         }
         if set(value) != required:
             raise RemoteCloneProtocolError("session header has missing or unknown fields")
@@ -119,6 +128,62 @@ class CloneSessionHeader:
             return cls(**value)
         except TypeError as exc:
             raise RemoteCloneProtocolError(f"invalid session header fields: {exc}") from exc
+
+ 
+@dataclass(frozen=True)
+class CloneEndpointAuthorization:
+    session_id: str
+    role: str
+    local_identity: str
+    peer_identity: str
+    device_path: str
+
+
+def authorize_endpoint(
+    header: CloneSessionHeader,
+    *,
+    role: str,
+    local_identity: str,
+    expected_peer_identity: str,
+    confirmation: str,
+) -> CloneEndpointAuthorization:
+    """Validate an explicit, role-specific local approval for this exact session."""
+    if role == "source":
+        expected_local = header.source_identity
+        expected_peer = header.receiver_identity
+        device_path = header.source_device
+        required_phrase = f"READ {device_path} TO {expected_peer}"
+    elif role == "receiver":
+        expected_local = header.receiver_identity
+        expected_peer = header.source_identity
+        device_path = header.receiver_target_device
+        required_phrase = f"ERASE {device_path} FROM {expected_peer}"
+    else:
+        raise RemoteCloneProtocolError("endpoint role must be 'source' or 'receiver'")
+    if local_identity != expected_local or expected_peer_identity != expected_peer:
+        raise RemoteCloneProtocolError("local or expected peer identity does not match the approved session")
+    if confirmation != required_phrase:
+        raise RemoteCloneProtocolError(f"explicit {role} authorization required: {required_phrase}")
+    return CloneEndpointAuthorization(
+        session_id=header.session_id,
+        role=role,
+        local_identity=local_identity,
+        peer_identity=expected_peer_identity,
+        device_path=device_path,
+    )
+
+
+def validate_endpoint_authorization(
+    authorization: CloneEndpointAuthorization,
+    header: CloneSessionHeader,
+    *,
+    role: str,
+    device_path: str,
+) -> None:
+    """Recheck the session-bound approval immediately before a device operation."""
+    if (authorization.session_id != header.session_id or authorization.role != role
+            or authorization.device_path != device_path):
+        raise RemoteCloneProtocolError("endpoint authorization does not cover this session, role and device")
 
 
 @dataclass(frozen=True)
@@ -146,6 +211,84 @@ class CloneStreamResult:
         if not isinstance(value, dict) or set(value) != {"session_id", "byte_count", "sha256"}:
             raise RemoteCloneProtocolError("terminal result has missing or unknown fields")
         return cls(**value)
+
+
+@dataclass(frozen=True)
+class CloneVerificationResult:
+    session_id: str
+    status: str
+    byte_count: int
+    stream_sha256: str
+    readback_sha256: str | None
+    error: str | None = None
+
+    def __post_init__(self) -> None:
+        try:
+            parsed = uuid.UUID(self.session_id)
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise RemoteCloneProtocolError("verification session_id must be a UUID") from exc
+        if str(parsed) != self.session_id:
+            raise RemoteCloneProtocolError("verification session_id must use canonical UUID notation")
+        if self.status not in {"verified", "failed"}:
+            raise RemoteCloneProtocolError("verification status must be verified or failed")
+        _positive_integer(self.byte_count, "byte_count")
+        if not isinstance(self.stream_sha256, str) or not _HEX_SHA256.fullmatch(self.stream_sha256):
+            raise RemoteCloneProtocolError("stream_sha256 must be a lowercase SHA-256 digest")
+        if self.readback_sha256 is not None and (
+            not isinstance(self.readback_sha256, str) or not _HEX_SHA256.fullmatch(self.readback_sha256)
+        ):
+            raise RemoteCloneProtocolError("readback_sha256 must be a lowercase SHA-256 digest or null")
+        if self.status == "verified":
+            if self.readback_sha256 is None or not hmac.compare_digest(self.stream_sha256, self.readback_sha256):
+                raise RemoteCloneProtocolError("verified result requires matching stream and read-back digests")
+            if self.error is not None:
+                raise RemoteCloneProtocolError("verified result cannot contain an error")
+        elif not isinstance(self.error, str) or not self.error or len(self.error) > 512:
+            raise RemoteCloneProtocolError("failed result requires a bounded error description")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "session_id": self.session_id,
+            "status": self.status,
+            "byte_count": self.byte_count,
+            "stream_sha256": self.stream_sha256,
+            "readback_sha256": self.readback_sha256,
+            "error": self.error,
+        }
+
+    @classmethod
+    def from_dict(cls, value: Any) -> "CloneVerificationResult":
+        required = {"session_id", "status", "byte_count", "stream_sha256", "readback_sha256", "error"}
+        if not isinstance(value, dict) or set(value) != required:
+            raise RemoteCloneProtocolError("verification result has missing or unknown fields")
+        return cls(**value)
+
+
+def send_verification_result(sock: Any, result: CloneVerificationResult) -> None:
+    payload = json.dumps(result.to_dict(), sort_keys=True, separators=(",", ":")).encode("ascii")
+    _send_frame(sock, payload, MAX_TERMINAL_BYTES)
+
+
+def receive_verification_result(
+    sock: Any,
+    *,
+    session_id: str,
+    expected_bytes: int,
+    expected_stream_sha256: str,
+) -> CloneVerificationResult:
+    payload = _recv_frame(sock, MAX_TERMINAL_BYTES)
+    try:
+        value = json.loads(payload.decode("ascii"), object_pairs_hook=_reject_duplicate_keys)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise RemoteCloneProtocolError(f"invalid receiver verification JSON: {exc}") from exc
+    result = CloneVerificationResult.from_dict(value)
+    if result.session_id != session_id or result.byte_count != expected_bytes:
+        raise RemoteCloneProtocolError("receiver verification result is bound to a different session or byte count")
+    if not hmac.compare_digest(result.stream_sha256, expected_stream_sha256):
+        raise RemoteCloneProtocolError("receiver verified a different transfer digest")
+    if result.status != "verified":
+        raise RemoteCloneProtocolError("receiver did not verify the destination disk: " + (result.error or "unknown error"))
+    return result
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
