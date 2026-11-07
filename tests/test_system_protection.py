@@ -55,6 +55,7 @@ class RootBackingDiskTests(unittest.TestCase):
         responses = [
             {"filesystems": [{"source": "/dev/dm-0"}]},
             {"blockdevices": [{"path": "/dev/dm-0", "type": "lvm"}]},
+            {"blockdevices": []},
         ]
         def runner(command, **_kwargs):
             return subprocess.CompletedProcess(command, 0, json.dumps(responses.pop(0)), "")
