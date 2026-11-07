@@ -159,6 +159,12 @@ def execute_unattended_restore_profile(
     target_path = target["path"]
 
     def consume_before_write() -> None:
+        # Re-read stable hardware identity and expiry after the potentially
+        # lengthy artifact preflight, immediately before consuming permission.
+        current_target = _matching_target(profile, collect_inventory())
+        if current_target.get("path") != target_path:
+            raise RestoreProfileError("target device path changed during restore preflight")
+        profile.authorize(current_target)
         _consume_profile_once(profile.profile_id, consumption_ledger)
 
     with operation_record(
