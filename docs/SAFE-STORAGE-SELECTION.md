@@ -1,31 +1,38 @@
 # Safe storage selection
 
-The storage-selection layer currently validates a **whole-disk clone plan only**.
-It is deliberately separate from any imaging or write operation.
+The storage-selection layer validates a **whole-disk clone plan only**. It is
+separate from every imaging or write operation.
 
 ## Validation rules
 
-- Source and target must be distinct, uniquely identified top-level disks in the
-  current `lsblk` inventory. Partition paths and nested devices are not accepted.
-- Both disks must have a known, positive byte capacity.
+- Source and target must be distinct, uniquely identified top-level disks in
+  the current `lsblk` inventory. Partitions and nested devices are rejected.
+- Both disks need a known, positive byte capacity.
 - The target must not be read-only and must be at least as large as the source.
-- Any mounted filesystem anywhere in either disk's partition/device tree blocks
-  selection. This conservative first iteration avoids inconsistent source reads
-  and accidental writes to mounted target filesystems.
-- A disk containing the live `/` filesystem is never selectable.
-- Paths are resolved against the current inventory, not menu row numbers.
+- Any mounted filesystem in either disk's reported partition/device tree blocks
+  selection.
+- An independent live-root probe uses `findmnt` to identify the source mounted
+  at `/`, then `lsblk --inverse` to trace device-mapper/LVM dependencies to
+  their backing whole disks. Pass those paths as `protected_disk_paths` to
+  `validate_clone_selection()`.
+- If the root source cannot be resolved to one or more whole disks, the probe
+  fails closed. Do not proceed with selection when the probe fails.
 
 ## Safety boundary
 
-`validate_clone_selection()` returns an immutable data object describing the
-validated pair. It does not open a device, call `dd`/Partclone, mount, unmount,
-partition, format, or write anything. The result is **not** authorization to
-execute a clone. The inventory can change after validation; any future execution
-layer must recollect inventory and revalidate immediately before use, then add
-explicit operator confirmation and further safeguards.
+The probe runs only read-only metadata commands. The selection function returns
+an immutable data object; it does not open block devices, invoke imaging tools,
+mount/unmount, partition, format, or write. It is not authorization to clone.
 
-This first iteration intentionally does not infer device identity from model,
-serial, or WWN: those fields can be absent or duplicated. The current `lsblk`
-path must be unique in the supplied snapshot. A later execution layer should
-add revalidation using kernel device identity (major/minor) and stable hardware
-identifiers where available.
+The inventory and root-dependency graph are point-in-time snapshots. A future
+executor must recollect and revalidate both immediately before use, verify
+major/minor device identity, protect all mounted filesystems and system
+dependencies, and require explicit operator confirmation.
+
+## Current limitation
+
+Some live environments expose the root filesystem as an overlay, squashfs,
+loop device, or another non-`/dev` source. This initial root probe cannot
+reliably trace every such arrangement and intentionally rejects unresolved
+sources. Supporting those boot layouts requires a separately tested resolver;
+it must not be worked around by disabling root protection.
