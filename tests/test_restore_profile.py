@@ -112,7 +112,7 @@ class RestoreProfileTests(unittest.TestCase):
             destination = Path(directory) / "profile.json"
             def sign(command, **kwargs):
                 Path(str(destination) + ".minisig").write_text("signature", encoding="utf-8")
-            with patch("feclora.storage.restore_profile.shutil.which", return_value="/usr/bin/minisign"), \\
+            with patch("feclora.storage.restore_profile.shutil.which", return_value="/usr/bin/minisign"), \
                  patch("feclora.storage.restore_profile.subprocess.run", side_effect=sign):
                 saved = save_unattended_restore_profile(
                     profile, destination, minisign_secret_key=key,
