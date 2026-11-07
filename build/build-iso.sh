@@ -57,6 +57,9 @@ for cmd in livemedia-creator mkksiso qemu-system-x86_64; do
   fi
 done
 
+# Fail early if KVM, source inputs, or output capacity are not ready.
+bash "${ROOT_DIR}/build/preflight.sh"
+
 mkdir -p "${RESULT_DIR}"
 RESULT_DIR="$(cd -- "${RESULT_DIR}" && pwd)"
 
