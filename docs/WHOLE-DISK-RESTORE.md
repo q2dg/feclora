@@ -1,32 +1,48 @@
 # Whole-disk restore
 
-feclora now has an initial whole-disk restore primitive in
+feclora implements whole-disk restore in
 `feclora.storage.disk_restore.restore_disk`.
 
 It accepts a schema-v1 disk manifest and exactly one raw `disk-image`
-artifact. Before starting the writer it:
+artifact. The destination may be equal to or larger than the source image; a
+smaller destination is rejected. The logical sector size must match.
+
+Before starting the writer it:
 
 1. requires the caller's exact confirmation string, `ERASE /dev/DEVICE`;
 2. validates the manifest and requires a whole-disk image;
-3. checks the target is a writable whole disk, at least as large as the source, with the same logical sector size;
+3. checks the target is a writable whole disk, at least as large as the source,
+   with the same logical sector size;
 4. rejects mounted target trees and disks backing the running Live root;
 5. opens the artifact without following symlinks and verifies its stored byte
    count and SHA-256 against the manifest;
-6. fully decompresses the artifact once before touching the target and checks
-   the decoded byte count against the manifest;
+6. verifies a detached minisign signature when requested and fully decompresses
+   the artifact before touching the target;
 7. repeats target identity and safety checks immediately before starting
    `dd`;
-8. hashes the bytes sent to the writer, then reads the restored byte range
-   back from the destination with `dd` and compares the byte count and SHA-256.
+8. hashes the bytes sent to the writer, then reads the restored source-sized
+   byte range back from the destination with `dd` and compares byte count and
+   SHA-256;
+9. when the destination is larger and the source partition table is GPT,
+   relocates the backup GPT header to the physical end of the destination
+   with `sgdisk -e` and validates the table with `sgdisk -v`.
+
+The additional destination capacity is left unallocated. feclora does not
+silently resize partitions or filesystems during a raw whole-disk restore.
+MBR and unpartitioned images retain their original layout; GPT repair is only
+performed after the source-sized byte range has passed read-back verification.
 
 The writer uses generic `dd of=TARGET bs=4M conv=fsync status=none`. Raw,
-gzip and xz disk artifacts are supported. zstd/lz4, partition-image restore,
-partition-table reconstruction, crash recovery and persistent operation logs
-are not implemented. The TUI displays write progress and can cancel the writer;
-a cancellation can leave a partially overwritten target. Read-back verification
-runs after a successful write.
+gzip, xz, zstd and lz4 disk artifacts are supported. The TUI displays write
+progress and supports cancellation; a cancellation can leave a partially
+overwritten target. Read-back verification runs after a successful write.
+Capture/restore operation events are persisted in the append-only operation
+journal.
 
 **Destructive boundary:** once `dd` starts, a hardware or power failure can
-leave the target partially overwritten. SHA-256 here detects accidental
-artifact corruption; it does not authenticate who created the manifest.
-The Local rescue TUI invokes this primitive after exact typed confirmation. The TUI shows live progress and supports cancellation. Tests are mocked; no VM or hardware restore has been validated. Never test against a disk containing needed data.
+leave the target partially overwritten. SHA-256 detects accidental corruption;
+it does not authenticate who created the manifest. Minisign verification
+establishes authenticity only when the public key is independently trusted.
+
+Tests use mocked device I/O. No VM or hardware restore has been validated.
+Never test against a disk containing needed data.
