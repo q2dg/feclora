@@ -43,7 +43,7 @@ class CloneSelectionTests(unittest.TestCase):
 
     def test_rejects_partition_selection(self):
         with self.assertRaisesRegex(SelectionError, "Whole-disk"):
-            self.validate("/dev/sda1", "/dev/sdb")
+            self.validate("/dev/sdc1", "/dev/sdb")
 
     def test_rejects_mounted_target_descendant(self):
         self.inventory["devices"][1]["children"] = [part("/dev/sdb1", ["/mnt/data"])]
