@@ -342,6 +342,12 @@ def restore_partition(
             raise PartitionRestoreError(
                 f"Partclone restore utility is unavailable for filesystem {artifact.filesystem!r}"
             )
+        check_spec = _FILESYSTEM_CHECKS.get(artifact.filesystem or "")
+        if check_spec is None:
+            raise PartitionRestoreError(f"no read-only post-restore checker is defined for {artifact.filesystem!r}")
+        check_name = check_spec[0]
+        if not (available.get(check_name) or shutil.which(check_name)):
+            raise PartitionRestoreError(f"{check_name} is required to verify the restored filesystem")
     else:
         executable = available.get("dd") or shutil.which("dd")
         if not executable:
@@ -444,6 +450,21 @@ def restore_partition(
                         f"restore utility exited with status {return_code}" +
                         (f": {detail}" if detail else "")
                     )
+                try:
+                    safety(target_path)
+                except SourceSafetyError as exc:
+                    raise PartitionRestoreError(f"target became unsafe before read-back verification: {exc}") from exc
+                if artifact.format == "raw":
+                    _verify_raw_readback(
+                        executable, target_path, staged_path, manifest.source_size_bytes,
+                        popen_factory=factory, effective_uid=effective_uid,
+                    )
+                else:
+                    _verify_partclone_target(
+                        artifact.filesystem or "", target_path, available, run,
+                    )
+                if progress_callback is not None:
+                    progress_callback(100, 100)
             finally:
                 if process is not None and process.poll() is None:
                     process.terminate()
