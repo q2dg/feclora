@@ -20,9 +20,9 @@ authorization to read or erase a disk.
 ### Connection and identity
 
 - The receiver initiates a TLS 1.3 connection to the source listener.
-- Both peers validate the other certificate against an explicitly selected
-  trust anchor and verify the expected peer identity (certificate SAN or an
-  explicitly pinned certificate fingerprint).
+- Both peers validate the other certificate against an explicitly selected CA
+  trust anchor and verify the expected peer identity (exact certificate SAN or
+  an additional SHA-256 certificate fingerprint pin).
 - Both peers require an explicit local authorization decision for the session.
   The source operator authorizes the exact source device and receiver identity;
   the receiver operator authorizes the exact source identity and destructive
