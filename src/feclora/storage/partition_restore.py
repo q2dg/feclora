@@ -323,10 +323,10 @@ def restore_partition(
                             if not char:
                                 break
                             stderr.write(char)
-                            if char in (b"\\r", b"\\n"):
+                            if char in (b"\r", b"\n"):
                                 line = pending.decode("utf-8", errors="replace")
                                 pending.clear()
-                                match = re.search(r"([0-9]+(?:\\.[0-9]+)?)\\s*%", line)
+                                match = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*%", line)
                                 if match and progress_callback is not None:
                                     progress_callback(max(0, min(100, int(float(match.group(1))))), 100)
                             else:
@@ -334,7 +334,7 @@ def restore_partition(
                                 if len(pending) > 4096:
                                     del pending[:-4096]
                         if pending:
-                            match = re.search(r"([0-9]+(?:\\.[0-9]+)?)\\s*%", pending.decode("utf-8", errors="replace"))
+                            match = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*%", pending.decode("utf-8", errors="replace"))
                             if match and progress_callback is not None:
                                 progress_callback(max(0, min(100, int(float(match.group(1))))), 100)
                 return_code = process.wait()
