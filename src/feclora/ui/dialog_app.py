@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -92,6 +93,10 @@ def _compression() -> str | None:
 
 def _repository() -> str:
     os.makedirs(IMAGE_REPOSITORY, mode=0o700, exist_ok=True)
+    info = os.lstat(IMAGE_REPOSITORY)
+    if not stat.S_ISDIR(info.st_mode):
+        raise OSError("image repository must be a real directory, not a symlink")
+    os.chmod(IMAGE_REPOSITORY, 0o700)
     return IMAGE_REPOSITORY
 
 def _capture_disk(inventory: dict[str, Any]) -> None:
