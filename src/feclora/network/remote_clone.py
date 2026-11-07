@@ -152,6 +152,7 @@ def send_remote_disk(
     safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
     cancel_check: Callable[[], bool] | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> CloneVerificationResult:
     """Read and send a source disk; success requires receiver read-back acknowledgement."""
     available = executables or {}
@@ -194,6 +195,7 @@ def send_remote_disk(
                 tls_socket, process.stdout, header.source_size_bytes,
                 session_id=header.session_id, chunk_size=header.chunk_size_bytes,
                 cancel_check=cancel_check,
+                progress_callback=progress_callback,
                 send_terminal=False,
             )
             process.stdout.close()
