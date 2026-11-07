@@ -9,7 +9,8 @@ import stat
 import subprocess
 from typing import Any, Callable
 
-from .system_protection import SystemProtectionError, collect_root_backing_disks
+from .privilege import PrivilegeError, privileged_argv
+from .system_protection import collect_root_backing_disks
 
 
 class SourceSafetyError(RuntimeError):
@@ -46,6 +47,7 @@ def check_capture_source_safe(
     root_disk_resolver: Callable[..., set[str]] | None = None,
     swaps_path: str = "/proc/swaps",
     stat_device: Callable[[str], Any] | None = None,
+    effective_uid: Callable[[], int] | None = None,
 ) -> None:
     """Reject mounted source trees and any source backing the live root."""
     if not isinstance(source_path, str) or not source_path.startswith("/dev/"):
@@ -55,6 +57,20 @@ def check_capture_source_safe(
     lsblk, fuser = resolve("lsblk"), resolve("fuser")
     if not lsblk or not fuser:
         raise SourceSafetyError("lsblk and fuser are required for capture source safety checks")
+    uid = (effective_uid or os.geteuid)()
+    if uid != 0:
+        sudo = resolve("sudo")
+        if not sudo:
+            raise SourceSafetyError("sudo is required to inspect block-device users")
+        try:
+            privilege_check = run(
+                [sudo, "-n", "true"], check=False, capture_output=True,
+                text=True, timeout=15,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise SourceSafetyError(f"cannot verify non-interactive root privileges: {exc}") from exc
+        if privilege_check.returncode != 0:
+            raise SourceSafetyError("non-interactive root privileges are unavailable")
     try:
         result = run(
             [lsblk, "--json", "--tree", "--paths", "--output", "PATH,TYPE,MOUNTPOINTS", source_path],
@@ -93,9 +109,10 @@ def check_capture_source_safe(
     # fuser detects processes holding the block device open, not just mounts.
     for device_path in sorted(device_paths):
         try:
-            busy = run([fuser, "-s", device_path], check=False, capture_output=True,
+            fuser_command = privileged_argv([fuser, "-s", device_path], effective_uid=lambda: uid, which=resolve)
+            busy = run(fuser_command, check=False, capture_output=True,
                        text=True, timeout=15)
-        except (OSError, subprocess.SubprocessError) as exc:
+        except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
             raise SourceSafetyError(f"cannot check processes using {device_path}: {exc}") from exc
         if busy.returncode == 0:
             raise SourceSafetyError(f"capture source is open by a process: {device_path}")
