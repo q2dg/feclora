@@ -15,7 +15,7 @@ import subprocess
 import tempfile
 from typing import Any, Callable
 
-from feclora.storage.disk_clone import _geometry
+from feclora.storage.disk_clone import DiskCloneError, _geometry
 from feclora.storage.privilege import PrivilegeError, privileged_argv
 from feclora.storage.source_safety import SourceSafetyError, check_capture_source_safe
 
@@ -212,7 +212,7 @@ def send_remote_disk(
         )
     except RemoteCloneCancelled as exc:
         raise RemoteDiskCloneCancelled(str(exc)) from exc
-    except (RemoteCloneProtocolError, PrivilegeError, OSError, subprocess.SubprocessError) as exc:
+    except (DiskCloneError, RemoteCloneProtocolError, PrivilegeError, OSError, subprocess.SubprocessError) as exc:
         raise RemoteDiskCloneError(str(exc)) from exc
 
 
