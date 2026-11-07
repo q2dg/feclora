@@ -39,9 +39,9 @@ without identity matching is insufficient.
 7. The receiver flushes the target and reads back exactly the transferred byte
    count. It calculates a second SHA-256 and compares it with the transfer
    digest.
-8. The receiver returns a terminal result bound to the session UUID. Only a
-   successful receiver read-back verification is reported as success. Both
-   endpoints journal the outcome.
+8. The receiver returns a terminal verification result bound to the session
+   UUID, including the read-back digest. Only a successful receiver read-back
+   verification is reported as success. Both endpoints journal the outcome.
 
 ## Required protocol properties
 
@@ -49,7 +49,8 @@ without identity matching is insufficient.
 - Explicit expected peer identity checks (SAN identity or pinned fingerprint).
 - Explicit local authorization on both endpoints; mTLS is not an authorization
   substitute.
-- Fresh, non-reusable session UUID and role-bound authorization.
+- Fresh, non-reusable session UUID and role-bound authorization, including
+  exact source and receiver device paths.
 - Strict maximum header and terminal-frame sizes; reject duplicate or unknown
   security-critical fields.
 - Fixed-size bounded streaming, exact byte counts, timeouts and cancellation.
