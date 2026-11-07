@@ -29,8 +29,11 @@ for the configured CA trust anchor.
    session UUID, endpoint roles and identities, source byte count, logical
    sector size, and a fixed transfer chunk size. The receiver rejects a header
    that does not match its independently approved session.
-4. The source revalidates its device identity and read safety. The receiver
-   revalidates its target identity, exact capacity, logical sector size,
+4. Each endpoint compares the peer's session device path against its own
+   independently selected local source/target path; a remote header cannot
+   choose the receiver's disk. The source revalidates its device identity and
+   read safety. The receiver revalidates its target identity, exact capacity,
+   logical sector size,
    read-only status and destructive safety. Protocol v1 currently requires
    equal source/target capacities so the full transferred extent can be
    compared byte-for-byte without relocating GPT metadata.
