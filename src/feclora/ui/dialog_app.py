@@ -16,7 +16,7 @@ from feclora.storage.image_manifest import ImageManifest, ManifestValidationErro
 from feclora.storage.inventory import InventoryError, collect_inventory
 from feclora.storage.partition_image_capture import PartitionImageCaptureError, capture_partition_image
 from feclora.storage.partition_restore import PartitionRestoreCancelled, PartitionRestoreError, restore_partition
-from feclora.storage.operation_log import OperationLogError, operation_record
+from feclora.storage.operation_log import DEFAULT_LOG_PATH, OperationLogError, operation_record
 
 IMAGE_REPOSITORY = "/home/feclora/images"
 
@@ -321,6 +321,38 @@ def _clone_disk(inventory: dict[str, Any]) -> None:
                 gauge.wait()
 
 
+def _show_operation_log() -> None:
+    try:
+        fd = os.open(DEFAULT_LOG_PATH, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode):
+                raise OperationLogError("operation log is not a regular file")
+            os.lseek(fd, max(0, info.st_size - 65536), os.SEEK_SET)
+            raw = os.read(fd, 65536)
+        finally:
+            os.close(fd)
+    except FileNotFoundError:
+        _message("Operation history", "No operations have been recorded yet.")
+        return
+    except (OSError, OperationLogError) as exc:
+        _message("Operation history error", str(exc))
+        return
+    events = []
+    for line in raw.decode("utf-8", errors="replace").splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        events.append(
+            f"{event.get('timestamp', '?')} | {event.get('status', '?')} | "
+            f"{event.get('operation', '?')} | {event.get('target', '?')}"
+        )
+        if event.get("error"):
+            events.append(f"  {event['error']}")
+    _message("Operation history (latest events)", "\\n".join(events[-30:]) or "No readable events.")
+
+
 def _available_manifests() -> list[tuple[str, ImageManifest]]:
     repository = _repository()
     found = []
@@ -473,6 +505,7 @@ def main() -> int:
             ("capture-partition", "Capture a partition"),
             ("restore", "Restore an image"),
             ("clone-disk", "Clone one local disk directly to another"),
+            ("history", "View persistent operation history"),
             ("exit", "Return to operating mode selector"),
         ])
         if choice in (None, "exit"):
@@ -489,6 +522,8 @@ def main() -> int:
             _restore(inventory)
         elif choice == "clone-disk":
             _clone_disk(inventory)
+        elif choice == "history":
+            _show_operation_log()
 
 if __name__ == "__main__":
     raise SystemExit(main())
