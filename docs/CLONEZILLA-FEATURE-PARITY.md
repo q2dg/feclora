@@ -17,9 +17,9 @@ Clonezilla Live and Clonezilla Server Edition define the user-visible feature ta
 | User-visible capability | Generic implementation primitives | Status |
 |---|---|---|
 | Discover disks, partitions and filesystems | lsblk, blkid, findmnt, udev | Inventory exists; safety checks incomplete |
-| Save/restore whole-disk images | partclone.*, dd, sfdisk, sgdisk | Not implemented |
-| Save/restore individual partitions | partclone.*, dd | Not implemented |
-| Direct disk-to-disk cloning | Partition-table tools + Partclone per partition; raw-copy fallback | Not implemented |
+| Save/restore whole-disk images | partclone.*, dd, sfdisk, sgdisk | Implemented in code and Local rescue UI; mocked tests only, runtime validation pending |
+| Save/restore individual partitions | partclone.*, dd | Implemented in code and Local rescue UI; mocked tests only, runtime validation pending |
+| Direct disk-to-disk cloning on one machine | dd direct block copy with source/target safety and exact byte limit | Implemented in code and Local rescue UI; mocked tests only, runtime validation pending |\n| Direct disk-to-disk cloning between two machines | Authenticated client/server stream over TLS; generic raw or Partclone data plane | Planned; not implemented |
 | Filesystem-aware used-block imaging | Partclone filesystem-specific programs | Discovery only |
 | Raw imaging for unsupported filesystems | dd | Not implemented |
 | Compression and integrity verification | gzip, pigz, zstd, xz, sha256sum | Discovery only |
@@ -27,7 +27,7 @@ Clonezilla Live and Clonezilla Server Edition define the user-visible feature ta
 | LVM and encrypted volumes | lvm2, cryptsetup | Packages/discovery; workflows not implemented |
 | Remote image repositories | SSH/SFTP, NFS, SMB/CIFS, WebDAV | Not implemented |
 | Bootloader/boot-area preservation | dd, partition-table and bootloader utilities | Not implemented |
-| Interactive rescue UI | dialog initially | Read-only device browser exists |
+| Interactive rescue UI | dialog initially | Capture, restore and direct local disk clone actions connected; progress/cancellation and runtime validation pending |
 
 ## Server-mode feature map
 
