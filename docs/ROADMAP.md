@@ -4,7 +4,7 @@
 - [x] Create the independent `feclora` repository.
 - [x] Define Fedora 43 x86_64 as the initial target.
 - [x] Publish an initial architecture decision record for the live-image build pipeline.
-- [ ] Confirm all GitHub Actions checks pass on the current main revision.
+- [x] Confirm all GitHub Actions checks pass on the current main revision (verified on 2026-11-07; rerun after subsequent changes).
 - [ ] Define the project license and contribution policy.
 
 ## Milestone 1 — Bootable live image
