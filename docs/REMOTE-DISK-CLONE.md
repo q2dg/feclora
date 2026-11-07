@@ -41,10 +41,11 @@ Do not mark the running system disk read-only.
    independently selected local source/target path; a remote header cannot
    choose the receiver's disk. The source revalidates its device identity and
    read safety and requires the source disk to be marked read-only. The
-   receiver revalidates its target identity, equal-or-larger capacity, logical sector
-   size, read-only status and destructive safety. Protocol v1 currently
-   requires equal source/target capacities so the full transferred extent can
-   be compared byte-for-byte without relocating GPT metadata.
+   receiver revalidates its target identity, capacity (equal to or greater than
+   the source), logical sector size, writable status and destructive safety.
+   A smaller target is rejected before READY. The receiver writes and verifies
+   exactly the source-sized byte range; extra destination capacity is not part
+   of the transfer digest.
 5. Only after the receiver has completed its local authorization and target
    safety checks does it send a session-bound READY frame. The source waits for
    that frame before launching dd or disclosing disk data.
