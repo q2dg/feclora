@@ -1,6 +1,7 @@
 """Direct local whole-disk cloning with fail-closed source and target checks."""
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import stat
@@ -19,23 +20,29 @@ class DiskCloneError(RuntimeError):
 def _geometry(path: str, lsblk: str, runner: Callable[..., Any]) -> tuple[int, int, bool, str]:
     try:
         result = runner(
-            [lsblk, "--bytes", "--noheadings", "--nodeps", "--output",
+            [lsblk, "--json", "--bytes", "--nodeps", "--output",
              "SIZE,TYPE,LOG-SEC,RO,PTTYPE", path],
             check=True, capture_output=True, text=True, timeout=20,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise DiskCloneError(f"cannot inspect disk {path}: {exc}") from exc
-    fields = result.stdout.split()
-    if len(fields) != 5 or fields[1] != "disk":
-        raise DiskCloneError(f"{path} is not exactly one whole disk")
     try:
-        size, sector = int(fields[0]), int(fields[2])
-    except ValueError as exc:
-        raise DiskCloneError(f"lsblk returned invalid geometry for {path}") from exc
-    read_only = fields[3] == "1"
+        payload = json.loads(result.stdout)
+        devices = payload["blockdevices"]
+        if not isinstance(devices, list) or len(devices) != 1:
+            raise ValueError("expected exactly one block device")
+        device = devices[0]
+        if device.get("type") != "disk":
+            raise ValueError("device is not a whole disk")
+        size = int(device["size"])
+        sector = int(device["log-sec"])
+        read_only = bool(device.get("ro", False))
+        partition_table = str(device.get("pttype") or "").lower()
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise DiskCloneError(f"lsblk returned invalid geometry for {path}: {exc}") from exc
     if size <= 0 or sector not in {512, 4096}:
         raise DiskCloneError(f"disk geometry is invalid or unsupported for {path}")
-    return size, sector, read_only, fields[4].lower()
+    return size, sector, read_only, partition_table
 
 
 def clone_disk(
