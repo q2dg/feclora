@@ -69,7 +69,7 @@ class DiskCaptureTests(unittest.TestCase):
         )
         self.assertEqual(progress[-1], (len(payload), len(payload)))
     def test_cancellation_does_not_publish_payload_or_manifest(self):
-        proc = FakeProcess(b"partial payload")
+        proc = FakeProcess(b"partial payload", returncode=None)
         def cancel(_done, _total):
             raise CaptureCancelled("operator cancelled")
         with self.assertRaisesRegex(CaptureCancelled, "cancelled"):
