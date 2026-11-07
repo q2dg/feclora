@@ -5,6 +5,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 KS_FILE="${FECLORA_KS:-${ROOT_DIR}/kickstart/feclora-live.ks}"
 RESULT_DIR="${FECLORA_RESULT_DIR:-${ROOT_DIR}/out}"
 INSTALL_ISO="${FEDORA_INSTALL_ISO:-}"
+RELEASEVER="${FECLORA_RELEASEVER:-43}"
 
 usage() {
   cat <<'EOF'
@@ -12,12 +13,14 @@ Usage:
   FEDORA_INSTALL_ISO=/path/to/Fedora-43-x86_64-DVD.iso ./build/build-iso.sh
 
 Environment:
-  FEDORA_INSTALL_ISO  Full Fedora 43 x86_64 DVD installation ISO (required).
+  FEDORA_INSTALL_ISO  Fedora 43 x86_64 DVD installation ISO (required).
   FECLORA_KS          Kickstart file (default: kickstart/feclora-live.ks).
   FECLORA_RESULT_DIR  Output directory (default: out/).
+  FECLORA_RELEASEVER  Fedora release version (default: 43).
 
-Run on a Fedora 43 x86_64 build host with lorax and lorax-lmc-novirt
-installed. The build requires root privileges.
+Run on a Fedora 43 x86_64 build host. Install lorax, lorax-lmc-virt,
+qemu-kvm and the other build dependencies first. The build requires root.
+The build uses QEMU virtualization; it deliberately does not use --no-virt.
 EOF
 }
 
@@ -47,23 +50,29 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 2
 fi
 
-if ! command -v livemedia-creator >/dev/null 2>&1; then
-  echo "livemedia-creator not found. Run build/install-host-deps.sh first." >&2
-  exit 127
-fi
+for cmd in livemedia-creator qemu-system-x86_64; do
+  if ! command -v "${cmd}" >/dev/null 2>&1; then
+    echo "Required command not found: ${cmd}. Install the build dependencies first." >&2
+    exit 127
+  fi
+done
 
 mkdir -p "${RESULT_DIR}"
 RESULT_DIR="$(cd -- "${RESULT_DIR}" && pwd)"
 
-echo "Build input: ${INSTALL_ISO}"
-echo "Kickstart:   ${KS_FILE}"
-echo "Output:      ${RESULT_DIR}"
+printf 'Fedora release: %s\nInstaller ISO: %s\nKickstart: %s\nOutput: %s\n' \
+  "${RELEASEVER}" "${INSTALL_ISO}" "${KS_FILE}" "${RESULT_DIR}"
 
 livemedia-creator \
   --make-iso \
-  --no-virt \
   --iso "${INSTALL_ISO}" \
   --ks "${KS_FILE}" \
-  --resultdir "${RESULT_DIR}"
+  --resultdir "${RESULT_DIR}" \
+  --project feclora \
+  --releasever "${RELEASEVER}" \
+  --ram 4096 \
+  --vcpus 4 \
+  --iso-only \
+  --iso-name feclora-live.iso
 
-echo "Build command completed. Inspect artifacts in: ${RESULT_DIR}"
+printf 'Build command completed. Inspect the ISO and logs under: %s\n' "${RESULT_DIR}"
