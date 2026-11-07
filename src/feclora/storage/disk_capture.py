@@ -14,6 +14,7 @@ from typing import Callable, Mapping
 from .artifact_writer import ArtifactWriteError, write_artifact
 from .capture import CaptureError, _is_block_device
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
+from .source_safety import SourceSafetyError, check_capture_source_safe
 
 
 class DiskCaptureError(RuntimeError):
@@ -55,6 +56,7 @@ def capture_disk(
     device_validator: Callable[[str], bool] | None = None,
     runner: Callable[..., subprocess.CompletedProcess[str]] | None = None,
     popen_factory: Callable[..., subprocess.Popen] | None = None,
+    source_safety_check: Callable[[str], None] | None = None,
 ) -> ImageManifest:
     """Capture a complete disk as raw bytes plus sfdisk metadata.
 
@@ -83,6 +85,10 @@ def capture_disk(
     validator = device_validator or _is_block_device
     if not validator(source_path):
         raise DiskCaptureError(f"source is not an accessible block device: {source_path}")
+    try:
+        (source_safety_check or check_capture_source_safe)(source_path)
+    except SourceSafetyError as exc:
+        raise DiskCaptureError(f"unsafe capture source: {exc}") from exc
     available = executables or {}
     dd = available.get("dd") or shutil.which("dd")
     sfdisk = available.get("sfdisk") or shutil.which("sfdisk")
