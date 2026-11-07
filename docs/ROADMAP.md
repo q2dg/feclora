@@ -39,8 +39,11 @@
 - [x] Add live dd progress and operator cancellation to direct local disk-to-disk cloning.
 - [x] Add live progress and cancellation to whole-disk and partition capture.
 - [x] Add live write progress and cancellation to raw whole-disk and raw partition restore.
+- [x] Add Partclone stderr progress parsing and operator cancellation to partition restore (packaged-binary validation pending).
 - [x] Verify whole-disk restore by reading the destination back and comparing SHA-256.
-- [ ] Execute and validate Partclone progress parsing and operator cancellation with the packaged Partclone build.
+- [x] Verify raw partition restore by destination read-back SHA-256 and Partclone restore with filesystem-specific read-only consistency checks.
+- [x] Add an append-only JSONL operation/error journal for capture, restore and local clone, with per-operation IDs, serialized writes, file/directory fsync and symlink/ownership checks.
+- [ ] Validate Partclone progress parsing and operator cancellation with the packaged Partclone build.
 - [ ] Validate raw partition read-back SHA-256 and Partclone read-only filesystem consistency checks on disposable devices.
 - [ ] Run operation-journal tests and validate persistent capture/restore/clone event records.
 - [ ] Add journal recovery/reconciliation for operations left in started state after a crash.
