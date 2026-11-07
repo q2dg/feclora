@@ -47,6 +47,35 @@ def _geometry(path: str, lsblk: str, runner: Callable[..., Any]) -> tuple[int, i
         raise DiskCloneError(f"disk geometry is invalid or unsupported for {path}")
     return size, sector, read_only, partition_table
 
+def _backing_disks(path: str, lsblk: str, runner: Callable[..., Any]) -> set[str]:
+    try:
+        result = runner(
+            [lsblk, "--json", "--tree", "--paths", "--inverse",
+             "--output", "PATH,TYPE", path],
+            check=True, capture_output=True, text=True, timeout=20,
+        )
+        payload = json.loads(result.stdout)
+        roots = payload["blockdevices"]
+        if not isinstance(roots, list) or not roots:
+            raise ValueError("empty inverse block-device graph")
+        disks: set[str] = set()
+        def visit(nodes: list[dict[str, Any]]) -> None:
+            for node in nodes:
+                if not isinstance(node, dict):
+                    raise ValueError("invalid block-device node")
+                if node.get("type") == "disk" and isinstance(node.get("path"), str):
+                    disks.add(os.path.realpath(node["path"]))
+                children = node.get("children") or []
+                if not isinstance(children, list):
+                    raise ValueError("invalid block-device children")
+                visit(children)
+        visit(roots)
+        if not disks:
+            raise ValueError("no physical backing disk found")
+        return disks
+    except (OSError, subprocess.SubprocessError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise DiskCloneError(f"cannot trace physical backing disks for {path}: {exc}") from exc
+
 
 def clone_disk(
     source_path: str,
@@ -96,6 +125,10 @@ def clone_disk(
         raise DiskCloneError("source and target logical sector sizes differ")
     if target_size < source_size:
         raise DiskCloneError("target disk is smaller than source disk")
+    source_backing = _backing_disks(source_path, lsblk, run)
+    target_backing = _backing_disks(target_path, lsblk, run)
+    if source_backing & target_backing:
+        raise DiskCloneError("source and target share one or more physical backing disks")
 
     safety = device_safety_check or check_capture_source_safe
     try:
