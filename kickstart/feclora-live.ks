@@ -42,6 +42,8 @@ gdisk
 util-linux
 lvm2
 cryptsetup
+age
+minisign
 nvme-cli
 smartmontools
 e2fsprogs
