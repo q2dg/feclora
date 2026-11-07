@@ -107,6 +107,39 @@ def collect_root_backing_disks(
                 visit(children)
     for graph_roots in graphs:
         visit(graph_roots)
+    if not disks and source.startswith("/dev/"):
+        # A /dev root can still be a loop or Live mapper device. Fall back to
+        # the mounted-device graph so the backing Live medium is protected.
+        mounted_graph = _run_json(
+            [lsblk, "--json", "--tree", "--paths", "--output", "PATH,TYPE,MOUNTPOINTS"],
+            run,
+        )
+        mounted_roots = mounted_graph.get("blockdevices")
+        if not isinstance(mounted_roots, list):
+            raise SystemProtectionError("Cannot inspect mounted devices backing the Live root")
+        mounted_paths: list[str] = []
+        def collect_mounts(nodes: list[dict[str, Any]]) -> None:
+            for node in nodes:
+                if not isinstance(node, dict):
+                    continue
+                points = node.get("mountpoints") or []
+                if isinstance(points, str):
+                    points = [points]
+                if points and isinstance(node.get("path"), str):
+                    mounted_paths.append(node["path"])
+                children = node.get("children")
+                if isinstance(children, list):
+                    collect_mounts(children)
+        collect_mounts(mounted_roots)
+        for mounted_path in mounted_paths:
+            inverse = _run_json(
+                [lsblk, "--json", "--tree", "--paths", "--inverse", "--output", "PATH,TYPE", mounted_path],
+                run,
+            )
+            dependencies = inverse.get("blockdevices")
+            if not isinstance(dependencies, list):
+                raise SystemProtectionError(f"Cannot trace mounted device {mounted_path}")
+            visit(dependencies)
     if not disks:
         raise SystemProtectionError(
             f"Could not resolve the backing disk(s) for live root source {source}"
