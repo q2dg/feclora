@@ -58,7 +58,7 @@ class DiskRestoreTests(unittest.TestCase):
         self.executables = {"dd": "/usr/bin/dd", "lsblk": "/usr/bin/lsblk"}
         self.started = []
     def runner(self, command, **kwargs):
-        return SimpleNamespace(stdout=f"{len(self.payload) + 1024} disk\n")
+        return SimpleNamespace(stdout=f"{len(self.payload) + 1024} disk 512\n")
     def restore(self, **kwargs):
         return restore_disk(
             self.manifest, self.temp.name, "/dev/fake",
@@ -84,7 +84,7 @@ class DiskRestoreTests(unittest.TestCase):
         self.assertEqual(self.started, [])
     def test_rejects_small_target_before_starting_dd(self):
         def small_runner(command, **kwargs):
-            return SimpleNamespace(stdout="10 disk\n")
+            return SimpleNamespace(stdout="10 disk 512\n")
         with self.assertRaisesRegex(DiskRestoreError, "smaller"):
             restore_disk(
                 self.manifest, self.temp.name, "/dev/fake",
