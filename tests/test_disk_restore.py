@@ -108,7 +108,7 @@ class DiskRestoreTests(unittest.TestCase):
         self.assertEqual(proc.stdin.getvalue(), self.payload)
     def test_reports_restore_write_progress(self):
         progress = []
-        proc = FakeProcess()
+        proc = FakeProcess(self.payload)
         result = restore_disk(
             self.manifest, self.temp.name, "/dev/fake",
             confirmation="ERASE /dev/fake", executables=self.executables,
