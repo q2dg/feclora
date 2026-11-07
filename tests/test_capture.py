@@ -31,12 +31,12 @@ class CaptureTests(unittest.TestCase):
     def test_partclone_plan_uses_stdout_and_filesystem_aware_format(self):
         plan = build_capture_plan(
             "/dev/sda1", "ext4",
-            {"partclone.extfs": "/usr/sbin/partclone.extfs", "dd": "/usr/bin/dd"},
+            {"partclone.ext4": "/usr/sbin/partclone.ext4", "dd": "/usr/bin/dd"},
         )
         self.assertEqual(plan.image_format, "partclone")
         self.assertEqual(
             plan.argv,
-            ("/usr/sbin/partclone.extfs", "-c", "-s", "/dev/sda1"),
+            ("/usr/sbin/partclone.ext4", "-c", "-s", "/dev/sda1"),
         )
 
     def test_unknown_filesystem_uses_raw_dd(self):
