@@ -1,35 +1,66 @@
-# ADR 0004: feclora Server Edition architecture
+# ADR 0004: Single-ISO multi-mode architecture
 
-- Status: Accepted as target architecture
+- Status: Accepted
 - Date: 2026-11-07
-- Scope: centralized network imaging and deployment
+- Scope: local rescue, server deployment and network client modes
 
 ## Decision
 
-feclora will target both Clonezilla Live-style standalone rescue and Clonezilla Server Edition-style centralized deployment. Server mode is a separate role/edition built around generic Linux tools and standard network protocols; it is not a dependency on Clonezilla or DRBL.
+feclora will ship one Fedora-based bootable ISO. At startup, an interactive
+menu lets the operator select:
 
-The server role will contain:
+1. Local rescue (Live): local disk and partition imaging.
+2. Server: centralized orchestration and network deployment services.
+3. Client: join an authorized network imaging session.
 
-1. A control plane for deployment jobs, client eligibility, scheduling, concurrency and results.
-2. Standard network boot services/integration: DHCP configuration or safe integration with existing DHCP, TFTP, PXE/iPXE and HTTP boot where supported.
-3. A repository/data plane supporting local storage and standard network repositories/transports.
-4. A client runtime that boots into a feclora environment and executes authorized jobs using the same generic storage tools as Live mode.
-5. Unicast and multicast/broadcast data delivery. UDPcast is the initial candidate for multicast; it must be evaluated and tested before commitment to a production package/interface.
+This follows the single-image, role-selection model requested for feclora.
+There will not be a separate Server ISO or separately maintained server
+runtime image. All modes share the kernel, initramfs, storage tools, image
+metadata, safety checks and base application.
+
+## Mode activation
+
+- The startup selector is the sole entry point for choosing a mode.
+- Local rescue starts without enabling server-side network services.
+- Server services (DHCP integration, TFTP/PXE/iPXE, control plane, repository
+  and unicast/multicast data plane) are activated only after selecting Server
+  and explicitly configuring the deployment interface and network scope.
+- Client mode starts the client runtime and joins only an authenticated,
+  explicitly authorized job.
+- No deployment is triggered simply by booting or connecting a client.
+- Returning from a mode or shutting down must stop role-specific services.
+
+The menu may expose modes before their implementation is complete, but must
+clearly report unavailable functionality and must not pretend to start it.
+This is the current behavior for Server and Client mode.
+
+## Generic implementation substrate
+
+Storage operations use generic Linux tools (Partclone filesystem-specific
+executables, dd, sfdisk, sgdisk, parted, compression and checksum utilities).
+Network boot and transport use standard protocols and independently
+maintained tools. UDPcast is a candidate for multicast and must be evaluated
+before it is adopted.
 
 ## Safety requirements
 
-- Never start a deployment for arbitrary PXE clients by default.
-- Require explicit job arming and a client allowlist/identity policy.
-- Make the deployment interface and DHCP/PXE network scope explicit.
-- Never silently start a competing DHCP server or modify an existing network.
-- Keep client target selection and root/system-device safeguards active.
+- Never start a competing DHCP service silently or modify an existing network.
+- Require explicit server job arming and client allowlisting.
+- Bind network services to an explicitly selected interface.
+- Keep client target selection and live-root/system-device safeguards active.
 - Require isolated disposable clients for integration tests.
-- Report per-client state and failure; do not declare success on sender exit alone.
+- Report per-client state and failure; sender exit alone is not deployment
+  success.
 
 ## Non-goals
 
-No DRBL, no Clonezilla ocs-* commands/scripts, and no private Clonezilla orchestration. Generic storage utilities and standard protocols are the implementation substrate.
+No DRBL, no Clonezilla ocs-* commands/scripts, and no private Clonezilla
+orchestration. No separate Server ISO.
 
 ## Consequences
 
-Server mode is a substantial milestone beyond the current single-machine read-only TUI. It will be implemented after local save/restore/clone primitives and the image/job contracts have been tested. The existing Fedora Live ISO remains the initial rescue target; server edition packaging and installation will be designed separately so that network services are not enabled unintentionally in a portable rescue ISO.
+The current startup selector dispatches Local rescue to the existing
+read-only storage browser. Server and Client menu entries are visible but
+report that their runtimes are not implemented yet. The next steps are to
+complete local imaging, define image/job contracts, and then implement the
+server and client runtimes inside the same ISO.
