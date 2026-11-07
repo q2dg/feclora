@@ -84,7 +84,9 @@ def validate_clone_selection(
     source = next(device for device in devices if device.get("path") == source_path)
     target = next(device for device in devices if device.get("path") == target_path)
 
-    protected = protected_disk_paths or set()
+    if protected_disk_paths is None:
+        raise SelectionError("Live root protection data is required")
+    protected = protected_disk_paths
     if source_path in protected or target_path in protected:
         raise SelectionError("A selected disk backs the live system root")
 
