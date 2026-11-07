@@ -67,6 +67,18 @@ class RemoteCloneProtocolTests(unittest.TestCase):
                 confirmation="yes",
             )
 
+    def test_verification_result_rejects_non_string_status(self):
+        value = {
+            "session_id": self.header.session_id,
+            "status": [],
+            "byte_count": 10,
+            "stream_sha256": "a" * 64,
+            "readback_sha256": "a" * 64,
+            "error": None,
+        }
+        with self.assertRaisesRegex(RemoteCloneProtocolError, "status must be"):
+            CloneVerificationResult.from_dict(value)
+
     def test_receiver_verification_ack_is_session_bound(self):
         digest = hashlib.sha256(b"verified disk").hexdigest()
         result = CloneVerificationResult(
