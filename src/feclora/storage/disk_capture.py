@@ -19,12 +19,16 @@ from .privilege import PrivilegeError, privileged_argv
 
 
 class _CountingReader:
-    def __init__(self, stream):
+    def __init__(self, stream, progress_callback=None, expected_size_bytes=None):
         self.stream = stream
         self.bytes_read = 0
+        self.progress_callback = progress_callback
+        self.expected_size_bytes = expected_size_bytes
     def read(self, size=-1):
         chunk = self.stream.read(size)
         self.bytes_read += len(chunk)
+        if chunk and self.progress_callback is not None:
+            self.progress_callback(self.bytes_read, self.expected_size_bytes)
         return chunk
 
 
@@ -69,6 +73,7 @@ def capture_disk(
     popen_factory: Callable[..., subprocess.Popen] | None = None,
     source_safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
+    progress_callback: Callable[[int, int | None], None] | None = None,
 ) -> ImageManifest:
     """Capture a complete disk as raw bytes plus sfdisk metadata.
 
@@ -170,7 +175,7 @@ def capture_disk(
                 raise DiskCaptureError(f"could not start dd: {exc}") from exc
             if process.stdout is None:
                 raise DiskCaptureError("dd did not provide a stdout pipe")
-            counted = _CountingReader(process.stdout)
+            counted = _CountingReader(process.stdout, progress_callback, source_size)
             try:
                 disk_artifact = write_artifact(
                     stage, disk_filename, counted,
