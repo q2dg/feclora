@@ -23,36 +23,54 @@ def _timestamp() -> str:
 
 
 def append_event(path: str | os.PathLike[str], event: dict) -> None:
-    """Append one fsync'd JSONL event without following symlinks."""
+    """Append one fsync'd JSONL event without following symlinks.
+
+    The log file is opened relative to a pinned directory descriptor. Both the
+    file contents and the directory entry are synced before returning, so a
+    newly created journal survives a normal filesystem crash-consistency
+    boundary. Advisory locking keeps concurrent UI/process writers serialized.
+    """
     destination = Path(path)
     directory = destination.parent
     try:
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        info = os.lstat(directory)
-        if not stat.S_ISDIR(info.st_mode):
-            raise OperationLogError("operation log directory must be a real directory")
-        os.chmod(directory, 0o700)
-        flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
-        fd = os.open(destination, flags, 0o600)
+        directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        directory_fd = os.open(directory, directory_flags)
         try:
-            metadata = os.fstat(fd)
-            if not stat.S_ISREG(metadata.st_mode):
-                raise OperationLogError("operation log must be a regular file")
-            os.fchmod(fd, 0o600)
-            payload = (json.dumps(event, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
-            fcntl.flock(fd, fcntl.LOCK_EX)
-            view = memoryview(payload)
-            while view:
-                written = os.write(fd, view)
-                if written <= 0:
-                    raise OperationLogError("short write while appending operation log")
-                view = view[written:]
-            os.fsync(fd)
+            directory_info = os.fstat(directory_fd)
+            if not stat.S_ISDIR(directory_info.st_mode):
+                raise OperationLogError("operation log directory must be a real directory")
+            if directory_info.st_uid != os.geteuid():
+                raise OperationLogError("operation log directory must be owned by the current user")
+            os.fchmod(directory_fd, 0o700)
+
+            flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+            fd = os.open(destination.name, flags, 0o600, dir_fd=directory_fd)
+            try:
+                metadata = os.fstat(fd)
+                if not stat.S_ISREG(metadata.st_mode):
+                    raise OperationLogError("operation log must be a regular file")
+                if metadata.st_uid != os.geteuid():
+                    raise OperationLogError("operation log must be owned by the current user")
+                os.fchmod(fd, 0o600)
+                payload = (json.dumps(event, sort_keys=True, ensure_ascii=False) + "\\n").encode("utf-8")
+                fcntl.flock(fd, fcntl.LOCK_EX)
+                view = memoryview(payload)
+                while view:
+                    written = os.write(fd, view)
+                    if written <= 0:
+                        raise OperationLogError("short write while appending operation log")
+                    view = view[written:]
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+            # Persist creation of the log entry as well as its contents.
+            os.fsync(directory_fd)
         finally:
-            os.close(fd)
+            os.close(directory_fd)
     except OperationLogError:
         raise
-    except OSError as exc:
+    except (OSError, TypeError, ValueError) as exc:
         raise OperationLogError(f"cannot persist operation log: {exc}") from exc
 
 
@@ -101,3 +119,4 @@ def operation_record(
             raise OperationLogError(
                 f"operation completed but its terminal journal event could not be persisted: {exc}"
             ) from exc
+}
