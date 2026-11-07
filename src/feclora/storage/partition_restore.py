@@ -240,6 +240,7 @@ def _verify_partclone_target(
     target: str,
     available: dict[str, str | None],
     runner: Callable[..., Any],
+    effective_uid: Callable[[], int] | None,
 ) -> None:
     specification = _FILESYSTEM_CHECKS.get(filesystem)
     if specification is None:
@@ -249,9 +250,9 @@ def _verify_partclone_target(
     if not executable:
         raise PartitionRestoreError(f"{name} is required to verify the restored {filesystem} filesystem")
     try:
+        command = privileged_argv([executable, *options, target], effective_uid=effective_uid)
         result = runner(
-            [executable, *options, target],
-            check=False, capture_output=True, text=True, timeout=300,
+            command, check=False, capture_output=True, text=True, timeout=300,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise PartitionRestoreError(f"post-restore filesystem check could not run: {exc}") from exc
@@ -454,6 +455,10 @@ def restore_partition(
                     safety(target_path)
                 except SourceSafetyError as exc:
                     raise PartitionRestoreError(f"target became unsafe before read-back verification: {exc}") from exc
+                if not validator(target_path):
+                    raise PartitionRestoreError("target identity changed before verification")
+                if initial_device_number is not None and os.stat(target_path).st_rdev != initial_device_number:
+                    raise PartitionRestoreError("target block-device identity changed before verification")
                 if artifact.format == "raw":
                     _verify_raw_readback(
                         executable, target_path, staged_path, manifest.source_size_bytes,
@@ -461,7 +466,7 @@ def restore_partition(
                     )
                 else:
                     _verify_partclone_target(
-                        artifact.filesystem or "", target_path, available, run,
+                        artifact.filesystem or "", target_path, available, run, effective_uid,
                     )
                 if progress_callback is not None:
                     progress_callback(100, 100)
