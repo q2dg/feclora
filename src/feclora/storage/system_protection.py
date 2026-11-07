@@ -43,18 +43,57 @@ def collect_root_backing_disks(
         raise SystemProtectionError("Cannot uniquely identify the live root mount")
     item = filesystems[0]
     source = item.get("source") if isinstance(item, dict) else None
-    if not isinstance(source, str) or not source.startswith("/dev/"):
-        raise SystemProtectionError(
-            f"Live root source is not a resolvable block-device path: {source!r}"
-        )
-    graph = _run_json(
-        [lsblk, "--json", "--tree", "--paths", "--inverse", "--output", "PATH,TYPE", source],
-        run,
-    )
-    roots = graph.get("blockdevices")
-    if not isinstance(roots, list):
-        raise SystemProtectionError("lsblk did not return a dependency graph")
     disks: set[str] = set()
+    if not isinstance(source, str):
+        raise SystemProtectionError("Cannot identify the live root mount source")
+    if source.startswith("/dev/"):
+        graph = _run_json(
+            [lsblk, "--json", "--tree", "--paths", "--inverse", "--output", "PATH,TYPE", source],
+            run,
+        )
+        roots = graph.get("blockdevices")
+        if not isinstance(roots, list):
+            raise SystemProtectionError("lsblk did not return a dependency graph")
+        graphs = [roots]
+    else:
+        # Live systems commonly mount an overlay/squashfs root whose SOURCE is
+        # not a block node. Conservatively protect every physical disk backing
+        # any currently mounted block device (including the Live boot medium).
+        graph = _run_json(
+            [lsblk, "--json", "--tree", "--paths", "--output", "PATH,TYPE,MOUNTPOINTS"],
+            run,
+        )
+        roots = graph.get("blockdevices")
+        if not isinstance(roots, list):
+            raise SystemProtectionError("lsblk did not return the mounted-device tree")
+        mounted_paths: list[str] = []
+        def collect_mounted(nodes: list[dict[str, Any]]) -> None:
+            for node in nodes:
+                if not isinstance(node, dict):
+                    continue
+                mountpoints = node.get("mountpoints") or []
+                if isinstance(mountpoints, str):
+                    mountpoints = [mountpoints]
+                if mountpoints and isinstance(node.get("path"), str):
+                    mounted_paths.append(node["path"])
+                children = node.get("children")
+                if isinstance(children, list):
+                    collect_mounted(children)
+        collect_mounted(roots)
+        if not mounted_paths:
+            raise SystemProtectionError(
+                f"Root source {source!r} is not a block node and no mounted backing devices can be identified"
+            )
+        graphs = []
+        for mounted_path in mounted_paths:
+            inverse = _run_json(
+                [lsblk, "--json", "--tree", "--paths", "--inverse", "--output", "PATH,TYPE", mounted_path],
+                run,
+            )
+            dependencies = inverse.get("blockdevices")
+            if not isinstance(dependencies, list):
+                raise SystemProtectionError(f"Cannot trace mounted device {mounted_path}")
+            graphs.append(dependencies)
     def visit(nodes: list[dict[str, Any]]) -> None:
         for node in nodes:
             if not isinstance(node, dict):
@@ -66,7 +105,8 @@ def collect_root_backing_disks(
             children = node.get("children")
             if isinstance(children, list):
                 visit(children)
-    visit(roots)
+    for graph_roots in graphs:
+        visit(graph_roots)
     if not disks:
         raise SystemProtectionError(
             f"Could not resolve the backing disk(s) for live root source {source}"
