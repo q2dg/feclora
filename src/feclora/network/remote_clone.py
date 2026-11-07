@@ -252,6 +252,15 @@ def _send_remote_disk_impl(
             tls_socket, session_id=header.session_id,
             expected_target_device=header.receiver_target_device,
         )
+        # READY may take time while the receiver operator checks the target.
+        # Revalidate the source again at the actual destructive boundary.
+        _revalidate_device(header.source_device, identity, validator)
+        size_now, sector_now, read_only_now, _table_now = _geometry(
+            header.source_device, lsblk, runner or subprocess.run,
+        )
+        if size_now != header.source_size_bytes or sector_now != header.logical_sector_size or not read_only_now:
+            raise RemoteDiskCloneError("source geometry or read-only state changed after receiver READY")
+        _check_safe(header.source_device, safety)
         command = privileged_argv(
             [dd, f"if={header.source_device}", "bs=4M", "iflag=count_bytes",
              f"count={header.source_size_bytes}", "status=none"],
@@ -349,6 +358,15 @@ def _receive_remote_disk_impl(
                 target_device=header.receiver_target_device,
             ),
         )
+        # Recheck after READY: the remote sender can start streaming as soon
+        # as this frame is sent, so verify the selected local target once more.
+        _revalidate_device(target, identity, validator)
+        _check_safe(target, safety)
+        size_now, sector_now, read_only_now, _table_now = _geometry(
+            target, lsblk, runner or subprocess.run,
+        )
+        if read_only_now or size_now < header.source_size_bytes or sector_now != header.logical_sector_size:
+            raise RemoteDiskCloneError("receiver target geometry or writability changed after READY")
         transfer_progress = (
             (lambda done, total: progress_callback(done, total * 2))
             if progress_callback is not None else None
