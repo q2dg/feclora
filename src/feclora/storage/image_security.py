@@ -102,6 +102,53 @@ def encrypt_artifact(
             pass
 
 
+def decrypt_artifact_stream_to_temp(
+    encrypted_stream,
+    identity_file: str | os.PathLike[str],
+    directory: str | os.PathLike[str],
+    *,
+    age_executable: str | None = None,
+) -> str:
+    """Decrypt from an already-open verified stream, avoiding path replacement races."""
+    identity = _regular_file(identity_file, "age identity file")
+    target_dir = os.path.abspath(os.fspath(directory))
+    if not stat.S_ISDIR(os.lstat(target_dir).st_mode):
+        raise ImageSecurityError("decryption staging path must be a real directory")
+    age = age_executable or shutil.which("age")
+    if not age:
+        raise ImageSecurityError("age executable is required for image decryption")
+    fd, temporary = tempfile.mkstemp(prefix=".feclora-decrypted-", dir=target_dir)
+    try:
+        with os.fdopen(fd, "wb") as output:
+            result = subprocess.run(
+                [age, "--decrypt", "--identity", identity],
+                stdin=encrypted_stream, stdout=output, stderr=subprocess.PIPE,
+                check=False, text=False, timeout=None,
+            )
+            output.flush()
+            os.fsync(output.fileno())
+        if result.returncode != 0:
+            detail = (result.stderr or b"").decode("utf-8", errors="replace").strip()[:1000]
+            raise ImageSecurityError("age decryption/authentication failed" + (f": {detail}" if detail else ""))
+        info = os.lstat(temporary)
+        if not stat.S_ISREG(info.st_mode) or info.st_size <= 0:
+            raise ImageSecurityError("age produced no non-empty plaintext artifact")
+        os.chmod(temporary, 0o600)
+        return temporary
+    except ImageSecurityError:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise
+    except (OSError, subprocess.SubprocessError) as exc:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise ImageSecurityError(f"could not decrypt artifact stream: {exc}") from exc
+
+
 def decrypt_artifact_to_temp(
     encrypted_path: str | os.PathLike[str],
     identity_file: str | os.PathLike[str],
