@@ -83,8 +83,10 @@ authorization to read or erase a disk.
 - The source must remain stable and read-only for the duration of the stream.
   The implementation must reject mounted, busy, active-swap, or root-backed
   source devices and revalidate before reading.
-- The implementation must persist session start, authorization, transfer,
-  verification, cancellation, and failure outcomes in the operation journal.
+- The initial runtime persists a per-endpoint operation start and terminal
+  completed/failed/cancelled event in the existing append-only operation
+  journal. More granular authorization/transfer phase events remain future
+  work.
 - The initial Python runtime now implements TLS socket helpers, local
   authorization gates, dd-based source/receiver streaming and receiver
   read-back acknowledgement. It is not yet a complete interactive feature:
