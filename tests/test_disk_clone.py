@@ -1,3 +1,4 @@
+import json
 import unittest
 from types import SimpleNamespace
 
@@ -22,8 +23,12 @@ class DiskCloneTests(unittest.TestCase):
         self.safety = []
         self.started = []
         self.sizes = {"/dev/source": "100000 disk 512 0 dos\n", "/dev/target": "120000 disk 512 0 dos\n"}
+    def geometry(self, size, sector, read_only, pttype):
+        return json.dumps({"blockdevices": [{"size": size, "type": "disk", "log-sec": sector, "ro": read_only, "pttype": pttype}]})
     def runner(self, command, **kwargs):
         self.commands.append(command)
+        if command[0].endswith("sgdisk"):
+            return SimpleNamespace(stdout="")
         return SimpleNamespace(stdout=self.sizes[command[-1]])
     def clone(self, **kwargs):
         return clone_disk(
