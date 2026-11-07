@@ -64,7 +64,7 @@ class DiskRestoreTests(unittest.TestCase):
             self.manifest, self.temp.name, "/dev/fake",
             confirmation="ERASE /dev/fake", executables=self.executables,
             device_validator=lambda _path: True, runner=self.runner,
-            target_safety_check=lambda _path: None,
+            target_safety_check=lambda _path: None, effective_uid=lambda: 0,
             popen_factory=lambda *args, **kw: self.started.append((args, kw)) or FakeProcess(),
             **kwargs,
         )
@@ -73,7 +73,7 @@ class DiskRestoreTests(unittest.TestCase):
             restore_disk(
                 self.manifest, self.temp.name, "/dev/fake", confirmation="yes",
                 executables=self.executables, device_validator=lambda _path: True,
-                runner=self.runner, target_safety_check=lambda _path: None,
+                runner=self.runner, target_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=lambda *a, **k: self.fail("dd must not start"),
             )
     def test_validates_digest_before_starting_dd(self):
@@ -90,7 +90,7 @@ class DiskRestoreTests(unittest.TestCase):
                 self.manifest, self.temp.name, "/dev/fake",
                 confirmation="ERASE /dev/fake", executables=self.executables,
                 device_validator=lambda _path: True, runner=small_runner,
-                target_safety_check=lambda _path: None,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=lambda *a, **k: self.fail("dd must not start"),
             )
     def test_streams_verified_decompressed_bytes_to_dd(self):
@@ -99,7 +99,7 @@ class DiskRestoreTests(unittest.TestCase):
             self.manifest, self.temp.name, "/dev/fake",
             confirmation="ERASE /dev/fake", executables=self.executables,
             device_validator=lambda _path: True, runner=self.runner,
-            target_safety_check=lambda _path: None,
+            target_safety_check=lambda _path: None, effective_uid=lambda: 0,
             popen_factory=lambda *args, **kwargs: proc,
         )
         self.assertEqual(result.image_id, "test-image")
@@ -116,7 +116,7 @@ class DiskRestoreTests(unittest.TestCase):
                 self.manifest, self.temp.name, "/dev/fake",
                 confirmation="ERASE /dev/fake", executables=self.executables,
                 device_validator=lambda _path: True, runner=self.runner,
-                target_safety_check=safety,
+                target_safety_check=safety, effective_uid=lambda: 0,
                 popen_factory=lambda *a, **k: self.fail("dd must not start"),
             )
 
