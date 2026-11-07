@@ -31,3 +31,14 @@ partial bytes before exiting; this writer cannot infer producer success.
 The caller must also validate role/format/partition metadata by constructing
 an `ImageManifest` before publishing a complete image set. Repository-level
 manifest commit/rollback and device capture orchestration are not implemented.
+
+
+## External codecs
+
+The writer also supports zstd (levels 1-19) and lz4 (levels 1-12) through the
+system `zstd` and `lz4` executables. Input is streamed through stdin, output is
+written directly to the private staging file, and the process exit status is
+checked before publication. SHA-256 and stored size are computed from the
+resulting compressed bytes. Restore uses the matching CLI decompressor with
+streamed stdout; it checks the decompressor exit status before allowing the
+restore to proceed. Fedora Live installs the `zstd` and `lz4` packages.
