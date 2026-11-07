@@ -13,6 +13,7 @@ arbitrary output path.
 - Artifact filename, semantic role, encoding, compression, byte length and
   SHA-256 digest.
 - Partition identifier for partition-image artifacts.
+- Recognized filesystem type for partition-image artifacts when known; Partclone restore uses it to select the matching executable. Older manifests without this optional field remain readable, but a Partclone restore cannot select a utility without it.
 
 Artifact names are restricted to safe basenames. Duplicate names, unknown
 fields, unsupported versions, invalid digests and inconsistent disk/partition
@@ -28,16 +29,11 @@ metadata are rejected.
 - `partition-image`: filesystem-aware Partclone stream or raw partition byte stream.
 
 Compression is declared per artifact: none, gzip, zstd, xz or lz4. The writer
-must record the actual stored-file size and SHA-256 of the stored bytes. A
-future restore path must verify the complete artifact before opening a target
-block device.
+must record the actual stored-file size and SHA-256 of the stored bytes. Restore paths verify the complete stored artifact and decompression stream before opening a target block device.
 
 ## Important limitations
 
-Schema v1 is written by the local artifact and whole-disk capture components.
-Repository publication uses a manifest-last commit marker, but does not yet
-provide crash-recovery journaling, signatures, encryption, partition geometry
-maps, or restore implementation. SHA-256 detects
+Schema v1 is written by local partition and whole-disk capture. Both disk and partition restore paths consume manifests. Repository publication uses a manifest-last commit marker, but does not yet provide crash-recovery journaling, signatures, encryption, or full partition geometry maps. SHA-256 detects
 accidental corruption only; it does not authenticate the manifest. A later
 signed manifest and authenticated repository protocol are required before
 untrusted network images can be accepted.
