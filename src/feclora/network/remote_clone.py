@@ -53,10 +53,14 @@ def _resolve(executables: dict[str, str | None], name: str) -> str:
     return path
 
 
-def _device_identity(path: str, validator: Callable[[str], bool]) -> int | None:
+def _device_identity(
+    path: str, validator: Callable[[str], bool], *, inspect_real_device: bool,
+) -> int | None:
     try:
         if not validator(path):
             raise RemoteDiskCloneError(f"{path} is not an accessible block device")
+        if not inspect_real_device:
+            return None
         info = os.stat(path)
         return info.st_rdev if stat.S_ISBLK(info.st_mode) else None
     except OSError as exc:
@@ -155,7 +159,7 @@ def send_remote_disk(
     lsblk = _resolve(available, "lsblk")
     dd = _resolve(available, "dd")
     try:
-        identity = _device_identity(header.source_device, validator)
+        identity = _device_identity(header.source_device, validator, inspect_real_device=device_validator is None)
         size, sector, read_only, _pttype = _geometry(header.source_device, lsblk, runner or subprocess.run)
         if size != header.source_size_bytes or sector != header.logical_sector_size:
             raise RemoteDiskCloneError("source disk geometry differs from the approved session header")
@@ -241,12 +245,15 @@ def receive_remote_disk(
             approval, header, role="receiver", device_path=header.receiver_target_device,
         )
         target = header.receiver_target_device
-        identity = _device_identity(target, validator)
+        identity = _device_identity(target, validator, inspect_real_device=device_validator is None)
         target_size, target_sector, read_only, _pttype = _geometry(target, lsblk, runner or subprocess.run)
         if read_only:
             raise RemoteDiskCloneError("receiver target disk is read-only")
-        if target_size < header.source_size_bytes:
-            raise RemoteDiskCloneError("receiver target disk is smaller than the source disk")
+        if target_size != header.source_size_bytes:
+            raise RemoteDiskCloneError(
+                "remote clone protocol v1 requires equal source and target disk capacities "
+                "for exact whole-disk read-back verification"
+            )
         if target_sector != header.logical_sector_size:
             raise RemoteDiskCloneError("receiver target logical sector size differs from source")
         _check_safe(target, safety)
@@ -257,9 +264,10 @@ def receive_remote_disk(
             effective_uid=effective_uid,
         )
         factory = popen_factory or subprocess.Popen
+        stderr = tempfile.TemporaryFile(mode="w+b")
         process = factory(
             command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE, close_fds=True,
+            stderr=stderr, close_fds=True,
         )
         try:
             if process.stdin is None:
@@ -267,15 +275,15 @@ def receive_remote_disk(
             stream_result = receive_disk_stream(
                 tls_socket, process.stdin, header.source_size_bytes,
                 session_id=header.session_id, chunk_size=header.chunk_size_bytes,
-                cancel_check=cancel_check,
+                    cancel_check=cancel_check,
+                progress_callback=progress_callback,
             )
             process.stdin.flush()
             process.stdin.close()
             code = process.wait()
             if code != 0:
-                detail = b""
-                if process.stderr is not None:
-                    detail = process.stderr.read(4096)
+                stderr.seek(0)
+                detail = stderr.read(4096)
                 raise RemoteDiskCloneError(
                     f"receiver dd exited with status {code}" +
                     (f": {detail.decode('utf-8', errors='replace').strip()}" if detail else "")
@@ -284,6 +292,7 @@ def receive_remote_disk(
             if process.poll() is None:
                 process.terminate()
                 process.wait()
+            stderr.close()
         _revalidate_device(target, identity, validator)
         _check_safe(target, safety)
         readback = _readback_digest(
