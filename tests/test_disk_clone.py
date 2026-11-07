@@ -21,7 +21,7 @@ class DiskCloneTests(unittest.TestCase):
         self.commands = []
         self.safety = []
         self.started = []
-        self.sizes = {"/dev/source": "100000 disk 512 0\n", "/dev/target": "120000 disk 512 0\n"}
+        self.sizes = {"/dev/source": "100000 disk 512 0 dos\n", "/dev/target": "120000 disk 512 0 dos\n"}
     def runner(self, command, **kwargs):
         self.commands.append(command)
         return SimpleNamespace(stdout=self.sizes[command[-1]])
@@ -55,20 +55,34 @@ class DiskCloneTests(unittest.TestCase):
             clone_disk("/dev/source", "/dev/source", confirmation="ERASE /dev/source",
                        device_validator=lambda _path: True)
     def test_rejects_small_target_before_starting_dd(self):
-        self.sizes["/dev/target"] = "99999 disk 512 0\n"
+        self.sizes["/dev/target"] = "99999 disk 512 0 dos\n"
         with self.assertRaisesRegex(DiskCloneError, "smaller"):
             self.clone()
         self.assertEqual(self.started, [])
     def test_rejects_different_logical_sector_size(self):
-        self.sizes["/dev/target"] = "120000 disk 4096 0\n"
+        self.sizes["/dev/target"] = "120000 disk 4096 0 dos\n"
         with self.assertRaisesRegex(DiskCloneError, "sector"):
             self.clone()
         self.assertEqual(self.started, [])
     def test_allows_read_only_source(self):
-        self.sizes["/dev/source"] = "100000 disk 512 1\n"
+        self.sizes["/dev/source"] = "100000 disk 512 1 dos\n"
         self.assertEqual(self.clone(), 100000)
+    def test_relocates_backup_gpt_header_on_larger_target(self):
+        self.sizes["/dev/source"] = "100000 disk 512 0 gpt\\n"
+        self.sizes["/dev/target"] = "120000 disk 512 0 gpt\\n"
+        self.commands = []
+        self.clone_with_sgdisk()
+        self.assertIn(["/usr/sbin/sgdisk", "-e", "/dev/target"], self.commands)
+    def clone_with_sgdisk(self):
+        return clone_disk(
+            "/dev/source", "/dev/target", confirmation="ERASE /dev/target",
+            executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd", "sgdisk": "/usr/sbin/sgdisk"},
+            device_validator=lambda _path: True, runner=self.runner,
+            device_safety_check=lambda _path: None, effective_uid=lambda: 0,
+            popen_factory=lambda argv, **opts: self.started.append((argv, opts)) or FakeProcess(),
+        )
     def test_rejects_read_only_target(self):
-        self.sizes["/dev/target"] = "120000 disk 512 1\n"
+        self.sizes["/dev/target"] = "120000 disk 512 1 dos\n"
         with self.assertRaisesRegex(DiskCloneError, "read-only"):
             self.clone()
         self.assertEqual(self.started, [])
