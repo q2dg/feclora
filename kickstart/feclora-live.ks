@@ -71,4 +71,27 @@ chmod 0440 /etc/sudoers.d/feclora-wheel
 restorecon -RF /home/feclora /etc/sudoers.d /etc/systemd/system/getty@tty1.service.d || true
 %end
 
+# Copy the application payload from the augmented installer DVD into the
+# installed live filesystem. mkksiso adds this directory at the DVD root.
+%post --nochroot --erroronfail
+set -euo pipefail
+APP_SOURCE=/run/install/repo/feclora-app/src/feclora
+TARGET_ROOT=/mnt/sysroot
+
+if [[ ! -d "$APP_SOURCE" ]]; then
+  echo "feclora application payload not found: $APP_SOURCE" >&2
+  exit 1
+fi
+
+install -d "$TARGET_ROOT/usr/share/feclora/python/feclora"
+cp -a "$APP_SOURCE/." "$TARGET_ROOT/usr/share/feclora/python/feclora/"
+install -d "$TARGET_ROOT/usr/local/bin"
+cat > "$TARGET_ROOT/usr/local/bin/feclora-ui" <<'EOF'
+#!/bin/sh
+export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
+exec /usr/bin/python3 -m feclora.ui.dialog_app "$@"
+EOF
+chmod 0755 "$TARGET_ROOT/usr/local/bin/feclora-ui"
+%end
+
 shutdown
