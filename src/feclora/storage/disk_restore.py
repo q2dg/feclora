@@ -186,10 +186,13 @@ def restore_disk(
         manifest_file = os.path.join(repo, manifest_file)
     try:
         fd = os.open(manifest_file, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-        with os.fdopen(fd, "r", encoding="utf-8") as source:
+        with os.fdopen(fd, "rb") as source:
             if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
                 raise DiskRestoreError("manifest must be a regular file, not a symlink")
-            manifest = ImageManifest.from_json(source.read())
+            manifest_bytes = source.read(1024 * 1024 + 1)
+            if len(manifest_bytes) > 1024 * 1024:
+                raise DiskRestoreError("manifest exceeds the 1 MiB size limit")
+            manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
     except (OSError, UnicodeError, ManifestValidationError) as exc:
         raise DiskRestoreError(f"cannot load valid image manifest: {exc}") from exc
 
@@ -199,10 +202,26 @@ def restore_disk(
     if minisign_public_key is not None:
         if not os.path.isfile(signature_path):
             raise DiskRestoreError("minisign public key supplied but image signature is missing")
+        staged_manifest = None
         try:
-            verify_manifest_signature(manifest_file, minisign_public_key, signature_path=signature_path, minisign_executable=(executables or {}).get("minisign"))
-        except ImageSecurityError as exc:
+            with tempfile.NamedTemporaryFile(prefix="feclora-manifest-verify-", delete=False) as staged:
+                staged.write(manifest_bytes)
+                staged.flush()
+                os.fsync(staged.fileno())
+                staged_manifest = staged.name
+            verify_manifest_signature(
+                staged_manifest, minisign_public_key,
+                signature_path=signature_path,
+                minisign_executable=(executables or {}).get("minisign"),
+            )
+        except (ImageSecurityError, OSError) as exc:
             raise DiskRestoreError(f"manifest signature verification failed: {exc}") from exc
+        finally:
+            if staged_manifest is not None:
+                try:
+                    os.unlink(staged_manifest)
+                except FileNotFoundError:
+                    pass
     elif require_signature:
         raise DiskRestoreError("signature verification requires a trusted minisign public key")
 
