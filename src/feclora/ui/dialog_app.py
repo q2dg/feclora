@@ -433,16 +433,16 @@ def _restore(inventory: dict[str, Any]) -> None:
         return
     try:
         if manifest.image_type == "disk":
-            _run_restore_gauge(
+            _run_logged("restore_disk", target["path"], manifest.image_id, lambda: _run_restore_gauge(
                 "Restoring whole disk", f"Writing image to {target['path']}. ALL EXISTING DATA WILL BE OVERWRITTEN.",
                 lambda progress: restore_disk(
                     filename, _repository(), target["path"], confirmation=typed,
                     progress_callback=progress, age_identity_file=age_identity,
                     minisign_public_key=minisign_public_key, require_signature=require_signature,
                 ),
-            )
+            ))
         else:
-            _run_restore_gauge(
+            _run_logged("restore_partition", target["path"], manifest.image_id, lambda: _run_restore_gauge(
                 "Restoring partition",
                 f"Writing {manifest.artifacts[0].format} image to {target['path']}. ALL EXISTING DATA WILL BE OVERWRITTEN.",
                 lambda progress: restore_partition(
@@ -450,11 +450,11 @@ def _restore(inventory: dict[str, Any]) -> None:
                     progress_callback=progress, age_identity_file=age_identity,
                     minisign_public_key=minisign_public_key, require_signature=require_signature,
                 ),
-            )
+            ))
         _message("Restore completed", f"Restore utility completed successfully for {target['path']}.\nVerify the resulting system before relying on it.")
     except (DiskRestoreCancelled, PartitionRestoreCancelled) as exc:
         _message("Restore cancelled", str(exc) + "\nThe target may contain a partial restore and must not be used.")
-    except (DiskRestoreError, PartitionRestoreError, OSError) as exc:
+    except (DiskRestoreError, PartitionRestoreError, OperationLogError, OSError) as exc:
         _message("Restore failed", str(exc))
 
 def main() -> int:
