@@ -87,15 +87,17 @@ transport. The initial runtime is in
 - `receive_remote_disk()` runs on the receiver endpoint. It validates the
   target, writes through `dd`, reads back the complete source-sized extent,
   and sends a success acknowledgement only when SHA-256 matches.
+- `serve_remote_clone_once()` accepts one connection as the source, while
+  `connect_remote_clone()` connects as the receiver and owns the TLS socket
+  lifecycle for that session.
 - `src/feclora/network/tls.py` provides the client/server TLS socket wrappers.
-  The caller still owns listener lifecycle, certificate provisioning,
-  UI authorization prompts and listener lifecycle. The TLS helpers apply
-  bounded connection/I/O timeouts. The runtime writes to the existing
-  persistent operation journal by default; callers can
+  The caller still owns listener creation, certificate provisioning and UI
+  authorization prompts. The TLS helpers apply bounded connection/I/O
+  timeouts. The runtime writes to the persistent operation journal by
+  default; callers can
   override its path for isolated deployments and tests.
 
 The implementation does not transfer image files, invoke SSH/SFTP, or reuse
 the multicast deployment coordinator. It is an initial runtime foundation,
 not yet a production-ready interactive feature: end-to-end TLS hardware tests,
-persistent journal integration, cancellation UI and broader recovery tests
-remain outstanding.
+interactive cancellation UI and broader recovery tests remain outstanding.
