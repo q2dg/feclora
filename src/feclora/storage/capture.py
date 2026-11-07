@@ -17,6 +17,7 @@ from typing import Callable, Mapping
 from .artifact_writer import ArtifactWriteError, write_artifact
 from .image_manifest import ImageArtifact
 from .source_safety import SourceSafetyError, check_capture_source_safe
+from .privilege import PrivilegeError, privileged_argv
 
 
 class CaptureError(RuntimeError):
@@ -113,6 +114,7 @@ def capture_partition(
     popen_factory: Callable[..., subprocess.Popen] | None = None,
     source_safety_check: Callable[[str], None] | None = None,
     expected_size_bytes: int | None = None,
+    effective_uid: Callable[[], int] | None = None,
 ) -> ImageArtifact:
     """Capture one block partition into a repository without overwriting files.
 
@@ -152,14 +154,15 @@ def capture_partition(
                 raise CaptureError("block-device identity changed before imaging")
             factory = popen_factory or subprocess.Popen
             try:
+                command = privileged_argv(plan.argv, effective_uid=effective_uid)
                 process = factory(
-                    list(plan.argv),
+                    command,
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.PIPE,
                     stderr=stderr_file,
                     close_fds=True,
                 )
-            except OSError as exc:
+            except (OSError, PrivilegeError) as exc:
                 raise CaptureError(f"could not start {plan.executable}: {exc}") from exc
             if process.stdout is None:
                 raise CaptureError("capture process did not provide a stdout pipe")
