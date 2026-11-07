@@ -20,6 +20,7 @@ from feclora.storage.disk_clone import DiskCloneError, _geometry
 from feclora.storage.privilege import PrivilegeError, privileged_argv
 from feclora.storage.source_safety import SourceSafetyError, check_capture_source_safe
 
+from .tls import accept_mutual_tls, connect_mutual_tls
 from .remote_clone_protocol import (
     CloneSessionHeader,
     CloneVerificationResult,
@@ -374,3 +375,53 @@ def receive_remote_disk(
     # told that the destructive operation succeeded.
     send_verification_result(tls_socket, result)
     return result
+
+
+def serve_remote_clone_once(
+    listener: Any,
+    tls_context: Any,
+    header: CloneSessionHeader,
+    *,
+    local_identity: str,
+    expected_peer_identity: str,
+    confirmation: str,
+    **kwargs: Any,
+) -> CloneVerificationResult:
+    """Accept exactly one receiver connection and serve one source-disk session."""
+    accepted, _address = listener.accept()
+    tls_socket = accept_mutual_tls(
+        tls_context, accepted, expected_peer_identity=expected_peer_identity,
+    )
+    with tls_socket:
+        return send_remote_disk(
+            tls_socket, header,
+            local_identity=local_identity,
+            expected_peer_identity=expected_peer_identity,
+            confirmation=confirmation,
+            **kwargs,
+        )
+
+
+def connect_remote_clone(
+    host: str,
+    port: int,
+    tls_context: Any,
+    *,
+    local_identity: str,
+    expected_peer_identity: str,
+    confirmation: str,
+    **kwargs: Any,
+) -> CloneVerificationResult:
+    """Connect as the receiver, complete mTLS, and run one destructive clone session."""
+    tls_socket = connect_mutual_tls(
+        tls_context, host, port,
+        expected_peer_identity=expected_peer_identity,
+    )
+    with tls_socket:
+        return receive_remote_disk(
+            tls_socket,
+            local_identity=local_identity,
+            expected_peer_identity=expected_peer_identity,
+            confirmation=confirmation,
+            **kwargs,
+        )
