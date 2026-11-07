@@ -13,8 +13,9 @@
 - [ ] Provide a predictable live-session startup and logging.
 - [x] Implement a read-only block-device/filesystem inventory with mocked unit tests.
 - [x] Add an initial read-only device browser using the standard `dialog` utility.
-- [ ] Package and integrate feclora's Python code into the generated Live ISO.
+- [x] Implement staging and Kickstart integration of feclora's Python code into the generated Live ISO (end-to-end ISO validation still pending).
 - [ ] Validate inventory and UI against real BIOS/UEFI virtual-machine storage.
+- [x] Document the build-host preparation, ISO build, artifact checks, and VM acceptance procedure in [the build runbook](BUILD.md).
 
 ## Milestone 2 — Core imaging workflow
 - [ ] Create and restore partition or disk images using established utilities where possible.
