@@ -211,7 +211,7 @@ def restore_disk(
     if len(disk_artifacts) != 1 or disk_artifacts[0].format != "raw":
         raise DiskRestoreError("manifest must contain exactly one raw disk-image artifact")
     artifact = disk_artifacts[0]
-    if artifact.compression not in {"none", "gzip", "xz"}:
+    if artifact.compression not in {"none", "gzip", "xz", "zstd", "lz4"}:
         raise DiskRestoreError("unsupported restore compression")
     available = executables or {}
     dd = available.get("dd") or shutil.which("dd")
