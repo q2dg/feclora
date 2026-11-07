@@ -189,6 +189,28 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         self.assertEqual(received["data"], self.payload)
         self.assertEqual([event["status"] for event in events], ["started", "completed"])
 
+    def test_source_rejects_writable_source_before_streaming(self):
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
+        with tempfile.TemporaryDirectory() as directory:
+            with patch("feclora.network.remote_clone._geometry", return_value=(len(self.payload), 512, False, "gpt")):
+                with self.assertRaisesRegex(RemoteDiskCloneError, "must be marked read-only"):
+                    send_remote_disk(
+                        TlsSocketProxy(left, peer="receiver.example"),
+                        self.header,
+                        operation_log_path=os.path.join(directory, "operations.jsonl"),
+                        local_identity="DNS:source.example",
+                        expected_peer_identity="DNS:receiver.example",
+                        source_path="/dev/source",
+                        confirmation="READ /dev/source TO DNS:receiver.example",
+                        executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
+                        device_validator=lambda _path: True,
+                        safety_check=lambda _path: None,
+                        effective_uid=lambda: 0,
+                        popen_factory=lambda *a, **k: self.fail("dd must not start"),
+                    )
+
     def test_receiver_rejects_peer_selected_target_that_differs_from_local_choice(self):
         left, right = socket.socketpair()
         self.addCleanup(left.close)
