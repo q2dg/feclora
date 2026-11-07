@@ -24,6 +24,7 @@ class FakeProcess:
     def __init__(self):
         self.returncode = 0
         self.stdin = RecordingInput()
+        self.stderr = io.BytesIO(b"Progress: 25.0%\\rProgress: 75.0%\\r")
         self.argv = None
     def wait(self):
         return self.returncode
@@ -138,6 +139,37 @@ class PartitionRestoreTests(unittest.TestCase):
         self.assertEqual(argv[1:3], ["-r", "-s"])
         self.assertEqual(self.partclone_data, self.payload)
         self.assertNotIn("pass_fds", options)
+
+    def test_partclone_restore_reports_progress_from_stderr(self):
+        self.write_manifest("partclone", "ext4", len(self.payload))
+        progress = []
+        self.restore(progress_callback=lambda done, total: progress.append((done, total)))
+        self.assertIn((25, 100), progress)
+        self.assertIn((75, 100), progress)
+        self.assertIn("-F", self.calls[0][0])
+        self.assertIn("1", self.calls[0][0])
+
+    def test_partclone_restore_cancellation_terminates_writer(self):
+        self.write_manifest("partclone", "ext4", len(self.payload))
+        class RunningProcess(FakeProcess):
+            def poll(self):
+                return -15 if self.returncode == -15 else None
+        proc = RunningProcess()
+        proc.stderr = io.BytesIO(b"Progress: 10%\\r")
+        def factory(argv, **opts):
+            self.calls.append((argv, opts))
+            return proc
+        with self.assertRaisesRegex(PartitionRestoreCancelled, "cancel"):
+            restore_partition(
+                self.manifest, self.temp.name, "/dev/sda1",
+                confirmation="ERASE /dev/sda1",
+                executables={"lsblk": "lsblk", "partclone.ext4": "partclone.ext4"},
+                runner=self.runner, device_validator=lambda _path: True,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=factory,
+                progress_callback=lambda *_args: (_ for _ in ()).throw(PartitionRestoreCancelled("operator cancel")),
+            )
+        self.assertEqual(proc.returncode, -15)
     def test_requires_exact_confirmation(self):
         with self.assertRaisesRegex(PartitionRestoreError, "confirmation"):
             restore_partition(
