@@ -115,10 +115,10 @@ def restore_disk(
     if confirmation != f"ERASE {target_path}":
         raise DiskRestoreError(f"explicit confirmation required: ERASE {target_path}")
     validator = device_validator or (lambda path: stat.S_ISBLK(os.stat(path).st_mode))
-    initial_device_number = os.stat(target_path).st_rdev if device_validator is None else None
     try:
         if not validator(target_path):
             raise DiskRestoreError(f"target is not an accessible block device: {target_path}")
+        initial_device_number = os.stat(target_path).st_rdev if device_validator is None else None
     except OSError as exc:
         raise DiskRestoreError(f"cannot inspect target device: {exc}") from exc
 
