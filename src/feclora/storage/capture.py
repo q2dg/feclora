@@ -118,6 +118,7 @@ def capture_partition(
     executables: Mapping[str, str | None] | None = None,
     *,
     compression: str = "none",
+    compression_level: int | None = None,
     device_validator: Callable[[str], bool] | None = None,
     popen_factory: Callable[..., subprocess.Popen] | None = None,
     source_safety_check: Callable[[str], None] | None = None,
@@ -185,6 +186,7 @@ def capture_partition(
                     role="partition-image",
                     image_format=plan.image_format,
                     compression=compression,
+                    compression_level=compression_level,
                     partition_id=partition_id,
                     filesystem=plan.filesystem,
                 )
