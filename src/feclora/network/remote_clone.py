@@ -104,6 +104,8 @@ def _readback_digest(
     *,
     popen_factory: Callable[..., Any],
     effective_uid: Callable[[], int] | None,
+    cancel_check: Callable[[], bool] | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> str:
     command = privileged_argv(
         [dd, f"if={target}", "bs=4M", "iflag=count_bytes",
@@ -122,6 +124,8 @@ def _readback_digest(
         digest = hashlib.sha256()
         total = 0
         while True:
+            if cancel_check is not None and cancel_check():
+                raise RemoteCloneCancelled("receiver operator cancelled destination read-back verification")
             chunk = process.stdout.read(CHUNK_SIZE_BYTES)
             if not chunk:
                 break
@@ -129,6 +133,8 @@ def _readback_digest(
             if total > expected_size:
                 raise RemoteDiskCloneError("read-back returned more bytes than the source disk size")
             digest.update(chunk)
+            if progress_callback is not None:
+                progress_callback(total, expected_size)
         process.stdout.close()
         code = process.wait()
         if code != 0:
@@ -293,7 +299,7 @@ def _receive_remote_disk_impl(
                 tls_socket, process.stdin, header.source_size_bytes,
                 session_id=header.session_id, chunk_size=header.chunk_size_bytes,
                 cancel_check=cancel_check,
-                progress_callback=progress_callback,
+                progress_callback=transfer_progress,
             )
             process.stdin.flush()
             process.stdin.close()
@@ -312,9 +318,20 @@ def _receive_remote_disk_impl(
             stderr.close()
         _revalidate_device(target, identity, validator)
         _check_safe(target, safety)
+        transfer_progress = (
+            (lambda done, total: progress_callback(done, total * 2))
+            if progress_callback is not None else None
+        )
+        readback_progress = (
+            (lambda done, total: progress_callback(total + done, total * 2))
+            if progress_callback is not None else None
+        )
+        # Transfer occupies the first half of the overall operation gauge;
+        # the independent disk read-back occupies the second half.
         readback = _readback_digest(
             target, header.source_size_bytes, dd,
             popen_factory=factory, effective_uid=effective_uid,
+            cancel_check=cancel_check, progress_callback=readback_progress,
         )
         if readback != stream_result.sha256:
             failure = CloneVerificationResult(
@@ -332,7 +349,7 @@ def _receive_remote_disk_impl(
             readback_sha256=readback,
         )
         if progress_callback is not None:
-            progress_callback(header.source_size_bytes, header.source_size_bytes)
+            progress_callback(header.source_size_bytes * 2, header.source_size_bytes * 2)
         return result
     except RemoteCloneCancelled as exc:
         raise RemoteDiskCloneCancelled(str(exc)) from exc
