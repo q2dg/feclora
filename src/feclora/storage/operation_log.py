@@ -53,7 +53,7 @@ def append_event(path: str | os.PathLike[str], event: dict) -> None:
                 if metadata.st_uid != os.geteuid():
                     raise OperationLogError("operation log must be owned by the current user")
                 os.fchmod(fd, 0o600)
-                payload = (json.dumps(event, sort_keys=True, ensure_ascii=False) + "\\n").encode("utf-8")
+                payload = (json.dumps(event, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
                 fcntl.flock(fd, fcntl.LOCK_EX)
                 view = memoryview(payload)
                 while view:
