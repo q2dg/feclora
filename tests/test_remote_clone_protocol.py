@@ -129,6 +129,20 @@ class RemoteCloneProtocolTests(unittest.TestCase):
         self.assertEqual(destination.getvalue(), payload)
         self.assertEqual(received.sha256, hashlib.sha256(payload).hexdigest())
 
+    def test_rejects_destination_writer_overreporting(self):
+        class BadWriter:
+            def write(self, value):
+                return len(value) + 1
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
+        left.sendall(b"bounded")
+        with self.assertRaisesRegex(RemoteCloneProtocolError, "invalid byte count"):
+            receive_disk_stream(
+                right, BadWriter(), len(b"bounded"),
+                session_id=self.header.session_id, chunk_size=64 * 1024,
+            )
+
     def test_rejects_digest_mismatch(self):
         payload = b"disk-data"
         left, right = socket.socketpair()
