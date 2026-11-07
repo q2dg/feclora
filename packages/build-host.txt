@@ -1,0 +1,4 @@
+# Build-host packages for the initial QEMU-backed ISO pipeline.
+lorax
+lorax-lmc-virt
+qemu-kvm
