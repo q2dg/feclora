@@ -256,6 +256,11 @@ def restore_disk(
                 # Call only after artifact, geometry, signature and safety
                 # preflight has completed, immediately before the first write.
                 pre_write_callback()
+                if not validator(target_path):
+                    raise DiskRestoreError("target device disappeared after authorization")
+                if initial_device_number is not None and os.stat(target_path).st_rdev != initial_device_number:
+                    raise DiskRestoreError("target block-device identity changed after authorization")
+                safety(target_path)
             factory = popen_factory or subprocess.Popen
             try:
                 command = privileged_argv([dd, f"of={target_path}", "bs=4M", "conv=fsync", "status=none"], effective_uid=effective_uid)
