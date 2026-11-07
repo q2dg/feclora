@@ -260,7 +260,10 @@ def restore_disk(
                     raise DiskRestoreError("target device disappeared after authorization")
                 if initial_device_number is not None and os.stat(target_path).st_rdev != initial_device_number:
                     raise DiskRestoreError("target block-device identity changed after authorization")
-                safety(target_path)
+                try:
+                    safety(target_path)
+                except SourceSafetyError as exc:
+                    raise DiskRestoreError(f"restore target became unsafe after authorization: {exc}") from exc
             factory = popen_factory or subprocess.Popen
             try:
                 command = privileged_argv([dd, f"of={target_path}", "bs=4M", "conv=fsync", "status=none"], effective_uid=effective_uid)
