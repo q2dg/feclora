@@ -391,6 +391,7 @@ def receive_disk_stream(
     session_id: str,
     chunk_size: int = DEFAULT_CHUNK_BYTES,
     cancel_check: Callable[[], bool] | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> CloneStreamResult:
     """Receive exactly expected_size bytes and verify the session-bound sender digest."""
     _positive_integer(expected_size, "expected_size")
@@ -409,6 +410,8 @@ def receive_disk_stream(
             digest.update(view[:written])
             total += written
             view = view[written:]
+            if progress_callback is not None:
+                progress_callback(total, expected_size)
     local = CloneStreamResult(session_id, total, digest.hexdigest())
     remote = receive_terminal_result(sock)
     if (remote.session_id != session_id or remote.byte_count != local.byte_count
