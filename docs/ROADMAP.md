@@ -39,7 +39,10 @@
 - [x] Add live progress and cancellation to whole-disk and partition capture.
 - [x] Add live write progress and cancellation to raw whole-disk and raw partition restore.
 - [x] Verify whole-disk restore by reading the destination back and comparing SHA-256.
-- [ ] Add Partclone restore progress/cancellation, partition read-back verification, persistent operation logs and crash recovery.
+- [ ] Execute and validate Partclone progress parsing and operator cancellation with the packaged Partclone build.
+- [ ] Validate raw partition read-back SHA-256 and Partclone read-only filesystem consistency checks on disposable devices.
+- [ ] Run operation-journal tests and validate persistent capture/restore/clone event records.
+- [ ] Add journal recovery/reconciliation for operations left in started state after a crash.
 - [ ] Validate all destructive paths on disposable BIOS/UEFI VMs.
 
 ## Milestone 3 — Network client and server modes in the same ISO
