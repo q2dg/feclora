@@ -1,7 +1,7 @@
 import shutil
 import subprocess
 import unittest
-import io
+import tempfile
 
 from feclora.storage.compression import ExternalDecompressionStream
 
@@ -16,16 +16,19 @@ class ExternalCodecTests(unittest.TestCase):
                     [codec, "-q", "-c", f"-{level}"],
                     input=payload, check=True, capture_output=True,
                 ).stdout
-                decoder = ExternalDecompressionStream(io.BytesIO(encoded), codec)
-                chunks = []
-                while True:
-                    chunk = decoder.read(8192)
-                    if not chunk:
-                        break
-                    chunks.append(chunk)
-                decoder.finish()
-                decoder.close()
-                self.assertEqual(b"".join(chunks), payload)
+                with tempfile.TemporaryFile(mode="w+b") as source:
+                    source.write(encoded)
+                    source.seek(0)
+                    decoder = ExternalDecompressionStream(source, codec)
+                    chunks = []
+                    while True:
+                        chunk = decoder.read(8192)
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                    decoder.finish()
+                    decoder.close()
+                    self.assertEqual(b"".join(chunks), payload)
 
 
 if __name__ == "__main__":
