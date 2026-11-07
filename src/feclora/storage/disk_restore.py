@@ -225,6 +225,10 @@ def restore_disk(
         raise DiskRestoreError("target logical sector size differs from the image")
     if target_size < manifest.source_size_bytes:
         raise DiskRestoreError("target disk is smaller than the source image")
+    partition_table = str(manifest.partition_table or "").lower()
+    sgdisk = available.get("sgdisk") or shutil.which("sgdisk")
+    if target_size > manifest.source_size_bytes and partition_table == "gpt" and not sgdisk:
+        raise DiskRestoreError("sgdisk is required to relocate the backup GPT header on a larger target")
     safety = target_safety_check or check_capture_source_safe
     try:
         safety(target_path)
@@ -334,6 +338,16 @@ def restore_disk(
                         )
                     if verify_size != manifest.source_size_bytes or verify_digest.digest() != raw_digest.digest():
                         raise DiskRestoreError("read-back verification failed: destination bytes differ from image")
+                    if target_size > manifest.source_size_bytes and partition_table == "gpt":
+                        try:
+                            repair = privileged_argv([sgdisk, "-e", target_path], effective_uid=effective_uid)
+                            run(repair, check=True, capture_output=True, text=True, timeout=60)
+                            verify = privileged_argv([sgdisk, "-v", target_path], effective_uid=effective_uid)
+                            run(verify, check=True, capture_output=True, text=True, timeout=60)
+                        except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
+                            raise DiskRestoreError(
+                                f"image bytes were restored and read-back verified, but GPT relocation/verification failed: {exc}"
+                            ) from exc
                 finally:
                     if verify_process is not None and verify_process.poll() is None:
                         verify_process.terminate()
