@@ -11,7 +11,8 @@
 - [ ] Build a reproducible Fedora 43 live ISO.
 - [ ] Boot on BIOS and UEFI in virtual machines.
 - [ ] Provide a predictable live-session startup and logging.
-- [ ] Inventory block devices and filesystems safely.
+- [x] Implement a read-only block-device/filesystem inventory with mocked unit tests.
+- [ ] Validate inventory output against real BIOS/UEFI virtual-machine storage.
 
 ## Milestone 2 — Core imaging workflow
 - [ ] Create and restore partition or disk images.
