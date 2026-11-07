@@ -28,7 +28,8 @@
 - [x] Implement transactional read-only whole-disk capture with raw dd, sfdisk metadata, exact byte-count validation and manifest-last publication.
 - [x] Implement verified whole-disk restore with raw dd and none/gzip/xz decompression, target geometry checks and typed confirmation (mocked tests; runtime validation pending).
 - [x] Implement partition restore with Partclone and raw fallback (mocked tests; runtime validation pending).
-- [ ] Implement disk-to-disk clone using partition-table tools and per-partition imaging.
+- [x] Implement direct local whole-disk-to-whole-disk clone using bounded raw dd, source/target safety checks and explicit confirmation (mocked tests; runtime validation pending).
+- [ ] Implement one-to-one remote disk-to-disk clone between separate source and receiver machines over authenticated, integrity-protected transport.
 - [ ] Implement zstd/lz4 streaming adapters and repository-level manifest transactions.
 - [ ] Support GPT/MBR, LVM, LUKS and boot-area/bootloader workflows.
 - [ ] Support local and remote repositories (SSH/SFTP, NFS, SMB/CIFS, WebDAV).
@@ -39,7 +40,7 @@
 ## Milestone 3 — Network client and server modes in the same ISO
 - [x] Define and validate the shared versioned deployment job schema (no networking or storage writes).
 - [x] Implement the in-memory Server deployment coordinator and client lifecycle state machine (no network transport or storage writes).
-- [ ] Define the image manifest and authenticated, integrity-protected client/server protocol.
+- [ ] Define the image manifest and authenticated, integrity-protected client/server protocol, including one-to-one remote disk clone sessions.
 - [ ] Implement client identity, allowlisting and explicit job arming.
 - [ ] Implement Client mode runtime using the same generic imaging commands.
 - [ ] Implement Server mode control plane, repository management and job lifecycle.
