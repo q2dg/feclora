@@ -64,6 +64,13 @@ timestamps with values collected from the actual target):
 }
 ```
 
+Create the directories on a mounted persistent filesystem, then copy the
+profile, image, trust public keys and signatures there:
+
+```sh
+mkdir -p /mnt/restore-media/{profiles,trust,images,audit}
+```
+
 Sign the profile and the image manifest with the appropriate private keys on
 a trusted preparation machine. Keep those private keys off the Live image.
 Then invoke:
