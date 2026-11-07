@@ -146,7 +146,11 @@ def _available_manifests() -> list[tuple[str, ImageManifest]]:
     return found
 
 def _restore(inventory: dict[str, Any]) -> None:
-    manifests = _available_manifests()
+    try:
+        manifests = _available_manifests()
+    except OSError as exc:
+        _message("Image repository error", str(exc))
+        return
     choices = [
         (filename, f"{manifest.image_id} | {manifest.image_type} | {manifest.source_size_bytes} bytes")
         for filename, manifest in manifests
