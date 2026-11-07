@@ -50,7 +50,7 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 2
 fi
 
-for cmd in livemedia-creator qemu-system-x86_64; do
+for cmd in livemedia-creator mkksiso qemu-system-x86_64; do
   if ! command -v "${cmd}" >/dev/null 2>&1; then
     echo "Required command not found: ${cmd}. Install the build dependencies first." >&2
     exit 127
@@ -60,12 +60,22 @@ done
 mkdir -p "${RESULT_DIR}"
 RESULT_DIR="$(cd -- "${RESULT_DIR}" && pwd)"
 
+# Stage only the Python application payload. mkksiso places this directory
+# at the root of a temporary copy of the installer DVD.
+APP_STAGE="${RESULT_DIR}/feclora-app"
+AUGMENTED_ISO="${RESULT_DIR}/feclora-installer.iso"
+rm -rf "${APP_STAGE}"
+mkdir -p "${APP_STAGE}/src"
+cp -a "${ROOT_DIR}/src/feclora" "${APP_STAGE}/src/feclora"
+
+mkksiso --add "${APP_STAGE}" "${INSTALL_ISO}" "${AUGMENTED_ISO}"
+
 printf 'Fedora release: %s\nInstaller ISO: %s\nKickstart: %s\nOutput: %s\n' \
-  "${RELEASEVER}" "${INSTALL_ISO}" "${KS_FILE}" "${RESULT_DIR}"
+  "${RELEASEVER}" "${AUGMENTED_ISO}" "${KS_FILE}" "${RESULT_DIR}"
 
 livemedia-creator \
   --make-iso \
-  --iso "${INSTALL_ISO}" \
+  --iso "${AUGMENTED_ISO}" \
   --ks "${KS_FILE}" \
   --resultdir "${RESULT_DIR}" \
   --project feclora \
