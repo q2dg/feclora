@@ -52,9 +52,9 @@ unverified continuation. A caller can also require signature verification
 through the restore API.
 
 These flows have mocked unit coverage, but have not yet been exercised with
-the real age/minisign binaries on Fedora Live. The UI currently offers gzip
-and xz compression; zstd/lz4 remain unavailable in the capture/restore
-pipeline despite being represented in the manifest schema.
+the real age/minisign binaries on Fedora Live. The UI offers none, gzip, xz, zstd and lz4. gzip/xz use Python's standard
+library; zstd/lz4 use the Fedora system executables with bounded streaming.
+The selected level is recorded in the manifest.
 
 ## Interactive capture choices
 
