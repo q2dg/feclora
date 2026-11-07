@@ -92,5 +92,4 @@ streaming write and read-back SHA-256 verification.
 
 The current unattended executor supports whole-disk images with the
 `preserve` layout policy. It rejects `proportional` rather than silently
-pretending to resize partitions. Automatic startup scheduling/systemd
-enablement and UI-based profile authoring are not enabled by default.
+pretending to resize partitions. The Local rescue TUI can create and sign unattended profiles. Automatic startup scheduling/systemd enablement is not enabled by default; an operator must explicitly configure it after mounting persistent profile, image, trust and audit storage.
