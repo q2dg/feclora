@@ -186,6 +186,62 @@ def validate_endpoint_authorization(
 
 
 @dataclass(frozen=True)
+class CloneSessionReady:
+    session_id: str
+    target_device: str
+    status: str = "ready"
+
+    def __post_init__(self) -> None:
+        try:
+            parsed = uuid.UUID(self.session_id)
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise RemoteCloneProtocolError("ready session_id must be a UUID") from exc
+        if str(parsed) != self.session_id:
+            raise RemoteCloneProtocolError("ready session_id must use canonical UUID notation")
+        if (not isinstance(self.target_device, str) or not self.target_device.startswith("/dev/")
+                or posixpath.normpath(self.target_device) != self.target_device):
+            raise RemoteCloneProtocolError("ready target_device must be a normalized /dev path")
+        if self.status != "ready":
+            raise RemoteCloneProtocolError("session ready status must be 'ready'")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "session_id": self.session_id,
+            "target_device": self.target_device,
+            "status": self.status,
+        }
+
+    @classmethod
+    def from_dict(cls, value: Any) -> "CloneSessionReady":
+        required = {"session_id", "target_device", "status"}
+        if not isinstance(value, dict) or set(value) != required:
+            raise RemoteCloneProtocolError("session ready frame has missing or unknown fields")
+        return cls(**value)
+
+
+def send_session_ready(sock: Any, ready: CloneSessionReady) -> None:
+    payload = json.dumps(ready.to_dict(), sort_keys=True, separators=(",", ":")).encode("ascii")
+    _send_frame(sock, payload, MAX_TERMINAL_BYTES)
+
+
+def receive_session_ready(
+    sock: Any,
+    *,
+    session_id: str,
+    expected_target_device: str,
+) -> CloneSessionReady:
+    payload = _recv_frame(sock, MAX_TERMINAL_BYTES)
+    try:
+        value = json.loads(payload.decode("ascii"), object_pairs_hook=_reject_duplicate_keys)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise RemoteCloneProtocolError(f"invalid session ready JSON: {exc}") from exc
+    ready = CloneSessionReady.from_dict(value)
+    if ready.session_id != session_id or ready.target_device != expected_target_device:
+        raise RemoteCloneProtocolError("receiver readiness is bound to a different session or target device")
+    return ready
+
+
+@dataclass(frozen=True)
 class CloneStreamResult:
     session_id: str
     byte_count: int
