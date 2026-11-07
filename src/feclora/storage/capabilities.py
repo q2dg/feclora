@@ -26,7 +26,8 @@ TOOL_GROUPS = {
     "raw_imaging": ("dd",),
     "compression": ("gzip", "pigz", "zstd", "xz", "lz4"),
     "integrity": ("sha256sum",),
-    "encryption": ("cryptsetup",),
+    "encryption": ("cryptsetup", "age"),
+    "image_signing": ("minisign",),
     "volume_management": ("lvm", "dmsetup"),
     "hardware_diagnostics": ("smartctl",),
 }
