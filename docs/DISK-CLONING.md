@@ -5,13 +5,15 @@
 Local rescue provides direct whole-disk cloning when both block devices are
 connected to the same running feclora system. It invokes GNU dd directly from
 the source disk to the destination disk; it does not create an intermediate
-image file.
+image file. For GPT sources cloned to a larger target, feclora invokes
+sgdisk to relocate the backup GPT header to the end of the destination. If
+sgdisk is unavailable, the operation is rejected before writing.
 
 Before starting, feclora:
 - requires an exact destructive confirmation naming the destination;
 - rejects identical source and target paths;
-- verifies both are whole disks, writable, and have supported logical sector
-  sizes;
+- verifies both are whole disks with supported logical sector sizes; the
+  source may be read-only, but the target must be writable;
 - requires the target capacity to be at least the source capacity and the
   logical sector sizes to match;
 - rejects mounted, active-swap, busy, device-mapper-held, or live-system
