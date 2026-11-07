@@ -131,6 +131,8 @@ class DeploymentCoordinator:
     def arm(self, *, now: datetime | None = None) -> None:
         """Explicitly arm the job after its configured start condition is met."""
         with self._lock:
+            if self._state in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED}:
+                raise CoordinatorError("A terminal deployment job cannot be armed")
             if self._state is not JobState.CREATED:
                 raise CoordinatorError("Only a newly created job can be armed")
             if not self.can_start(now=now):
