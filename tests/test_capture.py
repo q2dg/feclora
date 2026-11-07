@@ -100,6 +100,7 @@ class CaptureTests(unittest.TestCase):
                 capture_partition(
                     "/dev/fake1", None, directory, "part.raw", "1",
                     {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
+                    source_safety_check=lambda _path: None,
                     popen_factory=lambda *_args, **_kwargs: proc,
                 )
             with open(path, "rb") as stream:
