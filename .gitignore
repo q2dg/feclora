@@ -2,6 +2,7 @@
 /results/
 *.iso
 *.img
+*.raw
 *.qcow2
 *.log
 __pycache__/
