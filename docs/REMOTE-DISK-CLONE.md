@@ -59,8 +59,8 @@ without identity matching is insufficient.
 - Strict maximum header and terminal-frame sizes; reject duplicate or unknown
   security-critical fields.
 - Bounded streaming (64 KiB–4 MiB chunks), exact byte counts and cancellation.
-  Callers must configure socket read/write timeouts; protocol-v1 runtime does
-  not yet impose an independent idle deadline.
+  TLS helpers apply a 15-second client connection timeout and a 120-second
+  socket I/O timeout; the caller may choose stricter values.
 - SHA-256 over source/receiver stream and independent receiver read-back.
 - No path-based target acceptance alone: the receiver resolves and revalidates
   the block-device identity immediately before writing and verification.
@@ -89,8 +89,9 @@ transport. The initial runtime is in
   and sends a success acknowledgement only when SHA-256 matches.
 - `src/feclora/network/tls.py` provides the client/server TLS socket wrappers.
   The caller still owns listener lifecycle, certificate provisioning,
-  socket timeout configuration and UI authorization prompts. The runtime
-  writes to the existing persistent operation journal by default; callers can
+  UI authorization prompts and listener lifecycle. The TLS helpers apply
+  bounded connection/I/O timeouts. The runtime writes to the existing
+  persistent operation journal by default; callers can
   override its path for isolated deployments and tests.
 
 The implementation does not transfer image files, invoke SSH/SFTP, or reuse
