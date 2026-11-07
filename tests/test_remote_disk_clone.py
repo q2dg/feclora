@@ -99,15 +99,15 @@ class RemoteDiskReceiverTests(unittest.TestCase):
             return receive_remote_disk(
                 TlsSocketProxy(sock),
                 operation_log_path=os.path.join(directory, "operations.jsonl"),
-            local_identity="DNS:receiver.example",
-            expected_peer_identity="DNS:source.example",
-            confirmation="ERASE /dev/target FROM DNS:source.example",
-            executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
-            device_validator=lambda _path: True,
-            runner=lambda *args, **kwargs: None,
-            popen_factory=process_factory,
-            safety_check=lambda _path: None,
-            effective_uid=lambda: 0,
+                local_identity="DNS:receiver.example",
+                expected_peer_identity="DNS:source.example",
+                confirmation="ERASE /dev/target FROM DNS:source.example",
+                executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
+                device_validator=lambda _path: True,
+                runner=lambda *args, **kwargs: None,
+                popen_factory=process_factory,
+                safety_check=lambda _path: None,
+                effective_uid=lambda: 0,
         )
 
     def test_receiver_rejects_undersized_target_before_starting_writer(self):
@@ -159,12 +159,12 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                 receive_remote_disk(
                     TlsSocketProxy(right),
                     operation_log_path=os.path.join(directory, "operations.jsonl"),
-                local_identity="DNS:receiver.example",
-                expected_peer_identity="DNS:source.example",
-                confirmation="yes",
-                executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
-                device_validator=lambda _path: True,
-                safety_check=lambda _path: None,
+                    local_identity="DNS:receiver.example",
+                    expected_peer_identity="DNS:source.example",
+                    confirmation="yes",
+                    executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
+                    device_validator=lambda _path: True,
+                    safety_check=lambda _path: None,
             )
 
 
