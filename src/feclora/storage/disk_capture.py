@@ -68,6 +68,7 @@ def capture_disk(
     repository: str | os.PathLike[str],
     *,
     compression: str = "none",
+    compression_level: int | None = None,
     executables: Mapping[str, str | None] | None = None,
     device_validator: Callable[[str], bool] | None = None,
     runner: Callable[..., subprocess.CompletedProcess[str]] | None = None,
@@ -183,6 +184,7 @@ def capture_disk(
                 disk_artifact = write_artifact(
                     stage, disk_filename, counted,
                     role="disk-image", image_format="raw", compression=compression,
+                    compression_level=compression_level,
                 )
                 if age_recipients_file is not None:
                     disk_artifact = encrypt_artifact(
