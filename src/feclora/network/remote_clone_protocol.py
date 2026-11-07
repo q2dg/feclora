@@ -228,7 +228,7 @@ class CloneVerificationResult:
             raise RemoteCloneProtocolError("verification session_id must be a UUID") from exc
         if str(parsed) != self.session_id:
             raise RemoteCloneProtocolError("verification session_id must use canonical UUID notation")
-        if self.status not in {"verified", "failed"}:
+        if not isinstance(self.status, str) or self.status not in {"verified", "failed"}:
             raise RemoteCloneProtocolError("verification status must be verified or failed")
         _positive_integer(self.byte_count, "byte_count")
         if not isinstance(self.stream_sha256, str) or not _HEX_SHA256.fullmatch(self.stream_sha256):
