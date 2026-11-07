@@ -24,15 +24,18 @@ from feclora.storage.source_safety import SourceSafetyError, check_capture_sourc
 from .tls import accept_mutual_tls, connect_mutual_tls
 from .remote_clone_protocol import (
     CloneSessionHeader,
+    CloneSessionReady,
     CloneVerificationResult,
     RemoteCloneCancelled,
     RemoteCloneProtocolError,
     authorize_endpoint,
     receive_disk_stream,
     receive_session_header,
+    receive_session_ready,
     receive_verification_result,
     send_disk_stream,
     send_session_header,
+    send_session_ready,
     send_terminal_result,
     send_verification_result,
     validate_endpoint_authorization,
@@ -205,6 +208,10 @@ def _send_remote_disk_impl(
         _revalidate_device(header.source_device, identity, validator)
         _check_safe(header.source_device, safety)
         send_session_header(tls_socket, header)
+        receive_session_ready(
+            tls_socket, session_id=header.session_id,
+            expected_target_device=header.receiver_target_device,
+        )
         command = privileged_argv(
             [dd, f"if={header.source_device}", "bs=4M", "iflag=count_bytes",
              f"count={header.source_size_bytes}", "status=none"],
@@ -298,6 +305,13 @@ def _receive_remote_disk_impl(
         _check_safe(target, safety)
         _revalidate_device(target, identity, validator)
         _check_safe(target, safety)
+        send_session_ready(
+            tls_socket,
+            CloneSessionReady(
+                session_id=header.session_id,
+                target_device=header.receiver_target_device,
+            ),
+        )
         transfer_progress = (
             (lambda done, total: progress_callback(done, total * 2))
             if progress_callback is not None else None
