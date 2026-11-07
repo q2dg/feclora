@@ -448,7 +448,7 @@ def _save_unattended_profile(filename: str, manifest: ImageManifest, target: dic
     try:
         selector = RestoreTargetSelector(wwn=wwn, serial=serial)
     except RestoreProfileError as exc:
-        _message("Cannot save restore profile", str(exc) + "\\nThe selected disk needs a stable WWN or serial number.")
+        _message("Cannot save restore profile", str(exc) + "\nThe selected disk needs a stable WWN or serial number.")
         return
     name = _input("Restore profile", "Profile name:")
     if not name:
@@ -493,7 +493,7 @@ def _save_unattended_profile(filename: str, manifest: ImageManifest, target: dic
         )
         _message(
             "Restore profile saved",
-            f"Signed, single-use profile created:\\n{saved}\\n\\n"
+            f"Signed, single-use profile created:\n{saved}\n\n"
             "Keep the profile, image, trusted public keys and replay ledger on persistent storage. "
             "The image must also have its own minisign signature. Proportional resizing is not yet supported by the unattended executor.",
         )
