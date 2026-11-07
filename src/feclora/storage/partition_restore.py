@@ -21,7 +21,7 @@ class PartitionRestoreError(RuntimeError):
 
 
 class PartitionRestoreCancelled(PartitionRestoreError):
-    """The operator cancelled a raw partition restore."""
+    """The operator cancelled a partition restore."""
 
 _PARTCLONE = {
     "btrfs": "partclone.btrfs",
