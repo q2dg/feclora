@@ -30,7 +30,7 @@ The signature sidecar is named PROFILE.json.minisig. The trusted public key is c
 - **preserve:** retain source partition boundaries and leave additional target capacity unallocated, repairing secondary GPT metadata where required.
 - **proportional:** redistribute partition capacity proportionally. This is not equivalent to merely editing GPT end sectors: moving or expanding partitions can overwrite subsequent data. It requires a partition-aware restore plan and filesystem-aware growth, with preflight validation for every partition/filesystem combination. The raw whole-disk clone path does not silently apply this policy.
 
-The runtime model is implemented in src/feclora/storage/restore_profile.py. It strictly validates schema fields, rejects duplicate JSON keys and path traversal, matches WWN/serial identities, and verifies minisign signatures for unattended profiles. It does not yet execute profiles or consume their single-use authorization; those require integration with the restore UI, operation journal and executor.
+The profile model and unattended whole-disk executor are implemented in src/feclora/storage/restore_profile.py and src/feclora/storage/profile_executor.py. They strictly validate schema fields, reject duplicate JSON keys and path traversal, match WWN/serial identities, verify minisign signatures, and atomically consume single-use authorization immediately before the first write. UI-based profile authoring, automatic startup/systemd enablement and proportional layout execution remain pending.
 
 
 ## Running an unattended disk restore
