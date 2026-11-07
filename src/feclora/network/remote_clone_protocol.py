@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import ipaddress
 import json
+import posixpath
 import re
 import socket
 import ssl
@@ -82,16 +83,14 @@ class CloneSessionHeader:
         _bounded_string(self.receiver_identity, "receiver_identity")
         if (not isinstance(self.source_device, str) or not self.source_device.startswith("/dev/")
                 or len(self.source_device) > 256 or any(ord(c) < 32 for c in self.source_device)
-                or "/../" in self.source_device or self.source_device.endswith("/..")
+                or posixpath.normpath(self.source_device) != self.source_device
                 or "//" in self.source_device):
             raise RemoteCloneProtocolError("source_device must be a normalized /dev path")
         if (not isinstance(self.receiver_target_device, str) or not self.receiver_target_device.startswith("/dev/")
                 or len(self.receiver_target_device) > 256 or any(ord(c) < 32 for c in self.receiver_target_device)
-                or "/../" in self.receiver_target_device or self.receiver_target_device.endswith("/..")
+                or posixpath.normpath(self.receiver_target_device) != self.receiver_target_device
                 or "//" in self.receiver_target_device):
             raise RemoteCloneProtocolError("receiver_target_device must be a normalized /dev path")
-        if self.source_device == self.receiver_target_device:
-            raise RemoteCloneProtocolError("source and receiver device paths must differ")
         _positive_integer(self.source_size_bytes, "source_size_bytes")
         if (isinstance(self.logical_sector_size, bool) or not isinstance(self.logical_sector_size, int)
                 or self.logical_sector_size not in {512, 4096}):
