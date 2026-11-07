@@ -96,6 +96,9 @@ class DeploymentJob:
             if not isinstance(mac, str) or not _MAC_RE.fullmatch(mac):
                 raise JobValidationError(f"Invalid client MAC address: {mac!r}")
             normalized = mac.lower()
+            first_octet = int(normalized.split(":", 1)[0], 16)
+            if first_octet & 1 or normalized == "00:00:00:00:00:00":
+                raise JobValidationError(f"Client MAC must be a unicast hardware address: {mac!r}")
             if normalized in normalized_clients:
                 raise JobValidationError(f"Duplicate authorized client: {normalized}")
             normalized_clients.append(normalized)
