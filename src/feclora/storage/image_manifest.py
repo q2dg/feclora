@@ -36,6 +36,7 @@ class ImageArtifact:
     size_bytes: int
     sha256: str
     partition_id: str | None = None
+    filesystem: str | None = None
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "ImageArtifact":
@@ -43,7 +44,7 @@ class ImageArtifact:
             raise ManifestValidationError("Each artifact must be a JSON object")
         allowed = {
             "filename", "role", "format", "compression", "size_bytes",
-            "sha256", "partition_id",
+            "sha256", "partition_id", "filesystem",
         }
         unknown = set(value) - allowed
         missing = allowed - set(value) - {"partition_id"}
@@ -76,6 +77,10 @@ class ImageArtifact:
             raise ManifestValidationError("Artifact sha256 must be 64 lowercase hexadecimal characters")
 
         partition_id = value.get("partition_id")
+        filesystem = value.get("filesystem")
+        supported_filesystems = {"btrfs", "ext2", "ext3", "ext4", "exfat", "fat", "fat12", "fat16", "fat32", "vfat", "f2fs", "ntfs", "xfs"}
+        if filesystem is not None and (not isinstance(filesystem, str) or filesystem not in supported_filesystems):
+            raise ManifestValidationError("Unsupported artifact filesystem")
         if role == "partition-image":
             if not isinstance(partition_id, str) or not _PARTITION_ID_RE.fullmatch(partition_id):
                 raise ManifestValidationError("partition-image artifacts require a valid partition_id")
@@ -84,7 +89,11 @@ class ImageArtifact:
 
         if image_format == "partclone" and role != "partition-image":
             raise ManifestValidationError("Partclone format is only valid for partition-image artifacts")
-        return cls(filename, role, image_format, compression, size, digest, partition_id)
+        if image_format == "partclone" and filesystem is None:
+            raise ManifestValidationError("Partclone artifacts require filesystem metadata")
+        if role != "partition-image" and filesystem is not None:
+            raise ManifestValidationError("filesystem is only valid for partition-image artifacts")
+        return cls(filename, role, image_format, compression, size, digest, partition_id, filesystem)
 
     def to_dict(self) -> dict[str, Any]:
         result = {
@@ -97,6 +106,8 @@ class ImageArtifact:
         }
         if self.partition_id is not None:
             result["partition_id"] = self.partition_id
+        if self.filesystem is not None:
+            result["filesystem"] = self.filesystem
         return result
 
 
