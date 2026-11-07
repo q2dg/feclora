@@ -117,6 +117,7 @@ def capture_disk(
     stage = tempfile.mkdtemp(prefix=".feclora-disk-", dir=repo)
     process = None
     published: list[str] = []
+    committed = False
     try:
         table_artifact = write_artifact(
             stage, table_filename, __import__("io").BytesIO(table_text.encode("utf-8")),
@@ -192,6 +193,7 @@ def capture_disk(
             os.fsync(dir_fd)
         finally:
             os.close(dir_fd)
+        committed = True
         return manifest
     except (ArtifactWriteError, ManifestValidationError, OSError) as exc:
         raise DiskCaptureError(f"whole-disk capture failed: {exc}") from exc
@@ -199,7 +201,7 @@ def capture_disk(
         if process is not None and process.poll() is None:
             process.terminate()
             process.wait()
-        if published:
+        if published and not committed:
             for name in published:
                 try:
                     os.unlink(os.path.join(repo, name))
