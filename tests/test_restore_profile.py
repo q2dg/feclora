@@ -10,7 +10,8 @@ from feclora.storage.restore_profile import (
     RestoreProfile,
     RestoreProfileError,
     RestoreTargetSelector,
-    load_restore_profile,\n    save_unattended_restore_profile,
+    load_restore_profile,
+    save_unattended_restore_profile,
 )
 
 
