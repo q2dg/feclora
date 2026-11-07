@@ -15,6 +15,7 @@ from .artifact_writer import ArtifactWriteError, write_artifact
 from .capture import CaptureError, _is_block_device
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
 from .source_safety import SourceSafetyError, check_capture_source_safe
+from .privilege import PrivilegeError, privileged_argv
 
 
 class _CountingReader:
@@ -67,6 +68,7 @@ def capture_disk(
     runner: Callable[..., subprocess.CompletedProcess[str]] | None = None,
     popen_factory: Callable[..., subprocess.Popen] | None = None,
     source_safety_check: Callable[[str], None] | None = None,
+    effective_uid: Callable[[], int] | None = None,
 ) -> ImageManifest:
     """Capture a complete disk as raw bytes plus sfdisk metadata.
 
@@ -124,7 +126,7 @@ def capture_disk(
     if table_type == "none":
         table_text = "# No partition table reported by lsblk; raw disk image preserves all sectors.\n"
     else:
-        table_text = _run_metadata([sfdisk, "--dump", source_path], run)
+        table_text = _run_metadata(privileged_argv([sfdisk, "--dump", source_path], effective_uid=effective_uid), run)
         if not table_text.strip():
             table_text = "# No partition table reported by sfdisk; raw disk image preserves all sectors.\n"
 
@@ -154,12 +156,13 @@ def capture_disk(
                 raise DiskCaptureError("block-device identity changed before imaging")
             factory = popen_factory or subprocess.Popen
             try:
+                command = privileged_argv([dd, f"if={source_path}", "bs=4M", "status=none"], effective_uid=effective_uid)
                 process = factory(
-                    [dd, f"if={source_path}", "bs=4M", "status=none"],
+                    command,
                     stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                     stderr=stderr_file, close_fds=True,
                 )
-            except OSError as exc:
+            except (OSError, PrivilegeError) as exc:
                 raise DiskCaptureError(f"could not start dd: {exc}") from exc
             if process.stdout is None:
                 raise DiskCaptureError("dd did not provide a stdout pipe")
