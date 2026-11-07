@@ -24,19 +24,23 @@ The first milestone is a reproducible bootable live ISO with a verified core wor
 5. **Reproducibility:** pin build inputs where practical and record package versions and build metadata.
 6. **Tested compatibility:** document filesystem, partition-table, encryption, transport, firmware, and hardware coverage rather than assuming parity.
 
+## Build and test
+
+See [docs/BUILD.md](docs/BUILD.md) for the Fedora build-host prerequisites, installer ISO verification, build commands, output inspection, and BIOS/UEFI QEMU acceptance procedure. The focused [VM smoke-test checklist](tests/VM-SMOKE-TEST.md) records the boot and device-discovery checks.
+
 ## Repository layout
 
 - `build/` — ISO build tooling and build-host setup
 - `kickstart/` — Fedora installation and live-image configuration
 - `packages/` — RPM package manifests
-- `src/` — application and orchestration code (planned)
-- `scripts/` — developer and operator utilities (planned)
+- `src/` — application and orchestration code
+- `scripts/` — developer and operator utilities
 - `tests/` — unit, integration, and VM smoke tests
 - `docs/` — architecture, compatibility, and operational documentation
 
 ## Development status
 
-Early implementation. The repository contains an initial Kickstart and a QEMU-backed `livemedia-creator` build script. Neither the ISO build nor BIOS/UEFI boot has yet been validated end to end. No functional parity claim is made yet.
+Early implementation. The repository contains an initial Kickstart and a QEMU-backed `livemedia-creator` build script. The Python application payload is wired into the installer/Live image pipeline, but neither the ISO build nor BIOS/UEFI boot has yet been validated end to end. No functional parity claim is made yet.
 
 ## Fedora baseline lifecycle
 
