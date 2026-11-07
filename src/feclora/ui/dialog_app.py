@@ -119,8 +119,15 @@ def _run_capture_gauge(
     try:
         result = operation(report_progress)
         if gauge.stdin is not None:
-            gauge.stdin.write("100\n")
-            gauge.stdin.close()
+            try:
+                gauge.stdin.write("100\n")
+                gauge.stdin.flush()
+            except (BrokenPipeError, OSError):
+                pass
+            try:
+                gauge.stdin.close()
+            except (BrokenPipeError, OSError):
+                pass
             gauge.stdin = None
         gauge.wait()
         return result
@@ -232,8 +239,15 @@ def _clone_disk(inventory: dict[str, Any]) -> None:
             progress_callback=report_progress,
         )
         if gauge is not None and gauge.stdin is not None:
-            gauge.stdin.write("100\n")
-            gauge.stdin.close()
+            try:
+                gauge.stdin.write("100\n")
+                gauge.stdin.flush()
+            except (BrokenPipeError, OSError):
+                pass
+            try:
+                gauge.stdin.close()
+            except (BrokenPipeError, OSError):
+                pass
             gauge.stdin = None
             gauge.wait()
         _message(
@@ -286,8 +300,15 @@ def _run_restore_gauge(
     try:
         result = operation(report_progress)
         if gauge.stdin is not None:
-            gauge.stdin.write("100\n")
-            gauge.stdin.close()
+            try:
+                gauge.stdin.write("100\n")
+                gauge.stdin.flush()
+            except (BrokenPipeError, OSError):
+                pass
+            try:
+                gauge.stdin.close()
+            except (BrokenPipeError, OSError):
+                pass
             gauge.stdin = None
         gauge.wait()
         return result
@@ -295,7 +316,10 @@ def _run_restore_gauge(
         raise DiskRestoreCancelled(f"restore cancelled because progress dialog closed: {exc}") from exc
     finally:
         if gauge.stdin is not None:
-            gauge.stdin.close()
+            try:
+                gauge.stdin.close()
+            except (BrokenPipeError, OSError):
+                pass
         if gauge.poll() is None:
             gauge.terminate()
             gauge.wait()
