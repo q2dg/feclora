@@ -82,7 +82,7 @@ class DeploymentCoordinator:
         Callers must not set it based only on a MAC address.
         """
         with self._lock:
-            if not authenticated:
+            if authenticated is not True:
                 raise CoordinatorError("Client control channel is not authenticated")
             if not self.job.authorizes_client(mac_address):
                 raise CoordinatorError("Client is not in the job allowlist")
@@ -182,7 +182,7 @@ class DeploymentCoordinator:
                 raise CoordinatorError("Client is already in a terminal state")
             updated = ClientRecord(record.mac_address, ClientState.DISCONNECTED, detail)
             self._clients[record.mac_address] = updated
-            if self._state is JobState.RUNNING and all(
+            if self._state in {JobState.ARMED, JobState.RUNNING} and all(
                 client.state in _TERMINAL_CLIENT_STATES for client in self._clients.values()
             ):
                 self._state = JobState.FAILED
