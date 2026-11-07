@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 from .capture import CaptureCancelled, CaptureError, capture_partition
 from .image_manifest import ImageManifest, ManifestValidationError
+from .image_security import encrypt_artifact, sign_manifest
 from .source_safety import SourceSafetyError, check_capture_source_safe
 
 class PartitionImageCaptureError(RuntimeError):
@@ -28,6 +29,8 @@ def capture_partition_image(
     source_safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
     progress_callback: Callable[[int, int | None], None] | None = None,
+    age_recipients_file: str | os.PathLike[str] | None = None,
+    minisign_secret_key: str | os.PathLike[str] | None = None,
 ) -> ImageManifest:
     """Capture a partition and publish its data artifact and manifest marker."""
     if not isinstance(image_id, str) or not image_id or len(image_id) > 128:
@@ -83,6 +86,12 @@ def capture_partition_image(
             expected_size_bytes=size, effective_uid=effective_uid,
             progress_callback=progress_callback,
         )
+        if age_recipients_file is not None:
+            artifact = encrypt_artifact(
+                os.path.join(stage, artifact_name), artifact, age_recipients_file,
+                age_executable=available.get("age"),
+            )
+            artifact_name = artifact.filename
         manifest = ImageManifest.from_dict({
             "schema_version": 1, "image_id": image_id, "image_type": "partition",
             "source_size_bytes": size, "logical_sector_size": sector,
@@ -94,10 +103,17 @@ def capture_partition_image(
             output.write(manifest.to_json())
             output.flush()
             os.fsync(output.fileno())
+        signature_name = None
+        if minisign_secret_key is not None:
+            sign_manifest(manifest_stage, minisign_secret_key, minisign_executable=available.get("minisign"))
+            signature_name = manifest_name + ".minisig"
         repository_fd = os.open(
             repo, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
         )
-        for name in (artifact_name, manifest_name):
+        publish_names = [artifact_name, manifest_name]
+        if signature_name is not None:
+            publish_names.append(signature_name)
+        for name in publish_names:
             os.link(os.path.join(stage, name), name, dst_dir_fd=repository_fd, follow_symlinks=False)
             published.append(name)
         os.fsync(repository_fd)
