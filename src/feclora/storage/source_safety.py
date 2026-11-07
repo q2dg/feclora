@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import stat
 import subprocess
 from typing import Any, Callable
 
@@ -42,15 +44,16 @@ def check_capture_source_safe(
     runner: Callable[..., Any] | None = None,
     which: Callable[[str], str | None] | None = None,
     root_disk_resolver: Callable[..., set[str]] | None = None,
+    swaps_path: str = "/proc/swaps",
 ) -> None:
     """Reject mounted source trees and any source backing the live root."""
     if not isinstance(source_path, str) or not source_path.startswith("/dev/"):
         raise SourceSafetyError("capture source must be a /dev/ path")
     run = runner or subprocess.run
     resolve = which or shutil.which
-    lsblk = resolve("lsblk")
-    if not lsblk:
-        raise SourceSafetyError("lsblk is required for capture source safety checks")
+    lsblk, fuser = resolve("lsblk"), resolve("fuser")
+    if not lsblk or not fuser:
+        raise SourceSafetyError("lsblk and fuser are required for capture source safety checks")
     try:
         result = run(
             [lsblk, "--json", "--tree", "--paths", "--output", "PATH,TYPE,MOUNTPOINTS", source_path],
@@ -71,6 +74,40 @@ def check_capture_source_safe(
         raise SourceSafetyError(
             "capture source has mounted filesystems: " + ", ".join(sorted(set(mounted)))
         )
+    device_paths = {
+        node["path"] for node in _walk(tree)
+        if isinstance(node.get("path"), str) and node["path"].startswith("/dev/")
+    }
+    # Active swap is not necessarily represented as a mountpoint in lsblk.
+    try:
+        with open(swaps_path, "r", encoding="utf-8") as swaps:
+            next(swaps, None)
+            for line in swaps:
+                fields = line.split()
+                if fields and fields[0].startswith("/dev/"):
+                    if os.path.realpath(fields[0]) in {os.path.realpath(p) for p in device_paths}:
+                        raise SourceSafetyError(f"capture source is active swap: {fields[0]}")
+    except FileNotFoundError as exc:
+        raise SourceSafetyError("cannot inspect active swap devices") from exc
+    # fuser detects processes holding the block device open, not just mounts.
+    for device_path in sorted(device_paths):
+        try:
+            busy = run([fuser, "-s", device_path], check=False, capture_output=True,
+                       text=True, timeout=15)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise SourceSafetyError(f"cannot check processes using {device_path}: {exc}") from exc
+        if busy.returncode == 0:
+            raise SourceSafetyError(f"capture source is open by a process: {device_path}")
+        if busy.returncode != 1:
+            raise SourceSafetyError(f"fuser could not verify whether {device_path} is busy")
+        try:
+            info = os.stat(device_path)
+            if stat.S_ISBLK(info.st_mode):
+                holders = f"/sys/dev/block/{os.major(info.st_rdev)}:{os.minor(info.st_rdev)}/holders"
+                if os.path.isdir(holders) and os.listdir(holders):
+                    raise SourceSafetyError(f"capture source has active device-mapper holders: {device_path}")
+        except OSError as exc:
+            raise SourceSafetyError(f"cannot inspect block-device holders for {device_path}: {exc}") from exc
     try:
         inverse = run(
             [lsblk, "--json", "--tree", "--paths", "--inverse", "--output", "PATH,TYPE", source_path],
