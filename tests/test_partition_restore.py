@@ -9,10 +9,21 @@ from types import SimpleNamespace
 from feclora.storage.partition_restore import PartitionRestoreCancelled, PartitionRestoreError, restore_partition
 
 
+class RecordingInput:
+    def __init__(self):
+        self.buffer = io.BytesIO()
+    def write(self, data):
+        return self.buffer.write(data)
+    def close(self):
+        pass
+    def getvalue(self):
+        return self.buffer.getvalue()
+
+
 class FakeProcess:
     def __init__(self):
         self.returncode = 0
-        self.stdin = io.BytesIO()
+        self.stdin = RecordingInput()
         self.argv = None
     def wait(self):
         return self.returncode
