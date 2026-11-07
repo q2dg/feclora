@@ -141,6 +141,20 @@ class RemoteCloneProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RemoteCloneProtocolError, "digests differ"):
             receive_disk_stream(right, io.BytesIO(), len(payload), session_id=self.header.session_id, chunk_size=64 * 1024)
 
+    def test_sender_reports_progress_in_bounded_chunks(self):
+        payload = b"p" * (128 * 1024)
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
+        progress = []
+        result = send_disk_stream(
+            left, io.BytesIO(payload), len(payload),
+            session_id=self.header.session_id, chunk_size=64 * 1024,
+            progress_callback=lambda done, total: progress.append((done, total)),
+        )
+        self.assertEqual(result.byte_count, len(payload))
+        self.assertEqual(progress, [(64 * 1024, len(payload)), (len(payload), len(payload))])
+
     def test_rejects_short_source_stream(self):
         left, right = socket.socketpair()
         self.addCleanup(left.close)
