@@ -20,8 +20,9 @@ then the manifest is published last as the commit marker. If publication
 fails, names created by this transaction are removed. Existing files are
 never replaced.
 
-This implementation is read-only with respect to the source device. It does
-not yet implement mounted/busy-source checks, source revalidation, capture
-progress, cancellation, restore, or power-loss recovery for a crash between
-individual hard-link operations. The manifest-last convention lets readers
+This implementation is read-only with respect to the source device. It checks
+mounted/busy/root-backed sources and revalidates before reading. The TUI shows
+byte-based progress and supports cancellation; a cancelled capture removes its
+staging data and does not publish a manifest. Power-loss recovery for a crash
+between individual hard-link operations remains pending. The manifest-last convention lets readers
 ignore incomplete image sets without a manifest.
