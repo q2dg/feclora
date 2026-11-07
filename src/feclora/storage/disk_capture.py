@@ -14,6 +14,7 @@ from typing import Callable, Mapping
 from .artifact_writer import ArtifactWriteError, write_artifact
 from .capture import CaptureError, _is_block_device
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
+from .image_security import encrypt_artifact, sign_manifest
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 
@@ -74,6 +75,8 @@ def capture_disk(
     source_safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
     progress_callback: Callable[[int, int | None], None] | None = None,
+    age_recipients_file: str | os.PathLike[str] | None = None,
+    minisign_secret_key: str | os.PathLike[str] | None = None,
 ) -> ImageManifest:
     """Capture a complete disk as raw bytes plus sfdisk metadata.
 
@@ -181,6 +184,12 @@ def capture_disk(
                     stage, disk_filename, counted,
                     role="disk-image", image_format="raw", compression=compression,
                 )
+                if age_recipients_file is not None:
+                    disk_artifact = encrypt_artifact(
+                        os.path.join(stage, disk_filename), disk_artifact,
+                        age_recipients_file, age_executable=available.get("age"),
+                    )
+                    disk_filename = disk_artifact.filename
             except ArtifactWriteError as exc:
                 if process.poll() is None:
                     process.terminate()
@@ -218,13 +227,20 @@ def capture_disk(
             stream.write(manifest.to_json())
             stream.flush()
             os.fsync(stream.fileno())
+        signature_filename = None
+        if minisign_secret_key is not None:
+            sign_manifest(manifest_temp, minisign_secret_key, minisign_executable=available.get("minisign"))
+            signature_filename = manifest_filename + ".minisig"
 
         # Publish payload files first and manifest last. Roll back all names
         # created by this transaction if any publication step fails.
         repository_fd = os.open(
             repo, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
         )
-        for name in (table_filename, disk_filename, manifest_filename):
+        publish_names = [table_filename, disk_filename, manifest_filename]
+        if signature_filename is not None:
+            publish_names.append(signature_filename)
+        for name in publish_names:
             try:
                 os.link(
                     os.path.join(stage, name), name,
