@@ -55,5 +55,9 @@ formats and generic tools.
 - Clonezilla's user-visible feature set is the acceptance target.
 - Each feature must be mapped to generic Fedora-packaged tools and tested in
   the Live ISO; feature parity is not inferred from package presence.
-- The current application remains read-only. This ADR does not claim that
-  imaging or restoration is implemented.
+- The current codebase includes manifest-backed whole-disk and partition
+  capture, whole-disk and partition restore, and direct local whole-disk
+  cloning. These paths have mocked unit tests but have not yet been validated
+  on a booted Live ISO or real/virtual block devices.
+- One-to-one remote disk cloning is a planned network workflow and is not
+  implemented.
