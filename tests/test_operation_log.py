@@ -42,6 +42,16 @@ class OperationLogTests(unittest.TestCase):
                 events = [json.loads(line) for line in stream]
             self.assertEqual(events[-1]["status"], "cancelled")
 
+    def test_rejects_symlink_log_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            real_directory = os.path.join(directory, "real")
+            os.mkdir(real_directory)
+            linked_directory = os.path.join(directory, "linked")
+            os.symlink(real_directory, linked_directory)
+            with self.assertRaises(OperationLogError):
+                append_event(os.path.join(linked_directory, "operations.jsonl"), {"status": "started"})
+            self.assertFalse(os.path.exists(os.path.join(real_directory, "operations.jsonl")))
+
     def test_rejects_symlink_log_file(self):
         with tempfile.TemporaryDirectory() as directory:
             target = os.path.join(directory, "target")
