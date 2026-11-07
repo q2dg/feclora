@@ -193,11 +193,14 @@ def send_remote_disk(
                 tls_socket, process.stdout, header.source_size_bytes,
                 session_id=header.session_id, chunk_size=header.chunk_size_bytes,
                 cancel_check=cancel_check,
+                send_terminal=False,
             )
             process.stdout.close()
             code = process.wait()
             if code != 0:
                 raise RemoteDiskCloneError(f"source dd exited with status {code}")
+            from .remote_clone_protocol import send_terminal_result
+            send_terminal_result(tls_socket, stream_result)
         finally:
             if process.poll() is None:
                 process.terminate()
@@ -275,7 +278,7 @@ def receive_remote_disk(
             stream_result = receive_disk_stream(
                 tls_socket, process.stdin, header.source_size_bytes,
                 session_id=header.session_id, chunk_size=header.chunk_size_bytes,
-                    cancel_check=cancel_check,
+                cancel_check=cancel_check,
                 progress_callback=progress_callback,
             )
             process.stdin.flush()
@@ -300,7 +303,15 @@ def receive_remote_disk(
             popen_factory=factory, effective_uid=effective_uid,
         )
         if readback != stream_result.sha256:
-            raise RemoteDiskCloneError("receiver disk read-back SHA-256 differs from the received stream")
+            failure = CloneVerificationResult(
+                session_id=header.session_id, status="failed",
+                byte_count=header.source_size_bytes,
+                stream_sha256=stream_result.sha256,
+                readback_sha256=readback,
+                error="receiver disk read-back SHA-256 differs from the received stream",
+            )
+            send_verification_result(tls_socket, failure)
+            raise RemoteDiskCloneError(failure.error)
         result = CloneVerificationResult(
             session_id=header.session_id, status="verified",
             byte_count=header.source_size_bytes,
