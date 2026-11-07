@@ -60,7 +60,7 @@ class DiskRestoreTests(unittest.TestCase):
         self.executables = {"dd": "/usr/bin/dd", "lsblk": "/usr/bin/lsblk"}
         self.started = []
     def runner(self, command, **kwargs):
-        return SimpleNamespace(stdout=f"{len(self.payload) + 1024} disk 512 0\n")
+        return SimpleNamespace(stdout=f"{len(self.payload)} disk 512 0\n")
     def restore(self, **kwargs):
         return restore_disk(
             self.manifest, self.temp.name, "/dev/fake",
@@ -89,7 +89,7 @@ class DiskRestoreTests(unittest.TestCase):
         def large_runner(command, **kwargs):
             commands.append(command)
             if command[0] == "/usr/bin/lsblk":
-                return SimpleNamespace(stdout=f"{len(self.payload) + 1024 * 1024} disk 512 0\\n")
+                return SimpleNamespace(stdout=f"{len(self.payload) + 1024 * 1024} disk 512 0\n")
             return SimpleNamespace(stdout="")
         processes = []
         def factory(*args, **kwargs):
