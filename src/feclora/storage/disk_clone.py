@@ -16,7 +16,7 @@ class DiskCloneError(RuntimeError):
     """A direct disk clone was rejected or failed."""
 
 
-def _geometry(path: str, lsblk: str, runner: Callable[..., Any]) -> tuple[int, int, bool]:
+def _geometry(path: str, lsblk: str, runner: Callable[..., Any]) -> tuple[int, int, bool, str]:
     try:
         result = runner(
             [lsblk, "--bytes", "--noheadings", "--nodeps", "--output",
@@ -107,6 +107,10 @@ def clone_disk(
     except OSError as exc:
         raise DiskCloneError(f"cannot revalidate source or target: {exc}") from exc
 
+    sgdisk = available.get("sgdisk") or shutil.which("sgdisk")
+    if source_pttype == "gpt" and target_size > source_size and not sgdisk:
+        raise DiskCloneError("sgdisk is required to relocate the backup GPT header on a larger target")
+
     command = [
         dd, f"if={source_path}", f"of={target_path}", "bs=4M",
         f"count={source_size}", "iflag=count_bytes", "conv=fsync",
@@ -135,6 +139,12 @@ def clone_disk(
             raise DiskCloneError(
                 f"dd exited with status {return_code}" + (f": {detail}" if detail else "")
             )
+        if source_pttype == "gpt" and target_size > source_size:
+            try:
+                repair = privileged_argv([sgdisk, "-e", target_path], effective_uid=effective_uid)
+                run(repair, check=True, capture_output=True, text=True, timeout=60)
+            except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
+                raise DiskCloneError(f"disk data copied but backup GPT relocation failed: {exc}") from exc
     finally:
         if process is not None and process.poll() is None:
             process.terminate()
