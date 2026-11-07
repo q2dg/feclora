@@ -23,9 +23,11 @@ larger, its trailing capacity is left untouched. The operation copies the
 partition table, boot areas, gaps, and all sectors as raw data. It does not
 resize partitions or filesystems to fill a larger destination.
 
-The current implementation uses dd's progress reporting on stderr, but the
-TUI does not yet render live progress or provide cancellation. A successful
-dd exit is not a substitute for read-back verification. Both remain pending.
+The current implementation reads dd's progress reporting on stderr and
+renders a live dialog gauge. Pressing Esc closes the gauge and terminates dd;
+the destination may then contain a partial clone and must be treated as
+unusable. A successful dd exit is not a substitute for read-back verification,
+which remains pending.
 
 ## Remote, two-machine operation
 
