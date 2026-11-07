@@ -60,8 +60,8 @@ class RemoteCloneProtocolTests(unittest.TestCase):
         self.addCleanup(right.close)
         source = io.BytesIO(payload)
         destination = io.BytesIO()
-        sent = send_disk_stream(left, source, len(payload), chunk_size=64 * 1024)
-        received = receive_disk_stream(right, destination, len(payload), chunk_size=64 * 1024)
+        sent = send_disk_stream(left, source, len(payload), session_id=self.header.session_id, chunk_size=64 * 1024)
+        received = receive_disk_stream(right, destination, len(payload), session_id=self.header.session_id, chunk_size=64 * 1024)
         self.assertEqual(sent, received)
         self.assertEqual(destination.getvalue(), payload)
         self.assertEqual(received.sha256, hashlib.sha256(payload).hexdigest())
@@ -72,18 +72,18 @@ class RemoteCloneProtocolTests(unittest.TestCase):
         self.addCleanup(left.close)
         self.addCleanup(right.close)
         left.sendall(payload)
-        wrong = CloneStreamResult(len(payload), "0" * 64)
+        wrong = CloneStreamResult(self.header.session_id, len(payload), "0" * 64)
         encoded = json.dumps(wrong.to_dict(), separators=(",", ":")).encode("ascii")
         left.sendall(struct.pack("!I", len(encoded)) + encoded)
         with self.assertRaisesRegex(RemoteCloneProtocolError, "digests differ"):
-            receive_disk_stream(right, io.BytesIO(), len(payload), chunk_size=64 * 1024)
+            receive_disk_stream(right, io.BytesIO(), len(payload), session_id=self.header.session_id, chunk_size=64 * 1024)
 
     def test_rejects_short_source_stream(self):
         left, right = socket.socketpair()
         self.addCleanup(left.close)
         self.addCleanup(right.close)
         with self.assertRaisesRegex(RemoteCloneProtocolError, "ended before"):
-            send_disk_stream(left, io.BytesIO(b"short"), 10, chunk_size=64 * 1024)
+            send_disk_stream(left, io.BytesIO(b"short"), 10, session_id=self.header.session_id, chunk_size=64 * 1024)
 
     def test_cancellation_is_explicit(self):
         left, right = socket.socketpair()
@@ -91,7 +91,7 @@ class RemoteCloneProtocolTests(unittest.TestCase):
         self.addCleanup(right.close)
         with self.assertRaises(RemoteCloneCancelled):
             send_disk_stream(
-                left, io.BytesIO(b"x" * 100), 100, chunk_size=64 * 1024,
+                left, io.BytesIO(b"x" * 100), 100, session_id=self.header.session_id, chunk_size=64 * 1024,
                 cancel_check=lambda: True,
             )
 
