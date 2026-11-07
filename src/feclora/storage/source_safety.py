@@ -105,7 +105,9 @@ def check_capture_source_safe(
             info = (stat_device or os.stat)(device_path)
             if stat.S_ISBLK(info.st_mode):
                 holders = f"/sys/dev/block/{os.major(info.st_rdev)}:{os.minor(info.st_rdev)}/holders"
-                if os.path.isdir(holders) and os.listdir(holders):
+                if not os.path.isdir(holders):
+                    raise SourceSafetyError(f"cannot inspect device-mapper holders for {device_path}")
+                if os.listdir(holders):
                     raise SourceSafetyError(f"capture source has active device-mapper holders: {device_path}")
         except OSError as exc:
             raise SourceSafetyError(f"cannot inspect block-device holders for {device_path}: {exc}") from exc
