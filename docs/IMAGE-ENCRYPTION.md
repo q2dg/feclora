@@ -52,9 +52,10 @@ unverified continuation. A caller can also require signature verification
 through the restore API.
 
 These flows have mocked unit coverage, but have not yet been exercised with
-the real age/minisign binaries on Fedora Live. The UI offers none, gzip, xz, zstd and lz4. gzip/xz use Python's standard
-library; zstd/lz4 use the Fedora system executables with bounded streaming.
-The selected level is recorded in the manifest.
+the real age/minisign binaries on Fedora Live. Compression offers none, gzip,
+xz, zstd and lz4. gzip/xz use Python's standard library; zstd/lz4 use the
+Fedora system executables with bounded streaming. The selected level is
+recorded in the manifest.
 
 ## Interactive capture choices
 
@@ -64,9 +65,9 @@ unsigned image. The UI asks for an age recipients file only when encryption is
 selected, and for a minisign secret-key path only when signing is selected.
 Private keys are not copied into the image repository.
 
-Compression is also selected per capture: none, gzip, or xz. When gzip or xz
-is selected, the UI asks for a compression level. gzip accepts levels 1-9;
-xz accepts levels 0-9. The selected level is recorded in the artifact
-manifest. Compression is performed before age encryption. The current capture
-writer intentionally exposes only gzip and xz until additional compressors
-have safe streaming implementations and restore support.
+Compression is selected per capture: none, gzip, xz, zstd or lz4. The UI asks
+for a level when a codec is selected: gzip 1-9, xz 0-9, zstd 1-19 and lz4
+1-12. Representative choices are offered in the menu. The selected level is
+recorded in the artifact manifest. Compression is performed before age
+encryption. zstd/lz4 are delegated to the installed system CLI tools; feclora
+does not implement these codecs itself.
