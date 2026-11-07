@@ -8,10 +8,20 @@ from types import SimpleNamespace
 from feclora.storage.disk_restore import DiskRestoreError, restore_disk
 
 
-class FakeProcess:
+class RecordingInput:
     def __init__(self):
         import io
-        self.stdin = io.BytesIO()
+        self.buffer = io.BytesIO()
+    def write(self, data):
+        return self.buffer.write(data)
+    def close(self):
+        pass
+    def getvalue(self):
+        return self.buffer.getvalue()
+
+class FakeProcess:
+    def __init__(self):
+        self.stdin = RecordingInput()
         self.returncode = 0
         self.terminated = False
     def poll(self):
