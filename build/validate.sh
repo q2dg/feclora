@@ -30,6 +30,11 @@ if ! grep -qx 'dialog' "$ROOT_DIR/packages/base.txt"; then
   fail "Runtime package list does not include dialog."
 fi
 
+for codec in zstd lz4; do
+  grep -qx "$codec" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $codec."
+  grep -qx "$codec" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $codec."
+done
+
 while IFS= read -r -d '' script; do
   bash -n "$script" || fail "Bash syntax check failed: $script"
 done < <(find "$ROOT_DIR/build" "$ROOT_DIR/scripts" -type f -name '*.sh' -print0 2>/dev/null || true)
