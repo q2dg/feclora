@@ -149,9 +149,13 @@ def _readback_digest(
     except (OSError, PrivilegeError) as exc:
         raise RemoteDiskCloneError(f"could not verify destination disk: {exc}") from exc
     finally:
-        if process is not None and process.poll() is None:
-            process.terminate()
-            process.wait()
+        if process is not None:
+            if process.poll() is None:
+                process.terminate()
+                process.wait()
+            output = getattr(process, "stdout", None)
+            if output is not None and not getattr(output, "closed", False):
+                output.close()
         stderr.close()
 
 
@@ -230,6 +234,9 @@ def _send_remote_disk_impl(
             if process.poll() is None:
                 process.terminate()
                 process.wait()
+            output = getattr(process, "stdout", None)
+            if output is not None and not getattr(output, "closed", False):
+                output.close()
         return receive_verification_result(
             tls_socket, session_id=header.session_id,
             expected_bytes=header.source_size_bytes,
@@ -330,9 +337,13 @@ def _receive_remote_disk_impl(
                     (f": {detail.decode('utf-8', errors='replace').strip()}" if detail else "")
                 )
         finally:
-            if process is not None and process.poll() is None:
-                process.terminate()
-                process.wait()
+            if process is not None:
+                if process.poll() is None:
+                    process.terminate()
+                    process.wait()
+                input_stream = getattr(process, "stdin", None)
+                if input_stream is not None and not getattr(input_stream, "closed", False):
+                    input_stream.close()
             stderr.close()
         _revalidate_device(target, identity, validator)
         _check_safe(target, safety)
