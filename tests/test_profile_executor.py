@@ -38,6 +38,7 @@ class ProfileConsumptionLedgerTests(unittest.TestCase):
 
     def test_persistent_ledger_accepts_dedicated_mount(self):
         with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / "audit").mkdir()
             with patch("feclora.storage.profile_executor.shutil.which", return_value="/usr/bin/findmnt"):
                 _require_persistent_ledger(
                     Path(directory) / "audit" / "consumed.jsonl",
@@ -46,6 +47,7 @@ class ProfileConsumptionLedgerTests(unittest.TestCase):
 
     def test_persistent_ledger_rejects_live_overlay_and_root(self):
         with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / "audit").mkdir()
             with patch("feclora.storage.profile_executor.shutil.which", return_value="/usr/bin/findmnt"):
                 for output in ("overlay /run/initramfs/live\\n", "ext4 /\\n"):
                     with self.assertRaisesRegex(RestoreProfileError, "dedicated persistent"):
