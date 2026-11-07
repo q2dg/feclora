@@ -180,6 +180,19 @@ _FILESYSTEM_CHECKS = {
 }
 
 
+def _stop_process(process: Any) -> None:
+    if process is None or process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=5)
+    except TypeError:
+        process.wait()
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
 def _verify_raw_readback(
     dd: str,
     target: str,
@@ -229,9 +242,7 @@ def _verify_raw_readback(
     except (OSError, PrivilegeError) as exc:
         raise PartitionRestoreError(f"partition read-back verification could not run: {exc}") from exc
     finally:
-        if process is not None and process.poll() is None:
-            process.terminate()
-            process.wait()
+        _stop_process(process)
         stderr.close()
 
 
@@ -254,7 +265,7 @@ def _verify_partclone_target(
         result = runner(
             command, check=False, capture_output=True, text=True, timeout=300,
         )
-    except (OSError, subprocess.SubprocessError) as exc:
+    except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
         raise PartitionRestoreError(f"post-restore filesystem check could not run: {exc}") from exc
     if getattr(result, "returncode", 0) != 0:
         detail = (getattr(result, "stderr", "") or "").strip()
@@ -471,9 +482,7 @@ def restore_partition(
                 if progress_callback is not None:
                     progress_callback(100, 100)
             finally:
-                if process is not None and process.poll() is None:
-                    process.terminate()
-                    process.wait()
+                _stop_process(process)
                 stderr.close()
         finally:
             try:
