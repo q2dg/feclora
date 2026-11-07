@@ -29,19 +29,23 @@ without identity matching is insufficient.
    sector size, and a fixed transfer chunk size. The receiver rejects a header
    that does not match its independently approved session.
 4. The source revalidates its device identity and read safety. The receiver
-   revalidates its target identity, capacity, read-only status and destructive
-   safety. No writer starts before both endpoints have passed these gates.
+   revalidates its target identity, exact capacity, logical sector size,
+   read-only status and destructive safety. Protocol v1 currently requires
+   equal source/target capacities so the full transferred extent can be
+   compared byte-for-byte without relocating GPT metadata.
 5. The source streams exactly the declared number of bytes. The receiver
    writes incrementally to the target while calculating SHA-256. Memory use is
    bounded by the configured chunk size and TLS/socket buffers.
-6. The source sends a terminal frame containing the byte count and SHA-256.
-   The receiver compares both values with its in-flight count and digest.
+6. The source waits for its dd reader to exit successfully, then sends a
+   terminal frame containing the byte count and SHA-256. The receiver compares
+   both values with its in-flight count and digest.
 7. The receiver flushes the target and reads back exactly the transferred byte
    count. It calculates a second SHA-256 and compares it with the transfer
    digest.
 8. The receiver returns a terminal verification result bound to the session
    UUID, including the read-back digest. Only a successful receiver read-back
-   verification is reported as success. Both endpoints journal the outcome.
+   verification is reported as success. Persistent operation-journal wiring
+   and the interactive mode are still pending.
 
 ## Required protocol properties
 
@@ -53,7 +57,9 @@ without identity matching is insufficient.
   exact source and receiver device paths.
 - Strict maximum header and terminal-frame sizes; reject duplicate or unknown
   security-critical fields.
-- Fixed-size bounded streaming, exact byte counts, timeouts and cancellation.
+- Bounded streaming (64 KiB–4 MiB chunks), exact byte counts and cancellation.
+  Callers must configure socket read/write timeouts; protocol-v1 runtime does
+  not yet impose an independent idle deadline.
 - SHA-256 over source/receiver stream and independent receiver read-back.
 - No path-based target acceptance alone: the receiver resolves and revalidates
   the block-device identity immediately before writing and verification.
@@ -71,10 +77,22 @@ subsequent successful restore or clone completes and verifies.
 ## Implementation boundaries
 
 Python's standard ssl and socket facilities provide the authenticated
-transport. Generic block tools such as dd, plus feclora's existing device
-inventory, safety gates, progress handling and operation journal, provide the
-storage behavior. The protocol does not transfer image files, invoke SSH/SFTP,
-or reuse the multicast deployment coordinator.
+transport. The initial runtime is in
+`src/feclora/network/remote_clone.py`:
 
-The implementation is planned; this document is a protocol specification, not
-a claim of working remote clone functionality.
+- `send_remote_disk()` runs on the source endpoint after the receiver has
+  connected over mTLS. It validates and reads the source with `lsblk` and
+  `dd`, then waits for the receiver's verification acknowledgement.
+- `receive_remote_disk()` runs on the receiver endpoint. It validates the
+  target, writes through `dd`, reads back the complete source-sized extent,
+  and sends a success acknowledgement only when SHA-256 matches.
+- `src/feclora/network/tls.py` provides the client/server TLS socket wrappers.
+  The caller still owns listener lifecycle, certificate provisioning,
+  socket timeout configuration, UI authorization prompts and operation-log
+  integration.
+
+The implementation does not transfer image files, invoke SSH/SFTP, or reuse
+the multicast deployment coordinator. It is an initial runtime foundation,
+not yet a production-ready interactive feature: end-to-end TLS hardware tests,
+persistent journal integration, cancellation UI and broader recovery tests
+remain outstanding.
