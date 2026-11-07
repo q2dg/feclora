@@ -21,7 +21,7 @@ Use standard utilities as the implementation primitives:
 
 - `lsblk`, `blkid`, `findmnt`, `udevadm`: device and filesystem discovery.
 - `partclone.*`: filesystem-aware used-block imaging where supported.
-- `dd`: raw block copying and boot-area data when required.
+- `dd`: raw block copying, direct disk-to-disk cloning, and boot-area data when required.
 - `sfdisk`, `sgdisk`, `parted`: partition-table backup, restore, and editing.
 - `gzip`, `zstd`, `xz`, `pigz`: image compression, subject to availability.
 - `sha256sum` and related standard tools: integrity verification.
