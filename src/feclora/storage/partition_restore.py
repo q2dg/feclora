@@ -132,10 +132,10 @@ def restore_partition(
     if confirmation != f"ERASE {target_path}":
         raise PartitionRestoreError(f"explicit confirmation required: ERASE {target_path}")
     validator = device_validator or (lambda path: stat.S_ISBLK(os.stat(path).st_mode))
-    initial_device_number = os.stat(target_path).st_rdev if device_validator is None else None
     try:
         if not validator(target_path):
             raise PartitionRestoreError("target is not an accessible block device")
+        initial_device_number = os.stat(target_path).st_rdev if device_validator is None else None
     except OSError as exc:
         raise PartitionRestoreError(f"cannot inspect target block device: {exc}") from exc
     repo = os.path.abspath(os.fspath(repository))
