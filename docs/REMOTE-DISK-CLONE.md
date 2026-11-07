@@ -17,6 +17,14 @@ SHA-256 certificate fingerprint; CA validation without identity matching is
 insufficient. A fingerprint is an additional identity pin, not a replacement
 for the configured CA trust anchor.
 
+## Source precondition
+
+The source disk must already report `RO=1` in `lsblk`. The runtime never
+changes a source disk's write-protection state automatically. An operator may
+use a hardware write blocker or deliberately mark an offline source read-only
+with `blockdev --setro /dev/DEVICE`; keep it read-only for the entire session.
+Do not mark the running system disk read-only.
+
 ## Session sequence
 
 1. Both operators configure the expected peer identity and approve the
