@@ -1,0 +1,73 @@
+import io
+import os
+import tempfile
+import unittest
+from types import SimpleNamespace
+from feclora.storage.partition_image_capture import PartitionImageCaptureError, capture_partition_image
+
+
+class FakeProcess:
+    def __init__(self, data):
+        self.stdout = io.BytesIO(data)
+        self.returncode = 0
+    def poll(self):
+        return self.returncode
+    def wait(self):
+        return self.returncode
+    def terminate(self):
+        self.returncode = -15
+
+
+class PartitionImageCaptureTests(unittest.TestCase):
+    def test_publishes_raw_partition_and_manifest(self):
+        payload = b"x" * 4096
+        with tempfile.TemporaryDirectory() as directory:
+            def runner(command, **kwargs):
+                return SimpleNamespace(stdout=f"{len(payload)} 512 part unknown\n")
+            manifest = capture_partition_image(
+                "/dev/fake1", "backup-part", "fake1", directory,
+                executables={"lsblk": "lsblk", "dd": "dd"},
+                runner=runner, device_validator=lambda _path: True,
+                source_safety_check=lambda _path: None,
+                popen_factory=lambda *a, **k: FakeProcess(payload),
+            )
+            self.assertEqual(manifest.image_type, "partition")
+            self.assertEqual(manifest.source_size_bytes, len(payload))
+            self.assertEqual(manifest.artifacts[0].format, "raw")
+            self.assertEqual(
+                set(os.listdir(directory)),
+                {"backup-part_fake1.img", "backup-part.manifest.json"},
+            )
+
+    def test_raw_short_read_does_not_publish_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def runner(command, **kwargs):
+                return SimpleNamespace(stdout="4096 512 part unknown\n")
+            with self.assertRaisesRegex(PartitionImageCaptureError, "size mismatch"):
+                capture_partition_image(
+                    "/dev/fake1", "short", "fake1", directory,
+                    executables={"lsblk": "lsblk", "dd": "dd"},
+                    runner=runner, device_validator=lambda _path: True,
+                    source_safety_check=lambda _path: None,
+                    popen_factory=lambda *a, **k: FakeProcess(b"short"),
+                )
+            self.assertEqual(os.listdir(directory), [])
+
+    def test_partclone_capture_records_filesystem(self):
+        payload = b"partclone container"
+        with tempfile.TemporaryDirectory() as directory:
+            def runner(command, **kwargs):
+                return SimpleNamespace(stdout="8192 512 part ext4\n")
+            manifest = capture_partition_image(
+                "/dev/fake1", "ext4-backup", "fake1", directory,
+                executables={"lsblk": "lsblk", "partclone.ext4": "partclone.ext4", "dd": "dd"},
+                runner=runner, device_validator=lambda _path: True,
+                source_safety_check=lambda _path: None,
+                popen_factory=lambda *a, **k: FakeProcess(payload),
+            )
+            self.assertEqual(manifest.artifacts[0].format, "partclone")
+            self.assertEqual(manifest.artifacts[0].filesystem, "ext4")
+
+
+if __name__ == "__main__":
+    unittest.main()
