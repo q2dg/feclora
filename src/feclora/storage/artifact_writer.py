@@ -80,7 +80,7 @@ def write_artifact(
         raise ArtifactWriteError("compression_level is not valid when compression is none")
     if compression != "none":
         if compression_level is None:
-            compression_level = 6 if compression == "gzip" else 6
+            compression_level = {"gzip": 6, "xz": 6, "zstd": 3, "lz4": 1}[compression]
         if (isinstance(compression_level, bool) or not isinstance(compression_level, int)
                 or (compression == "gzip" and not 1 <= compression_level <= 9)
                 or (compression == "xz" and not 0 <= compression_level <= 9)):
