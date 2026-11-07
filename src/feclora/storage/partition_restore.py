@@ -223,9 +223,8 @@ def restore_partition(
                 extra = {}
                 stdin = subprocess.DEVNULL
             else:
-                argv = [executable, f"of={target_path}", "bs=4M", "conv=fsync", "status=none"]
-                extra = {}
                 argv = [executable, f"if={staged_path}", f"of={target_path}", "bs=4M", "conv=fsync", "status=none"]
+                extra = {}
                 stdin = subprocess.DEVNULL
             stderr = tempfile.TemporaryFile(mode="w+b")
             process = None
