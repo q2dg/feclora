@@ -308,8 +308,8 @@ class RemoteDiskReceiverTests(unittest.TestCase):
             return type("Result", (), {"stdout": "", "returncode": 0})()
 
         with patch("feclora.network.remote_clone._geometry",
-                   return_value=(len(self.payload) + 1024 * 1024, 512, False, "gpt")), \\
-             patch("feclora.network.remote_clone._readback_digest", return_value=digest), \\
+                   return_value=(len(self.payload) + 1024 * 1024, 512, False, "gpt")), \
+             patch("feclora.network.remote_clone._readback_digest", return_value=digest), \
              patch("feclora.network.remote_clone.subprocess.run", side_effect=run):
             result = self._receive(
                 right, geometry=None,
