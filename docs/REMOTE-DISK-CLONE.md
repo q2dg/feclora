@@ -33,20 +33,23 @@ for the configured CA trust anchor.
    independently selected local source/target path; a remote header cannot
    choose the receiver's disk. The source revalidates its device identity and
    read safety and requires the source disk to be marked read-only. The
-   receiver revalidates its target identity, exact capacity, logical sector size,
-   read-only status and destructive safety. Protocol v1 currently requires
-   equal source/target capacities so the full transferred extent can be
-   compared byte-for-byte without relocating GPT metadata.
-5. The source streams exactly the declared number of bytes. The receiver
+   receiver revalidates its target identity, exact capacity, logical sector
+   size, read-only status and destructive safety. Protocol v1 currently
+   requires equal source/target capacities so the full transferred extent can
+   be compared byte-for-byte without relocating GPT metadata.
+5. Only after the receiver has completed its local authorization and target
+   safety checks does it send a session-bound READY frame. The source waits for
+   that frame before launching dd or disclosing disk data.
+6. The source streams exactly the declared number of bytes. The receiver
    writes incrementally to the target while calculating SHA-256. Memory use is
    bounded by the configured chunk size and TLS/socket buffers.
-6. The source waits for its dd reader to exit successfully, then sends a
+7. The source waits for its dd reader to exit successfully, then sends a
    terminal frame containing the byte count and SHA-256. The receiver compares
    both values with its in-flight count and digest.
-7. The receiver flushes the target and reads back exactly the transferred byte
+8. The receiver flushes the target and reads back exactly the transferred byte
    count. It calculates a second SHA-256 and compares it with the transfer
    digest.
-8. The receiver returns a terminal verification result bound to the session
+9. The receiver returns a terminal verification result bound to the session
    UUID, including the read-back digest. Only a successful receiver read-back
    verification is reported as success. Both endpoints persist started and
    terminal completed/failed/cancelled operation events before reporting
