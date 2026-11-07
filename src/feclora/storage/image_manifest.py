@@ -38,6 +38,7 @@ class ImageArtifact:
     partition_id: str | None = None
     filesystem: str | None = None
     encryption: str = "none"
+    compression_level: int | None = None
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "ImageArtifact":
@@ -45,10 +46,10 @@ class ImageArtifact:
             raise ManifestValidationError("Each artifact must be a JSON object")
         allowed = {
             "filename", "role", "format", "compression", "size_bytes",
-            "sha256", "partition_id", "filesystem", "encryption",
+            "sha256", "partition_id", "filesystem", "encryption", "compression_level",
         }
         unknown = set(value) - allowed
-        missing = allowed - set(value) - {"partition_id", "filesystem", "encryption"}
+        missing = allowed - set(value) - {"partition_id", "filesystem", "encryption", "compression_level"}
         if unknown:
             raise ManifestValidationError(f"Unknown artifact fields: {', '.join(sorted(unknown))}")
         if missing:
@@ -82,6 +83,11 @@ class ImageArtifact:
         encryption = value.get("encryption", "none")
         if not isinstance(encryption, str) or encryption not in {"none", "age"}:
             raise ManifestValidationError("Artifact encryption must be none or age")
+        compression_level = value.get("compression_level")
+        if compression_level is not None and (isinstance(compression_level, bool) or not isinstance(compression_level, int) or not 0 <= compression_level <= 9):
+            raise ManifestValidationError("Artifact compression_level must be an integer from 0 to 9")
+        if compression == "none" and compression_level is not None:
+            raise ManifestValidationError("Uncompressed artifacts must not specify compression_level")
         supported_filesystems = {"btrfs", "ext2", "ext3", "ext4", "exfat", "fat", "fat12", "fat16", "fat32", "vfat", "f2fs", "ntfs", "xfs"}
         if filesystem is not None and (not isinstance(filesystem, str) or filesystem not in supported_filesystems):
             raise ManifestValidationError("Unsupported artifact filesystem")
@@ -95,7 +101,7 @@ class ImageArtifact:
             raise ManifestValidationError("Partclone format is only valid for partition-image artifacts")
         if role != "partition-image" and filesystem is not None:
             raise ManifestValidationError("filesystem is only valid for partition-image artifacts")
-        return cls(filename, role, image_format, compression, size, digest, partition_id, filesystem, encryption)
+        return cls(filename, role, image_format, compression, size, digest, partition_id, filesystem, encryption, compression_level)
 
     def to_dict(self) -> dict[str, Any]:
         result = {
@@ -112,6 +118,8 @@ class ImageArtifact:
             result["filesystem"] = self.filesystem
         if self.encryption != "none":
             result["encryption"] = self.encryption
+        if self.compression_level is not None:
+            result["compression_level"] = self.compression_level
         return result
 
 
