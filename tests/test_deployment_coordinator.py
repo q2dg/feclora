@@ -46,6 +46,12 @@ class DeploymentCoordinatorTests(unittest.TestCase):
         with self.assertRaisesRegex(CoordinatorError, "allowlist"):
             self.coordinator.register_client("52:54:00:12:34:99", authenticated=True)
 
+    def test_authentication_flag_must_be_literal_true(self):
+        with self.assertRaisesRegex(CoordinatorError, "not authenticated"):
+            self.coordinator.register_client(
+                "52:54:00:12:34:56", authenticated="yes"
+            )
+
     def test_requires_ready_client_before_manual_arm(self):
         with self.assertRaisesRegex(CoordinatorError, "condition"):
             self.coordinator.arm()
@@ -104,6 +110,14 @@ class DeploymentCoordinatorTests(unittest.TestCase):
         self.coordinator.mark_running("52:54:00:12:34:56")
         self.coordinator.report_result(
             "52:54:00:12:34:56", success=False, detail="write error"
+        )
+        self.assertEqual(self.coordinator.state, JobState.FAILED)
+
+    def test_disconnect_of_all_clients_fails_armed_job(self):
+        self.connect()
+        self.coordinator.arm()
+        self.coordinator.disconnect_client(
+            "52:54:00:12:34:56", detail="link lost"
         )
         self.assertEqual(self.coordinator.state, JobState.FAILED)
 
