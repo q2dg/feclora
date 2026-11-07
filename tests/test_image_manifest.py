@@ -103,6 +103,37 @@ class ImageManifestTests(unittest.TestCase):
                 ],
             ))
 
+    def test_whole_disk_raw_artifact_is_supported(self):
+        manifest = ImageManifest.from_dict(disk_manifest(artifacts=[
+            artifact(
+                filename="disk.raw.zst",
+                role="disk-image",
+                format="raw",
+                compression="zstd",
+                partition_id=None,
+            ),
+            artifact(
+                filename="partition-table.sfdisk",
+                role="partition-table",
+                format="raw",
+                compression="none",
+                partition_id=None,
+            ),
+        ]))
+        self.assertEqual(manifest.artifacts[0].role, "disk-image")
+
+    def test_disk_manifest_requires_data_artifact(self):
+        with self.assertRaisesRegex(ManifestValidationError, "data artifact"):
+            ImageManifest.from_dict(disk_manifest(artifacts=[
+                artifact(
+                    filename="partition-table.sfdisk",
+                    role="partition-table",
+                    format="raw",
+                    compression="none",
+                    partition_id=None,
+                )
+            ]))
+
     def test_partition_manifest(self):
         manifest = ImageManifest.from_dict({
             "schema_version": 1,
