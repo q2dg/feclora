@@ -93,6 +93,19 @@ class DiskCaptureTests(unittest.TestCase):
             )
         self.assertEqual(os.listdir(self.temp.name), [])
 
+    def test_manifest_collision_rolls_back_new_payload_artifacts(self):
+        with open(os.path.join(self.temp.name, "manifest-taken.manifest.json"), "w") as stream:
+            stream.write("existing manifest")
+        with self.assertRaisesRegex(DiskCaptureError, "already exists"):
+            capture_disk(
+                "/dev/fake", "manifest-taken", self.temp.name,
+                executables=self.executables,
+                device_validator=lambda _path: True,
+                runner=self.runner,
+                popen_factory=lambda *_args, **_kwargs: FakeProcess(),
+            )
+        self.assertEqual(os.listdir(self.temp.name), ["manifest-taken.manifest.json"])
+
 
 if __name__ == "__main__":
     unittest.main()
