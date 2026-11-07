@@ -138,6 +138,22 @@ class ImageManifestTests(unittest.TestCase):
                 )
             ]))
 
+    def test_optional_age_encryption_metadata_round_trips(self):
+        value = disk_manifest(artifacts=[
+            artifact(filename="disk.raw.gz.age", role="disk-image", format="raw", compression="gzip", partition_id=None, encryption="age"),
+            artifact(filename="partition-table.sfdisk", role="partition-table", format="raw", compression="none", partition_id=None),
+        ])
+        manifest = ImageManifest.from_dict(value)
+        self.assertEqual(manifest.artifacts[0].encryption, "age")
+        self.assertEqual(ImageManifest.from_json(manifest.to_json()), manifest)
+
+    def test_rejects_unknown_encryption_metadata(self):
+        with self.assertRaisesRegex(ManifestValidationError, "encryption"):
+            ImageManifest.from_dict(disk_manifest(artifacts=[
+                artifact(filename="disk.raw.age", role="disk-image", format="raw", compression="none", partition_id=None, encryption="custom"),
+                artifact(filename="partition-table.sfdisk", role="partition-table", format="raw", compression="none", partition_id=None),
+            ]))
+
     def test_partition_manifest(self):
         manifest = ImageManifest.from_dict({
             "schema_version": 1,
