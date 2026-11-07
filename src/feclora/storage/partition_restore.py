@@ -16,6 +16,7 @@ from .image_manifest import ImageManifest, ManifestValidationError
 from .image_security import ImageSecurityError, decrypt_artifact_stream_to_temp, verify_manifest_signature
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
+from .compression import CompressionError, ExternalDecompressionStream
 
 class PartitionRestoreError(RuntimeError):
     """A partition restore was rejected or failed."""
@@ -98,15 +99,20 @@ def _verified_artifact_stream(repository: str, artifact: Any,
             except FileNotFoundError:
                 pass
 
-def _decompress_to_temp(source: Any, compression: str, expected_raw_size: int | None, directory: str):
+def _decompress_to_temp(source: Any, compression: str, expected_raw_size: int | None, directory: str, executables: dict[str, str | None] | None = None):
     if compression == "none":
         decoder = source
     elif compression == "gzip":
         decoder = gzip.GzipFile(fileobj=source, mode="rb")
     elif compression == "xz":
         decoder = lzma.LZMAFile(source, mode="rb")
+    elif compression in {"zstd", "lz4"}:
+        try:
+            decoder = ExternalDecompressionStream(source, compression, executables)
+        except CompressionError as exc:
+            raise PartitionRestoreError(str(exc)) from exc
     else:
-        raise PartitionRestoreError("partition restore supports none, gzip and xz compression")
+        raise PartitionRestoreError("unsupported partition image compression")
     fd, staged_path = tempfile.mkstemp(prefix=".feclora-restore-", dir=directory)
     total = 0
     try:
@@ -119,13 +125,15 @@ def _decompress_to_temp(source: Any, compression: str, expected_raw_size: int | 
                 if expected_raw_size is not None and total > expected_raw_size:
                     raise PartitionRestoreError("decoded raw image exceeds partition size in manifest")
                 output.write(chunk)
+            if hasattr(decoder, "finish"):
+                decoder.finish()
             if total <= 0:
                 raise PartitionRestoreError("decoded partition image is empty")
             if expected_raw_size is not None and total != expected_raw_size:
                 raise PartitionRestoreError("decoded raw image size does not match manifest")
             output.flush()
             os.fsync(output.fileno())
-    except (OSError, EOFError, lzma.LZMAError, zlib.error) as exc:
+    except (OSError, EOFError, lzma.LZMAError, zlib.error, CompressionError) as exc:
         try:
             os.unlink(staged_path)
         except FileNotFoundError:
@@ -374,7 +382,7 @@ def restore_partition(
         staged_path, decoded_size = _decompress_to_temp(
             image, artifact.compression,
             manifest.source_size_bytes if artifact.format == "raw" else None,
-            repo,
+            repo, available,
         )
         try:
             # Validate the block-device role and safety again immediately before
