@@ -78,20 +78,21 @@ def _preflight_decoded_size(stream: Any, artifact: ImageArtifact, expected: int)
 def _target_geometry(target_path: str, lsblk: str, runner: Callable[..., Any]) -> tuple[int, int]:
     try:
         result = runner(
-            [lsblk, "--bytes", "--noheadings", "--nodeps", "--output", "SIZE,TYPE,LOG-SEC", target_path],
+            [lsblk, "--bytes", "--noheadings", "--nodeps", "--output", "SIZE,TYPE,LOG-SEC,RO", target_path],
             check=True, capture_output=True, text=True, timeout=20,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise DiskRestoreError(f"cannot inspect target disk: {exc}") from exc
     fields = result.stdout.split()
-    if len(fields) != 3 or fields[1] != "disk":
+    if len(fields) != 4 or fields[1] != "disk":
         raise DiskRestoreError("restore target must be exactly one whole disk")
     try:
         size, sector_size = int(fields[0]), int(fields[2])
+        read_only = fields[3] == "1"
     except ValueError as exc:
         raise DiskRestoreError("lsblk returned invalid target capacity") from exc
-    if size <= 0 or sector_size not in {512, 4096}:
-        raise DiskRestoreError("target disk geometry is invalid")
+    if size <= 0 or sector_size not in {512, 4096} or read_only:
+        raise DiskRestoreError("target disk geometry is invalid or read-only")
     return size, sector_size
 
 def restore_disk(
