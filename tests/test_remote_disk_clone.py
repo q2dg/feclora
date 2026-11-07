@@ -1,7 +1,9 @@
 import hashlib
 import io
 import socket
+import tempfile
 import threading
+import os
 import unittest
 from unittest.mock import patch
 
@@ -93,8 +95,10 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         return thread
 
     def _receive(self, sock, *, geometry, process_factory):
-        return receive_remote_disk(
-            TlsSocketProxy(sock),
+        with tempfile.TemporaryDirectory() as directory:
+            return receive_remote_disk(
+                TlsSocketProxy(sock),
+                operation_log_path=os.path.join(directory, "operations.jsonl"),
             local_identity="DNS:receiver.example",
             expected_peer_identity="DNS:source.example",
             confirmation="ERASE /dev/target FROM DNS:source.example",
@@ -150,9 +154,11 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         self.addCleanup(left.close)
         self.addCleanup(right.close)
         send_session_header(left, self.header)
-        with self.assertRaisesRegex(RemoteDiskCloneError, "explicit receiver authorization"):
-            receive_remote_disk(
-                TlsSocketProxy(right),
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(RemoteDiskCloneError, "explicit receiver authorization"):
+                receive_remote_disk(
+                    TlsSocketProxy(right),
+                    operation_log_path=os.path.join(directory, "operations.jsonl"),
                 local_identity="DNS:receiver.example",
                 expected_peer_identity="DNS:source.example",
                 confirmation="yes",
