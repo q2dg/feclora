@@ -95,7 +95,7 @@ class CaptureTests(unittest.TestCase):
             self.assertEqual(artifact.format, "raw")
     def test_cancelling_partition_capture_never_publishes_artifact(self):
         with tempfile.TemporaryDirectory() as directory:
-            proc = FakeProcess(["dd"], b"partial payload")
+            proc = FakeProcess(["dd"], b"partial payload", returncode=None)
             def cancel(_done, _total):
                 raise CaptureCancelled("operator cancelled")
             with self.assertRaisesRegex(CaptureCancelled, "cancelled"):
