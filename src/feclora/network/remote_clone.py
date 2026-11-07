@@ -14,6 +14,7 @@ import socket
 import stat
 import subprocess
 import tempfile
+import uuid
 from typing import Any, Callable
 
 from feclora.storage.operation_log import DEFAULT_LOG_PATH, operation_record
@@ -23,6 +24,7 @@ from feclora.storage.source_safety import SourceSafetyError, check_capture_sourc
 
 from .tls import accept_mutual_tls, connect_mutual_tls
 from .remote_clone_protocol import (
+    DEFAULT_CHUNK_BYTES,
     CloneSessionHeader,
     CloneSessionReady,
     CloneVerificationResult,
@@ -59,6 +61,44 @@ def _shutdown_tls(tls_socket: Any) -> None:
         tls_socket.shutdown(socket.SHUT_RDWR)
     except (AttributeError, OSError):
         pass
+
+
+def build_remote_clone_header(
+    source_path: str,
+    receiver_target_device: str,
+    *,
+    source_identity: str,
+    receiver_identity: str,
+    executables: dict[str, str | None] | None = None,
+    runner: Callable[..., Any] | None = None,
+    chunk_size_bytes: int = DEFAULT_CHUNK_BYTES,
+) -> CloneSessionHeader:
+    """Create a fresh session header from independently inspected source geometry."""
+    available = executables or {}
+    lsblk = _resolve(available, "lsblk")
+    try:
+        size, sector, read_only, _partition_table = _geometry(
+            source_path, lsblk, runner or subprocess.run,
+        )
+    except DiskCloneError as exc:
+        raise RemoteDiskCloneError(str(exc)) from exc
+    if not read_only:
+        raise RemoteDiskCloneError(
+            "remote clone source must be marked read-only before preparing a session"
+        )
+    try:
+        return CloneSessionHeader(
+            session_id=str(uuid.uuid4()),
+            source_identity=source_identity,
+            receiver_identity=receiver_identity,
+            source_device=source_path,
+            receiver_target_device=receiver_target_device,
+            source_size_bytes=size,
+            logical_sector_size=sector,
+            chunk_size_bytes=chunk_size_bytes,
+        )
+    except RemoteCloneProtocolError as exc:
+        raise RemoteDiskCloneError(f"cannot prepare remote clone session: {exc}") from exc
 
 
 def _resolve(executables: dict[str, str | None], name: str) -> str:
