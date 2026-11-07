@@ -20,7 +20,10 @@ Partclone.
   injected); source is read by the external utility, never opened for writing.
 - Arguments are passed as an argv array; no shell or shell pipeline is used.
 - Standard input is closed. Standard output is streamed into the artifact
-  writer. Standard error goes to a temporary file to avoid pipe deadlocks.
+  writer. Standard error goes to a temporary file to avoid pipe deadlocks. A progress
+callback counts bytes read; raw capture reports a percentage when source size
+is known, while Partclone capture reports bytes without guessing its final size.
+Closing the progress dialog cancels the producer and prevents publication.
 - Output is first written in a private staging directory beneath the repository.
   A non-zero producer exit prevents publication and staging data is discarded.
 - A successful artifact is hard-linked into its final name; an existing name
@@ -30,7 +33,6 @@ Partclone.
 
 This is partition capture only. It does not yet capture partition tables,
 whole-disk boot areas, filesystem consistency snapshots, or a complete
-`ImageManifest`. It does not restore or clone to a target. Mounted/busy
-source checks and a final pre-capture revalidation must be integrated before
-exposing this operation in the TUI. Partclone and dd command semantics are
+`ImageManifest`. It does not restore or clone to a target. Mounted/busy source checks and a final pre-capture revalidation are integrated.
+The Local rescue TUI exposes capture with progress and cancellation. Partclone and dd command semantics are
 based on the upstream Partclone usage documentation.
