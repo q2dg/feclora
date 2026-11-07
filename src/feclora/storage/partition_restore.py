@@ -9,8 +9,10 @@ import stat
 import subprocess
 import tempfile
 import zlib
+from contextlib import contextmanager
 from typing import Any, Callable
 from .image_manifest import ImageManifest, ManifestValidationError
+from .image_security import ImageSecurityError, decrypt_artifact_to_temp, verify_manifest_signature
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 
@@ -64,6 +66,36 @@ def _verify_stored(stream: Any, artifact: Any) -> None:
     if size != artifact.size_bytes or digest.hexdigest() != artifact.sha256:
         raise PartitionRestoreError("partition artifact size or SHA-256 mismatch")
     stream.seek(0)
+
+
+@contextmanager
+def _verified_artifact_stream(repository: str, artifact: Any,
+                              age_identity_file: str | os.PathLike[str] | None,
+                              age_executable: str | None):
+    with _safe_open(repository, artifact.filename) as stored:
+        _verify_stored(stored, artifact)
+        if artifact.encryption == "none":
+            yield stored
+            return
+        if artifact.encryption != "age":
+            raise PartitionRestoreError("unsupported image encryption")
+        if not age_identity_file:
+            raise PartitionRestoreError("this image is age-encrypted; an identity file is required")
+        try:
+            staged = decrypt_artifact_to_temp(
+                os.path.join(repository, artifact.filename), age_identity_file,
+                repository, age_executable=age_executable,
+            )
+        except ImageSecurityError as exc:
+            raise PartitionRestoreError(f"image decryption/authentication failed: {exc}") from exc
+        try:
+            with open(staged, "rb") as plaintext:
+                yield plaintext
+        finally:
+            try:
+                os.unlink(staged)
+            except FileNotFoundError:
+                pass
 
 def _decompress_to_temp(source: Any, compression: str, expected_raw_size: int | None, directory: str):
     if compression == "none":
@@ -143,6 +175,9 @@ def restore_partition(
     target_safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
+    age_identity_file: str | os.PathLike[str] | None = None,
+    minisign_public_key: str | os.PathLike[str] | None = None,
+    require_signature: bool = False,
 ) -> ImageManifest:
     """Restore one partition image; confirmation must be ERASE /dev/partition."""
     if not isinstance(target_path, str) or not target_path.startswith("/dev/"):
@@ -170,6 +205,19 @@ def restore_partition(
             manifest = ImageManifest.from_json(source.read())
     except (OSError, UnicodeError, ManifestValidationError) as exc:
         raise PartitionRestoreError(f"cannot load valid partition manifest: {exc}") from exc
+    signature_path = manifest_file + ".minisig"
+    if require_signature and not os.path.isfile(signature_path):
+        raise PartitionRestoreError("a minisign signature is required but this image has none")
+    if minisign_public_key is not None:
+        if not os.path.isfile(signature_path):
+            raise PartitionRestoreError("minisign public key supplied but image signature is missing")
+        try:
+            verify_manifest_signature(manifest_file, minisign_public_key, signature_path=signature_path, minisign_executable=(executables or {}).get("minisign"))
+        except ImageSecurityError as exc:
+            raise PartitionRestoreError(f"manifest signature verification failed: {exc}") from exc
+    elif require_signature:
+        raise PartitionRestoreError("signature verification requires a trusted minisign public key")
+
     if manifest.image_type != "partition":
         raise PartitionRestoreError("partition restore requires a partition image manifest")
     artifacts = [item for item in manifest.artifacts if item.role == "partition-image"]
@@ -204,8 +252,7 @@ def restore_partition(
     except SourceSafetyError as exc:
         raise PartitionRestoreError(f"unsafe restore target: {exc}") from exc
 
-    with _safe_open(repo, artifact.filename) as image:
-        _verify_stored(image, artifact)
+    with _verified_artifact_stream(repo, artifact, age_identity_file, available.get("age")) as image:
         staged_path, decoded_size = _decompress_to_temp(
             image, artifact.compression,
             manifest.source_size_bytes if artifact.format == "raw" else None,
