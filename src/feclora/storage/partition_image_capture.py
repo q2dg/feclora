@@ -62,7 +62,8 @@ def capture_partition_image(
     if filesystem in {"", "-"}:
         filesystem = None
 
-    stem = f"{image_id}_{partition_id}"
+    safe_partition_id = partition_id.replace("+", "_")
+    stem = f"{image_id}_{safe_partition_id}"
     suffix = {"none": "", "gzip": ".gz", "xz": ".xz"}.get(compression)
     if suffix is None:
         raise PartitionImageCaptureError("compression must be none, gzip or xz")
@@ -76,6 +77,7 @@ def capture_partition_image(
             source_path, filesystem, stage, artifact_name, partition_id,
             available, compression=compression, device_validator=device_validator,
             popen_factory=popen_factory, source_safety_check=source_safety_check,
+            expected_size_bytes=size,
         )
         manifest = ImageManifest.from_dict({
             "schema_version": 1, "image_id": image_id, "image_type": "partition",
