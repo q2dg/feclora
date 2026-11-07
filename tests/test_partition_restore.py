@@ -86,6 +86,21 @@ class PartitionRestoreTests(unittest.TestCase):
         if self.active_process is not None:
             self.stdin_data = self.active_process.stdin.getvalue()
         return result
+    def test_age_encrypted_restore_requires_identity_before_writer(self):
+        with open(self.manifest, encoding="utf-8") as stream:
+            manifest = json.load(stream)
+        manifest["artifacts"][0]["encryption"] = "age"
+        with open(self.manifest, "w", encoding="utf-8") as stream:
+            json.dump(manifest, stream)
+        with self.assertRaisesRegex(PartitionRestoreError, "identity file is required"):
+            self.restore()
+        self.assertEqual(self.calls, [])
+
+    def test_can_require_minisign_signature_before_writer(self):
+        with self.assertRaisesRegex(PartitionRestoreError, "signature is required"):
+            self.restore(require_signature=True)
+        self.assertEqual(self.calls, [])
+
     def test_raw_restore_uses_dd_and_verified_decompressed_file(self):
         self.restore()
         argv, options = self.calls[0]
