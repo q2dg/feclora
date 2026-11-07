@@ -10,7 +10,7 @@ from feclora.storage.restore_profile import (
     RestoreProfile,
     RestoreProfileError,
     RestoreTargetSelector,
-    load_restore_profile,
+    load_restore_profile,\n    save_unattended_restore_profile,
 )
 
 
@@ -96,6 +96,49 @@ class RestoreProfileTests(unittest.TestCase):
                     {"wwn": value["target"]["wwn"], "serial": value["target"]["serial"]},
                     now=datetime(2029, 1, 1, tzinfo=timezone.utc),
                     already_consumed=True,
+                )
+
+    def test_save_creates_signed_profile_without_overwriting(self):
+        profile = RestoreProfile.from_dict(profile_data(
+            execution_mode="unattended",
+            expires_at="2030-01-01T00:00:00Z",
+            single_use=True,
+        ))
+        with tempfile.TemporaryDirectory() as directory:
+            key = Path(directory) / "secret.key"
+            key.write_text("secret", encoding="utf-8")
+            key.chmod(0o600)
+            destination = Path(directory) / "profile.json"
+            def sign(command, **kwargs):
+                Path(str(destination) + ".minisig").write_text("signature", encoding="utf-8")
+            with patch("feclora.storage.restore_profile.shutil.which", return_value="/usr/bin/minisign"), \\
+                 patch("feclora.storage.restore_profile.subprocess.run", side_effect=sign):
+                saved = save_unattended_restore_profile(
+                    profile, destination, minisign_secret_key=key,
+                )
+            self.assertEqual(saved, destination)
+            self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
+            self.assertTrue(Path(str(destination) + ".minisig").is_file())
+            with self.assertRaisesRegex(RestoreProfileError, "overwrite"):
+                save_unattended_restore_profile(
+                    profile, destination, minisign_secret_key=key,
+                    minisign_executable="/usr/bin/minisign",
+                )
+
+    def test_save_rejects_permissive_minisign_secret_key(self):
+        profile = RestoreProfile.from_dict(profile_data(
+            execution_mode="unattended",
+            expires_at="2030-01-01T00:00:00Z",
+            single_use=True,
+        ))
+        with tempfile.TemporaryDirectory() as directory:
+            key = Path(directory) / "secret.key"
+            key.write_text("secret", encoding="utf-8")
+            key.chmod(0o644)
+            with self.assertRaisesRegex(RestoreProfileError, "mode 0600"):
+                save_unattended_restore_profile(
+                    profile, Path(directory) / "profile.json",
+                    minisign_secret_key=key, minisign_executable="/usr/bin/minisign",
                 )
 
     def test_rejects_expired_unattended_profile(self):
