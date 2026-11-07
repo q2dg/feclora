@@ -74,9 +74,11 @@ def parse_lsblk(payload: str) -> dict[str, Any]:
 
 
 def collect_inventory(
-    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+    runner: Callable[..., subprocess.CompletedProcess[str]] | None = None,
 ) -> dict[str, Any]:
     """Collect block-device metadata. The command only queries kernel metadata."""
+    if runner is None:
+        runner = subprocess.run
     executable = shutil.which("lsblk")
     if executable is None:
         raise InventoryError("lsblk was not found; install util-linux")
