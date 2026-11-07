@@ -9,7 +9,8 @@ The gate:
   its reported device subtree;
 - checks active swap entries in `/proc/swaps`;
 - invokes `fuser` for each block device in the selected subtree and rejects
-  devices in use by a process;
+  devices in use by a process; when the UI runs unprivileged, it first verifies
+  non-interactive sudo and runs fuser through `sudo -n`;
 - checks sysfs device-mapper holder directories;
 - queries the inverse block-device graph to find physical disks backing the
   selected partition or logical device;
