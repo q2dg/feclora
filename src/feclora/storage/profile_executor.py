@@ -14,7 +14,7 @@ from typing import Any
 
 from feclora.storage.disk_restore import restore_disk
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
-from feclora.storage.operation_log import DEFAULT_LOG_PATH, operation_record
+from feclora.storage.operation_log import operation_record
 from feclora.storage.privilege import privileged_argv
 from feclora.storage.restore_profile import (
     RestoreProfile,
@@ -23,7 +23,6 @@ from feclora.storage.restore_profile import (
 )
 from feclora.storage.inventory import collect_inventory
 
-DEFAULT_PROFILE_DIRECTORY = Path("/home/feclora/profiles")
 _MAX_LEDGER_BYTES = 8 * 1024 * 1024
 
 
