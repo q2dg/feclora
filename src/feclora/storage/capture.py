@@ -187,6 +187,7 @@ def capture_partition(
                     image_format=plan.image_format,
                     compression=compression,
                     compression_level=compression_level,
+                    compression_executable=(executables or {}).get(compression),
                     partition_id=partition_id,
                     filesystem=plan.filesystem,
                 )
