@@ -53,7 +53,7 @@ def check_capture_source_safe(
         raise SourceSafetyError("lsblk is required for capture source safety checks")
     try:
         result = run(
-            [lsblk, "--json", "--paths", "--output", "PATH,TYPE,MOUNTPOINTS", source_path],
+            [lsblk, "--json", "--tree", "--paths", "--output", "PATH,TYPE,MOUNTPOINTS", source_path],
             check=True, capture_output=True, text=True, timeout=15,
         )
     except (OSError, subprocess.SubprocessError) as exc:
@@ -73,7 +73,7 @@ def check_capture_source_safe(
         )
     try:
         inverse = run(
-            [lsblk, "--json", "--paths", "--inverse", "--output", "PATH,TYPE", source_path],
+            [lsblk, "--json", "--tree", "--paths", "--inverse", "--output", "PATH,TYPE", source_path],
             check=True, capture_output=True, text=True, timeout=15,
         )
     except (OSError, subprocess.SubprocessError) as exc:
