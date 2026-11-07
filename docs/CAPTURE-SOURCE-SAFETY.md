@@ -19,10 +19,9 @@ The gate:
 - fails closed if required commands, JSON metadata, swap information, or root
   dependency information cannot be obtained.
 
-Capture re-runs the source gate immediately before starting Partclone or dd.
+Capture re-runs the source gate and compares the block-device major/minor identity immediately before starting Partclone or dd.
 Restore validates the target type, capacity and logical sector size, verifies
-the stored artifact hash and decompression stream, then repeats target checks
-immediately before starting the writer.
+the stored artifact hash and decompression stream, then repeats target checks and the block-device identity comparison immediately before starting the writer.
 
 ## Remaining safety boundaries
 
