@@ -6,6 +6,8 @@ import shutil
 import stat
 import subprocess
 import sys
+import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 from feclora.storage.capture import CaptureCancelled
@@ -17,6 +19,7 @@ from feclora.storage.inventory import InventoryError, collect_inventory
 from feclora.storage.partition_image_capture import PartitionImageCaptureError, capture_partition_image
 from feclora.storage.partition_restore import PartitionRestoreCancelled, PartitionRestoreError, restore_partition
 from feclora.storage.operation_log import DEFAULT_LOG_PATH, OperationLogError, operation_record
+from feclora.storage.restore_profile import RestoreProfile, RestoreProfileError, RestoreTargetSelector, save_unattended_restore_profile
 
 IMAGE_REPOSITORY = "/home/feclora/images"
 
@@ -439,6 +442,65 @@ def _restore_security_options(manifest: ImageManifest, manifest_filename: str) -
             _message("Signature not verified", "The image will be restored without establishing publisher authenticity.")
     return identity, public_key, require_signature
 
+def _save_unattended_profile(filename: str, manifest: ImageManifest, target: dict[str, Any]) -> None:
+    wwn = str(target.get("wwn") or "").strip() or None
+    serial = str(target.get("serial") or "").strip() or None
+    try:
+        selector = RestoreTargetSelector(wwn=wwn, serial=serial)
+    except RestoreProfileError as exc:
+        _message("Cannot save restore profile", str(exc) + "\\nThe selected disk needs a stable WWN or serial number.")
+        return
+    name = _input("Restore profile", "Profile name:")
+    if not name:
+        return
+    default_expiry = (datetime.now(timezone.utc) + timedelta(days=7)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    expires_at = _input("Profile expiry", "Expiry timestamp (ISO-8601 with timezone):", default_expiry)
+    if not expires_at:
+        return
+    action = _menu("After successful restore", "Choose the action after read-back verification.", [
+        ("none", "Return to the rescue menu"),
+        ("reboot", "Reboot"),
+        ("poweroff", "Power off"),
+    ])
+    if action is None:
+        return
+    secret_key = _input("Profile signing key", "Path to the minisign secret key (must be mode 0600):")
+    if not secret_key:
+        return
+    initial_path = f"/mnt/restore-media/profiles/{manifest.image_id}.json"
+    destination = _input(
+        "Profile destination",
+        "Absolute path on persistent mounted storage. The directory must already exist:",
+        initial_path,
+    )
+    if not destination:
+        return
+    try:
+        profile = RestoreProfile(
+            profile_id=str(uuid.uuid4()),
+            name=name,
+            image_manifest=filename,
+            target=selector,
+            execution_mode="unattended",
+            layout_policy="preserve",
+            verify_after_restore=True,
+            on_success=action,
+            expires_at=expires_at,
+            single_use=True,
+        )
+        saved = save_unattended_restore_profile(
+            profile, destination, minisign_secret_key=secret_key,
+        )
+        _message(
+            "Restore profile saved",
+            f"Signed, single-use profile created:\\n{saved}\\n\\n"
+            "Keep the profile, image, trusted public keys and replay ledger on persistent storage. "
+            "The image must also have its own minisign signature. Proportional resizing is not yet supported by the unattended executor.",
+        )
+    except (RestoreProfileError, OSError) as exc:
+        _message("Profile creation failed", str(exc))
+
+
 def _restore(inventory: dict[str, Any]) -> None:
     try:
         manifests = _available_manifests()
@@ -453,10 +515,6 @@ def _restore(inventory: dict[str, Any]) -> None:
     if filename is None:
         return
     manifest = next(item for name, item in manifests if name == filename)
-    security = _restore_security_options(manifest, filename)
-    if security is None:
-        return
-    age_identity, minisign_public_key, require_signature = security
     kind = "disk" if manifest.image_type == "disk" else "part"
     target = _select_device(
         inventory, kind, "Restore target",
@@ -464,6 +522,23 @@ def _restore(inventory: dict[str, Any]) -> None:
     )
     if target is None:
         return
+    action = _menu("Restore action", "Execute now or save these choices as a signed unattended profile.", [
+        ("execute", "Restore now (interactive confirmation)"),
+        ("save-profile", "Save signed unattended profile"),
+        ("cancel", "Cancel"),
+    ])
+    if action == "save-profile":
+        if manifest.image_type != "disk":
+            _message("Profile not available", "Unattended profiles currently support whole-disk images only.")
+            return
+        _save_unattended_profile(filename, manifest, target)
+        return
+    if action != "execute":
+        return
+    security = _restore_security_options(manifest, filename)
+    if security is None:
+        return
+    age_identity, minisign_public_key, require_signature = security
     phrase = f"ERASE {target['path']}"
     typed = _input("Destructive confirmation", f"Type exactly:\n{phrase}")
     if typed != phrase:
