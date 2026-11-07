@@ -26,7 +26,12 @@ The first milestone is a reproducible bootable live ISO with a verified core wor
 
 ## Build and test
 
-See [docs/BUILD.md](docs/BUILD.md) for the Fedora build-host prerequisites, installer ISO verification, build commands, output inspection, and BIOS/UEFI QEMU acceptance procedure. The focused [VM smoke-test checklist](tests/VM-SMOKE-TEST.md) records the boot and device-discovery checks.
+See [docs/BUILD.md](docs/BUILD.md) for Fedora build-host prerequisites, installer ISO verification, build commands, output inspection, and BIOS/UEFI QEMU acceptance procedure. The focused [VM smoke-test checklist](tests/VM-SMOKE-TEST.md) records boot and device-discovery checks.
+
+Operational design notes:
+- [Whole-disk restore and larger-target GPT repair](docs/WHOLE-DISK-RESTORE.md)
+- [Mutually authenticated remote disk cloning](docs/REMOTE-DISK-CLONE.md)
+- [Signed, single-use unattended restore profiles](docs/RESTORE-PROFILES.md)
 
 ## Repository layout
 
