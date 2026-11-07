@@ -91,8 +91,13 @@ def operation_record(
             ) from exc
         raise
     else:
-        append_event(log_path, {
-            **common,
-            "timestamp": _timestamp(),
-            "status": "completed",
-        })
+        try:
+            append_event(log_path, {
+                **common,
+                "timestamp": _timestamp(),
+                "status": "completed",
+            })
+        except OperationLogError as exc:
+            raise OperationLogError(
+                f"operation completed but its terminal journal event could not be persisted: {exc}"
+            ) from exc
