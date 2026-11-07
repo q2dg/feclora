@@ -64,6 +64,9 @@ class DiskCloneTests(unittest.TestCase):
         with self.assertRaisesRegex(DiskCloneError, "sector"):
             self.clone()
         self.assertEqual(self.started, [])
+    def test_allows_read_only_source(self):
+        self.sizes["/dev/source"] = "100000 disk 512 1\\n"
+        self.assertEqual(self.clone(), 100000)
     def test_rejects_read_only_target(self):
         self.sizes["/dev/target"] = "120000 disk 512 1\n"
         with self.assertRaisesRegex(DiskCloneError, "read-only"):
