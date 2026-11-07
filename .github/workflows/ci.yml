@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+      - name: Check Bash syntax and project inputs
+        run: |
+          bash -n build/*.sh
+          bash build/validate.sh
+      - name: Run ShellCheck
+        run: shellcheck build/*.sh
+      - name: Check Makefile help
+        run: make help
