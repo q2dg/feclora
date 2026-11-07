@@ -10,12 +10,14 @@ from unittest.mock import patch
 
 from feclora.network.remote_clone import (
     RemoteDiskCloneError,
+    _readback_digest,
     receive_remote_disk,
     send_remote_disk,
 )
 from feclora.network.remote_clone_protocol import (
     CloneSessionHeader,
     CloneVerificationResult,
+    RemoteCloneCancelled,
     receive_disk_stream,
     receive_session_header,
     receive_verification_result,
@@ -137,6 +139,27 @@ class RemoteDiskReceiverTests(unittest.TestCase):
             with open(log_path, encoding="utf-8") as journal:
                 self.journal_events = [json.loads(line) for line in journal]
             return result
+
+    def test_readback_reports_progress_and_checks_cancel(self):
+        process = FakeSourceProcess(self.payload)
+        progress = []
+        digest = _readback_digest(
+            "/dev/target", len(self.payload), "/usr/bin/dd",
+            popen_factory=lambda *args, **kwargs: process,
+            effective_uid=lambda: 0,
+            progress_callback=lambda done, total: progress.append((done, total)),
+        )
+        self.assertEqual(digest, hashlib.sha256(self.payload).hexdigest())
+        self.assertEqual(progress[-1], (len(self.payload), len(self.payload)))
+
+        cancelled = FakeSourceProcess(self.payload)
+        with self.assertRaisesRegex(RemoteCloneCancelled, "cancelled destination read-back"):
+            _readback_digest(
+                "/dev/target", len(self.payload), "/usr/bin/dd",
+                popen_factory=lambda *args, **kwargs: cancelled,
+                effective_uid=lambda: 0,
+                cancel_check=lambda: True,
+            )
 
     def test_source_waits_for_receiver_readback_ack_and_journals_result(self):
         left, right = socket.socketpair()
