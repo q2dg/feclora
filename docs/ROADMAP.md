@@ -23,7 +23,7 @@
 - [x] Implement a non-destructive whole-disk selection gate and live-root dependency probe (not yet integrated into the UI).
 - [x] Reject mounted, active-swap, busy and device-mapper-held capture/restore devices; protect backing disks of block, overlay and squashfs Live roots (mount-namespace races remain).
 - [x] Define versioned disk/partition image manifest schema with safe artifact names, filesystem metadata and SHA-256 integrity.
-- [x] Implement bounded-stream artifact writing with atomic no-overwrite publication and SHA-256 metadata (raw, gzip and xz).
+- [x] Implement bounded-stream artifact writing with atomic no-overwrite publication and SHA-256 metadata (raw, gzip and xz), including interactive gzip/xz level selection.
 - [x] Implement manifest-backed partition capture with Partclone or raw dd, exact raw byte-count validation and manifest-last publication.
 - [x] Implement transactional read-only whole-disk capture with raw dd, sfdisk metadata, exact byte-count validation and manifest-last publication.
 - [x] Implement verified whole-disk restore with raw dd and none/gzip/xz decompression, target geometry checks and typed confirmation (mocked tests; runtime validation pending).
@@ -34,6 +34,7 @@
 - [ ] Support GPT/MBR, LVM, LUKS and boot-area/bootloader workflows.
 - [ ] Support local and remote repositories (SSH/SFTP, NFS, SMB/CIFS, WebDAV).
 - [x] Connect disk/partition capture and restore workflows to the Local rescue TUI with explicit destructive confirmation and error dialogs.
+- [x] Add optional per-capture age encryption and minisign manifest signing choices; restore requests an age identity and offers trusted-key signature verification (mocked tests; real-binary validation pending).
 - [x] Add live dd progress and operator cancellation to direct local disk-to-disk cloning.
 - [x] Add live progress and cancellation to whole-disk and partition capture.
 - [x] Add live write progress and cancellation to raw whole-disk and raw partition restore.
@@ -63,8 +64,7 @@
 
 ## Milestone 5 — Compatibility and expansion
 - [ ] Expand filesystem and hardware compatibility based on tested generic tools.
-- [ ] Integrate optional age encryption into disk/partition capture and restore workflows.
-- [ ] Integrate minisign manifest signatures with trusted-key verification policy.
+- [ ] Validate age encryption and minisign signing/verification against real binaries on the Fedora Live image.
 - [ ] Add encryption and advanced storage coverage where supported.
 - [ ] Build a documented compatibility/regression matrix.
 - [ ] Evaluate additional deployment workflows only after core Live and Server parity is validated.
