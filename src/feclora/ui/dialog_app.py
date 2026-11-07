@@ -329,6 +329,14 @@ def _restore(inventory: dict[str, Any]) -> None:
                     progress_callback=progress,
                 ),
             )
+        elif manifest.artifacts[0].format == "raw":
+            _run_restore_gauge(
+                "Restoring raw partition", f"Writing image to {target['path']}. ALL EXISTING DATA WILL BE OVERWRITTEN.",
+                lambda progress: restore_partition(
+                    filename, _repository(), target["path"], confirmation=typed,
+                    progress_callback=progress,
+                ),
+            )
         else:
             restore_partition(filename, _repository(), target["path"], confirmation=typed)
         _message("Restore completed", f"Restore utility completed successfully for {target['path']}.\nVerify the resulting system before relying on it.")
