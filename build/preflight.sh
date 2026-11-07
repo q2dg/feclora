@@ -59,8 +59,8 @@ mkdir -p "$RESULT_DIR"
 RESULT_DIR="$(cd -- "$RESULT_DIR" && pwd)"
 available_kib="$(df -Pk "$RESULT_DIR" | awk 'NR == 2 {print $4}')"
 [[ "$available_kib" =~ ^[0-9]+$ ]] || fail "Could not determine free space for $RESULT_DIR."
+[[ "$MIN_FREE_GIB" =~ ^[1-9][0-9]*$ ]] || fail "FECLORA_MIN_FREE_GIB must be a positive integer."
 required_kib=$((MIN_FREE_GIB * 1024 * 1024))
-(( MIN_FREE_GIB > 0 )) || fail "FECLORA_MIN_FREE_GIB must be a positive integer."
 (( available_kib >= required_kib )) ||
   fail "Only $((available_kib / 1024 / 1024)) GiB free in $RESULT_DIR; need at least $MIN_FREE_GIB GiB (configurable via FECLORA_MIN_FREE_GIB)."
 
