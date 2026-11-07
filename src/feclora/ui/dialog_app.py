@@ -356,7 +356,7 @@ def _show_operation_log() -> None:
         )
         if event.get("error"):
             events.append(f"  {event['error']}")
-    _message("Operation history (latest events)", "\\n".join(events[-30:]) or "No readable events.")
+    _message("Operation history (latest events)", "\n".join(events[-30:]) or "No readable events.")
 
 
 def _available_manifests() -> list[tuple[str, ImageManifest]]:
