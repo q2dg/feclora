@@ -4,7 +4,7 @@
 - [x] Create the independent `feclora` repository.
 - [x] Define Fedora 43 x86_64 as the initial target.
 - [x] Publish an initial architecture decision record for the live-image build pipeline.
-- [x] Add static validation and GitHub Actions checks (execution status pending).
+- [ ] Confirm all GitHub Actions checks pass on the current main revision.
 - [ ] Define the project license and contribution policy.
 
 ## Milestone 1 — Bootable live image
@@ -12,10 +12,12 @@
 - [ ] Boot on BIOS and UEFI in virtual machines.
 - [ ] Provide a predictable live-session startup and logging.
 - [x] Implement a read-only block-device/filesystem inventory with mocked unit tests.
-- [ ] Validate inventory output against real BIOS/UEFI virtual-machine storage.
+- [x] Add an initial read-only device browser using the standard `dialog` utility.
+- [ ] Package and integrate feclora's Python code into the generated Live ISO.
+- [ ] Validate inventory and UI against real BIOS/UEFI virtual-machine storage.
 
 ## Milestone 2 — Core imaging workflow
-- [ ] Create and restore partition or disk images.
+- [ ] Create and restore partition or disk images using established utilities where possible.
 - [ ] Support compression and integrity verification.
 - [ ] Record image metadata and operation logs.
 - [ ] Validate source/target selection and destructive-operation safeguards.
