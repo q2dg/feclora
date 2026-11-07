@@ -429,8 +429,11 @@ def create_mutual_tls_context(
 ) -> ssl.SSLContext:
     """Create a TLS 1.3-only context that requires a trusted peer certificate."""
     if role == "client":
-        context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=ca_file)
-        context.check_hostname = True
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations(cafile=ca_file)
+        context.verify_mode = ssl.CERT_REQUIRED
+        # Identity is checked against the explicitly configured SAN/pin below.
+        context.check_hostname = False
     elif role == "server":
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.load_verify_locations(cafile=ca_file)
