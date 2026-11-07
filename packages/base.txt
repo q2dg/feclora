@@ -5,6 +5,7 @@ tar
 sudo
 python3
 dialog
+psmisc
 NetworkManager
 
 # Live-media boot support
