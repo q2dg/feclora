@@ -53,6 +53,7 @@ def validate_clone_selection(
     inventory: dict[str, Any],
     source_path: str,
     target_path: str,
+    protected_disk_paths: set[str] | None = None,
 ) -> CloneSelection:
     """Validate a whole-disk clone pair against a previously collected inventory.
 
@@ -82,6 +83,10 @@ def validate_clone_selection(
 
     source = next(device for device in devices if device.get("path") == source_path)
     target = next(device for device in devices if device.get("path") == target_path)
+
+    protected = protected_disk_paths or set()
+    if source_path in protected or target_path in protected:
+        raise SelectionError("A selected disk backs the live system root")
 
     if target.get("read_only"):
         raise SelectionError(f"Target disk is read-only: {target_path}")
