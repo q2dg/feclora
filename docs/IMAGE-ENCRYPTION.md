@@ -42,13 +42,19 @@ the artifact names, encryption modes, sizes and SHA-256 digests.
 
 ## Current implementation boundary
 
-The repository now has command adapters, an optional per-artifact encryption
-field in manifest schema v1, and Fedora 43 package dependencies. Capture and
-restore workflows are not yet wired to prompt for recipients/identities or
-enforce signature policy. Until that integration is complete, do not treat an
-image as encrypted or signed merely because the tools are installed. The
-adapters have mocked tests; they are not a substitute for testing against the
-real age/minisign binaries on Fedora Live.
+Capture UI exposes independent optional choices for age encryption and
+minisign signing. Restore detects age-encrypted artifacts and requests an
+identity file; it verifies ciphertext SHA-256 before invoking age, then
+authenticates/decrypts to a private staging file before decompression or disk
+writes. When a detached signature is present, restore offers verification
+against an independently supplied trusted public key or an explicit
+unverified continuation. A caller can also require signature verification
+through the restore API.
+
+These flows have mocked unit coverage, but have not yet been exercised with
+the real age/minisign binaries on Fedora Live. The UI currently offers gzip
+and xz compression; zstd/lz4 remain unavailable in the capture/restore
+pipeline despite being represented in the manifest schema.
 
 ## Interactive capture choices
 
