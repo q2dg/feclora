@@ -14,7 +14,7 @@ from typing import Callable, Mapping
 from .artifact_writer import ArtifactWriteError, write_artifact
 from .capture import CaptureError, _is_block_device
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
-from .image_security import encrypt_artifact, sign_manifest
+from .image_security import ImageSecurityError, encrypt_artifact, sign_manifest
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 
@@ -252,7 +252,7 @@ def capture_disk(
         os.fsync(repository_fd)
         committed = True
         return manifest
-    except (ArtifactWriteError, ManifestValidationError, OSError) as exc:
+    except (ArtifactWriteError, ImageSecurityError, ManifestValidationError, OSError) as exc:
         raise DiskCaptureError(f"whole-disk capture failed: {exc}") from exc
     finally:
         if process is not None and process.poll() is None:
