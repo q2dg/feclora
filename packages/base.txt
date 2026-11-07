@@ -20,6 +20,7 @@ syslinux
 # Storage and inspection
 partclone
 parted
+gdisk
 util-linux
 lvm2
 cryptsetup
