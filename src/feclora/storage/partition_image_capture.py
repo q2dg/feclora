@@ -26,6 +26,7 @@ def capture_partition_image(
     device_validator: Callable[[str], bool] | None = None,
     popen_factory: Callable[..., Any] | None = None,
     source_safety_check: Callable[[str], None] | None = None,
+    effective_uid: Callable[[], int] | None = None,
 ) -> ImageManifest:
     """Capture a partition and publish its data artifact and manifest marker."""
     if not isinstance(image_id, str) or not image_id or len(image_id) > 128:
@@ -78,7 +79,7 @@ def capture_partition_image(
             source_path, filesystem, stage, artifact_name, partition_id,
             available, compression=compression, device_validator=device_validator,
             popen_factory=popen_factory, source_safety_check=source_safety_check,
-            expected_size_bytes=size,
+            expected_size_bytes=size, effective_uid=effective_uid,
         )
         manifest = ImageManifest.from_dict({
             "schema_version": 1, "image_id": image_id, "image_type": "partition",
