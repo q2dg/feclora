@@ -276,6 +276,7 @@ def save_unattended_restore_profile(
     if not executable:
         raise RestoreProfileError("minisign is required to sign unattended restore profiles")
     temporary_path: str | None = None
+    published = False
     try:
         fd, temporary_path = tempfile.mkstemp(prefix=".feclora-profile-", dir=parent)
         try:
@@ -293,6 +294,7 @@ def save_unattended_restore_profile(
         # Hard-link publication is atomic and fails if another writer created
         # the destination after the initial existence check.
         os.link(temporary_path, destination, follow_symlinks=False)
+        published = True
         os.unlink(temporary_path)
         temporary_path = None
         subprocess.run(
@@ -307,12 +309,15 @@ def save_unattended_restore_profile(
         finally:
             os.close(directory_fd)
         return destination
-    except (OSError, subprocess.SubprocessError) as exc:
-        for failed_path in (destination, signature_path):
-            try:
-                os.unlink(failed_path)
-            except FileNotFoundError:
-                pass
+    except (OSError, subprocess.SubprocessError, RestoreProfileError) as exc:
+        if published:
+            for failed_path in (destination, signature_path):
+                try:
+                    os.unlink(failed_path)
+                except FileNotFoundError:
+                    pass
+        if isinstance(exc, RestoreProfileError):
+            raise
         raise RestoreProfileError(f"could not publish signed restore profile: {exc}") from exc
     finally:
         if temporary_path is not None:
