@@ -86,12 +86,43 @@ def _select_device(inventory: dict[str, Any], kind: str, title: str, prompt: str
     selected = _menu(title, prompt, choices)
     return next((item for item in items if item.get("path") == selected), None)
 
-def _compression() -> str | None:
-    return _menu("Image compression", "Choose storage compression.", [
+def _compression() -> tuple[str, int | None] | None:
+    tool = _menu("Image compression", "Choose compression tool. No compression is also available.", [
         ("none", "None (fastest, largest)"),
         ("gzip", "gzip"),
-        ("xz", "xz (slower, smaller)"),
+        ("xz", "xz"),
     ])
+    if tool is None:
+        return None
+    if tool == "none":
+        return ("none", None)
+    levels = [("1", "1 - fastest"), ("3", "3 - fast"), ("6", "6 - balanced"), ("9", "9 - maximum")]
+    if tool == "xz":
+        levels = [("0", "0 - fastest"), ("3", "3 - fast"), ("6", "6 - balanced"), ("9", "9 - maximum")]
+    selected = _menu(f"{tool} compression level", "Higher levels use more CPU and usually produce smaller images.", levels)
+    return (tool, int(selected)) if selected is not None else None
+
+
+def _image_security_options() -> tuple[str | None, str | None] | None:
+    mode = _menu("Image security", "Choose optional image encryption and manifest signing.", [
+        ("none", "Neither encryption nor signature"),
+        ("age", "Encrypt with age"),
+        ("minisign", "Sign manifest with minisign"),
+        ("both", "Encrypt with age and sign with minisign"),
+    ])
+    if mode is None:
+        return None
+    recipients = None
+    secret_key = None
+    if mode in {"age", "both"}:
+        recipients = _input("age recipients", "Path to recipients file (public age keys, one per line):")
+        if not recipients:
+            return None
+    if mode in {"minisign", "both"}:
+        secret_key = _input("minisign signing key", "Path to minisign secret key:")
+        if not secret_key:
+            return None
+    return recipients, secret_key
 
 def _repository() -> str:
     os.makedirs(IMAGE_REPOSITORY, mode=0o700, exist_ok=True)
@@ -151,15 +182,21 @@ def _capture_disk(inventory: dict[str, Any]) -> None:
     image_id = _input("Capture whole disk", "Image identifier (letters, digits, . _ -):")
     if not image_id:
         return
-    compression = _compression()
-    if compression is None:
+    compression_choice = _compression()
+    if compression_choice is None:
         return
+    compression, compression_level = compression_choice
+    security = _image_security_options()
+    if security is None:
+        return
+    recipients, signing_key = security
     try:
         manifest = _run_capture_gauge(
             "Capturing whole disk", f"Reading {source['path']} into image repository.",
             lambda progress: capture_disk(
                 source["path"], image_id, _repository(), compression=compression,
-                progress_callback=progress,
+                compression_level=compression_level, age_recipients_file=recipients,
+                minisign_secret_key=signing_key, progress_callback=progress,
             ),
         )
         _message("Capture completed", f"Image {manifest.image_id} captured.\nManifest: {manifest.image_id}.manifest.json")
@@ -175,16 +212,23 @@ def _capture_partition(inventory: dict[str, Any]) -> None:
     image_id = _input("Capture partition", "Image identifier (letters, digits, . _ -):")
     if not image_id:
         return
-    compression = _compression()
-    if compression is None:
+    compression_choice = _compression()
+    if compression_choice is None:
         return
+    compression, compression_level = compression_choice
+    security = _image_security_options()
+    if security is None:
+        return
+    recipients, signing_key = security
     partition_id = os.path.basename(source["path"])
     try:
         manifest = _run_capture_gauge(
             "Capturing partition", f"Reading {source['path']} into image repository.",
             lambda progress: capture_partition_image(
                 source["path"], image_id, partition_id, _repository(),
-                compression=compression, progress_callback=progress,
+                compression=compression, compression_level=compression_level,
+                age_recipients_file=recipients, minisign_secret_key=signing_key,
+                progress_callback=progress,
             ),
         )
         _message("Capture completed", f"Partition image {manifest.image_id} captured.\nManifest: {manifest.image_id}.manifest.json")
