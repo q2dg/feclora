@@ -54,7 +54,7 @@ class DiskCloneTests(unittest.TestCase):
         self.assertEqual(self.safety, ["/dev/source", "/dev/target"] * 2)
     def test_reports_dd_progress(self):
         progress = []
-        proc = FakeProcess(stderr=b"50000 bytes copied, 1.0 s, 50 kB/s\\r100000 bytes copied, 2.0 s, 50 kB/s\\r")
+        proc = FakeProcess(stderr=b"50000 bytes copied, 1.0 s, 50 kB/s\r100000 bytes copied, 2.0 s, 50 kB/s\r")
         clone_disk(
             "/dev/source", "/dev/target", confirmation="ERASE /dev/target",
             executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
@@ -65,7 +65,7 @@ class DiskCloneTests(unittest.TestCase):
         )
         self.assertEqual(progress, [50, 100])
     def test_progress_dialog_closure_cancels_dd(self):
-        proc = FakeProcess(stderr=b"50000 bytes copied\\r")
+        proc = FakeProcess(stderr=b"50000 bytes copied\r")
         with self.assertRaises(DiskCloneCancelled):
             clone_disk(
                 "/dev/source", "/dev/target", confirmation="ERASE /dev/target",
