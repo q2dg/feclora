@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
-from feclora.storage.disk_clone import DiskCloneError, clone_disk
+from feclora.storage.disk_clone import DiskCloneCancelled, DiskCloneError, clone_disk
 from feclora.storage.disk_restore import DiskRestoreError, restore_disk
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import InventoryError, collect_inventory
@@ -163,17 +163,44 @@ def _clone_disk(inventory: dict[str, Any]) -> None:
     if typed != phrase:
         _message("Clone cancelled", "The confirmation did not match. No write was started.")
         return
+    gauge = None
     try:
+        gauge = subprocess.Popen(
+            ["dialog", "--title", "Cloning disk", "--gauge",
+             f"Copying {source['path']} to {target_path}. Press Esc to cancel.",
+             "10", "76", "0"],
+            stdin=subprocess.PIPE, text=True,
+        )
+        def report_progress(percent: int, _detail: str) -> None:
+            if gauge is None or gauge.poll() is not None or gauge.stdin is None:
+                raise BrokenPipeError("progress dialog was closed")
+            gauge.stdin.write(f"{percent}\\n")
+            gauge.stdin.flush()
         copied = clone_disk(
             source["path"], target_path, confirmation=typed,
+            progress_callback=report_progress,
         )
+        if gauge is not None and gauge.stdin is not None:
+            gauge.stdin.write("100\\n")
+            gauge.stdin.close()
+            gauge.stdin = None
+            gauge.wait()
         _message(
             "Clone completed",
             f"Copied {copied} bytes from {source['path']} to {target_path}.\\n"
             "The destination's extra capacity, if any, was left untouched.",
         )
+    except DiskCloneCancelled as exc:
+        _message("Clone cancelled", str(exc) + "\\nThe destination may contain a partial clone.")
     except (DiskCloneError, OSError) as exc:
         _message("Clone failed", str(exc))
+    finally:
+        if gauge is not None:
+            if gauge.stdin is not None:
+                gauge.stdin.close()
+            if gauge.poll() is None:
+                gauge.terminate()
+                gauge.wait()
 
 
 def _available_manifests() -> list[tuple[str, ImageManifest]]:
