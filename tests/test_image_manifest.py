@@ -147,6 +147,25 @@ class ImageManifestTests(unittest.TestCase):
         self.assertEqual(manifest.artifacts[0].encryption, "age")
         self.assertEqual(ImageManifest.from_json(manifest.to_json()), manifest)
 
+    def test_optional_compression_level_round_trips(self):
+        manifest = ImageManifest.from_dict(disk_manifest(artifacts=[
+            artifact(filename="disk.raw.gz", role="disk-image", format="raw",
+                     compression="gzip", partition_id=None, compression_level=1),
+            artifact(filename="partition-table.sfdisk", role="partition-table",
+                     format="raw", compression="none", partition_id=None),
+        ]))
+        self.assertEqual(manifest.artifacts[0].compression_level, 1)
+        self.assertEqual(ImageManifest.from_json(manifest.to_json()), manifest)
+
+    def test_rejects_compression_level_for_uncompressed_artifact(self):
+        with self.assertRaisesRegex(ManifestValidationError, "Uncompressed"):
+            ImageManifest.from_dict(disk_manifest(artifacts=[
+                artifact(filename="disk.raw", role="disk-image", format="raw",
+                         compression="none", partition_id=None, compression_level=3),
+                artifact(filename="partition-table.sfdisk", role="partition-table",
+                         format="raw", compression="none", partition_id=None),
+            ]))
+
     def test_rejects_unknown_encryption_metadata(self):
         with self.assertRaisesRegex(ManifestValidationError, "encryption"):
             ImageManifest.from_dict(disk_manifest(artifacts=[
