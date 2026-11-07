@@ -23,6 +23,7 @@ tar
 sudo
 python3
 dialog
+psmisc
 NetworkManager
 
 # Required live-media boot components
