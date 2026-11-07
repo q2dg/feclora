@@ -377,7 +377,7 @@ def _run_restore_gauge(
         if gauge.poll() is not None or gauge.stdin is None:
             raise DiskRestoreCancelled("progress dialog closed; restore was cancelled")
         percent = min(99, int(done * 100 / total)) if total else 0
-        gauge.stdin.write(f"XXX\n{percent}\nWritten {done:,} of {total:,} bytes\nXXX\n")
+        gauge.stdin.write(f"XXX\n{percent}\nProgress {done:,} of {total:,}\nXXX\n")
         gauge.stdin.flush()
     try:
         result = operation(report_progress)
