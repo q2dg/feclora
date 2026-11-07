@@ -14,7 +14,7 @@ from typing import Any
 
 from feclora.storage.disk_restore import restore_disk
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
-from feclora.storage.operation_log import DEFAULT_LOG_PATH, operation_record
+from feclora.storage.operation_log import DEFAULT_LOG_PATH, operation_record\nfrom feclora.storage.privilege import privileged_argv
 from feclora.storage.restore_profile import (
     RestoreProfile,
     RestoreProfileError,
@@ -184,7 +184,7 @@ def execute_unattended_restore_profile(
             pre_write_callback=consume_before_write,
         )
     if profile.on_success in {"reboot", "poweroff"}:
-        command_runner(["systemctl", profile.on_success], check=True, timeout=30)
+        command_runner(privileged_argv(["systemctl", profile.on_success]), check=True, timeout=30)
     return restored
 
 
