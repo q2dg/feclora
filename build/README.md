@@ -4,6 +4,16 @@
 
 The first build target is a Fedora 43 x86_64 rescue live ISO. The build uses Lorax `livemedia-creator` with QEMU virtualization. It intentionally avoids `--no-virt`: Lorax documents that direct Anaconda/no-virt builds have a greater risk of affecting the host if Anaconda behaves unexpectedly. See the [upstream livemedia-creator documentation](https://github.com/weldr/lorax/blob/master/docs/livemedia-creator.rst).
 
+## Static validation
+
+Run the repository checks before building:
+
+```bash
+make validate
+```
+
+GitHub Actions runs Bash syntax checks, project-input validation, ShellCheck and the Makefile help target on pushes and pull requests. These checks do not prove that an ISO can be built or booted.
+
 ## Build host
 
 Use a disposable Fedora 43 x86_64 virtual machine if possible. Allocate at least 4 CPU cores, 8 GiB RAM, and 30 GiB free disk space. Install dependencies:
