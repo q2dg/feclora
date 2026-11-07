@@ -78,8 +78,7 @@ def clone_disk(
     run = runner or subprocess.run
     source_size, source_sector, source_ro = _geometry(source_path, lsblk, run)
     target_size, target_sector, target_ro = _geometry(target_path, lsblk, run)
-    if source_ro:
-        raise DiskCloneError("source disk is marked read-only")
+    # A read-only source is safe and useful; only the destination must be writable.
     if target_ro:
         raise DiskCloneError("target disk is marked read-only")
     if source_sector != target_sector:
