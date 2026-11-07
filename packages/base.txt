@@ -17,6 +17,7 @@ shim-x64
 syslinux
 
 # Storage and inspection
+partclone
 parted
 util-linux
 lvm2
