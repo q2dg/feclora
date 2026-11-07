@@ -35,7 +35,10 @@
 - [ ] Support local and remote repositories (SSH/SFTP, NFS, SMB/CIFS, WebDAV).
 - [x] Connect disk/partition capture and restore workflows to the Local rescue TUI with explicit destructive confirmation and error dialogs.
 - [x] Add live dd progress and operator cancellation to direct local disk-to-disk cloning.
-- [ ] Extend progress, persistent logs and cancellation to image capture/restore; add post-write verification and crash recovery.
+- [x] Add live progress and cancellation to whole-disk and partition capture.
+- [x] Add live write progress and cancellation to raw whole-disk and raw partition restore.
+- [x] Verify whole-disk restore by reading the destination back and comparing SHA-256.
+- [ ] Add Partclone restore progress/cancellation, partition read-back verification, persistent operation logs and crash recovery.
 - [ ] Validate all destructive paths on disposable BIOS/UEFI VMs.
 
 ## Milestone 3 — Network client and server modes in the same ISO
