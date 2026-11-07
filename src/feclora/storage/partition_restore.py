@@ -132,6 +132,7 @@ def restore_partition(
     if confirmation != f"ERASE {target_path}":
         raise PartitionRestoreError(f"explicit confirmation required: ERASE {target_path}")
     validator = device_validator or (lambda path: stat.S_ISBLK(os.stat(path).st_mode))
+    initial_device_number = os.stat(target_path).st_rdev if device_validator is None else None
     try:
         if not validator(target_path):
             raise PartitionRestoreError("target is not an accessible block device")
@@ -218,6 +219,8 @@ def restore_partition(
             stderr = tempfile.TemporaryFile(mode="w+b")
             process = None
             try:
+            if initial_device_number is not None and os.stat(target_path).st_rdev != initial_device_number:
+                raise PartitionRestoreError("block-device identity changed before restore")
                 factory = popen_factory or subprocess.Popen
                 try:
                     process = factory(
