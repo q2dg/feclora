@@ -19,6 +19,9 @@
 - [x] Document the build-host preparation, ISO build, artifact checks, and VM acceptance procedure in [the build runbook](BUILD.md).
 
 ## Milestone 2 — Core imaging workflow
+- [x] Discover the presence of standard storage utilities without executing them.
+- [x] Implement a tested, non-destructive whole-disk source/target selection gate.
+- [ ] Add independent root/system-device and mount-namespace checks before any destructive workflow.
 - [ ] Create and restore partition or disk images using established utilities where possible.
 - [ ] Support compression and integrity verification.
 - [ ] Record image metadata and operation logs.
