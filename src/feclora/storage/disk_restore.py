@@ -75,24 +75,24 @@ def _preflight_decoded_size(stream: Any, artifact: ImageArtifact, expected: int)
         raise DiskRestoreError("decoded image size does not match manifest source size")
     stream.seek(0)
 
-def _target_geometry(target_path: str, lsblk: str, runner: Callable[..., Any]) -> int:
+def _target_geometry(target_path: str, lsblk: str, runner: Callable[..., Any]) -> tuple[int, int]:
     try:
         result = runner(
-            [lsblk, "--bytes", "--noheadings", "--nodeps", "--output", "SIZE,TYPE", target_path],
+            [lsblk, "--bytes", "--noheadings", "--nodeps", "--output", "SIZE,TYPE,LOG-SEC", target_path],
             check=True, capture_output=True, text=True, timeout=20,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise DiskRestoreError(f"cannot inspect target disk: {exc}") from exc
     fields = result.stdout.split()
-    if len(fields) != 2 or fields[1] != "disk":
+    if len(fields) != 3 or fields[1] != "disk":
         raise DiskRestoreError("restore target must be exactly one whole disk")
     try:
-        size = int(fields[0])
+        size, sector_size = int(fields[0]), int(fields[2])
     except ValueError as exc:
         raise DiskRestoreError("lsblk returned invalid target capacity") from exc
-    if size <= 0:
-        raise DiskRestoreError("target disk capacity is invalid")
-    return size
+    if size <= 0 or sector_size not in {512, 4096}:
+        raise DiskRestoreError("target disk geometry is invalid")
+    return size, sector_size
 
 def restore_disk(
     manifest_path: str | os.PathLike[str],
@@ -154,7 +154,9 @@ def restore_disk(
     if not dd or not lsblk:
         raise DiskRestoreError("dd and lsblk are required for whole-disk restore")
     run = runner or subprocess.run
-    target_size = _target_geometry(target_path, lsblk, run)
+    target_size, target_sector_size = _target_geometry(target_path, lsblk, run)
+    if target_sector_size != manifest.logical_sector_size:
+        raise DiskRestoreError("target logical sector size differs from the image")
     if target_size < manifest.source_size_bytes:
         raise DiskRestoreError("target disk is smaller than the source image")
     safety = target_safety_check or check_capture_source_safe
