@@ -88,9 +88,13 @@ Python's standard ssl and socket facilities provide the authenticated
 transport. The initial runtime is in
 `src/feclora/network/remote_clone.py`:
 
+- `build_remote_clone_header()` creates a fresh session UUID and derives the
+  source byte count and logical sector size from `lsblk`; it refuses a source
+  that is not already marked read-only.
 - `send_remote_disk()` runs on the source endpoint after the receiver has
   connected over mTLS. It validates and reads the source with `lsblk` and
-  `dd`, then waits for the receiver's verification acknowledgement.
+  `dd`, waits for the receiver READY frame, then waits for the final
+  verification acknowledgement.
 - `receive_remote_disk()` runs on the receiver endpoint. It validates the
   target, writes through `dd`, reads back the complete source-sized extent,
   and sends a success acknowledgement only when SHA-256 matches.
