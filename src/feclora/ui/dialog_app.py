@@ -435,19 +435,16 @@ def _restore(inventory: dict[str, Any]) -> None:
                     minisign_public_key=minisign_public_key, require_signature=require_signature,
                 ),
             )
-        elif manifest.artifacts[0].format == "raw":
+        else:
             _run_restore_gauge(
-                "Restoring raw partition", f"Writing image to {target['path']}. ALL EXISTING DATA WILL BE OVERWRITTEN.",
+                "Restoring partition",
+                f"Writing {manifest.artifacts[0].format} image to {target['path']}. ALL EXISTING DATA WILL BE OVERWRITTEN.",
                 lambda progress: restore_partition(
                     filename, _repository(), target["path"], confirmation=typed,
                     progress_callback=progress, age_identity_file=age_identity,
                     minisign_public_key=minisign_public_key, require_signature=require_signature,
                 ),
             )
-        else:
-            restore_partition(filename, _repository(), target["path"], confirmation=typed,
-                              age_identity_file=age_identity, minisign_public_key=minisign_public_key,
-                              require_signature=require_signature)
         _message("Restore completed", f"Restore utility completed successfully for {target['path']}.\nVerify the resulting system before relying on it.")
     except (DiskRestoreCancelled, PartitionRestoreCancelled) as exc:
         _message("Restore cancelled", str(exc) + "\nThe target may contain a partial restore and must not be used.")
