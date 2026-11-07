@@ -98,20 +98,21 @@ def _decompress_to_temp(source: Any, compression: str, expected_raw_size: int | 
 def _target_geometry(target: str, lsblk: str, runner: Callable[..., Any]) -> tuple[int, int]:
     try:
         result = runner(
-            [lsblk, "--bytes", "--noheadings", "--nodeps", "--output", "SIZE,TYPE,LOG-SEC", target],
+            [lsblk, "--bytes", "--noheadings", "--nodeps", "--output", "SIZE,TYPE,LOG-SEC,RO", target],
             check=True, capture_output=True, text=True, timeout=20,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise PartitionRestoreError(f"cannot inspect target partition: {exc}") from exc
     fields = result.stdout.split()
-    if len(fields) != 3 or fields[1] != "part":
+    if len(fields) != 4 or fields[1] != "part":
         raise PartitionRestoreError("restore target must be exactly one partition")
     try:
         size, sector_size = int(fields[0]), int(fields[2])
+        read_only = fields[3] == "1"
     except ValueError as exc:
         raise PartitionRestoreError("lsblk returned invalid partition size") from exc
-    if size <= 0 or sector_size not in {512, 4096}:
-        raise PartitionRestoreError("target partition geometry is invalid")
+    if size <= 0 or sector_size not in {512, 4096} or read_only:
+        raise PartitionRestoreError("target partition geometry is invalid or read-only")
     return size, sector_size
 
 def restore_partition(
