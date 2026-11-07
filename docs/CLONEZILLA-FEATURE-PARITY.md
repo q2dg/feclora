@@ -2,12 +2,15 @@
 
 ## Product goal
 
-feclora is a Fedora-based project with two operating modes:
+feclora is one Fedora-based bootable ISO with a startup menu for selecting the operating mode:
 
-1. **Live/rescue mode**: boot one machine from USB/DVD/PXE to save, restore, or clone its disks.
-2. **Server mode**: centrally orchestrate unattended imaging and deployment to many PXE-booted clients, including unicast and multicast/broadcast delivery.
+1. **Local rescue (Live)**: save, restore, and clone disks on the machine booted from the ISO.
+2. **Server**: coordinate unattended imaging and deployment to multiple PXE-booted clients.
+3. **Client**: join an authorized network deployment session and execute its assigned imaging task.
 
-Clonezilla Live and Clonezilla Server Edition (SE) define the user-visible feature target. Clonezilla Lite Server deployment workflows are also relevant. Clonezilla is a functional benchmark only: feclora must not depend on Clonezilla, DRBL, or any ocs-* program or script.
+This is one ISO and one shared runtime/toolset, not separate Live and Server images. Server and client functions are selected from the startup menu. Network services remain stopped unless the operator explicitly selects Server mode.
+
+Clonezilla Live and Clonezilla Server Edition define the user-visible feature target. Clonezilla Lite Server deployment workflows are also relevant. Clonezilla is a functional benchmark only: feclora must not depend on Clonezilla, DRBL, or any ocs-* program or script.
 
 ## Live/rescue feature map
 
@@ -47,17 +50,31 @@ Clonezilla Live and Clonezilla Server Edition (SE) define the user-visible featu
 | Safe network isolation | Dedicated VLAN/subnet or isolated deployment network; explicit DHCP ownership/relay | Not implemented |
 | Reboot/poweroff after deployment | Client-side systemd/runtime action under job policy | Not implemented |
 
-## Server architecture boundary
+## Single-ISO mode architecture
 
-The server edition is not merely a multicast command wrapped in a menu. It requires a coordinated server and client system:
+The startup menu is the entry point for all operating modes. It must be present
+in the same booted ISO and dispatch to separate application modules/processes:
 
-- **Server control plane**: creates jobs, selects image and operation, defines eligible clients, start conditions, concurrency and completion policy.
-- **Boot services**: provisions or integrates with DHCP, TFTP and PXE/iPXE/HTTP boot. It must detect and avoid competing with an existing DHCP server unless the administrator explicitly configures a supported relay/proxy arrangement.
-- **Image/data plane**: exposes repositories and streams data by unicast or multicast/broadcast. Multicast group selection, interface selection and network capacity must be explicit.
-- **Client runtime**: boots independently of the installed OS, authenticates the deployment job, discovers local storage, validates the target and performs the operation using generic utilities.
-- **Observability**: records client identity, selected disk, image, progress, exit status and errors for each deployment.
+- **Local rescue** opens the local imaging UI.
+- **Server** starts the server control plane and, only after explicit operator
+  configuration/confirmation, the required network boot and deployment services.
+- **Client** starts the PXE/deployment client runtime and joins an authorized job.
 
-A deployment must never start merely because a machine PXE-boots onto the network. The server must restrict eligible clients and require an explicitly armed job. The client must verify its identity and target disk according to the job policy before destructive writes.
+The mode selector itself must not start DHCP, TFTP, HTTP, multicast, or other
+network services. Selecting Server is an explicit action, and the operator
+must choose the network interface and DHCP integration/scope. The system must
+detect likely competing DHCP services and fail safely rather than silently
+starting another one.
+
+The server and client modes share the same ISO, kernel, initramfs, storage
+utilities, image manifest format, safety validation and logging facilities.
+Role-specific services are activated on demand and stopped when leaving that
+mode or shutting down.
+
+A deployment must never start merely because a machine PXE-boots onto the
+network. The server must restrict eligible clients and require an explicitly
+armed job. The client must verify its identity and target disk according to
+the job policy before destructive writes.
 
 ## Generic-tools-only rules
 
@@ -67,18 +84,18 @@ A deployment must never start merely because a machine PXE-boots onto the networ
 4. Use standard partitioning, compression, checksum, encryption, filesystem, network boot and transport tools rather than reimplementing them.
 5. feclora code is limited to UI, control-plane/job orchestration, client coordination, safety validation, progress, logs, metadata and integration.
 6. Feature parity means equivalent user-visible workflows, not compatibility with Clonezilla's private image layout, command syntax, or internal scripts.
-7. Server-mode network services must be opt-in, bound to explicitly selected interfaces, and accompanied by clear warnings about DHCP/PXE scope and network isolation.
+7. Network services must be opt-in, bound to explicitly selected interfaces, and accompanied by clear warnings about DHCP/PXE scope and network isolation.
 
 ## Delivery strategy
 
 1. Complete and test single-machine inventory, save, restore and disk-to-disk clone workflows first.
 2. Define a stable image manifest and a client job protocol.
-3. Implement a one-client PXE/iPXE boot and unattended restore path.
-4. Add server job management, client identity/allowlisting and result reporting.
+3. Implement the Client mode and a one-client PXE/iPXE boot and unattended restore path.
+4. Implement Server mode job management, client identity/allowlisting and result reporting.
 5. Add unicast deployment to multiple clients.
 6. Add multicast/broadcast transport using a generic transport such as UDPcast, with client-count/deadline start conditions and recovery/error reporting.
 7. Add Wake-on-LAN, capacity controls, network isolation guidance and a repeatable multi-client test lab.
 
 ## Acceptance
 
-A capability is complete only when it works in the generated Fedora ISO/server environment with generic tools, safe defaults, progress/error reporting, and repeatable tests. Server acceptance requires multiple disposable PXE clients on an isolated test network; a successful single-client test is not evidence that multicast or mass deployment works.
+A capability is complete only when it works in the same generated Fedora ISO with generic tools, safe defaults, progress/error reporting, and repeatable tests. Server acceptance requires multiple disposable PXE clients on an isolated test network; a successful single-client test is not evidence that multicast or mass deployment works.
