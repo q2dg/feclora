@@ -43,7 +43,7 @@ class CloneSelectionTests(unittest.TestCase):
 
     def test_rejects_partition_selection(self):
         with self.assertRaisesRegex(SelectionError, "Whole-disk"):
-            validate_clone_selection(self.inventory, "/dev/sda1", "/dev/sdb")
+            self.validate("/dev/sda1", "/dev/sdb")
 
     def test_rejects_mounted_target_descendant(self):
         self.inventory["devices"][1]["children"] = [part("/dev/sdb1", ["/mnt/data"])]
@@ -58,6 +58,10 @@ class CloneSelectionTests(unittest.TestCase):
     def test_rejects_live_root_disk(self):
         with self.assertRaisesRegex(SelectionError, "live system root"):
             validate_clone_selection(self.inventory, "/dev/sda", "/dev/sdc")
+
+    def test_requires_root_protection_data(self):
+        with self.assertRaisesRegex(SelectionError, "protection data is required"):
+            validate_clone_selection(self.inventory, "/dev/sda", "/dev/sdb")
 
     def test_rejects_root_backing_disk_reported_by_independent_probe(self):
         with self.assertRaisesRegex(SelectionError, "backs the live system root"):
