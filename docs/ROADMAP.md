@@ -73,3 +73,6 @@
 - [ ] Evaluate additional deployment workflows only after core Live and Server parity is validated.
 
 Milestones are goals, not claims of existing functionality. Mark items complete only after repeatable tests.
+
+
+Compression: gzip/xz use the Python standard library; zstd/lz4 are delegated to Fedora's system CLI tools. The menu exposes codec-specific level ranges. Unit and real-binary integration tests are added; execution and ISO validation remain pending.
