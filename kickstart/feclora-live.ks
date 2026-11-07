@@ -114,7 +114,7 @@ export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
 exec /usr/bin/python3 -m feclora.storage.profile_executor "$@"
 EOF
 chmod 0755 "$TARGET_ROOT/usr/local/bin/feclora-restore-profile"
-install -d -m 0700 -o feclora -g feclora "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
+install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"\nchown --reference="$TARGET_ROOT/home/feclora" "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
 %end
 
 shutdown
