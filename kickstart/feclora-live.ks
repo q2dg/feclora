@@ -22,6 +22,7 @@ kernel
 tar
 sudo
 python3
+dialog
 NetworkManager
 
 # Required live-media boot components
