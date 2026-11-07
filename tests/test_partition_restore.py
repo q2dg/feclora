@@ -73,7 +73,7 @@ class PartitionRestoreTests(unittest.TestCase):
             if argv[0] == "dd":
                 self.active_process = proc
             elif argv[0].startswith("partclone."):
-                with open(argv[3], "rb") as image:
+                with open(argv[argv.index("-s") + 1], "rb") as image:
                     self.partclone_data = image.read()
             return proc
         result = restore_partition(
@@ -136,7 +136,8 @@ class PartitionRestoreTests(unittest.TestCase):
         self.restore()
         argv, options = self.calls[0]
         self.assertEqual(argv[0], "partclone.ext4")
-        self.assertEqual(argv[1:3], ["-r", "-s"])
+        self.assertEqual(argv[1], "-r")
+        self.assertIn("-s", argv)
         self.assertEqual(self.partclone_data, self.payload)
         self.assertNotIn("pass_fds", options)
 
