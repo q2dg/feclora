@@ -10,7 +10,9 @@ The Local rescue mode now exposes:
 The UI requires a unique image identifier. Restore requires typing the exact
 phrase `ERASE /dev/DEVICE`; cancelling or entering a different phrase does not
 start a writer. The image repository is created with mode 0700 in the live
-user's home directory.
+user's home directory. Block-device imaging commands and process-use checks
+run through non-interactive sudo. The Kickstart grants the live wheel user
+passwordless sudo, while the UI and image repository remain owned by that user.
 
 The interface currently runs imaging synchronously and reports completion or
 errors in a dialog. Progress bars, cancellation controls, per-operation log
