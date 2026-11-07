@@ -121,6 +121,7 @@ def capture_partition(
     failed producer process from publishing a partial artifact.
     """
     validator = device_validator or _is_block_device
+    initial_device_number = os.stat(source_path).st_rdev if device_validator is None else None
     if not validator(source_path):
         raise CaptureError(f"source is not an accessible block device: {source_path}")
     try:
@@ -147,6 +148,8 @@ def capture_partition(
                 (source_safety_check or check_capture_source_safe)(source_path)
             except SourceSafetyError as exc:
                 raise CaptureError(f"capture source became unsafe before imaging: {exc}") from exc
+            if initial_device_number is not None and os.stat(source_path).st_rdev != initial_device_number:
+                raise CaptureError("block-device identity changed before imaging")
             factory = popen_factory or subprocess.Popen
             try:
                 process = factory(
