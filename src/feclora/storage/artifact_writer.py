@@ -75,7 +75,7 @@ def write_artifact(
     if not isinstance(filename, str) or not _FILENAME_RE.fullmatch(filename) or filename in {".", ".."}:
         raise ArtifactWriteError("filename must be a safe basename")
     if compression not in _SUPPORTED_COMPRESSION:
-        raise ArtifactWriteError("compression must be one of: none, gzip, xz")
+        raise ArtifactWriteError("compression must be one of: none, gzip, xz, zstd, lz4")
     if compression == "none" and compression_level is not None:
         raise ArtifactWriteError("compression_level is not valid when compression is none")
     if compression != "none":
