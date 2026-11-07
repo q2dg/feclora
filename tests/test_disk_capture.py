@@ -93,6 +93,7 @@ class DiskCaptureTests(unittest.TestCase):
                 executables=self.executables,
                 device_validator=lambda _path: True,
                 runner=bad_runner,
+                source_safety_check=lambda _path: None,
                 popen_factory=lambda *_args, **_kwargs: self.fail("dd must not start"),
             )
         self.assertEqual(os.listdir(self.temp.name), [])
@@ -106,6 +107,7 @@ class DiskCaptureTests(unittest.TestCase):
                 executables=self.executables,
                 device_validator=lambda _path: True,
                 runner=self.runner,
+                source_safety_check=lambda _path: None,
                 popen_factory=lambda *_args, **_kwargs: FakeProcess(),
             )
         self.assertEqual(os.listdir(self.temp.name), ["manifest-taken.manifest.json"])
