@@ -113,7 +113,7 @@ def write_artifact(
     try:
         raw_fd = os.open(
             temp_name,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
             0o600,
             dir_fd=dir_fd,
         )
