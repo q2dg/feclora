@@ -74,11 +74,11 @@ restorecon -RF /home/feclora /etc/sudoers.d /etc/systemd/system/getty@tty1.servi
 # Copy the application payload from the augmented installer DVD into the
 # installed live filesystem. mkksiso adds this directory at the DVD root.
 %post --nochroot --erroronfail
-set -euo pipefail
+set -eu
 APP_SOURCE=/run/install/repo/feclora-app/src/feclora
 TARGET_ROOT=/mnt/sysroot
 
-if [[ ! -d "$APP_SOURCE" ]]; then
+if [ ! -d "$APP_SOURCE" ]; then
   echo "feclora application payload not found: $APP_SOURCE" >&2
   exit 1
 fi
