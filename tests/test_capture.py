@@ -68,7 +68,7 @@ class CaptureTests(unittest.TestCase):
             artifact = capture_partition(
                 "/dev/fake1", "unknown", directory, "part.raw", "1",
                 {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
-                source_safety_check=lambda _path: None,
+                source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=factory,
             )
             with open(os.path.join(directory, "part.raw"), "rb") as stream:
@@ -85,7 +85,7 @@ class CaptureTests(unittest.TestCase):
                 capture_partition(
                     "/dev/fake1", None, directory, "part.raw", "1",
                     {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
-                    source_safety_check=lambda _path: None,
+                    source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                     popen_factory=lambda *_args, **_kwargs: proc,
                 )
             self.assertEqual(os.listdir(directory), [])
@@ -100,7 +100,7 @@ class CaptureTests(unittest.TestCase):
                 capture_partition(
                     "/dev/fake1", None, directory, "part.raw", "1",
                     {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
-                    source_safety_check=lambda _path: None,
+                    source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                     popen_factory=lambda *_args, **_kwargs: proc,
                 )
             with open(path, "rb") as stream:
@@ -115,7 +115,7 @@ class CaptureTests(unittest.TestCase):
                 capture_partition(
                     "/dev/fake1", None, link, "part.raw", "1",
                     {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
-                    source_safety_check=lambda _path: None,
+                    source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                     popen_factory=lambda *_args, **_kwargs: FakeProcess(["dd"]),
                 )
 
