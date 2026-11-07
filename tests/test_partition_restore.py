@@ -32,6 +32,7 @@ class PartitionRestoreTests(unittest.TestCase):
         self.manifest = os.path.join(self.temp.name, "part.manifest.json")
         self.write_manifest("raw", None, len(self.payload))
         self.calls = []
+        self.stdin_data = None
     def write_manifest(self, image_format, filesystem, size):
         artifact = {
             "filename": "partition.img.gz", "role": "partition-image",
@@ -54,6 +55,8 @@ class PartitionRestoreTests(unittest.TestCase):
         proc = FakeProcess()
         def factory(argv, **opts):
             self.calls.append((argv, opts))
+            if argv[0] == "dd":
+                self.stdin_data = opts["stdin"].read()
             return proc
         result = restore_partition(
             self.manifest, self.temp.name, "/dev/sda1",
@@ -68,7 +71,7 @@ class PartitionRestoreTests(unittest.TestCase):
         self.restore()
         argv, options = self.calls[0]
         self.assertEqual(argv[0], "dd")
-        self.assertEqual(options["stdin"].read(), self.payload)
+        self.assertEqual(self.stdin_data, self.payload)
     def test_partclone_restore_uses_filesystem_specific_executable(self):
         self.write_manifest("partclone", "ext4", len(self.payload))
         self.restore()
