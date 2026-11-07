@@ -3,9 +3,9 @@
 ## Milestone 0 — Project foundation
 - [x] Create the independent `feclora` repository.
 - [x] Define Fedora 43 x86_64 as the initial target.
+- [x] Publish an initial architecture decision record for the live-image build pipeline.
+- [x] Add static validation and GitHub Actions checks (execution status pending).
 - [ ] Define the project license and contribution policy.
-- [ ] Publish an architecture decision record for the live-image build pipeline.
-- [ ] Establish automated linting and build checks.
 
 ## Milestone 1 — Bootable live image
 - [ ] Build a reproducible Fedora 43 live ISO.
