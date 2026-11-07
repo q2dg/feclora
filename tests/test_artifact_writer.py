@@ -101,7 +101,8 @@ class ArtifactWriterTests(unittest.TestCase):
                            role="disk-image", image_format="raw")
         with self.assertRaises(ArtifactWriteError):
             write_artifact(self.temp.name, "image.zst", io.BytesIO(self.payload),
-                           role="disk-image", image_format="raw", compression="zstd")
+                           role="disk-image", image_format="raw", compression="zstd",
+                           compression_executable="/definitely/missing/zstd")
         link = self.temp.name + "-link"
         os.symlink(self.temp.name, link)
         self.addCleanup(os.unlink, link)
