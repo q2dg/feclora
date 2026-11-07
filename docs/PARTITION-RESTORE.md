@@ -25,11 +25,12 @@ terminates the active restore process. Raw restores report byte progress.
 
 After a raw restore, feclora reads the exact source byte count back from the
 destination with dd and compares SHA-256 against the staged image. After a
-Partclone restore, feclora runs a filesystem-specific read-only consistency
-check (for example e2fsck -f -n for ext filesystems or xfs_repair -n for XFS).
-This Partclone check establishes filesystem consistency, not byte-for-byte
-identity with the source. The required checker must be installed before the
-Partclone writer is allowed to start.
+Partclone restore, feclora runs a filesystem-specific read-only sanity or
+consistency check (for example e2fsck -f -n for ext filesystems or
+xfs_repair -n for XFS). For NTFS, ntfsfix --no-action is only a limited check;
+it is not equivalent to Windows chkdsk. These checks do not establish
+byte-for-byte identity with the source. The required checker must be installed
+before the Partclone writer is allowed to start.
 
 Supported outer compression is none, gzip and xz. zstd/lz4 adapters,
 partition-table creation/resizing and crash recovery are not implemented. The
