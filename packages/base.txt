@@ -3,6 +3,7 @@
 kernel
 tar
 sudo
+python3
 NetworkManager
 
 # Live-media boot support
