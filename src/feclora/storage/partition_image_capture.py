@@ -72,6 +72,7 @@ def capture_partition_image(
     stage = tempfile.mkdtemp(prefix=".feclora-partition-set-", dir=repo)
     published: list[str] = []
     committed = False
+    repository_fd = None
     try:
         artifact = capture_partition(
             source_path, filesystem, stage, artifact_name, partition_id,
@@ -90,14 +91,13 @@ def capture_partition_image(
             output.write(manifest.to_json())
             output.flush()
             os.fsync(output.fileno())
+        repository_fd = os.open(
+            repo, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        )
         for name in (artifact_name, manifest_name):
-            os.link(os.path.join(stage, name), os.path.join(repo, name), follow_symlinks=False)
+            os.link(os.path.join(stage, name), name, dst_dir_fd=repository_fd, follow_symlinks=False)
             published.append(name)
-        directory_fd = os.open(repo, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
+        os.fsync(repository_fd)
         committed = True
         return manifest
     except (CaptureError, ManifestValidationError, OSError) as exc:
@@ -106,7 +106,12 @@ def capture_partition_image(
         if not committed:
             for name in reversed(published):
                 try:
-                    os.unlink(os.path.join(repo, name))
+                    if repository_fd is not None:
+                        os.unlink(name, dir_fd=repository_fd)
+                    else:
+                        os.unlink(os.path.join(repo, name))
                 except FileNotFoundError:
                     pass
+        if repository_fd is not None:
+            os.close(repository_fd)
         shutil.rmtree(stage, ignore_errors=True)
