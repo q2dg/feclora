@@ -93,6 +93,7 @@ def capture_disk(
         raise DiskCaptureError(f"invalid image_id: {exc}") from exc
 
     validator = device_validator or _is_block_device
+    initial_device_number = os.stat(source_path).st_rdev if device_validator is None else None
     if not validator(source_path):
         raise DiskCaptureError(f"source is not an accessible block device: {source_path}")
     try:
@@ -145,6 +146,8 @@ def capture_disk(
                 (source_safety_check or check_capture_source_safe)(source_path)
             except SourceSafetyError as exc:
                 raise DiskCaptureError(f"capture source became unsafe before dd: {exc}") from exc
+            if initial_device_number is not None and os.stat(source_path).st_rdev != initial_device_number:
+                raise DiskCaptureError("block-device identity changed before imaging")
             factory = popen_factory or subprocess.Popen
             try:
                 process = factory(
