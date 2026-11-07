@@ -282,17 +282,26 @@ def _receive_remote_disk_impl(
         _check_safe(target, safety)
         _revalidate_device(target, identity, validator)
         _check_safe(target, safety)
+        transfer_progress = (
+            (lambda done, total: progress_callback(done, total * 2))
+            if progress_callback is not None else None
+        )
+        readback_progress = (
+            (lambda done, total: progress_callback(total + done, total * 2))
+            if progress_callback is not None else None
+        )
         command = privileged_argv(
             [dd, f"of={target}", "bs=4M", "conv=fsync", "status=none"],
             effective_uid=effective_uid,
         )
         factory = popen_factory or subprocess.Popen
         stderr = tempfile.TemporaryFile(mode="w+b")
-        process = factory(
-            command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
-            stderr=stderr, close_fds=True,
-        )
+        process = None
         try:
+            process = factory(
+                command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                stderr=stderr, close_fds=True,
+            )
             if process.stdin is None:
                 raise RemoteDiskCloneError("receiver dd did not provide stdin")
             stream_result = receive_disk_stream(
@@ -312,20 +321,12 @@ def _receive_remote_disk_impl(
                     (f": {detail.decode('utf-8', errors='replace').strip()}" if detail else "")
                 )
         finally:
-            if process.poll() is None:
+            if process is not None and process.poll() is None:
                 process.terminate()
                 process.wait()
             stderr.close()
         _revalidate_device(target, identity, validator)
         _check_safe(target, safety)
-        transfer_progress = (
-            (lambda done, total: progress_callback(done, total * 2))
-            if progress_callback is not None else None
-        )
-        readback_progress = (
-            (lambda done, total: progress_callback(total + done, total * 2))
-            if progress_callback is not None else None
-        )
         # Transfer occupies the first half of the overall operation gauge;
         # the independent disk read-back occupies the second half.
         readback = _readback_digest(
@@ -348,8 +349,6 @@ def _receive_remote_disk_impl(
             stream_sha256=stream_result.sha256,
             readback_sha256=readback,
         )
-        if progress_callback is not None:
-            progress_callback(header.source_size_bytes * 2, header.source_size_bytes * 2)
         return result
     except RemoteCloneCancelled as exc:
         raise RemoteDiskCloneCancelled(str(exc)) from exc
