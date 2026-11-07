@@ -335,11 +335,8 @@ def _receive_remote_disk_impl(
         target_size, target_sector, read_only, _pttype = _geometry(target, lsblk, runner or subprocess.run)
         if read_only:
             raise RemoteDiskCloneError("receiver target disk is read-only")
-        if target_size != header.source_size_bytes:
-            raise RemoteDiskCloneError(
-                "remote clone protocol v1 requires equal source and target disk capacities "
-                "for exact whole-disk read-back verification"
-            )
+        if target_size < header.source_size_bytes:
+            raise RemoteDiskCloneError("receiver target disk is smaller than the source disk")
         if target_sector != header.logical_sector_size:
             raise RemoteDiskCloneError("receiver target logical sector size differs from source")
         _check_safe(target, safety)
@@ -417,8 +414,38 @@ def _receive_remote_disk_impl(
                 error="receiver disk read-back SHA-256 differs from the received stream",
             )
             raise RemoteDiskCloneError(failure.error)
+        if target_size > header.source_size_bytes:
+            # The raw source image ends at its original final LBA. For GPT this
+            # leaves the backup header away from the physical end of the larger
+            # target. Detect the copied table, relocate the backup GPT, then
+            # verify its primary/backup structures. Do this only after the raw
+            # source-range read-back digest has matched.
+            blkid = _resolve(available, "blkid")
+            try:
+                table = subprocess.run(
+                    [blkid, "-p", "-s", "PTTYPE", "-o", "value", target],
+                    check=True, capture_output=True, text=True, timeout=20,
+                ).stdout.strip().lower()
+            except (OSError, subprocess.SubprocessError) as exc:
+                raise RemoteDiskCloneError(f"cannot identify copied partition table: {exc}") from exc
+            if table == "gpt":
+                sgdisk = _resolve(available, "sgdisk")
+                try:
+                    command = privileged_argv(["sgdisk", "-e", target], effective_uid=effective_uid)
+                    subprocess.run(command, check=True, capture_output=True, text=True, timeout=60)
+                    verify = privileged_argv(["sgdisk", "-v", target], effective_uid=effective_uid)
+                    subprocess.run(verify, check=True, capture_output=True, text=True, timeout=60)
+                except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
+                    raise RemoteDiskCloneError(
+                        f"disk data was copied and read-back verified, but GPT relocation/verification failed: {exc}"
+                    ) from exc
+            elif table not in {"dos", "gpt"}:
+                raise RemoteDiskCloneError(
+                    f"larger-target clone cannot safely classify partition table type {table or 'unknown'}"
+                )
         result = CloneVerificationResult(
-            session_id=header.session_id, status="verified",
+            session_id=header.session_id,
+            status="verified",
             byte_count=header.source_size_bytes,
             stream_sha256=stream_result.sha256,
             readback_sha256=readback,
