@@ -11,10 +11,11 @@ jobs, and multicast distribution.
 - **Operator on each endpoint:** explicitly authorizes the exact peer and local
   device involved in the session.
 
-The receiver initiates the connection. Both endpoints authenticate the other
-using TLS 1.3 and a configured trust anchor or pinned certificate fingerprint.
-Each endpoint also checks the expected peer identity; certificate validation
-without identity matching is insufficient.
+The receiver initiates the connection. Both endpoints authenticate the other using TLS 1.3 and a configured CA trust
+anchor. Each endpoint also checks the expected peer identity by exact SAN or
+SHA-256 certificate fingerprint; CA validation without identity matching is
+insufficient. A fingerprint is an additional identity pin, not a replacement
+for the configured CA trust anchor.
 
 ## Session sequence
 
