@@ -18,10 +18,9 @@ It does not discover disks, invoke `partclone`/`dd`, or write to block devices.
 
 ## Compression support
 
-Version one supports `none`, `gzip`, and `xz` using Python's standard
-library. The manifest schema also recognizes zstd and lz4, but this writer
-rejects those until a separately tested streaming adapter is implemented.
-This avoids silently substituting a different codec.
+`none`, `gzip` and `xz` use Python's standard library. `zstd` and `lz4` use
+the corresponding system command-line tools; feclora does not implement those
+codecs itself.
 
 ## Boundary and remaining work
 
