@@ -50,7 +50,7 @@ lshw
 %end
 
 %post --erroronfail
-systemctl enable NetworkManager
+systemctl --root=/ enable NetworkManager
 
 # Live rescue console: physical access to this image grants an automatic
 # feclora shell and passwordless sudo. Do not reuse this policy on an installed OS.
