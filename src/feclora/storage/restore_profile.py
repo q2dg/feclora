@@ -190,7 +190,10 @@ class RestoreProfile:
         if self.execution_mode == "unattended":
             if not self.signature_verified:
                 raise RestoreProfileError("unattended profile has not been verified with a trusted minisign key")
-            current = now or datetime.now(timezone.utc)\n            if current.tzinfo is None or current.utcoffset() is None:\n                raise RestoreProfileError("authorization clock must be timezone-aware")\n            current = current.astimezone(timezone.utc)
+            current = now or datetime.now(timezone.utc)
+            if current.tzinfo is None or current.utcoffset() is None:
+                raise RestoreProfileError("authorization clock must be timezone-aware")
+            current = current.astimezone(timezone.utc)
             if _utc_datetime(self.expires_at, "expires_at") <= current:
                 raise RestoreProfileError("unattended restore profile has expired")
             if already_consumed:
