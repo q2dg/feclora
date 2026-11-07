@@ -83,8 +83,10 @@ def write_artifact(
             compression_level = {"gzip": 6, "xz": 6, "zstd": 3, "lz4": 1}[compression]
         if (isinstance(compression_level, bool) or not isinstance(compression_level, int)
                 or (compression == "gzip" and not 1 <= compression_level <= 9)
-                or (compression == "xz" and not 0 <= compression_level <= 9)):
-            raise ArtifactWriteError("gzip level must be 1-9; xz level must be 0-9")
+                or (compression == "xz" and not 0 <= compression_level <= 9)
+                or (compression == "zstd" and not 1 <= compression_level <= 19)
+                or (compression == "lz4" and not 1 <= compression_level <= 12)):
+            raise ArtifactWriteError("gzip 1-9, xz 0-9, zstd 1-19, lz4 1-12")
     if isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or chunk_size <= 0:
         raise ArtifactWriteError("chunk_size must be a positive integer")
     if not hasattr(source, "read"):
