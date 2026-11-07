@@ -59,8 +59,10 @@ orchestration. No separate Server ISO.
 
 ## Consequences
 
-The current startup selector dispatches Local rescue to the existing
-read-only storage browser. Server and Client menu entries are visible but
-report that their runtimes are not implemented yet. The next steps are to
-complete local imaging, define image/job contracts, and then implement the
-server and client runtimes inside the same ISO.
+The startup selector dispatches Local rescue to the storage UI, which
+currently exposes disk/partition capture, disk/partition restore and direct
+local disk-to-disk cloning. These operations have mocked tests but no booted
+ISO or device-level validation yet. Server and Client menu entries remain
+visible but report that their runtimes are not implemented. The next steps
+are to complete and validate local workflows, then implement the authenticated
+one-to-one remote clone and Server/Client runtimes inside the same ISO.
