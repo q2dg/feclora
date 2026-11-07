@@ -7,7 +7,8 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+from feclora.storage.capture import CaptureCancelled
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
 from feclora.storage.disk_clone import DiskCloneCancelled, DiskCloneError, clone_disk
 from feclora.storage.disk_restore import DiskRestoreError, restore_disk
@@ -100,6 +101,39 @@ def _repository() -> str:
     os.chmod(IMAGE_REPOSITORY, 0o700)
     return IMAGE_REPOSITORY
 
+def _run_capture_gauge(
+    title: str,
+    description: str,
+    operation: Callable[[Callable[[int, int | None], None]], Any],
+) -> Any:
+    gauge = subprocess.Popen(
+        ["dialog", "--title", title, "--gauge", description, "10", "76", "0"],
+        stdin=subprocess.PIPE, text=True,
+    )
+    def report_progress(done: int, total: int | None) -> None:
+        if gauge.poll() is not None or gauge.stdin is None:
+            raise CaptureCancelled("progress dialog closed; capture was cancelled")
+        percent = min(99, int(done * 100 / total)) if total else 0
+        gauge.stdin.write(f"XXX\\n{percent}\\nRead {done:,} bytes\\nXXX\\n")
+        gauge.stdin.flush()
+    try:
+        result = operation(report_progress)
+        if gauge.stdin is not None:
+            gauge.stdin.write("100\\n")
+            gauge.stdin.close()
+            gauge.stdin = None
+        gauge.wait()
+        return result
+    except (BrokenPipeError, OSError) as exc:
+        raise CaptureCancelled(f"capture cancelled because progress dialog closed: {exc}") from exc
+    finally:
+        if gauge.stdin is not None:
+            gauge.stdin.close()
+        if gauge.poll() is None:
+            gauge.terminate()
+            gauge.wait()
+
+
 def _capture_disk(inventory: dict[str, Any]) -> None:
     source = _select_device(inventory, "disk", "Capture whole disk", "Select the source disk. This operation reads it only.")
     if source is None:
@@ -113,6 +147,8 @@ def _capture_disk(inventory: dict[str, Any]) -> None:
     try:
         manifest = capture_disk(source["path"], image_id, _repository(), compression=compression)
         _message("Capture completed", f"Image {manifest.image_id} captured.\nManifest: {manifest.image_id}.manifest.json")
+    except CaptureCancelled as exc:
+        _message("Capture cancelled", str(exc) + "\\nNo manifest was published.")
     except (DiskCaptureError, OSError) as exc:
         _message("Capture failed", str(exc))
 
@@ -128,10 +164,16 @@ def _capture_partition(inventory: dict[str, Any]) -> None:
         return
     partition_id = os.path.basename(source["path"])
     try:
-        manifest = capture_partition_image(
-            source["path"], image_id, partition_id, _repository(), compression=compression,
+        manifest = _run_capture_gauge(
+            "Capturing partition", f"Reading {source['path']} into image repository.",
+            lambda progress: capture_partition_image(
+                source["path"], image_id, partition_id, _repository(),
+                compression=compression, progress_callback=progress,
+            ),
         )
         _message("Capture completed", f"Partition image {manifest.image_id} captured.\nManifest: {manifest.image_id}.manifest.json")
+    except CaptureCancelled as exc:
+        _message("Capture cancelled", str(exc) + "\\nNo manifest was published.")
     except (PartitionImageCaptureError, OSError) as exc:
         _message("Capture failed", str(exc))
 
