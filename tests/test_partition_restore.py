@@ -66,6 +66,9 @@ class PartitionRestoreTests(unittest.TestCase):
         with open(self.manifest, "w", encoding="utf-8") as stream:
             json.dump(manifest, stream)
     def runner(self, command, **kwargs):
+        self.runner_calls.append((command, kwargs))
+        if command[0] == "e2fsck":
+            return SimpleNamespace(stdout="", stderr="", returncode=0)
         return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\n")
     def restore(self, **kwargs):
         proc = FakeProcess()
