@@ -6,45 +6,58 @@ from feclora.storage.source_safety import SourceSafetyError, check_capture_sourc
 
 
 class SourceSafetyTests(unittest.TestCase):
-    def test_rejects_mounted_partition(self):
+    def runner_for(self, tree):
         def runner(command, **kwargs):
-            return subprocess.CompletedProcess(command, 0, json.dumps({
-                "blockdevices": [{"path": "/dev/sda1", "type": "part", "mountpoints": ["/data"]}]
-            }), "")
+            if command[0] == "fuser":
+                return subprocess.CompletedProcess(command, 1, "", "")
+            return subprocess.CompletedProcess(command, 0, json.dumps(tree), "")
+        return runner
+
+    def test_rejects_mounted_partition(self):
+        tree = {"blockdevices": [{"path": "/dev/sda1", "type": "part", "mountpoints": ["/data"]}]}
         with self.assertRaisesRegex(SourceSafetyError, "mounted"):
             check_capture_source_safe(
-                "/dev/sda1", runner=runner, which=lambda name: name,
+                "/dev/sda1", runner=self.runner_for(tree), which=lambda name: name,
                 root_disk_resolver=lambda **kwargs: {"/dev/nvme0n1"},
+                swaps_path="/dev/null",
             )
 
     def test_rejects_live_root_backing_disk(self):
-        def runner(command, **kwargs):
-            return subprocess.CompletedProcess(command, 0, json.dumps({
-                "blockdevices": [{"path": "/dev/sda", "type": "disk", "mountpoints": [],
-                                  "children": [{"path": "/dev/sda1", "type": "part", "mountpoints": []}]}]
-            }), "")
+        tree = {"blockdevices": [{"path": "/dev/sda", "type": "disk", "mountpoints": [],
+                                  "children": [{"path": "/dev/sda1", "type": "part", "mountpoints": []}]}]}
         with self.assertRaisesRegex(SourceSafetyError, "live system root"):
             check_capture_source_safe(
-                "/dev/sda1", runner=runner, which=lambda name: name,
+                "/dev/sda1", runner=self.runner_for(tree), which=lambda name: name,
                 root_disk_resolver=lambda **kwargs: {"/dev/sda"},
+                swaps_path="/dev/null",
             )
 
     def test_rejects_unverifiable_root_protection(self):
-        def runner(command, **kwargs):
-            return subprocess.CompletedProcess(command, 0, json.dumps({
-                "blockdevices": [{"path": "/dev/sdb1", "type": "part", "mountpoints": []}]
-            }), "")
+        tree = {"blockdevices": [{"path": "/dev/sdb1", "type": "part", "mountpoints": []}]}
         def fail(**kwargs):
             raise RuntimeError("findmnt failed")
-        with self.assertRaises(SourceSafetyError):
+        with self.assertRaisesRegex(SourceSafetyError, "live root"):
             check_capture_source_safe(
-                "/dev/sdb1", runner=runner, which=lambda name: name,
-                root_disk_resolver=fail,
+                "/dev/sdb1", runner=self.runner_for(tree), which=lambda name: name,
+                root_disk_resolver=fail, swaps_path="/dev/null",
             )
 
-    def test_requires_lsblk(self):
-        with self.assertRaisesRegex(SourceSafetyError, "lsblk"):
-            check_capture_source_safe("/dev/sda1", which=lambda _name: None)
+    def test_rejects_busy_device(self):
+        tree = {"blockdevices": [{"path": "/dev/sdb1", "type": "part", "mountpoints": []}]}
+        def runner(command, **kwargs):
+            if command[0] == "fuser":
+                return subprocess.CompletedProcess(command, 0, "", "")
+            return subprocess.CompletedProcess(command, 0, json.dumps(tree), "")
+        with self.assertRaisesRegex(SourceSafetyError, "open by a process"):
+            check_capture_source_safe(
+                "/dev/sdb1", runner=runner, which=lambda name: name,
+                root_disk_resolver=lambda **kwargs: {"/dev/sda"},
+                swaps_path="/dev/null",
+            )
+
+    def test_requires_safety_utilities(self):
+        with self.assertRaisesRegex(SourceSafetyError, "lsblk and fuser"):
+            check_capture_source_safe("/dev/sda1", which=lambda name: name if name == "lsblk" else None)
 
 
 if __name__ == "__main__":
