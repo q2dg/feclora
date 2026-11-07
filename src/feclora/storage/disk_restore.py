@@ -15,6 +15,7 @@ from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationErro
 from .image_security import ImageSecurityError, decrypt_artifact_stream_to_temp, verify_manifest_signature
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
+from .compression import CompressionError, ExternalDecompressionStream
 
 class DiskRestoreError(RuntimeError):
     """A whole-disk restore was rejected or failed."""
@@ -83,7 +84,7 @@ def _verified_artifact_stream(repository: str, artifact: ImageArtifact,
             except FileNotFoundError:
                 pass
 
-def _decoded_stream(stream: Any, compression: str):
+def _decoded_stream(stream: Any, compression: str, executables: dict[str, str | None] | None = None):
     if compression == "none":
         return stream
     if compression == "gzip":
