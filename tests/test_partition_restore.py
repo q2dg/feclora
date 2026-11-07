@@ -24,7 +24,7 @@ class FakeProcess:
     def __init__(self):
         self.returncode = 0
         self.stdin = RecordingInput()
-        self.stderr = io.BytesIO(b"Progress: 25.0%\\rProgress: 75.0%\\r")
+        self.stderr = io.BytesIO(b"Progress: 25.0%\rProgress: 75.0%\r")
         self.argv = None
     def wait(self):
         return self.returncode
@@ -156,7 +156,7 @@ class PartitionRestoreTests(unittest.TestCase):
             def poll(self):
                 return -15 if self.returncode == -15 else None
         proc = RunningProcess()
-        proc.stderr = io.BytesIO(b"Progress: 10%\\r")
+        proc.stderr = io.BytesIO(b"Progress: 10%\r")
         def factory(argv, **opts):
             self.calls.append((argv, opts))
             return proc
