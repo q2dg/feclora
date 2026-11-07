@@ -165,7 +165,7 @@ class PartitionRestoreTests(unittest.TestCase):
             restore_partition(
                 self.manifest, self.temp.name, "/dev/sda1",
                 confirmation="ERASE /dev/sda1",
-                executables={"lsblk": "lsblk", "partclone.ext4": "partclone.ext4"},
+                executables={"lsblk": "lsblk", "partclone.ext4": "partclone.ext4", "e2fsck": "e2fsck"},
                 runner=self.runner, device_validator=lambda _path: True,
                 target_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=factory,
