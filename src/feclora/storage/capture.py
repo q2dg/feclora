@@ -24,6 +24,10 @@ class CaptureError(RuntimeError):
     """Raised when a partition capture cannot be completed safely."""
 
 
+class CaptureCancelled(CaptureError):
+    """The operator cancelled a running partition capture."""
+
+
 _FILESYSTEM_TO_PARTCLONE = {
     "btrfs": "partclone.btrfs",
     "ext2": "partclone.extfs",
@@ -42,12 +46,16 @@ _FILESYSTEM_TO_PARTCLONE = {
 
 
 class _CountingReader:
-    def __init__(self, stream):
+    def __init__(self, stream, progress_callback=None, expected_size_bytes=None):
         self.stream = stream
         self.bytes_read = 0
+        self.progress_callback = progress_callback
+        self.expected_size_bytes = expected_size_bytes
     def read(self, size=-1):
         chunk = self.stream.read(size)
         self.bytes_read += len(chunk)
+        if chunk and self.progress_callback is not None:
+            self.progress_callback(self.bytes_read, self.expected_size_bytes)
         return chunk
 
 
@@ -115,6 +123,7 @@ def capture_partition(
     source_safety_check: Callable[[str], None] | None = None,
     expected_size_bytes: int | None = None,
     effective_uid: Callable[[], int] | None = None,
+    progress_callback: Callable[[int, int | None], None] | None = None,
 ) -> ImageArtifact:
     """Capture one block partition into a repository without overwriting files.
 
@@ -166,7 +175,8 @@ def capture_partition(
                 raise CaptureError(f"could not start {plan.executable}: {exc}") from exc
             if process.stdout is None:
                 raise CaptureError("capture process did not provide a stdout pipe")
-            counted = _CountingReader(process.stdout)
+            progress_total = expected_size_bytes if plan.image_format == "raw" else None
+            counted = _CountingReader(process.stdout, progress_callback, progress_total)
             try:
                 artifact = write_artifact(
                     stage_dir,
