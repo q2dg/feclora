@@ -37,6 +37,7 @@ class ImageArtifact:
     sha256: str
     partition_id: str | None = None
     filesystem: str | None = None
+    encryption: str = "none"
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "ImageArtifact":
@@ -44,7 +45,7 @@ class ImageArtifact:
             raise ManifestValidationError("Each artifact must be a JSON object")
         allowed = {
             "filename", "role", "format", "compression", "size_bytes",
-            "sha256", "partition_id", "filesystem",
+            "sha256", "partition_id", "filesystem", "encryption",
         }
         unknown = set(value) - allowed
         missing = allowed - set(value) - {"partition_id", "filesystem"}
@@ -78,6 +79,9 @@ class ImageArtifact:
 
         partition_id = value.get("partition_id")
         filesystem = value.get("filesystem")
+        encryption = value.get("encryption", "none")
+        if not isinstance(encryption, str) or encryption not in {"none", "age"}:
+            raise ManifestValidationError("Artifact encryption must be none or age")
         supported_filesystems = {"btrfs", "ext2", "ext3", "ext4", "exfat", "fat", "fat12", "fat16", "fat32", "vfat", "f2fs", "ntfs", "xfs"}
         if filesystem is not None and (not isinstance(filesystem, str) or filesystem not in supported_filesystems):
             raise ManifestValidationError("Unsupported artifact filesystem")
@@ -91,7 +95,7 @@ class ImageArtifact:
             raise ManifestValidationError("Partclone format is only valid for partition-image artifacts")
         if role != "partition-image" and filesystem is not None:
             raise ManifestValidationError("filesystem is only valid for partition-image artifacts")
-        return cls(filename, role, image_format, compression, size, digest, partition_id, filesystem)
+        return cls(filename, role, image_format, compression, size, digest, partition_id, filesystem, encryption)
 
     def to_dict(self) -> dict[str, Any]:
         result = {
@@ -106,6 +110,8 @@ class ImageArtifact:
             result["partition_id"] = self.partition_id
         if self.filesystem is not None:
             result["filesystem"] = self.filesystem
+        if self.encryption != "none":
+            result["encryption"] = self.encryption
         return result
 
 
