@@ -38,7 +38,7 @@ class ArtifactWriterTests(unittest.TestCase):
                 artifact = write_artifact(
                     self.temp.name, name, io.BytesIO(self.payload),
                     role="partition-image", image_format="partclone",
-                    compression=compression, partition_id="1",
+                    compression=compression, partition_id="1", filesystem="ext4",
                 )
                 with open(os.path.join(self.temp.name, name), "rb") as stream:
                     stored = stream.read()
