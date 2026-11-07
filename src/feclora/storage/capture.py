@@ -12,7 +12,6 @@ import shutil
 import stat
 import subprocess
 import tempfile
-from pathlib import Path
 from typing import Callable, Mapping
 
 from .artifact_writer import ArtifactWriteError, write_artifact
@@ -27,7 +26,7 @@ _FILESYSTEM_TO_PARTCLONE = {
     "btrfs": "partclone.btrfs",
     "ext2": "partclone.extfs",
     "ext3": "partclone.extfs",
-    "ext4": "partclone.extfs",
+    "ext4": "partclone.ext4",
     "exfat": "partclone.exfat",
     "fat": "partclone.fat",
     "fat12": "partclone.fat",
