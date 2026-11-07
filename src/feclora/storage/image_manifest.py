@@ -203,4 +203,4 @@ class ImageManifest:
         }
 
     def to_json(self) -> str:
-        return json.dumps(self.to_dict(), sort_keys=True, indent=2) + "\\n"
+        return json.dumps(self.to_dict(), sort_keys=True, indent=2) + "\n"
