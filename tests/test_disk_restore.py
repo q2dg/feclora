@@ -5,7 +5,7 @@ import os
 import tempfile
 import unittest
 from types import SimpleNamespace
-from feclora.storage.disk_restore import DiskRestoreError, restore_disk
+from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError, restore_disk
 
 
 class RecordingInput:
@@ -104,6 +104,34 @@ class DiskRestoreTests(unittest.TestCase):
         )
         self.assertEqual(result.image_id, "test-image")
         self.assertEqual(proc.stdin.getvalue(), self.payload)
+    def test_reports_restore_write_progress(self):
+        progress = []
+        proc = FakeProcess()
+        result = restore_disk(
+            self.manifest, self.temp.name, "/dev/fake",
+            confirmation="ERASE /dev/fake", executables=self.executables,
+            device_validator=lambda _path: True, runner=self.runner,
+            target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+            popen_factory=lambda *a, **k: proc,
+            progress_callback=lambda done, total: progress.append((done, total)),
+        )
+        self.assertEqual(result.image_id, "test-image")
+        self.assertEqual(progress[-1], (len(self.payload), len(self.payload)))
+    def test_cancellation_stops_dd_and_reports_partial_target(self):
+        class RunningProcess(FakeProcess):
+            def poll(self):
+                return -15 if self.terminated else None
+        proc = RunningProcess()
+        with self.assertRaisesRegex(DiskRestoreCancelled, "cancel"):
+            restore_disk(
+                self.manifest, self.temp.name, "/dev/fake",
+                confirmation="ERASE /dev/fake", executables=self.executables,
+                device_validator=lambda _path: True, runner=self.runner,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda *a, **k: proc,
+                progress_callback=lambda *_args: (_ for _ in ()).throw(DiskRestoreCancelled("operator cancel")),
+            )
+        self.assertTrue(proc.terminated)
     def test_rechecks_target_safety_before_dd(self):
         calls = []
         def safety(_path):
