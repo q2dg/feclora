@@ -8,7 +8,7 @@ artifact. Before starting the writer it:
 
 1. requires the caller's exact confirmation string, `ERASE /dev/DEVICE`;
 2. validates the manifest and requires a whole-disk image;
-3. checks the target is a whole disk and is at least as large as the source;
+3. checks the target is a writable whole disk, at least as large as the source, with the same logical sector size;
 4. rejects mounted target trees and disks backing the running Live root;
 5. opens the artifact without following symlinks and verifies its stored byte
    count and SHA-256 against the manifest;
@@ -25,5 +25,4 @@ progress reporting and crash recovery are not implemented.
 **Destructive boundary:** once `dd` starts, a hardware or power failure can
 leave the target partially overwritten. SHA-256 here detects accidental
 artifact corruption; it does not authenticate who created the manifest.
-This primitive is not yet connected to the TUI and has only mocked tests.
-Never test against a disk containing needed data.
+The Local rescue TUI invokes this primitive after exact typed confirmation. It currently runs synchronously without progress or cancellation. Tests are mocked; no VM or hardware restore has been validated. Never test against a disk containing needed data.
