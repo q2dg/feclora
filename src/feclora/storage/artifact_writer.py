@@ -56,6 +56,7 @@ def write_artifact(
     role: str,
     image_format: str,
     compression: str = "none",
+    compression_level: int | None = None,
     partition_id: str | None = None,
     filesystem: str | None = None,
     chunk_size: int = _CHUNK_SIZE,
@@ -71,6 +72,13 @@ def write_artifact(
         raise ArtifactWriteError("filename must be a safe basename")
     if compression not in _SUPPORTED_COMPRESSION:
         raise ArtifactWriteError("compression must be one of: none, gzip, xz")
+    if compression == "none" and compression_level is not None:
+        raise ArtifactWriteError("compression_level is not valid when compression is none")
+    if compression != "none":
+        if compression_level is None:
+            compression_level = 6 if compression == "gzip" else 6
+        if isinstance(compression_level, bool) or not isinstance(compression_level, int) or not 0 <= compression_level <= 9:
+            raise ArtifactWriteError("compression_level must be an integer from 0 to 9")
     if isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or chunk_size <= 0:
         raise ArtifactWriteError("chunk_size must be a positive integer")
     if not hasattr(source, "read"):
@@ -105,9 +113,9 @@ def write_artifact(
             raw_fd = None
             sink = _DigestWriter(raw)
             if compression == "gzip":
-                compressor = gzip.GzipFile(filename="", mode="wb", fileobj=sink, mtime=0)
+                compressor = gzip.GzipFile(filename="", mode="wb", fileobj=sink, compresslevel=compression_level, mtime=0)
             elif compression == "xz":
-                compressor = lzma.LZMAFile(sink, mode="wb")
+                compressor = lzma.LZMAFile(sink, mode="wb", preset=compression_level)
             else:
                 compressor = sink
 
@@ -156,6 +164,7 @@ def write_artifact(
             sha256=sink.digest.hexdigest(),
             partition_id=partition_id,
             filesystem=filesystem,
+            compression_level=compression_level,
         )
     except ArtifactWriteError:
         raise
