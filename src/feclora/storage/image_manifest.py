@@ -20,7 +20,7 @@ _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _IMAGE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
 _PARTITION_ID_RE = re.compile(r"^[A-Za-z0-9_.+-]{1,64}$")
-_ARTIFACT_ROLES = {"disk-metadata", "partition-table", "boot-area", "partition-image"}
+_ARTIFACT_ROLES = {"disk-image", "disk-metadata", "partition-table", "boot-area", "partition-image"}
 _ARTIFACT_FORMATS = {"raw", "partclone"}
 _COMPRESSIONS = {"none", "gzip", "zstd", "xz", "lz4"}
 
@@ -82,7 +82,7 @@ class ImageArtifact:
         elif partition_id is not None:
             raise ManifestValidationError("partition_id is only valid for partition-image artifacts")
 
-        if image_format == "partclone" and role not in {"partition-image"}:
+        if image_format == "partclone" and role != "partition-image":
             raise ManifestValidationError("Partclone format is only valid for partition-image artifacts")
         return cls(filename, role, image_format, compression, size, digest, partition_id)
 
@@ -164,6 +164,12 @@ class ImageManifest:
         roles = [item.role for item in artifacts]
         if image_type == "disk" and "partition-table" not in roles:
             raise ManifestValidationError("Disk image requires a partition-table artifact")
+        if image_type == "disk" and not ({"disk-image", "partition-image"} & set(roles)):
+            raise ManifestValidationError("Disk image requires at least one data artifact")
+        if "disk-image" in roles and any(
+            item.role == "disk-image" and item.format != "raw" for item in artifacts
+        ):
+            raise ManifestValidationError("Whole-disk artifacts must use raw format")
         if image_type == "partition" and any(role in {"partition-table", "disk-metadata", "boot-area"} for role in roles):
             raise ManifestValidationError("Partition image cannot contain whole-disk metadata artifacts")
 
