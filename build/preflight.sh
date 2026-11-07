@@ -69,7 +69,8 @@ required_kib=$((MIN_FREE_GIB * 1024 * 1024))
   fail "Only $((available_kib / 1024 / 1024)) GiB free in $RESULT_DIR; need at least $MIN_FREE_GIB GiB (configurable via FECLORA_MIN_FREE_GIB)."
 
 printf 'Preflight passed.\n'
-printf '  Host: %s (%s)\n' "$( . /etc/os-release 2>/dev/null; printf '%s' "${PRETTY_NAME:-unknown}" )" "$(uname -m)"
+host_name="$(sed -n 's/^PRETTY_NAME=//p' /etc/os-release | tr -d '"')"
+printf '  Host: %s (%s)\n' "${host_name:-unknown}" "$(uname -m)"
 printf '  Fedora target: %s\n' "$RELEASEVER"
 printf '  Installer ISO: %s\n' "$INSTALL_ISO"
 printf '  Kickstart: %s\n' "$KS_FILE"
