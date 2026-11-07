@@ -81,6 +81,8 @@ class CloneSessionHeader:
             raise RemoteCloneProtocolError("session_id must use canonical UUID notation")
         _bounded_string(self.source_identity, "source_identity")
         _bounded_string(self.receiver_identity, "receiver_identity")
+        if self.source_identity == self.receiver_identity:
+            raise RemoteCloneProtocolError("source and receiver identities must identify different endpoints")
         if (not isinstance(self.source_device, str) or not self.source_device.startswith("/dev/")
                 or len(self.source_device) > 256 or any(ord(c) < 32 for c in self.source_device)
                 or posixpath.normpath(self.source_device) != self.source_device
@@ -199,7 +201,9 @@ class CloneSessionReady:
         if str(parsed) != self.session_id:
             raise RemoteCloneProtocolError("ready session_id must use canonical UUID notation")
         if (not isinstance(self.target_device, str) or not self.target_device.startswith("/dev/")
-                or posixpath.normpath(self.target_device) != self.target_device):
+                or len(self.target_device) > 256 or any(ord(c) < 32 for c in self.target_device)
+                or posixpath.normpath(self.target_device) != self.target_device
+                or "//" in self.target_device):
             raise RemoteCloneProtocolError("ready target_device must be a normalized /dev path")
         if self.status != "ready":
             raise RemoteCloneProtocolError("session ready status must be 'ready'")
