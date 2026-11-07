@@ -114,12 +114,12 @@ def _run_capture_gauge(
         if gauge.poll() is not None or gauge.stdin is None:
             raise CaptureCancelled("progress dialog closed; capture was cancelled")
         percent = min(99, int(done * 100 / total)) if total else 0
-        gauge.stdin.write(f"XXX\\n{percent}\\nRead {done:,} bytes\\nXXX\\n")
+        gauge.stdin.write(f"XXX\n{percent}\nRead {done:,} bytes\nXXX\n")
         gauge.stdin.flush()
     try:
         result = operation(report_progress)
         if gauge.stdin is not None:
-            gauge.stdin.write("100\\n")
+            gauge.stdin.write("100\n")
             gauge.stdin.close()
             gauge.stdin = None
         gauge.wait()
@@ -145,10 +145,16 @@ def _capture_disk(inventory: dict[str, Any]) -> None:
     if compression is None:
         return
     try:
-        manifest = capture_disk(source["path"], image_id, _repository(), compression=compression)
+        manifest = _run_capture_gauge(
+            "Capturing whole disk", f"Reading {source['path']} into image repository.",
+            lambda progress: capture_disk(
+                source["path"], image_id, _repository(), compression=compression,
+                progress_callback=progress,
+            ),
+        )
         _message("Capture completed", f"Image {manifest.image_id} captured.\nManifest: {manifest.image_id}.manifest.json")
     except CaptureCancelled as exc:
-        _message("Capture cancelled", str(exc) + "\\nNo manifest was published.")
+        _message("Capture cancelled", str(exc) + "\nNo manifest was published.")
     except (DiskCaptureError, OSError) as exc:
         _message("Capture failed", str(exc))
 
@@ -173,7 +179,7 @@ def _capture_partition(inventory: dict[str, Any]) -> None:
         )
         _message("Capture completed", f"Partition image {manifest.image_id} captured.\nManifest: {manifest.image_id}.manifest.json")
     except CaptureCancelled as exc:
-        _message("Capture cancelled", str(exc) + "\\nNo manifest was published.")
+        _message("Capture cancelled", str(exc) + "\nNo manifest was published.")
     except (PartitionImageCaptureError, OSError) as exc:
         _message("Capture failed", str(exc))
 
