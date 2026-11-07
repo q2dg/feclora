@@ -12,6 +12,7 @@ import zlib
 from typing import Any, Callable
 from .image_manifest import ImageManifest, ManifestValidationError
 from .source_safety import SourceSafetyError, check_capture_source_safe
+from .privilege import PrivilegeError, privileged_argv
 
 class PartitionRestoreError(RuntimeError):
     """A partition restore was rejected or failed."""
@@ -126,6 +127,7 @@ def restore_partition(
     device_validator: Callable[[str], bool] | None = None,
     popen_factory: Callable[..., Any] | None = None,
     target_safety_check: Callable[[str], None] | None = None,
+    effective_uid: Callable[[], int] | None = None,
 ) -> ImageManifest:
     """Restore one partition image; confirmation must be ERASE /dev/partition."""
     if not isinstance(target_path, str) or not target_path.startswith("/dev/"):
@@ -224,11 +226,12 @@ def restore_partition(
                     raise PartitionRestoreError("block-device identity changed before restore")
                 factory = popen_factory or subprocess.Popen
                 try:
+                    command = privileged_argv(argv, effective_uid=effective_uid)
                     process = factory(
-                        argv, stdin=stdin, stdout=subprocess.DEVNULL,
+                        command, stdin=stdin, stdout=subprocess.DEVNULL,
                         stderr=stderr, close_fds=True, **extra,
                     )
-                except OSError as exc:
+                except (OSError, PrivilegeError) as exc:
                     raise PartitionRestoreError(f"could not start restore utility: {exc}") from exc
                 return_code = process.wait()
                 if return_code != 0:
