@@ -8,10 +8,13 @@ from types import SimpleNamespace
 
 from feclora.network.remote_clone_protocol import (
     CloneSessionHeader,
+    CloneSessionReady,
     CloneStreamResult,
     CloneVerificationResult,
     authorize_endpoint,
+    receive_session_ready,
     receive_verification_result,
+    send_session_ready,
     send_verification_result,
     validate_endpoint_authorization,
     RemoteCloneCancelled,
@@ -112,6 +115,31 @@ class RemoteCloneProtocolTests(unittest.TestCase):
         value["receiver_target_device"] = "/dev/../dev/sdb"
         with self.assertRaisesRegex(RemoteCloneProtocolError, "normalized"):
             CloneSessionHeader.from_dict(value)
+
+    def test_receiver_ready_frame_is_bound_to_session_and_target(self):
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
+        ready = CloneSessionReady(self.header.session_id, self.header.receiver_target_device)
+        send_session_ready(left, ready)
+        received = receive_session_ready(
+            right, session_id=self.header.session_id,
+            expected_target_device=self.header.receiver_target_device,
+        )
+        self.assertEqual(received, ready)
+
+    def test_receiver_ready_rejects_wrong_target(self):
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
+        send_session_ready(
+            left, CloneSessionReady(self.header.session_id, self.header.receiver_target_device),
+        )
+        with self.assertRaisesRegex(RemoteCloneProtocolError, "different session or target"):
+            receive_session_ready(
+                right, session_id=self.header.session_id,
+                expected_target_device="/dev/other",
+            )
 
     def test_rejects_unknown_header_fields(self):
         value = self.header.to_dict()
