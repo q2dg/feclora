@@ -71,13 +71,14 @@ def build_capture_plan(
     available = executables or {}
     fs = filesystem.lower() if isinstance(filesystem, str) and filesystem else None
     partclone_name = _FILESYSTEM_TO_PARTCLONE.get(fs) if fs else None
+    recorded_filesystem = fs if fs in _FILESYSTEM_TO_PARTCLONE else None
     partclone_path = available.get(partclone_name) if partclone_name else None
     if partclone_path:
         return CapturePlan(
             executable=partclone_path,
             argv=(partclone_path, "-c", "-s", source_path),
             image_format="partclone",
-            filesystem=fs,
+            filesystem=recorded_filesystem,
         )
     dd_path = available.get("dd") or shutil.which("dd")
     if not dd_path:
@@ -88,7 +89,7 @@ def build_capture_plan(
         executable=dd_path,
         argv=(dd_path, f"if={source_path}", "bs=4M", "status=none"),
         image_format="raw",
-        filesystem=fs,
+        filesystem=recorded_filesystem,
     )
 
 
