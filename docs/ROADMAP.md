@@ -23,14 +23,15 @@
 - [x] Implement a non-destructive whole-disk selection gate and live-root dependency probe (not yet integrated into the UI).
 - [x] Reject mounted, active-swap, busy and device-mapper-held capture/restore devices; protect backing disks of block, overlay and squashfs Live roots (mount-namespace races remain).
 - [x] Define versioned disk/partition image manifest schema with safe artifact names, filesystem metadata and SHA-256 integrity.
-- [x] Implement bounded-stream artifact writing with atomic no-overwrite publication and SHA-256 metadata (raw, gzip and xz), including interactive gzip/xz level selection.
+- [x] Implement bounded-stream artifact writing with atomic no-overwrite publication and SHA-256 metadata (raw, gzip, xz, zstd and lz4), including interactive codec-specific level selection.
 - [x] Implement manifest-backed partition capture with Partclone or raw dd, exact raw byte-count validation and manifest-last publication.
 - [x] Implement transactional read-only whole-disk capture with raw dd, sfdisk metadata, exact byte-count validation and manifest-last publication.
-- [x] Implement verified whole-disk restore with raw dd and none/gzip/xz decompression, target geometry checks and typed confirmation (mocked tests; runtime validation pending).
+- [x] Implement verified whole-disk restore with raw dd and none/gzip/xz/zstd/lz4 decompression, target geometry checks and typed confirmation (mocked tests; runtime validation pending).
 - [x] Implement partition restore with Partclone and raw fallback (mocked tests; runtime validation pending).
 - [x] Implement direct local whole-disk-to-whole-disk clone using bounded raw dd, source/target safety checks and explicit confirmation (mocked tests; runtime validation pending).
 - [ ] Implement one-to-one remote disk-to-disk clone between separate source and receiver machines over authenticated, integrity-protected transport.
-- [ ] Implement zstd/lz4 streaming adapters and repository-level manifest transactions.
+- [x] Implement zstd/lz4 streaming compression and decompression through Fedora system CLI tools (unit and real-binary CI validation pending).
+- [ ] Complete repository-level manifest transactions.
 - [ ] Support GPT/MBR, LVM, LUKS and boot-area/bootloader workflows.
 - [ ] Support local and remote repositories (SSH/SFTP, NFS, SMB/CIFS, WebDAV).
 - [x] Connect disk/partition capture and restore workflows to the Local rescue TUI with explicit destructive confirmation and error dialogs.
