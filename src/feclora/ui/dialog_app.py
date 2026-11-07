@@ -11,7 +11,7 @@ from typing import Any, Callable
 from feclora.storage.capture import CaptureCancelled
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
 from feclora.storage.disk_clone import DiskCloneCancelled, DiskCloneError, clone_disk
-from feclora.storage.disk_restore import DiskRestoreError, restore_disk
+from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError, restore_disk
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import InventoryError, collect_inventory
 from feclora.storage.partition_image_capture import PartitionImageCaptureError, capture_partition_image
@@ -262,6 +262,38 @@ def _available_manifests() -> list[tuple[str, ImageManifest]]:
         found.append((path.name, manifest))
     return found
 
+def _run_restore_gauge(
+    title: str,
+    description: str,
+    operation: Callable[[Callable[[int, int], None]], Any],
+) -> Any:
+    gauge = subprocess.Popen(
+        ["dialog", "--title", title, "--gauge", description, "10", "76", "0"],
+        stdin=subprocess.PIPE, text=True,
+    )
+    def report_progress(done: int, total: int) -> None:
+        if gauge.poll() is not None or gauge.stdin is None:
+            raise DiskRestoreCancelled("progress dialog closed; restore was cancelled")
+        percent = min(99, int(done * 100 / total)) if total else 0
+        gauge.stdin.write(f"XXX\n{percent}\nWritten {done:,} of {total:,} bytes\nXXX\n")
+        gauge.stdin.flush()
+    try:
+        result = operation(report_progress)
+        if gauge.stdin is not None:
+            gauge.stdin.write("100\n")
+            gauge.stdin.close()
+            gauge.stdin = None
+        gauge.wait()
+        return result
+    except (BrokenPipeError, OSError) as exc:
+        raise DiskRestoreCancelled(f"restore cancelled because progress dialog closed: {exc}") from exc
+    finally:
+        if gauge.stdin is not None:
+            gauge.stdin.close()
+        if gauge.poll() is None:
+            gauge.terminate()
+            gauge.wait()
+
 def _restore(inventory: dict[str, Any]) -> None:
     try:
         manifests = _available_manifests()
@@ -290,10 +322,18 @@ def _restore(inventory: dict[str, Any]) -> None:
         return
     try:
         if manifest.image_type == "disk":
-            restore_disk(filename, _repository(), target["path"], confirmation=typed)
+            _run_restore_gauge(
+                "Restoring whole disk", f"Writing image to {target['path']}. ALL EXISTING DATA WILL BE OVERWRITTEN.",
+                lambda progress: restore_disk(
+                    filename, _repository(), target["path"], confirmation=typed,
+                    progress_callback=progress,
+                ),
+            )
         else:
             restore_partition(filename, _repository(), target["path"], confirmation=typed)
         _message("Restore completed", f"Restore utility completed successfully for {target['path']}.\nVerify the resulting system before relying on it.")
+    except DiskRestoreCancelled as exc:
+        _message("Restore cancelled", str(exc) + "\nThe target may contain a partial restore and must not be used.")
     except (DiskRestoreError, PartitionRestoreError, OSError) as exc:
         _message("Restore failed", str(exc))
 
