@@ -9,6 +9,11 @@ from types import SimpleNamespace
 from feclora.network.remote_clone_protocol import (
     CloneSessionHeader,
     CloneStreamResult,
+    CloneVerificationResult,
+    authorize_endpoint,
+    receive_verification_result,
+    send_verification_result,
+    validate_endpoint_authorization,
     RemoteCloneCancelled,
     RemoteCloneProtocolError,
     receive_disk_stream,
@@ -26,6 +31,7 @@ class RemoteCloneProtocolTests(unittest.TestCase):
             source_identity="DNS:source.example",
             receiver_identity="DNS:receiver.example",
             source_device="/dev/sda",
+            receiver_target_device="/dev/sdb",
             source_size_bytes=128 * 1024,
             logical_sector_size=512,
             chunk_size_bytes=64 * 1024,
@@ -37,6 +43,44 @@ class RemoteCloneProtocolTests(unittest.TestCase):
         self.addCleanup(right.close)
         send_session_header(left, self.header)
         self.assertEqual(receive_session_header(right), self.header)
+
+    def test_endpoint_authorization_is_role_and_device_specific(self):
+        source = authorize_endpoint(
+            self.header, role="source",
+            local_identity="DNS:source.example",
+            expected_peer_identity="DNS:receiver.example",
+            confirmation="READ /dev/sda TO DNS:receiver.example",
+        )
+        receiver = authorize_endpoint(
+            self.header, role="receiver",
+            local_identity="DNS:receiver.example",
+            expected_peer_identity="DNS:source.example",
+            confirmation="ERASE /dev/sdb FROM DNS:source.example",
+        )
+        validate_endpoint_authorization(source, self.header, role="source", device_path="/dev/sda")
+        validate_endpoint_authorization(receiver, self.header, role="receiver", device_path="/dev/sdb")
+        with self.assertRaisesRegex(RemoteCloneProtocolError, "explicit receiver authorization"):
+            authorize_endpoint(
+                self.header, role="receiver",
+                local_identity="DNS:receiver.example",
+                expected_peer_identity="DNS:source.example",
+                confirmation="yes",
+            )
+
+    def test_receiver_verification_ack_is_session_bound(self):
+        digest = hashlib.sha256(b"verified disk").hexdigest()
+        result = CloneVerificationResult(
+            self.header.session_id, "verified", len(b"verified disk"), digest, digest,
+        )
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
+        send_verification_result(left, result)
+        received = receive_verification_result(
+            right, session_id=self.header.session_id,
+            expected_bytes=len(b"verified disk"), expected_stream_sha256=digest,
+        )
+        self.assertEqual(received, result)
 
     def test_rejects_unknown_header_fields(self):
         value = self.header.to_dict()
