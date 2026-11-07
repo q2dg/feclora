@@ -38,7 +38,12 @@ authorization to read or erase a disk.
 
 - Exchange a strictly validated, versioned, length-bounded JSON session header
   before any target write. Reject unknown required semantics, oversized
-  metadata, invalid geometry, and mismatched session/role identities and both device paths.
+  metadata, invalid geometry, and mismatched session/role identities and both
+  device paths.
+- The receiver sends a session-bound READY frame only after its own operator
+  authorization, independently selected target-path match, capacity check and
+  destructive-safety checks. The source must receive READY before starting dd
+  or disclosing source disk data.
 - Stream exactly the declared source byte count in fixed-size bounded chunks.
   Never buffer a complete disk image in memory.
 - Compute SHA-256 over the source stream and receiver stream. Compare the
