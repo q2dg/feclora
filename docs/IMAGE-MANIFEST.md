@@ -34,8 +34,10 @@ block device.
 
 ## Important limitations
 
-Schema v1 does not yet define a writer, repository transaction, signature,
-encryption, partition geometry map, or restore implementation. SHA-256 detects
+Schema v1 is written by the local artifact and whole-disk capture components.
+Repository publication uses a manifest-last commit marker, but does not yet
+provide crash-recovery journaling, signatures, encryption, partition geometry
+maps, or restore implementation. SHA-256 detects
 accidental corruption only; it does not authenticate the manifest. A later
 signed manifest and authenticated repository protocol are required before
 untrusted network images can be accepted.
