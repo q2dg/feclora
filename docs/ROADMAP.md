@@ -34,7 +34,8 @@
 - [ ] Support GPT/MBR, LVM, LUKS and boot-area/bootloader workflows.
 - [ ] Support local and remote repositories (SSH/SFTP, NFS, SMB/CIFS, WebDAV).
 - [x] Connect disk/partition capture and restore workflows to the Local rescue TUI with explicit destructive confirmation and error dialogs.
-- [ ] Add live progress, logs, cancellation, post-write verification and crash recovery to the TUI workflows.
+- [x] Add live dd progress and operator cancellation to direct local disk-to-disk cloning.
+- [ ] Extend progress, persistent logs and cancellation to image capture/restore; add post-write verification and crash recovery.
 - [ ] Validate all destructive paths on disposable BIOS/UEFI VMs.
 
 ## Milestone 3 — Network client and server modes in the same ISO
