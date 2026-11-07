@@ -45,6 +45,7 @@ def check_capture_source_safe(
     which: Callable[[str], str | None] | None = None,
     root_disk_resolver: Callable[..., set[str]] | None = None,
     swaps_path: str = "/proc/swaps",
+    stat_device: Callable[[str], Any] | None = None,
 ) -> None:
     """Reject mounted source trees and any source backing the live root."""
     if not isinstance(source_path, str) or not source_path.startswith("/dev/"):
@@ -101,7 +102,7 @@ def check_capture_source_safe(
         if busy.returncode != 1:
             raise SourceSafetyError(f"fuser could not verify whether {device_path} is busy")
         try:
-            info = os.stat(device_path)
+            info = (stat_device or os.stat)(device_path)
             if stat.S_ISBLK(info.st_mode):
                 holders = f"/sys/dev/block/{os.major(info.st_rdev)}:{os.minor(info.st_rdev)}/holders"
                 if os.path.isdir(holders) and os.listdir(holders):
