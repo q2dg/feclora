@@ -127,7 +127,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         thread.start()
         return thread
 
-    def _receive(self, sock, *, geometry, process_factory, target_path="/dev/target"):
+    def _receive(self, sock, *, geometry, process_factory, target_path="/dev/target", executables=None):
         with tempfile.TemporaryDirectory() as directory:
             log_path = os.path.join(directory, "operations.jsonl")
             result = receive_remote_disk(
@@ -137,7 +137,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                 expected_peer_identity="DNS:source.example",
                 target_path=target_path,
                 confirmation="ERASE /dev/target FROM DNS:source.example",
-                executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
+                executables=executables or {"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
                 device_validator=lambda _path: True,
                 runner=lambda *args, **kwargs: None,
                 popen_factory=process_factory,
@@ -290,8 +290,41 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         self.addCleanup(right.close)
         send_session_header(left, self.header)
         with patch("feclora.network.remote_clone._geometry", return_value=(len(self.payload) - 512, 512, False, "gpt")):
-            with self.assertRaisesRegex(RemoteDiskCloneError, "equal source and target"):
+            with self.assertRaisesRegex(RemoteDiskCloneError, "smaller than the source"):
                 self._receive(right, geometry=None, process_factory=lambda *a, **k: self.fail("dd must not start"))
+
+    def test_receiver_accepts_larger_gpt_target_and_relocates_backup_header(self):
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
+        source = self._start_source(left)
+        digest = hashlib.sha256(self.payload).hexdigest()
+        commands = []
+
+        def run(command, **kwargs):
+            commands.append(command)
+            if command[0] == "/usr/bin/blkid":
+                return type("Result", (), {"stdout": "gpt\\n"})()
+            return type("Result", (), {"stdout": ""})()
+
+        with patch("feclora.network.remote_clone._geometry",
+                   return_value=(len(self.payload) + 1024 * 1024, 512, False, "gpt")), \\
+             patch("feclora.network.remote_clone._readback_digest", return_value=digest), \\
+             patch("feclora.network.remote_clone.subprocess.run", side_effect=run):
+            result = self._receive(
+                right, geometry=None,
+                process_factory=lambda *a, **k: FakeProcess(**k),
+                executables={
+                    "lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd",
+                    "blkid": "/usr/bin/blkid", "sgdisk": "/usr/bin/sgdisk",
+                },
+            )
+        source.join(timeout=5)
+        self.assertFalse(source.is_alive())
+        self.assertEqual(result.status, "verified")
+        self.assertEqual(commands[0], ["/usr/bin/blkid", "-p", "-s", "PTTYPE", "-o", "value", "/dev/target"])
+        self.assertEqual(commands[1][-2:], ["-e", "/dev/target"])
+        self.assertEqual(commands[2][-2:], ["-v", "/dev/target"])
 
     def test_receiver_writes_stream_and_requires_matching_readback(self):
         left, right = socket.socketpair()
