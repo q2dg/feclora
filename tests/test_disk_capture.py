@@ -60,6 +60,7 @@ class DiskCaptureTests(unittest.TestCase):
                 "/dev/fake", "bad-image", self.temp.name,
                 executables=self.executables,
                 device_validator=lambda _path: True,
+                source_safety_check=lambda _path: None,
                 runner=self.runner,
                 popen_factory=lambda *_args, **_kwargs: proc,
             )
