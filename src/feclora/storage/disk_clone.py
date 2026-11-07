@@ -20,13 +20,13 @@ def _geometry(path: str, lsblk: str, runner: Callable[..., Any]) -> tuple[int, i
     try:
         result = runner(
             [lsblk, "--bytes", "--noheadings", "--nodeps", "--output",
-             "SIZE,TYPE,LOG-SEC,RO", path],
+             "SIZE,TYPE,LOG-SEC,RO,PTTYPE", path],
             check=True, capture_output=True, text=True, timeout=20,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise DiskCloneError(f"cannot inspect disk {path}: {exc}") from exc
     fields = result.stdout.split()
-    if len(fields) != 4 or fields[1] != "disk":
+    if len(fields) != 5 or fields[1] != "disk":
         raise DiskCloneError(f"{path} is not exactly one whole disk")
     try:
         size, sector = int(fields[0]), int(fields[2])
@@ -35,7 +35,7 @@ def _geometry(path: str, lsblk: str, runner: Callable[..., Any]) -> tuple[int, i
     read_only = fields[3] == "1"
     if size <= 0 or sector not in {512, 4096}:
         raise DiskCloneError(f"disk geometry is invalid or unsupported for {path}")
-    return size, sector, read_only
+    return size, sector, read_only, fields[4].lower()
 
 
 def clone_disk(
@@ -76,8 +76,8 @@ def clone_disk(
     if not lsblk or not dd:
         raise DiskCloneError("lsblk and dd are required for direct disk cloning")
     run = runner or subprocess.run
-    source_size, source_sector, source_ro = _geometry(source_path, lsblk, run)
-    target_size, target_sector, target_ro = _geometry(target_path, lsblk, run)
+    source_size, source_sector, source_ro, source_pttype = _geometry(source_path, lsblk, run)
+    target_size, target_sector, target_ro, _target_pttype = _geometry(target_path, lsblk, run)
     # A read-only source is safe and useful; only the destination must be writable.
     if target_ro:
         raise DiskCloneError("target disk is marked read-only")
