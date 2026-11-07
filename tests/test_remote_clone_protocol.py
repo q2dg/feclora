@@ -82,6 +82,25 @@ class RemoteCloneProtocolTests(unittest.TestCase):
         )
         self.assertEqual(received, result)
 
+    def test_same_device_node_name_is_valid_on_different_hosts(self):
+        header = CloneSessionHeader(
+            session_id=self.header.session_id,
+            source_identity=self.header.source_identity,
+            receiver_identity=self.header.receiver_identity,
+            source_device="/dev/sda",
+            receiver_target_device="/dev/sda",
+            source_size_bytes=self.header.source_size_bytes,
+            logical_sector_size=self.header.logical_sector_size,
+            chunk_size_bytes=self.header.chunk_size_bytes,
+        )
+        self.assertEqual(header.source_device, header.receiver_target_device)
+
+    def test_rejects_non_normalized_device_paths(self):
+        value = self.header.to_dict()
+        value["receiver_target_device"] = "/dev/../dev/sdb"
+        with self.assertRaisesRegex(RemoteCloneProtocolError, "normalized"):
+            CloneSessionHeader.from_dict(value)
+
     def test_rejects_unknown_header_fields(self):
         value = self.header.to_dict()
         value["unexpected"] = True
