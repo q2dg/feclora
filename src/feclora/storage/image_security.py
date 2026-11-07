@@ -8,13 +8,10 @@ from __future__ import annotations
 from dataclasses import replace
 import hashlib
 import os
-from pathlib import Path
-import secrets
 import shutil
 import stat
 import subprocess
 import tempfile
-from typing import Sequence
 
 from .image_manifest import ImageArtifact
 
@@ -171,7 +168,7 @@ def sign_manifest(
         raise ImageSecurityError("manifest signature already exists")
     try:
         result = subprocess.run(
-            [minisign, "--sign", "--secret-key", key, "--output", signature, manifest],
+            [minisign, "-S", "-s", key, "-x", signature, "-m", manifest],
             check=False, capture_output=True, text=True,
         )
         if result.returncode != 0:
@@ -199,7 +196,7 @@ def verify_manifest_signature(
         raise ImageSecurityError("minisign executable is required for signature verification")
     try:
         result = subprocess.run(
-            [minisign, "--verify", "--file", manifest, "--pubkey", key, "--signature", signature],
+            [minisign, "-V", "-m", manifest, "-p", key, "-x", signature],
             check=False, capture_output=True, text=True,
         )
     except (OSError, subprocess.SubprocessError) as exc:
