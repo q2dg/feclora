@@ -89,8 +89,6 @@ class ImageArtifact:
 
         if image_format == "partclone" and role != "partition-image":
             raise ManifestValidationError("Partclone format is only valid for partition-image artifacts")
-        if image_format == "partclone" and filesystem is None:
-            raise ManifestValidationError("Partclone artifacts require filesystem metadata")
         if role != "partition-image" and filesystem is not None:
             raise ManifestValidationError("filesystem is only valid for partition-image artifacts")
         return cls(filename, role, image_format, compression, size, digest, partition_id, filesystem)
