@@ -1,12 +1,23 @@
 # Virtual-machine smoke test
 
-Run tests only against disposable virtual disks. Never use a host system disk as a test target. The commands below boot the ISO without attaching any writable host block device.
+This procedure validates the generated image, not the build pipeline itself.
+For host preparation, input ISO verification, build commands, and artifact
+inspection, see [the build runbook](../docs/BUILD.md).
+
+Run tests only against disposable virtual disks. Never use a host system disk
+as a test target. The commands below boot the ISO without attaching any
+writable host block device.
 
 ## Preconditions
 
 - Build completed and `out/feclora-live.iso` exists.
 - QEMU is installed.
-- For UEFI, install `edk2-ovmf` and locate the firmware with `rpm -ql edk2-ovmf | grep -E '/OVMF_CODE.*\.fd$'`.
+- KVM is available (otherwise remove `-enable-kvm` and expect slower execution).
+- For UEFI, install `edk2-ovmf` and locate the matching CODE and VARS files:
+
+```bash
+rpm -ql edk2-ovmf | grep -E '/OVMF_(CODE|VARS).*\.fd$'
+```
 
 ## BIOS boot
 
@@ -18,20 +29,25 @@ qemu-system-x86_64 \
   -cdrom out/feclora-live.iso -boot order=d
 ```
 
-If KVM is unavailable, remove `-enable-kvm` and expect slower execution.
-
 ## UEFI boot
 
-Use the OVMF code firmware path installed on the host. For example, if the package provides `/usr/share/edk2/ovmf/OVMF_CODE.fd`:
+Use a matching OVMF CODE and VARS pair from the installed package. Exact file
+names can vary by firmware variant. For the common non-secure-boot pair:
 
 ```bash
+OVMF_DIR=/usr/share/edk2/ovmf
+cp "$OVMF_DIR/OVMF_VARS.fd" /tmp/feclora-OVMF_VARS.fd
 qemu-system-x86_64 \
   -enable-kvm -m 4096 -smp 4 \
-  -bios /usr/share/edk2/ovmf/OVMF_CODE.fd \
+  -drive if=pflash,format=raw,readonly=on,file="$OVMF_DIR/OVMF_CODE.fd" \
+  -drive if=pflash,format=raw,file=/tmp/feclora-OVMF_VARS.fd \
   -cdrom out/feclora-live.iso -boot order=d
 ```
 
-Some OVMF setups require a writable variables image. If firmware initialization fails, create a per-test copy of the matching OVMF VARS file and attach it with `-drive if=pflash,format=raw,unit=1,file=...`; never modify the packaged firmware files.
+If the installed files use different names or reside elsewhere, set
+`OVMF_DIR` and the filenames to the matching pair reported by `rpm -ql`.
+Never modify the packaged VARS image; make a fresh writable copy for each
+independent test run. Remove the temporary copy after the test.
 
 ## Boot acceptance
 
@@ -39,16 +55,22 @@ Some OVMF setups require a writable variables image. If firmware initialization 
 - [ ] ISO boots in UEFI mode.
 - [ ] Live session reaches the expected tty1 feclora shell.
 - [ ] `sudo -n true` succeeds in this explicitly privileged rescue image.
+- [ ] `/usr/local/bin/feclora-ui` exists and is executable.
+- [ ] `/usr/share/feclora/python/feclora` contains the application payload.
+- [ ] The launcher starts the read-only `dialog` storage browser.
 - [ ] Kernel command line and boot logs are captured.
 - [ ] ISO checksum and VM firmware details are recorded.
 
 ## Hardware discovery
 
-- [ ] virtio block device is listed correctly.
+- [ ] Attach a disposable virtio block disk and verify it is listed correctly.
 - [ ] NVMe/SATA/USB discovery is tested where available.
 - [ ] Device identity, capacity, and mount state are displayed accurately.
 
 ## Imaging safety
+
+These checks are future acceptance criteria; the current UI is read-only and
+does not expose imaging actions.
 
 - [ ] Source and target are unambiguously identified.
 - [ ] Destructive operations require explicit confirmation.
@@ -56,9 +78,14 @@ Some OVMF setups require a writable variables image. If firmware initialization 
 
 ## Image workflow
 
+These checks must be performed only after imaging functionality is implemented,
+using disposable virtual disks.
+
 - [ ] Create a test image from a disposable disk.
 - [ ] Verify image integrity.
 - [ ] Restore to a second disposable disk.
 - [ ] Compare partition layout and filesystem contents.
 
-Record ISO checksum, Fedora release, kernel version, package manifest, VM firmware, and test results for every run. A boot test does not verify imaging functionality.
+Record ISO checksum, Git commit, Fedora release, kernel version, package
+manifest, QEMU version, VM firmware, and test results for every run. A boot
+test does not verify imaging functionality.
