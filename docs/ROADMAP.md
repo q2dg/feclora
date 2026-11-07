@@ -22,7 +22,8 @@
 - [x] Discover generic storage utilities, including filesystem-specific Partclone executables.
 - [x] Implement a non-destructive whole-disk selection gate and live-root dependency probe (not yet integrated into the UI).
 - [ ] Complete mounted/busy-device detection and source/target safety checks.
-- [x] Define versioned disk/partition image manifest schema with safe artifact names and SHA-256 metadata (no writer or restore path yet).\n- [ ] Implement whole-disk and partition save/restore with Partclone and raw fallback.
+- [x] Define versioned disk/partition image manifest schema with safe artifact names and SHA-256 metadata (no writer or restore path yet).
+- [ ] Implement whole-disk and partition save/restore with Partclone and raw fallback.
 - [ ] Implement disk-to-disk clone using partition-table tools and per-partition imaging.
 - [ ] Implement compression, checksums, image manifests and verification.
 - [ ] Support GPT/MBR, LVM, LUKS and boot-area/bootloader workflows.
