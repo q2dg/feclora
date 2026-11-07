@@ -24,7 +24,7 @@ metadata are rejected.
   such as `sfdisk`; not a block-device image.
 - `disk-metadata`: descriptive source metadata.
 - `boot-area`: raw boot-area bytes where explicitly captured and documented.
-- `partition-image`: filesystem-aware Partclone stream or raw byte stream.
+- `disk-image`: raw whole-disk stream (including raw fallback when filesystem-aware capture is unavailable).\n- `partition-image`: filesystem-aware Partclone stream or raw partition byte stream.
 
 Compression is declared per artifact: none, gzip, zstd, xz or lz4. The writer
 must record the actual stored-file size and SHA-256 of the stored bytes. A
