@@ -163,6 +163,105 @@ def _target_geometry(target: str, lsblk: str, runner: Callable[..., Any]) -> tup
         raise PartitionRestoreError("target partition geometry is invalid or read-only")
     return size, sector_size
 
+_FILESYSTEM_CHECKS = {
+    "ext2": ("e2fsck", ["-f", "-n"]),
+    "ext3": ("e2fsck", ["-f", "-n"]),
+    "ext4": ("e2fsck", ["-f", "-n"]),
+    "xfs": ("xfs_repair", ["-n"]),
+    "btrfs": ("btrfs", ["check", "--readonly"]),
+    "fat": ("fsck.fat", ["-n"]),
+    "fat12": ("fsck.fat", ["-n"]),
+    "fat16": ("fsck.fat", ["-n"]),
+    "fat32": ("fsck.fat", ["-n"]),
+    "vfat": ("fsck.fat", ["-n"]),
+    "exfat": ("fsck.exfat", ["-n"]),
+    "f2fs": ("fsck.f2fs", ["-n"]),
+    "ntfs": ("ntfsfix", ["--no-action"]),
+}
+
+
+def _verify_raw_readback(
+    dd: str,
+    target: str,
+    staged_path: str,
+    expected_size: int,
+    *,
+    popen_factory: Callable[..., Any],
+    effective_uid: Callable[[], int] | None,
+) -> None:
+    expected_digest = hashlib.sha256()
+    with open(staged_path, "rb") as expected:
+        while True:
+            chunk = expected.read(1024 * 1024)
+            if not chunk:
+                break
+            expected_digest.update(chunk)
+    command = privileged_argv(
+        [dd, f"if={target}", "bs=4M", "iflag=count_bytes",
+         f"count={expected_size}", "status=none"],
+        effective_uid=effective_uid,
+    )
+    stderr = tempfile.TemporaryFile(mode="w+b")
+    process = None
+    try:
+        process = popen_factory(
+            command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=stderr, close_fds=True,
+        )
+        if process.stdout is None:
+            raise PartitionRestoreError("read-back dd did not provide an output pipe")
+        digest = hashlib.sha256()
+        total = 0
+        while True:
+            chunk = process.stdout.read(1024 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            digest.update(chunk)
+        process.stdout.close()
+        result = process.wait()
+        if result != 0:
+            stderr.seek(0)
+            detail = stderr.read(8192).decode("utf-8", errors="replace").strip()
+            raise PartitionRestoreError("partition read-back dd failed" + (f": {detail}" if detail else ""))
+        if total != expected_size or digest.digest() != expected_digest.digest():
+            raise PartitionRestoreError("partition read-back verification failed: destination bytes differ from image")
+    except (OSError, PrivilegeError) as exc:
+        raise PartitionRestoreError(f"partition read-back verification could not run: {exc}") from exc
+    finally:
+        if process is not None and process.poll() is None:
+            process.terminate()
+            process.wait()
+        stderr.close()
+
+
+def _verify_partclone_target(
+    filesystem: str,
+    target: str,
+    available: dict[str, str | None],
+    runner: Callable[..., Any],
+) -> None:
+    specification = _FILESYSTEM_CHECKS.get(filesystem)
+    if specification is None:
+        raise PartitionRestoreError(f"no read-only post-restore checker is defined for {filesystem!r}")
+    name, options = specification
+    executable = available.get(name) or shutil.which(name)
+    if not executable:
+        raise PartitionRestoreError(f"{name} is required to verify the restored {filesystem} filesystem")
+    try:
+        result = runner(
+            [executable, *options, target],
+            check=False, capture_output=True, text=True, timeout=300,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise PartitionRestoreError(f"post-restore filesystem check could not run: {exc}") from exc
+    if getattr(result, "returncode", 0) != 0:
+        detail = (getattr(result, "stderr", "") or "").strip()
+        raise PartitionRestoreError(
+            f"post-restore {filesystem} consistency check failed" + (f": {detail[:1000]}" if detail else "")
+        )
+
+
 def restore_partition(
     manifest_path: str | os.PathLike[str],
     repository: str | os.PathLike[str],
