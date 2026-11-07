@@ -21,6 +21,7 @@ part / --fstype=ext4 --size=8192 --grow
 kernel
 tar
 sudo
+python3
 NetworkManager
 
 # Required live-media boot components
