@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
+from feclora.storage.disk_clone import DiskCloneError, clone_disk
 from feclora.storage.disk_restore import DiskRestoreError, restore_disk
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import InventoryError, collect_inventory
@@ -134,6 +135,47 @@ def _capture_partition(inventory: dict[str, Any]) -> None:
     except (PartitionImageCaptureError, OSError) as exc:
         _message("Capture failed", str(exc))
 
+def _clone_disk(inventory: dict[str, Any]) -> None:
+    source = _select_device(
+        inventory, "disk", "Clone whole disk - source",
+        "Select the source disk. It must be offline and not mounted.",
+    )
+    if source is None:
+        return
+    targets = [
+        item for item in _select_devices(inventory, "disk")
+        if item.get("path") and item.get("path") != source.get("path")
+    ]
+    choices = []
+    for item in targets:
+        path = item["path"]
+        size = item.get("size_bytes")
+        choices.append((path, f"{path} | {size if size is not None else '?'} bytes"))
+    target_path = _menu(
+        "Clone whole disk - destination",
+        "Select the destination. ALL DATA ON IT WILL BE OVERWRITTEN.",
+        choices,
+    )
+    if target_path is None:
+        return
+    phrase = f"ERASE {target_path}"
+    typed = _input("Destructive confirmation", f"Source: {source['path']}\\nDestination: {target_path}\\nType exactly:\\n{phrase}")
+    if typed != phrase:
+        _message("Clone cancelled", "The confirmation did not match. No write was started.")
+        return
+    try:
+        copied = clone_disk(
+            source["path"], target_path, confirmation=typed,
+        )
+        _message(
+            "Clone completed",
+            f"Copied {copied} bytes from {source['path']} to {target_path}.\\n"
+            "The destination's extra capacity, if any, was left untouched.",
+        )
+    except (DiskCloneError, OSError) as exc:
+        _message("Clone failed", str(exc))
+
+
 def _available_manifests() -> list[tuple[str, ImageManifest]]:
     repository = _repository()
     found = []
@@ -195,6 +237,7 @@ def main() -> int:
             ("capture-disk", "Capture a whole disk"),
             ("capture-partition", "Capture a partition"),
             ("restore", "Restore an image"),
+            ("clone-disk", "Clone one local disk directly to another"),
             ("exit", "Return to operating mode selector"),
         ])
         if choice in (None, "exit"):
@@ -209,6 +252,8 @@ def main() -> int:
             _capture_partition(inventory)
         elif choice == "restore":
             _restore(inventory)
+        elif choice == "clone-disk":
+            _clone_disk(inventory)
 
 if __name__ == "__main__":
     raise SystemExit(main())
