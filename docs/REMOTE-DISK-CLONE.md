@@ -44,8 +44,9 @@ without identity matching is insufficient.
    digest.
 8. The receiver returns a terminal verification result bound to the session
    UUID, including the read-back digest. Only a successful receiver read-back
-   verification is reported as success. Persistent operation-journal wiring
-   and the interactive mode are still pending.
+   verification is reported as success. Both endpoints persist started and
+   terminal completed/failed/cancelled operation events before reporting
+   completion to their caller.
 
 ## Required protocol properties
 
@@ -88,8 +89,9 @@ transport. The initial runtime is in
   and sends a success acknowledgement only when SHA-256 matches.
 - `src/feclora/network/tls.py` provides the client/server TLS socket wrappers.
   The caller still owns listener lifecycle, certificate provisioning,
-  socket timeout configuration, UI authorization prompts and operation-log
-  integration.
+  socket timeout configuration and UI authorization prompts. The runtime
+  writes to the existing persistent operation journal by default; callers can
+  override its path for isolated deployments and tests.
 
 The implementation does not transfer image files, invoke SSH/SFTP, or reuse
 the multicast deployment coordinator. It is an initial runtime foundation,
