@@ -57,6 +57,24 @@ class SourceSafetyTests(unittest.TestCase):
                 swaps_path="/dev/null", stat_device=lambda _path: SimpleNamespace(st_mode=0), effective_uid=lambda: 0,
             )
 
+    def test_non_root_checks_sudo_and_runs_fuser_privileged(self):
+        tree = {"blockdevices": [{"path": "/dev/sdb1", "type": "part", "mountpoints": []}]}
+        commands = []
+        def runner(command, **kwargs):
+            commands.append(command)
+            if command[:3] == ["sudo", "-n", "true"]:
+                return subprocess.CompletedProcess(command, 0, "", "")
+            if command[:3] == ["sudo", "-n", "--"]:
+                return subprocess.CompletedProcess(command, 1, "", "")
+            return subprocess.CompletedProcess(command, 0, json.dumps(tree), "")
+        check_capture_source_safe(
+            "/dev/sdb1", runner=runner, which=lambda name: name,
+            root_disk_resolver=lambda **kwargs: {"/dev/sda"},
+            swaps_path="/dev/null", stat_device=lambda _path: SimpleNamespace(st_mode=0),
+            effective_uid=lambda: 1000,
+        )
+        self.assertIn(["sudo", "-n", "--", "fuser", "-s", "/dev/sdb1"], commands)
+
     def test_requires_safety_utilities(self):
         with self.assertRaisesRegex(SourceSafetyError, "lsblk and fuser"):
             check_capture_source_safe("/dev/sda1", which=lambda name: name if name == "lsblk" else None)
