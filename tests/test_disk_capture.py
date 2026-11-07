@@ -24,6 +24,7 @@ class DiskCaptureTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
+        self.disk_size = len(b"whole disk bytes")
         self.executables = {
             "dd": "/usr/bin/dd", "sfdisk": "/usr/sbin/sfdisk",
             "lsblk": "/usr/bin/lsblk",
@@ -31,7 +32,7 @@ class DiskCaptureTests(unittest.TestCase):
 
     def runner(self, command, **kwargs):
         if command[0] == self.executables["lsblk"]:
-            return SimpleNamespace(stdout="1000000 512 gpt\n")
+            return SimpleNamespace(stdout=f"{self.disk_size} 512 gpt\n")
         if command[0] == self.executables["sfdisk"]:
             return SimpleNamespace(stdout="label: gpt\n")
         raise AssertionError(command)
@@ -43,6 +44,7 @@ class DiskCaptureTests(unittest.TestCase):
             executables=self.executables,
             device_validator=lambda _path: True,
             runner=self.runner,
+            source_safety_check=lambda _path: None,
             popen_factory=lambda *_args, **_kwargs: proc,
         )
         self.assertEqual(manifest.image_type, "disk")
@@ -75,6 +77,7 @@ class DiskCaptureTests(unittest.TestCase):
                 executables=self.executables,
                 device_validator=lambda _path: True,
                 runner=self.runner,
+                source_safety_check=lambda _path: None,
                 popen_factory=lambda *_args, **_kwargs: FakeProcess(),
             )
         with open(os.path.join(self.temp.name, "taken.disk.raw"), "rb") as stream:
