@@ -53,11 +53,11 @@ class CloneSelectionTests(unittest.TestCase):
     def test_rejects_mounted_source_descendant(self):
         self.inventory["devices"][0]["children"] = [part("/dev/sda1", ["/mnt/source"])]
         with self.assertRaisesRegex(SelectionError, "Source disk has mounted"):
-            validate_clone_selection(self.inventory, "/dev/sda", "/dev/sdb")
+            self.validate("/dev/sda", "/dev/sdb")
 
     def test_rejects_live_root_disk(self):
         with self.assertRaisesRegex(SelectionError, "live system root"):
-            validate_clone_selection(self.inventory, "/dev/sda", "/dev/sdc")
+            self.validate("/dev/sda", "/dev/sdc")
 
     def test_requires_root_protection_data(self):
         with self.assertRaisesRegex(SelectionError, "protection data is required"):
@@ -76,7 +76,7 @@ class CloneSelectionTests(unittest.TestCase):
 
     def test_rejects_insufficient_capacity(self):
         with self.assertRaisesRegex(SelectionError, "too small"):
-            validate_clone_selection(self.inventory, "/dev/sdb", "/dev/sda")
+            self.validate("/dev/sdb", "/dev/sda")
 
     def test_rejects_missing_or_ambiguous_path(self):
         with self.assertRaisesRegex(SelectionError, "missing or ambiguous"):
