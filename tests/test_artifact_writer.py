@@ -3,6 +3,8 @@ import hashlib
 import io
 import lzma
 import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 
@@ -44,6 +46,27 @@ class ArtifactWriterTests(unittest.TestCase):
                     stored = stream.read()
                 self.assertEqual(decoder(stored), self.payload)
                 self.assertEqual(artifact.sha256, hashlib.sha256(stored).hexdigest())
+
+    @unittest.skipUnless(shutil.which("zstd") and shutil.which("lz4"), "zstd and lz4 executables are required")
+    def test_compresses_zstd_and_lz4_with_selected_levels(self):
+        for codec, level, suffix in (("zstd", 7, ".zst"), ("lz4", 5, ".lz4")):
+            with self.subTest(codec=codec):
+                filename = "image" + suffix
+                artifact = write_artifact(
+                    self.temp.name, filename, io.BytesIO(self.payload),
+                    role="disk-image", image_format="raw",
+                    compression=codec, compression_level=level,
+                )
+                with open(os.path.join(self.temp.name, filename), "rb") as stored:
+                    encoded = stored.read()
+                decoded = subprocess.run(
+                    [codec, "-q", "-d", "-c"], input=encoded,
+                    check=True, capture_output=True,
+                ).stdout
+                self.assertEqual(decoded, self.payload)
+                self.assertEqual(artifact.compression_level, level)
+                self.assertEqual(artifact.size_bytes, len(encoded))
+                self.assertEqual(artifact.sha256, hashlib.sha256(encoded).hexdigest())
 
     def test_records_selected_compression_level(self):
         artifact = write_artifact(
