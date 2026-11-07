@@ -8,7 +8,7 @@ Before starting a writer it:
 - validates the manifest and requires exactly one partition-image artifact;
 - verifies the stored artifact size and SHA-256;
 - fully decompresses the image into a temporary file on the image repository
-  filesystem, validating gzip/xz framing before any target write;
+  filesystem, validating gzip/xz framing or zstd/lz4 process exit status before any target write;
 - checks that the destination is a real block device of type `part`, large
   enough for the source geometry, and has the same logical sector size;
 - rejects mounted, active-swap, busy, device-mapper-held, or Live-root backing
@@ -32,8 +32,9 @@ it is not equivalent to Windows chkdsk. These checks do not establish
 byte-for-byte identity with the source. The required checker must be installed
 before the Partclone writer is allowed to start.
 
-Supported outer compression is none, gzip and xz. zstd/lz4 adapters,
-partition-table creation/resizing and crash recovery are not implemented. The
+Supported outer compression is none, gzip, xz, zstd and lz4. The zstd/lz4
+codecs are decoded through the installed system CLI tools. Partition-table
+creation/resizing and crash recovery are not implemented. The
 destination partition must already exist and be at least as large as the source.
 
 A successful restore also requires the applicable post-write verification to
