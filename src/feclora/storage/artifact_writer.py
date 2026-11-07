@@ -13,6 +13,9 @@ import os
 import re
 import secrets
 import stat
+import subprocess
+import tempfile
+import shutil
 from typing import BinaryIO
 
 from .image_manifest import ImageArtifact
@@ -23,7 +26,7 @@ class ArtifactWriteError(ValueError):
 
 
 _FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
-_SUPPORTED_COMPRESSION = {"none", "gzip", "xz"}
+_SUPPORTED_COMPRESSION = {"none", "gzip", "xz", "zstd", "lz4"}
 _CHUNK_SIZE = 1024 * 1024
 
 
@@ -57,6 +60,7 @@ def write_artifact(
     image_format: str,
     compression: str = "none",
     compression_level: int | None = None,
+    compression_executable: str | None = None,
     partition_id: str | None = None,
     filesystem: str | None = None,
     chunk_size: int = _CHUNK_SIZE,
