@@ -63,7 +63,7 @@ class PartitionRestoreTests(unittest.TestCase):
             confirmation="ERASE /dev/sda1",
             executables={"lsblk": "lsblk", "dd": "dd", "partclone.ext4": "partclone.ext4"},
             runner=self.runner, device_validator=lambda _path: True,
-            target_safety_check=lambda _path: None,
+            target_safety_check=lambda _path: None, effective_uid=lambda: 0,
             popen_factory=factory, **kwargs,
         )
         return result
@@ -84,7 +84,7 @@ class PartitionRestoreTests(unittest.TestCase):
             restore_partition(
                 self.manifest, self.temp.name, "/dev/sda1", confirmation="yes",
                 executables={"lsblk": "lsblk"}, runner=self.runner,
-                target_safety_check=lambda _path: None,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
             )
     def test_rejects_corrupt_artifact_before_starting_writer(self):
         with open(os.path.join(self.temp.name, "partition.img.gz"), "ab") as stream:
@@ -100,7 +100,7 @@ class PartitionRestoreTests(unittest.TestCase):
                 self.manifest, self.temp.name, "/dev/sda1",
                 confirmation="ERASE /dev/sda1", executables={"lsblk": "lsblk", "dd": "dd"},
                 runner=small, device_validator=lambda _path: True,
-                target_safety_check=lambda _path: None,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=lambda *a, **k: self.fail("writer must not start"),
             )
 
