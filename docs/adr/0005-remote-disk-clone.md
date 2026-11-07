@@ -38,11 +38,12 @@ authorization to read or erase a disk.
 
 - Exchange a strictly validated, versioned, length-bounded JSON session header
   before any target write. Reject unknown required semantics, oversized
-  metadata, invalid geometry, and mismatched session/role identities.
+  metadata, invalid geometry, and mismatched session/role identities and both device paths.
 - Stream exactly the declared source byte count in fixed-size bounded chunks.
   Never buffer a complete disk image in memory.
 - Compute SHA-256 over the source stream and receiver stream. Compare the
-  sender's final digest with the receiver's in-flight digest.
+  sender's final digest with the receiver's in-flight digest. The stream
+  terminal frame is bound to the session UUID.
 - Write only to a receiver block device that has passed the local destructive
   target safety gate and exact typed confirmation.
 - After the stream completes and the transfer digest matches, read the
@@ -66,7 +67,8 @@ authorization to read or erase a disk.
   authorizations, session binding, metadata validation, and receiver target
   confirmation have completed.
 - Do not report success from sender exit status or successful socket shutdown;
-  receiver read-back verification is mandatory.
+  receiver read-back verification is mandatory and its digest is returned in a
+  session-bound receiver verification acknowledgement.
 - This protocol is not the Server/Client PXE deployment protocol and does not
   provide multicast fan-out.
 
