@@ -117,7 +117,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         thread.start()
         return thread
 
-    def _receive(self, sock, *, geometry, process_factory):
+    def _receive(self, sock, *, geometry, process_factory, target_path="/dev/target"):
         with tempfile.TemporaryDirectory() as directory:
             log_path = os.path.join(directory, "operations.jsonl")
             result = receive_remote_disk(
@@ -125,7 +125,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                 operation_log_path=log_path,
                 local_identity="DNS:receiver.example",
                 expected_peer_identity="DNS:source.example",
-                target_path="/dev/target",
+                target_path=target_path,
                 confirmation="ERASE /dev/target FROM DNS:source.example",
                 executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
                 device_validator=lambda _path: True,
@@ -188,6 +188,17 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         self.assertEqual(result.status, "verified")
         self.assertEqual(received["data"], self.payload)
         self.assertEqual([event["status"] for event in events], ["started", "completed"])
+
+    def test_receiver_rejects_peer_selected_target_that_differs_from_local_choice(self):
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
+        send_session_header(left, self.header)
+        with self.assertRaisesRegex(RemoteDiskCloneError, "locally selected target"):
+            self._receive(
+                right, geometry=None, target_path="/dev/other",
+                process_factory=lambda *a, **k: self.fail("dd must not start"),
+            )
 
     def test_receiver_rejects_undersized_target_before_starting_writer(self):
         left, right = socket.socketpair()
