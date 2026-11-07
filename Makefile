@@ -3,12 +3,13 @@ SHELL := /usr/bin/env bash
 .PHONY: help deps preflight validate test ui build clean
 
 help:
-	@printf '%s\n' \
-	  'deps     Install Fedora build-host dependencies' \
-	  'preflight Check host, KVM, input ISO and free space' \\\n	  'validate Run static project and Bash syntax checks' \
-	  'test     Run hardware-independent Python unit tests' \
-	  'ui       Run the read-only dialog storage browser' \
-	  'build    Build the ISO (requires FEDORA_INSTALL_ISO and root)' \
+	@printf '%s\\n' \\
+	  'deps     Install Fedora build-host dependencies' \\
+	  'preflight Check host, KVM, input ISO and free space' \\
+	  'validate Run static project and Bash syntax checks' \\
+	  'test     Run hardware-independent Python unit tests' \\
+	  'ui       Run the read-only dialog storage browser' \\
+	  'build    Build the ISO (requires FEDORA_INSTALL_ISO and root)' \\
 	  'clean    Remove generated build output'
 
 deps:
