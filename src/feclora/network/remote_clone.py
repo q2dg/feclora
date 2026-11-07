@@ -367,9 +367,9 @@ def send_remote_disk(
     expected_peer_identity = kwargs.get("expected_peer_identity")
     if not isinstance(expected_peer_identity, str):
         raise RemoteDiskCloneError("expected receiver identity is required")
-    verify_peer_identity(tls_socket, expected_peer_identity)
     target = f"{header.source_device} -> {header.receiver_identity}:{header.receiver_target_device}"
     try:
+        verify_peer_identity(tls_socket, expected_peer_identity)
         with operation_record(
             "remote-disk-send", target, image_id=header.session_id,
             log_path=operation_log_path,
