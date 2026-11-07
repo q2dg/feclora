@@ -17,6 +17,10 @@ from .privilege import PrivilegeError, privileged_argv
 class PartitionRestoreError(RuntimeError):
     """A partition restore was rejected or failed."""
 
+
+class PartitionRestoreCancelled(PartitionRestoreError):
+    """The operator cancelled a raw partition restore."""
+
 _PARTCLONE = {
     "btrfs": "partclone.btrfs",
     "ext2": "partclone.extfs",
@@ -138,6 +142,7 @@ def restore_partition(
     popen_factory: Callable[..., Any] | None = None,
     target_safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> ImageManifest:
     """Restore one partition image; confirmation must be ERASE /dev/partition."""
     if not isinstance(target_path, str) or not target_path.startswith("/dev/"):
@@ -220,12 +225,10 @@ def restore_partition(
                 raise PartitionRestoreError(f"restore target became unsafe: {exc}") from exc
             if artifact.format == "partclone":
                 argv = [executable, "-r", "-s", staged_path, "-o", target_path]
-                extra = {}
-                stdin = subprocess.DEVNULL
+                stdin_mode = subprocess.DEVNULL
             else:
-                argv = [executable, f"if={staged_path}", f"of={target_path}", "bs=4M", "conv=fsync", "status=none"]
-                extra = {}
-                stdin = subprocess.DEVNULL
+                argv = [executable, f"of={target_path}", "bs=4M", "conv=fsync", "status=none"]
+                stdin_mode = subprocess.PIPE
             stderr = tempfile.TemporaryFile(mode="w+b")
             process = None
             try:
@@ -235,11 +238,32 @@ def restore_partition(
                 try:
                     command = privileged_argv(argv, effective_uid=effective_uid)
                     process = factory(
-                        command, stdin=stdin, stdout=subprocess.DEVNULL,
-                        stderr=stderr, close_fds=True, **extra,
+                        command, stdin=stdin_mode, stdout=subprocess.DEVNULL,
+                        stderr=stderr, close_fds=True,
                     )
                 except (OSError, PrivilegeError) as exc:
                     raise PartitionRestoreError(f"could not start restore utility: {exc}") from exc
+                if artifact.format == "raw":
+                    if process.stdin is None:
+                        raise PartitionRestoreError("dd did not provide a writable input pipe")
+                    written = 0
+                    with open(staged_path, "rb") as raw_image:
+                        while True:
+                            chunk = raw_image.read(1024 * 1024)
+                            if not chunk:
+                                break
+                            view = memoryview(chunk)
+                            while view:
+                                count = process.stdin.write(view)
+                                if count is None or count <= 0:
+                                    raise PartitionRestoreError("dd input pipe stopped accepting data")
+                                written += count
+                                view = view[count:]
+                            if progress_callback is not None:
+                                progress_callback(written, manifest.source_size_bytes)
+                    process.stdin.close()
+                    if written != manifest.source_size_bytes:
+                        raise PartitionRestoreError("raw image byte count differs from manifest")
                 return_code = process.wait()
                 if return_code != 0:
                     stderr.seek(0)
