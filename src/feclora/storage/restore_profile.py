@@ -220,9 +220,16 @@ def load_restore_profile(
     profile_path = Path(path)
     _regular_file(profile_path, "restore profile")
     try:
-        raw = profile_path.read_text(encoding="utf-8")
+        fd = os.open(profile_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        with os.fdopen(fd, "rb") as source:
+            if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                raise RestoreProfileError("restore profile must be a regular file")
+            raw_bytes = source.read(1024 * 1024 + 1)
+        if len(raw_bytes) > 1024 * 1024:
+            raise RestoreProfileError("restore profile exceeds the 1 MiB size limit")
+        raw = raw_bytes.decode("utf-8")
     except (OSError, UnicodeError) as exc:
-        raise RestoreProfileError(f"cannot read restore profile: {exc}") from exc
+        raise RestoreProfileError(f"cannot safely read restore profile: {exc}") from exc
     profile = RestoreProfile.from_json(raw)
     if profile.execution_mode != "unattended":
         return profile
@@ -235,13 +242,27 @@ def load_restore_profile(
     executable = minisign_executable or shutil.which("minisign")
     if not executable:
         raise RestoreProfileError("minisign is required to authorize unattended restore profiles")
+    temporary_path: str | None = None
     try:
+        # Verify the exact byte sequence already parsed above. This avoids a
+        # path replacement between parsing and minisign verification.
+        fd, temporary_path = tempfile.mkstemp(prefix=".feclora-profile-verify-")
+        with os.fdopen(fd, "wb") as staged:
+            staged.write(raw_bytes)
+            staged.flush()
+            os.fsync(staged.fileno())
         subprocess.run(
-            [executable, "-Vm", str(profile_path), "-x", str(signature_path), "-p", str(key_path)],
+            [executable, "-Vm", temporary_path, "-x", str(signature_path), "-p", str(key_path)],
             check=True, capture_output=True, text=True, timeout=20,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise RestoreProfileError(f"restore profile signature verification failed: {exc}") from exc
+    finally:
+        if temporary_path is not None:
+            try:
+                os.unlink(temporary_path)
+            except FileNotFoundError:
+                pass
     object.__setattr__(profile, "signature_verified", True)
     return profile
 
