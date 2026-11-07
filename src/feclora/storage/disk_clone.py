@@ -153,7 +153,7 @@ def clone_disk(
                 if len(stderr_tail) >= 8192:
                     del stderr_tail[:1]
                 stderr_tail.extend(byte)
-                if byte in (b"\\r", b"\\n"):
+                if byte in (b"\r", b"\n"):
                     line = progress_buffer.decode("utf-8", errors="replace").strip()
                     progress_buffer.clear()
                     if progress_callback and line:
