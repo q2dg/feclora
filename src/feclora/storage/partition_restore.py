@@ -4,6 +4,7 @@ import gzip
 import hashlib
 import lzma
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -271,7 +272,7 @@ def restore_partition(
             except SourceSafetyError as exc:
                 raise PartitionRestoreError(f"restore target became unsafe: {exc}") from exc
             if artifact.format == "partclone":
-                argv = [executable, "-r", "-s", staged_path, "-o", target_path]
+                argv = [executable, "-r", "-F", "-f", "1", "-s", staged_path, "-o", target_path]
                 stdin_mode = subprocess.DEVNULL
             else:
                 argv = [executable, f"of={target_path}", "bs=4M", "conv=fsync", "status=none"]
@@ -286,7 +287,7 @@ def restore_partition(
                     command = privileged_argv(argv, effective_uid=effective_uid)
                     process = factory(
                         command, stdin=stdin_mode, stdout=subprocess.DEVNULL,
-                        stderr=stderr, close_fds=True,
+                        stderr=subprocess.PIPE if artifact.format == "partclone" else stderr, close_fds=True,
                     )
                 except (OSError, PrivilegeError) as exc:
                     raise PartitionRestoreError(f"could not start restore utility: {exc}") from exc
@@ -311,6 +312,31 @@ def restore_partition(
                     process.stdin.close()
                     if written != manifest.source_size_bytes:
                         raise PartitionRestoreError("raw image byte count differs from manifest")
+                if artifact.format == "partclone":
+                    # Partclone writes progress to stderr; force periodic updates
+                    # so closing the UI can stop the writer promptly.
+                    progress_stream = getattr(process, "stderr", None)
+                    if progress_stream is not None:
+                        pending = bytearray()
+                        while True:
+                            char = progress_stream.read(1)
+                            if not char:
+                                break
+                            stderr.write(char)
+                            if char in (b"\\r", b"\\n"):
+                                line = pending.decode("utf-8", errors="replace")
+                                pending.clear()
+                                match = re.search(r"([0-9]+(?:\\.[0-9]+)?)\\s*%", line)
+                                if match and progress_callback is not None:
+                                    progress_callback(max(0, min(100, int(float(match.group(1))))), 100)
+                            else:
+                                pending.extend(char)
+                                if len(pending) > 4096:
+                                    del pending[:-4096]
+                        if pending:
+                            match = re.search(r"([0-9]+(?:\\.[0-9]+)?)\\s*%", pending.decode("utf-8", errors="replace"))
+                            if match and progress_callback is not None:
+                                progress_callback(max(0, min(100, int(float(match.group(1))))), 100)
                 return_code = process.wait()
                 if return_code != 0:
                     stderr.seek(0)
