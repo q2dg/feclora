@@ -1,44 +1,57 @@
 # Roadmap
 
 ## Milestone 0 — Project foundation
-- [x] Create the independent `feclora` repository.
+- [x] Create the independent feclora repository.
 - [x] Define Fedora 43 x86_64 as the initial target.
-- [x] Publish an initial architecture decision record for the live-image build pipeline.
-- [x] Confirm all GitHub Actions checks pass on the current main revision (verified on 2026-11-07; rerun after subsequent changes).
+- [x] Publish architecture decisions for the live-image build pipeline and generic-tools-only storage implementation.
 - [ ] Define the project license and contribution policy.
 
-## Milestone 1 — Bootable live image
-- [ ] Build a reproducible Fedora 43 live ISO.
+## Milestone 1 — Bootable Live image
+- [ ] Build a reproducible Fedora 43 Live ISO.
 - [ ] Boot on BIOS and UEFI in virtual machines.
-- [ ] Provide a predictable live-session startup and logging.
-- [x] Implement a read-only block-device/filesystem inventory with mocked unit tests.
-- [x] Add an initial read-only device browser using the standard `dialog` utility.
-- [x] Implement staging and Kickstart integration of feclora's Python code into the generated Live ISO (end-to-end ISO validation still pending).
-- [x] Add automated build-host preflight checks for Fedora baseline, architecture, KVM, dependencies, inputs, and output space.
+- [ ] Provide predictable live-session startup and logging.
+- [x] Implement read-only block-device/filesystem inventory with mocked tests.
+- [x] Add a read-only device browser using dialog.
+- [x] Stage and integrate the Python application into the Kickstart build (end-to-end validation pending).
+- [x] Add automated build-host preflight checks.
 - [ ] Validate inventory and UI against real BIOS/UEFI virtual-machine storage.
-- [x] Document the build-host preparation, ISO build, artifact checks, and VM acceptance procedure in [the build runbook](BUILD.md).
+- [x] Document the build and VM acceptance procedure.
 
-See [the Clonezilla Live functional-parity target](CLONEZILLA-FEATURE-PARITY.md) and [ADR 0003](adr/0003-clonezilla-workflow.md): use generic Linux utilities only; no Clonezilla or `ocs-*` runtime dependencies.
+## Milestone 2 — Local imaging and restoration
+- [x] Discover generic storage utilities, including filesystem-specific Partclone executables.
+- [x] Implement a non-destructive whole-disk selection gate and live-root dependency probe (not yet integrated into the UI).
+- [ ] Complete mounted/busy-device detection and source/target safety checks.
+- [ ] Implement whole-disk and partition save/restore with Partclone and raw fallback.
+- [ ] Implement disk-to-disk clone using partition-table tools and per-partition imaging.
+- [ ] Implement compression, checksums, image manifests and verification.
+- [ ] Support GPT/MBR, LVM, LUKS and boot-area/bootloader workflows.
+- [ ] Support local and remote repositories (SSH/SFTP, NFS, SMB/CIFS, WebDAV).
+- [ ] Integrate workflows into the TUI with progress, logs, cancellation and clear error handling.
+- [ ] Validate all destructive paths on disposable BIOS/UEFI VMs.
 
-## Milestone 2 — Core imaging workflow
-- [x] Discover the presence of standard storage utilities without executing them, including filesystem-specific Partclone executables.
-- [x] Implement a tested, non-destructive whole-disk source/target selection gate.
-- [x] Add an independent live-root dependency probe using `findmnt` and inverse `lsblk` metadata.
-- [ ] Integrate root protection and selection into the TUI with a read-only plan preview.
-- [ ] Validate root protection against Fedora Live BIOS/UEFI sessions, including overlay/loop-backed root layouts.
-- [ ] Reproduce Clonezilla's `savedisk`/`saveparts`/`restoredisk`/`restoreparts` workflows using Partclone, sfdisk and dd; do not invent a new image engine.
-- [ ] Reuse Clonezilla-compatible compression and checksum choices and image metadata.
-- [ ] Record image metadata and operation logs.
-- [ ] Port and test Clonezilla's busy-device, endpoint-identity and source/target checks before enabling writes.
+## Milestone 3 — Server edition foundation
+- [ ] Define image manifest, deployment job schema and authenticated client/server protocol.
+- [ ] Define separate server role/edition packaging and service lifecycle.
+- [ ] Implement server-side repository management and job/control plane.
+- [ ] Implement client identity, allowlisting and explicit job arming.
+- [ ] Implement client Live/PXE runtime using the same generic imaging commands.
+- [ ] Integrate DHCP safely (existing DHCP detection, explicit relay/proxy or dedicated isolated subnet; no silent DHCP server).
+- [ ] Implement TFTP and PXE/iPXE boot for legacy BIOS and UEFI clients.
+- [ ] Complete one-client unattended save/restore over the network.
 
-## Milestone 3 — Compatibility expansion
-- [ ] Add filesystem-aware and raw imaging modes.
-- [ ] Add network image transports.
+## Milestone 4 — Mass deployment
+- [ ] Implement unicast deployment to multiple clients.
+- [ ] Implement multicast/broadcast transport (evaluate UDPcast and alternatives).
+- [ ] Add client-count/deadline/manual deployment start conditions.
+- [ ] Add per-client progress, completion, failure reporting and logs.
+- [ ] Add Wake-on-LAN and post-job reboot/poweroff policies.
+- [ ] Add network interface selection, capacity limits and isolated-network safeguards.
+- [ ] Test simultaneous deployment with multiple disposable PXE clients.
+
+## Milestone 5 — Compatibility and expansion
+- [ ] Expand filesystem and hardware compatibility based on tested generic tools.
 - [ ] Add encryption and advanced storage coverage where supported.
-- [ ] Build a documented compatibility and regression test matrix.
+- [ ] Build a documented compatibility/regression matrix.
+- [ ] Evaluate additional deployment workflows only after core Live and Server parity is validated.
 
-## Milestone 4 — Network deployment
-- [ ] Evaluate multicast and server-assisted deployment.
-- [ ] Design PXE/UEFI network boot support as a separate subsystem.
-
-Milestones are goals, not claims of existing functionality. Each item should be marked complete only after repeatable tests.
+Milestones are goals, not claims of existing functionality. Mark items complete only after repeatable tests.
