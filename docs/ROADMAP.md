@@ -14,6 +14,7 @@
 - [x] Implement a read-only block-device/filesystem inventory with mocked unit tests.
 - [x] Add an initial read-only device browser using the standard `dialog` utility.
 - [x] Implement staging and Kickstart integration of feclora's Python code into the generated Live ISO (end-to-end ISO validation still pending).
+- [x] Add automated build-host preflight checks for Fedora baseline, architecture, KVM, dependencies, inputs, and output space.
 - [ ] Validate inventory and UI against real BIOS/UEFI virtual-machine storage.
 - [x] Document the build-host preparation, ISO build, artifact checks, and VM acceptance procedure in [the build runbook](BUILD.md).
 
