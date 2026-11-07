@@ -161,7 +161,8 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         worker.start()
         process = FakeSourceProcess(self.payload)
         with tempfile.TemporaryDirectory() as directory:
-            result = send_remote_disk(
+            with patch("feclora.network.remote_clone._geometry", return_value=(len(self.payload), 512, True, "gpt")):
+                result = send_remote_disk(
                 TlsSocketProxy(left, peer="receiver.example"),
                 self.header,
                 operation_log_path=os.path.join(directory, "operations.jsonl"),
