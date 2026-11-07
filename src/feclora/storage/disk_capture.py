@@ -126,7 +126,11 @@ def capture_disk(
     if table_type == "none":
         table_text = "# No partition table reported by lsblk; raw disk image preserves all sectors.\n"
     else:
-        table_text = _run_metadata(privileged_argv([sfdisk, "--dump", source_path], effective_uid=effective_uid), run)
+        try:
+            sfdisk_command = privileged_argv([sfdisk, "--dump", source_path], effective_uid=effective_uid)
+        except PrivilegeError as exc:
+            raise DiskCaptureError(f"cannot obtain root privileges for sfdisk: {exc}") from exc
+        table_text = _run_metadata(sfdisk_command, run)
         if not table_text.strip():
             table_text = "# No partition table reported by sfdisk; raw disk image preserves all sectors.\n"
 
