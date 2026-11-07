@@ -21,7 +21,9 @@
 ## Milestone 2 — Core imaging workflow
 - [x] Discover the presence of standard storage utilities without executing them.
 - [x] Implement a tested, non-destructive whole-disk source/target selection gate.
-- [ ] Add independent root/system-device and mount-namespace checks before any destructive workflow.
+- [x] Add an independent live-root dependency probe using `findmnt` and inverse `lsblk` metadata.
+- [ ] Integrate root protection and selection into the TUI with a read-only plan preview.
+- [ ] Validate root protection against Fedora Live BIOS/UEFI sessions, including overlay/loop-backed root layouts.
 - [ ] Create and restore partition or disk images using established utilities where possible.
 - [ ] Support compression and integrity verification.
 - [ ] Record image metadata and operation logs.
