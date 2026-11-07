@@ -21,11 +21,14 @@ jobs:
         run: |
           bash -n build/*.sh
           bash build/validate.sh
+          bash build/preflight.sh --help
       - name: Run ShellCheck
         run: shellcheck build/*.sh
       - name: Run Python unit tests
         run: PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Compile Python modules
         run: python3 -m compileall -q src tests
-      - name: Check Makefile help
-        run: make help
+      - name: Check Makefile help and preflight help
+        run: |
+          make help
+          bash build/preflight.sh --help
