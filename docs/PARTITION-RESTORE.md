@@ -19,14 +19,23 @@ Before starting a writer it:
 Raw partition artifacts are written with `dd`. Partclone artifacts use the
 filesystem-specific `partclone.* -r` executable recorded in the manifest.
 The image stream is fully staged and verified before either writer starts.
+Partclone is invoked with forced one-second progress updates; its stderr
+percentage reports are forwarded to the Local rescue gauge. Closing the gauge
+terminates the active restore process. Raw restores report byte progress.
 
-Supported outer compression is none, gzip and xz. Raw dd restores report byte
-progress and can be cancelled from the Local rescue UI. Partclone restore does
-not yet expose live progress or cancellation. zstd/lz4 adapters, post-write
-read-back verification, partition-table creation/resizing and crash recovery
-are not implemented. The destination
-partition must already exist and be at least as large as the source.
+After a raw restore, feclora reads the exact source byte count back from the
+destination with dd and compares SHA-256 against the staged image. After a
+Partclone restore, feclora runs a filesystem-specific read-only consistency
+check (for example e2fsck -f -n for ext filesystems or xfs_repair -n for XFS).
+This Partclone check establishes filesystem consistency, not byte-for-byte
+identity with the source. The required checker must be installed before the
+Partclone writer is allowed to start.
 
-A successful process exit means the imaging utility reported success; it is
-not a substitute for boot and filesystem validation. A failure after the
+Supported outer compression is none, gzip and xz. zstd/lz4 adapters,
+partition-table creation/resizing and crash recovery are not implemented. The
+destination partition must already exist and be at least as large as the source.
+
+A successful restore also requires the applicable post-write verification to
+pass. The Partclone consistency check is not a content-identity proof. Neither
+verification mode is a substitute for boot validation. A failure after the
 writer starts can leave the destination partially overwritten.
