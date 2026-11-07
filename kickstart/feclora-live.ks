@@ -59,6 +59,15 @@ systemctl --root=/ enable NetworkManager
 # feclora shell and passwordless sudo. Do not reuse this policy on an installed OS.
 useradd --create-home --groups wheel --shell /bin/bash feclora
 passwd --delete feclora
+cat > /home/feclora/.bash_profile <<'EOF'
+# Launch the mode selector automatically on the primary live console.
+if [ "$(tty 2>/dev/null)" = "/dev/tty1" ] && [ -z "${FECLORA_MENU_STARTED:-}" ]; then
+  export FECLORA_MENU_STARTED=1
+  exec /usr/local/bin/feclora-ui
+fi
+EOF
+chown feclora:feclora /home/feclora/.bash_profile
+chmod 0644 /home/feclora/.bash_profile
 mkdir -p /etc/systemd/system/getty@tty1.service.d
 cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf <<'EOF'
 [Service]
