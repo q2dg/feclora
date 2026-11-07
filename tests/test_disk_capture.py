@@ -44,7 +44,7 @@ class DiskCaptureTests(unittest.TestCase):
             executables=self.executables,
             device_validator=lambda _path: True,
             runner=self.runner,
-            source_safety_check=lambda _path: None,
+            source_safety_check=lambda _path: None, effective_uid=lambda: 0,
             popen_factory=lambda *_args, **_kwargs: proc,
         )
         self.assertEqual(manifest.image_type, "disk")
@@ -62,7 +62,7 @@ class DiskCaptureTests(unittest.TestCase):
                 "/dev/fake", "bad-image", self.temp.name,
                 executables=self.executables,
                 device_validator=lambda _path: True,
-                source_safety_check=lambda _path: None,
+                source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 runner=self.runner,
                 popen_factory=lambda *_args, **_kwargs: proc,
             )
@@ -77,7 +77,7 @@ class DiskCaptureTests(unittest.TestCase):
                 executables=self.executables,
                 device_validator=lambda _path: True,
                 runner=self.runner,
-                source_safety_check=lambda _path: None,
+                source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=lambda *_args, **_kwargs: FakeProcess(),
             )
         with open(os.path.join(self.temp.name, "taken.disk.raw"), "rb") as stream:
@@ -89,7 +89,7 @@ class DiskCaptureTests(unittest.TestCase):
             capture_disk(
                 "/dev/fake", "short-image", self.temp.name,
                 executables=self.executables, device_validator=lambda _path: True,
-                runner=self.runner, source_safety_check=lambda _path: None,
+                runner=self.runner, source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=lambda *_args, **_kwargs: FakeProcess(b"short"),
             )
         self.assertEqual(os.listdir(self.temp.name), [])
@@ -103,7 +103,7 @@ class DiskCaptureTests(unittest.TestCase):
                 executables=self.executables,
                 device_validator=lambda _path: True,
                 runner=bad_runner,
-                source_safety_check=lambda _path: None,
+                source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=lambda *_args, **_kwargs: self.fail("dd must not start"),
             )
         self.assertEqual(os.listdir(self.temp.name), [])
@@ -117,7 +117,7 @@ class DiskCaptureTests(unittest.TestCase):
                 executables=self.executables,
                 device_validator=lambda _path: True,
                 runner=self.runner,
-                source_safety_check=lambda _path: None,
+                source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=lambda *_args, **_kwargs: FakeProcess(),
             )
         self.assertEqual(os.listdir(self.temp.name), ["manifest-taken.manifest.json"])
