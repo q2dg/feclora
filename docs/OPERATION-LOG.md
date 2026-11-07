@@ -16,4 +16,5 @@ refuses to start a logged operation if the initial event cannot be persisted.
 A power loss can leave a started event without a terminal event. Such an entry
 means the operation outcome is unknown and the target must be inspected; the
 journal does not claim automatic rollback or crash recovery. Rotation,
-tamper-evident chaining, log export and a UI history browser remain future work.
+tamper-evident chaining, log export and tamper-evident chaining remain future work. The Local rescue menu
+provides a bounded view of the most recent journal events.
