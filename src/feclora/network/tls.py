@@ -5,7 +5,7 @@ import socket
 import ssl
 from typing import Any
 
-from .remote_clone_protocol import RemoteCloneProtocolError, verify_peer_identity
+from .remote_clone_protocol import verify_peer_identity
 
 
 def connect_mutual_tls(
