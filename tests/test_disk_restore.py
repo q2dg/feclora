@@ -84,6 +84,31 @@ class DiskRestoreTests(unittest.TestCase):
         with self.assertRaisesRegex(DiskRestoreError, "size|SHA-256"):
             self.restore()
         self.assertEqual(self.started, [])
+    def test_larger_gpt_target_relocates_and_verifies_backup_header(self):
+        commands = []
+        def large_runner(command, **kwargs):
+            commands.append(command)
+            if command[0] == "/usr/bin/lsblk":
+                return SimpleNamespace(stdout=f"{len(self.payload) + 1024 * 1024} disk 512 0\\n")
+            return SimpleNamespace(stdout="")
+        processes = []
+        def factory(*args, **kwargs):
+            process = FakeProcess(self.payload)
+            processes.append(process)
+            return process
+        result = restore_disk(
+            self.manifest, self.temp.name, "/dev/fake",
+            confirmation="ERASE /dev/fake",
+            executables={**self.executables, "sgdisk": "/usr/bin/sgdisk"},
+            device_validator=lambda _path: True, runner=large_runner,
+            target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+            popen_factory=factory,
+        )
+        self.assertEqual(result.image_id, "test-image")
+        self.assertEqual(commands[1][-2:], ["-e", "/dev/fake"])
+        self.assertEqual(commands[2][-2:], ["-v", "/dev/fake"])
+        self.assertEqual(len(processes), 2)
+
     def test_rejects_small_target_before_starting_dd(self):
         def small_runner(command, **kwargs):
             return SimpleNamespace(stdout="10 disk 512 0\n")
