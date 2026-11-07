@@ -24,6 +24,7 @@ class DiskCloneTests(unittest.TestCase):
         self.commands = []
         self.safety = []
         self.started = []
+        self.backing = {"/dev/source": "/dev/source", "/dev/target": "/dev/target"}
         self.sizes = {"/dev/source": self.geometry(100000, 512, False, "dos"), "/dev/target": self.geometry(120000, 512, False, "dos")}
     def geometry(self, size, sector, read_only, pttype):
         return json.dumps({"blockdevices": [{"size": size, "type": "disk", "log-sec": sector, "ro": read_only, "pttype": pttype}]})
@@ -31,6 +32,9 @@ class DiskCloneTests(unittest.TestCase):
         self.commands.append(command)
         if command[0].endswith("sgdisk"):
             return SimpleNamespace(stdout="")
+        if "--inverse" in command:
+            path = command[-1]
+            return SimpleNamespace(stdout=json.dumps({"blockdevices": [{"path": self.backing[path], "type": "disk"}]}))
         return SimpleNamespace(stdout=self.sizes[command[-1]])
     def clone(self, **kwargs):
         return clone_disk(
@@ -85,6 +89,11 @@ class DiskCloneTests(unittest.TestCase):
         with self.assertRaisesRegex(DiskCloneError, "different"):
             clone_disk("/dev/source", "/dev/source", confirmation="ERASE /dev/source",
                        device_validator=lambda _path: True)
+    def test_rejects_shared_physical_backing_disk(self):
+        self.backing["/dev/target"] = "/dev/source"
+        with self.assertRaisesRegex(DiskCloneError, "share"):
+            self.clone()
+        self.assertEqual(self.started, [])
     def test_rejects_small_target_before_starting_dd(self):
         self.sizes["/dev/target"] = self.geometry(99999, 512, False, "dos")
         with self.assertRaisesRegex(DiskCloneError, "smaller"):
