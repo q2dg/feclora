@@ -35,9 +35,12 @@ The profile model and unattended whole-disk executor are implemented in src/fecl
 
 ## Running an unattended disk restore
 
-The Live image installs the `feclora-restore-profile` command. A profile is
-stored under `/home/feclora/profiles`; the profile and image each need their
-own detached minisign signature and separately trusted public key.
+The Live image installs the `feclora-restore-profile` command. Store the
+profile, image repository, trust keys and audit files on storage that remains
+available to the Live session. The Live home directory and its logs may reside
+on a volatile overlay and are not suitable as a replay ledger across reboots.
+The profile and image each need their own detached minisign signature and
+separately trusted public key.
 
 A profile JSON document has this shape (replace all example identities and
 timestamps with values collected from the actual target):
@@ -67,18 +70,23 @@ Then invoke:
 
 ```sh
 feclora-restore-profile \
-  --profile /home/feclora/profiles/lab.json \
-  --profile-trusted-key /etc/feclora/trust/profile.pub \
-  --image-trusted-key /etc/feclora/trust/images.pub \
-  --repository /home/feclora/images
+  --profile /mnt/restore-media/profiles/lab.json \
+  --profile-trusted-key /mnt/restore-media/trust/profile.pub \
+  --image-trusted-key /mnt/restore-media/trust/images.pub \
+  --repository /mnt/restore-media/images \
+  --consumption-ledger /mnt/restore-media/audit/consumed-profiles.jsonl \
+  --operation-log /mnt/restore-media/audit/operations.jsonl
 ```
 
 For age-encrypted images, additionally pass `--age-identity` with a protected
-identity file supplied outside the profile. The command rechecks the WWN and
-serial immediately before writing, after artifact and target preflight. It
-atomically consumes the profile ID in a durable ledger at that same
-pre-write boundary. A consumed profile cannot be replayed, including after
-an interrupted or failed write. The disk restore still performs its own
+identity file supplied outside the profile. The command verifies that the consumption ledger and operation
+journal reside on a dedicated persistent mounted filesystem (not the Live
+overlay, tmpfs or root filesystem). It rechecks the WWN and serial immediately
+before writing, after artifact and target preflight. It atomically consumes
+the profile ID in the durable ledger at that same pre-write boundary. A consumed profile cannot be replayed from the same persistent
+ledger, including after a reboot, interrupted or failed write. If the ledger
+volume is unavailable, unmounted, corrupt or not writable, execution stops
+before the disk write. The disk restore still performs its own
 artifact verification, target safety checks, exact confirmation gate,
 streaming write and read-back SHA-256 verification.
 
