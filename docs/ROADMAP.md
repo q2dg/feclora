@@ -28,9 +28,11 @@
 - [x] Implement transactional read-only whole-disk capture with raw dd, sfdisk metadata, exact byte-count validation and manifest-last publication.
 - [x] Implement verified whole-disk restore with raw dd and none/gzip/xz/zstd/lz4 decompression, target geometry checks and typed confirmation (mocked tests; runtime validation pending).
 - [x] Implement partition restore with Partclone and raw fallback (mocked tests; runtime validation pending).
-- [x] Implement direct local whole-disk-to-whole-disk clone using bounded raw dd, source/target safety checks and explicit confirmation (mocked tests; runtime validation pending).
-- [ ] Complete one-to-one remote disk-to-disk clone between separate source and receiver machines over authenticated, integrity-protected transport (dd sender/receiver, receiver-ready authorization handshake, independent local device selection, one-session TLS wrappers and per-endpoint journaling are implemented; mocked and TLS certificate tests are pending CI execution, while interactive UI and physical-device validation remain).
-- [x] Implement zstd/lz4 streaming compression and decompression through Fedora system CLI tools (unit and real-binary CI validation passed in GitHub Actions).
+- [x] Implement direct local whole-disk-to-whole-disk clone using bounded raw dd, source/target safety checks, larger-target support and GPT backup-header relocation (mocked tests; runtime validation pending).
+- [ ] Complete one-to-one remote disk-to-disk clone between separate source and receiver machines over authenticated, integrity-protected transport (dd sender/receiver, receiver-ready authorization handshake, independent local device selection, one-session TLS wrappers and per-endpoint journaling are implemented; larger targets are accepted and GPT backup metadata is relocated/validated after source-range read-back; CI, interactive UI and physical-device validation remain pending).
+- [ ] Implement partition-aware proportional layout restoration, including filesystem-aware growth; raw block cloning must retain original partition starts and must not blindly expand contiguous partitions.
+- [x] Add strict restore profile schema and stable WWN/serial target matching, including signed, expiring, single-use unattended profile validation (profile execution, durable replay ledger and UI integration remain pending).
+- [x] Implement zstd/lz4 streaming compression and decompression through Fedora system CLI tools (unit and real-binary CI validation are included in GitHub Actions; latest run status must be checked before claiming success).
 - [ ] Complete repository-level manifest transactions.
 - [ ] Support GPT/MBR, LVM, LUKS and boot-area/bootloader workflows.
 - [ ] Support local and remote repositories (SSH/SFTP, NFS, SMB/CIFS, WebDAV).
