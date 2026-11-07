@@ -13,6 +13,7 @@ TOOL_GROUPS = {
     "partitioning": ("parted", "sgdisk"),
     "partclone": (
         "partclone.ext4",
+        "partclone.extfs",
         "partclone.ntfs",
         "partclone.xfs",
         "partclone.btrfs",
