@@ -1,20 +1,32 @@
-"""Discover installed storage utilities without invoking them."""
+"""Discover Clonezilla-style storage utilities without invoking them."""
 
 from __future__ import annotations
 
 import shutil
 from typing import Callable
 
-# Presence is not proof that a particular device/filesystem is supported.
+# Partclone exposes filesystem-specific executables, as used by Clonezilla.
+# Their presence does not guarantee that a particular volume is supported.
 TOOL_GROUPS = {
     "inventory": ("lsblk", "blkid", "findmnt"),
-    "partitioning": ("parted", "sfdisk", "sgdisk"),
-    "filesystem_tools": ("e2fsck", "e2label", "xfs_repair", "btrfs"),
-    "imaging": ("partclone", "dd"),
-    "compression": ("gzip", "zstd", "xz"),
+    "partition_tables": ("sfdisk", "sfdisk"),
+    "partitioning": ("parted", "sgdisk"),
+    "partclone": (
+        "partclone.ext4",
+        "partclone.ntfs",
+        "partclone.xfs",
+        "partclone.btrfs",
+        "partclone.fat",
+        "partclone.exfat",
+        "partclone.f2fs",
+        "partclone.dd",
+        "partclone.chkimg",
+    ),
+    "raw_imaging": ("dd",),
+    "compression": ("gzip", "pigz", "zstd", "xz", "lz4"),
     "integrity": ("sha256sum",),
     "encryption": ("cryptsetup",),
-    "volume_management": ("lvm",),
+    "volume_management": ("lvm", "dmsetup"),
     "hardware_diagnostics": ("smartctl",),
 }
 
@@ -25,7 +37,7 @@ def discover_capabilities(
     """Return executable paths grouped by purpose; execute no external command."""
     resolver = which or shutil.which
     groups = {
-        group: {tool: resolver(tool) for tool in tools}
+        group: {tool: resolver(tool) for tool in dict.fromkeys(tools)}
         for group, tools in TOOL_GROUPS.items()
     }
     return {
