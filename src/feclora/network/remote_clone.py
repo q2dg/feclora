@@ -431,9 +431,9 @@ def _receive_remote_disk_impl(
             if table == "gpt":
                 sgdisk = _resolve(available, "sgdisk")
                 try:
-                    command = privileged_argv(["sgdisk", "-e", target], effective_uid=effective_uid)
+                    command = privileged_argv([sgdisk, "-e", target], effective_uid=effective_uid)
                     subprocess.run(command, check=True, capture_output=True, text=True, timeout=60)
-                    verify = privileged_argv(["sgdisk", "-v", target], effective_uid=effective_uid)
+                    verify = privileged_argv([sgdisk, "-v", target], effective_uid=effective_uid)
                     subprocess.run(verify, check=True, capture_output=True, text=True, timeout=60)
                 except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
                     raise RemoteDiskCloneError(
