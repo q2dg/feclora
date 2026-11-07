@@ -422,10 +422,15 @@ def _receive_remote_disk_impl(
             # source-range read-back digest has matched.
             blkid = _resolve(available, "blkid")
             try:
-                table = subprocess.run(
+                probe = subprocess.run(
                     [blkid, "-p", "-s", "PTTYPE", "-o", "value", target],
-                    check=True, capture_output=True, text=True, timeout=20,
-                ).stdout.strip().lower()
+                    check=False, capture_output=True, text=True, timeout=20,
+                )
+                table = probe.stdout.strip().lower()
+                if probe.returncode not in {0, 2} or (probe.returncode == 2 and table):
+                    raise RemoteDiskCloneError(
+                        f"cannot identify copied partition table (blkid status {probe.returncode})"
+                    )
             except (OSError, subprocess.SubprocessError) as exc:
                 raise RemoteDiskCloneError(f"cannot identify copied partition table: {exc}") from exc
             if table == "gpt":
@@ -439,7 +444,7 @@ def _receive_remote_disk_impl(
                     raise RemoteDiskCloneError(
                         f"disk data was copied and read-back verified, but GPT relocation/verification failed: {exc}"
                     ) from exc
-            elif table not in {"dos", "gpt"}:
+            elif table not in {"", "dos", "gpt"}:
                 raise RemoteDiskCloneError(
                     f"larger-target clone cannot safely classify partition table type {table or 'unknown'}"
                 )
