@@ -38,6 +38,7 @@ syslinux
 # Storage and inspection tools
 partclone
 parted
+gdisk
 util-linux
 lvm2
 cryptsetup
