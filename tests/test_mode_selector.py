@@ -26,7 +26,7 @@ class ModeSelectorTests(unittest.TestCase):
         ]
 
         self.assertEqual(mode_selector.main(), 0)
-        self.assertEqual(dialog.call_count, 2)
+        self.assertEqual(dialog.call_count, 3)
         self.assertTrue(any("Server mode not yet implemented" in call.args[0] for call in dialog.call_args_list))
 
     @patch("feclora.ui.mode_selector.shutil.which", return_value=None)
