@@ -262,6 +262,7 @@ def restore_disk(
                             break
                         verify_size += len(chunk)
                         verify_digest.update(chunk)
+                    verify_process.stdout.close()
                     verify_return_code = verify_process.wait()
                     if verify_return_code != 0:
                         verify_stderr.seek(0)
