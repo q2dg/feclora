@@ -15,7 +15,7 @@ from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError,
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import InventoryError, collect_inventory
 from feclora.storage.partition_image_capture import PartitionImageCaptureError, capture_partition_image
-from feclora.storage.partition_restore import PartitionRestoreError, restore_partition
+from feclora.storage.partition_restore import PartitionRestoreCancelled, PartitionRestoreError, restore_partition
 
 IMAGE_REPOSITORY = "/home/feclora/images"
 
@@ -368,6 +368,33 @@ def _run_restore_gauge(
             gauge.terminate()
             gauge.wait()
 
+
+def _restore_security_options(manifest: ImageManifest, manifest_filename: str) -> tuple[str | None, str | None, bool] | None:
+    age_required = any(item.encryption == "age" for item in manifest.artifacts)
+    identity = None
+    if age_required:
+        identity = _input("age identity", "Path to the private age identity file:")
+        if not identity:
+            return None
+    signature = os.path.join(_repository(), manifest_filename + ".minisig")
+    public_key = None
+    require_signature = False
+    if os.path.lexists(signature):
+        choice = _menu("Manifest signature", "This image has a detached minisign signature.", [
+            ("verify", "Verify with a trusted public key"),
+            ("skip", "Continue without signature verification"),
+        ])
+        if choice is None:
+            return None
+        if choice == "verify":
+            public_key = _input("minisign public key", "Path to independently trusted minisign public key:")
+            if not public_key:
+                return None
+            require_signature = True
+        else:
+            _message("Signature not verified", "The image will be restored without establishing publisher authenticity.")
+    return identity, public_key, require_signature
+
 def _restore(inventory: dict[str, Any]) -> None:
     try:
         manifests = _available_manifests()
@@ -382,6 +409,10 @@ def _restore(inventory: dict[str, Any]) -> None:
     if filename is None:
         return
     manifest = next(item for name, item in manifests if name == filename)
+    security = _restore_security_options(manifest, filename)
+    if security is None:
+        return
+    age_identity, minisign_public_key, require_signature = security
     kind = "disk" if manifest.image_type == "disk" else "part"
     target = _select_device(
         inventory, kind, "Restore target",
@@ -400,7 +431,8 @@ def _restore(inventory: dict[str, Any]) -> None:
                 "Restoring whole disk", f"Writing image to {target['path']}. ALL EXISTING DATA WILL BE OVERWRITTEN.",
                 lambda progress: restore_disk(
                     filename, _repository(), target["path"], confirmation=typed,
-                    progress_callback=progress,
+                    progress_callback=progress, age_identity_file=age_identity,
+                    minisign_public_key=minisign_public_key, require_signature=require_signature,
                 ),
             )
         elif manifest.artifacts[0].format == "raw":
@@ -408,13 +440,16 @@ def _restore(inventory: dict[str, Any]) -> None:
                 "Restoring raw partition", f"Writing image to {target['path']}. ALL EXISTING DATA WILL BE OVERWRITTEN.",
                 lambda progress: restore_partition(
                     filename, _repository(), target["path"], confirmation=typed,
-                    progress_callback=progress,
+                    progress_callback=progress, age_identity_file=age_identity,
+                    minisign_public_key=minisign_public_key, require_signature=require_signature,
                 ),
             )
         else:
-            restore_partition(filename, _repository(), target["path"], confirmation=typed)
+            restore_partition(filename, _repository(), target["path"], confirmation=typed,
+                              age_identity_file=age_identity, minisign_public_key=minisign_public_key,
+                              require_signature=require_signature)
         _message("Restore completed", f"Restore utility completed successfully for {target['path']}.\nVerify the resulting system before relying on it.")
-    except DiskRestoreCancelled as exc:
+    except (DiskRestoreCancelled, PartitionRestoreCancelled) as exc:
         _message("Restore cancelled", str(exc) + "\nThe target may contain a partial restore and must not be used.")
     except (DiskRestoreError, PartitionRestoreError, OSError) as exc:
         _message("Restore failed", str(exc))
