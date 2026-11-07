@@ -1,13 +1,15 @@
+import io
 import json
 import unittest
 from types import SimpleNamespace
 
-from feclora.storage.disk_clone import DiskCloneError, clone_disk
+from feclora.storage.disk_clone import DiskCloneCancelled, DiskCloneError, clone_disk
 
 
 class FakeProcess:
-    def __init__(self, returncode=0):
+    def __init__(self, returncode=0, stderr=b""):
         self.returncode = returncode
+        self.stderr = io.BytesIO(stderr)
         self.terminated = False
     def wait(self):
         return self.returncode
@@ -50,6 +52,30 @@ class DiskCloneTests(unittest.TestCase):
         self.assertIn("iflag=count_bytes", argv)
         self.assertIn("conv=fsync", argv)
         self.assertEqual(self.safety, ["/dev/source", "/dev/target"] * 2)
+    def test_reports_dd_progress(self):
+        progress = []
+        proc = FakeProcess(stderr=b"50000 bytes copied, 1.0 s, 50 kB/s\\r100000 bytes copied, 2.0 s, 50 kB/s\\r")
+        clone_disk(
+            "/dev/source", "/dev/target", confirmation="ERASE /dev/target",
+            executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
+            device_validator=lambda _path: True, runner=self.runner,
+            device_safety_check=lambda _path: None, effective_uid=lambda: 0,
+            popen_factory=lambda *a, **k: proc,
+            progress_callback=lambda percent, detail: progress.append(percent),
+        )
+        self.assertEqual(progress, [50, 100])
+    def test_progress_dialog_closure_cancels_dd(self):
+        proc = FakeProcess(stderr=b"50000 bytes copied\\r")
+        with self.assertRaises(DiskCloneCancelled):
+            clone_disk(
+                "/dev/source", "/dev/target", confirmation="ERASE /dev/target",
+                executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
+                device_validator=lambda _path: True, runner=self.runner,
+                device_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda *a, **k: proc,
+                progress_callback=lambda *_args: (_ for _ in ()).throw(BrokenPipeError()),
+            )
+        self.assertTrue(proc.terminated)
     def test_requires_exact_confirmation(self):
         with self.assertRaisesRegex(DiskCloneError, "confirmation"):
             clone_disk("/dev/source", "/dev/target", confirmation="yes",
