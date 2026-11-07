@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any, Callable, Mapping
-from .capture import CaptureError, capture_partition
+from .capture import CaptureCancelled, CaptureError, capture_partition
 from .image_manifest import ImageManifest, ManifestValidationError
 from .source_safety import SourceSafetyError, check_capture_source_safe
 
@@ -103,6 +103,8 @@ def capture_partition_image(
         os.fsync(repository_fd)
         committed = True
         return manifest
+    except CaptureCancelled:
+        raise
     except (CaptureError, ManifestValidationError, OSError) as exc:
         raise PartitionImageCaptureError(f"partition image capture failed: {exc}") from exc
     finally:
