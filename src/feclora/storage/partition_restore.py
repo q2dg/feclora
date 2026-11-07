@@ -479,7 +479,7 @@ def restore_partition(
                     _verify_partclone_target(
                         artifact.filesystem or "", target_path, available, run, effective_uid,
                     )
-                if progress_callback is not None:
+                if progress_callback is not None and artifact.format == "partclone":
                     progress_callback(100, 100)
             finally:
                 _stop_process(process)
