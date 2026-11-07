@@ -159,7 +159,7 @@ def execute_unattended_restore_profile(
     consumption_ledger: str | os.PathLike[str],
     repository: str | os.PathLike[str] = "/home/feclora/images",
     age_identity_file: str | os.PathLike[str] | None = None,
-    operation_log_path: str | os.PathLike[str] = DEFAULT_LOG_PATH,
+    operation_log_path: str | os.PathLike[str],
     inventory: dict[str, Any] | None = None,
     restore_function: Any = restore_disk,
     command_runner: Any = subprocess.run,
@@ -177,6 +177,7 @@ def execute_unattended_restore_profile(
     if not profile.single_use or not profile.verify_after_restore:
         raise RestoreProfileError("unattended profile must be single-use and require read-back verification")
     _require_persistent_ledger(consumption_ledger, runner=command_runner)
+    _require_persistent_ledger(operation_log_path, runner=command_runner)
     current_inventory = inventory if inventory is not None else collect_inventory()
     target = _matching_target(profile, current_inventory)
     profile.authorize(target)
@@ -231,6 +232,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--image-trusted-key", required=True, help="Trusted minisign public key for the image manifest")
     parser.add_argument("--repository", default="/home/feclora/images")
     parser.add_argument("--consumption-ledger", required=True, help="JSONL replay ledger on a dedicated persistent mounted filesystem")
+    parser.add_argument("--operation-log", required=True, help="Persistent JSONL operation journal path")
     parser.add_argument("--age-identity", help="Protected path to the age identity; never stored in the profile")
     args = parser.parse_args(argv)
     try:
@@ -239,6 +241,7 @@ def main(argv: list[str] | None = None) -> int:
             profile_trusted_key=args.profile_trusted_key,
             image_trusted_key=args.image_trusted_key,
             consumption_ledger=args.consumption_ledger,
+            operation_log_path=args.operation_log,
             repository=args.repository,
             age_identity_file=args.age_identity,
         )
