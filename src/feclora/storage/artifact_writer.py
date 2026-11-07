@@ -117,10 +117,65 @@ def write_artifact(
             0o600,
             dir_fd=dir_fd,
         )
-        with os.fdopen(raw_fd, "wb", closefd=True) as raw:
+        with os.fdopen(raw_fd, "w+b", closefd=True) as raw:
             raw_fd = None
             sink = _DigestWriter(raw)
-            if compression == "gzip":
+            if compression in {"zstd", "lz4"}:
+                executable = compression_executable or shutil.which(compression)
+                if not executable:
+                    raise ArtifactWriteError(f"{compression} executable is required")
+                stderr = tempfile.TemporaryFile(mode="w+b")
+                process = None
+                try:
+                    process = subprocess.Popen(
+                        [executable, "-q", "-c", f"-{compression_level}"],
+                        stdin=subprocess.PIPE, stdout=raw, stderr=stderr, close_fds=True,
+                    )
+                    if process.stdin is None:
+                        raise ArtifactWriteError(f"{compression} did not provide an input pipe")
+                    while True:
+                        chunk = source.read(chunk_size)
+                        if not isinstance(chunk, (bytes, bytearray)):
+                            raise ArtifactWriteError("source.read() must return bytes")
+                        if not chunk:
+                            break
+                        source_size += len(chunk)
+                        view = memoryview(chunk)
+                        while view:
+                            count = process.stdin.write(view)
+                            if count is None or count <= 0:
+                                raise ArtifactWriteError(f"{compression} input pipe stopped accepting data")
+                            view = view[count:]
+                    process.stdin.close()
+                    result = process.wait()
+                    if result != 0:
+                        stderr.seek(0)
+                        detail = stderr.read(8192).decode("utf-8", errors="replace").strip()
+                        raise ArtifactWriteError(f"{compression} exited with status {result}" + (f": {detail}" if detail else ""))
+                except OSError as exc:
+                    if process is not None and process.poll() is None:
+                        process.terminate()
+                        process.wait()
+                    raise ArtifactWriteError(f"{compression} compression failed: {exc}") from exc
+                finally:
+                    if process is not None and process.poll() is None:
+                        process.terminate()
+                        process.wait()
+                    stderr.close()
+                raw.flush()
+                raw.seek(0)
+                digest = hashlib.sha256()
+                stored_size = 0
+                while True:
+                    chunk = raw.read(chunk_size)
+                    if not chunk:
+                        break
+                    digest.update(chunk)
+                    stored_size += len(chunk)
+                sink.digest = digest
+                sink.size = stored_size
+                compressor = sink
+            elif compression == "gzip":
                 compressor = gzip.GzipFile(filename="", mode="wb", fileobj=sink, compresslevel=compression_level, mtime=0)
             elif compression == "xz":
                 compressor = lzma.LZMAFile(sink, mode="wb", preset=compression_level)
@@ -128,7 +183,7 @@ def write_artifact(
                 compressor = sink
 
             try:
-                while True:
+                while compression not in {"zstd", "lz4"}:
                     chunk = source.read(chunk_size)
                     if not isinstance(chunk, (bytes, bytearray)):
                         raise ArtifactWriteError("source.read() must return bytes")
@@ -142,7 +197,7 @@ def write_artifact(
                             raise ArtifactWriteError("compression stream made no write progress")
                         view = view[written:]
             finally:
-                if compressor is not sink:
+                if compression not in {"zstd", "lz4"} and compressor is not sink:
                     compressor.close()
 
             if source_size == 0:
@@ -176,7 +231,7 @@ def write_artifact(
         )
     except ArtifactWriteError:
         raise
-    except (OSError, EOFError, lzma.LZMAError) as exc:
+    except (OSError, EOFError, lzma.LZMAError, subprocess.SubprocessError) as exc:
         raise ArtifactWriteError(f"artifact write failed: {exc}") from exc
     finally:
         if raw_fd is not None:
