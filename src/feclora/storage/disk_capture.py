@@ -122,11 +122,11 @@ def capture_disk(
     )
     source_size, sector_size, table_type = _parse_lsblk_geometry(geometry)
     if table_type == "none":
-        table_text = "# No partition table reported by lsblk; raw disk image preserves all sectors.\\n"
+        table_text = "# No partition table reported by lsblk; raw disk image preserves all sectors.\n"
     else:
         table_text = _run_metadata([sfdisk, "--dump", source_path], run)
         if not table_text.strip():
-            table_text = "# No partition table reported by sfdisk; raw disk image preserves all sectors.\\n"
+            table_text = "# No partition table reported by sfdisk; raw disk image preserves all sectors.\n"
 
     disk_suffix = {"none": ".raw", "gzip": ".raw.gz", "xz": ".raw.xz"}.get(compression)
     if disk_suffix is None:
