@@ -54,6 +54,22 @@ class DeploymentJobTests(unittest.TestCase):
                 "52:54:00:12:34:56", "52:54:00:12:34:56"
             ]))
 
+    def test_rejects_non_unicast_client_mac(self):
+        with self.assertRaisesRegex(JobValidationError, "unicast"):
+            DeploymentJob.from_dict(valid_job(authorized_clients=["ff:ff:ff:ff:ff:ff"]))
+        with self.assertRaisesRegex(JobValidationError, "unicast"):
+            DeploymentJob.from_dict(valid_job(authorized_clients=["00:00:00:00:00:00"]))
+
+    def test_rejects_wrong_json_field_types(self):
+        with self.assertRaisesRegex(JobValidationError, "schema_version"):
+            DeploymentJob.from_dict(valid_job(schema_version=True))
+        with self.assertRaisesRegex(JobValidationError, "operation"):
+            DeploymentJob.from_dict(valid_job(operation=[]))
+        with self.assertRaisesRegex(JobValidationError, "multicast_group"):
+            DeploymentJob.from_dict(valid_job(
+                transport="multicast", multicast_group=[], multicast_port=5000
+            ))
+
     def test_rejects_invalid_interface_name(self):
         with self.assertRaisesRegex(JobValidationError, "interface"):
             DeploymentJob.from_dict(valid_job(network_interface="../../tmp/x"))
