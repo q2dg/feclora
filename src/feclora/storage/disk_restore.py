@@ -122,14 +122,20 @@ def restore_disk(
         raise DiskRestoreError(f"cannot inspect target device: {exc}") from exc
 
     repo = os.path.abspath(os.fspath(repository))
+    try:
+        repo_info = os.lstat(repo)
+    except OSError as exc:
+        raise DiskRestoreError("image repository is unavailable") from exc
+    if not stat.S_ISDIR(repo_info.st_mode):
+        raise DiskRestoreError("image repository must be a real directory, not a symlink")
     manifest_file = os.fspath(manifest_path)
     if not os.path.isabs(manifest_file):
         manifest_file = os.path.join(repo, manifest_file)
     try:
-        info = os.lstat(manifest_file)
-        if not stat.S_ISREG(info.st_mode):
-            raise DiskRestoreError("manifest must be a regular file, not a symlink")
-        with open(manifest_file, "r", encoding="utf-8") as source:
+        fd = os.open(manifest_file, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        with os.fdopen(fd, "r", encoding="utf-8") as source:
+            if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                raise DiskRestoreError("manifest must be a regular file, not a symlink")
             manifest = ImageManifest.from_json(source.read())
     except (OSError, UnicodeError, ManifestValidationError) as exc:
         raise DiskRestoreError(f"cannot load valid image manifest: {exc}") from exc
