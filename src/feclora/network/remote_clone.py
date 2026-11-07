@@ -185,7 +185,10 @@ def _send_remote_disk_impl(
         size, sector, read_only, _pttype = _geometry(header.source_device, lsblk, runner or subprocess.run)
         if size != header.source_size_bytes or sector != header.logical_sector_size:
             raise RemoteDiskCloneError("source disk geometry differs from the approved session header")
-        # A read-only source is valid; it is never opened for writing.
+        if not read_only:
+            raise RemoteDiskCloneError(
+                "remote clone source must be marked read-only for the duration of the transfer"
+            )
         _check_safe(header.source_device, safety)
         verify_peer_identity(tls_socket, expected_peer_identity)
         approval = authorize_endpoint(
