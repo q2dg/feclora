@@ -61,7 +61,7 @@ class CloneSelectionTests(unittest.TestCase):
 
     def test_requires_root_protection_data(self):
         with self.assertRaisesRegex(SelectionError, "protection data is required"):
-            validate_clone_selection(self.inventory, "/dev/sda", "/dev/sdb")
+            self.validate("/dev/sda", "/dev/sdb")
 
     def test_rejects_root_backing_disk_reported_by_independent_probe(self):
         with self.assertRaisesRegex(SelectionError, "backs the live system root"):
