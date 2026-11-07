@@ -375,6 +375,8 @@ def send_disk_stream(
         sock.sendall(chunk)
         digest.update(chunk)
         total += len(chunk)
+        if progress_callback is not None:
+            progress_callback(total, expected_size)
     if source.read(1):
         raise RemoteCloneProtocolError("source contains bytes beyond the declared disk size")
     result = CloneStreamResult(session_id, total, digest.hexdigest())
