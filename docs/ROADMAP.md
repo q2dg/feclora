@@ -29,8 +29,8 @@
 - [x] Implement verified whole-disk restore with raw dd and none/gzip/xz/zstd/lz4 decompression, target geometry checks and typed confirmation (mocked tests; runtime validation pending).
 - [x] Implement partition restore with Partclone and raw fallback (mocked tests; runtime validation pending).
 - [x] Implement direct local whole-disk-to-whole-disk clone using bounded raw dd, source/target safety checks and explicit confirmation (mocked tests; runtime validation pending).
-- [ ] Complete one-to-one remote disk-to-disk clone between separate source and receiver machines over authenticated, integrity-protected transport (initial protocol primitives are implemented; device/runtime integration remains).
-- [x] Implement zstd/lz4 streaming compression and decompression through Fedora system CLI tools (unit and real-binary CI validation pending).
+- [ ] Complete one-to-one remote disk-to-disk clone between separate source and receiver machines over authenticated, integrity-protected transport (initial dd sender/receiver runtime and mocked tests are implemented; interactive TLS lifecycle, journal wiring and hardware validation remain).
+- [x] Implement zstd/lz4 streaming compression and decompression through Fedora system CLI tools (unit and real-binary CI validation passed in GitHub Actions).
 - [ ] Complete repository-level manifest transactions.
 - [ ] Support GPT/MBR, LVM, LUKS and boot-area/bootloader workflows.
 - [ ] Support local and remote repositories (SSH/SFTP, NFS, SMB/CIFS, WebDAV).
@@ -53,7 +53,7 @@
 ## Milestone 3 — Network client and server modes in the same ISO
 - [x] Define and validate the shared versioned deployment job schema (no networking or storage writes).
 - [x] Implement the in-memory Server deployment coordinator and client lifecycle state machine (no network transport or storage writes).
-- [x] Specify the one-to-one remote clone protocol and implement initial TLS 1.3 mutual-authentication contexts, exact peer identity checks, role/device-bound local authorization, bounded framing/streaming, session-bound SHA-256 and receiver verification acknowledgements (end-to-end device runtime remains pending).
+- [x] Specify the one-to-one remote clone protocol and implement TLS 1.3 mutual-authentication contexts, exact peer identity checks, role/device-bound local authorization, bounded framing/streaming, session-bound SHA-256, dd-based sender/receiver runtimes and receiver read-back acknowledgements (mocked tests; interactive lifecycle and hardware validation remain).
 - [ ] Define the separate authenticated, integrity-protected PXE client/server deployment protocol.
 - [ ] Implement client identity, allowlisting and explicit job arming.
 - [ ] Implement Client mode runtime using the same generic imaging commands.
