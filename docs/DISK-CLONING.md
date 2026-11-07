@@ -11,7 +11,8 @@ sgdisk is unavailable, the operation is rejected before writing.
 
 Before starting, feclora:
 - requires an exact destructive confirmation naming the destination;
-- rejects identical source and target paths;
+- rejects identical source and target paths and any source/target pair that
+  resolves to overlapping physical backing disks;
 - verifies both are whole disks with supported logical sector sizes; the
   source may be read-only, but the target must be writable;
 - requires the target capacity to be at least the source capacity and the
