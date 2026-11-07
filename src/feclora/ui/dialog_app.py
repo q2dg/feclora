@@ -174,24 +174,24 @@ def _clone_disk(inventory: dict[str, Any]) -> None:
         def report_progress(percent: int, _detail: str) -> None:
             if gauge is None or gauge.poll() is not None or gauge.stdin is None:
                 raise BrokenPipeError("progress dialog was closed")
-            gauge.stdin.write(f"{percent}\\n")
+            gauge.stdin.write(f"{percent}\n")
             gauge.stdin.flush()
         copied = clone_disk(
             source["path"], target_path, confirmation=typed,
             progress_callback=report_progress,
         )
         if gauge is not None and gauge.stdin is not None:
-            gauge.stdin.write("100\\n")
+            gauge.stdin.write("100\n")
             gauge.stdin.close()
             gauge.stdin = None
             gauge.wait()
         _message(
             "Clone completed",
             f"Copied {copied} bytes from {source['path']} to {target_path}.\\n"
-            "The destination's extra capacity, if any, was left untouched.",
+            f"Copied {copied} bytes from {source['path']} to {target_path}.\n"
         )
     except DiskCloneCancelled as exc:
-        _message("Clone cancelled", str(exc) + "\\nThe destination may contain a partial clone.")
+        _message("Clone cancelled", str(exc) + "\nThe destination may contain a partial clone.")
     except (DiskCloneError, OSError) as exc:
         _message("Clone failed", str(exc))
     finally:
