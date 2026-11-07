@@ -16,13 +16,16 @@ from feclora.network.remote_clone import (
 )
 from feclora.network.remote_clone_protocol import (
     CloneSessionHeader,
+    CloneSessionReady,
     CloneVerificationResult,
     RemoteCloneCancelled,
     receive_disk_stream,
     receive_session_header,
+    receive_session_ready,
     receive_verification_result,
     send_disk_stream,
     send_session_header,
+    send_session_ready,
     send_verification_result,
 )
 
@@ -111,6 +114,10 @@ class RemoteDiskReceiverTests(unittest.TestCase):
     def _start_source(self, sock):
         def send():
             send_session_header(sock, self.header)
+            receive_session_ready(
+                sock, session_id=self.header.session_id,
+                expected_target_device=self.header.receiver_target_device,
+            )
             send_disk_stream(
                 sock, io.BytesIO(self.payload), len(self.payload),
                 session_id=self.header.session_id, chunk_size=65536,
@@ -169,6 +176,13 @@ class RemoteDiskReceiverTests(unittest.TestCase):
 
         def receiver():
             header = receive_session_header(right)
+            send_session_ready(
+                right,
+                CloneSessionReady(
+                    session_id=header.session_id,
+                    target_device=header.receiver_target_device,
+                ),
+            )
             destination = io.BytesIO()
             stream = receive_disk_stream(
                 right, destination, header.source_size_bytes,
