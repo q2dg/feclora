@@ -40,6 +40,16 @@ _FILESYSTEM_TO_PARTCLONE = {
 }
 
 
+class _CountingReader:
+    def __init__(self, stream):
+        self.stream = stream
+        self.bytes_read = 0
+    def read(self, size=-1):
+        chunk = self.stream.read(size)
+        self.bytes_read += len(chunk)
+        return chunk
+
+
 @dataclass(frozen=True)
 class CapturePlan:
     """A read-only command plan for one partition."""
@@ -101,6 +111,7 @@ def capture_partition(
     device_validator: Callable[[str], bool] | None = None,
     popen_factory: Callable[..., subprocess.Popen] | None = None,
     source_safety_check: Callable[[str], None] | None = None,
+    expected_size_bytes: int | None = None,
 ) -> ImageArtifact:
     """Capture one block partition into a repository without overwriting files.
 
@@ -148,11 +159,12 @@ def capture_partition(
                 (source_safety_check or check_capture_source_safe)(source_path)
             except SourceSafetyError as exc:
                 raise CaptureError(f"capture source became unsafe before imaging: {exc}") from exc
+            counted = _CountingReader(process.stdout)
             try:
                 artifact = write_artifact(
                     stage_dir,
                     filename,
-                    process.stdout,
+                    counted,
                     role="partition-image",
                     image_format=plan.image_format,
                     compression=compression,
@@ -174,6 +186,11 @@ def capture_partition(
                 raise CaptureError(
                     f"{plan.executable} exited with status {return_code}"
                     + (f": {detail}" if detail else "")
+                )
+
+            if plan.image_format == "raw" and expected_size_bytes is not None and counted.bytes_read != expected_size_bytes:
+                raise CaptureError(
+                    f"raw capture size mismatch: expected {expected_size_bytes}, read {counted.bytes_read}"
                 )
 
             # Link is atomic and fails if the destination already exists.
