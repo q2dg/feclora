@@ -68,6 +68,7 @@ class PartitionRestoreTests(unittest.TestCase):
         return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\n")
     def restore(self, **kwargs):
         proc = FakeProcess()
+        proc.stdout = io.BytesIO(self.payload)
         def factory(argv, **opts):
             self.calls.append((argv, opts))
             if argv[0] == "dd":
@@ -79,7 +80,7 @@ class PartitionRestoreTests(unittest.TestCase):
         result = restore_partition(
             self.manifest, self.temp.name, "/dev/sda1",
             confirmation="ERASE /dev/sda1",
-            executables={"lsblk": "lsblk", "dd": "dd", "partclone.ext4": "partclone.ext4"},
+            executables={"lsblk": "lsblk", "dd": "dd", "partclone.ext4": "partclone.ext4", "e2fsck": "e2fsck"},
             runner=self.runner, device_validator=lambda _path: True,
             target_safety_check=lambda _path: None, effective_uid=lambda: 0,
             popen_factory=factory, **kwargs,
@@ -178,6 +179,23 @@ class PartitionRestoreTests(unittest.TestCase):
                 executables={"lsblk": "lsblk"}, runner=self.runner,
                 target_safety_check=lambda _path: None, effective_uid=lambda: 0,
             )
+
+    def test_raw_restore_rejects_readback_mismatch(self):
+        proc = FakeProcess()
+        proc.stdout = io.BytesIO(b"different destination bytes")
+        def factory(argv, **opts):
+            self.calls.append((argv, opts))
+            return proc
+        with self.assertRaisesRegex(PartitionRestoreError, "read-back verification failed"):
+            restore_partition(
+                self.manifest, self.temp.name, "/dev/sda1",
+                confirmation="ERASE /dev/sda1",
+                executables={"lsblk": "lsblk", "dd": "dd"},
+                runner=self.runner, device_validator=lambda _path: True,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=factory,
+            )
+
     def test_rejects_corrupt_artifact_before_starting_writer(self):
         with open(os.path.join(self.temp.name, "partition.img.gz"), "ab") as stream:
             stream.write(b"tampered")
