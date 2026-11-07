@@ -20,7 +20,7 @@ class SourceSafetyTests(unittest.TestCase):
             check_capture_source_safe(
                 "/dev/sda1", runner=self.runner_for(tree), which=lambda name: name,
                 root_disk_resolver=lambda **kwargs: {"/dev/nvme0n1"},
-                swaps_path="/dev/null", stat_device=lambda _path: SimpleNamespace(st_mode=0),
+                swaps_path="/dev/null", stat_device=lambda _path: SimpleNamespace(st_mode=0), effective_uid=lambda: 0,
             )
 
     def test_rejects_live_root_backing_disk(self):
@@ -30,7 +30,7 @@ class SourceSafetyTests(unittest.TestCase):
             check_capture_source_safe(
                 "/dev/sda1", runner=self.runner_for(tree), which=lambda name: name,
                 root_disk_resolver=lambda **kwargs: {"/dev/sda"},
-                swaps_path="/dev/null", stat_device=lambda _path: SimpleNamespace(st_mode=0),
+                swaps_path="/dev/null", stat_device=lambda _path: SimpleNamespace(st_mode=0), effective_uid=lambda: 0,
             )
 
     def test_rejects_unverifiable_root_protection(self):
@@ -41,7 +41,7 @@ class SourceSafetyTests(unittest.TestCase):
             check_capture_source_safe(
                 "/dev/sdb1", runner=self.runner_for(tree), which=lambda name: name,
                 root_disk_resolver=fail, swaps_path="/dev/null",
-                stat_device=lambda _path: SimpleNamespace(st_mode=0),
+                stat_device=lambda _path: SimpleNamespace(st_mode=0), effective_uid=lambda: 0,
             )
 
     def test_rejects_busy_device(self):
@@ -54,7 +54,7 @@ class SourceSafetyTests(unittest.TestCase):
             check_capture_source_safe(
                 "/dev/sdb1", runner=runner, which=lambda name: name,
                 root_disk_resolver=lambda **kwargs: {"/dev/sda"},
-                swaps_path="/dev/null", stat_device=lambda _path: SimpleNamespace(st_mode=0),
+                swaps_path="/dev/null", stat_device=lambda _path: SimpleNamespace(st_mode=0), effective_uid=lambda: 0,
             )
 
     def test_requires_safety_utilities(self):
