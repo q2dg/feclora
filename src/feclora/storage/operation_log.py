@@ -119,4 +119,3 @@ def operation_record(
             raise OperationLogError(
                 f"operation completed but its terminal journal event could not be persisted: {exc}"
             ) from exc
-}
