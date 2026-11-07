@@ -28,7 +28,7 @@ class PartitionImageCaptureTests(unittest.TestCase):
                 "/dev/fake1", "backup-part", "fake1", directory,
                 executables={"lsblk": "lsblk", "dd": "dd"},
                 runner=runner, device_validator=lambda _path: True,
-                source_safety_check=lambda _path: None,
+                source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=lambda *a, **k: FakeProcess(payload),
             )
             self.assertEqual(manifest.image_type, "partition")
@@ -48,7 +48,7 @@ class PartitionImageCaptureTests(unittest.TestCase):
                     "/dev/fake1", "short", "fake1", directory,
                     executables={"lsblk": "lsblk", "dd": "dd"},
                     runner=runner, device_validator=lambda _path: True,
-                    source_safety_check=lambda _path: None,
+                    source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                     popen_factory=lambda *a, **k: FakeProcess(b"short"),
                 )
             self.assertEqual(os.listdir(directory), [])
@@ -62,7 +62,7 @@ class PartitionImageCaptureTests(unittest.TestCase):
                 "/dev/fake1", "ext4-backup", "fake1", directory,
                 executables={"lsblk": "lsblk", "partclone.ext4": "partclone.ext4", "dd": "dd"},
                 runner=runner, device_validator=lambda _path: True,
-                source_safety_check=lambda _path: None,
+                source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=lambda *a, **k: FakeProcess(payload),
             )
             self.assertEqual(manifest.artifacts[0].format, "partclone")
