@@ -141,6 +141,10 @@ def capture_disk(
         )
         stderr_file = tempfile.TemporaryFile(mode="w+b")
         try:
+            try:
+                (source_safety_check or check_capture_source_safe)(source_path)
+            except SourceSafetyError as exc:
+                raise DiskCaptureError(f"capture source became unsafe before dd: {exc}") from exc
             factory = popen_factory or subprocess.Popen
             try:
                 process = factory(
@@ -152,10 +156,6 @@ def capture_disk(
                 raise DiskCaptureError(f"could not start dd: {exc}") from exc
             if process.stdout is None:
                 raise DiskCaptureError("dd did not provide a stdout pipe")
-            try:
-                (source_safety_check or check_capture_source_safe)(source_path)
-            except SourceSafetyError as exc:
-                raise DiskCaptureError(f"capture source became unsafe before dd: {exc}") from exc
             counted = _CountingReader(process.stdout)
             try:
                 disk_artifact = write_artifact(
