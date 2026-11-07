@@ -85,5 +85,8 @@ authorization to read or erase a disk.
   source devices and revalidate before reading.
 - The implementation must persist session start, authorization, transfer,
   verification, cancellation, and failure outcomes in the operation journal.
-- This ADR defines the protocol boundary; it does not claim that remote cloning
-  is implemented or tested.
+- The initial Python runtime now implements TLS socket helpers, local
+  authorization gates, dd-based source/receiver streaming and receiver
+  read-back acknowledgement. It is not yet a complete interactive feature:
+  persistent journal integration, listener lifecycle, packaged-ISO wiring,
+  and physical-device end-to-end validation remain outstanding.
