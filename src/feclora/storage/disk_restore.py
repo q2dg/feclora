@@ -91,10 +91,15 @@ def _decoded_stream(stream: Any, compression: str, executables: dict[str, str | 
         return gzip.GzipFile(fileobj=stream, mode="rb")
     if compression == "xz":
         return lzma.LZMAFile(stream, mode="rb")
-    raise DiskRestoreError("restore currently supports only none, gzip and xz")
+    if compression in {"zstd", "lz4"}:
+        try:
+            return ExternalDecompressionStream(stream, compression, executables)
+        except CompressionError as exc:
+            raise DiskRestoreError(str(exc)) from exc
+    raise DiskRestoreError("unsupported restore compression")
 
-def _preflight_decoded_size(stream: Any, artifact: ImageArtifact, expected: int) -> None:
-    decoded = _decoded_stream(stream, artifact.compression)
+def _preflight_decoded_size(stream: Any, artifact: ImageArtifact, expected: int, executables: dict[str, str | None] | None = None) -> None:
+    decoded = _decoded_stream(stream, artifact.compression, executables)
     total = 0
     try:
         while True:
@@ -104,7 +109,9 @@ def _preflight_decoded_size(stream: Any, artifact: ImageArtifact, expected: int)
             total += len(chunk)
             if total > expected:
                 raise DiskRestoreError("decoded image exceeds manifest source size")
-    except (OSError, EOFError, lzma.LZMAError, zlib.error) as exc:
+        if hasattr(decoded, "finish"):
+            decoded.finish()
+    except (OSError, EOFError, lzma.LZMAError, zlib.error, CompressionError) as exc:
         raise DiskRestoreError(f"image decompression preflight failed: {exc}") from exc
     finally:
         if decoded is not stream:
@@ -224,7 +231,7 @@ def restore_disk(
         raise DiskRestoreError(f"unsafe restore target: {exc}") from exc
 
     with _verified_artifact_stream(repo, artifact, age_identity_file, available.get("age")) as image:
-        _preflight_decoded_size(image, artifact, manifest.source_size_bytes)
+        _preflight_decoded_size(image, artifact, manifest.source_size_bytes, available)
         try:
             if not validator(target_path):
                 raise DiskRestoreError("target device identity is no longer valid")
@@ -232,7 +239,7 @@ def restore_disk(
         except SourceSafetyError as exc:
             raise DiskRestoreError(f"restore target became unsafe: {exc}") from exc
 
-        decoded = _decoded_stream(image, artifact.compression)
+        decoded = _decoded_stream(image, artifact.compression, available)
         process = None
         stderr_file = tempfile.TemporaryFile(mode="w+b")
         written = 0
@@ -267,8 +274,10 @@ def restore_disk(
                         view = view[count:]
                     if progress_callback is not None:
                         progress_callback(written, manifest.source_size_bytes)
+                if hasattr(decoded, "finish"):
+                    decoded.finish()
                 process.stdin.close()
-            except (BrokenPipeError, OSError, EOFError, lzma.LZMAError, zlib.error) as exc:
+            except (BrokenPipeError, OSError, EOFError, lzma.LZMAError, zlib.error, CompressionError) as exc:
                 if process.poll() is None:
                     process.terminate()
                 process.wait()
