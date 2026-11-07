@@ -16,6 +16,7 @@ from feclora.storage.image_manifest import ImageManifest, ManifestValidationErro
 from feclora.storage.inventory import InventoryError, collect_inventory
 from feclora.storage.partition_image_capture import PartitionImageCaptureError, capture_partition_image
 from feclora.storage.partition_restore import PartitionRestoreCancelled, PartitionRestoreError, restore_partition
+from feclora.storage.operation_log import OperationLogError, operation_record
 
 IMAGE_REPOSITORY = "/home/feclora/images"
 
@@ -132,6 +133,11 @@ def _repository() -> str:
     os.chmod(IMAGE_REPOSITORY, 0o700)
     return IMAGE_REPOSITORY
 
+def _run_logged(operation: str, target: str, image_id: str | None, callback: Callable[[], Any]) -> Any:
+    with operation_record(operation, target, image_id=image_id):
+        return callback()
+
+
 def _run_capture_gauge(
     title: str,
     description: str,
@@ -191,18 +197,18 @@ def _capture_disk(inventory: dict[str, Any]) -> None:
         return
     recipients, signing_key = security
     try:
-        manifest = _run_capture_gauge(
+        manifest = _run_logged("capture_disk", source["path"], image_id, lambda: _run_capture_gauge(
             "Capturing whole disk", f"Reading {source['path']} into image repository.",
             lambda progress: capture_disk(
                 source["path"], image_id, _repository(), compression=compression,
                 compression_level=compression_level, age_recipients_file=recipients,
                 minisign_secret_key=signing_key, progress_callback=progress,
             ),
-        )
+        ))
         _message("Capture completed", f"Image {manifest.image_id} captured.\nManifest: {manifest.image_id}.manifest.json")
     except CaptureCancelled as exc:
         _message("Capture cancelled", str(exc) + "\nNo manifest was published.")
-    except (DiskCaptureError, OSError) as exc:
+    except (DiskCaptureError, OperationLogError, OSError) as exc:
         _message("Capture failed", str(exc))
 
 def _capture_partition(inventory: dict[str, Any]) -> None:
@@ -222,7 +228,7 @@ def _capture_partition(inventory: dict[str, Any]) -> None:
     recipients, signing_key = security
     partition_id = os.path.basename(source["path"])
     try:
-        manifest = _run_capture_gauge(
+        manifest = _run_logged("capture_partition", source["path"], image_id, lambda: _run_capture_gauge(
             "Capturing partition", f"Reading {source['path']} into image repository.",
             lambda progress: capture_partition_image(
                 source["path"], image_id, partition_id, _repository(),
@@ -230,11 +236,11 @@ def _capture_partition(inventory: dict[str, Any]) -> None:
                 age_recipients_file=recipients, minisign_secret_key=signing_key,
                 progress_callback=progress,
             ),
-        )
+        ))
         _message("Capture completed", f"Partition image {manifest.image_id} captured.\nManifest: {manifest.image_id}.manifest.json")
     except CaptureCancelled as exc:
         _message("Capture cancelled", str(exc) + "\nNo manifest was published.")
-    except (PartitionImageCaptureError, OSError) as exc:
+    except (PartitionImageCaptureError, OperationLogError, OSError) as exc:
         _message("Capture failed", str(exc))
 
 def _clone_disk(inventory: dict[str, Any]) -> None:
@@ -278,10 +284,10 @@ def _clone_disk(inventory: dict[str, Any]) -> None:
                 raise BrokenPipeError("progress dialog was closed")
             gauge.stdin.write(f"{percent}\n")
             gauge.stdin.flush()
-        copied = clone_disk(
+        copied = _run_logged("clone_disk", target_path, None, lambda: clone_disk(
             source["path"], target_path, confirmation=typed,
             progress_callback=report_progress,
-        )
+        ))
         if gauge is not None and gauge.stdin is not None:
             try:
                 gauge.stdin.write("100\n")
@@ -301,7 +307,7 @@ def _clone_disk(inventory: dict[str, Any]) -> None:
         )
     except DiskCloneCancelled as exc:
         _message("Clone cancelled", str(exc) + "\nThe destination may contain a partial clone.")
-    except (DiskCloneError, OSError) as exc:
+    except (DiskCloneError, OperationLogError, OSError) as exc:
         _message("Clone failed", str(exc))
     finally:
         if gauge is not None:
