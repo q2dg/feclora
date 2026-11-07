@@ -25,15 +25,21 @@ class CloneSelectionTests(unittest.TestCase):
             disk("/dev/sdc", 2000, children=[part("/dev/sdc1", ["/"])]),
         ]}
 
+    def validate(self, source, target, protected_disk_paths=None):
+        return validate_clone_selection(
+            self.inventory, source, target,
+            protected_disk_paths=set() if protected_disk_paths is None else protected_disk_paths,
+        )
+
     def test_accepts_distinct_unmounted_disks_with_sufficient_capacity(self):
-        selection = validate_clone_selection(self.inventory, "/dev/sda", "/dev/sdb")
+        selection = self.validate("/dev/sda", "/dev/sdb")
         self.assertEqual(selection.source_path, "/dev/sda")
         self.assertEqual(selection.target_path, "/dev/sdb")
         self.assertEqual(selection.source_size_bytes, 1000)
 
     def test_rejects_same_disk(self):
         with self.assertRaisesRegex(SelectionError, "different"):
-            validate_clone_selection(self.inventory, "/dev/sda", "/dev/sda")
+            self.validate("/dev/sda", "/dev/sda")
 
     def test_rejects_partition_selection(self):
         with self.assertRaisesRegex(SelectionError, "Whole-disk"):
@@ -55,9 +61,8 @@ class CloneSelectionTests(unittest.TestCase):
 
     def test_rejects_root_backing_disk_reported_by_independent_probe(self):
         with self.assertRaisesRegex(SelectionError, "backs the live system root"):
-            validate_clone_selection(
-                self.inventory, "/dev/sda", "/dev/sdb",
-                protected_disk_paths={"/dev/sda"},
+            self.validate(
+                "/dev/sda", "/dev/sdb", protected_disk_paths={"/dev/sda"}
             )
 
     def test_rejects_read_only_target(self):
