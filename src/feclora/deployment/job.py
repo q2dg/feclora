@@ -114,6 +114,8 @@ class DeploymentJob:
         group = payload.get("multicast_group")
         port = payload.get("multicast_port")
         if transport == "multicast":
+            if not isinstance(group, str):
+                raise JobValidationError("multicast_group must be an IPv4 multicast address")
             try:
                 address = ipaddress.ip_address(group)
             except ValueError as exc:
