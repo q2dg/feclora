@@ -15,14 +15,19 @@ artifact. Before starting the writer it:
 6. fully decompresses the artifact once before touching the target and checks
    the decoded byte count against the manifest;
 7. repeats target identity and safety checks immediately before starting
-   `dd`.
+   `dd`;
+8. hashes the bytes sent to the writer, then reads the restored byte range
+   back from the destination with `dd` and compares the byte count and SHA-256.
 
 The writer uses generic `dd of=TARGET bs=4M conv=fsync status=none`. Raw,
 gzip and xz disk artifacts are supported. zstd/lz4, partition-image restore,
-partition-table reconstruction, post-write verification, cancellation,
-progress reporting and crash recovery are not implemented.
+partition-table reconstruction, crash recovery and persistent operation logs
+are not implemented. The TUI displays write progress and can cancel the writer;
+a cancellation can leave a partially overwritten target. Read-back verification
+runs after a successful write.
 
 **Destructive boundary:** once `dd` starts, a hardware or power failure can
 leave the target partially overwritten. SHA-256 here detects accidental
 artifact corruption; it does not authenticate who created the manifest.
-The Local rescue TUI invokes this primitive after exact typed confirmation. It currently runs synchronously without progress or cancellation. Tests are mocked; no VM or hardware restore has been validated. Never test against a disk containing needed data.
+The Local rescue TUI invokes this primitive after exact typed confirmation. The TUI shows live progress and supports cancellation. Tests are mocked; no VM
+or hardware restore has been validated. Tests are mocked; no VM or hardware restore has been validated. Never test against a disk containing needed data.
