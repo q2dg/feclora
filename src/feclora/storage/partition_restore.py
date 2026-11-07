@@ -70,31 +70,41 @@ def _decompress_to_temp(source: Any, compression: str, expected_raw_size: int | 
         decoder = lzma.LZMAFile(source, mode="rb")
     else:
         raise PartitionRestoreError("partition restore supports none, gzip and xz compression")
-    output = tempfile.TemporaryFile(mode="w+b", dir=directory)
+    fd, staged_path = tempfile.mkstemp(prefix=".feclora-restore-", dir=directory)
     total = 0
     try:
-        while True:
-            chunk = decoder.read(1024 * 1024)
-            if not chunk:
-                break
-            total += len(chunk)
-            if expected_raw_size is not None and total > expected_raw_size:
-                raise PartitionRestoreError("decoded raw image exceeds partition size in manifest")
-            output.write(chunk)
-        if total <= 0:
-            raise PartitionRestoreError("decoded partition image is empty")
-        if expected_raw_size is not None and total != expected_raw_size:
-            raise PartitionRestoreError("decoded raw image size does not match manifest")
-        output.flush()
-        output.seek(0)
+        with os.fdopen(fd, "wb") as output:
+            while True:
+                chunk = decoder.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if expected_raw_size is not None and total > expected_raw_size:
+                    raise PartitionRestoreError("decoded raw image exceeds partition size in manifest")
+                output.write(chunk)
+            if total <= 0:
+                raise PartitionRestoreError("decoded partition image is empty")
+            if expected_raw_size is not None and total != expected_raw_size:
+                raise PartitionRestoreError("decoded raw image size does not match manifest")
+            output.flush()
+            os.fsync(output.fileno())
     except (OSError, EOFError, lzma.LZMAError, zlib.error) as exc:
-        output.close()
+        try:
+            os.unlink(staged_path)
+        except FileNotFoundError:
+            pass
         raise PartitionRestoreError(f"partition image decompression failed: {exc}") from exc
+    except Exception:
+        try:
+            os.unlink(staged_path)
+        except FileNotFoundError:
+            pass
+        raise
     finally:
         if decoder is not source:
             decoder.close()
     source.seek(0)
-    return output, total
+    return staged_path, total
 
 def _target_geometry(target: str, lsblk: str, runner: Callable[..., Any]) -> tuple[int, int]:
     try:
@@ -191,7 +201,7 @@ def restore_partition(
 
     with _safe_open(repo, artifact.filename) as image:
         _verify_stored(image, artifact)
-        staged, decoded_size = _decompress_to_temp(
+        staged_path, decoded_size = _decompress_to_temp(
             image, artifact.compression,
             manifest.source_size_bytes if artifact.format == "raw" else None,
             repo,
@@ -209,16 +219,14 @@ def restore_partition(
             except SourceSafetyError as exc:
                 raise PartitionRestoreError(f"restore target became unsafe: {exc}") from exc
             if artifact.format == "partclone":
-                argv = [executable, "-r", "-s", f"/proc/self/fd/{staged.fileno()}", "-o", target_path]
-                extra = {"pass_fds": (staged.fileno(),)}
-                # The child receives the staged, fully verified decompressed
-                # stream through an inherited descriptor, not an untrusted path.
+                argv = [executable, "-r", "-s", staged_path, "-o", target_path]
+                extra = {}
                 stdin = subprocess.DEVNULL
             else:
                 argv = [executable, f"of={target_path}", "bs=4M", "conv=fsync", "status=none"]
                 extra = {}
-                staged.seek(0)
-                stdin = staged
+                argv = [executable, f"if={staged_path}", f"of={target_path}", "bs=4M", "conv=fsync", "status=none"]
+                stdin = subprocess.DEVNULL
             stderr = tempfile.TemporaryFile(mode="w+b")
             process = None
             try:
@@ -247,5 +255,8 @@ def restore_partition(
                     process.wait()
                 stderr.close()
         finally:
-            staged.close()
+            try:
+                os.unlink(staged_path)
+            except FileNotFoundError:
+                pass
     return manifest
