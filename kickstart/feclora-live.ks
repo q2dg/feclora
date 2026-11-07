@@ -90,7 +90,7 @@ install -d "$TARGET_ROOT/usr/local/bin"
 cat > "$TARGET_ROOT/usr/local/bin/feclora-ui" <<'EOF'
 #!/bin/sh
 export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
-exec /usr/bin/python3 -m feclora.ui.dialog_app "$@"
+exec /usr/bin/python3 -m feclora.ui.mode_selector "$@"
 EOF
 chmod 0755 "$TARGET_ROOT/usr/local/bin/feclora-ui"
 %end
