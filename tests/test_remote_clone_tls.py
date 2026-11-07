@@ -19,6 +19,9 @@ class FakeTlsSocket:
     def getpeercert(self, binary_form=False):
         return b"certificate" if binary_form else {"subjectAltName": (("DNS", self.peer),)}
 
+    def settimeout(self, value):
+        self.timeout = value
+
     def close(self):
         self.closed = True
 
