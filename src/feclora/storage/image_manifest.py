@@ -48,7 +48,7 @@ class ImageArtifact:
             "sha256", "partition_id", "filesystem", "encryption",
         }
         unknown = set(value) - allowed
-        missing = allowed - set(value) - {"partition_id", "filesystem"}
+        missing = allowed - set(value) - {"partition_id", "filesystem", "encryption"}
         if unknown:
             raise ManifestValidationError(f"Unknown artifact fields: {', '.join(sorted(unknown))}")
         if missing:
