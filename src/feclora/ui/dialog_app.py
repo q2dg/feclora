@@ -128,7 +128,10 @@ def _run_capture_gauge(
         raise CaptureCancelled(f"capture cancelled because progress dialog closed: {exc}") from exc
     finally:
         if gauge.stdin is not None:
-            gauge.stdin.close()
+            try:
+                gauge.stdin.close()
+            except (BrokenPipeError, OSError):
+                pass
         if gauge.poll() is None:
             gauge.terminate()
             gauge.wait()
@@ -245,7 +248,10 @@ def _clone_disk(inventory: dict[str, Any]) -> None:
     finally:
         if gauge is not None:
             if gauge.stdin is not None:
-                gauge.stdin.close()
+                try:
+                    gauge.stdin.close()
+                except (BrokenPipeError, OSError):
+                    pass
             if gauge.poll() is None:
                 gauge.terminate()
                 gauge.wait()
