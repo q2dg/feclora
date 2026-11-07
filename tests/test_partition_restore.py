@@ -49,7 +49,7 @@ class PartitionRestoreTests(unittest.TestCase):
         with open(self.manifest, "w", encoding="utf-8") as stream:
             json.dump(manifest, stream)
     def runner(self, command, **kwargs):
-        return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part\n")
+        return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512\n")
     def restore(self, **kwargs):
         proc = FakeProcess()
         def factory(argv, **opts):
@@ -91,7 +91,7 @@ class PartitionRestoreTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
     def test_rejects_too_small_target(self):
         def small(command, **kwargs):
-            return SimpleNamespace(stdout="1 part\n")
+            return SimpleNamespace(stdout="1 part 512\n")
         with self.assertRaisesRegex(PartitionRestoreError, "smaller"):
             restore_partition(
                 self.manifest, self.temp.name, "/dev/sda1",
