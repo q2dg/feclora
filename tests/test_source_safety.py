@@ -1,5 +1,6 @@
 import json
 import subprocess
+import tempfile
 import unittest
 from types import SimpleNamespace
 
@@ -43,6 +44,19 @@ class SourceSafetyTests(unittest.TestCase):
                 root_disk_resolver=fail, swaps_path="/dev/null",
                 stat_device=lambda _path: SimpleNamespace(st_mode=0), effective_uid=lambda: 0,
             )
+
+    def test_rejects_active_swap_partition(self):
+        tree = {"blockdevices": [{"path": "/dev/sdb1", "type": "part", "mountpoints": []}]}
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as swaps:
+            swaps.write("Filename Type Size Used Priority\n/dev/sdb1 partition 1000 0 -2\n")
+            swaps.flush()
+            with self.assertRaisesRegex(SourceSafetyError, "active swap"):
+                check_capture_source_safe(
+                    "/dev/sdb1", runner=self.runner_for(tree), which=lambda name: name,
+                    root_disk_resolver=lambda **kwargs: {"/dev/sda"},
+                    swaps_path=swaps.name, stat_device=lambda _path: SimpleNamespace(st_mode=0),
+                    effective_uid=lambda: 0,
+                )
 
     def test_rejects_busy_device(self):
         tree = {"blockdevices": [{"path": "/dev/sdb1", "type": "part", "mountpoints": []}]}
