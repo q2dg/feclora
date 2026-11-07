@@ -9,8 +9,10 @@ import stat
 import subprocess
 import tempfile
 import zlib
+from contextlib import contextmanager
 from typing import Any, Callable
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
+from .image_security import ImageSecurityError, decrypt_artifact_to_temp, verify_manifest_signature
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 
@@ -50,6 +52,36 @@ def _verify_stored_artifact(stream: Any, artifact: ImageArtifact) -> None:
     if digest.hexdigest() != artifact.sha256:
         raise DiskRestoreError("artifact SHA-256 does not match manifest")
     stream.seek(0)
+
+
+@contextmanager
+def _verified_artifact_stream(repository: str, artifact: ImageArtifact,
+                              age_identity_file: str | os.PathLike[str] | None,
+                              age_executable: str | None):
+    with _open_artifact(repository, artifact) as stored:
+        _verify_stored_artifact(stored, artifact)
+        if artifact.encryption == "none":
+            yield stored
+            return
+        if artifact.encryption != "age":
+            raise DiskRestoreError("unsupported image encryption")
+        if not age_identity_file:
+            raise DiskRestoreError("this image is age-encrypted; an identity file is required")
+        try:
+            staged = decrypt_artifact_to_temp(
+                os.path.join(repository, artifact.filename), age_identity_file,
+                repository, age_executable=age_executable,
+            )
+        except ImageSecurityError as exc:
+            raise DiskRestoreError(f"image decryption/authentication failed: {exc}") from exc
+        try:
+            with open(staged, "rb") as plaintext:
+                yield plaintext
+        finally:
+            try:
+                os.unlink(staged)
+            except FileNotFoundError:
+                pass
 
 def _decoded_stream(stream: Any, compression: str):
     if compression == "none":
@@ -113,6 +145,9 @@ def restore_disk(
     target_safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
+    age_identity_file: str | os.PathLike[str] | None = None,
+    minisign_public_key: str | os.PathLike[str] | None = None,
+    require_signature: bool = False,
 ) -> ImageManifest:
     """Restore a verified raw whole-disk image to a whole-disk block device.
 
@@ -149,6 +184,19 @@ def restore_disk(
     except (OSError, UnicodeError, ManifestValidationError) as exc:
         raise DiskRestoreError(f"cannot load valid image manifest: {exc}") from exc
 
+    signature_path = manifest_file + ".minisig"
+    if require_signature and not os.path.isfile(signature_path):
+        raise DiskRestoreError("a minisign signature is required but this image has none")
+    if minisign_public_key is not None:
+        if not os.path.isfile(signature_path):
+            raise DiskRestoreError("minisign public key supplied but image signature is missing")
+        try:
+            verify_manifest_signature(manifest_file, minisign_public_key, signature_path=signature_path, minisign_executable=(executables or {}).get("minisign"))
+        except ImageSecurityError as exc:
+            raise DiskRestoreError(f"manifest signature verification failed: {exc}") from exc
+    elif require_signature:
+        raise DiskRestoreError("signature verification requires a trusted minisign public key")
+
     if manifest.image_type != "disk":
         raise DiskRestoreError("whole-disk restore requires a disk image manifest")
     disk_artifacts = [item for item in manifest.artifacts if item.role == "disk-image"]
@@ -174,8 +222,7 @@ def restore_disk(
     except SourceSafetyError as exc:
         raise DiskRestoreError(f"unsafe restore target: {exc}") from exc
 
-    with _open_artifact(repo, artifact) as image:
-        _verify_stored_artifact(image, artifact)
+    with _verified_artifact_stream(repo, artifact, age_identity_file, available.get("age")) as image:
         _preflight_decoded_size(image, artifact, manifest.source_size_bytes)
         try:
             if not validator(target_path):
