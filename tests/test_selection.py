@@ -70,5 +70,5 @@ class CloneSelectionTests(unittest.TestCase):
             validate_clone_selection(self.inventory, "/dev/sda", "/dev/sdb")
 
 
-if __ ( "main" ) == "__main__":
+if __name__ == "__main__":
     unittest.main()
