@@ -11,12 +11,17 @@ from unittest.mock import patch
 from feclora.network.remote_clone import (
     RemoteDiskCloneError,
     receive_remote_disk,
+    send_remote_disk,
 )
 from feclora.network.remote_clone_protocol import (
     CloneSessionHeader,
+    CloneVerificationResult,
+    receive_disk_stream,
+    receive_session_header,
     receive_verification_result,
     send_disk_stream,
     send_session_header,
+    send_verification_result,
 )
 
 
@@ -56,6 +61,23 @@ class Sink:
 class FakeProcess:
     def __init__(self, **kwargs):
         self.stdin = Sink()
+        self.returncode = 0
+        self.terminated = False
+
+    def wait(self, timeout=None):
+        return self.returncode
+
+    def poll(self):
+        return self.returncode
+
+    def terminate(self):
+        self.terminated = True
+        self.returncode = -15
+
+
+class FakeSourceProcess:
+    def __init__(self, payload):
+        self.stdout = io.BytesIO(payload)
         self.returncode = 0
         self.terminated = False
 
@@ -111,6 +133,55 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                 safety_check=lambda _path: None,
                 effective_uid=lambda: 0,
         )
+
+    def test_source_waits_for_receiver_readback_ack_and_journals_result(self):
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
+        received = {}
+
+        def receiver():
+            header = receive_session_header(right)
+            destination = io.BytesIO()
+            stream = receive_disk_stream(
+                right, destination, header.source_size_bytes,
+                session_id=header.session_id, chunk_size=header.chunk_size_bytes,
+            )
+            received["data"] = destination.getvalue()
+            send_verification_result(
+                right,
+                CloneVerificationResult(
+                    session_id=header.session_id, status="verified",
+                    byte_count=header.source_size_bytes,
+                    stream_sha256=stream.sha256, readback_sha256=stream.sha256,
+                ),
+            )
+
+        worker = threading.Thread(target=receiver)
+        worker.start()
+        process = FakeSourceProcess(self.payload)
+        with tempfile.TemporaryDirectory() as directory:
+            result = send_remote_disk(
+                TlsSocketProxy(left, peer="receiver.example"),
+                self.header,
+                operation_log_path=os.path.join(directory, "operations.jsonl"),
+                local_identity="DNS:source.example",
+                expected_peer_identity="DNS:receiver.example",
+                confirmation="READ /dev/source TO DNS:receiver.example",
+                executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
+                device_validator=lambda _path: True,
+                runner=lambda *args, **kwargs: None,
+                popen_factory=lambda *args, **kwargs: process,
+                safety_check=lambda _path: None,
+                effective_uid=lambda: 0,
+            )
+            with open(os.path.join(directory, "operations.jsonl"), encoding="utf-8") as journal:
+                events = [json.loads(line) for line in journal]
+        worker.join(timeout=5)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(result.status, "verified")
+        self.assertEqual(received["data"], self.payload)
+        self.assertEqual([event["status"] for event in events], ["started", "completed"])
 
     def test_receiver_rejects_undersized_target_before_starting_writer(self):
         left, right = socket.socketpair()
