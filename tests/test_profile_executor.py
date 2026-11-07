@@ -4,11 +4,38 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from feclora.storage.profile_executor import _consume_profile_once
+from feclora.storage.profile_executor import _consume_profile_once, _matching_target
 from feclora.storage.restore_profile import RestoreProfileError
 
 
 class ProfileConsumptionLedgerTests(unittest.TestCase):
+    def test_target_matching_requires_exactly_one_stable_disk_identity(self):
+        from feclora.storage.restore_profile import RestoreProfile
+        import uuid
+        profile = RestoreProfile.from_dict({
+            "schema_version": 1,
+            "profile_id": str(uuid.UUID("12f7b67b-44e0-4d0b-a0b2-58b3d02c04e7")),
+            "name": "Lab restore",
+            "image_manifest": "image.manifest.json",
+            "target": {"wwn": "wwn-1", "serial": "serial-1"},
+            "execution_mode": "interactive",
+            "layout_policy": "preserve",
+            "verify_after_restore": True,
+            "on_success": "none",
+            "expires_at": None,
+            "single_use": False,
+        })
+        inventory = {"devices": [
+            {"type": "disk", "path": "/dev/sda", "wwn": "wwn-1", "serial": "serial-1"},
+            {"type": "part", "path": "/dev/sda1", "wwn": "wwn-1", "serial": "serial-1"},
+        ]}
+        self.assertEqual(_matching_target(profile, inventory)["path"], "/dev/sda")
+        inventory["devices"].append(
+            {"type": "disk", "path": "/dev/sdb", "wwn": "wwn-1", "serial": "serial-1"}
+        )
+        with self.assertRaisesRegex(RestoreProfileError, "exactly one"):
+            _matching_target(profile, inventory)
+
     def test_consumption_is_durable_and_replay_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             ledger = Path(directory) / "logs" / "consumed.jsonl"
