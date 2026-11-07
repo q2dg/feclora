@@ -95,6 +95,21 @@ class DiskRestoreTests(unittest.TestCase):
                 target_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=lambda *a, **k: self.fail("dd must not start"),
             )
+    def test_age_encrypted_restore_requires_identity_before_dd(self):
+        with open(self.manifest, encoding="utf-8") as stream:
+            manifest = json.load(stream)
+        manifest["artifacts"][0]["encryption"] = "age"
+        with open(self.manifest, "w", encoding="utf-8") as stream:
+            json.dump(manifest, stream)
+        with self.assertRaisesRegex(DiskRestoreError, "identity file is required"):
+            self.restore()
+        self.assertEqual(self.started, [])
+
+    def test_can_require_minisign_signature_before_dd(self):
+        with self.assertRaisesRegex(DiskRestoreError, "signature is required"):
+            self.restore(require_signature=True)
+        self.assertEqual(self.started, [])
+
     def test_streams_verified_decompressed_bytes_to_dd(self):
         proc = FakeProcess(self.payload)
         result = restore_disk(
