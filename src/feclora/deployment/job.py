@@ -69,7 +69,7 @@ class DeploymentJob:
         if missing:
             raise JobValidationError(f"Missing job fields: {', '.join(sorted(missing))}")
 
-        if payload.get("schema_version") != 1:
+        if isinstance(payload.get("schema_version"), bool) or payload.get("schema_version") != 1:
             raise JobValidationError("Unsupported deployment job schema_version")
 
         job_id = payload.get("job_id")
@@ -81,7 +81,7 @@ class DeploymentJob:
             raise JobValidationError("job_id must be a valid UUID") from exc
 
         operation = payload.get("operation")
-        if operation not in {"save", "restore"}:
+        if not isinstance(operation, str) or operation not in {"save", "restore"}:
             raise JobValidationError("operation must be 'save' or 'restore'")
 
         image_id = payload.get("image_id")
@@ -105,7 +105,7 @@ class DeploymentJob:
             raise JobValidationError("network_interface must be a valid Linux interface name")
 
         transport = payload.get("transport")
-        if transport not in {"unicast", "multicast"}:
+        if not isinstance(transport, str) or transport not in {"unicast", "multicast"}:
             raise JobValidationError("transport must be 'unicast' or 'multicast'")
 
         group = payload.get("multicast_group")
@@ -123,7 +123,7 @@ class DeploymentJob:
             raise JobValidationError("multicast_group/port are only valid for multicast transport")
 
         policy = payload.get("start_policy")
-        if policy not in {"manual", "expected_clients", "deadline"}:
+        if not isinstance(policy, str) or policy not in {"manual", "expected_clients", "deadline"}:
             raise JobValidationError("start_policy must be manual, expected_clients, or deadline")
 
         expected = payload.get("expected_clients")
