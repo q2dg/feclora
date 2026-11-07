@@ -188,6 +188,7 @@ def restore_disk(
         process = None
         stderr_file = tempfile.TemporaryFile(mode="w+b")
         written = 0
+        raw_digest = hashlib.sha256()
         try:
             if initial_device_number is not None and os.stat(target_path).st_rdev != initial_device_number:
                 raise DiskRestoreError("block-device identity changed before restore")
@@ -213,6 +214,7 @@ def restore_disk(
                         count = process.stdin.write(view)
                         if count is None or count <= 0:
                             raise DiskRestoreError("dd input pipe stopped accepting data")
+                        raw_digest.update(view[:count])
                         written += count
                         view = view[count:]
                     if progress_callback is not None:
@@ -230,6 +232,52 @@ def restore_disk(
                 raise DiskRestoreError(f"dd exited with status {return_code}" + (f": {detail}" if detail else ""))
             if written != manifest.source_size_bytes:
                 raise DiskRestoreError("dd accepted a byte count different from manifest source size")
+
+            # Read the destination back and compare the exact restored byte range.
+            try:
+                if not validator(target_path):
+                    raise DiskRestoreError("target device identity changed before read-back verification")
+                safety(target_path)
+                if initial_device_number is not None and os.stat(target_path).st_rdev != initial_device_number:
+                    raise DiskRestoreError("target block-device identity changed before read-back verification")
+                verify_command = privileged_argv(
+                    [dd, f"if={target_path}", "bs=4M", "iflag=count_bytes",
+                     f"count={manifest.source_size_bytes}", "status=none"],
+                    effective_uid=effective_uid,
+                )
+                verify_stderr = tempfile.TemporaryFile(mode="w+b")
+                verify_process = None
+                try:
+                    verify_process = factory(
+                        verify_command, stdin=subprocess.DEVNULL,
+                        stdout=subprocess.PIPE, stderr=verify_stderr, close_fds=True,
+                    )
+                    if verify_process.stdout is None:
+                        raise DiskRestoreError("read-back dd did not provide an output pipe")
+                    verify_digest = hashlib.sha256()
+                    verify_size = 0
+                    while True:
+                        chunk = verify_process.stdout.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        verify_size += len(chunk)
+                        verify_digest.update(chunk)
+                    verify_return_code = verify_process.wait()
+                    if verify_return_code != 0:
+                        verify_stderr.seek(0)
+                        detail = verify_stderr.read(8192).decode("utf-8", errors="replace").strip()
+                        raise DiskRestoreError(
+                            "read-back dd failed" + (f": {detail}" if detail else "")
+                        )
+                    if verify_size != manifest.source_size_bytes or verify_digest.digest() != raw_digest.digest():
+                        raise DiskRestoreError("read-back verification failed: destination bytes differ from image")
+                finally:
+                    if verify_process is not None and verify_process.poll() is None:
+                        verify_process.terminate()
+                        verify_process.wait()
+                    verify_stderr.close()
+            except (OSError, PrivilegeError, SourceSafetyError) as exc:
+                raise DiskRestoreError(f"read-back verification could not be completed: {exc}") from exc
         finally:
             if process is not None and process.poll() is None:
                 process.terminate()
