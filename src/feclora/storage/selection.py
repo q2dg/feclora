@@ -86,6 +86,14 @@ def validate_clone_selection(
     if target.get("read_only"):
         raise SelectionError(f"Target disk is read-only: {target_path}")
 
+    root_disks = [
+        device.get("path")
+        for device in devices
+        if "/" in _mountpoints(device)
+    ]
+    if source_path in root_disks or target_path in root_disks:
+        raise SelectionError("The live system root disk cannot be selected")
+
     source_mounts = _mountpoints(source)
     target_mounts = _mountpoints(target)
     if source_mounts:
@@ -96,14 +104,6 @@ def validate_clone_selection(
         raise SelectionError(
             f"Target disk has mounted filesystems: {', '.join(sorted(target_mounts))}"
         )
-
-    root_disks = [
-        device.get("path")
-        for device in devices
-        if "/" in _mountpoints(device)
-    ]
-    if source_path in root_disks or target_path in root_disks:
-        raise SelectionError("The live system root disk cannot be selected")
 
     source_size = _size(source)
     target_size = _size(target)
