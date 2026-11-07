@@ -161,6 +161,7 @@ def _send_remote_disk_impl(
     *,
     local_identity: str,
     expected_peer_identity: str,
+    source_path: str,
     confirmation: str,
     executables: dict[str, str | None] | None = None,
     device_validator: Callable[[str], bool] | None = None,
@@ -173,6 +174,8 @@ def _send_remote_disk_impl(
 ) -> CloneVerificationResult:
     """Read and send a source disk; success requires receiver read-back acknowledgement."""
     available = executables or {}
+    if source_path != header.source_device:
+        raise RemoteDiskCloneError("approved source device differs from the session header")
     validator = device_validator or (lambda path: stat.S_ISBLK(os.stat(path).st_mode))
     safety = safety_check or check_capture_source_safe
     lsblk = _resolve(available, "lsblk")
@@ -240,6 +243,7 @@ def _receive_remote_disk_impl(
     *,
     local_identity: str,
     expected_peer_identity: str,
+    target_path: str,
     confirmation: str,
     executables: dict[str, str | None] | None = None,
     device_validator: Callable[[str], bool] | None = None,
@@ -258,6 +262,8 @@ def _receive_remote_disk_impl(
     lsblk = _resolve(available, "lsblk")
     dd = _resolve(available, "dd")
     header = header or receive_session_header(tls_socket)
+    if target_path != header.receiver_target_device:
+        raise RemoteDiskCloneError("locally selected target device differs from the session header")
     try:
         verify_peer_identity(tls_socket, expected_peer_identity)
         approval = authorize_endpoint(
