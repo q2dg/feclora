@@ -8,6 +8,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import zlib
 from typing import Any, Callable
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
 from .source_safety import SourceSafetyError, check_capture_source_safe
@@ -65,7 +66,7 @@ def _preflight_decoded_size(stream: Any, artifact: ImageArtifact, expected: int)
             total += len(chunk)
             if total > expected:
                 raise DiskRestoreError("decoded image exceeds manifest source size")
-    except (OSError, EOFError, lzma.LZMAError) as exc:
+    except (OSError, EOFError, lzma.LZMAError, zlib.error) as exc:
         raise DiskRestoreError(f"image decompression preflight failed: {exc}") from exc
     finally:
         if decoded is not stream:
@@ -195,7 +196,7 @@ def restore_disk(
                         written += count
                         view = view[count:]
                 process.stdin.close()
-            except (BrokenPipeError, OSError, EOFError, lzma.LZMAError) as exc:
+            except (BrokenPipeError, OSError, EOFError, lzma.LZMAError, zlib.error) as exc:
                 if process.poll() is None:
                     process.terminate()
                 process.wait()
