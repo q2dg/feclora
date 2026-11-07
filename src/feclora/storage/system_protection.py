@@ -48,7 +48,7 @@ def collect_root_backing_disks(
             f"Live root source is not a resolvable block-device path: {source!r}"
         )
     graph = _run_json(
-        [lsblk, "--json", "--paths", "--inverse", "--output", "PATH,TYPE", source],
+        [lsblk, "--json", "--tree", "--paths", "--inverse", "--output", "PATH,TYPE", source],
         run,
     )
     roots = graph.get("blockdevices")
