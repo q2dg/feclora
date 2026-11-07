@@ -68,7 +68,8 @@ rm -rf "${APP_STAGE}"
 mkdir -p "${APP_STAGE}/src"
 cp -a "${ROOT_DIR}/src/feclora" "${APP_STAGE}/src/feclora"
 
-mkksiso --add "${APP_STAGE}" "${INSTALL_ISO}" "${AUGMENTED_ISO}"
+# mkksiso positional arguments are: Kickstart, input ISO, output ISO.
+mkksiso --add "${APP_STAGE}" "${KS_FILE}" "${INSTALL_ISO}" "${AUGMENTED_ISO}"
 
 printf 'Fedora release: %s\nInstaller ISO: %s\nKickstart: %s\nOutput: %s\n' \
   "${RELEASEVER}" "${AUGMENTED_ISO}" "${KS_FILE}" "${RESULT_DIR}"
