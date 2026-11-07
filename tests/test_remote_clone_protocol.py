@@ -97,6 +97,12 @@ class RemoteCloneProtocolTests(unittest.TestCase):
         )
         self.assertEqual(received, result)
 
+    def test_rejects_same_identity_for_both_endpoints(self):
+        value = self.header.to_dict()
+        value["receiver_identity"] = value["source_identity"]
+        with self.assertRaisesRegex(RemoteCloneProtocolError, "different endpoints"):
+            CloneSessionHeader.from_dict(value)
+
     def test_same_device_node_name_is_valid_on_different_hosts(self):
         header = CloneSessionHeader(
             session_id=self.header.session_id,
