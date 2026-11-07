@@ -116,7 +116,7 @@ def check_capture_source_safe(
             raise SourceSafetyError(f"cannot check processes using {device_path}: {exc}") from exc
         if busy.returncode == 0:
             raise SourceSafetyError(f"capture source is open by a process: {device_path}")
-        if busy.returncode != 1:
+        if busy.returncode != 1 or (busy.stderr or "").strip():
             raise SourceSafetyError(f"fuser could not verify whether {device_path} is busy")
         try:
             info = (stat_device or os.stat)(device_path)
