@@ -10,7 +10,7 @@ import os
 import shutil
 import stat
 import subprocess
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -94,7 +94,7 @@ class RestoreProfile:
     expires_at: str | None = None
     single_use: bool = False
     schema_version: int = 1
-    signature_verified: bool = False
+    signature_verified: bool = field(default=False, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         import uuid
@@ -190,7 +190,7 @@ class RestoreProfile:
         if self.execution_mode == "unattended":
             if not self.signature_verified:
                 raise RestoreProfileError("unattended profile has not been verified with a trusted minisign key")
-            current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+            current = now or datetime.now(timezone.utc)\n            if current.tzinfo is None or current.utcoffset() is None:\n                raise RestoreProfileError("authorization clock must be timezone-aware")\n            current = current.astimezone(timezone.utc)
             if _utc_datetime(self.expires_at, "expires_at") <= current:
                 raise RestoreProfileError("unattended restore profile has expired")
             if already_consumed:
@@ -238,4 +238,4 @@ def load_restore_profile(
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise RestoreProfileError(f"restore profile signature verification failed: {exc}") from exc
-    return replace(profile, signature_verified=True)
+    object.__setattr__(profile, "signature_verified", True)\n    return profile
