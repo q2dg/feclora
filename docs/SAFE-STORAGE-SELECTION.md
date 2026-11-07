@@ -14,7 +14,8 @@ separate from every imaging or write operation.
 - An independent live-root probe uses `findmnt` to identify the source mounted
   at `/`, then `lsblk --inverse` to trace device-mapper/LVM dependencies to
   their backing whole disks. Pass those paths as `protected_disk_paths` to
-  `validate_clone_selection()`.
+  `validate_clone_selection()`. The parameter is mandatory: omitting it is a
+  validation error, not an implicit empty protected-device set.
 - If the root source cannot be resolved to one or more whole disks, the probe
   fails closed. Do not proceed with selection when the probe fails.
 
