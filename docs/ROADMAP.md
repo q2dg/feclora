@@ -63,6 +63,8 @@
 
 ## Milestone 5 — Compatibility and expansion
 - [ ] Expand filesystem and hardware compatibility based on tested generic tools.
+- [ ] Integrate optional age encryption into disk/partition capture and restore workflows.
+- [ ] Integrate minisign manifest signatures with trusted-key verification policy.
 - [ ] Add encryption and advanced storage coverage where supported.
 - [ ] Build a documented compatibility/regression matrix.
 - [ ] Evaluate additional deployment workflows only after core Live and Server parity is validated.
