@@ -239,9 +239,10 @@ def capture_disk(
         repository_fd = os.open(
             repo, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
         )
-        publish_names = [table_filename, disk_filename, manifest_filename]
+        publish_names = [table_filename, disk_filename]
         if signature_filename is not None:
             publish_names.append(signature_filename)
+        publish_names.append(manifest_filename)
         for name in publish_names:
             try:
                 os.link(
