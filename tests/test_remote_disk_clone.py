@@ -11,6 +11,7 @@ from unittest.mock import patch
 from feclora.network.remote_clone import (
     RemoteDiskCloneError,
     _readback_digest,
+    build_remote_clone_header,
     receive_remote_disk,
     send_remote_disk,
 )
@@ -146,6 +147,30 @@ class RemoteDiskReceiverTests(unittest.TestCase):
             with open(log_path, encoding="utf-8") as journal:
                 self.journal_events = [json.loads(line) for line in journal]
             return result
+
+    def test_header_builder_uses_read_only_source_geometry(self):
+        with patch("feclora.network.remote_clone._geometry", return_value=(len(self.payload), 512, True, "gpt")):
+            header = build_remote_clone_header(
+                "/dev/source", "/dev/target",
+                source_identity="DNS:source.example",
+                receiver_identity="DNS:receiver.example",
+                executables={"lsblk": "/usr/bin/lsblk"},
+            )
+        self.assertEqual(header.source_size_bytes, len(self.payload))
+        self.assertEqual(header.logical_sector_size, 512)
+        self.assertEqual(header.source_device, "/dev/source")
+        self.assertEqual(header.receiver_target_device, "/dev/target")
+        self.assertEqual(len(header.session_id), 36)
+
+    def test_header_builder_rejects_writable_source(self):
+        with patch("feclora.network.remote_clone._geometry", return_value=(len(self.payload), 512, False, "gpt")):
+            with self.assertRaisesRegex(RemoteDiskCloneError, "marked read-only"):
+                build_remote_clone_header(
+                    "/dev/source", "/dev/target",
+                    source_identity="DNS:source.example",
+                    receiver_identity="DNS:receiver.example",
+                    executables={"lsblk": "/usr/bin/lsblk"},
+                )
 
     def test_readback_reports_progress_and_checks_cancel(self):
         process = FakeSourceProcess(self.payload)
