@@ -22,6 +22,7 @@ def capture_partition_image(
     repository: str | os.PathLike[str],
     *,
     compression: str = "none",
+    compression_level: int | None = None,
     executables: Mapping[str, str | None] | None = None,
     runner: Callable[..., Any] | None = None,
     device_validator: Callable[[str], bool] | None = None,
@@ -81,7 +82,7 @@ def capture_partition_image(
     try:
         artifact = capture_partition(
             source_path, filesystem, stage, artifact_name, partition_id,
-            available, compression=compression, device_validator=device_validator,
+            available, compression=compression, compression_level=compression_level, device_validator=device_validator,
             popen_factory=popen_factory, source_safety_check=source_safety_check,
             expected_size_bytes=size, effective_uid=effective_uid,
             progress_callback=progress_callback,
