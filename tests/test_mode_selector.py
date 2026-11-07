@@ -21,6 +21,7 @@ class ModeSelectorTests(unittest.TestCase):
         from subprocess import CompletedProcess
         dialog.side_effect = [
             CompletedProcess([], 0, "server\n", ""),
+            CompletedProcess([], 0, "", ""),
             CompletedProcess([], 1, "", ""),
         ]
 
