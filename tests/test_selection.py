@@ -48,7 +48,7 @@ class CloneSelectionTests(unittest.TestCase):
     def test_rejects_mounted_target_descendant(self):
         self.inventory["devices"][1]["children"] = [part("/dev/sdb1", ["/mnt/data"])]
         with self.assertRaisesRegex(SelectionError, "Target disk has mounted"):
-            validate_clone_selection(self.inventory, "/dev/sda", "/dev/sdb")
+            self.validate("/dev/sda", "/dev/sdb")
 
     def test_rejects_mounted_source_descendant(self):
         self.inventory["devices"][0]["children"] = [part("/dev/sda1", ["/mnt/source"])]
