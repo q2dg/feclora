@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 from feclora.storage.capture import (
+    CaptureCancelled,
     CaptureError,
     build_capture_plan,
     capture_partition,
@@ -78,6 +79,35 @@ class CaptureTests(unittest.TestCase):
                 sorted(os.listdir(directory)), ["part.raw"]
             )
 
+    def test_progress_callback_receives_byte_count_and_raw_total(self):
+        with tempfile.TemporaryDirectory() as directory:
+            progress = []
+            payload = b"captured partition bytes"
+            artifact = capture_partition(
+                "/dev/fake1", None, directory, "part.raw", "1",
+                {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
+                source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                expected_size_bytes=len(payload),
+                progress_callback=lambda done, total: progress.append((done, total)),
+                popen_factory=lambda *_args, **_kwargs: FakeProcess(["dd"], payload),
+            )
+            self.assertEqual(progress[-1], (len(payload), len(payload)))
+            self.assertEqual(artifact.format, "raw")
+    def test_cancelling_partition_capture_never_publishes_artifact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proc = FakeProcess(["dd"], b"partial payload")
+            def cancel(_done, _total):
+                raise CaptureCancelled("operator cancelled")
+            with self.assertRaisesRegex(CaptureCancelled, "cancelled"):
+                capture_partition(
+                    "/dev/fake1", None, directory, "part.raw", "1",
+                    {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
+                    source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                    progress_callback=cancel,
+                    popen_factory=lambda *_args, **_kwargs: proc,
+                )
+            self.assertEqual(os.listdir(directory), [])
+            self.assertTrue(proc.terminated)
     def test_failed_producer_does_not_publish_partial_artifact(self):
         with tempfile.TemporaryDirectory() as directory:
             proc = FakeProcess(["/usr/bin/dd"], returncode=1)
