@@ -358,8 +358,10 @@ def send_disk_stream(
     session_id: str,
     chunk_size: int = DEFAULT_CHUNK_BYTES,
     cancel_check: Callable[[], bool] | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
+    send_terminal: bool = True,
 ) -> CloneStreamResult:
-    """Send exactly expected_size bytes and return the session-bound digest frame."""
+    """Send exactly expected_size bytes and optionally emit the terminal digest frame."""
     _positive_integer(expected_size, "expected_size")
     _validate_chunk_size(chunk_size)
     digest = hashlib.sha256()
