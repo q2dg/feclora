@@ -1,0 +1,98 @@
+import io
+import os
+import tempfile
+import unittest
+from types import SimpleNamespace
+
+from feclora.storage.disk_capture import DiskCaptureError, capture_disk
+
+
+class FakeProcess:
+    def __init__(self, data=b"whole disk bytes", returncode=0):
+        self.stdout = io.BytesIO(data)
+        self.returncode = returncode
+        self.terminated = False
+    def poll(self):
+        return -15 if self.terminated else self.returncode
+    def wait(self):
+        return self.poll()
+    def terminate(self):
+        self.terminated = True
+
+
+class DiskCaptureTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.executables = {
+            "dd": "/usr/bin/dd", "sfdisk": "/usr/sbin/sfdisk",
+            "lsblk": "/usr/bin/lsblk",
+        }
+
+    def runner(self, command, **kwargs):
+        if command[0] == self.executables["lsblk"]:
+            return SimpleNamespace(stdout="1000000 512 gpt\n")
+        if command[0] == self.executables["sfdisk"]:
+            return SimpleNamespace(stdout="label: gpt\n")
+        raise AssertionError(command)
+
+    def test_captures_disk_and_publishes_manifest_last(self):
+        proc = FakeProcess(b"raw disk payload")
+        manifest = capture_disk(
+            "/dev/fake", "backup-01", self.temp.name,
+            executables=self.executables,
+            device_validator=lambda _path: True,
+            runner=self.runner,
+            popen_factory=lambda *_args, **_kwargs: proc,
+        )
+        self.assertEqual(manifest.image_type, "disk")
+        self.assertEqual(manifest.partition_table, "gpt")
+        self.assertEqual(
+            set(os.listdir(self.temp.name)),
+            {"backup-01.disk.raw", "backup-01.sfdisk", "backup-01.manifest.json"},
+        )
+        self.assertEqual(len(manifest.artifacts), 2)
+
+    def test_failed_dd_leaves_no_published_files(self):
+        proc = FakeProcess(b"partial", returncode=1)
+        with self.assertRaisesRegex(DiskCaptureError, "status 1"):
+            capture_disk(
+                "/dev/fake", "bad-image", self.temp.name,
+                executables=self.executables,
+                device_validator=lambda _path: True,
+                runner=self.runner,
+                popen_factory=lambda *_args, **_kwargs: proc,
+            )
+        self.assertEqual(os.listdir(self.temp.name), [])
+
+    def test_existing_name_aborts_without_overwrite(self):
+        with open(os.path.join(self.temp.name, "taken.disk.raw"), "wb") as stream:
+            stream.write(b"preserve")
+        with self.assertRaisesRegex(DiskCaptureError, "already exists"):
+            capture_disk(
+                "/dev/fake", "taken", self.temp.name,
+                executables=self.executables,
+                device_validator=lambda _path: True,
+                runner=self.runner,
+                popen_factory=lambda *_args, **_kwargs: FakeProcess(),
+            )
+        with open(os.path.join(self.temp.name, "taken.disk.raw"), "rb") as stream:
+            self.assertEqual(stream.read(), b"preserve")
+        self.assertEqual(os.listdir(self.temp.name), ["taken.disk.raw"])
+
+    def test_invalid_geometry_fails_before_capture(self):
+        def bad_runner(command, **kwargs):
+            return SimpleNamespace(stdout="bad geometry\n")
+        with self.assertRaisesRegex(DiskCaptureError, "invalid disk geometry"):
+            capture_disk(
+                "/dev/fake", "bad", self.temp.name,
+                executables=self.executables,
+                device_validator=lambda _path: True,
+                runner=bad_runner,
+                popen_factory=lambda *_args, **_kwargs: self.fail("dd must not start"),
+            )
+        self.assertEqual(os.listdir(self.temp.name), [])
+
+
+if __name__ == "__main__":
+    unittest.main()
