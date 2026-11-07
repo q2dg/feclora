@@ -145,6 +145,10 @@ def capture_partition(
             if process.stdout is None:
                 raise CaptureError("capture process did not provide a stdout pipe")
             try:
+                (source_safety_check or check_capture_source_safe)(source_path)
+            except SourceSafetyError as exc:
+                raise CaptureError(f"capture source became unsafe before imaging: {exc}") from exc
+            try:
                 artifact = write_artifact(
                     stage_dir,
                     filename,
@@ -153,6 +157,7 @@ def capture_partition(
                     image_format=plan.image_format,
                     compression=compression,
                     partition_id=partition_id,
+                    filesystem=plan.filesystem,
                 )
             except ArtifactWriteError as exc:
                 if process.poll() is None:
