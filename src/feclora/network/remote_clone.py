@@ -30,6 +30,7 @@ from .remote_clone_protocol import (
     receive_verification_result,
     send_disk_stream,
     send_session_header,
+    send_terminal_result,
     send_verification_result,
     validate_endpoint_authorization,
     verify_peer_identity,
@@ -199,7 +200,6 @@ def send_remote_disk(
             code = process.wait()
             if code != 0:
                 raise RemoteDiskCloneError(f"source dd exited with status {code}")
-            from .remote_clone_protocol import send_terminal_result
             send_terminal_result(tls_socket, stream_result)
         finally:
             if process.poll() is None:
