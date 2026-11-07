@@ -18,16 +18,17 @@ frontend without duplicating disk-handling logic.
 
 ## Live ISO integration status
 
-The Kickstart currently installs the runtime dependencies (`python3` and
-`dialog`), but it does not yet install the feclora Python package or its launcher.
-The UI is therefore runnable from a source checkout, not from the generated
-Live ISO. Do not treat the UI as integrated into the ISO until the package
-installation path is implemented and a boot test confirms it works there.
+The build script now stages `src/feclora` under `out/feclora-app`, adds that
+directory to a temporary copy of the Fedora installer DVD with `mkksiso`, and
+passes the augmented DVD to `livemedia-creator`. A Kickstart `%post --nochroot`
+section copies the payload into `/usr/share/feclora/python/feclora` and creates
+`/usr/local/bin/feclora-ui`.
 
-The image build uses `livemedia-creator` with an Anaconda Kickstart. A future
-packaging change must make the feclora package available to that installation
-in a reproducible way; merely adding files to the build host or relying on a
-GitHub download during `%post` is not sufficient.
+This removes the need for a network download or a separately hosted package
+repository. The payload is copied from the installer media into the installed
+live filesystem using Anaconda's documented `--nochroot` post-install mode.
+The pipeline change is implemented, but the ISO has not yet been built or boot
+tested; keep the roadmap item open until those checks pass.
 
 ## Why not Cockpit yet?
 
