@@ -14,6 +14,10 @@ def artifact(**changes):
         "partition_id": "1",
     }
     value.update(changes)
+    if value["role"] == "partition-image" and value["format"] == "partclone":
+        value.setdefault("filesystem", "ext4")
+    if value["role"] != "partition-image":
+        value.pop("filesystem", None)
     return value
 
 
