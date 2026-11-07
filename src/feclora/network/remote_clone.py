@@ -326,7 +326,7 @@ def _receive_remote_disk_impl(
         return result
     except RemoteCloneCancelled as exc:
         raise RemoteDiskCloneCancelled(str(exc)) from exc
-    except (RemoteCloneProtocolError, PrivilegeError, OSError, subprocess.SubprocessError) as exc:
+    except (DiskCloneError, RemoteCloneProtocolError, PrivilegeError, OSError, subprocess.SubprocessError) as exc:
         raise RemoteDiskCloneError(str(exc)) from exc
 
 
