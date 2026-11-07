@@ -209,7 +209,6 @@ def capture_disk(
                 )
         finally:
             stderr_file.close()
-            process = None
 
         if counted.bytes_read != source_size:
             raise DiskCaptureError(
