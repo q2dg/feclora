@@ -17,6 +17,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install external compression tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes zstd lz4
+      - name: Static validation
+        run: bash build/validate.sh
       - name: Compile application and tests
         run: python -m compileall -q src tests
       - name: Run unit tests
