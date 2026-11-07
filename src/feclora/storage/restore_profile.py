@@ -10,6 +10,7 @@ import os
 import shutil
 import stat
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -243,3 +244,79 @@ def load_restore_profile(
         raise RestoreProfileError(f"restore profile signature verification failed: {exc}") from exc
     object.__setattr__(profile, "signature_verified", True)
     return profile
+
+
+def save_unattended_restore_profile(
+    profile: RestoreProfile,
+    path: str | os.PathLike[str],
+    *,
+    minisign_secret_key: str | os.PathLike[str],
+    minisign_executable: str | None = None,
+) -> Path:
+    """Create a new mode-0600 signed profile without overwriting an existing one."""
+    if profile.execution_mode != "unattended" or not profile.single_use:
+        raise RestoreProfileError("only single-use unattended profiles can be signed for unattended execution")
+    destination = Path(path)
+    parent = destination.parent
+    try:
+        parent_info = os.lstat(parent)
+    except OSError as exc:
+        raise RestoreProfileError(f"profile destination directory is unavailable: {exc}") from exc
+    if not stat.S_ISDIR(parent_info.st_mode) or parent_info.st_uid != os.geteuid():
+        raise RestoreProfileError("profile destination must be a real directory owned by the current user")
+    signature_path = Path(str(destination) + ".minisig")
+    if os.path.lexists(destination) or os.path.lexists(signature_path):
+        raise RestoreProfileError("refusing to overwrite an existing profile or signature")
+    key_path = Path(minisign_secret_key)
+    _regular_file(key_path, "minisign secret key")
+    key_info = os.stat(key_path, follow_symlinks=False)
+    if key_info.st_uid != os.geteuid() or key_info.st_mode & 0o077:
+        raise RestoreProfileError("minisign secret key must be owned by the current user and mode 0600 or stricter")
+    executable = minisign_executable or shutil.which("minisign")
+    if not executable:
+        raise RestoreProfileError("minisign is required to sign unattended restore profiles")
+    temporary_path: str | None = None
+    try:
+        fd, temporary_path = tempfile.mkstemp(prefix=".feclora-profile-", dir=parent)
+        try:
+            os.fchmod(fd, 0o600)
+            payload = profile.to_json().encode("utf-8")
+            view = memoryview(payload)
+            while view:
+                written = os.write(fd, view)
+                if written <= 0:
+                    raise RestoreProfileError("short write while saving restore profile")
+                view = view[written:]
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        # Hard-link publication is atomic and fails if another writer created
+        # the destination after the initial existence check.
+        os.link(temporary_path, destination, follow_symlinks=False)
+        os.unlink(temporary_path)
+        temporary_path = None
+        subprocess.run(
+            [executable, "-S", "-s", str(key_path), "-m", str(destination)],
+            check=True, capture_output=True, text=True, timeout=20,
+        )
+        _regular_file(signature_path, "generated profile signature")
+        os.chmod(signature_path, 0o600, follow_symlinks=False)
+        directory_fd = os.open(parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+        return destination
+    except (OSError, subprocess.SubprocessError) as exc:
+        for failed_path in (destination, signature_path):
+            try:
+                os.unlink(failed_path)
+            except FileNotFoundError:
+                pass
+        raise RestoreProfileError(f"could not publish signed restore profile: {exc}") from exc
+    finally:
+        if temporary_path is not None:
+            try:
+                os.unlink(temporary_path)
+            except FileNotFoundError:
+                pass
