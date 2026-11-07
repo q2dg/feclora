@@ -142,6 +142,10 @@ def capture_partition(
     try:
         stderr_file = tempfile.TemporaryFile(mode="w+b")
         try:
+            try:
+                (source_safety_check or check_capture_source_safe)(source_path)
+            except SourceSafetyError as exc:
+                raise CaptureError(f"capture source became unsafe before imaging: {exc}") from exc
             factory = popen_factory or subprocess.Popen
             try:
                 process = factory(
@@ -155,10 +159,6 @@ def capture_partition(
                 raise CaptureError(f"could not start {plan.executable}: {exc}") from exc
             if process.stdout is None:
                 raise CaptureError("capture process did not provide a stdout pipe")
-            try:
-                (source_safety_check or check_capture_source_safe)(source_path)
-            except SourceSafetyError as exc:
-                raise CaptureError(f"capture source became unsafe before imaging: {exc}") from exc
             counted = _CountingReader(process.stdout)
             try:
                 artifact = write_artifact(
