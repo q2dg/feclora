@@ -110,6 +110,21 @@ class DiskRestoreTests(unittest.TestCase):
             self.restore(require_signature=True)
         self.assertEqual(self.started, [])
 
+    def test_pre_write_callback_runs_after_successful_preflight(self):
+        calls = []
+        self.restore(pre_write_callback=lambda: calls.append("authorized"))
+        self.assertEqual(calls, ["authorized"])
+        self.assertEqual(len(self.started), 2)
+
+    def test_pre_write_callback_does_not_run_when_artifact_preflight_fails(self):
+        with open(os.path.join(self.temp.name, "disk.raw.gz"), "ab") as stream:
+            stream.write(b"tamper")
+        calls = []
+        with self.assertRaises(DiskRestoreError):
+            self.restore(pre_write_callback=lambda: calls.append("authorized"))
+        self.assertEqual(calls, [])
+        self.assertEqual(self.started, [])
+
     def test_streams_verified_decompressed_bytes_to_dd(self):
         proc = FakeProcess(self.payload)
         result = restore_disk(
