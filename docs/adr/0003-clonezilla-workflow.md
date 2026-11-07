@@ -1,66 +1,59 @@
-# ADR 0003: Follow Clonezilla's imaging workflow
+# ADR 0003: Generic storage tools and Clonezilla feature parity
 
 - Status: Accepted
 - Date: 2026-11-07
-- Scope: disk/partition imaging and local disk-to-disk cloning
+- Scope: Fedora Live ISO functionality
 
 ## Context
 
-feclora is an independent Fedora-based rescue environment. Reimplementing
-filesystem imaging, partition-table serialization, raw copying, compression,
-and device eligibility rules would duplicate mature behavior already exercised
-by Clonezilla.
+feclora is an independent Fedora-based rescue environment. Its product goal is
+to provide the practical disk-imaging, restoration, cloning, and deployment
+capabilities users expect from Clonezilla Live.
 
-Clonezilla's upstream scripts establish the relevant workflow:
-
-- `ocs-onthefly` obtains hard-disk candidates, asks for source and destination,
-  validates both selections, rejects identical endpoints, and checks whether
-  devices are busy before processing.
-- `ocs-sr` provides the established `savedisk`, `saveparts`,
-  `restoredisk`, and `restoreparts` workflows.
-- Partclone's filesystem-specific programs perform used-block imaging for
-  supported filesystems; raw copying is the fallback for unsupported layouts.
-- `sfdisk` handles partition-table capture/creation and `dd` handles raw
-  sectors and boot-area data where Clonezilla's workflow requires it.
-- Clonezilla's on-the-fly disk clone is orchestrated by `ocs-onthefly` and
-  delegates image save/restore work to `ocs-sr`; it is not a home-grown
-  filesystem-copy algorithm.
-
-Primary upstream references:
-- https://github.com/stevenshiau/clonezilla/blob/master/sbin/ocs-onthefly
-- https://github.com/stevenshiau/clonezilla/blob/master/sbin/ocs-sr
-- https://clonezilla.org/downloads/src/
-- https://clonezilla.org/fine-print-live-doc.php?path=clonezilla-live%2Fdoc%2F98_ocs_related_command_manpages
+The implementation must use generic, independently maintained Linux tools.
+Clonezilla-specific orchestration commands and scripts (including every
+`ocs-*` program), DRBL, and Clonezilla Live components are explicitly out of
+scope. Clonezilla is the functional reference, not a software dependency.
 
 ## Decision
 
-1. Reuse Fedora-packaged storage utilities wherever possible. Partclone is
-   available in Fedora 43 and is added to the live-image package set.
-2. Detect Partclone's filesystem-specific executables (for example,
-   `partclone.ext4`, `partclone.ntfs`, `partclone.xfs` and
-   `partclone.btrfs`), not a fictional generic `partclone` command.
-3. Use `sfdisk` for partition-table workflows and `dd` for raw data only
-   where the Clonezilla workflow calls for it.
-4. Keep feclora-specific code limited to Fedora live boot integration, UI,
-   invocation, progress/log presentation, and explicit safety gates.
-5. Do not write a new filesystem imaging engine, partition-table format,
-   compression implementation, or checksum algorithm.
-6. Before incorporating upstream Clonezilla scripts or helper libraries,
-   review their GPL licensing, dependencies on DRBL/Clonezilla Live, and
-   compatibility with Fedora. The repository's own license must be decided
-   before copying or adapting upstream source code.
-7. Port Clonezilla's device eligibility and endpoint checks deliberately.
-   Do not treat a simple mountpoint scan as equivalent to Clonezilla's
-   `get_not_busy_disks_or_parts`, `check_input_hd`,
-   `check_if_input_device_exist`, and `check_if_dev_busy` logic.
+Use standard utilities as the implementation primitives:
+
+- `lsblk`, `blkid`, `findmnt`, `udevadm`: device and filesystem discovery.
+- `partclone.*`: filesystem-aware used-block imaging where supported.
+- `dd`: raw block copying and boot-area data when required.
+- `sfdisk`, `sgdisk`, `parted`: partition-table backup, restore, and editing.
+- `gzip`, `zstd`, `xz`, `pigz`: image compression, subject to availability.
+- `sha256sum` and related standard tools: integrity verification.
+- `lvm2`, `cryptsetup`, filesystem utilities: supported storage stacks.
+- `openssh`, `netcat`/equivalent, and standard network tools: remote image
+  transport; multicast tooling will be selected when that milestone is designed.
+
+Feclora-specific code is limited to the user interface, orchestration of these
+generic commands, device selection and safety validation, progress reporting,
+logging, image metadata, and Fedora Live integration.
+
+The feature target is functional parity, not command-line or image-format
+compatibility at any cost. Where Clonezilla uses a proprietary-to-Clonezilla
+container convention around generic image data, feclora will implement only
+what is necessary to provide equivalent user-facing behavior using documented
+formats and generic tools.
+
+## Non-goals
+
+- Do not invoke, package, port, or depend on `ocs-sr`, `ocs-onthefly`,
+  `ocs-live`, other `ocs-*` scripts, or DRBL.
+- Do not build a new filesystem imaging engine when Partclone or raw copying
+  already provides the required primitive.
+- Do not build replacement partitioning, compression, encryption, or checksum
+  utilities.
+- Do not enable destructive operations until source/target validation,
+  revalidation, confirmation, and recovery/error handling are implemented.
 
 ## Consequences
 
-- The current capability detector reports the actual per-filesystem Partclone
-  executables.
-- The current TUI and selection code remain read-only; this ADR does not enable
-  imaging or disk writes.
-- Clonezilla's orchestration scripts are not assumed to run unmodified on
-  Fedora. Their DRBL environment and dependencies must be evaluated first.
-- Future image-format compatibility should be driven by Clonezilla's established
-  image metadata and command behavior, not by a newly invented feclora format.
+- Clonezilla's user-visible feature set is the acceptance target.
+- Each feature must be mapped to generic Fedora-packaged tools and tested in
+  the Live ISO; feature parity is not inferred from package presence.
+- The current application remains read-only. This ADR does not claim that
+  imaging or restoration is implemented.
