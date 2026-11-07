@@ -185,6 +185,7 @@ def capture_disk(
                     stage, disk_filename, counted,
                     role="disk-image", image_format="raw", compression=compression,
                     compression_level=compression_level,
+                    compression_executable=available.get(compression),
                 )
                 if age_recipients_file is not None:
                     disk_artifact = encrypt_artifact(
