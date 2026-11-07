@@ -96,9 +96,10 @@ class RemoteDiskReceiverTests(unittest.TestCase):
 
     def _receive(self, sock, *, geometry, process_factory):
         with tempfile.TemporaryDirectory() as directory:
-            return receive_remote_disk(
+            log_path = os.path.join(directory, "operations.jsonl")
+            result = receive_remote_disk(
                 TlsSocketProxy(sock),
-                operation_log_path=os.path.join(directory, "operations.jsonl"),
+                operation_log_path=log_path,
                 local_identity="DNS:receiver.example",
                 expected_peer_identity="DNS:source.example",
                 confirmation="ERASE /dev/target FROM DNS:source.example",
@@ -139,6 +140,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         source.join(timeout=5)
         self.assertFalse(source.is_alive())
         self.assertEqual(result.status, "verified")
+        self.assertEqual([event["status"] for event in self.journal_events], ["started", "completed"])
         self.assertEqual(processes[0].stdin.data, self.payload)
         self.assertTrue(processes[0].stdin.closed)
         acknowledgement = receive_verification_result(
