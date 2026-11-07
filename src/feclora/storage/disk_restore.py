@@ -12,6 +12,7 @@ import zlib
 from typing import Any, Callable
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
 from .source_safety import SourceSafetyError, check_capture_source_safe
+from .privilege import PrivilegeError, privileged_argv
 
 class DiskRestoreError(RuntimeError):
     """A whole-disk restore was rejected or failed."""
@@ -106,6 +107,7 @@ def restore_disk(
     runner: Callable[..., Any] | None = None,
     popen_factory: Callable[..., Any] | None = None,
     target_safety_check: Callable[[str], None] | None = None,
+    effective_uid: Callable[[], int] | None = None,
 ) -> ImageManifest:
     """Restore a verified raw whole-disk image to a whole-disk block device.
 
@@ -186,12 +188,13 @@ def restore_disk(
                 raise DiskRestoreError("block-device identity changed before restore")
             factory = popen_factory or subprocess.Popen
             try:
+                command = privileged_argv([dd, f"of={target_path}", "bs=4M", "conv=fsync", "status=none"], effective_uid=effective_uid)
                 process = factory(
-                    [dd, f"of={target_path}", "bs=4M", "conv=fsync", "status=none"],
+                    command,
                     stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
                     stderr=stderr_file, close_fds=True,
                 )
-            except OSError as exc:
+            except (OSError, PrivilegeError) as exc:
                 raise DiskRestoreError(f"could not start dd: {exc}") from exc
             if process.stdin is None:
                 raise DiskRestoreError("dd did not provide a writable input pipe")
