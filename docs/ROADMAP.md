@@ -3,18 +3,19 @@
 ## Milestone 0 — Project foundation
 - [x] Create the independent feclora repository.
 - [x] Define Fedora 43 x86_64 as the initial target.
-- [x] Publish architecture decisions for the live-image build pipeline and generic-tools-only storage implementation.
+- [x] Publish architecture decisions for the single-ISO, multi-mode design and generic-tools-only storage implementation.
 - [ ] Define the project license and contribution policy.
 
-## Milestone 1 — Bootable Live image
-- [ ] Build a reproducible Fedora 43 Live ISO.
+## Milestone 1 — Single bootable ISO and startup menu
+- [ ] Build a reproducible Fedora 43 ISO.
 - [ ] Boot on BIOS and UEFI in virtual machines.
 - [ ] Provide predictable live-session startup and logging.
 - [x] Implement read-only block-device/filesystem inventory with mocked tests.
 - [x] Add a read-only device browser using dialog.
+- [x] Add a startup mode selector for Local rescue, Server and Client; Server/Client currently report unavailable runtimes.
 - [x] Stage and integrate the Python application into the Kickstart build (end-to-end validation pending).
 - [x] Add automated build-host preflight checks.
-- [ ] Validate inventory and UI against real BIOS/UEFI virtual-machine storage.
+- [ ] Validate inventory, startup menu and UI against real BIOS/UEFI virtual-machine storage.
 - [x] Document the build and VM acceptance procedure.
 
 ## Milestone 2 — Local imaging and restoration
@@ -29,12 +30,11 @@
 - [ ] Integrate workflows into the TUI with progress, logs, cancellation and clear error handling.
 - [ ] Validate all destructive paths on disposable BIOS/UEFI VMs.
 
-## Milestone 3 — Server edition foundation
+## Milestone 3 — Network client and server modes in the same ISO
 - [ ] Define image manifest, deployment job schema and authenticated client/server protocol.
-- [ ] Define separate server role/edition packaging and service lifecycle.
-- [ ] Implement server-side repository management and job/control plane.
 - [ ] Implement client identity, allowlisting and explicit job arming.
-- [ ] Implement client Live/PXE runtime using the same generic imaging commands.
+- [ ] Implement Client mode runtime using the same generic imaging commands.
+- [ ] Implement Server mode control plane, repository management and job lifecycle.
 - [ ] Integrate DHCP safely (existing DHCP detection, explicit relay/proxy or dedicated isolated subnet; no silent DHCP server).
 - [ ] Implement TFTP and PXE/iPXE boot for legacy BIOS and UEFI clients.
 - [ ] Complete one-client unattended save/restore over the network.
