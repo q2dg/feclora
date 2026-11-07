@@ -86,9 +86,7 @@ feclora-restore-profile \
 ```
 
 For age-encrypted images, additionally pass `--age-identity` with a protected
-identity file supplied outside the profile. The command verifies that the consumption ledger and operation
-journal reside on a dedicated persistent mounted filesystem (not the Live
-overlay, tmpfs or root filesystem). It rechecks the WWN and serial immediately
+identity file supplied outside the profile. Use a Linux filesystem with POSIX ownership, permissions, locking and hard-link support (for example ext4, XFS or Btrfs); FAT/exFAT volumes may not provide the required semantics. The command verifies that the consumption ledger and operation journal reside on a dedicated persistent mounted filesystem (not the Live overlay, tmpfs or root filesystem). It rechecks the WWN and serial immediately
 before writing, after artifact and target preflight. It atomically consumes
 the profile ID in the durable ledger at that same pre-write boundary. A consumed profile cannot be replayed from the same persistent
 ledger, including after a reboot, interrupted or failed write. If the ledger
