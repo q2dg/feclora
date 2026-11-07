@@ -19,7 +19,7 @@ fi
 
 if [[ -f "$ROOT_DIR/build/build-iso.sh" ]]; then
   grep -q -- '--make-iso' "$ROOT_DIR/build/build-iso.sh" || fail "Build script does not request ISO output."
-  grep -q 'mkksiso --add' "$ROOT_DIR/build/build-iso.sh" || fail "Build script does not embed the application payload in installer media."
+  grep -Fq 'mkksiso --add "${APP_STAGE}" "${KS_FILE}" "${INSTALL_ISO}" "${AUGMENTED_ISO}"' "$ROOT_DIR/build/build-iso.sh" || fail "mkksiso must receive the app payload, Kickstart, input ISO and output ISO in that order."
   if grep -Eq '^[[:space:]]+--no-virt([[:space:]]|$)' "$ROOT_DIR/build/build-iso.sh"; then
     fail "Unsafe --no-virt mode must not be enabled by the default build."
   fi
