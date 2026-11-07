@@ -132,7 +132,10 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                 popen_factory=process_factory,
                 safety_check=lambda _path: None,
                 effective_uid=lambda: 0,
-        )
+            )
+            with open(log_path, encoding="utf-8") as journal:
+                self.journal_events = [json.loads(line) for line in journal]
+            return result
 
     def test_source_waits_for_receiver_readback_ack_and_journals_result(self):
         left, right = socket.socketpair()
@@ -163,19 +166,19 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             with patch("feclora.network.remote_clone._geometry", return_value=(len(self.payload), 512, True, "gpt")):
                 result = send_remote_disk(
-                TlsSocketProxy(left, peer="receiver.example"),
-                self.header,
-                operation_log_path=os.path.join(directory, "operations.jsonl"),
-                local_identity="DNS:source.example",
-                expected_peer_identity="DNS:receiver.example",
-                confirmation="READ /dev/source TO DNS:receiver.example",
-                executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
-                device_validator=lambda _path: True,
-                runner=lambda *args, **kwargs: None,
-                popen_factory=lambda *args, **kwargs: process,
-                safety_check=lambda _path: None,
-                effective_uid=lambda: 0,
-            )
+                    TlsSocketProxy(left, peer="receiver.example"),
+                    self.header,
+                    operation_log_path=os.path.join(directory, "operations.jsonl"),
+                    local_identity="DNS:source.example",
+                    expected_peer_identity="DNS:receiver.example",
+                    confirmation="READ /dev/source TO DNS:receiver.example",
+                    executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
+                    device_validator=lambda _path: True,
+                    runner=lambda *args, **kwargs: None,
+                    popen_factory=lambda *args, **kwargs: process,
+                    safety_check=lambda _path: None,
+                    effective_uid=lambda: 0,
+                )
             with open(os.path.join(directory, "operations.jsonl"), encoding="utf-8") as journal:
                 events = [json.loads(line) for line in journal]
         worker.join(timeout=5)
