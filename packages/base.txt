@@ -4,6 +4,7 @@ kernel
 tar
 sudo
 python3
+dialog
 NetworkManager
 
 # Live-media boot support
