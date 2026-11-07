@@ -89,7 +89,7 @@ def build_capture_plan(
             image_format="partclone",
             filesystem=recorded_filesystem,
         )
-    dd_path = available.get("dd") or shutil.which("dd")
+    dd_path = available.get("dd") if executables is not None else shutil.which("dd")
     if not dd_path:
         raise CaptureError(
             f"No Partclone executable for filesystem {fs or 'unknown'} and dd is unavailable"
