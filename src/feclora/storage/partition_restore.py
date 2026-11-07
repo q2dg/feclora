@@ -122,6 +122,7 @@ def restore_partition(
     confirmation: str,
     executables: dict[str, str | None] | None = None,
     runner: Callable[..., Any] | None = None,
+    device_validator: Callable[[str], bool] | None = None,
     popen_factory: Callable[..., Any] | None = None,
     target_safety_check: Callable[[str], None] | None = None,
 ) -> ImageManifest:
@@ -130,6 +131,12 @@ def restore_partition(
         raise PartitionRestoreError("target must be an absolute /dev/ path")
     if confirmation != f"ERASE {target_path}":
         raise PartitionRestoreError(f"explicit confirmation required: ERASE {target_path}")
+    validator = device_validator or (lambda path: stat.S_ISBLK(os.stat(path).st_mode))
+    try:
+        if not validator(target_path):
+            raise PartitionRestoreError("target is not an accessible block device")
+    except OSError as exc:
+        raise PartitionRestoreError(f"cannot inspect target block device: {exc}") from exc
     repo = os.path.abspath(os.fspath(repository))
     try:
         if not stat.S_ISDIR(os.lstat(repo).st_mode):
@@ -185,6 +192,8 @@ def restore_partition(
         try:
             # Validate the block-device role and safety again immediately before
             # starting the destructive process.
+            if not validator(target_path):
+                raise PartitionRestoreError("target block-device identity changed")
             if _target_geometry(target_path, lsblk, run) < manifest.source_size_bytes:
                 raise PartitionRestoreError("target partition capacity changed")
             try:
@@ -192,11 +201,10 @@ def restore_partition(
             except SourceSafetyError as exc:
                 raise PartitionRestoreError(f"restore target became unsafe: {exc}") from exc
             if artifact.format == "partclone":
-                argv = [executable, "-r", "-s", "/proc/self/fd/3", "-o", target_path]
+                argv = [executable, "-r", "-s", f"/proc/self/fd/{staged.fileno()}", "-o", target_path]
                 extra = {"pass_fds": (staged.fileno(),)}
                 # The child receives the staged, fully verified decompressed
-                # stream on fd 3; no untrusted path is interpolated.
-                argv[argv.index("/proc/self/fd/3")] = f"/proc/self/fd/{staged.fileno()}"
+                # stream through an inherited descriptor, not an untrusted path.
                 stdin = subprocess.DEVNULL
             else:
                 argv = [executable, f"of={target_path}", "bs=4M", "conv=fsync", "status=none"]
