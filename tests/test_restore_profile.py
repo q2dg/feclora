@@ -99,18 +99,26 @@ class RestoreProfileTests(unittest.TestCase):
                 )
 
     def test_rejects_expired_unattended_profile(self):
-        profile = RestoreProfile.from_dict(profile_data(
+        value = profile_data(
             execution_mode="unattended",
             expires_at="2028-01-01T00:00:00Z",
             single_use=True,
-        ))
-        from dataclasses import replace
-        profile = replace(profile, signature_verified=True)
-        with self.assertRaisesRegex(RestoreProfileError, "expired"):
-            profile.authorize(
-                {"wwn": profile.target.wwn, "serial": profile.target.serial},
-                now=datetime(2029, 1, 1, tzinfo=timezone.utc),
-            )
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "restore.json"
+            key = Path(directory) / "trusted.pub"
+            Path(str(path) + ".minisig").write_text("signature", encoding="utf-8")
+            path.write_text(json.dumps(value), encoding="utf-8")
+            key.write_text("trusted key", encoding="utf-8")
+            with patch("feclora.storage.restore_profile.subprocess.run"):
+                profile = load_restore_profile(
+                    path, minisign_public_key=key, minisign_executable="/usr/bin/minisign",
+                )
+            with self.assertRaisesRegex(RestoreProfileError, "expired"):
+                profile.authorize(
+                    {"wwn": profile.target.wwn, "serial": profile.target.serial},
+                    now=datetime(2029, 1, 1, tzinfo=timezone.utc),
+                )
 
 
 if __name__ == "__main__":
