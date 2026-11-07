@@ -68,7 +68,7 @@ class MutualTlsSocketTests(unittest.TestCase):
                 cert = os.path.join(directory, name + ".pem")
                 ext = os.path.join(directory, name + ".ext")
                 with open(ext, "w", encoding="ascii") as output:
-                    output.write(f"subjectAltName=DNS:{san}\\nextendedKeyUsage={eku}\\n")
+                    output.write(f"subjectAltName=DNS:{san}\nextendedKeyUsage={eku}\n")
                 run(
                     "openssl", "req", "-newkey", "rsa:2048", "-nodes",
                     "-keyout", key, "-out", csr, "-subj", f"/CN={san}",
