@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from feclora.storage.profile_executor import _consume_profile_once, _matching_target
+from feclora.storage.profile_executor import _consume_profile_once, _matching_target, _require_persistent_ledger
 from feclora.storage.restore_profile import RestoreProfileError
 
 
@@ -35,6 +35,24 @@ class ProfileConsumptionLedgerTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(RestoreProfileError, "exactly one"):
             _matching_target(profile, inventory)
+
+    def test_persistent_ledger_accepts_dedicated_mount(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch("feclora.storage.profile_executor.shutil.which", return_value="/usr/bin/findmnt"):
+                _require_persistent_ledger(
+                    Path(directory) / "audit" / "consumed.jsonl",
+                    runner=lambda *args, **kwargs: type("Result", (), {"stdout": "ext4 /mnt/restore-media\\n"})(),
+                )
+
+    def test_persistent_ledger_rejects_live_overlay_and_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch("feclora.storage.profile_executor.shutil.which", return_value="/usr/bin/findmnt"):
+                for output in ("overlay /run/initramfs/live\\n", "ext4 /\\n"):
+                    with self.assertRaisesRegex(RestoreProfileError, "dedicated persistent"):
+                        _require_persistent_ledger(
+                            Path(directory) / "audit" / "consumed.jsonl",
+                            runner=lambda *args, _output=output, **kwargs: type("Result", (), {"stdout": _output})(),
+                        )
 
     def test_consumption_is_durable_and_replay_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
