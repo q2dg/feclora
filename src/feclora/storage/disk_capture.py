@@ -143,6 +143,10 @@ def capture_disk(
             if process.stdout is None:
                 raise DiskCaptureError("dd did not provide a stdout pipe")
             try:
+                (source_safety_check or check_capture_source_safe)(source_path)
+            except SourceSafetyError as exc:
+                raise DiskCaptureError(f"capture source became unsafe before dd: {exc}") from exc
+            try:
                 disk_artifact = write_artifact(
                     stage, disk_filename, process.stdout,
                     role="disk-image", image_format="raw", compression=compression,
