@@ -57,6 +57,7 @@ def write_artifact(
     image_format: str,
     compression: str = "none",
     partition_id: str | None = None,
+    filesystem: str | None = None,
     chunk_size: int = _CHUNK_SIZE,
 ) -> ImageArtifact:
     """Stream source into a new artifact and atomically publish it.
@@ -154,6 +155,7 @@ def write_artifact(
             size_bytes=sink.size,
             sha256=sink.digest.hexdigest(),
             partition_id=partition_id,
+            filesystem=filesystem,
         )
     except ArtifactWriteError:
         raise
