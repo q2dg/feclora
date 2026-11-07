@@ -1,5 +1,6 @@
 import gzip
 import hashlib
+import io
 import json
 import os
 import tempfile
@@ -20,8 +21,9 @@ class RecordingInput:
         return self.buffer.getvalue()
 
 class FakeProcess:
-    def __init__(self):
+    def __init__(self, readback=b""):
         self.stdin = RecordingInput()
+        self.stdout = io.BytesIO(readback)
         self.returncode = 0
         self.terminated = False
     def poll(self):
@@ -65,7 +67,7 @@ class DiskRestoreTests(unittest.TestCase):
             confirmation="ERASE /dev/fake", executables=self.executables,
             device_validator=lambda _path: True, runner=self.runner,
             target_safety_check=lambda _path: None, effective_uid=lambda: 0,
-            popen_factory=lambda *args, **kw: self.started.append((args, kw)) or FakeProcess(),
+            popen_factory=lambda *args, **kw: self.started.append((args, kw)) or FakeProcess(self.payload),
             **kwargs,
         )
     def test_requires_exact_destructive_confirmation(self):
@@ -94,7 +96,7 @@ class DiskRestoreTests(unittest.TestCase):
                 popen_factory=lambda *a, **k: self.fail("dd must not start"),
             )
     def test_streams_verified_decompressed_bytes_to_dd(self):
-        proc = FakeProcess()
+        proc = FakeProcess(self.payload)
         result = restore_disk(
             self.manifest, self.temp.name, "/dev/fake",
             confirmation="ERASE /dev/fake", executables=self.executables,
@@ -132,6 +134,21 @@ class DiskRestoreTests(unittest.TestCase):
                 progress_callback=lambda *_args: (_ for _ in ()).throw(DiskRestoreCancelled("operator cancel")),
             )
         self.assertTrue(proc.terminated)
+    def test_rejects_destination_readback_mismatch(self):
+        processes = []
+        def factory(*args, **kwargs):
+            proc = FakeProcess(self.payload if not processes else b"corrupted target")
+            processes.append(proc)
+            return proc
+        with self.assertRaisesRegex(DiskRestoreError, "read-back verification failed"):
+            restore_disk(
+                self.manifest, self.temp.name, "/dev/fake",
+                confirmation="ERASE /dev/fake", executables=self.executables,
+                device_validator=lambda _path: True, runner=self.runner,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=factory,
+            )
+        self.assertEqual(len(processes), 2)
     def test_rechecks_target_safety_before_dd(self):
         calls = []
         def safety(_path):
