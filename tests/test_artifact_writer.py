@@ -45,6 +45,23 @@ class ArtifactWriterTests(unittest.TestCase):
                 self.assertEqual(decoder(stored), self.payload)
                 self.assertEqual(artifact.sha256, hashlib.sha256(stored).hexdigest())
 
+    def test_records_selected_compression_level(self):
+        artifact = write_artifact(
+            self.temp.name, "image.gz", io.BytesIO(self.payload),
+            role="disk-image", image_format="raw", compression="gzip",
+            compression_level=1,
+        )
+        self.assertEqual(artifact.compression_level, 1)
+        with open(os.path.join(self.temp.name, "image.gz"), "rb") as stream:
+            self.assertEqual(gzip.decompress(stream.read()), self.payload)
+
+    def test_rejects_compression_level_for_uncompressed_artifact(self):
+        with self.assertRaisesRegex(ArtifactWriteError, "not valid"):
+            write_artifact(
+                self.temp.name, "image.raw", io.BytesIO(self.payload),
+                role="disk-image", image_format="raw", compression_level=3,
+            )
+
     def test_refuses_to_overwrite_existing_file(self):
         path = os.path.join(self.temp.name, "existing.img")
         with open(path, "wb") as stream:
