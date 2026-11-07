@@ -23,7 +23,8 @@
 - [x] Implement a non-destructive whole-disk selection gate and live-root dependency probe (not yet integrated into the UI).
 - [x] Reject mounted capture-source trees and disks backing the live root before partition or whole-disk capture (busy-process and mount-namespace checks remain pending).
 - [x] Define versioned disk/partition image manifest schema with safe artifact names and SHA-256 metadata (no writer or restore path yet).
-- [x] Implement a bounded-stream artifact writer with atomic no-overwrite publication and SHA-256 metadata (raw, gzip and xz; producer orchestration pending).\n- [x] Implement read-only partition capture planning and staged Partclone/dd process execution (mounted/busy-device safety integration pending).\n- [x] Implement transactional read-only whole-disk capture with raw dd, sfdisk metadata and manifest-last publication (runtime validation pending).\n- [ ] Implement whole-disk and partition restore with Partclone and raw fallback.
+- [x] Implement a bounded-stream artifact writer with atomic no-overwrite publication and SHA-256 metadata (raw, gzip and xz; producer orchestration pending).\n- [x] Implement read-only partition capture planning and staged Partclone/dd process execution (mounted/busy-device safety integration pending).\n- [x] Implement transactional read-only whole-disk capture with raw dd, sfdisk metadata and manifest-last publication (runtime validation pending).\n- [x] Implement initial verified whole-disk restore with raw dd and none/gzip/xz decompression (mocked tests only; not connected to TUI).
+- [ ] Implement partition restore with Partclone and raw fallback.
 - [ ] Implement disk-to-disk clone using partition-table tools and per-partition imaging.
 - [ ] Implement zstd/lz4 streaming adapters and repository-level manifest transactions.
 - [ ] Support GPT/MBR, LVM, LUKS and boot-area/bootloader workflows.
