@@ -156,6 +156,7 @@ def restore_disk(
     age_identity_file: str | os.PathLike[str] | None = None,
     minisign_public_key: str | os.PathLike[str] | None = None,
     require_signature: bool = False,
+    pre_write_callback: Callable[[], None] | None = None,
 ) -> ImageManifest:
     """Restore a verified raw whole-disk image to a whole-disk block device.
 
@@ -247,6 +248,10 @@ def restore_disk(
         try:
             if initial_device_number is not None and os.stat(target_path).st_rdev != initial_device_number:
                 raise DiskRestoreError("block-device identity changed before restore")
+            if pre_write_callback is not None:
+                # Call only after artifact, geometry, signature and safety
+                # preflight has completed, immediately before the first write.
+                pre_write_callback()
             factory = popen_factory or subprocess.Popen
             try:
                 command = privileged_argv([dd, f"of={target_path}", "bs=4M", "conv=fsync", "status=none"], effective_uid=effective_uid)
