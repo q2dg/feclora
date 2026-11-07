@@ -16,6 +16,7 @@ from typing import Callable, Mapping
 
 from .artifact_writer import ArtifactWriteError, write_artifact
 from .image_manifest import ImageArtifact
+from .source_safety import SourceSafetyError, check_capture_source_safe
 
 
 class CaptureError(RuntimeError):
@@ -99,6 +100,7 @@ def capture_partition(
     compression: str = "none",
     device_validator: Callable[[str], bool] | None = None,
     popen_factory: Callable[..., subprocess.Popen] | None = None,
+    source_safety_check: Callable[[str], None] | None = None,
 ) -> ImageArtifact:
     """Capture one block partition into a repository without overwriting files.
 
@@ -109,6 +111,10 @@ def capture_partition(
     validator = device_validator or _is_block_device
     if not validator(source_path):
         raise CaptureError(f"source is not an accessible block device: {source_path}")
+    try:
+        (source_safety_check or check_capture_source_safe)(source_path)
+    except SourceSafetyError as exc:
+        raise CaptureError(f"unsafe capture source: {exc}") from exc
     plan = build_capture_plan(source_path, filesystem, executables)
     repository_path = os.fspath(repository)
     try:
