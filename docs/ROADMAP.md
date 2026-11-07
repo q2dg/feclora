@@ -26,7 +26,7 @@
 - [x] Implement bounded-stream artifact writing with atomic no-overwrite publication and SHA-256 metadata (raw, gzip and xz).
 - [x] Implement manifest-backed partition capture with Partclone or raw dd, exact raw byte-count validation and manifest-last publication.
 - [x] Implement transactional read-only whole-disk capture with raw dd, sfdisk metadata, exact byte-count validation and manifest-last publication.
-- [x] Implement initial verified whole-disk restore with raw dd and none/gzip/xz decompression (mocked tests only; not connected to TUI).
+- [x] Implement verified whole-disk restore with raw dd and none/gzip/xz decompression, target geometry checks and typed confirmation (mocked tests; runtime validation pending).
 - [x] Implement partition restore with Partclone and raw fallback (mocked tests; runtime validation pending).
 - [ ] Implement disk-to-disk clone using partition-table tools and per-partition imaging.
 - [ ] Implement zstd/lz4 streaming adapters and repository-level manifest transactions.
