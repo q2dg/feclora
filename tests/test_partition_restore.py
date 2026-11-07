@@ -45,6 +45,7 @@ class PartitionRestoreTests(unittest.TestCase):
         self.manifest = os.path.join(self.temp.name, "part.manifest.json")
         self.write_manifest("raw", None, len(self.payload))
         self.calls = []
+        self.runner_calls = []
         self.stdin_data = None
         self.partclone_data = None
         self.active_process = None
@@ -140,7 +141,25 @@ class PartitionRestoreTests(unittest.TestCase):
         self.assertEqual(argv[1], "-r")
         self.assertIn("-s", argv)
         self.assertEqual(self.partclone_data, self.payload)
+        self.assertTrue(any(call[0][0] == "e2fsck" and call[0][-1] == "/dev/sda1" for call in self.runner_calls))
         self.assertNotIn("pass_fds", options)
+
+    def test_partclone_restore_fails_when_read_only_verification_fails(self):
+        self.write_manifest("partclone", "ext4", len(self.payload))
+        def failing_checker(command, **kwargs):
+            self.runner_calls.append((command, kwargs))
+            if command[0] == "e2fsck":
+                return SimpleNamespace(stdout="", stderr="filesystem errors found", returncode=4)
+            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\\n")
+        with self.assertRaisesRegex(PartitionRestoreError, "consistency check failed"):
+            restore_partition(
+                self.manifest, self.temp.name, "/dev/sda1",
+                confirmation="ERASE /dev/sda1",
+                executables={"lsblk": "lsblk", "partclone.ext4": "partclone.ext4", "e2fsck": "e2fsck"},
+                runner=failing_checker, device_validator=lambda _path: True,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda *args, **kwargs: FakeProcess(),
+            )
 
     def test_partclone_restore_reports_progress_from_stderr(self):
         self.write_manifest("partclone", "ext4", len(self.payload))
