@@ -379,7 +379,8 @@ def send_disk_stream(
     if source.read(1):
         raise RemoteCloneProtocolError("source contains bytes beyond the declared disk size")
     result = CloneStreamResult(session_id, total, digest.hexdigest())
-    send_terminal_result(sock, result)
+    if send_terminal:
+        send_terminal_result(sock, result)
     return result
 
 
