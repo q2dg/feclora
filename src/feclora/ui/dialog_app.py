@@ -92,6 +92,8 @@ def _compression() -> tuple[str, int | None] | None:
         ("none", "None (fastest, largest)"),
         ("gzip", "gzip"),
         ("xz", "xz"),
+        ("zstd", "zstd"),
+        ("lz4", "lz4"),
     ])
     if tool is None:
         return None
@@ -100,6 +102,10 @@ def _compression() -> tuple[str, int | None] | None:
     levels = [("1", "1 - fastest"), ("3", "3 - fast"), ("6", "6 - balanced"), ("9", "9 - maximum")]
     if tool == "xz":
         levels = [("0", "0 - fastest"), ("3", "3 - fast"), ("6", "6 - balanced"), ("9", "9 - maximum")]
+    elif tool == "zstd":
+        levels = [("1", "1 - fastest"), ("3", "3 - default"), ("6", "6 - balanced"), ("9", "9 - high ratio"), ("15", "15 - very high ratio"), ("19", "19 - maximum standard")]
+    elif tool == "lz4":
+        levels = [("1", "1 - fastest"), ("3", "3 - fast"), ("6", "6 - balanced"), ("9", "9 - high ratio"), ("12", "12 - maximum")]
     selected = _menu(f"{tool} compression level", "Higher levels use more CPU and usually produce smaller images.", levels)
     return (tool, int(selected)) if selected is not None else None
 
