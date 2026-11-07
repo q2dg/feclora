@@ -37,6 +37,8 @@ syslinux
 
 # Storage and inspection tools
 partclone
+zstd
+lz4
 parted
 gdisk
 util-linux
