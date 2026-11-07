@@ -41,7 +41,7 @@ Do not mark the running system disk read-only.
    independently selected local source/target path; a remote header cannot
    choose the receiver's disk. The source revalidates its device identity and
    read safety and requires the source disk to be marked read-only. The
-   receiver revalidates its target identity, exact capacity, logical sector
+   receiver revalidates its target identity, equal-or-larger capacity, logical sector
    size, read-only status and destructive safety. Protocol v1 currently
    requires equal source/target capacities so the full transferred extent can
    be compared byte-for-byte without relocating GPT metadata.
@@ -56,7 +56,10 @@ Do not mark the running system disk read-only.
    both values with its in-flight count and digest.
 8. The receiver flushes the target and reads back exactly the transferred byte
    count. It calculates a second SHA-256 and compares it with the transfer
-   digest.
+   digest. If the target is larger and the copied table is GPT, it then runs
+   `sgdisk -e` to relocate the backup GPT header to the physical end of the
+   target and `sgdisk -v` to validate the table. GPT relocation occurs only
+   after the original source-sized range has passed read-back verification.
 9. The receiver returns a terminal verification result bound to the session
    UUID, including the read-back digest. Only a successful receiver read-back
    verification is reported as success. Both endpoints persist started and
