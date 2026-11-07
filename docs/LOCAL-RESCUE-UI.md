@@ -14,8 +14,11 @@ user's home directory. Block-device imaging commands and process-use checks
 run through non-interactive sudo. The Kickstart grants the live wheel user
 passwordless sudo, while the UI and image repository remain owned by that user.
 
-The interface currently runs imaging synchronously and reports completion or
-errors in a dialog. Progress bars, cancellation controls, per-operation log
-files, target read-back verification, and full recovery from power loss remain
+Whole-disk and partition capture show live byte progress and can be cancelled;
+raw whole-disk and raw partition restores show write progress and can be
+cancelled. Partclone partition restore still lacks live progress/cancellation.
+Whole-disk restore reads the destination back and verifies its SHA-256 after a
+successful write. Persistent per-operation logs, Partclone restore progress,
+partition read-back verification, and full recovery from power loss remain
 future work. Use disposable test disks until the BIOS/UEFI VM acceptance tests
 and real hardware validation are complete.
