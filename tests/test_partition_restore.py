@@ -33,6 +33,7 @@ class PartitionRestoreTests(unittest.TestCase):
         self.write_manifest("raw", None, len(self.payload))
         self.calls = []
         self.stdin_data = None
+        self.partclone_data = None
     def write_manifest(self, image_format, filesystem, size):
         artifact = {
             "filename": "partition.img.gz", "role": "partition-image",
@@ -56,7 +57,12 @@ class PartitionRestoreTests(unittest.TestCase):
         def factory(argv, **opts):
             self.calls.append((argv, opts))
             if argv[0] == "dd":
-                self.stdin_data = opts["stdin"].read()
+                image_path = next(arg[3:] for arg in argv if arg.startswith("if="))
+                with open(image_path, "rb") as image:
+                    self.stdin_data = image.read()
+            elif argv[0].startswith("partclone."):
+                with open(argv[3], "rb") as image:
+                    self.partclone_data = image.read()
             return proc
         result = restore_partition(
             self.manifest, self.temp.name, "/dev/sda1",
@@ -78,7 +84,8 @@ class PartitionRestoreTests(unittest.TestCase):
         argv, options = self.calls[0]
         self.assertEqual(argv[0], "partclone.ext4")
         self.assertEqual(argv[1:3], ["-r", "-s"])
-        self.assertIn("pass_fds", options)
+        self.assertEqual(self.partclone_data, self.payload)
+        self.assertNotIn("pass_fds", options)
     def test_requires_exact_confirmation(self):
         with self.assertRaisesRegex(PartitionRestoreError, "confirmation"):
             restore_partition(
