@@ -238,4 +238,5 @@ def load_restore_profile(
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise RestoreProfileError(f"restore profile signature verification failed: {exc}") from exc
-    object.__setattr__(profile, "signature_verified", True)\n    return profile
+    object.__setattr__(profile, "signature_verified", True)
+    return profile
