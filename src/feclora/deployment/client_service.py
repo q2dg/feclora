@@ -10,13 +10,14 @@ import signal
 import stat
 import tempfile
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from feclora.deployment.client_runtime import execute_client_image_job
 from feclora.deployment.control import (
-    DeploymentControlError, LocalTargetApproval, join_deployment,
+    DeploymentControlError, LocalTargetApproval, join_deployment, send_control_message,
 )
 from feclora.deployment.runtime_config import load_client_runtime_config
 from feclora.network.remote_clone_protocol import create_mutual_tls_context
@@ -292,11 +293,30 @@ class ClientDeploymentService:
                 self._set_status("running", detail="Server armed the job. Client storage operation is in progress.")
                 level = None if compression == "none" else 6
 
+                last_reported_bytes = 0
+                last_reported_at = 0.0
+
                 def progress(current: int, total: int | None) -> None:
+                    nonlocal last_reported_bytes, last_reported_at
+                    completed = max(0, int(current))
+                    total_bytes = max(0, int(total)) if total is not None else None
                     self._set_status("running", progress={
-                        "completed_bytes": max(0, int(current)),
-                        "total_bytes": max(0, int(total)) if total is not None else None,
+                        "completed_bytes": completed, "total_bytes": total_bytes,
                     })
+                    now = time.monotonic()
+                    if (now - last_reported_at >= 1.0
+                            or completed - last_reported_bytes >= 16 * 1024 * 1024):
+                        try:
+                            send_control_message(tls_socket, {
+                                "type": "progress", "job_id": job.job_id,
+                                "phase": job.operation, "completed_bytes": completed,
+                                "total_bytes": total_bytes,
+                            })
+                            last_reported_bytes = completed
+                            last_reported_at = now
+                        except (DeploymentControlError, OSError):
+                            # Telemetry must never abort an otherwise safe local disk operation.
+                            pass
 
                 return execute_client_image_job(
                     job, tls_socket, approval,
