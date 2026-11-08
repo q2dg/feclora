@@ -36,6 +36,9 @@ function Field({ label, children, help }) {
 export default function App() {
   const [tab, setTab] = useState("operations");
   const [status, setStatus] = useState(null);
+  const [trustedClients, setTrustedClients] = useState([]);
+  const [revokeIdentity, setRevokeIdentity] = useState("");
+  const [revokeConfirmation, setRevokeConfirmation] = useState("");
   const [images, setImages] = useState([]);
   const [journals, setJournals] = useState([]);
   const [deploymentJobs, setDeploymentJobs] = useState([]);
@@ -112,10 +115,10 @@ export default function App() {
   const refresh = useCallback(async () => {
     setBusy(true); setError("");
     try {
-      const [s, i, j, op, inv, net, pxe, remote] = await Promise.all([
-        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs")
+      const [s, i, j, op, inv, net, pxe, remote, clients] = await Promise.all([
+        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("server_trusted_clients")
       ]);
-      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []);
+      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setTrustedClients(clients.clients || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   }, []);
@@ -161,6 +164,20 @@ export default function App() {
       });
       setOperationResult(result);
       setNotice("Operation completed successfully.");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const revokeTrustedClient = async () => {
+    if (!revokeIdentity || revokeConfirmation !== `REVOKE ${revokeIdentity}`) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("revoke_server_client", {
+        identity: revokeIdentity, confirmation: revokeConfirmation
+      });
+      setNotice(`Revoked ${result.identity}; future image encryption will exclude this Client.`);
+      setRevokeIdentity(""); setRevokeConfirmation("");
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -691,6 +708,32 @@ export default function App() {
                 <Button variant="primary" onClick={bootstrapServer} isLoading={busy} isDisabled={busy || !serverBinding || status?.server_configured}>Initialize Server identity</Button>
               </StackItem>
               {status?.server_configured && <StackItem><Alert variant="success" title="Server configuration exists" isInline>The existing configuration is not overwritten by this wizard. Continue with the remaining Server and PXE setup once those Cockpit workflows are available.</Alert></StackItem>}
+              {status?.server_configured && <StackItem>
+                <Title headingLevel="h2" size="xl">Trusted Client inventory and revocation</Title>
+                <p>Review enrolled TLS identities and their authorized MAC addresses. Revocation removes the identity-to-MAC authorization, image-signing trust and age recipient from future captures. It does not terminate established TLS sessions or invalidate old encrypted images.</p>
+                <Table aria-label="Trusted Feclora Clients" variant="compact">
+                  <Thead><Tr><Th>Client identity</Th><Th>Authorized MAC</Th><Th>Image capture</Th></Tr></Thead>
+                  <Tbody>
+                    {trustedClients.map((client) => <Tr key={client.identity}><Td>{client.identity}</Td><Td>{client.mac_address}</Td><Td>{client.image_capture ? "Authorized" : "Restore only"}</Td></Tr>)}
+                    {!trustedClients.length && <Tr><Td colSpan={3}>No enrolled Clients.</Td></Tr>}
+                  </Tbody>
+                </Table>
+                {trustedClients.length > 0 && <>
+                  <Field label="Client identity to revoke">
+                    <select className="pf-v5-c-form-control" value={revokeIdentity} onChange={(event) => { setRevokeIdentity(event.target.value); setRevokeConfirmation(""); }}>
+                      <option value="">Select an enrolled Client…</option>
+                      {trustedClients.map((client) => <option key={client.identity} value={client.identity}>{client.identity} · {client.mac_address}</option>)}
+                    </select>
+                  </Field>
+                  {revokeIdentity && <>
+                    <Alert variant="warning" title="Revocation is not retroactive" isInline>Existing TLS sessions may remain active until disconnected. Previously exported recipient lists and encrypted images are unchanged; distribute the refreshed recipient inventory to remaining Clients.</Alert>
+                    <Field label={`Type exactly: REVOKE ${revokeIdentity}`}>
+                      <input className="pf-v5-c-form-control" value={revokeConfirmation} onChange={(event) => setRevokeConfirmation(event.target.value)} />
+                    </Field>
+                    <Button variant="danger" onClick={revokeTrustedClient} isLoading={busy} isDisabled={busy || revokeConfirmation !== `REVOKE ${revokeIdentity}`}>Revoke Client identity</Button>
+                  </>}
+                </>}
+              </StackItem>}
               {serverSetup && <StackItem><Card><CardBody><Title headingLevel="h3" size="lg">Server identity status</Title><p>{serverSetup.message}</p><p>Bind address: {serverSetup.bind_address}:{serverSetup.port}</p><p>Certificate identity: {serverSetup.server_identity}</p><p>Enrolled Clients: {serverSetup.enrolled_clients}</p></CardBody></Card></StackItem>}
               <StackItem>
                 <Title headingLevel="h2" size="xl">Trusted Clients · Approve CSR</Title>
