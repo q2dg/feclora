@@ -229,7 +229,7 @@ class DeploymentControlServer:
                     self.listener_errors.append(str(exc))
 
     def stop(self) -> None:
-        """Stop accepting peers and close any remaining control sessions."""
+        """Stop accepting peers and close pending and established control sessions."""
         self._stop_event.set()
         if self._listener is not None:
             try:
@@ -237,19 +237,20 @@ class DeploymentControlServer:
             except OSError:
                 pass
             self._listener = None
-        if self._listener_thread is not None:
-            self._listener_thread.join(timeout=3)
-            self._listener_thread = None
         with self._lock:
             pending = tuple(self._pending_sockets)
             self._pending_sockets.clear()
-            sessions = tuple(self._sessions.items())
-            self._sessions.clear()
         for pending_socket in pending:
             try:
                 pending_socket.close()
             except OSError:
                 pass
+        if self._listener_thread is not None:
+            self._listener_thread.join(timeout=3)
+            self._listener_thread = None
+        with self._lock:
+            sessions = tuple(self._sessions.items())
+            self._sessions.clear()
         for mac, tls_socket in sessions:
             try:
                 record = next((item for item in self.coordinator.clients() if item.mac_address == mac), None)
@@ -263,7 +264,7 @@ class DeploymentControlServer:
                 tls_socket.close()
             except OSError:
                 pass
-
+        cleanup_error = None
         if self.firewall is not None and self.interface:
             try:
                 if self._firewall_added:
@@ -273,7 +274,10 @@ class DeploymentControlServer:
                     self.firewall.close(self.interface)
                     self._firewall_opened = False
             except Exception as exc:
+                cleanup_error = exc
                 self.listener_errors.append(f"firewall cleanup failed: {exc}")
+        if cleanup_error is not None:
+            raise DeploymentControlError(f"control firewall cleanup failed: {cleanup_error}") from cleanup_error
 
     def accept_ready_client(self, listener: Any) -> ReadyClient:
         accepted, _address = listener.accept()
