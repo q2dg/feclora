@@ -497,10 +497,13 @@ def _certificate_status() -> list[dict[str, Any]]:
         try:
             config = loader(path)
             days = certificate_expiry_days(config.certificate_file)
+            ca_days = certificate_expiry_days(config.ca_file)
             identity = config.local_identity
             results.append({
                 "role": role, "identity": identity, "expiry_days": days,
                 "status": "expired" if days < 0 else "expiring" if days <= 30 else "valid",
+                "ca_expiry_days": ca_days,
+                "ca_status": "expired" if ca_days < 0 else "expiring" if ca_days <= 30 else "valid",
             })
         except Exception as exc:
             results.append({
