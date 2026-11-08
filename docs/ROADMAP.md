@@ -38,12 +38,12 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [ ] Local destructive-target approval for remote jobs from Cockpit.
 - [x] Cockpit remote-job definition wizard: validate enrolled Clients, image/signature, interface and transport, then persist a hash-chained job journal (definition only; no start).
 - [x] Cockpit audit-only reconciliation of interrupted job journals, requiring inspection and exact typed confirmation; no storage operation is resumed.
-- [ ] Persistent job execution service and lifecycle controls.
-- [ ] Integrate the root-only Unix IPC primitive with a systemd-managed service and Cockpit API; enforce single-job ownership and explicit arm/cancel semantics.
-- [ ] Persistent job daemon/service lifecycle so a browser disconnect does not terminate the control plane.
-- [ ] Arm, cancel, inspect and reconcile jobs through Cockpit.
-- [ ] Per-client state, byte progress, throughput, results and error logs.
-- [ ] Multicast network preflight reporting, including staging capacity and operator confirmation of switch IGMP snooping/querier.
+- [x] Persistent single-job execution service: systemd template, mTLS listener, durable journal ownership and browser-disconnect independence (never boot-enabled).
+- [x] Integrate root-only Unix IPC with the systemd service and Cockpit API; enforce peer UID, single-job ownership, exact job UUID confirmations and explicit arm/cancel semantics.
+- [x] Persistent Server control-plane lifecycle survives browser disconnect; service/process restarts never resume interrupted jobs.
+- [x] Start/connect, inspect live Client state, arm, pre-arm cancel, safe stop and audit reconciliation through Cockpit.
+- [x] Live per-client READY/running/terminal state and service errors through Cockpit.\n- [ ] Per-client byte progress and throughput telemetry.
+- [x] Local multicast interface/route preflight and explicit multicast arm confirmation.\n- [ ] Report Client staging capacity and add operator-confirmed switch IGMP snooping/querier validation.
 - [ ] Remote disk-to-disk clone source/receiver workflow and status in Cockpit.
 - [ ] Remote repository lifecycle and secure credential management.
 
