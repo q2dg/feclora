@@ -19,7 +19,8 @@ from feclora.deployment.control import (
     send_control_message,
 )
 from feclora.deployment.coordinator import DeploymentCoordinator, JobState
-from feclora.deployment.job import DeploymentJob\nfrom feclora.network.remote_clone_protocol import create_mutual_tls_context
+from feclora.deployment.job import DeploymentJob
+from feclora.network.remote_clone_protocol import create_mutual_tls_context
 
 
 JOB_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
