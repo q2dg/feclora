@@ -37,8 +37,8 @@ class PxeServiceTests(unittest.TestCase):
             manager = PXEServiceManager(tmp, runner=runner, preflight=lambda _config: None, firewall=firewall, boot_stager=lambda _config: None)
             manager.start(config())
             self.assertEqual(len(calls), 2)
-            self.assertIn("--unit=feclora-dnsmasq", calls[0])
-            self.assertIn("--unit=feclora-caddy", calls[1])
+            self.assertTrue(any(arg.startswith("--unit=feclora-dnsmasq-") for arg in calls[0]))
+            self.assertTrue(any(arg.startswith("--unit=feclora-caddy-") for arg in calls[1]))
             self.assertEqual((Path(tmp) / "dnsmasq.conf").stat().st_mode & 0o777, 0o600)
             self.assertEqual((Path(tmp) / "Caddyfile").stat().st_mode & 0o777, 0o644)
             self.assertNotIn("enable", " ".join(calls[0]))
@@ -50,7 +50,7 @@ class PxeServiceTests(unittest.TestCase):
         calls = []
         def runner(argv, **kwargs):
             calls.append(argv)
-            if argv[0].endswith("systemd-run") and "--unit=feclora-caddy" in argv:
+            if argv[0].endswith("systemd-run") and any(arg.startswith("--unit=feclora-caddy-") for arg in argv):
                 raise subprocess.CalledProcessError(1, argv, stderr="Caddy failed")
             return subprocess.CompletedProcess(argv, 0, "", "")
         with tempfile.TemporaryDirectory() as tmp:
