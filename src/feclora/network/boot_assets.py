@@ -76,7 +76,8 @@ def stage_ipxe_assets(
                 output.flush()
                 os.fsync(output.fileno())
             os.chmod(temporary, 0o444)
-            os.link(temporary, destination_path)\n            os.unlink(temporary)
+            os.link(temporary, destination_path)
+            os.unlink(temporary)
         except OSError as exc:
             try:
                 os.unlink(temporary)
