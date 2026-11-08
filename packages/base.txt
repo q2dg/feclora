@@ -8,6 +8,11 @@ dialog
 psmisc
 NetworkManager
 
+# Embedded Server-mode PXE stack (installed, never enabled by default)
+dnsmasq
+ipxe-bootimgs-x86
+nginx
+
 # Live-media boot support
 dracut-config-generic
 dracut-network
