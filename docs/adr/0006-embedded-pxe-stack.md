@@ -86,10 +86,15 @@ local subnets, and any configuration that would bind wildcard DHCP sockets.
 
 The Fedora 45 image includes dnsmasq, iPXE x86 boot images and Caddy so all
 three roles can run from the same ISO. Installing packages does not activate
-network services. The runtime configuration generator, interface/network
-validation, systemd lifecycle, firewall integration, BIOS/UEFI chainloading,
-authenticated PXE client protocol, and multi-client deployment remain
-implementation and test work.
+network services. The generated boot tree stages the Fedora Live kernel and
+initramfs from `images/pxeboot`, `LiveOS/squashfs.img`, and an iPXE script
+using dracut `root=live:http://...`.
+
+Runtime configuration generation, interface/address checks, daemon preflight,
+transient systemd lifecycle with rollback, interface-zone-scoped firewalld
+rules, and boot-tree staging exist as code. Server UI integration, the
+authenticated PXE client/job protocol, real-daemon validation, and BIOS/UEFI
+hardware testing remain.
 
 ## References
 
