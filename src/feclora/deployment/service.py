@@ -408,7 +408,7 @@ class DeploymentService:
             raise DeploymentServiceError("operator confirmation is invalid")
         if action == "arm":
             required = (
-                "ARM MULTICAST " + self.job.job_id
+                "ARM MULTICAST " + self.job.job_id + " IGMP-VERIFIED"
                 if self.job.transport == "multicast"
                 else "ARM " + self.job.job_id
             )
