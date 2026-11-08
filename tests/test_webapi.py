@@ -398,6 +398,34 @@ class WebAPITests(unittest.TestCase):
                 dispatch({"action": "stop_pxe_services"})
         manager.stop.assert_not_called()
 
+    def test_inspect_remote_job_uses_enrolled_mtls_client_identity(self):
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        job = DeploymentJob.from_dict({
+            "schema_version": 1, "job_id": job_id, "operation": "restore",
+            "image_id": "golden-image", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56"],
+            "network_interface": "enp1s0", "transport": "unicast",
+            "multicast_group": None, "multicast_port": None,
+            "start_policy": "manual", "expected_clients": None, "start_deadline": None,
+        })
+        config = SimpleNamespace(
+            host="192.0.2.10", port=9443, local_identity="URI:feclora-client-1",
+            server_identity="URI:feclora-server", mac_address="52:54:00:12:34:56",
+            ca_file="/etc/feclora/pki/ca.crt", certificate_file="/etc/feclora/pki/client.crt",
+            private_key_file="/etc/feclora/pki/client.key", age_identity_file=None,
+            age_recipients_file=None, local_minisign_secret_key=None,
+        )
+        with patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config), \
+             patch("feclora.network.remote_clone_protocol.create_mutual_tls_context", return_value=object()), \
+             patch("feclora.deployment.control.inspect_deployment_job", return_value=job) as inspect:
+            result = dispatch({"action": "inspect_remote_job", "params": {
+                "host": "", "job_id": job_id,
+            }})
+        self.assertEqual(result["job"]["job_id"], job_id)
+        self.assertEqual(result["host"], "192.0.2.10")
+        self.assertEqual(inspect.call_args.args[0], "192.0.2.10")
+        self.assertEqual(inspect.call_args.kwargs["mac_address"], config.mac_address)
+
 
 if __name__ == "__main__":
     unittest.main()
