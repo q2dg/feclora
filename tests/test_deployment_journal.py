@@ -163,6 +163,35 @@ class DeploymentJournalTests(unittest.TestCase):
         self.assertEqual(coordinator.clients()[0].state, ClientState.CONNECTED)
         self.assertEqual(coordinator.state, JobState.CREATED)
 
+    def test_fresh_job_definition_is_not_interrupted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            journal = DeploymentJournal(os.path.join(directory, "job.jsonl"), JOB_ID)
+            DeploymentCoordinator(make_job(), event_sink=journal)
+            report = journal.recovery_report()
+            self.assertFalse(report["interrupted"])
+            self.assertEqual(report["event_count"], 1)
+
+    def test_service_crash_before_client_connect_is_interrupted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            journal = DeploymentJournal(os.path.join(directory, "job.jsonl"), JOB_ID)
+            DeploymentCoordinator(make_job(), event_sink=journal)
+            journal({
+                "timestamp": "2026-11-08T12:00:01+00:00",
+                "job_id": JOB_ID, "event": "service_started", "job_state": "created",
+            })
+            self.assertTrue(journal.recovery_report()["interrupted"])
+
+    def test_clean_unarmed_service_stop_is_restartable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            journal = DeploymentJournal(os.path.join(directory, "job.jsonl"), JOB_ID)
+            DeploymentCoordinator(make_job(), event_sink=journal)
+            for event in ("service_started", "service_stopped"):
+                journal({
+                    "timestamp": "2026-11-08T12:00:01+00:00",
+                    "job_id": JOB_ID, "event": event, "job_state": "created",
+                })
+            self.assertFalse(journal.recovery_report()["interrupted"])
+
 
 if __name__ == "__main__":
     unittest.main()
