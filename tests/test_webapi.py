@@ -29,6 +29,26 @@ class WebAPITests(unittest.TestCase):
         with patch("feclora.webapi._operations", return_value=expected):
             self.assertEqual(dispatch({"action": "operations"}), {"operations": expected})
 
+    def test_network_interfaces_action_returns_discovered_bindings(self):
+        expected = [{"interface": "enp1s0", "address": "192.0.2.10", "prefix_length": 24,
+                     "dhcp_server": None, "binding": "enp1s0|192.0.2.10|24"}]
+        with patch("feclora.webapi._network_interfaces", return_value=expected):
+            self.assertEqual(dispatch({"action": "network_interfaces"}), {"interfaces": expected})
+
+    def test_bootstrap_server_requires_exact_parameters(self):
+        with self.assertRaisesRegex(WebAPIError, "requires interface"):
+            dispatch({"action": "bootstrap_server", "params": {"address": "192.0.2.10"}})
+
+    def test_bootstrap_server_validates_address_and_prefix_before_bootstrap(self):
+        with self.assertRaisesRegex(WebAPIError, "prefix_length"):
+            dispatch({"action": "bootstrap_server", "params": {
+                "interface": "enp1s0", "address": "192.0.2.10", "prefix_length": True
+            }})
+        with self.assertRaisesRegex(WebAPIError, "IPv4"):
+            dispatch({"action": "bootstrap_server", "params": {
+                "interface": "enp1s0", "address": "2001:db8::1", "prefix_length": 64
+            }})
+
     def test_device_paths_are_restricted_to_dev_nodes(self):
         self.assertEqual(_device("/dev/nvme0n1p2", "target"), "/dev/nvme0n1p2")
         for invalid in ("/etc/passwd", "/dev/../etc/shadow", "sda", "/dev/sda;id"):
