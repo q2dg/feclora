@@ -159,8 +159,16 @@ class WebAPITests(unittest.TestCase):
             dispatch({"action": "create_deployment_job", "params": {"job": {}, "extra": True}})
 
     def test_create_deployment_job_validates_job_before_server_configuration(self):
+        invalid_job = {
+            "schema_version": 1, "job_id": "not-a-uuid",
+            "operation": "save", "image_id": "lab-capture", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56"],
+            "network_interface": "enp1s0", "transport": "unicast",
+            "multicast_group": None, "multicast_port": None,
+            "start_policy": "manual", "expected_clients": None, "start_deadline": None,
+        }
         with self.assertRaisesRegex(WebAPIError, "job_id must be a UUID"):
-            dispatch({"action": "create_deployment_job", "params": {"job": {}}})
+            dispatch({"action": "create_deployment_job", "params": {"job": invalid_job}})
 
     def test_create_deployment_job_persists_valid_definition_without_starting_io(self):
         import tempfile
