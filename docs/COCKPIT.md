@@ -161,12 +161,12 @@ The Server Cockpit API can validate and persist a deployment-job definition in t
 root-owned hash-chained journal. Creation verifies enrolled Client MACs, the
 selected interface, required per-Client signing keys for capture, and the
 Server signature and Client age-recipient registrations for encrypted restore.
-Persisting a job does not contact Clients, arm the job, or start disk I/O. The
-coordinator can now reconstruct its recorded job/client state from a verified
-journal for audit and future service integration. Reconstruction creates no
-TLS sessions, does not mark Clients READY, and never resumes an interrupted
-operation. The persistent control-plane service and explicit Cockpit lifecycle
-actions remain outstanding.
+Persisting a job does not contact Clients, arm the job, or start disk I/O.
+The persistent systemd service can now load a fresh definition, verify its
+journal/configuration, bind the TLS 1.3 mTLS listener and expose root-only local
+IPC to Cockpit. It owns one active job at a time and continues if the browser
+disconnects. It refuses interrupted journals and never recreates TLS sessions
+or resumes storage work after a service/process restart.
 
 
 ## Remote deployment job definitions
@@ -185,9 +185,24 @@ for audit by entering the exact `RECONCILE <job-UUID>` phrase. This records
 that manual inspection occurred; it does not resume, retry, roll back or touch
 any storage device. The action is rejected for non-interrupted jobs.
 
-This remains a definition and audit milestone. Cockpit does not yet contact
-Clients, collect their local target approvals, arm jobs or start storage I/O.
-The Client control protocol already requires a local target selection and
-typed confirmation before reporting READY, but the persistent Cockpit-driven
-Server lifecycle is not integrated. UDPcast multicast data is not encrypted
-or authenticated; only the control plane uses mTLS.
+For each fresh job, use **Start / connect service** to start its
+non-boot-enabled `feclora-deployment@<UUID>.service` instance. The service
+holds the mTLS listener and journal independently of the browser. Clients
+connect with their enrolled certificates and must select a local target and
+type its destructive/read confirmation before reporting READY. Cockpit shows
+live Client states and the service listener. Only after every authorized
+Client is READY can the operator enter the exact job-specific phrase
+`ARM <UUID>` (unicast) or `ARM MULTICAST <UUID>` (multicast) and select
+**Arm and execute**. The existing unicast save/restore or multicast restore
+engine then runs in the service process.
+
+Cancellation is intentionally limited to the unarmed state. Feclora does not
+offer a button that pretends to interrupt a disk write already in progress.
+The service cannot be stopped while its worker or any Client is actively
+writing. If the service exits during an armed/running job, the journal remains
+interrupted and must be manually inspected/reconciled; it is never restarted
+automatically. The service supports one job per Server at a time and is not
+enabled at boot. Multicast preflight reports local interface/route warnings,
+but switch IGMP snooping/querier and VLAN isolation still require operator
+validation. UDPcast multicast data is not encrypted or authenticated; only
+the control plane uses mTLS.
