@@ -331,9 +331,6 @@ class DeploymentService:
                 pass
             raise
 
-    def _recover_stale_firewall_state(self) -> None:
-        recover_stale_firewall_state(lock_held=True)
-
     def _acquire_instance_lock(self) -> None:
         info = os.lstat(RUNTIME_DIRECTORY)
         if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
