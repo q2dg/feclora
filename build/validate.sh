@@ -4,7 +4,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 errors=0
 fail() { printf 'ERROR: %s\n' "$*" >&2; errors=$((errors + 1)); }
 
-for file in "$ROOT_DIR/build/build-iso.sh" "$ROOT_DIR/build/preflight.sh" "$ROOT_DIR/build/install-host-deps.sh" "$ROOT_DIR/kickstart/feclora-live.ks" "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/src/feclora/storage/inventory.py" "$ROOT_DIR/src/feclora/network/pxe_config.py" "$ROOT_DIR/tests/test_pxe_config.py" "$ROOT_DIR/src/feclora/storage/restore_profile.py" "$ROOT_DIR/src/feclora/storage/profile_executor.py" "$ROOT_DIR/src/feclora/data/feclora-restore-profile-env" "$ROOT_DIR/src/feclora/data/feclora-restore-profile.service" "$ROOT_DIR/src/feclora/ui/dialog_app.py" "$ROOT_DIR/scripts/feclora-ui.sh"; do
+for file in "$ROOT_DIR/build/build-iso.sh" "$ROOT_DIR/build/preflight.sh" "$ROOT_DIR/build/install-host-deps.sh" "$ROOT_DIR/kickstart/feclora-live.ks" "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/src/feclora/storage/inventory.py" "$ROOT_DIR/src/feclora/storage/volume_metadata.py" "$ROOT_DIR/tests/test_volume_metadata.py" "$ROOT_DIR/src/feclora/network/pxe_config.py" "$ROOT_DIR/tests/test_pxe_config.py" "$ROOT_DIR/src/feclora/storage/restore_profile.py" "$ROOT_DIR/src/feclora/storage/profile_executor.py" "$ROOT_DIR/src/feclora/data/feclora-restore-profile-env" "$ROOT_DIR/src/feclora/data/feclora-restore-profile.service" "$ROOT_DIR/src/feclora/ui/dialog_app.py" "$ROOT_DIR/scripts/feclora-ui.sh"; do
   [[ -f "$file" ]] || fail "Required project file is missing: $file"
 done
 
@@ -48,7 +48,7 @@ for package in dnsmasq ipxe-bootimgs-x86 caddy; do
   grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."
 done
 
-for codec in zstd lz4; do
+for package in stratisd stratis-cli; do\n  grep -qx "$package" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $package."\n  grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."\ndone\n\nfor codec in zstd lz4; do
   grep -qx "$codec" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $codec."
   grep -qx "$codec" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $codec."
 done
