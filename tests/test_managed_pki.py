@@ -34,6 +34,26 @@ class ManagedPKITests(unittest.TestCase):
                 with self.assertRaisesRegex(PKIError, "exactly one"):
                     inspect_client_csr(csr.name)
 
+    def test_client_age_recipient_is_added_and_removed_from_future_inventory(self):
+        with tempfile.TemporaryDirectory() as root:
+            recipients_file = os.path.join(root, "age-recipients.txt")
+            os.mkdir(os.path.join(root, "age-recipients"))
+            server_recipient = "age1" + "s" * 40
+            client_recipient = "age1" + "c" * 40
+            with open(recipients_file, "w", encoding="ascii") as stream:
+                stream.write(server_recipient + "\\n")
+            with (
+                patch("feclora.deployment.managed_pki.os.geteuid", return_value=0),
+                patch("feclora.deployment.managed_pki._root_only_directory", side_effect=lambda path: os.fspath(path)),
+                patch("feclora.deployment.managed_pki._regular_file"),
+            ):
+                from feclora.deployment.managed_pki import register_age_recipient, remove_age_recipient
+                register_age_recipient(root, "URI:feclora-client-lab", client_recipient)
+                self.assertTrue(remove_age_recipient(root, "URI:feclora-client-lab"))
+            with open(recipients_file, encoding="ascii") as stream:
+                self.assertEqual(stream.read(), server_recipient + "\\n")
+            self.assertFalse(os.path.exists(os.path.join(root, "age-recipients", "lab.txt")))
+
     def test_certificate_expiry_uses_utc_and_returns_negative_when_expired(self):
         with tempfile.NamedTemporaryFile() as certificate:
             with patch(
