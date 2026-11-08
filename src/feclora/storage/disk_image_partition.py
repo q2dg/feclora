@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 from typing import Callable
 
-from .artifact_writer import write_artifact
+from .artifact_writer import ArtifactWriteError, write_artifact
 from .disk_restore import (
     DiskRestoreError,
     _decoded_stream,
@@ -189,7 +189,7 @@ def extract_partition_image(
             published.append(name)
         os.fsync(directory_fd)
         return extracted_manifest, manifest_name
-    except (DiskRestoreError, OSError, ManifestValidationError) as exc:
+    except (ArtifactWriteError, DiskRestoreError, OSError, ManifestValidationError) as exc:
         for name in reversed(published):
             try:
                 if directory_fd is not None:
