@@ -32,14 +32,14 @@ Implemented:
 - identity-to-MAC enrollment mapping and job allowlist enforcement;
 - managed TCP listener start/stop lifecycle, pending-handshake cleanup, listener error reporting and interface-scoped firewalld port lifecycle;
 - framed HELLO/JOB/READY/START/RESULT/CANCEL and transfer-offer/readiness messages;
-- coordinator registration, readiness, explicit arming, running and per-client result transitions, plus a single-client end-to-end unicast job orchestrator;
+- coordinator registration, readiness, explicit arming, running and per-client result transitions, plus a single-client end-to-end unicast job orchestrator;\n- private append-only SHA-256 hash-chained job journal; coordinator transitions are fsync-persisted before in-memory state changes, and journal failures fail closed;
 - signed image-set transfer with manifest signature validation, exact artifact size/SHA-256 checks, private staging and no-overwrite publication;
 - Client whole-disk save/restore callback integration with capture_disk and restore_disk, local typed confirmations, trusted minisign keys and destination read-back;
 - Server and Client dialog workflows, root-owned runtime configuration validation, local inventory selection, typed confirmation, one-client job authoring/arming and per-client result display;
 - tests for framing, invalid messages, image transfer integrity, Client save/restore callbacks, scoped firewall lifecycle and a loopback TLS 1.3 client/server handshake using ephemeral test certificates.
 
 Still required:
-- persistent job/session storage, crash recovery and safe handling of interrupted transfers;
+- replaying journals into a restart/recovery UI, safe interrupted-transfer reconciliation and explicit operator decisions for jobs found in an incomplete state;
 - secure certificate and minisign-key enrollment, revocation and rotation UI;
 - automated integration tests that execute real capture/restore against disposable block devices over mTLS;
 - automated PXE BIOS/UEFI VM boot, Server/Client orchestration and full end-to-end acceptance. The libvirt harness creates guests; it does not execute the tests automatically or imply they passed.
