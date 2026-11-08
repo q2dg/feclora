@@ -316,11 +316,16 @@ class WebAPITests(unittest.TestCase):
 
     def test_start_deployment_service_uses_validated_systemd_instance(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-        with patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
-            returncode=0, stdout="", stderr="",
-        )) as runner, patch("feclora.webapi._deployment_service_status", return_value={
-            "job_id": job_id, "job_state": "created",
-        }):
+        journal = SimpleNamespace(recovery_report=lambda: {
+            "job_id": job_id, "job_state": "created", "interrupted": False,
+            "job": {"transport": "unicast"},
+        })
+        with patch("feclora.deployment.journal.DeploymentJournal.inspect", return_value=journal), \
+             patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+                 returncode=0, stdout="", stderr="",
+             )) as runner, patch("feclora.webapi._deployment_service_status", return_value={
+                 "job_id": job_id, "job_state": "created",
+             }):
             result = dispatch({"action": "start_deployment_service", "params": {"job_id": job_id}})
         self.assertEqual(result["job_state"], "created")
         self.assertEqual(runner.call_args.args[0], [
