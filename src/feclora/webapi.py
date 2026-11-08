@@ -233,6 +233,80 @@ def _images() -> list[dict[str, Any]]:
     return items
 
 
+def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"image_id"}:
+        raise WebAPIError("inspect_image_layout requires exactly image_id")
+    image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+    manifest_path = _image_manifest(image_id)
+    try:
+        manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise WebAPIError(f"cannot read selected image manifest: {exc}") from exc
+    if manifest.image_id != image_id:
+        raise WebAPIError("selected image manifest identifier does not match its repository name")
+    if manifest.image_type != "disk":
+        raise WebAPIError("layout inspection requires a whole-disk image")
+    signed = os.path.isfile(str(manifest_path) + ".minisig")
+    if signed:
+        from feclora.storage.image_security import verify_manifest_signature
+        security = _security_material()
+        pki = Path("/etc/feclora/pki")
+        trusted_keys = [pki / "server.pub"] if security["image_verification_available"] else []
+        client_config = _client_runtime_config()
+        if client_config and client_config.trusted_server_public_key:
+            trusted_keys.insert(0, Path(client_config.trusted_server_public_key))
+        verified = False
+        for candidate in dict.fromkeys(trusted_keys):
+            try:
+                verify_manifest_signature(manifest_path, candidate)
+                verified = True
+                break
+            except Exception:
+                continue
+        if not verified:
+            raise WebAPIError("signed disk image does not verify against any locally trusted Feclora signing key")
+    table_artifacts = [item for item in manifest.artifacts if item.role == "partition-table"]
+    if len(table_artifacts) != 1 or table_artifacts[0].format != "raw":
+        raise WebAPIError("whole-disk image must contain exactly one raw partition-table artifact")
+    table_artifact = table_artifacts[0]
+    if table_artifact.encryption != "none" or table_artifact.compression != "none":
+        raise WebAPIError("partition-table metadata must be stored unencrypted and uncompressed")
+    from feclora.storage.disk_restore import DiskRestoreError, _open_artifact, _verify_stored_artifact
+    from feclora.storage.partition_range import PartitionRangeError, parse_sfdisk_dump, partition_ranges
+    try:
+        with _open_artifact(str(_repository()), table_artifact) as stream:
+            _verify_stored_artifact(stream, table_artifact)
+            raw = stream.read(1024 * 1024 + 1)
+        if len(raw) > 1024 * 1024:
+            raise WebAPIError("partition-table metadata exceeds 1 MiB")
+        table = parse_sfdisk_dump(
+            raw.decode("utf-8"), image_size_bytes=manifest.source_size_bytes,
+            default_sector_size=manifest.logical_sector_size,
+        )
+        ranges = partition_ranges(
+            table, image_size_bytes=manifest.source_size_bytes,
+            sector_size=manifest.logical_sector_size,
+        )
+    except (DiskRestoreError, OSError, UnicodeError, PartitionRangeError) as exc:
+        raise WebAPIError(f"partition-table verification or parsing failed: {exc}") from exc
+    raw_parts = table["partitiontable"]["partitions"]
+    partitions = []
+    for item, part in zip(ranges, raw_parts):
+        selector = part.get("uuid") or part.get("name") or item.node
+        partitions.append({
+            "selector": selector, "node": item.node,
+            "uuid": part.get("uuid"), "name": part.get("name"),
+            "start_sector": item.start_sector, "sector_count": item.sector_count,
+            "offset_bytes": item.offset_bytes, "size_bytes": item.length_bytes,
+        })
+    return {
+        "image_id": image_id, "source_size_bytes": manifest.source_size_bytes,
+        "logical_sector_size": manifest.logical_sector_size, "signed": signed,
+        "partitions": partitions,
+        "message": "Manifest and partition-table metadata verified. The full disk data artifact is verified again during extraction.",
+    }
+
+
 def _operations() -> list[dict[str, Any]]:
     path = Path("/var/lib/feclora/operations.jsonl")
     try:
@@ -1567,6 +1641,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise WebAPIError("images does not accept parameters")
         return {"images": _images()}
+    if action == "inspect_image_layout":
+        return _inspect_image_layout(params)
     if action == "operations":
         if params:
             raise WebAPIError("operations does not accept parameters")
