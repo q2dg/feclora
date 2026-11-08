@@ -932,6 +932,15 @@ export default function App() {
                 </>}
               </StackItem>}
               {serverSetup && <StackItem><Card><CardBody><Title headingLevel="h3" size="lg">Server identity status</Title><p>{serverSetup.message}</p><p>Bind address: {serverSetup.bind_address}:{serverSetup.port}</p><p>Certificate identity: {serverSetup.server_identity}</p><p>Enrolled Clients: {serverSetup.enrolled_clients}</p></CardBody></Card></StackItem>}
+              {status?.server_configured && <StackItem><Card><CardBody>
+                <Title headingLevel="h3" size="lg">Renew Server TLS certificate</Title>
+                <Alert variant="warning" title="Existing CA and private key will be retained" isInline>Renewal is blocked while any deployment job service is active. The Server certificate is replaced atomically; existing Clients continue trusting the same CA and Server identity. This does not rotate the CA or the Server private key.</Alert>
+                <Field label="Type exactly: RENEW SERVER CERTIFICATE">
+                  <input className="pf-v5-c-form-control" value={serverRenewConfirmation} onChange={(event) => setServerRenewConfirmation(event.target.value)} />
+                </Field>
+                <Button variant="danger" onClick={renewServerCertificate} isLoading={busy} isDisabled={busy || serverRenewConfirmation !== "RENEW SERVER CERTIFICATE"}>Renew Server certificate</Button>
+                {serverRenewResult && <Alert variant="success" title="Server certificate renewed" isInline>{serverRenewResult.message} · Expires in {serverRenewResult.expiry_days} days.</Alert>}
+              </CardBody></Card></StackItem>}
               <StackItem>
                 <Title headingLevel="h2" size="xl">Trusted Clients · Approve CSR</Title>
                 <p>Prepare an enrollment request on the Client and inspect it here from removable media. The Client private TLS and age keys never leave the Client.</p>
