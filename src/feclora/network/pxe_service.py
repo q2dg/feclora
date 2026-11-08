@@ -96,12 +96,12 @@ class PXEServiceManager:
         self._prepare_runtime()
         dnsmasq_config = self._write_config("dnsmasq.conf", render_dnsmasq(config))
         caddy_config = self._write_config("Caddyfile", render_caddy(config), mode=0o644)
-        self.firewall.open(
-            config.interface,
-            ["67/udp", "4011/udp", f"{config.http_port}/tcp"],
-        )
         self._active_interface = config.interface
         try:
+            self.firewall.open(
+                config.interface,
+                ["67/udp", "4011/udp", f"{config.http_port}/tcp"],
+            )
             self._started_units.add(self._dnsmasq_unit + ".service")
             self._run([
                 self.systemd_run, f"--unit={self._dnsmasq_unit}", "--collect",
@@ -114,14 +114,16 @@ class PXEServiceManager:
                 "--property=Restart=no", "--property=KillMode=mixed", "--property=User=caddy", "--property=Group=caddy", "--",
                 self.caddy, "run", "--config", caddy_config, "--adapter", "caddyfile",
             ], "starting Caddy")
-        except PXEServiceError as start_error:
+        except Exception as start_error:
             try:
                 self.stop()
             except PXEServiceError as rollback_error:
                 raise PXEServiceError(
                     f"{start_error}; rollback also failed: {rollback_error}"
                 ) from start_error
-            raise
+            if isinstance(start_error, PXEServiceError):
+                raise
+            raise PXEServiceError(f"PXE startup failed: {start_error}") from start_error
 
     def stop(self) -> None:
         """Stop active transient units and remove only firewall ports we added."""
