@@ -18,7 +18,9 @@
 - [ ] Provide predictable live-session startup and logging.
 - [x] Implement read-only block-device/filesystem inventory with mocked tests.
 - [x] Add a read-only device browser using dialog.
-- [x] Add a startup mode selector for Local rescue, Server and Client; Server/Client currently report unavailable runtimes.
+- [x] Add a startup mode selector for Local rescue, Server and Client; Server has an experimental PXE Live-boot path and Client deployment runtime remains incomplete.
+- [x] Add an interactive live-console keyboard layout selector, including Spanish; persistence across reboot and UI localization remain pending.
+- [ ] Evaluate a local browser UI (Cockpit integration versus a dedicated Feclora web frontend) without removing the offline console fallback.
 - [x] Stage and integrate the Python application into the Kickstart build (end-to-end validation pending).
 - [x] Add automated build-host preflight checks.
 - [ ] Validate inventory, startup menu and UI against real BIOS/UEFI virtual-machine storage.
