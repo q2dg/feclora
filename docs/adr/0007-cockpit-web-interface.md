@@ -1,6 +1,6 @@
 # ADR 0007: Cockpit as the platform for the web interface
 
-- Status: Accepted for architectural direction; implementation pending
+- Status: Accepted; initial read-only React/PatternFly Cockpit package implemented
 - Date: 2026-11-08
 
 ## Context
