@@ -49,6 +49,37 @@ class DeploymentJournal:
         if self._events and any(item.get("job_id") != job_id for item in self._events):
             raise DeploymentJournalError("journal already belongs to a different deployment job")
 
+    @classmethod
+    def inspect(cls, path: str | os.PathLike[str]) -> "DeploymentJournal":
+        """Open and verify an existing journal using its first recorded job UUID."""
+        absolute = os.path.abspath(os.fspath(path))
+        try:
+            fd = os.open(absolute, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            try:
+                info = os.fstat(fd)
+                if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
+                        or info.st_mode & 0o077 or info.st_size > _MAX_JOURNAL_BYTES):
+                    raise DeploymentJournalError("journal file permissions or ownership are unsafe")
+                first_line = bytearray()
+                while len(first_line) <= _MAX_EVENT_BYTES:
+                    chunk = os.read(fd, 1)
+                    if not chunk or chunk == b"\\n":
+                        break
+                    first_line.extend(chunk)
+            finally:
+                os.close(fd)
+        except OSError as exc:
+            raise DeploymentJournalError(f"cannot inspect deployment journal: {exc}") from exc
+        if not first_line or len(first_line) > _MAX_EVENT_BYTES:
+            raise DeploymentJournalError("journal has no valid first event")
+        try:
+            first = json.loads(bytes(first_line).decode("utf-8"), object_pairs_hook=_pairs_no_duplicates)
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise DeploymentJournalError(f"journal first event is invalid: {exc}") from exc
+        job_id = first.get("job_id") if isinstance(first, dict) else None
+        if not isinstance(job_id, str) or not job_id:
+            raise DeploymentJournalError("journal first event has no job UUID")
+        return cls(absolute, job_id)
     def _read_and_verify(self) -> list[dict[str, Any]]:
         try:
             fd = os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
