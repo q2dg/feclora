@@ -345,7 +345,7 @@ def install_client_certificate(
     _run([openssl, "verify", "-purpose", "sslclient", "-CAfile", ca_path, certificate_path], runner)
     san = _run([openssl, "x509", "-in", certificate_path, "-noout", "-ext", "subjectAltName"], runner)
     identity_entries = re.findall(r"URI:feclora-client-[a-z0-9-]{1,48}", san.stdout)
-    other_sans = re.findall(r"\\b(?:DNS|IP Address|email):", san.stdout)
+    other_sans = re.findall(r"\b(?:DNS|IP Address|email):", san.stdout)
     if identity_entries != [expected_identity] or other_sans or not expected_identity.startswith("URI:feclora-client-"):
         raise PKIError("issued certificate identity does not match the locally prepared Client identity")
     cert_key = _run([openssl, "x509", "-in", certificate_path, "-pubkey", "-noout"], runner).stdout.strip()
