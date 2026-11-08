@@ -61,8 +61,14 @@ fi
 if ! grep -q '"validate_pxe_profile"' "$ROOT_DIR/webui/src/api.js"; then
   fail "Cockpit API client does not allow PXE profile preflight."
 fi
-if ! grep -q 'validate_pxe_profile' "$ROOT_DIR/kickstart/feclora-live.ks"; then
-  fail "Kickstart Cockpit API wrapper does not allow PXE profile preflight."
+if ! grep -q 'validate_pxe_profile|start_pxe_services|stop_pxe_services|pxe_service_status' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "Kickstart Cockpit API wrapper does not allow PXE service lifecycle actions."
+fi
+if ! grep -q '"start_pxe_services", "stop_pxe_services", "pxe_service_status"' "$ROOT_DIR/webui/src/api.js"; then
+  fail "Cockpit API client does not allow PXE service lifecycle actions."
+fi
+if ! grep -q 'def _start_pxe_services' "$ROOT_DIR/src/feclora/webapi.py"; then
+  fail "Cockpit backend is missing PXE service activation."
 fi
 
 if grep -qx 'dialog' "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/kickstart/feclora-live.ks"; then
