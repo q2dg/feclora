@@ -67,9 +67,17 @@ class RemoteRepository:
         if self.port is not None and (isinstance(self.port, bool) or not isinstance(self.port, int) or not 1 <= self.port <= 65535):
             raise RepositoryError("port must be between 1 and 65535")
         if self.credential_file is not None:
-            object.__setattr__(self, "credential_file", _absolute_path(self.credential_file, "credential_file"))
+            credential_path = _absolute_path(self.credential_file, "credential_file")
+            if "," in credential_path or "\\" in credential_path:
+                raise RepositoryError("credential_file must not contain mount-option separators")
+            object.__setattr__(self, "credential_file", credential_path)
         if self.identity_file is not None:
-            object.__setattr__(self, "identity_file", _absolute_path(self.identity_file, "identity_file"))
+            identity_path = _absolute_path(self.identity_file, "identity_file")
+            if "," in identity_path or "\\" in identity_path:
+                raise RepositoryError("identity_file must not contain mount-option separators")
+            object.__setattr__(self, "identity_file", identity_path)
+        if not isinstance(self.read_only, bool):
+            raise RepositoryError("read_only must be boolean")
         if self.provider == "sshfs":
             if self.username is None or self.identity_file is None:
                 raise RepositoryError("sshfs requires a username and explicit identity_file")
