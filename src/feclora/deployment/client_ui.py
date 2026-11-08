@@ -304,10 +304,6 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             f"expires in {expiry_days} days" if expiry_days >= 0
             else f"expired {-expiry_days} days ago"
         )
-        managed_identity = (
-            config.local_identity.startswith("URI:feclora-client-")
-            and os.path.isfile("/etc/feclora/pki/" + config.local_identity.removeprefix("URI:feclora-client-") .join([]))
-        )
         managed_client_id = config.local_identity.removeprefix("URI:feclora-client-")
         managed_key = os.path.join("/etc/feclora/pki", f"client-{managed_client_id}.key")
         managed_age = os.path.join("/etc/feclora/pki", f"client-{managed_client_id}.age")
