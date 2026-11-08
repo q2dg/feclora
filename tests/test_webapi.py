@@ -157,6 +157,36 @@ class WebAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "job_id must be a UUID"):
             dispatch({"action": "create_deployment_job", "params": {"job": {}}})
 
+    def test_create_deployment_job_persists_valid_definition_without_starting_io(self):
+        import tempfile
+        from pathlib import Path
+        server_config = SimpleNamespace(
+            client_identity_to_mac={"URI:feclora-client-lab": "52:54:00:12:34:56"},
+            client_minisign_public_keys={"52:54:00:12:34:56": "/etc/feclora/pki/client.pub"},
+        )
+        payload = {
+            "schema_version": 1, "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+            "operation": "save", "image_id": "lab-capture", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56"], "network_interface": "enp1s0",
+            "transport": "unicast", "multicast_group": None, "multicast_port": None,
+            "start_policy": "manual", "expected_clients": None, "start_deadline": None,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            with patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=server_config), patch(
+                "feclora.webapi.socket.if_nameindex", return_value=[(2, "enp1s0")]
+            ), patch("feclora.webapi._images", return_value=[]), patch(
+                "feclora.webapi._deployment_journal_directory", return_value=Path(directory)
+            ):
+                result = dispatch({"action": "create_deployment_job", "params": {"job": payload}})
+                from feclora.deployment.journal import DeploymentJournal
+                report = DeploymentJournal.inspect(
+                    Path(directory) / (payload["job_id"] + ".jsonl")
+                ).recovery_report()
+        self.assertFalse(result["started"])
+        self.assertEqual(result["job_state"], "created")
+        self.assertEqual(report["job"]["image_id"], "lab-capture")
+        self.assertEqual(report["job_state"], "created")
+
     def test_device_paths_are_restricted_to_dev_nodes(self):
         self.assertEqual(_device("/dev/nvme0n1p2", "target"), "/dev/nvme0n1p2")
         for invalid in ("/etc/passwd", "/dev/../etc/shadow", "sda", "/dev/sda;id"):
