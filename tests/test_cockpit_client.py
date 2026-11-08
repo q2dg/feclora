@@ -147,7 +147,7 @@ class CockpitClientTests(unittest.TestCase):
         install.assert_called_once()
         self.assertEqual(copy.call_count, 2)
         self.assertEqual(result["identity"], config.local_identity)
-        self.assertIn("only the TLS certificate", result["message"])
+        self.assertIn("TLS key, age identity, MAC authorization", result["message"])
 
     def test_complete_rejects_multicast_mac_before_reading_bundle(self):
         with patch("feclora.deployment.cockpit_client.CONFIG", "/tmp/nonexistent-feclora-client.json"):
