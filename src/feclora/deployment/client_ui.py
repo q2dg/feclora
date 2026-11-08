@@ -118,6 +118,6 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             f"Job: {job.job_id}\nOperation: {job.operation}\nImage: {job.image_id}\n\n{detail}",
         )
         return 0 if success else 1
-    except (RuntimeConfigError, DeploymentControlError, InventoryError, OSError, ValueError) as exc:
+    except Exception as exc:
         dialog_app._message("Client deployment failed", str(exc))
         return 1
