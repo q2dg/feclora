@@ -81,13 +81,16 @@ and blocks isolated authoritative DHCP in that case. A missing DHCP lease
 identifier is not proof of an isolated network. This step does not start
 services, alter firewall rules or persist a network profile.
 
-The rest of Server/Client provisioning and the complete PXE deployment
-lifecycle still require web workflows: network mode and address-pool setup,
-PXE service activation, CSR approval and Client enrollment, job creation and
-control, and live per-client progress. The old dialog-based modules are
-migration-era code and are not part of the supported Cockpit workflow.
-Multicast partition restore is supported by the runtime but still requires
-complete Cockpit job orchestration and live per-client progress reporting.
+The Cockpit workflows now cover PXE profile preflight and service
+activation/shutdown, removable-media Client enrollment, Server-side CSR
+approval, and validated remote-job definition. These steps do not yet form a
+complete remote deployment lifecycle: jobs are persisted as definitions, but
+Cockpit does not start Clients, collect local destructive-target approvals,
+run the deployment coordinator as a persistent service, or display live
+per-client progress. Multicast partition restore is supported by the runtime
+but still awaits that execution and monitoring integration. The old
+dialog-based modules are migration-era code and are not part of the supported
+Cockpit workflow.
 
 No ISO build, hardware restore, PXE boot or multi-machine laboratory test is
 claimed by the source-level checks.
