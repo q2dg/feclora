@@ -14,7 +14,7 @@ It is not a fork of Clonezilla and does not depend on its repository, branches, 
 - Imaging, cloning, restoration, and storage administration from Cockpit
 - Cockpit Terminal for system-level diagnostics and advanced administration
 
-The first milestone is a reproducible bootable live ISO with a verified core workflow. Broader functionality will be added in measured, testable increments.
+The project is organized around a Cockpit-first Live environment. The remaining implementation and integration work is tracked in [the roadmap](docs/ROADMAP.md).
 
 ## Design principles
 
@@ -42,13 +42,56 @@ Operational design notes:
 
 ## Repository layout
 
-- `build/` — ISO build tooling and build-host setup
-- `kickstart/` — Fedora installation and live-image configuration
-- `packages/` — RPM package manifests
-- `src/` — application and orchestration code
-- `scripts/` — developer and operator utilities
-- `tests/` — unit, integration, and VM smoke tests
-- `docs/` — architecture, compatibility, and operational documentation
+The repository is organized by runtime responsibility rather than by UI:
+
+```text
+feclora/
+├── .github/
+│   └── workflows/          # CI, Python tests and GitHub Pages deployment
+├── build/                  # ISO, Cockpit frontend, host dependencies and validation
+│   ├── build-iso.sh
+│   ├── build-webui.sh
+│   ├── install-host-deps.sh
+│   ├── preflight.sh
+│   └── validate.sh
+├── docs/                   # Architecture, operator guides, feature matrix and ADRs
+│   └── adr/                # Architecture Decision Records
+├── kickstart/              # Fedora Live image Kickstart configuration
+├── packages/               # Runtime and build-host RPM package manifests
+├── src/feclora/             # Python application and privileged operation backend
+│   ├── data/               # systemd units and restore-profile environment
+│   ├── deployment/         # Server/Client, enrollment, PKI, jobs and journals
+│   ├── network/            # PXE/iPXE, TLS, UDPcast and remote-clone transport
+│   ├── storage/            # inventory, capture, restore, clone and image security
+│   ├── ui/                 # legacy console UI code (not the supported Live interface)
+│   └── webapi.py           # allowlisted Cockpit-to-Python API
+├── tests/                  # Python unit/integration tests and VM acceptance assets
+│   └── vm/                 # PXE virtual-machine matrix and instructions
+├── webui/                  # Cockpit React/PatternFly application
+│   ├── public/             # Cockpit application metadata
+│   └── src/                # React UI and API client
+├── Makefile                # Developer entry points
+└── README.md
+```
+
+The main implementation boundaries are:
+
+- **`webui/`** is the browser application. It does not execute privileged
+  commands directly.
+- **`src/feclora/webapi.py`** is the narrow, allowlisted privileged API used
+  by Cockpit; storage and deployment logic remains in independent Python
+  modules.
+- **`src/feclora/storage/`** contains local storage engines and image formats.
+- **`src/feclora/deployment/`** contains remote deployment orchestration,
+  identities, enrollment and job state.
+- **`src/feclora/network/`** contains network discovery, PXE services and
+  transport protocols.
+- **`build/`**, **`kickstart/`** and **`packages/`** define how the Live
+  environment is assembled.
+- **`tests/`** contains automated tests plus VM/laboratory acceptance
+  instructions; tests that require a built ISO or destructive hardware
+  operations are intentionally operator-run.
+- **`docs/`** is the source for the GitHub Pages documentation site.
 
 ## Development status
 
