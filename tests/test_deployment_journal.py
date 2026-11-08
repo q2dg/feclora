@@ -36,7 +36,7 @@ class DeploymentJournalTests(unittest.TestCase):
                 "timestamp": "2026-11-08T12:00:01+00:00",
                 "job_id": JOB_ID, "event": "job_armed", "job_state": "armed",
             })
-            reopened = DeploymentJournal(path, JOB_ID)
+            reopened = DeploymentJournal.inspect(path)
             self.assertEqual(len(reopened.events), 2)
             self.assertEqual(reopened.latest_state()["event"], "job_armed")
             self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
