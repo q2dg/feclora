@@ -304,9 +304,12 @@ def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> Non
         os.path.join(os.path.dirname(csr), f"feclora-{client_id}.age-recipient"),
         os.path.join(os.path.dirname(csr), f"feclora-{client_id}-renewal.age-recipient"),
     ]
-    recipient_file = next((path for path in recipient_candidates if os.path.isfile(path)), None)
+    recipient_file = next((path for path in recipient_candidates if os.path.lexists(path)), None)
     if recipient_file is None:
         raise PKIError("Client CSR bundle is missing its age public recipient; prepare enrollment with the current Feclora Client")
+    recipient_info = os.lstat(recipient_file)
+    if not stat.S_ISREG(recipient_info.st_mode) or stat.S_ISLNK(recipient_info.st_mode):
+        raise PKIError("Client age recipient export must be a regular file, not a symlink")
     recipient = Path(recipient_file).read_text(encoding="ascii").strip()
     if not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
         raise PKIError("Client age public recipient is malformed")
