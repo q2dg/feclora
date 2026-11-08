@@ -11,6 +11,7 @@ from .capture import CaptureCancelled, CaptureError, capture_partition
 from .image_manifest import ImageManifest, ManifestValidationError
 from .image_security import ImageSecurityError, encrypt_artifact, sign_manifest
 from .source_safety import SourceSafetyError, check_capture_source_safe
+from .btrfs_inventory import BtrfsInventoryError, collect_btrfs_topology
 
 class PartitionImageCaptureError(RuntimeError):
     """A partition image set could not be safely committed."""
@@ -67,6 +68,39 @@ def capture_partition_image(
     filesystem = fields[3].lower() if len(fields) > 3 else None
     if filesystem in {"", "-"}:
         filesystem = None
+
+    if filesystem == "btrfs":
+        btrfs_executable = available.get("btrfs") or shutil.which("btrfs")
+        if not btrfs_executable:
+            raise PartitionImageCaptureError(
+                "btrfs-progs is required to verify single-device Btrfs capture scope"
+            )
+        try:
+            topology = collect_btrfs_topology(
+                which=lambda name: btrfs_executable if name == "btrfs" else None,
+                runner=run,
+            )
+        except BtrfsInventoryError as exc:
+            raise PartitionImageCaptureError(
+                f"cannot verify Btrfs device membership safely: {exc}"
+            ) from exc
+        source_real = os.path.realpath(source_path)
+        matches = [
+            filesystem_info
+            for filesystem_info in topology["filesystems"]
+            if any(
+                os.path.realpath(device["path"]) == source_real
+                for device in filesystem_info["devices"]
+            )
+        ]
+        if len(matches) != 1:
+            raise PartitionImageCaptureError(
+                "cannot uniquely identify the source in the Btrfs device scan"
+            )
+        if matches[0]["total_devices"] != 1:
+            raise PartitionImageCaptureError(
+                "multi-device Btrfs capture is not supported; capture the complete filesystem as a coordinated set"
+            )
 
     safe_partition_id = partition_id.replace("+", "_")
     stem = f"{image_id}_{safe_partition_id}"
