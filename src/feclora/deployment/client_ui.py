@@ -304,13 +304,23 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             f"expires in {expiry_days} days" if expiry_days >= 0
             else f"expired {-expiry_days} days ago"
         )
-        managed_client_id = config.local_identity.removeprefix("URI:feclora-client-")
-        managed_key = os.path.join("/etc/feclora/pki", f"client-{managed_client_id}.key")
-        managed_age = os.path.join("/etc/feclora/pki", f"client-{managed_client_id}.age")
-        managed_identity = (
-            config.local_identity.startswith("URI:feclora-client-")
-            and os.path.isfile(managed_key) and os.path.isfile(managed_age)
+        managed_prefix = "URI:feclora-client-"
+        managed_client_id = (
+            config.local_identity[len(managed_prefix):]
+            if config.local_identity.startswith(managed_prefix) else ""
         )
+        managed_identity = bool(re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", managed_client_id))
+        if managed_identity:
+            for suffix in (".key", ".age"):
+                path = os.path.join("/etc/feclora/pki", f"client-{managed_client_id}{suffix}")
+                try:
+                    info = os.lstat(path)
+                except OSError:
+                    managed_identity = False
+                    break
+                if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+                    managed_identity = False
+                    break
         identity_choices = [("join", "Join deployment job")]
         if managed_identity:
             identity_choices.extend([
