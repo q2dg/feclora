@@ -4,10 +4,7 @@ This procedure describes how to build the initial Fedora 45 x86_64 feclora
 rescue image and how to validate it in disposable QEMU virtual machines.
 It is a runbook, not evidence that the build or boot tests have passed.
 
-> **Status:** the build pipeline and application-payload integration are
-> implemented. A complete ISO build and BIOS/UEFI boot validation are still
-> outstanding. Do not distribute an image as tested until the acceptance
-> checks in this document have been executed and recorded.
+> **Implementation status:** the reproducible build pipeline, application-payload integration, and operator runbook are implemented. Executing the build and BIOS/UEFI boot acceptance remains an operator validation step; this document is not evidence that those tests have passed. Do not distribute an image as tested until the checks below have been executed and recorded.
 
 ## 1. Scope and build host
 
