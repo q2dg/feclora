@@ -57,7 +57,7 @@ class PXENetworkConfig:
         if self.mode not in {"proxy", "isolated"}:
             raise PXEConfigError("DHCP mode must be 'proxy' or 'isolated'")
         for label, path in (("TFTP root", self.tftp_root), ("HTTP root", self.http_root)):
-            if not isinstance(path, str) or not path.startswith("/") or "\n" in path or "\r" in path:
+            if not isinstance(path, str) or not path.startswith("/") or any(ch in path for ch in ("\\n", "\\r", "\\x00", ",")):
                 raise PXEConfigError(f"{label} must be an absolute filesystem path")
         for label, filename in (("BIOS boot file", self.bios_boot_file), ("UEFI boot file", self.uefi_boot_file)):
             if not isinstance(filename, str) or not _FILENAME_RE.fullmatch(filename):
