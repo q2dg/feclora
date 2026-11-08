@@ -91,6 +91,46 @@ class PXEFirewall:
                 ) from start_error
             raise
 
+    def export_state(self, interface: str) -> dict[str, Any]:
+        """Return the exact temporary zone state needed to stop it in a later process."""
+        state = self._opened.get(interface)
+        if state is None:
+            raise PXEFirewallError("No active Feclora temporary firewall zone for interface")
+        if self._current_zone(interface) != state["zone"]:
+            raise PXEFirewallError("Selected interface is no longer attached to the Feclora PXE zone")
+        return {
+            "zone": state["zone"],
+            "restore_zone": state["restore_zone"],
+            "ports": list(state["ports"]),
+        }
+
+    def adopt(self, interface: str, state: dict[str, Any]) -> None:
+        """Reattach this manager to a previously persisted Feclora runtime zone."""
+        if not _INTERFACE_RE.fullmatch(interface):
+            raise PXEFirewallError("Invalid interface name for firewall recovery")
+        if not isinstance(state, dict) or set(state) != {"zone", "restore_zone", "ports"}:
+            raise PXEFirewallError("Persisted PXE firewall state is malformed")
+        zone, restore_zone, ports = state["zone"], state["restore_zone"], state["ports"]
+        if not isinstance(zone, str) or not re.fullmatch(r"feclora-pxe-[0-9a-f]{8}", zone):
+            raise PXEFirewallError("Persisted PXE firewall zone name is invalid")
+        if restore_zone is not None and (
+            not isinstance(restore_zone, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,32}", restore_zone)
+        ):
+            raise PXEFirewallError("Persisted original firewall zone is invalid")
+        if not isinstance(ports, list) or any(
+            not isinstance(port, str) or not _PORT_RE.fullmatch(port)
+            or int(port.split("/", 1)[0]) > 65535 for port in ports
+        ):
+            raise PXEFirewallError("Persisted PXE firewall port list is invalid")
+        if self._current_zone(interface) != zone:
+            raise PXEFirewallError("Refusing to adopt a PXE firewall zone not currently assigned to the selected interface")
+        if interface in self._opened:
+            raise PXEFirewallError("PXE firewall is already attached to this interface")
+        self._opened[interface] = {
+            "zone": zone, "restore_zone": restore_zone,
+            "interface_added": True, "ports": list(ports),
+        }
+
     def is_open(self, interface: str) -> bool:
         """Return whether this manager currently owns a temporary zone for interface."""
         return interface in self._opened
