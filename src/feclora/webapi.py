@@ -560,6 +560,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "restore_partition": {"image_id", "target", "confirmation"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
+        "extract_partition_image": {"image_id", "selector"},
     }
     if action not in allowed or set(params) != allowed[action]:
         raise WebAPIError("operation parameters do not match the selected operation")
@@ -608,6 +609,76 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             minisign_secret_key=signing_key if sign else None,
         )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
+    elif action == "extract_partition_image":
+        from feclora.storage.disk_image_partition import extract_partition_image
+        from feclora.storage.image_security import verify_manifest_signature
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        selector = _text(params, "selector", maximum=256)
+        manifest_path = _image_manifest(image_id)
+        manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+        if manifest.image_type != "disk":
+            raise WebAPIError("partition extraction requires a whole-disk image")
+        signed = os.path.isfile(str(manifest_path) + ".minisig")
+        encrypted = any(item.encryption == "age" for item in manifest.artifacts)
+        security = _security_material()
+        pki = Path("/etc/feclora/pki")
+        identity_paths: list[Path] = []
+        trusted_keys: list[Path] = []
+        if security["age_decryption_available"]:
+            identity_paths.append(pki / "server.age")
+        if security["image_verification_available"]:
+            trusted_keys.append(pki / "server.pub")
+        client_config = _client_runtime_config()
+        if client_config:
+            if client_config.age_identity_file:
+                identity_paths.append(Path(client_config.age_identity_file))
+            if client_config.trusted_server_public_key:
+                trusted_keys.insert(0, Path(client_config.trusted_server_public_key))
+        if encrypted and not identity_paths:
+            raise WebAPIError("age-encrypted disk image requires an enrolled Client or local Feclora age identity")
+        trusted_key = None
+        if signed:
+            for candidate in dict.fromkeys(trusted_keys):
+                try:
+                    verify_manifest_signature(manifest_path, candidate)
+                    trusted_key = candidate
+                    break
+                except Exception:
+                    continue
+            if trusted_key is None:
+                raise WebAPIError("signed disk image does not verify against any locally trusted Feclora signing key")
+        _recipients_file, signing_key = _capture_material()
+        if signed and signing_key is None:
+            raise WebAPIError("extracting a signed disk image requires a local signing key to sign the resulting partition image")
+        identity_context = tempfile.TemporaryDirectory(prefix="feclora-age-identities-") if encrypted and len(identity_paths) > 1 else None
+        try:
+            if identity_context:
+                identity_file = Path(identity_context.name) / "identities.txt"
+                identity_file.write_text(
+                    "\\n".join(path.read_text(encoding="ascii").strip() for path in identity_paths) + "\\n",
+                    encoding="ascii",
+                )
+                os.chmod(identity_file, 0o600)
+            else:
+                identity_file = identity_paths[0] if encrypted else None
+            extracted, extracted_manifest = extract_partition_image(
+                manifest_path, _repository(), selector,
+                age_identity_file=identity_file,
+                minisign_public_key=trusted_key,
+                require_signature=signed,
+                minisign_secret_key=signing_key,
+                progress_callback=_progress,
+            )
+        except Exception as exc:
+            raise WebAPIError(f"partition extraction failed: {exc}") from exc
+        finally:
+            if identity_context:
+                identity_context.cleanup()
+        result = {
+            "source_image_id": image_id, "image_id": extracted.image_id,
+            "image_type": extracted.image_type, "manifest": extracted_manifest,
+            "signed": signing_key is not None,
+        }
     elif action in {"restore_disk", "restore_partition"}:
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         target = _device(params["target"], "target")
@@ -746,6 +817,7 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
         "restore_partition": {"image_id", "target", "confirmation"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
+        "extract_partition_image": {"image_id", "selector"},
     }
     if action not in operation_fields or set(params) != operation_fields[action]:
         raise WebAPIError("operation parameters do not match the selected operation")
@@ -1528,7 +1600,7 @@ def dispatch(request: Any) -> dict[str, Any]:
             for item in reports
         ]}
     if action in {"capture_disk", "capture_partition", "restore_disk", "restore_partition",
-                  "clone_disk", "clone_partition"}:
+                  "clone_disk", "clone_partition", "extract_partition_image"}:
         return _run_operation(action, params)
     raise WebAPIError("unsupported Cockpit API action")
 
