@@ -169,6 +169,8 @@ def _renew_server_certificate(params: dict[str, Any]) -> dict[str, Any]:
         config.private_key_file
     ) != "/etc/feclora/pki/server.key" or os.path.realpath(config.ca_file) != "/etc/feclora/pki/ca.crt":
         raise WebAPIError("Server PKI paths differ from the managed renewal locations; refusing to replace an untracked certificate")
+    if config.local_identity != "URI:feclora-server":
+        raise WebAPIError("Server runtime identity is not the managed Feclora Server identity")
     try:
         active = subprocess.run(
             ["/usr/bin/systemctl", "list-units", "--type=service", "--state=running",
