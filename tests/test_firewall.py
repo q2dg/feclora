@@ -73,13 +73,13 @@ class FirewallTests(unittest.TestCase):
             if args and args[0].startswith("--new-zone="):
                 zones.add(args[0].split("=", 1)[1])
                 return subprocess.CompletedProcess(argv, 0, "", "")
-            if args and args[1].startswith("--add-interface="):
+            if len(args) > 1 and args[1].startswith("--add-interface="):
                 current["enp1s0"] = args[0].split("=", 1)[1]
                 return subprocess.CompletedProcess(argv, 0, "", "")
-            if args and args[1].startswith("--remove-interface="):
+            if len(args) > 1 and args[1].startswith("--remove-interface="):
                 current["enp1s0"] = "public"
                 return subprocess.CompletedProcess(argv, 0, "", "")
-            if args and args[1] == "--add-service=tftp":
+            if len(args) > 1 and args[1] == "--add-service=tftp":
                 return subprocess.CompletedProcess(argv, 0, "", "")
             if len(args) > 1 and args[1] == "--add-port=4011/udp":
                 return subprocess.CompletedProcess(argv, 1, "", "denied")
