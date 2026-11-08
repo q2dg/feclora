@@ -17,6 +17,7 @@ class PXEConfigError(ValueError):
 
 _INTERFACE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,15}$")
 _FILENAME_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
+_LEASE_RE = re.compile(r"^[1-9][0-9]*(?:s|m|h|d|w)$")
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,8 @@ class PXENetworkConfig:
         for label, filename in (("BIOS boot file", self.bios_boot_file), ("UEFI boot file", self.uefi_boot_file)):
             if not isinstance(filename, str) or not _FILENAME_RE.fullmatch(filename):
                 raise PXEConfigError(f"{label} must be a simple filename")
+        if not isinstance(self.lease_time, str) or not _LEASE_RE.fullmatch(self.lease_time):
+            raise PXEConfigError("Lease time must be a positive dnsmasq duration such as 1h or 30m")
         if isinstance(self.http_port, bool) or not isinstance(self.http_port, int) or not 1 <= self.http_port <= 65535:
             raise PXEConfigError("HTTP port must be between 1 and 65535")
         for label, value in (("gateway", self.gateway), ("DNS server", self.dns_server)):
