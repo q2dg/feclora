@@ -238,6 +238,16 @@ def receive_image_set(
             total_bytes += artifact.size_bytes
             if total_bytes > _MAX_ARTIFACT_BYTES:
                 raise ImageTransferError("image set exceeds the 16 TiB total transfer limit")
+        try:
+            free_bytes = shutil.disk_usage(repo).free
+        except OSError as exc:
+            raise ImageTransferError(f"cannot check image staging free space: {exc}") from exc
+        required_bytes = total_bytes + manifest_length + signature_length
+        if free_bytes < required_bytes:
+            raise ImageTransferError(
+                f"insufficient staging space: need {required_bytes} bytes, have {free_bytes}"
+            )
+        for artifact in manifest.artifacts:
             path = os.path.join(stage, artifact.filename)
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
             digest = hashlib.sha256()
