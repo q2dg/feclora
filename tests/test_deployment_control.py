@@ -601,5 +601,123 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
                 server.stop()
 
 
+    def test_mtls_client_save_transfers_signed_image_and_reports_result(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ca_key = os.path.join(directory, "ca.key")
+            ca_cert = os.path.join(directory, "ca.crt")
+            subprocess.run([
+                "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+                "-keyout", ca_key, "-out", ca_cert, "-subj", "/CN=Feclora Test CA",
+                "-days", "1",
+            ], check=True, capture_output=True)
+            server_cert, server_key = self._certificate(
+                directory, "server", "URI:feclora-server", ca_key, ca_cert,
+            )
+            client_cert, client_key = self._certificate(
+                directory, "client", "URI:feclora-client", ca_key, ca_cert,
+            )
+            server_context = create_mutual_tls_context(
+                "server", ca_file=ca_cert, certificate_file=server_cert,
+                private_key_file=server_key,
+            )
+            client_context = create_mutual_tls_context(
+                "client", ca_file=ca_cert, certificate_file=client_cert,
+                private_key_file=client_key,
+            )
+            source = os.path.join(directory, "client-image")
+            destination = os.path.join(directory, "server-repository")
+            os.mkdir(source)
+            os.mkdir(destination)
+            disk = b"client disk image"
+            table = b"client partition table"
+            with open(os.path.join(source, "disk.raw"), "wb") as stream:
+                stream.write(disk)
+            with open(os.path.join(source, "table.txt"), "wb") as stream:
+                stream.write(table)
+            manifest = {
+                "schema_version": 1, "image_id": "golden-image",
+                "image_type": "disk", "source_size_bytes": len(disk),
+                "logical_sector_size": 512, "partition_table": "none",
+                "artifacts": [
+                    {"filename": "disk.raw", "role": "disk-image", "format": "raw",
+                     "compression": "none", "size_bytes": len(disk),
+                     "sha256": hashlib.sha256(disk).hexdigest()},
+                    {"filename": "table.txt", "role": "partition-table", "format": "raw",
+                     "compression": "none", "size_bytes": len(table),
+                     "sha256": hashlib.sha256(table).hexdigest()},
+                ],
+            }
+            manifest_path = os.path.join(source, "golden-image.manifest.json")
+            with open(manifest_path, "w", encoding="utf-8") as stream:
+                json.dump(manifest, stream)
+            with open(manifest_path + ".minisig", "wb") as stream:
+                stream.write(b"test signature")
+
+            coordinator = DeploymentCoordinator(make_job(operation="save"))
+            server = DeploymentControlServer(
+                coordinator, server_context, local_identity="URI:feclora-server",
+                client_identity_to_mac={"URI:feclora-client": MAC},
+            )
+            host, port = server.start("127.0.0.1", 0)
+            client_errors = []
+            def execute_save(job, tls, approval):
+                from feclora.deployment.artifact_transfer import send_image_set
+                send_control_message(tls, {
+                    "type": "transfer_ready", "job_id": job.job_id,
+                    "image_id": job.image_id,
+                })
+                send_image_set(
+                    tls, source, manifest_path, expected_image_id=job.image_id,
+                    trusted_public_key="/trusted/client.pub",
+                )
+                return True, "capture and signed transfer complete"
+
+            def run_client():
+                try:
+                    join_deployment(
+                        host, port, client_context,
+                        local_identity="URI:feclora-client",
+                        expected_server_identity="URI:feclora-server",
+                        mac_address=MAC, job_id=JOB_ID,
+                        prepare_local_target=lambda job: LocalTargetApproval(
+                            "/dev/vda", "Disposable VM disk",
+                            "READ /dev/vda TO URI:feclora-server",
+                        ),
+                        execute_job=execute_save, timeout=15,
+                    )
+                except Exception as exc:
+                    client_errors.append(exc)
+
+            client_thread = threading.Thread(target=run_client, daemon=True)
+            try:
+                with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
+                    client_thread.start()
+                    deadline = time.monotonic() + 12
+                    while time.monotonic() < deadline:
+                        clients = coordinator.clients()
+                        if clients and clients[0].state.value == "ready":
+                            break
+                        if client_errors:
+                            self.fail(str(client_errors))
+                        time.sleep(0.05)
+                    self.assertTrue(coordinator.clients(), "save Client did not connect")
+                    self.assertEqual(coordinator.clients()[0].state.value, "ready")
+                    results = server.run_one_client_job(
+                        destination, trusted_public_key="/trusted/client.pub",
+                    )
+                    client_thread.join(10)
+                self.assertFalse(client_thread.is_alive(), "save Client did not report its result")
+                self.assertFalse(client_errors, str(client_errors))
+                self.assertEqual(results, {MAC: "succeeded"})
+                self.assertEqual(coordinator.state, JobState.COMPLETED)
+                for filename, expected in (("disk.raw", disk), ("table.txt", table)):
+                    with open(os.path.join(destination, filename), "rb") as stream:
+                        self.assertEqual(stream.read(), expected)
+                self.assertTrue(os.path.isfile(os.path.join(destination, "golden-image.manifest.json")))
+                self.assertTrue(os.path.isfile(os.path.join(destination, "golden-image.manifest.json.minisig")))
+            finally:
+                server.stop()
+
+
 if __name__ == "__main__":
     unittest.main()
