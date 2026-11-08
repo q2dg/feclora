@@ -66,6 +66,7 @@ def _choose_job(config: ServerRuntimeConfig, interface: str) -> tuple[Deployment
     enrolled = [
         (identity, f"{identity} -> {mac}")
         for identity, mac in config.client_identity_to_mac.items()
+        if operation != "save" or mac in config.client_minisign_public_keys
     ]
     identity = dialog_app._menu("Enrolled Client", "Select exactly one enrolled certificate identity for this job.", enrolled)
     if identity is None:
