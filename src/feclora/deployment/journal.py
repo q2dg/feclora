@@ -208,7 +208,16 @@ class DeploymentJournal:
         if job_state not in {"created", "armed", "running", "completed", "failed", "cancelled"}:
             raise DeploymentJournalError("journal contains an unknown job state")
         operator_reconciled = events[-1].get("event") == "operator_reconciled"
-        interrupted = job_state in {"created", "armed", "running"}
+        has_service_start = any(event.get("event") == "service_started" for event in events)
+        clean_unarmed_stop = (
+            events[-1].get("event") == "service_stopped"
+            and job_state == "created" and not clients
+        )
+        interrupted = (
+            job_state in {"armed", "running"}
+            or (job_state == "created" and bool(clients))
+            or (job_state == "created" and has_service_start and not clean_unarmed_stop)
+        )
         if operator_reconciled and job_state != "failed":
             raise DeploymentJournalError("operator reconciliation must close the interrupted job as failed")
         return {
