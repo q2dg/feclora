@@ -168,7 +168,7 @@ def _client_enrollment_wizard(config_path: str) -> bool:
             raise PKIError(f"Server response bundle is missing {label}: {exc}") from exc
         if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
             raise PKIError(f"Server response {label} must be a regular file, not a symlink")
-    recipients = [line.strip() for line in open(age_recipients_bundle, encoding="ascii") if line.strip()]
+    with open(age_recipients_bundle, encoding="ascii") as recipient_stream:\n        recipients = [line.strip() for line in recipient_stream if line.strip()]
     if not recipients or any(not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients):
         raise PKIError("Server age recipient inventory is empty or malformed")
     server_fingerprint = _sha256_file(server_public_key)
