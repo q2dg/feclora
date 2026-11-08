@@ -29,6 +29,9 @@ class FakeControl:
         self.cancelled = True
         self.coordinator.state = JobState.CANCELLED
 
+    def client_progress(self):
+        return {}
+
 
 class FakeThread:
     instances = []
@@ -53,6 +56,7 @@ def make_service(transport="unicast", clients=()):
         job_id="12345678-1234-4234-8234-123456789abc",
         operation="restore", image_id="image-1", transport=transport,
         authorized_clients=tuple(item.mac_address for item in clients),
+        network_interface="enp1s0",
     )
     service.coordinator = FakeCoordinator(clients=clients)
     service.control = FakeControl(service.coordinator)
@@ -68,6 +72,19 @@ def make_service(transport="unicast", clients=()):
 class DeploymentServiceCommandTests(unittest.TestCase):
     def setUp(self):
         FakeThread.instances.clear()
+
+    def test_status_includes_per_client_progress(self):
+        client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.RUNNING, detail=None)
+        service = make_service(clients=(client,))
+        service.control.client_progress = lambda: {
+            client.mac_address: {
+                "phase": "restore", "completed_bytes": 1024,
+                "total_bytes": 4096, "bytes_per_second": 512.0,
+                "updated_at": "2026-01-01T00:00:00+00:00",
+            }
+        }
+        status = service._status()
+        self.assertEqual(status["clients"][0]["progress"]["completed_bytes"], 1024)
 
     def test_arm_requires_exact_job_specific_confirmation(self):
         client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
