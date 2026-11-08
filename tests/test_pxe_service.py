@@ -20,6 +20,7 @@ class FakeFirewall:
     def __init__(self):
         self.opened = []
         self.closed = []
+        self.fail_adopt = False
     def open(self, interface, ports):
         self.opened.append((interface, list(ports)))
     def close(self, interface):
@@ -28,6 +29,8 @@ class FakeFirewall:
         return {"zone": "feclora-pxe-a1b2c3d4", "restore_zone": "public", "ports": ["67/udp", "4011/udp", "8080/tcp"]}
     def adopt(self, interface, state):
         self.adopted = (interface, state)
+        if self.fail_adopt:
+            raise RuntimeError("interface zone changed")
 
 
 class PxeServiceTests(unittest.TestCase):
@@ -84,6 +87,25 @@ class PxeServiceTests(unittest.TestCase):
             self.assertEqual(firewall2.adopted[0], "enp1s0")
             self.assertEqual(firewall2.closed, ["enp1s0"])
             self.assertFalse((Path(tmp) / "active.json").exists())
+
+    def test_stops_daemons_when_firewall_zone_cannot_be_recovered(self):
+        calls = []
+        def runner(argv, **kwargs):
+            calls.append(argv)
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        with tempfile.TemporaryDirectory() as tmp:
+            first = PXEServiceManager(tmp, runner=runner, preflight=lambda _config: None,
+                                      firewall=FakeFirewall(), boot_stager=lambda _config: None)
+            first.start(config())
+            firewall = FakeFirewall()
+            firewall.fail_adopt = True
+            second = PXEServiceManager(tmp, runner=runner, preflight=lambda _config: None,
+                                       firewall=firewall, boot_stager=lambda _config: None)
+            with self.assertRaisesRegex(PXEServiceError, "firewall recovery"):
+                second.stop()
+            stopped = [argv[-1] for argv in calls if argv[:2] == ["/usr/bin/systemctl", "stop"]]
+            self.assertEqual(len(stopped), 2)
+            self.assertTrue((Path(tmp) / "active.json").exists())
 
     def test_rejects_symlink_runtime_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
