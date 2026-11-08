@@ -213,9 +213,9 @@ def run_server_ui(
             choice = _dialog([
                 "--title", "PXE Server active",
                 "--menu",
-                "PXE services are running. Start an authenticated one-client unicast job, or stop all PXE services.",
+                "PXE services are running. Start an authenticated unicast or multi-client multicast restore job, or stop all PXE services.",
                 "16", "84", "2",
-                "deploy", "Create/run an authenticated unicast deployment",
+                "deploy", "Create/run an authenticated unicast or multicast restore deployment",
                 "stop", "Stop PXE services and close the firewall ports",
             ])
             if choice.returncode != 0 or choice.stdout.strip() == "stop":
