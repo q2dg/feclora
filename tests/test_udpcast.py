@@ -5,8 +5,6 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from feclora.deployment.job import DeploymentJob
-from feclora.deployment.coordinator import DeploymentCoordinator, JobState
 from feclora.network.udpcast import (
     UDPcastConfig, UDPcastError, build_receiver_argv, build_sender_argv,
     discard_staged_multicast_artifact, multicast_firewall_scope,
@@ -45,6 +43,8 @@ class UDPcastConfigTests(unittest.TestCase):
     def test_rejects_shell_metacharacters_in_bitrate(self):
         with self.assertRaises(UDPcastError):
             UDPcastConfig("enp1s0", "239.10.10.1", "239.10.10.2", max_bitrate="100m; touch /tmp/pwn")
+        with self.assertRaisesRegex(UDPcastError, "10 Gbit/s"):
+            UDPcastConfig("enp1s0", "239.10.10.1", "239.10.10.2", max_bitrate="11g")
 
     def test_verifies_exact_artifact_size_and_digest(self):
         payload = b"feclora multicast image"
@@ -93,6 +93,8 @@ class UDPcastConfigTests(unittest.TestCase):
             self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
             with open(path, "rb") as stream:
                 self.assertEqual(stream.read(), b"abc")
+            discard_staged_multicast_artifact(path)
+            self.assertEqual(os.listdir(directory), [])
 
     def test_firewall_scope_opens_exact_two_udp_ports_and_closes(self):
         firewall = Mock()
