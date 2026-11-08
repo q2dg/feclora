@@ -84,10 +84,10 @@ class MulticastRuntimeTests(unittest.TestCase):
         tls = Mock()
         with tempfile.TemporaryDirectory() as repository:
             real_lstat = os.lstat
-            def fake_lstat(path):
+            def fake_lstat(path, *args, **kwargs):
                 if path == approval.device_path:
                     return SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
-                return real_lstat(path)
+                return real_lstat(path, *args, **kwargs)
             def fake_receive(staging_directory, _artifact, _config, **_kwargs):
                 private = tempfile.mkdtemp(prefix=".feclora-udpcast-", dir=staging_directory)
                 path = os.path.join(private, "payload")
