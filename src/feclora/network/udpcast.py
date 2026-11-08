@@ -249,15 +249,18 @@ def send_multicast_artifact(
 ) -> None:
     """Send a single artifact only after the deployment coordinator is armed."""
     job = coordinator.job
-    if coordinator.state is not JobState.ARMED:
+    if coordinator.state not in {JobState.ARMED, JobState.RUNNING}:
         raise UDPcastError("Deployment job must be explicitly armed before multicast transmission")
     if job.transport != "multicast" or job.network_interface != config.interface:
         raise UDPcastError("UDPcast configuration does not match the deployment job")
     if job.multicast_group != config.data_group or job.multicast_port != config.portbase:
         raise UDPcastError("UDPcast group/port do not match the deployment job")
-    ready_count = sum(client.state is ClientState.READY for client in coordinator.clients())
+    ready_count = sum(
+        client.state in {ClientState.READY, ClientState.RUNNING}
+        for client in coordinator.clients()
+    )
     if ready_count < config.min_receivers:
-        raise UDPcastError("Not enough authenticated, ready clients for the configured receiver threshold")
+        raise UDPcastError("Not enough authenticated, ready/running clients for the configured receiver threshold")
     manifest = _load_signed_manifest(
         manifest_path, public_key_path, minisign_executable=minisign_executable,
     )
