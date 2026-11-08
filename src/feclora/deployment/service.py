@@ -43,7 +43,7 @@ JOURNAL_DIRECTORY = Path("/var/lib/feclora/deployments")
 CONFIG_FILE = "/etc/feclora/deployment-server.json"
 
 
-def recover_stale_firewall_state() -> None:
+def recover_stale_firewall_state(*, lock_held: bool = False) -> None:
     """Restore a deployment-owned temporary firewalld change after a crash."""
     try:
         info = os.lstat(FIREWALL_STATE)
@@ -52,6 +52,23 @@ def recover_stale_firewall_state() -> None:
     if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
             or info.st_uid != 0 or info.st_mode & 0o077 or info.st_size > 8192):
         raise DeploymentServiceError("stale deployment firewall state is unsafe")
+    lock_fd = None
+    if not lock_held:
+        runtime_info = os.lstat(RUNTIME_DIRECTORY)
+        if (not stat.S_ISDIR(runtime_info.st_mode) or stat.S_ISLNK(runtime_info.st_mode)
+                or runtime_info.st_uid != 0 or runtime_info.st_mode & 0o022):
+            raise DeploymentServiceError("runtime directory is unsafe during firewall recovery")
+        lock_fd = os.open(LOCK_FILE, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        lock_info = os.fstat(lock_fd)
+        if (not stat.S_ISREG(lock_info.st_mode) or lock_info.st_uid != 0
+                or lock_info.st_mode & 0o077):
+            os.close(lock_fd)
+            raise DeploymentServiceError("deployment service lock file is unsafe during firewall recovery")
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            os.close(lock_fd)
+            raise DeploymentServiceError("another deployment service is active; refusing stale firewall cleanup") from exc
     try:
         with FIREWALL_STATE.open("r", encoding="utf-8") as stream:
             value = json.load(stream)
@@ -75,6 +92,8 @@ def recover_stale_firewall_state() -> None:
     except Exception as exc:
         raise DeploymentServiceError(f"cannot safely restore stale deployment firewall state: {exc}") from exc
     FIREWALL_STATE.unlink()
+    if lock_fd is not None:
+        os.close(lock_fd)
 
 
 
@@ -189,7 +208,7 @@ class DeploymentService:
             raise
 
     def _recover_stale_firewall_state(self) -> None:
-        recover_stale_firewall_state()
+        recover_stale_firewall_state(lock_held=True)
 
     def _acquire_instance_lock(self) -> None:
         info = os.lstat(RUNTIME_DIRECTORY)
