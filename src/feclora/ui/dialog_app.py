@@ -13,6 +13,7 @@ from typing import Any, Callable
 from feclora.storage.capture import CaptureCancelled
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
 from feclora.storage.disk_clone import DiskCloneCancelled, DiskCloneError, clone_disk
+from feclora.storage.disk_image_partition import DiskImagePartitionError, extract_partition_image
 from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError, restore_disk
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import InventoryError, collect_inventory
@@ -515,60 +516,119 @@ def _restore(inventory: dict[str, Any]) -> None:
     if filename is None:
         return
     manifest = next(item for name, item in manifests if name == filename)
-    kind = "disk" if manifest.image_type == "disk" else "part"
+
+    if manifest.image_type == "disk":
+        action = _menu("Disk image restore", "Choose the scope of the restore.", [
+            ("whole-disk", "Restore the complete disk image"),
+            ("single-partition", "Extract and restore one selected partition only"),
+            ("cancel", "Cancel"),
+        ])
+        if action not in {"whole-disk", "single-partition"}:
+            return
+    else:
+        action = "partition-image"
+
+    target_kind = "disk" if action == "whole-disk" else "part"
     target = _select_device(
-        inventory, kind, "Restore target",
+        inventory, target_kind, "Restore target",
         "Select the destination. ALL DATA ON IT WILL BE OVERWRITTEN.",
     )
     if target is None:
         return
-    action = _menu("Restore action", "Execute now or save these choices as a signed unattended profile.", [
-        ("execute", "Restore now (interactive confirmation)"),
-        ("save-profile", "Save signed unattended profile"),
-        ("cancel", "Cancel"),
-    ])
-    if action == "save-profile":
-        if manifest.image_type != "disk":
-            _message("Profile not available", "Unattended profiles currently support whole-disk images only.")
+
+    if action == "whole-disk":
+        profile_action = _menu("Restore execution", "Execute now or save choices as a signed unattended profile.", [
+            ("execute", "Restore now (interactive confirmation)"),
+            ("save-profile", "Save signed unattended profile"),
+            ("cancel", "Cancel"),
+        ])
+        if profile_action == "save-profile":
+            _save_unattended_profile(filename, manifest, target)
             return
-        _save_unattended_profile(filename, manifest, target)
-        return
-    if action != "execute":
-        return
+        if profile_action != "execute":
+            return
+
+    partition_selector = None
+    if action == "single-partition":
+        partition_selector = _input(
+            "Select source partition",
+            "Enter the source partition's PARTUUID, partition name or /dev node from the image.",
+        )
+        if not partition_selector:
+            return
+
     security = _restore_security_options(manifest, filename)
     if security is None:
         return
     age_identity, minisign_public_key, require_signature = security
     phrase = f"ERASE {target['path']}"
-    typed = _input("Destructive confirmation", f"Type exactly:\n{phrase}")
+    typed = _input(
+        "Destructive confirmation",
+        f"Image: {manifest.image_id}\nTarget: {target['path']}\nType exactly:\n{phrase}",
+    )
     if typed != phrase:
         _message("Restore cancelled", "The confirmation did not match. No write was started.")
         return
+
     try:
-        if manifest.image_type == "disk":
+        if action == "whole-disk":
             _run_logged("restore_disk", target["path"], manifest.image_id, lambda: _run_restore_gauge(
-                "Restoring whole disk", f"Writing image to {target['path']}. ALL EXISTING DATA WILL BE OVERWRITTEN.",
+                "Restoring whole disk",
+                f"Writing image to {target['path']}. ALL EXISTING DATA WILL BE OVERWRITTEN.",
                 lambda progress: restore_disk(
                     filename, _repository(), target["path"], confirmation=typed,
                     progress_callback=progress, age_identity_file=age_identity,
                     minisign_public_key=minisign_public_key, require_signature=require_signature,
                 ),
             ))
+        elif action == "single-partition":
+            def extract(progress):
+                return extract_partition_image(
+                    filename, _repository(), partition_selector,
+                    age_identity_file=age_identity,
+                    minisign_public_key=minisign_public_key,
+                    require_signature=require_signature,
+                    progress_callback=progress,
+                )
+            extracted_manifest, extracted_filename = _run_logged(
+                "extract_disk_image_partition", target["path"], manifest.image_id,
+                lambda: _run_restore_gauge(
+                    "Extracting source partition",
+                    f"Verifying disk image and extracting {partition_selector}.",
+                    extract,
+                ),
+            )
+            _run_logged(
+                "restore_partition_from_disk_image", target["path"], extracted_manifest.image_id,
+                lambda: _run_restore_gauge(
+                    "Restoring selected partition",
+                    f"Writing extracted partition to {target['path']}. Other partitions are untouched.",
+                    lambda progress: restore_partition(
+                        extracted_filename, _repository(), target["path"],
+                        confirmation=typed, progress_callback=progress,
+                    ),
+                ),
+            )
         else:
             _run_logged("restore_partition", target["path"], manifest.image_id, lambda: _run_restore_gauge(
                 "Restoring partition",
-                f"Writing {manifest.artifacts[0].format} image to {target['path']}. ALL EXISTING DATA WILL BE OVERWRITTEN.",
+                f"Writing {manifest.artifacts[0].format} image to {target['path']}. ALL DATA ON IT WILL BE OVERWRITTEN.",
                 lambda progress: restore_partition(
                     filename, _repository(), target["path"], confirmation=typed,
                     progress_callback=progress, age_identity_file=age_identity,
                     minisign_public_key=minisign_public_key, require_signature=require_signature,
                 ),
             ))
-        _message("Restore completed", f"Restore utility completed successfully for {target['path']}.\nVerify the resulting system before relying on it.")
+        _message(
+            "Restore completed",
+            f"Restore utility completed successfully for {target['path']}.\n"
+            "Verify the resulting system before relying on it.",
+        )
     except (DiskRestoreCancelled, PartitionRestoreCancelled) as exc:
         _message("Restore cancelled", str(exc) + "\nThe target may contain a partial restore and must not be used.")
-    except (DiskRestoreError, PartitionRestoreError, OperationLogError, OSError) as exc:
+    except (DiskRestoreError, PartitionRestoreError, DiskImagePartitionError, OperationLogError, OSError) as exc:
         _message("Restore failed", str(exc))
+
 
 def main() -> int:
     if shutil.which("dialog") is None:
