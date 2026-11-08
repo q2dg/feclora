@@ -23,7 +23,7 @@ class PxeServiceTests(unittest.TestCase):
             calls.append(argv)
             return subprocess.CompletedProcess(argv, 0, "", "")
         with tempfile.TemporaryDirectory() as tmp:
-            manager = PXEServiceManager(tmp, runner=runner)
+            manager = PXEServiceManager(tmp, runner=runner, preflight=lambda _config: None)
             manager.start(config())
             self.assertEqual(len(calls), 2)
             self.assertIn("--unit=feclora-dnsmasq", calls[0])
@@ -51,7 +51,7 @@ class PxeServiceTests(unittest.TestCase):
             real.mkdir()
             link = Path(tmp) / "link"
             link.symlink_to(real)
-            manager = PXEServiceManager(str(link), runner=lambda *a, **k: None)
+            manager = PXEServiceManager(str(link), runner=lambda *a, **k: None, preflight=lambda _config: None)
             with self.assertRaises(PXEServiceError):
                 manager.start(config())
 
