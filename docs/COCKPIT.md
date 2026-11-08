@@ -128,10 +128,12 @@ byte progress and terminal result after the browser disconnects.
 The Cockpit Client service currently supports unicast disk capture, whole-disk
 restore and partition restore. A host runs only one Client job at a time.
 Interrupted Client services are marked for inspection and are never
-automatically reconnected or resumed. To cancel a Client that is waiting for
-ARM, cancel the unarmed job from the Server Cockpit. The Client-side multicast
-receive workflow is not yet exposed in Cockpit; use the existing Client
-runtime for multicast restore. No automatic poweroff/reboot is performed.
+automatically reconnected or resumed. An orderly systemd stop is deferred
+while the Client is in its storage-I/O phase; the unit has no stop timeout that
+could kill an active write. To cancel a Client that is waiting for ARM, cancel
+the unarmed job from the Server Cockpit. The Client-side multicast receive
+workflow is not yet exposed in Cockpit; use the existing Client runtime for
+multicast restore. No automatic poweroff/reboot is performed.
 
 ## PXE service lifecycle
 
