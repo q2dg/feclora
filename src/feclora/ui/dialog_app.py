@@ -36,6 +36,7 @@ def device_details(device: dict[str, Any]) -> str:
         f"Transport: {device.get('transport') or 'unknown'}",
         f"Serial: {device.get('serial') or 'unknown'}",
         f"Filesystem: {device.get('filesystem') or 'none detected'}",
+        f"Volume layers: {', '.join(device.get('volume_features') or []) or 'none detected'}",
         f"Mountpoints: {', '.join(device.get('mountpoints') or []) or 'none'}",
         "", "Child devices / partitions:",
     ]
@@ -50,6 +51,40 @@ def device_details(device: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 def _dialog(args: list[str]) -> subprocess.CompletedProcess[str]:
+def volume_topology_details(inventory: dict[str, Any]) -> str:
+    """Format read-only LVM, Stratis and Btrfs topology for the rescue UI."""
+    lines: list[str] = []
+    lvm = inventory.get("volume_topology") or {}
+    lines.append("LVM topology: " + str(lvm.get("status", "not collected")))
+    for section, keys in (
+        ("pvs", ("pv_name", "vg_name", "pv_size", "pv_free", "pv_uuid")),
+        ("vgs", ("vg_name", "vg_size", "vg_free", "pv_count", "lv_count")),
+        ("lvs", ("lv_path", "vg_name", "lv_size", "origin", "pool_lv", "devices")),
+    ):
+        for row in lvm.get(section, []):
+            fields = [f"{key}={row.get(key)}" for key in keys if row.get(key) not in (None, "")]
+            lines.append("  " + section[:-1].upper() + ": " + " | ".join(fields))
+    if lvm.get("error"):
+        lines.append("  Error: " + str(lvm["error"]))
+    stratis = inventory.get("stratis_topology") or {}
+    lines.append("Stratis topology: " + str(stratis.get("status", "not collected")))
+    for pool in stratis.get("pools", []):
+        lines.append("  Pool: " + str(pool.get("name")))
+        for filesystem in pool.get("filesystems", []):
+            lines.append("    Filesystem: " + str(filesystem.get("name")) + " -> " + str(filesystem.get("mapper_device")))
+            lines.append("      Backing devices: " + ", ".join(filesystem.get("backing_block_devices", [])))
+    if stratis.get("error"):
+        lines.append("  Error: " + str(stratis["error"]))
+    btrfs = inventory.get("btrfs_topology") or {}
+    lines.append("Btrfs topology: " + str(btrfs.get("status", "not collected")))
+    for filesystem in btrfs.get("filesystems", []):
+        lines.append("  Filesystem: " + str(filesystem.get("label") or "(no label)") + " | UUID " + str(filesystem.get("uuid")))
+        for device in filesystem.get("devices", []):
+            lines.append("    Device " + str(device.get("devid")) + ": " + str(device.get("path")) + " | " + str(device.get("size_bytes")) + " bytes")
+    if btrfs.get("error"):
+        lines.append("  Error: " + str(btrfs["error"]))
+    return "\n".join(lines)
+
     return subprocess.run(["dialog", "--stdout", *args], check=False, capture_output=True, text=True)
 
 def _message(title: str, message: str) -> None:
@@ -721,6 +756,7 @@ def main() -> int:
             return 1
         choice = _menu("feclora - Local rescue", "Inspect, capture or restore storage. Restore operations overwrite their target.", [
             ("inspect", "Inspect disks and partitions"),
+            ("volume-topology", "Inspect LVM, Stratis and Btrfs topology (read only)"),
             ("capture-disk", "Capture a whole disk"),
             ("capture-partition", "Capture a partition"),
             ("restore", "Restore an image"),
@@ -735,6 +771,8 @@ def main() -> int:
             selected = _select_device(inventory, "disk", "Storage inventory", "Select a disk to inspect.")
             if selected:
                 _message("Device details - read only", device_details(selected))
+        elif choice == "volume-topology":
+            _message("Volume topology - read only", volume_topology_details(inventory))
         elif choice == "capture-disk":
             _capture_disk(inventory)
         elif choice == "capture-partition":
