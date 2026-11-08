@@ -73,6 +73,43 @@ class EnrollmentTests(unittest.TestCase):
             "52:54:00:12:34:56": "/pki/new.pub",
         })
 
+    def test_identity_rotation_does_not_inherit_old_client_signing_key(self):
+        value = config()
+        with (
+            patch("feclora.deployment.enrollment._load_config", return_value=value),
+            patch("feclora.deployment.enrollment._verify_client_certificate", return_value="URI:new-client"),
+            patch("feclora.deployment.enrollment._secure_regular_file"),
+            patch("feclora.deployment.enrollment._write_config_atomically") as write,
+            patch("feclora.deployment.enrollment.load_server_runtime_config"),
+        ):
+            enroll_client_certificate(
+                "/etc/feclora/deployment-server.json", "/pki/new.crt",
+                "52:54:00:12:34:56",
+                confirmation="ENROLL URI:new-client 52:54:00:12:34:56",
+            )
+        self.assertEqual(write.call_args.args[1]["client_minisign_public_keys"], {})
+
+    def test_same_identity_renewal_preserves_client_signing_key(self):
+        value = config()
+        value["client_identity_to_mac"] = {"URI:feclora-client-lab": "52:54:00:12:34:56"}
+        value["client_minisign_public_keys"] = {"52:54:00:12:34:56": "/pki/client.pub"}
+        with (
+            patch("feclora.deployment.enrollment._load_config", return_value=value),
+            patch("feclora.deployment.enrollment._verify_client_certificate", return_value="URI:feclora-client-lab"),
+            patch("feclora.deployment.enrollment._secure_regular_file"),
+            patch("feclora.deployment.enrollment._write_config_atomically") as write,
+            patch("feclora.deployment.enrollment.load_server_runtime_config"),
+        ):
+            enroll_client_certificate(
+                "/etc/feclora/deployment-server.json", "/pki/renewed.crt",
+                "52:54:00:12:34:56",
+                confirmation="ENROLL URI:feclora-client-lab 52:54:00:12:34:56",
+            )
+        self.assertEqual(
+            write.call_args.args[1]["client_minisign_public_keys"],
+            {"52:54:00:12:34:56": "/pki/client.pub"},
+        )
+
     def test_enrollment_rejects_multicast_mac_before_writing_config(self):
         with (
             patch("feclora.deployment.enrollment._load_config", return_value=config()),
