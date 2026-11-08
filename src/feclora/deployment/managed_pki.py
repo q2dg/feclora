@@ -195,7 +195,7 @@ def create_client_csr(
     csr = os.path.join(root, f"client-{client_id}{suffix}.csr")
     exported = os.path.join(export, f"feclora-{client_id}{suffix}.csr")
     age_identity = os.path.join(root, f"client-{client_id}.age")
-    age_recipient_export = os.path.join(export, f"feclora-{client_id}.age-recipient")
+    age_recipient_export = os.path.join(export, f"feclora-{client_id}{suffix}.age-recipient")
     if os.path.lexists(csr) or os.path.lexists(exported) or os.path.lexists(age_recipient_export):
         raise PKIError("CSR or age-recipient export already exists; remove or rename the previous request")
     if reuse_existing_key:
