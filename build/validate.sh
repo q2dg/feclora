@@ -70,7 +70,7 @@ fi
 if ! grep -q 'inspect_client_csr|approve_client_csr' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Kickstart Cockpit API wrapper does not allow Client CSR trust actions."
 fi
-if ! grep -q '"inspect_client_csr", "approve_client_csr"' "$ROOT_DIR/webui/src/api.js"; then
+if ! grep -q '"approve_client_csr", "inspect_client_csr"' "$ROOT_DIR/webui/src/api.js"; then
   fail "Cockpit API client does not allow Client CSR trust actions."
 fi
 if ! grep -q 'def _approve_client_csr' "$ROOT_DIR/src/feclora/webapi.py"; then
