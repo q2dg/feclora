@@ -202,7 +202,7 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
         ], check=True, capture_output=True)
         ext = os.path.join(directory, name + ".ext")
         with open(ext, "w", encoding="ascii") as stream:
-            stream.write(f"subjectAltName={san}\\nextendedKeyUsage={'serverAuth' if name == 'server' else 'clientAuth'}\\n")
+            stream.write(f"subjectAltName={san}\nextendedKeyUsage={'serverAuth' if name == 'server' else 'clientAuth'}\n")
         subprocess.run([
             "openssl", "x509", "-req", "-in", csr, "-CA", ca_cert,
             "-CAkey", ca_key, "-CAcreateserial", "-out", cert, "-days", "1",
