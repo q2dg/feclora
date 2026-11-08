@@ -240,7 +240,9 @@ class DeploymentService:
             self._write_firewall_state(None)
             return
         state = self.firewall.export_state(interface)
-        opened_by_service = bool(self.control._firewall_opened)
+        opened_by_service = (
+            self._pxe_state is None or self._pxe_state["interface"] != interface
+        )
         added_ports = [] if opened_by_service else sorted(
             set(state["ports"]) - self._base_firewall_ports
         )
@@ -444,11 +446,11 @@ class DeploymentService:
                 "detail": "Persistent Server control service started; no storage operation armed.",
             })
             service_start_recorded = True
+            self.firewall.on_change = self._firewall_changed
             self.control.start(
                 self.config.bind_address, self.config.port,
                 firewall_state_callback=self._write_firewall_state,
             )
-            self.firewall.on_change = self._firewall_changed
             self.ipc.start()
             while not self._stop_event.wait(0.5):
                 pass
