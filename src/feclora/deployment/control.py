@@ -460,6 +460,40 @@ class DeploymentControlServer:
                 raise
             raise DeploymentControlError(f"saved image transfer failed: {exc}") from exc
 
+    def run_one_client_job(
+        self,
+        repository: str,
+        *,
+        trusted_public_key: str,
+        manifest_path: str | None = None,
+        result_timeout: float = 3600,
+    ) -> dict[str, str]:
+        """Arm and run one authenticated unicast save/restore job end to end."""
+        clients = self.coordinator.clients()
+        if len(clients) != 1 or clients[0].state is not ClientState.READY:
+            raise DeploymentControlError("initial unicast runtime requires exactly one authenticated READY client")
+        mac = clients[0].mac_address
+        if self.coordinator.job.operation == "restore" and not manifest_path:
+            raise DeploymentControlError("restore job requires the signed image manifest path")
+        started = self.arm_and_start()
+        if started != (mac,):
+            return self.collect_results(timeout=result_timeout)
+        try:
+            if self.coordinator.job.operation == "restore":
+                self.send_restore_image(
+                    mac, repository, manifest_path,
+                    trusted_public_key=trusted_public_key,
+                )
+            else:
+                self.receive_saved_image(
+                    mac, repository, trusted_public_key=trusted_public_key,
+                )
+        except (DeploymentControlError, ImageTransferError):
+            # The transfer method records a terminal failed result and closes
+            # the session; collect_results returns that recorded state.
+            pass
+        return self.collect_results(timeout=result_timeout)
+
     def collect_results(self, *, timeout: float = 3600) -> dict[str, str]:
         results: dict[str, str] = {}
         with self._lock:
