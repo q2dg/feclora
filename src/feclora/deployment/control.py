@@ -135,6 +135,7 @@ class DeploymentControlServer:
             raise DeploymentControlError("at least one certificate-identity-to-MAC mapping is required")
         self._sessions: dict[str, Any] = {}
         self._identities: dict[str, str] = {}
+        self._pending_sockets: set[Any] = set()
         self._lock = threading.RLock()
         self._stop_event = threading.Event()
         self._listener = None
@@ -197,8 +198,15 @@ class DeploymentControlServer:
             self._listener_thread.join(timeout=3)
             self._listener_thread = None
         with self._lock:
+            pending = tuple(self._pending_sockets)
+            self._pending_sockets.clear()
             sessions = tuple(self._sessions.items())
             self._sessions.clear()
+        for pending_socket in pending:
+            try:
+                pending_socket.close()
+            except OSError:
+                pass
         for mac, tls_socket in sessions:
             try:
                 record = next((item for item in self.coordinator.clients() if item.mac_address == mac), None)
@@ -217,9 +225,14 @@ class DeploymentControlServer:
         accepted, _address = listener.accept()
         tls_socket = None
         registered_mac = None
+        with self._lock:
+            self._pending_sockets.add(accepted)
         try:
             accepted.settimeout(30)
             tls_socket = self.tls_context.wrap_socket(accepted, server_side=True)
+            with self._lock:
+                self._pending_sockets.discard(accepted)
+                self._pending_sockets.add(tls_socket)
             tls_socket.settimeout(120)
             identity = _certificate_identity(tls_socket)
             mac = self.client_identity_to_mac.get(identity)
@@ -249,6 +262,7 @@ class DeploymentControlServer:
                 raise DeploymentControlError("client has not supplied valid local target authorization")
             self.coordinator.mark_ready(mac)
             with self._lock:
+                self._pending_sockets.discard(tls_socket)
                 self._sessions[mac] = tls_socket
                 self._identities[mac] = identity
             return ReadyClient(mac, identity, description)
@@ -258,6 +272,10 @@ class DeploymentControlServer:
                     self.coordinator.disconnect_client(registered_mac, f"control handshake failed: {exc}")
                 except CoordinatorError:
                     pass
+            with self._lock:
+                self._pending_sockets.discard(accepted)
+                if tls_socket is not None:
+                    self._pending_sockets.discard(tls_socket)
             if tls_socket is not None:
                 tls_socket.close()
             else:
