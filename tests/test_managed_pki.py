@@ -113,7 +113,7 @@ class ManagedPKITests(unittest.TestCase):
                 if os.path.basename(argv[0]) == "age-keygen" and argv[1:2] == ["-o"]:
                     with open(argv[-1], "w", encoding="ascii") as stream:
                         stream.write("AGE-SECRET-KEY")
-                    return SimpleNamespace(stdout="")
+                    return SimpleNamespace(stdout="Public key: " + "age1" + "a" * 40 + "\n")
                 if os.path.basename(argv[0]) == "age-keygen" and argv[1:2] == ["-y"]:
                     return SimpleNamespace(stdout="age1" + "a" * 40 + "\n")
                 raise AssertionError(argv)
