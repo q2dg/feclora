@@ -69,6 +69,15 @@ class DeploymentService:
         self.job = DeploymentJob.from_dict(report["job"])
         if self.job.network_interface not in {name for _index, name in socket.if_nameindex()}:
             raise DeploymentServiceError("job network interface is no longer present")
+        from feclora.network.interface_discovery import discover_interface_addresses
+        try:
+            interface_addresses = discover_interface_addresses(self.job.network_interface)
+        except Exception as exc:
+            raise DeploymentServiceError(f"cannot validate the job's Server interface: {exc}") from exc
+        if self.config.bind_address not in {item.address for item in interface_addresses}:
+            raise DeploymentServiceError("configured Server bind address is not assigned to the job interface")
+        if self.job.start_policy != "manual":
+            raise DeploymentServiceError("persistent Cockpit deployment service accepts manual start policy only")
         if self.job.transport == "unicast" and len(self.job.authorized_clients) != 1:
             raise DeploymentServiceError("persistent unicast service requires exactly one authorized Client")
         if self.job.transport == "multicast" and (
