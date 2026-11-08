@@ -114,6 +114,15 @@ fi
 if ! grep -q 'eventKey="remote-jobs"' "$ROOT_DIR/webui/src/App.jsx"; then
   fail "Cockpit frontend is missing the remote deployment job definition wizard."
 fi
+if ! grep -q 'Cockpit multicast deployment is not yet end-to-end' "$ROOT_DIR/src/feclora/webapi.py"; then
+  fail "Cockpit API must reject multicast jobs until Client receiver orchestration is implemented."
+fi
+if ! grep -q 'UDPcast multicast restore — Client workflow pending' "$ROOT_DIR/webui/src/App.jsx"; then
+  fail "Cockpit must not offer an incomplete multicast Client workflow as an executable job."
+fi
+if ! grep -q 'test_create_deployment_job_rejects_multicast_until_client_receiver_exists' "$ROOT_DIR/tests/test_webapi.py"; then
+  fail "Cockpit multicast safety regression test is missing."
+fi
 
 if grep -qx 'dialog' "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "The legacy dialog package must not be included in the Cockpit-first Live image."
