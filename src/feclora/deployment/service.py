@@ -97,7 +97,7 @@ def recover_stale_firewall_state(*, lock_held: bool = False) -> None:
         except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
             raise DeploymentServiceError("stale deployment firewall state is unreadable") from exc
         if (not isinstance(value, dict)
-                or set(value) != {"schema_version", "interface", "firewall", "opened_by_service", "added_ports"}
+                or set(value) != {"schema_version", "interface", "firewall", "opened_by_service", "added_ports", "added_protocols"}
                 or value["schema_version"] != 1 or isinstance(value["schema_version"], bool)
                 or not isinstance(value["interface"], str)
                 or not isinstance(value["opened_by_service"], bool)
@@ -107,17 +107,21 @@ def recover_stale_firewall_state(*, lock_held: bool = False) -> None:
                     or not re.fullmatch(r"(?:[1-9][0-9]{0,4})/(?:tcp|udp)", port)
                     or int(port.split("/", 1)[0]) > 65535
                     for port in value["added_ports"]
-                )):
+                )
+                or not isinstance(value["added_protocols"], list)
+                or any(not isinstance(protocol, str) or not re.fullmatch(r"[a-z0-9-]{1,32}", protocol)
+                       for protocol in value["added_protocols"])):
             raise DeploymentServiceError("stale deployment firewall state has an invalid schema")
         recovery = PXEFirewall()
         try:
             recovery.adopt(value["interface"], value["firewall"])
             if value["opened_by_service"]:
-                if value["added_ports"]:
-                    raise DeploymentServiceError("owned firewall zone cannot also declare separately added ports")
+                if value["added_ports"] or value["added_protocols"]:
+                    raise DeploymentServiceError("owned firewall zone cannot also declare separately added rules")
                 recovery.close(value["interface"])
             else:
                 recovery.remove_ports(value["interface"], value["added_ports"])
+                recovery.remove_protocols(value["interface"], value["added_protocols"])
         except Exception as exc:
             raise DeploymentServiceError(f"cannot safely restore stale deployment firewall state: {exc}") from exc
         current = os.lstat(FIREWALL_STATE)
@@ -192,6 +196,12 @@ class DeploymentService:
         # deployment listener adds/removes only its own TCP port.
         pxe_manager = PXEServiceManager(firewall=self.firewall)
         self._pxe_state = pxe_manager._read_state()
+        if self._pxe_state is not None and self._pxe_state["interface"] == self.job.network_interface:
+            self._base_firewall_ports = set(self._pxe_state["firewall"]["ports"])
+            self._base_firewall_protocols = set(self._pxe_state["firewall"].get("protocols", []))
+        else:
+            self._base_firewall_ports = set()
+            self._base_firewall_protocols = set()
         context = create_mutual_tls_context(
             "server", ca_file=self.config.ca_file,
             certificate_file=self.config.certificate_file,
@@ -212,6 +222,26 @@ class DeploymentService:
         self._stop_event = threading.Event()
         self._lock_fd: int | None = None
 
+    def _firewall_changed(self, interface: str) -> None:
+        if not self.firewall.is_open(interface):
+            self._write_firewall_state(None)
+            return
+        state = self.firewall.export_state(interface)
+        opened_by_service = bool(self.control._firewall_opened)
+        added_ports = [] if opened_by_service else sorted(
+            set(state["ports"]) - self._base_firewall_ports
+        )
+        added_protocols = [] if opened_by_service else sorted(
+            set(state.get("protocols", [])) - self._base_firewall_protocols
+        )
+        self._write_firewall_state({
+            "interface": interface,
+            "firewall": state,
+            "opened_by_service": opened_by_service,
+            "added_ports": added_ports,
+            "added_protocols": added_protocols,
+        })
+
     def _write_firewall_state(self, value: dict[str, Any] | None) -> None:
         if value is None:
             try:
@@ -222,7 +252,7 @@ class DeploymentService:
             except FileNotFoundError:
                 pass
             return
-        record = {"schema_version": 1, **value}
+        record = {"schema_version": 1, "added_protocols": [], **value}
         fd, temporary = tempfile.mkstemp(prefix=".deployment-firewall.", dir=RUNTIME_DIRECTORY)
         try:
             os.fchmod(fd, 0o600)
@@ -402,6 +432,7 @@ class DeploymentService:
                 self.config.bind_address, self.config.port,
                 firewall_state_callback=self._write_firewall_state,
             )
+            self.firewall.on_change = self._firewall_changed
             self.ipc.start()
             while not self._stop_event.wait(0.5):
                 pass
