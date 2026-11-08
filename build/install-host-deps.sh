@@ -6,6 +6,8 @@ packages=(
   lorax-lmc-virt
   qemu-kvm
   edk2-ovmf
+  nodejs
+  npm
 )
 
 if [[ "${EUID}" -eq 0 ]]; then
