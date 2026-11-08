@@ -1294,6 +1294,10 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
             expected_type = "disk" if job.target_type == "disk" else "partition"
             if manifest.image_type != expected_type:
                 raise WebAPIError(f"selected image is not a {expected_type} image")
+            if job.transport == "multicast" and (
+                not manifest.artifacts or any(item.encryption != "age" for item in manifest.artifacts)
+            ):
+                raise WebAPIError("multicast restore requires every image artifact to be age-encrypted")
             from feclora.storage.image_security import verify_manifest_signature
             verify_manifest_signature(manifest_path, config.server_minisign_public_key)
         except WebAPIError:
