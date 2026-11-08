@@ -133,7 +133,7 @@ cat > "$TARGET_ROOT/usr/libexec/feclora/cockpit-api" <<'EOF'
 #!/bin/sh
 set -eu
 case "${1:-}" in
-  status|inventory|images|journals|operations|initialize_security|network_interfaces|bootstrap_server|deployment_jobs|create_deployment_job|reconcile_deployment_job|inspect_client_csr|approve_client_csr|prepare_client_request|complete_client_enrollment|validate_pxe_profile|start_pxe_services|stop_pxe_services|pxe_service_status|capture_disk|capture_partition|restore_disk|restore_partition|clone_disk|clone_partition) ;;
+  status|inventory|images|journals|operations|initialize_security|network_interfaces|bootstrap_server|deployment_jobs|create_deployment_job|reconcile_deployment_job|start_deployment_service|deployment_service_status|stop_deployment_service|arm_deployment_job|cancel_deployment_job|inspect_client_csr|approve_client_csr|prepare_client_request|complete_client_enrollment|validate_pxe_profile|start_pxe_services|stop_pxe_services|pxe_service_status|capture_disk|capture_partition|restore_disk|restore_partition|clone_disk|clone_partition) ;;
   *) echo '{"ok":false,"error":"unsupported action"}' >&2; exit 2 ;;
 esac
 export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
@@ -149,6 +149,7 @@ chmod 0755 "$TARGET_ROOT/usr/local/bin/feclora-restore-profile"
 install -d "$TARGET_ROOT/usr/local/libexec" "$TARGET_ROOT/etc/systemd/system"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-restore-profile-env" "$TARGET_ROOT/usr/local/libexec/feclora-restore-profile-env"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-restore-profile.service" "$TARGET_ROOT/etc/systemd/system/feclora-restore-profile.service"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-deployment@.service" "$TARGET_ROOT/etc/systemd/system/feclora-deployment@.service"
 install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora"
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora/images"
