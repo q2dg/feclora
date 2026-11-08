@@ -24,6 +24,7 @@ from feclora.network.udpcast import (
     verify_staged_multicast_artifact,
 )
 from feclora.storage.disk_restore import DiskRestoreError, restore_disk
+from feclora.storage.partition_restore import PartitionRestoreError, restore_partition
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.image_security import ImageSecurityError, verify_manifest_signature
 
@@ -134,6 +135,8 @@ def execute_multicast_restore(
         manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
         if manifest.image_id != job.image_id:
             raise MulticastDeploymentError("signed image manifest does not match the job image identifier")
+        if manifest.image_type != job.target_type:
+            raise MulticastDeploymentError("signed image type does not match the locally approved deployment target type")
         required_bytes = sum(item.size_bytes for item in manifest.artifacts)
         if shutil.disk_usage(workdir).free < required_bytes:
             raise MulticastDeploymentError("insufficient Client staging space for the complete signed image set")
@@ -153,7 +156,8 @@ def execute_multicast_restore(
             )
         # The restore function re-verifies the signature and every artifact
         # before opening the selected block device for writing.
-        restore_disk(
+        restore_function = restore_partition if manifest.image_type == "partition" else restore_disk
+        restore_function(
             manifest_path, workdir, approval.device_path,
             confirmation=f"ERASE {approval.device_path}",
             minisign_public_key=trusted_server_public_key,
@@ -165,7 +169,7 @@ def execute_multicast_restore(
         return True, f"multicast image {job.image_id} restored and destination read-back verified"
     except (
         OSError, ValueError, ManifestValidationError, ImageSecurityError,
-        DiskRestoreError, UDPcastError,
+        DiskRestoreError, PartitionRestoreError, UDPcastError,
     ) as exc:
         raise MulticastDeploymentError(f"multicast restore failed: {exc}") from exc
     finally:
