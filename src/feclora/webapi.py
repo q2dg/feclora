@@ -925,7 +925,7 @@ def _read_client_job_status(job_id: str) -> dict[str, Any]:
 
 def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
     required = {"host", "job_id", "device_path", "confirmation", "compression"}
-    if set(params) not in {frozenset(required), frozenset(required | {"network_interface"})}:
+    if frozenset(params) not in {frozenset(required), frozenset(required | {"network_interface"})}:
         raise WebAPIError("start_client_job requires host, job_id, device_path, confirmation, compression and optional network_interface")
     inspection = _inspect_remote_job({"host": params["host"], "job_id": params["job_id"]})
     job = inspection["job"]
