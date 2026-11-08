@@ -28,7 +28,7 @@ TOOL_GROUPS = {
     "integrity": ("sha256sum",),
     "encryption": ("cryptsetup", "age"),
     "image_signing": ("minisign",),
-    "volume_management": ("lvm", "dmsetup"),
+    "volume_management": ("lvm", "dmsetup", "stratis"),
     "hardware_diagnostics": ("smartctl",),
 }
 
