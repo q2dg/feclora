@@ -12,6 +12,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -178,8 +179,9 @@ def create_client_csr(
     *,
     runner: Callable[..., Any] | None = None,
     openssl: str = "/usr/bin/openssl",
+    reuse_existing_key: bool = False,
 ) -> tuple[str, str, str]:
-    """Generate the Client private key locally and export only its CSR."""
+    """Generate a Client key locally, or reuse it for renewal, and export only its CSR."""
     if not isinstance(client_id, str) or not _CLIENT_ID.fullmatch(client_id):
         raise PKIError("Client identifier must contain 1-48 lowercase letters, digits or hyphens")
     root = _root_only_directory(pki_directory)
@@ -188,15 +190,24 @@ def create_client_csr(
         raise PKIError("CSR export destination must be an existing real directory")
     identity = "URI:feclora-client-" + client_id
     key = os.path.join(root, f"client-{client_id}.key")
-    csr = os.path.join(root, f"client-{client_id}.csr")
-    exported = os.path.join(export, f"feclora-{client_id}.csr")
-    if os.path.lexists(key) or os.path.lexists(csr) or os.path.lexists(exported):
-        raise PKIError("Client identity files already exist; use renewal rather than overwriting a key")
-    _run([
-        openssl, "req", "-new", "-newkey", "rsa:3072", "-nodes",
-        "-keyout", key, "-out", csr, "-subj", f"/CN=feclora-client-{client_id}",
-        "-addext", f"subjectAltName={identity}",
-    ], runner)
+    suffix = "-renewal" if reuse_existing_key else ""
+    csr = os.path.join(root, f"client-{client_id}{suffix}.csr")
+    exported = os.path.join(export, f"feclora-{client_id}{suffix}.csr")
+    if os.path.lexists(csr) or os.path.lexists(exported):
+        raise PKIError("CSR already exists; remove or rename the previous request before creating another")
+    if reuse_existing_key:
+        _regular_file(key, "existing Client private key", root_owned=True)
+        if os.stat(key).st_mode & 0o077:
+            raise PKIError("existing Client private key must not be accessible by group or other users")
+        argv = [openssl, "req", "-new", "-key", key, "-out", csr,
+                "-subj", f"/CN=feclora-client-{client_id}", "-addext", f"subjectAltName={identity}"]
+    else:
+        if os.path.lexists(key):
+            raise PKIError("Client identity key already exists; use renewal rather than replacing it")
+        argv = [openssl, "req", "-new", "-newkey", "rsa:3072", "-nodes",
+                "-keyout", key, "-out", csr, "-subj", f"/CN=feclora-client-{client_id}",
+                "-addext", f"subjectAltName={identity}"]
+    _run(argv, runner)
     os.chmod(key, 0o600)
     os.chmod(csr, 0o600)
     _atomic_copy(csr, exported, 0o644)
@@ -310,3 +321,27 @@ def install_client_certificate(
     _atomic_copy(ca_path, installed["ca_file"], 0o644)
     _atomic_copy(private_key_path, installed["private_key_file"], 0o600)
     return installed
+
+
+def certificate_expiry_days(
+    certificate_path: str,
+    *,
+    now: datetime | None = None,
+    runner: Callable[..., Any] | None = None,
+    openssl: str = "/usr/bin/openssl",
+) -> int:
+    """Return whole days until certificate expiry; negative values are expired."""
+    _regular_file(certificate_path, "TLS certificate")
+    result = _run([openssl, "x509", "-in", certificate_path, "-noout", "-enddate"], runner)
+    prefix = "notAfter="
+    value = result.stdout.strip()
+    if not value.startswith(prefix):
+        raise PKIError("OpenSSL returned an unexpected certificate expiry")
+    try:
+        expiry = datetime.strptime(value[len(prefix):], "%b %d %H:%M:%S %Y GMT").replace(tzinfo=timezone.utc)
+    except ValueError as exc:
+        raise PKIError("certificate expiry has an unsupported format") from exc
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        raise PKIError("current time must be timezone-aware")
+    return int((expiry - current.astimezone(timezone.utc)).total_seconds() // 86400)
