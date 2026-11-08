@@ -11,8 +11,8 @@ class BtrfsInventoryError(RuntimeError):
     """Btrfs returned invalid device topology."""
 
 
-_UUID = re.compile(r"^Label:\\s*(.*?)\\s+uuid:\\s*([0-9a-fA-F-]{36})\\s*$")
-_DEVICE = re.compile(r"^\\s*devid\\s+(\\d+)\\s+size\\s+(\\d+)\\s+path\\s+(.+?)\\s*$")
+_UUID = re.compile(r"^Label:\s*(.*?)\s+uuid:\s*([0-9a-fA-F-]{36})\s*$")
+_DEVICE = re.compile(r"^\s*devid\s+(\d+)\s+size\s+(\d+)\s+path\s+(.+?)\s*$")
 
 
 def parse_filesystem_show(payload: str) -> list[dict[str, Any]]:
