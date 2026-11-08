@@ -51,6 +51,8 @@ class UDPcastConfig:
         if not isinstance(self.interface, str) or not _INTERFACE_RE.fullmatch(self.interface):
             raise UDPcastError("Invalid multicast network interface")
         for label, value in (("data", self.data_group), ("rendezvous", self.rendezvous_group)):
+            if not isinstance(value, str):
+                raise UDPcastError(f"{label} group must be an IPv4 multicast address")
             try:
                 address = ipaddress.ip_address(value)
             except (ValueError, TypeError) as exc:
