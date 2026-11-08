@@ -43,7 +43,7 @@ if ! grep -qx 'dialog' "$ROOT_DIR/packages/base.txt"; then
   fail "Runtime package list does not include dialog."
 fi
 
-for package in dnsmasq ipxe-bootimgs-x86 nginx; do
+for package in dnsmasq ipxe-bootimgs-x86 caddy; do
   grep -qx "$package" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $package."
   grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."
 done
