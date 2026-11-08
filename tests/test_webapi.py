@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from feclora.webapi import WebAPIError, dispatch, _device
@@ -38,6 +39,25 @@ class WebAPITests(unittest.TestCase):
     def test_bootstrap_server_requires_exact_parameters(self):
         with self.assertRaisesRegex(WebAPIError, "requires interface"):
             dispatch({"action": "bootstrap_server", "params": {"address": "192.0.2.10"}})
+
+    def test_bootstrap_server_initializes_only_an_assigned_address(self):
+        config = SimpleNamespace(
+            bind_address="192.0.2.10", port=9443, local_identity="URI:feclora-server",
+            client_identity_to_mac={}
+        )
+        with patch("feclora.network.interface_discovery.discover_interface_addresses", return_value=["address"]) as discover, \
+             patch("feclora.network.interface_discovery.validate_selected_address") as validate, \
+             patch("feclora.deployment.bootstrap.ensure_server_deployment_config", return_value=True) as bootstrap, \
+             patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=config):
+            result = dispatch({"action": "bootstrap_server", "params": {
+                "interface": "enp1s0", "address": "192.0.2.10", "prefix_length": 24
+            }})
+        discover.assert_called_once_with("enp1s0")
+        validate.assert_called_once_with("enp1s0", "192.0.2.10", 24, ["address"])
+        bootstrap.assert_called_once_with("192.0.2.10")
+        self.assertTrue(result["created"])
+        self.assertEqual(result["bind_address"], "192.0.2.10")
+        self.assertEqual(result["enrolled_clients"], 0)
 
     def test_bootstrap_server_validates_address_and_prefix_before_bootstrap(self):
         with self.assertRaisesRegex(WebAPIError, "prefix_length"):
