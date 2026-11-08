@@ -838,7 +838,7 @@ def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]
         raise WebAPIError("operation parameters do not match the selected operation")
     from feclora.storage.operation_log import operation_record
 
-    target = params.get("target") or params.get("source") or "unspecified"
+    target = params.get("target") or params.get("source") or params.get("image_id") or "unspecified"
     image_id = params.get("image_id")
     with operation_record(
         action, str(target), image_id=image_id,
