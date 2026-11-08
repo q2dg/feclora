@@ -11,6 +11,7 @@ from typing import Any, Callable
 
 from feclora.storage.volume_metadata import annotate_inventory
 from feclora.storage.volume_topology import collect_lvm_topology
+from feclora.storage.btrfs_inventory import collect_btrfs_topology
 
 LSBLK_COLUMNS = (
     "NAME,PATH,TYPE,SIZE,RO,TRAN,MODEL,VENDOR,SERIAL,WWN,"
@@ -73,7 +74,7 @@ def parse_lsblk(payload: str) -> dict[str, Any]:
         for item in data["blockdevices"]
         if isinstance(item, dict)
     ]
-    inventory = annotate_inventory({"schema_version": 1, "devices": devices})\n    inventory["volume_topology"] = collect_lvm_topology(which=shutil.which, runner=runner)\n    return inventory
+    inventory = annotate_inventory({"schema_version": 1, "devices": devices})\n    inventory["volume_topology"] = collect_lvm_topology(which=shutil.which, runner=runner)\n    inventory["btrfs_topology"] = collect_btrfs_topology(which=shutil.which, runner=runner)\n    return inventory
 
 
 def collect_inventory(
