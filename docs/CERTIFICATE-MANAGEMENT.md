@@ -2,100 +2,99 @@
 
 ## Decision
 
-Feclora should manage the ordinary deployment PKI itself. Requiring a home or
-small-lab operator to install an external CA, create CSRs, understand SANs, and
-maintain certificate databases is disproportionate for a rescue/deployment
-appliance. External organizational PKI remains an optional integration for
-managed environments.
-
-Certificate management is relevant only to Server/Client networking. Local
-rescue and offline disk imaging must not require certificates, a CA, Cockpit,
-or a network service.
+Feclora manages its own deployment CA by default. External organizational PKI
+remains supported for managed environments. Certificate administration is
+only required for Server/Client networking; local rescue and offline imaging
+remain usable without certificates, a CA, Cockpit or a network service.
 
 ## Security model
 
-- The Server owns one Feclora deployment CA. Its private key is root-only and
-  must never be copied to Clients, PXE/TFTP/HTTP assets, or the image repository.
-- Each endpoint creates its own TLS private key locally. Private keys never
-  leave the endpoint that created them.
-- A Client is enrolled by exchanging a certificate-signing request (CSR), not
-  its private key. The Server signs the CSR and returns the Client certificate
-  and CA certificate. A removable device is the initial, deliberately
-  out-of-band trust channel; a future pairing workflow may replace this with a
-  short-lived, single-use enrollment token after its threat model is reviewed.
-- The Server certificate is issued by the same Feclora CA. Clients trust that
-  CA and pin the Server's configured SAN identity.
-- Every Client certificate has a stable, unique URI SAN such as
-  `URI:feclora-client-<id>`, a short validity period (target: 90 days), and
-  the TLS client-auth extended key usage. The Server certificate has
-  `URI:feclora-server` and TLS server-auth usage.
-- mTLS proves endpoint identity. The Server's explicit enrolled-identity and
-  job allowlists authorize a Client to participate. A MAC address is inventory
-  metadata and an additional policy key, never authentication.
-- The Server's minisign key signs image manifests; it is distinct from the TLS
-  CA and TLS endpoint keys. A Client that only restores images does not need a
-  minisign signing key.
+- The Server owns a root-only Feclora CA private key and a separate TLS Server
+  private key. Neither is copied to Clients or PXE/HTTP assets.
+- Every Client generates its TLS private key locally and exports only a CSR.
+  The Server signs that CSR after explicit operator approval.
+- Every Client also generates a local age identity. Only its public age
+  recipient is exported. The Server maintains a recipient inventory used to
+  encrypt image artifacts for the Server and enrolled Clients.
+- Client certificates use a stable URI SAN
+  `URI:feclora-client-<id>`, TLS client-auth EKU and 90-day validity.
+  The Server identity is `URI:feclora-server` with server-auth EKU.
+- mTLS authenticates endpoint identity. The Server's enrolled-identity/MAC
+  mapping and per-job allowlist authorize participation. A MAC address is
+  inventory metadata, never authentication.
+- The Server minisign key, TLS CA/endpoint keys and age identities are
+  separate cryptographic roles and must never be substituted for one another.
 
-## User experience
+## Operator workflow
 
-The intended Server workflow is:
+1. On first entry to Server deployment mode, Feclora creates the CA, Server
+   TLS identity, minisign image-signing key and Server age identity. The UI
+   displays the CA SHA-256 fingerprint. Record it and back up the CA key
+   encrypted and offline.
+2. On a Client with no deployment config, choose **Prepare enrollment
+   request**. Feclora creates the Client TLS key and age identity locally,
+   then exports the CSR and public age recipient to removable media. Private
+   keys remain on that Client.
+3. On the Server, choose **Trusted Clients → Approve Client CSR**. Review the
+   CSR identity, assign its unicast MAC, and explicitly confirm issuance.
+   Feclora signs the CSR, adds the Client to the TLS allowlist and age
+   recipient inventory, and exports the Client certificate, CA certificate,
+   Server minisign public key and current age recipient list.
+4. On the Client, choose **Complete enrollment**. Enter the Server address
+   and MAC, verify the CA fingerprint and the Server minisign-key SHA-256
+   fingerprint against the values displayed by the Server, then install the
+   bundle. Feclora checks the CA chain, SAN identity and that the certificate
+   matches the private key already held locally.
+5. The Client can now join authenticated deployment jobs. It warns when its
+   certificate is within 30 days of expiry and offers a renewal CSR using the
+   existing private key. The Server signs the renewal; the Client installs the
+   replacement certificate without changing its identity.
 
-1. On first entry to Server mode, Feclora creates its local CA and Server
-   identity if they do not already exist. The UI displays the CA fingerprint
-   and asks the operator to record/verify it.
-2. On a Client, choose **Prepare enrollment**. Feclora creates the Client TLS
-   key locally and exports a CSR plus a human-readable device identity to a
-   removable drive. The private key remains on that Client.
-3. On the Server, choose **Enroll Client**, import the CSR, review the
-   requested device identity and assign the Client to an inventory/MAC entry.
-   Feclora signs the CSR and exports the certificate and CA certificate.
-4. Back on the Client, import the signed certificate bundle. Feclora checks
-   that the certificate matches the locally held private key and the expected
-   CA/SAN before enabling Client mode.
-5. The Server's **Trusted Clients** screen lists enrolled Clients, expiry
-   dates, last-seen status and permitted capabilities. The operator can
-   disable/revoke one Client without editing JSON or running OpenSSL.
+This is an intentionally physical bootstrap ceremony. Feclora never trusts a
+Client merely because it appears on DHCP/PXE or presents a MAC address.
 
-This bootstrap deliberately requires physical access or an equivalent
-administrator-controlled secure transfer. Automatically trusting an
-unauthenticated Client that merely appears on PXE would defeat mTLS.
+## Renewal, revocation and recovery
 
-## Renewal, revocation, and recovery
+- Client renewal preserves the existing TLS private key and stable identity.
+  The Server issues a new 90-day certificate after explicit CSR approval.
+- Revoking a Client removes its identity-to-MAC authorization and its age
+  recipient from the Server's recipient inventory, so future images are not
+  encrypted for that identity. Images already encrypted for that recipient
+  remain decryptable by it; revocation cannot retroactively revoke old copies.
+- Existing TLS sessions are not dynamically revoked by the allowlist. The
+  current UI performs trust administration before arming a job; do not use
+  it as an in-flight session termination control.
+- The Client currently receives a snapshot of the age recipient inventory at
+  enrollment/renewal. If the inventory changes later, re-export and refresh
+  the recipient list on Clients that will capture images for newly enrolled
+  recipients.
+- The CA private key is root-only but is not encrypted at rest in the Live
+  appliance. Protect persistent Server storage and keep an encrypted offline
+  backup. If lost or compromised, create a new CA and re-enroll every
+  endpoint.
+- CRL validation, server-certificate renewal automation, server-side expiry
+  inventory and OCSP are not implemented. The Client warns locally about its
+  own certificate expiry. OCSP is not required for an isolated appliance.
+- External PKI remains supported through the existing certificate-import
+  workflow; Feclora-managed CSR issuance is only enabled when the configured
+  CA is the local Feclora CA.
 
-- Feclora should warn before expiry and support a one-click renewal request
-  using the existing Client key. Renewal replaces the certificate, not the
-  identity.
-- Removing a Client from the Server's identity-to-MAC allowlist is the
-  immediate application-level revocation mechanism: a still-valid CA-signed
-  certificate is no longer authorized for a new deployment session.
-- The Server should maintain an auditable revocation/disable record rather
-  than silently deleting identity history. Existing TLS sessions must be
-  terminated when a Client is revoked.
-- CRL support is a defence-in-depth enhancement for CA-level revocation and
-  CA compromise response. OCSP is not required for an isolated Live appliance.
-  Until CRL validation is implemented, Feclora must not claim that it checks
-  certificate revocation status at the TLS layer.
-- Back up the CA private key encrypted and offline. If it is lost, existing
-  certificates cannot be renewed; generate a new CA and re-enroll endpoints.
-  If it is compromised, rotate the CA and re-enroll every endpoint.
-- External PKI remains available: operators can continue importing
-  organization-issued certificates and CA certificates instead of using the
-  Feclora-managed CA.
+## Current implementation boundaries
 
-## Implementation status
+Implemented: first-run CA/Server bootstrap, endpoint-local TLS and age key
+creation, CSR signing, CA and minisign-key fingerprint checks, Client
+certificate installation, Client renewal, Server allowlist enrollment and
+revocation, and per-Client age recipient registration/removal.
 
-The current Server UI can enroll, rotate, and remove Client certificate
-identities from its allowlist, but certificate issuance, private-key creation,
-Client-side provisioning, expiry inventory, and CRL/OCSP validation are not
-implemented. Current setup therefore still requires an external CA and
-out-of-band provisioning. The design above is the target UX, not a claim about
-the current executable.
+Not yet implemented: a Cockpit-based trust-management screen (the current
+enrollment workflow is in the dialog UI), CRL/OCSP validation, server-side
+certificate expiry/last-seen inventory, automatic refresh of age recipient
+snapshots on already-enrolled Clients, and automated Server certificate
+renewal.
 
 ## Explicit non-goals
 
-- No automatic trust based only on MAC address, DHCP, PXE UUID, IP address, or
-  first network contact.
-- No transfer of TLS private keys from Server to Client.
-- No requirement for OCSP or a public Internet connection.
-- No conflation of TLS certificates, minisign image-signing keys, and age
-  encryption identities.
+- No trust-on-first-network-contact or MAC-only authentication.
+- No export or transfer of endpoint TLS private keys.
+- No OCSP or public Internet dependency.
+- No conflation of TLS, minisign and age keys.
