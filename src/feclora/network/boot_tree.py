@@ -74,7 +74,7 @@ def render_ipxe_script(address: str, http_port: int = 8080) -> str:
         "#!ipxe\n"
         "dhcp\n"
         f"kernel {base}/vmlinuz root=live:{base}/squashfs.img ro rd.live.image "
-        "rd.luks=0 rd.md=0 rd.dm=0 ip=dhcp rd.neednet=1\n"
+        "ip=dhcp rd.neednet=1\n"
         f"initrd {base}/initrd.img\n"
         "boot\n"
     )
