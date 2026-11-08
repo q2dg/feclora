@@ -126,6 +126,20 @@ class CockpitEnrollmentTests(unittest.TestCase):
         self.assertTrue(result["renewal"])
         self.assertEqual(result["identity"], identity)
 
+    def test_renewal_rejects_csr_with_different_public_key_pin(self):
+        from pathlib import Path
+        pin = Path("/etc/feclora/pki/client-certificate-pins/lab-01.sha256")
+        with patch("feclora.deployment.cockpit_enrollment._client_pin_path", return_value=pin), patch(
+            "feclora.deployment.cockpit_enrollment.os.lstat", return_value=SimpleNamespace(
+                st_mode=stat.S_IFREG | 0o600, st_uid=0
+            )
+        ), patch("feclora.deployment.cockpit_enrollment.Path.read_text", return_value="a" * 64), patch(
+            "feclora.deployment.cockpit_enrollment._public_key_fingerprint", return_value="b" * 64
+        ):
+            from feclora.deployment.cockpit_enrollment import _verify_client_csr_pin
+            with self.assertRaisesRegex(CockpitEnrollmentError, "does not match the TLS key pinned"):
+                _verify_client_csr_pin("URI:feclora-client-lab-01", "/run/media/usb/renewal.csr")
+
     def test_approval_issues_certificate_enrolls_and_exports_public_bundle(self):
         config = SimpleNamespace(
             client_identity_to_mac={}, ca_file="/etc/feclora/pki/ca.crt",
@@ -160,6 +174,7 @@ class CockpitEnrollmentTests(unittest.TestCase):
         enroll.assert_called_once()
         register.assert_called_once_with("/etc/feclora/pki", "URI:feclora-client-lab-01", "age1" + "a" * 40)
         self.assertEqual(copy.call_count, 3)
+        store_pin.assert_called_once()
         self.assertFalse(result["image_capture_enabled"])
 
 
