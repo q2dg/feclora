@@ -192,6 +192,7 @@ def _renew_server_certificate(params: dict[str, Any]) -> dict[str, Any]:
         "renewed": True, "identity": config.local_identity,
         "certificate_file": renewed["certificate_file"],
         "ca_fingerprint": renewed["ca_fingerprint"], "expiry_days": days,
+        "ca_expiry_days": renewed["ca_expiry_days"],
         "message": "Server TLS certificate renewed with the existing CA and private key. The CA, Server identity, Client trust and image-signing keys were not changed.",
     }
 
