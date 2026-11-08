@@ -52,6 +52,8 @@ export default function App() {
   const [pxePort, setPxePort] = useState("8080");
   const [pxeAuthoritative, setPxeAuthoritative] = useState(false);
   const [pxePreflight, setPxePreflight] = useState(null);
+  const [pxeProfile, setPxeProfile] = useState(null);
+  const [pxeStatus, setPxeStatus] = useState({ active: false, configured: false });
   const [security, setSecurity] = useState({});
   const [encrypt, setEncrypt] = useState(false);
   const [sign, setSign] = useState(false);
@@ -71,10 +73,10 @@ export default function App() {
   const refresh = useCallback(async () => {
     setBusy(true); setError("");
     try {
-      const [s, i, j, op, inv, net] = await Promise.all([
-        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("operations"), callFeclora("inventory"), callFeclora("network_interfaces")
+      const [s, i, j, op, inv, net, pxe] = await Promise.all([
+        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("pxe_service_status")
       ]);
-      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []);
+      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setPxeStatus(pxe);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   }, []);
@@ -140,7 +142,7 @@ export default function App() {
     if (!selected) return;
     setBusy(true); setError(""); setNotice(""); setPxePreflight(null);
     try {
-      const result = await callFeclora("validate_pxe_profile", {
+      const profile = {
         interface: selected.interface,
         address: selected.address,
         prefix_length: selected.prefix_length,
@@ -152,9 +154,32 @@ export default function App() {
         dns_server: pxeMode === "isolated" && pxeDns ? pxeDns : null,
         http_port: Number(pxePort),
         authoritative_confirmed: pxeMode === "isolated" && pxeAuthoritative
-      });
+      };
+      const result = await callFeclora("validate_pxe_profile", profile);
+      setPxeProfile(profile);
       setPxePreflight(result);
       setNotice(result.message);
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const activatePXE = async () => {
+    if (!pxeProfile) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("start_pxe_services", pxeProfile);
+      setNotice(result.message);
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const stopPXE = async () => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("stop_pxe_services");
+      setNotice(result.message);
+      await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -318,7 +343,7 @@ export default function App() {
               </StackItem>
               <StackItem>
                 <Field label="Server network interface and address" help="Only active non-loopback IPv4 addresses assigned to this host are offered.">
-                  <select className="pf-v5-c-form-control" value={serverBinding} onChange={(e) => setServerBinding(e.target.value)}>
+                  <select className="pf-v5-c-form-control" value={serverBinding} onChange={(e) => { setServerBinding(e.target.value); setPxePreflight(null); setPxeProfile(null); }}>
                     <option value="">Select an interface/address…</option>
                     {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
                   </select>
@@ -352,13 +377,14 @@ export default function App() {
                 <Field label="HTTP boot asset port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={pxePort} onChange={(e) => setPxePort(e.target.value)} /></Field>
                 <Button variant="primary" onClick={validatePXEProfile} isLoading={busy} isDisabled={busy || !serverBinding || (pxeMode === "isolated" && (!pxePoolStart || !pxePoolEnd || !pxeAuthoritative))}>Run PXE preflight</Button>
               </StackItem>
+              {pxeStatus.active && <StackItem><Alert variant="warning" title="PXE runtime is active" isInline>Stop the PXE services when network boot is no longer required. <Button variant="danger" onClick={stopPXE} isLoading={busy} isDisabled={busy}>Stop PXE services and restore firewall</Button></Alert></StackItem>}
               {pxePreflight && <StackItem><Card><CardBody>
                 <Alert variant="success" title="PXE preflight passed" isInline>{pxePreflight.message}</Alert>
                 <p>Interface: {pxePreflight.interface} · {pxePreflight.address}/{pxePreflight.prefix_length}</p>
                 <p>Subnet: {pxePreflight.subnet} · Mode: {pxePreflight.mode}</p>
                 <p>iPXE URL: {pxePreflight.http_url}</p>
                 {pxePreflight.warnings.map((warning, index) => <Alert key={index} variant="warning" title="Network topology warning" isInline>{warning}</Alert>)}
-                <Alert variant="info" title="No services started" isInline>This validates the selected profile and daemon configuration only. DHCP/PXE services and firewall rules remain unchanged.</Alert>
+                {pxeStatus.active ? <Alert variant="success" title="PXE services active" isInline>Interface {pxeStatus.interface}; dnsmasq and Caddy are managed as temporary services.</Alert> : <Alert variant="info" title="Preflight only" isInline>No services have been started yet. Activation opens a temporary firewalld zone bound only to the selected interface; it is not enabled at boot.</Alert>}{!pxeStatus.active && <Button variant="primary" onClick={activatePXE} isLoading={busy} isDisabled={busy || !pxeProfile}>Activate PXE services</Button>}
               </CardBody></Card></StackItem>}
             </Stack>
           </Tab>
