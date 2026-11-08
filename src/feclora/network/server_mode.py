@@ -196,7 +196,7 @@ def run_server_ui(
         "temporarily moved into a dedicated Feclora firewalld zone; its previous "
         "zone is restored on shutdown. Other services on this interface may be "
         "interrupted. The current boot payload starts Feclora Live; authenticated "
-        "deployment jobs and Client mode are not yet wired."
+        "unicast jobs are available when /etc/feclora/deployment-server.json and enrolled trust keys are provisioned; Client mode requires its deployment-client.json."
     )
     confirm = _dialog([
         "--title", "Confirm PXE Server startup",
