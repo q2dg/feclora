@@ -62,7 +62,8 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [ ] Expose explicit partition/filesystem growth profiles where supported; never resize automatically.
 - [ ] Expand filesystem/volume-aware backup and restore for LVM, LUKS, multi-device Btrfs and Stratis; do not claim support from inventory alone.
 - [ ] Add cancellable background operation lifecycle and durable progress/status after browser disconnect.
-- [ ] Expose detailed operation logs and verification reports in Cockpit.
+- [x] Expose recorded operation failure type and diagnostic text alongside the durable operation history in Cockpit.
+- [ ] Add structured verification reports (manifest/signature/artifact checks) to Cockpit operation details.
 - [ ] Add remote repository selection (NFS, SMB/CIFS, SSH/SFTP) with protected credential handling.
 
 ### Project governance
