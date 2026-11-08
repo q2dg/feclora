@@ -233,27 +233,12 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
                 "client", ca_file=ca_cert,
                 certificate_file=client_cert, private_key_file=client_key,
             )
-            listener = socket.socket()
-            listener.bind(("127.0.0.1", 0))
-            listener.listen(1)
-            listener.settimeout(10)
-            port = listener.getsockname()[1]
             coordinator = DeploymentCoordinator(make_job())
             server = DeploymentControlServer(
                 coordinator, server_context, local_identity="URI:feclora-server",
                 client_identity_to_mac={"URI:feclora-client": MAC},
             )
-            accepted = []
-            errors = []
-
-            def accept_client():
-                try:
-                    accepted.append(server.accept_ready_client(listener))
-                except Exception as exc:
-                    errors.append(exc)
-
-            accept_thread = threading.Thread(target=accept_client, daemon=True)
-            accept_thread.start()
+            _address, port = server.start("127.0.0.1", 0)
             client_result = []
             client_errors = []
 
@@ -273,19 +258,27 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
 
             client_thread = threading.Thread(target=run_client, daemon=True)
             client_thread.start()
-            accept_thread.join(15)
-            self.assertFalse(accept_thread.is_alive(), "server did not complete mTLS readiness")
-            self.assertFalse(errors, str(errors))
-            self.assertEqual(len(accepted), 1)
-            self.assertEqual(accepted[0].mac_address, MAC)
-            self.assertEqual(server.arm_and_start(), (MAC,))
-            client_thread.join(15)
-            self.assertFalse(client_thread.is_alive(), "client did not finish after START")
-            self.assertFalse(client_errors, str(client_errors))
-            results = server.collect_results(timeout=10)
-            self.assertEqual(results[MAC], "succeeded")
-            self.assertEqual(coordinator.state, JobState.COMPLETED)
-            listener.close()
+            deadline = time.monotonic() + 12
+            try:
+                while time.monotonic() < deadline:
+                    clients = coordinator.clients()
+                    if clients and clients[0].state.value == "ready":
+                        break
+                    if client_errors:
+                        self.fail(str(client_errors))
+                    time.sleep(0.05)
+                self.assertTrue(coordinator.clients(), "client did not connect")
+                self.assertEqual(coordinator.clients()[0].state.value, "ready")
+                self.assertEqual(server.arm_and_start(), (MAC,))
+                client_thread.join(15)
+                self.assertFalse(client_thread.is_alive(), "client did not finish after START")
+                self.assertFalse(client_errors, str(client_errors))
+                results = server.collect_results(timeout=10)
+                self.assertEqual(results[MAC], "succeeded")
+                self.assertEqual(coordinator.state, JobState.COMPLETED)
+                self.assertEqual(len(client_result), 1)
+            finally:
+                server.stop()
 
 
 if __name__ == "__main__":
