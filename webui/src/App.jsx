@@ -843,7 +843,7 @@ export default function App() {
                 <Button variant="primary" onClick={refreshClientAgeRecipients} isLoading={busy} isDisabled={busy || !clientAgeInventoryPath}>Verify and refresh inventory</Button>
                 {clientAgeInventoryResult && <Alert variant="success" title="Age recipient inventory refreshed" isInline>{clientAgeInventoryResult.message} · {clientAgeInventoryResult.recipient_count} recipients · SHA-256 {clientAgeInventoryResult.sha256}</Alert>}
               </StackItem>}
-              {status?.client_configured ? <StackItem><Alert variant="success" title="Client already configured" isInline>This endpoint has a deployment Client configuration. Use the renewal workflow for certificate rotation; this wizard will not overwrite the existing identity.</Alert></StackItem> : <>
+              {status?.client_configured ? <StackItem><Alert variant="success" title="Client already configured" isInline>This endpoint has a deployment Client configuration. Cockpit certificate renewal is not yet available; this wizard will not overwrite the existing identity. Age recipient inventory refresh is available below.</Alert></StackItem> : <>
                 <StackItem>
                   <Title headingLevel="h3" size="lg">1. Prepare enrollment request</Title>
                   <Field label="Client identifier"><input className="pf-v5-c-form-control" value={clientId} onChange={(e) => { setClientId(e.target.value); setClientPrepared(null); }} placeholder="lab-01" /></Field>
