@@ -209,6 +209,9 @@ def receive_image_set(
             raise ImageTransferError("received image identifier does not match the armed deployment job")
         if len(manifest.artifacts) > _MAX_ARTIFACTS:
             raise ImageTransferError("image set contains too many artifacts")
+        reserved_names = {manifest.image_id + ".manifest.json", manifest.image_id + ".manifest.json.minisig"}
+        if any(item.filename in reserved_names for item in manifest.artifacts):
+            raise ImageTransferError("artifact filename collides with the manifest commit marker")
         manifest_stage = os.path.join(stage, expected_image_id + ".manifest.json")
         signature_stage = manifest_stage + ".minisig"
         for path, payload in ((manifest_stage, manifest_bytes), (signature_stage, signature)):
