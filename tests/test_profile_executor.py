@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from feclora.storage.profile_executor import _consume_profile_once, _matching_target, _require_persistent_ledger
