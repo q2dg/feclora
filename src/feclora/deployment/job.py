@@ -120,8 +120,8 @@ class DeploymentJob:
                 address = ipaddress.ip_address(group)
             except ValueError as exc:
                 raise JobValidationError("multicast_group must be an IPv4 multicast address") from exc
-            if address.version != 4 or not address.is_multicast:
-                raise JobValidationError("multicast_group must be an IPv4 multicast address")
+            if address.version != 4 or address not in ipaddress.ip_network("239.0.0.0/8"):
+                raise JobValidationError("multicast_group must be in administratively scoped 239.0.0.0/8")
             if (isinstance(port, bool) or not isinstance(port, int)
                     or not 1024 <= port <= 65534 or port % 2):
                 raise JobValidationError("multicast_port must be an even UDPcast portbase between 1024 and 65534")
