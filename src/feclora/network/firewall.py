@@ -50,7 +50,7 @@ class PXEFirewall:
         if interface in self._opened:
             raise PXEFirewallError(f"PXE firewall is already open for {interface}")
         self._call(["--state"])
-        zone_result = self._call(["--get-zone-of-interface", interface], check=False)
+        zone_result = self._call([f"--get-zone-of-interface={interface}"], check=False)
         if zone_result.returncode == 0 and zone_result.stdout.strip():
             zone = zone_result.stdout.strip()
         else:
@@ -60,16 +60,16 @@ class PXEFirewall:
         added: list[str] = []
         try:
             for port in requested:
-                query = self._call(["--zone", zone, "--query-port", port], check=False)
+                query = self._call([f"--zone={zone}", f"--query-port={port}"], check=False)
                 if query.returncode == 0:
                     continue
                 if query.returncode != 1:
                     raise PXEFirewallError(f"cannot query existing firewall rule {port}")
-                self._call(["--zone", zone, "--add-port", port])
+                self._call([f"--zone={zone}", f"--add-port={port}"])
                 added.append(port)
         except PXEFirewallError:
             for port in reversed(added):
-                self._call(["--zone", zone, "--remove-port", port], check=False)
+                self._call([f"--zone={zone}", f"--remove-port={port}"], check=False)
             raise
         self._opened[interface] = (zone, added)
 
