@@ -46,6 +46,7 @@ export default function App() {
   const [extractImageId, setExtractImageId] = useState("");
   const [extractPartitionSelector, setExtractPartitionSelector] = useState("");
   const [extractPartitionResult, setExtractPartitionResult] = useState(null);
+  const [extractLayout, setExtractLayout] = useState(null);
   const [images, setImages] = useState([]);
   const [journals, setJournals] = useState([]);
   const [deploymentJobs, setDeploymentJobs] = useState([]);
@@ -186,6 +187,18 @@ export default function App() {
       setNotice(`Revoked ${result.identity}; future image encryption will exclude this Client.`);
       setRevokeIdentity(""); setRevokeConfirmation("");
       await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const inspectImageLayout = async (imageId) => {
+    setExtractLayout(null); setExtractPartitionSelector(""); setExtractPartitionResult(null);
+    if (!imageId) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("inspect_image_layout", { image_id: imageId });
+      setExtractLayout(result);
+      setNotice(result.message);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -614,15 +627,27 @@ export default function App() {
                   <Title headingLevel="h3" size="lg">Extract a partition from a whole-disk image</Title>
                   <p>Select a verified whole-disk image and identify one partition by PARTUUID, PARTLABEL or partition node recorded in its partition table. Feclora verifies the source image and publishes a separate partition image; age-encrypted sources are re-encrypted to the current recipient inventory. The source image is not modified.</p>
                   <Field label="Whole-disk source image">
-                    <select className="pf-v5-c-form-control" value={extractImageId} onChange={(event) => { setExtractImageId(event.target.value); setExtractPartitionSelector(""); setExtractPartitionResult(null); }}>
+                    <select className="pf-v5-c-form-control" value={extractImageId} onChange={(event) => { setExtractImageId(event.target.value); inspectImageLayout(event.target.value); }}>
                       <option value="">Select whole-disk image…</option>
                       {images.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}{item.signed ? " · signed" : " · unsigned"}</option>)}
                     </select>
                   </Field>
-                  <Field label="Partition selector" help="Use a PARTUUID, PARTLABEL, or a partition node such as /dev/sda2 from the captured partition table.">
-                    <input className="pf-v5-c-form-control" value={extractPartitionSelector} onChange={(event) => { setExtractPartitionSelector(event.target.value); setExtractPartitionResult(null); }} placeholder="PARTUUID=… or PARTLABEL=…" />
+                  {extractLayout && <>
+                    <Alert variant="info" title="Verified partition-table preview" isInline>{extractLayout.message} Source size: {formatBytes(extractLayout.source_size_bytes)} · Logical sector: {extractLayout.logical_sector_size} bytes · {extractLayout.partitions.length} partitions.</Alert>
+                    <Table aria-label="Source image partition layout" variant="compact">
+                      <Thead><Tr><Th>Partition</Th><Th>UUID / label</Th><Th>Start sector</Th><Th>Size</Th></Tr></Thead>
+                      <Tbody>{extractLayout.partitions.map((part) => <Tr key={part.node}>
+                        <Td>{part.node}</Td><Td>{part.uuid || part.name || "—"}</Td><Td>{part.start_sector}</Td><Td>{formatBytes(part.size_bytes)}</Td>
+                      </Tr>)}</Tbody>
+                    </Table>
+                  </>}
+                  <Field label="Partition to extract" help="Choose a partition from the verified table preview. The selector is cleared whenever the source image changes.">
+                    <select className="pf-v5-c-form-control" value={extractPartitionSelector} onChange={(event) => { setExtractPartitionSelector(event.target.value); setExtractPartitionResult(null); }} disabled={!extractLayout || !extractLayout.partitions.length}>
+                      <option value="">Select partition…</option>
+                      {(extractLayout?.partitions || []).map((part) => <option key={part.node} value={part.selector}>{part.node} · {part.uuid || part.name || part.selector} · {formatBytes(part.size_bytes)}</option>)}
+                    </select>
                   </Field>
-                  <Button variant="primary" onClick={extractPartitionFromImage} isLoading={busy} isDisabled={busy || !extractImageId || !extractPartitionSelector.trim()}>Extract partition image</Button>
+                  <Button variant="primary" onClick={extractPartitionFromImage} isLoading={busy} isDisabled={busy || !extractImageId || !extractLayout || !extractPartitionSelector}>Extract partition image</Button>
                   {busy && progress && <Progress value={progress.bytes_total ? Math.min(100, progress.bytes_done / progress.bytes_total * 100) : 0} title="Partition extraction progress" measureLocation="outside" label={formatBytes(progress.bytes_done) + " / " + formatBytes(progress.bytes_total)} />}
                   {extractPartitionResult && <Alert variant="success" title="Partition image published" isInline>
                     Source: {extractPartitionResult.source_image_id} · New image: {extractPartitionResult.image_id} · {extractPartitionResult.signed ? "Signed" : "Unsigned"} · {extractPartitionResult.encrypted ? "age-encrypted" : "unencrypted"}
