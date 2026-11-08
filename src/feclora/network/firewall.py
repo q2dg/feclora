@@ -116,7 +116,10 @@ class PXEFirewall:
         """Reattach this manager to a previously persisted Feclora runtime zone."""
         if not _INTERFACE_RE.fullmatch(interface):
             raise PXEFirewallError("Invalid interface name for firewall recovery")
-        if not isinstance(state, dict) or set(state) != {"zone", "restore_zone", "ports"}:
+        if not isinstance(state, dict) or set(state) not in (
+            {"zone", "restore_zone", "ports"},
+            {"zone", "restore_zone", "ports", "protocols"},
+        ):
             raise PXEFirewallError("Persisted PXE firewall state is malformed")
         zone, restore_zone, ports = state["zone"], state["restore_zone"], state["ports"]
         if not isinstance(zone, str) or not re.fullmatch(r"feclora-pxe-[0-9a-f]{8}", zone):
@@ -130,6 +133,12 @@ class PXEFirewall:
             or int(port.split("/", 1)[0]) > 65535 for port in ports
         ):
             raise PXEFirewallError("Persisted PXE firewall port list is invalid")
+        protocols = state.get("protocols", [])
+        if not isinstance(protocols, list) or any(
+            not isinstance(protocol, str) or not re.fullmatch(r"[a-z0-9-]{1,32}", protocol)
+            for protocol in protocols
+        ):
+            raise PXEFirewallError("Persisted PXE firewall protocol list is invalid")
         if self._current_zone(interface) != zone:
             raise PXEFirewallError("Refusing to adopt a PXE firewall zone not currently assigned to the selected interface")
         if interface in self._opened:
@@ -137,6 +146,7 @@ class PXEFirewall:
         self._opened[interface] = {
             "zone": zone, "restore_zone": restore_zone,
             "interface_added": True, "ports": list(ports),
+            **({"protocols": list(protocols)} if "protocols" in state else {}),
         }
 
     def is_open(self, interface: str) -> bool:
