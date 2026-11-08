@@ -925,13 +925,21 @@ def _read_client_job_status(job_id: str) -> dict[str, Any]:
 
 def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
     required = {"host", "job_id", "device_path", "confirmation", "compression"}
-    if frozenset(params) not in {frozenset(required), frozenset(required | {"network_interface"})}:
-        raise WebAPIError("start_client_job requires host, job_id, device_path, confirmation, compression and optional network_interface")
+    allowed = {
+        frozenset(required),
+        frozenset(required | {"network_interface"}),
+        frozenset(required | {"network_interface", "igmp_confirmed"}),
+    }
+    if frozenset(params) not in allowed:
+        raise WebAPIError("start_client_job requires host, job_id, device_path, confirmation, compression and optional multicast acknowledgements")
     inspection = _inspect_remote_job({"host": params["host"], "job_id": params["job_id"]})
     job = inspection["job"]
     network_interface = params.get("network_interface")
+    igmp_confirmed = params.get("igmp_confirmed", False)
     multicast_preflight = None
     if job["transport"] == "multicast":
+        if igmp_confirmed is not True:
+            raise WebAPIError("explicitly confirm IGMP snooping and an active querier on the deployment VLAN")
         if job["operation"] != "restore":
             raise WebAPIError("multicast Client execution supports restore jobs only")
         if not isinstance(network_interface, str) or network_interface not in {
@@ -945,8 +953,8 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
             )
         except Exception as exc:
             raise WebAPIError(f"multicast receive interface preflight failed: {exc}") from exc
-    elif network_interface is not None:
-        raise WebAPIError("network_interface is only valid for multicast Client jobs")
+    elif network_interface is not None or igmp_confirmed is not False:
+        raise WebAPIError("multicast interface and IGMP acknowledgement are only valid for multicast Client jobs")
     device_path = params["device_path"]
     confirmation = params["confirmation"]
     compression = params["compression"]
@@ -995,6 +1003,7 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
         "schema_version": 1, "job_id": params["job_id"], "host": inspection["host"],
         "device_path": device_path, "confirmation": confirmation,
         "compression": compression, "network_interface": network_interface,
+        "igmp_confirmed": igmp_confirmed,
     })
     unit = "feclora-client@" + params["job_id"] + ".service"
     try:
