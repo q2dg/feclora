@@ -55,7 +55,7 @@ class PxeServiceTests(unittest.TestCase):
             return subprocess.CompletedProcess(argv, 0, "", "")
         with tempfile.TemporaryDirectory() as tmp:
             firewall = FakeFirewall()
-            manager = PXEServiceManager(tmp, runner=runner, preflight=lambda _config: None, firewall=firewall)
+            manager = PXEServiceManager(tmp, runner=runner, preflight=lambda _config: None, firewall=firewall, boot_stager=lambda _config: None)
             with self.assertRaises(PXEServiceError):
                 manager.start(config())
         self.assertTrue(any(argv[:2] == ["/usr/bin/systemctl", "stop"] for argv in calls))
