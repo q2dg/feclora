@@ -771,9 +771,12 @@ def _start_deployment_service(params: dict[str, Any]) -> dict[str, Any]:
 def _stop_deployment_service(params: dict[str, Any]) -> dict[str, Any]:
     job_id = _deployment_service_job_id(params)
     status = _deployment_service_status(job_id)
-    if status.get("worker_active") or status.get("job_state") in {"armed", "running"}:
+    clients = status.get("clients", [])
+    if status.get("worker_active") or status.get("job_state") == "running" or any(
+        isinstance(client, dict) and client.get("state") == "running" for client in clients
+    ):
         raise WebAPIError("cannot stop the service while a deployment worker may be performing storage I/O")
-    if status.get("job_state") == "created" and status.get("clients"):
+    if status.get("job_state") == "created" and clients:
         raise WebAPIError("cancel the unarmed job before stopping its service while Clients are connected")
     try:
         result = subprocess.run(
