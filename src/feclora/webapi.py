@@ -1016,6 +1016,11 @@ def _deployment_service_status(job_id: str) -> dict[str, Any]:
 
 def _start_deployment_service(params: dict[str, Any]) -> dict[str, Any]:
     job_id = _deployment_service_job_id(params)
+    active_service = _active_deployment_service_status()
+    if active_service is not None:
+        if active_service.get("job_id") != job_id:
+            raise WebAPIError("another deployment job already owns the Server control service")
+        return active_service
     from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
     journal_path = _deployment_journal_directory() / f"{job_id}.jsonl"
     try:
