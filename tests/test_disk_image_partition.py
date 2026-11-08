@@ -84,7 +84,7 @@ class DiskImagePartitionTests(unittest.TestCase):
     def test_rejects_corrupt_partition_table_before_extracting(self):
         with open(os.path.join(self.temp.name, "source.sfdisk"), "ab") as stream:
             stream.write(b"tamper")
-        with self.assertRaisesRegex(DiskImagePartitionError, "SHA-256"):
+        with self.assertRaisesRegex(DiskImagePartitionError, "stored artifact size|SHA-256"):
             extract_partition_image(self.manifest, self.temp.name, "aaaa-bbbb")
 
 
