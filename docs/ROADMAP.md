@@ -28,7 +28,8 @@ the old local `dialog` menu is no longer installed in the Live package.
 
 ### Cockpit remote deployment
 
-- [ ] Complete Server setup wizard: activate and persist the validated ProxyDHCP/isolated-DHCP profile, manage PXE services and firewall scope. Cockpit currently provides configuration preflight only.
+- [x] Cockpit PXE activation/shutdown: persist transient dnsmasq/Caddy unit and interface-scoped firewalld state across API calls; stop restores the previous interface zone. Services are not enabled at boot.
+- [ ] Complete Server setup wizard: manage persistent network configuration and expose richer PXE service diagnostics.
 - [ ] Full managed deployment CA and Server identity administration from Cockpit (the initial identity bootstrap step is implemented).
 - [ ] Client CSR import/approval, certificate issue/rotation/revocation and age-recipient management from Cockpit.
 - [ ] Client enrollment workflow and local target approval from Cockpit.
