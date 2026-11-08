@@ -925,12 +925,28 @@ def _read_client_job_status(job_id: str) -> dict[str, Any]:
 
 def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
     required = {"host", "job_id", "device_path", "confirmation", "compression"}
-    if set(params) != required:
-        raise WebAPIError("start_client_job requires exactly host, job_id, device_path, confirmation and compression")
+    if set(params) not in {frozenset(required), frozenset(required | {"network_interface"})}:
+        raise WebAPIError("start_client_job requires host, job_id, device_path, confirmation, compression and optional network_interface")
     inspection = _inspect_remote_job({"host": params["host"], "job_id": params["job_id"]})
     job = inspection["job"]
-    if job["transport"] != "unicast":
-        raise WebAPIError("Cockpit Client execution currently supports unicast jobs; multicast Client UI integration remains pending")
+    network_interface = params.get("network_interface")
+    multicast_preflight = None
+    if job["transport"] == "multicast":
+        if job["operation"] != "restore":
+            raise WebAPIError("multicast Client execution supports restore jobs only")
+        if not isinstance(network_interface, str) or network_interface not in {
+            name for _index, name in socket.if_nameindex()
+        }:
+            raise WebAPIError("select a local multicast receive interface")
+        from feclora.network.multicast_preflight import inspect_multicast_interface
+        try:
+            multicast_preflight = inspect_multicast_interface(
+                network_interface, job["multicast_group"], role="receiver",
+            )
+        except Exception as exc:
+            raise WebAPIError(f"multicast receive interface preflight failed: {exc}") from exc
+    elif network_interface is not None:
+        raise WebAPIError("network_interface is only valid for multicast Client jobs")
     device_path = params["device_path"]
     confirmation = params["confirmation"]
     compression = params["compression"]
@@ -978,7 +994,7 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
     _write_client_job_request(request_path, {
         "schema_version": 1, "job_id": params["job_id"], "host": inspection["host"],
         "device_path": device_path, "confirmation": confirmation,
-        "compression": compression,
+        "compression": compression, "network_interface": network_interface,
     })
     unit = "feclora-client@" + params["job_id"] + ".service"
     try:
@@ -1004,7 +1020,14 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
     last_error = None
     while time.monotonic() < deadline:
         try:
-            return _client_job_status({"job_id": params["job_id"]})
+            status = _client_job_status({"job_id": params["job_id"]})
+            if multicast_preflight is not None:
+                status["multicast_preflight"] = {
+                    "interface": multicast_preflight.interface,
+                    "ipv4_address": multicast_preflight.ipv4_address,
+                    "warnings": list(multicast_preflight.warnings),
+                }
+            return status
         except WebAPIError as exc:
             last_error = exc
             time.sleep(0.1)
@@ -1083,10 +1106,6 @@ def _start_deployment_service(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError(f"cannot inspect the requested deployment job journal: {exc}") from exc
     if report.get("job_id") != job_id:
         raise WebAPIError("deployment journal UUID does not match the requested job")
-    if report.get("job", {}).get("transport") == "multicast":
-        raise WebAPIError(
-            "Cockpit cannot start multicast jobs until the Client-side multicast receiver workflow is integrated"
-        )
     if report.get("job_state") != "created" or report.get("interrupted"):
         raise WebAPIError("only a fresh, unstarted deployment job can be started from Cockpit")
     unit = _deployment_service_unit(job_id)
@@ -1245,10 +1264,6 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         job = DeploymentJob.from_dict(params["job"])
     except JobValidationError as exc:
         raise WebAPIError(str(exc)) from exc
-    if job.transport == "multicast":
-        raise WebAPIError(
-            "Cockpit multicast deployment is not yet end-to-end: the Client-side multicast receiver workflow is pending; use authenticated unicast for Cockpit jobs"
-        )
     if job.operation == "save" and job.target_type != "disk":
         raise WebAPIError("Client-side capture currently supports whole-disk jobs only")
     if job.transport == "unicast" and len(job.authorized_clients) != 1:
