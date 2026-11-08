@@ -61,7 +61,7 @@ description: Fedora-based disk imaging, cloning and recovery.
   </section>
 
   <footer class="landing-footer">
-    <span>Feclora · Open source project</span>
+    <span>Feclora · Project source</span>
     <a href="https://github.com/q2dg/feclora">GitHub repository ↗</a>
   </footer>
 </main>
