@@ -68,9 +68,10 @@ class UDPcastConfigTests(unittest.TestCase):
             hashlib.sha256(b"x" * 1024).hexdigest(),
         )
         with tempfile.TemporaryDirectory() as directory:
+            firewall = Mock()
             with patch("feclora.network.udpcast.shutil.disk_usage", return_value=SimpleNamespace(free=1)):
                 with self.assertRaisesRegex(UDPcastError, "Insufficient free space"):
-                    receive_multicast_artifact_to_staging(directory, artifact, self.config)
+                    receive_multicast_artifact_to_staging(directory, artifact, self.config, firewall=firewall)
 
     def test_staging_receives_only_to_private_file_and_checks_size(self):
         artifact = ImageArtifact(
@@ -83,8 +84,10 @@ class UDPcastConfigTests(unittest.TestCase):
                 with open(target, "wb") as stream:
                     stream.write(b"abc")
                 return Mock(returncode=0, poll=Mock(return_value=0))
+            firewall = Mock()
+            firewall.is_open.return_value = False
             path = receive_multicast_artifact_to_staging(
-                directory, artifact, self.config,
+                directory, artifact, self.config, firewall=firewall,
                 udp_receiver="/usr/bin/udp-receiver", runner_popen=fake_process,
             )
             self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
@@ -129,8 +132,10 @@ class UDPcastConfigTests(unittest.TestCase):
                 open(target, "wb").close()
                 return Mock(returncode=0, poll=Mock(return_value=0))
             with self.assertRaisesRegex(UDPcastError, "size"):
+                firewall = Mock()
+                firewall.is_open.return_value = False
                 receive_multicast_artifact_to_staging(
-                    directory, artifact, self.config,
+                    directory, artifact, self.config, firewall=firewall,
                     udp_receiver="/usr/bin/udp-receiver", runner_popen=fake_process,
                 )
             self.assertEqual(os.listdir(directory), [])
