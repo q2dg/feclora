@@ -21,7 +21,7 @@ class LvmTopologyTests(unittest.TestCase):
 
     def test_rejects_invalid_report(self):
         with self.assertRaises(VolumeTopologyError):
-            _report_rows('{"report":[]}', "lvs")
+            _report_rows('{"report":[{"lvs":"not-a-list"}]}', "lvs")
 
     def test_collects_all_three_read_only_reports(self):
         outputs = {
