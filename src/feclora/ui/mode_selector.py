@@ -96,12 +96,8 @@ def main() -> int:
         if choice == "server":
             run_server_ui()
         elif choice == "client":
-            _dialog([
-                "--title", "Client mode not yet implemented",
-                "--msgbox",
-                "Client mode is part of this single ISO target, but the PXE client runtime and authenticated job protocol are not implemented yet.",
-                "10", "76",
-            ])
+            from feclora.deployment.client_ui import run_client_ui
+            run_client_ui()
         elif choice == "keyboard":
             _select_keyboard()
         elif choice == "reboot":
