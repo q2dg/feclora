@@ -182,7 +182,11 @@ def renew_server_certificate(
         _regular_file(path, label, root_owned=True)
     if any(os.stat(paths[key]).st_mode & 0o077 for key in ("ca_key", "server_key")):
         raise PKIError("CA and Server private keys must not be accessible by group or other users")
-    _run([openssl, "verify", "-CAfile", paths["ca_file"], paths["server_certificate"]], runner)
+    ca_expiry_days = certificate_expiry_days(paths["ca_file"], runner=runner, openssl=openssl)
+    if ca_expiry_days <= 0:
+        raise PKIError("deployment CA has expired; CA rotation and Client trust migration are required")
+    effective_validity_days = min(validity_days, ca_expiry_days)
+    _run([openssl, "verify", "-no_check_time", "-CAfile", paths["ca_file"], paths["server_certificate"]], runner)
     current_san = _run(
         [openssl, "x509", "-in", paths["server_certificate"], "-noout", "-ext", "subjectAltName"],
         runner,
@@ -211,7 +215,7 @@ def renew_server_certificate(
         _run([
             openssl, "x509", "-req", "-in", csr, "-CA", paths["ca_file"],
             "-CAkey", paths["ca_key"], "-set_serial", serial, "-out", renewed,
-            "-days", str(validity_days), "-sha256", "-extfile", extensions,
+            "-days", str(effective_validity_days), "-sha256", "-extfile", extensions,
         ], runner)
         _run([openssl, "verify", "-CAfile", paths["ca_file"], renewed], runner)
         renewed_san = _run(
@@ -238,6 +242,7 @@ def renew_server_certificate(
         return {
             "certificate_file": paths["server_certificate"],
             "ca_fingerprint": ca_fingerprint(paths["ca_file"], runner=runner, openssl=openssl),
+            "ca_expiry_days": ca_expiry_days,
         }
     finally:
         import shutil
