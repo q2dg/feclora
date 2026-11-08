@@ -36,12 +36,21 @@ class LvmTopologyTests(unittest.TestCase):
         topology = collect_lvm_topology(
             which=lambda name: "/usr/sbin/" + name,
             runner=runner,
+            effective_uid=lambda: 0,
         )
         self.assertEqual(len(topology["pvs"]), 1)
         self.assertEqual(len(topology["vgs"]), 1)
         self.assertEqual(len(topology["lvs"]), 1)
         self.assertTrue(all("--readonly" in argv for argv in calls))
         self.assertTrue(all("--reportformat" in argv for argv in calls))
+
+    def test_unprivileged_collection_requires_noninteractive_sudo(self):
+        topology = collect_lvm_topology(
+            which=lambda name: "/usr/sbin/" + name,
+            sudo=None,
+            effective_uid=lambda: 1000,
+        )
+        self.assertEqual(topology["status"], "permission_required")
 
     def test_missing_tools_mark_topology_incomplete(self):
         topology = collect_lvm_topology(which=lambda _name: None)
