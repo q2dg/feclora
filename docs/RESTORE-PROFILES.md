@@ -121,8 +121,17 @@ FECLORA_OPERATION_LOG=/mnt/restore-media/audit/operations.jsonl
 FECLORA_AGE_IDENTITY=
 ```
 
-3. Ensure the profile, image manifest, detached signatures, public keys,
-   age identity (if used), audit directory and mount are all readable/writable
+3. Create the environment directory and protect its configuration:
+
+```sh
+sudo install -d -o root -g feclora -m 0750 /etc/feclora
+sudo chown -R feclora:feclora /mnt/restore-media
+sudo chmod 0640 /etc/feclora/restore-profile.env
+sudo chown root:feclora /etc/feclora/restore-profile.env
+```
+
+   Ensure the profile, image manifest, detached signatures, public keys,
+   age identity (if used), audit directory and mount are readable/writable
    as appropriate by the live `feclora` account.
 4. Enable the service explicitly with
    `systemctl enable feclora-restore-profile.service`.
