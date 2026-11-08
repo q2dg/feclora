@@ -734,6 +734,59 @@ def _deployment_journal_directory(*, create: bool = False) -> Path:
     return directory
 
 
+def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"host", "job_id"}:
+        raise WebAPIError("remote job inspection requires exactly host and job_id")
+    host = params["host"]
+    job_id = params["job_id"]
+    if not isinstance(job_id, str) or not re.fullmatch(
+        r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
+        job_id,
+    ):
+        raise WebAPIError("job_id must be a canonical UUID")
+    from feclora.deployment.runtime_config import load_client_runtime_config
+    from feclora.deployment.control import DeploymentControlError, inspect_deployment_job
+    from feclora.network.remote_clone_protocol import create_mutual_tls_context
+    try:
+        config = load_client_runtime_config("/etc/feclora/deployment-client.json")
+    except Exception as exc:
+        raise WebAPIError(f"Client deployment identity is not configured: {exc}") from exc
+    if host == "":
+        host = config.host
+    if (not isinstance(host, str) or not host or len(host) > 253
+            or any(ord(char) < 33 for char in host)):
+        raise WebAPIError("Server host must be a hostname or address without whitespace")
+    try:
+        context = create_mutual_tls_context(
+            "client", ca_file=config.ca_file,
+            certificate_file=config.certificate_file,
+            private_key_file=config.private_key_file,
+        )
+        job = inspect_deployment_job(
+            host, config.port, context,
+            local_identity=config.local_identity,
+            expected_server_identity=config.server_identity,
+            mac_address=config.mac_address,
+            job_id=job_id,
+        )
+    except (DeploymentControlError, OSError, ValueError) as exc:
+        raise WebAPIError(f"could not inspect authenticated Server job: {exc}") from exc
+    if job.operation == "save" and job.target_type != "disk":
+        raise WebAPIError("Client-side capture currently supports whole-disk jobs only")
+    if job.operation == "save" and not config.local_minisign_secret_key:
+        raise WebAPIError("this Client has no enrolled image-signing key and cannot capture images")
+    if job.transport == "multicast" and (not config.age_identity_file or not config.age_recipients_file):
+        raise WebAPIError("multicast restore requires this Client's enrolled age identity and recipient inventory")
+    return {
+        "host": host,
+        "port": config.port,
+        "client_identity": config.local_identity,
+        "client_mac": config.mac_address,
+        "server_identity": config.server_identity,
+        "job": job.to_dict(),
+    }
+
+
 def _deployment_service_job_id(params: dict[str, Any]) -> str:
     if set(params) != {"job_id"}:
         raise WebAPIError("deployment service action requires exactly job_id")
@@ -1070,6 +1123,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise WebAPIError("deployment_jobs does not accept parameters")
         return {"jobs": _deployment_jobs()}
+    if action == "inspect_remote_job":
+        return _inspect_remote_job(params)
     if action == "create_deployment_job":
         return _create_deployment_job(params)
     if action == "reconcile_deployment_job":
