@@ -13,9 +13,15 @@ feclora's whole-disk image format stores the raw disk payload and an associated 
 - Exact selection by partition device node, PARTUUID or partition name; ambiguous selectors fail closed.
 - Bounded `pread`/`pwrite` copying of a selected byte range, SHA-256 calculation, progress callbacks and cancellation.
 
-## Integration still required
+## Disk-image extraction workflow now integrated
 
-This is a tested low-level primitive, not yet a user-facing restore workflow. The caller must still:
+`src/feclora/storage/disk_image_partition.py` verifies the disk manifest and optional minisign signature, verifies the stored partition-table and disk payload SHA-256 values, decrypts age-protected payloads when an identity is supplied, preflights the complete decompressed disk byte count, and extracts the selected PARTUUID/name/device byte range into a separately manifested raw partition image. The Local rescue restore menu exposes this as **Extract and restore one selected partition only**. It then delegates the actual target write to the existing partition restore implementation, preserving independent target selection, typed destructive confirmation, mounted/root-device protections, progress/cancellation and read-back verification.
+
+The extracted raw artifact is retained in the image repository as a separately manifested image. It is not automatically deleted after restore, allowing audit/retry but consuming repository space.
+
+## Remaining integration and validation
+
+The remaining caller responsibilities are:
 
 1. Load and authenticate the image manifest and verify the whole-disk image digest before trusting its partition table.
 2. Obtain the actual logical sector size and validate it against image metadata.
