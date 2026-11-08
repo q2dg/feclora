@@ -23,6 +23,8 @@ def _leaf_slaves(block_name: str, sys_class_block: Path, seen: set[str]) -> list
     try:
         entries = sorted(slaves.iterdir())
     except FileNotFoundError:
+        if block_name.startswith("dm-"):
+            raise StratisInventoryError(f"device-mapper topology is missing for {block_name}")
         return [block_name]
     except OSError as exc:
         raise StratisInventoryError(f"cannot inspect sysfs slaves for {block_name}: {exc}") from exc
@@ -64,6 +66,10 @@ def collect_stratis_topology(
                 resolved = Path(os.path.realpath(fs_entry))
             except OSError as exc:
                 raise StratisInventoryError(f"cannot resolve Stratis filesystem {fs_entry}: {exc}") from exc
+            if resolved.parent != Path("/dev") or not resolved.name.startswith("dm-"):
+                raise StratisInventoryError(
+                    f"Stratis filesystem link does not resolve to a device-mapper node: {fs_entry}"
+                )
             dm_name = resolved.name
             backing = _leaf_slaves(dm_name, Path(sys_class_block), set())
             filesystems.append({
