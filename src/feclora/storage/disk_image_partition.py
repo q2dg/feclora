@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import stat
 import tempfile
 import uuid
@@ -118,7 +119,8 @@ def extract_partition_image(
 
     artifact = disk_artifacts[0]
     stage = tempfile.mkdtemp(prefix=".feclora-extract-", dir=repo)
-    artifact_name = f"{manifest.image_id}.partition-{uuid.uuid4().hex}.raw"
+    safe_prefix = re.sub(r"[^A-Za-z0-9_.-]", "-", manifest.image_id)[:72]
+    artifact_name = f"{safe_prefix}.partition-{uuid.uuid4().hex}.raw"
     manifest_name = artifact_name + ".manifest.json"
     published: list[str] = []
     directory_fd = None
@@ -154,7 +156,7 @@ def extract_partition_image(
                 exact = ExactRange()
                 image_artifact = write_artifact(
                     stage, artifact_name, exact, role="partition-image",
-                    image_format="raw", partition_id=Path(selected.node).name,
+                    image_format="raw", partition_id=(re.sub(r"[^A-Za-z0-9_.+-]", "-", Path(selected.node).name)[:64] or "partition"),
                 )
                 if exact.remaining:
                     raise DiskImagePartitionError("partition extraction did not consume the complete range")
@@ -166,7 +168,7 @@ def extract_partition_image(
 
         extracted_manifest = ImageManifest.from_dict({
             "schema_version": 1,
-            "image_id": f"{manifest.image_id}-part-{uuid.uuid4().hex[:12]}",
+            "image_id": f"{safe_prefix}-part-{uuid.uuid4().hex[:12]}"[:128],
             "image_type": "partition",
             "source_size_bytes": selected.length_bytes,
             "logical_sector_size": manifest.logical_sector_size,
