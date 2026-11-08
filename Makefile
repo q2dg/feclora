@@ -1,13 +1,13 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help deps preflight validate test ui webui build clean
+.PHONY: help deps preflight validate test webui build clean
 
 help:
+	@echo 'webui    Build the Cockpit React/PatternFly frontend'
 	@echo 'deps     Install Fedora build-host dependencies'
 	@echo 'preflight Check host, KVM, input ISO and free space'
 	@echo 'validate Run static project and Bash syntax checks'
 	@echo 'test     Run hardware-independent Python unit tests'
-	@echo 'ui       Run the read-only dialog storage browser'
 	@echo 'build    Build the ISO (requires FEDORA_INSTALL_ISO and root)'
 	@echo 'clean    Remove generated build output'
 
@@ -23,9 +23,6 @@ validate:
 
 test:
 	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v
-
-ui:
-	./scripts/feclora-ui.sh
 
 webui:
 	bash build/build-webui.sh
