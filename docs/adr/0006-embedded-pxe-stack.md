@@ -91,8 +91,8 @@ initramfs from `images/pxeboot`, `LiveOS/squashfs.img`, and an iPXE script
 using dracut `root=live:http://...`.
 
 Runtime configuration generation, interface/address checks, daemon preflight,
-transient systemd lifecycle with rollback, interface-zone-scoped firewalld
-rules, boot-tree staging, and a basic interactive Server-mode flow for
+transient systemd lifecycle with rollback, a temporary interface-exclusive
+firewalld zone with previous-zone restoration, boot-tree staging, and a basic interactive Server-mode flow for
 interface selection, DHCP profile confirmation, startup and shutdown exist as
 code. The authenticated PXE client/job protocol, real-daemon validation, and
 BIOS/UEFI hardware testing remain.
