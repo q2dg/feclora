@@ -145,6 +145,27 @@ class ClientJoinTests(unittest.TestCase):
         self.assertNotIn("/dev/", ready["target_description"])
         self.assertTrue(result["success"])
 
+    def test_client_never_sends_local_device_path_to_server(self):
+        job = make_job()
+        fake = FakeSocket(frame({
+            "type": "job", "job": job.to_dict(),
+            "server_identity": "URI:feclora-server",
+        }))
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.maximum_version = ssl.TLSVersion.TLSv1_3
+        context.verify_mode = ssl.CERT_REQUIRED
+        with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
+            with self.assertRaisesRegex(DeploymentControlError, "invalid description"):
+                join_deployment(
+                    "192.0.2.10", 9443, context,
+                    local_identity="URI:feclora-client",
+                    expected_server_identity="URI:feclora-server",
+                    mac_address=MAC, job_id=JOB_ID,
+                    prepare_local_target=lambda offered: "/dev/vda",
+                    execute_job=lambda offered: (True, "unexpected"),
+                )
+
     def test_client_refuses_unarmed_or_mismatched_start(self):
         job = make_job()
         fake = FakeSocket(frame({
