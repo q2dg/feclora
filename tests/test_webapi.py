@@ -36,6 +36,17 @@ class WebAPITests(unittest.TestCase):
         with patch("feclora.webapi._network_interfaces", return_value=expected):
             self.assertEqual(dispatch({"action": "network_interfaces"}), {"interfaces": expected})
 
+    def test_prepare_client_request_is_exposed_through_allowlisted_api(self):
+        with patch("feclora.webapi._prepare_client_request", return_value={"identity": "URI:feclora-client-lab"}) as prepare:
+            result = dispatch({"action": "prepare_client_request", "params": {"client_id": "lab"}})
+        prepare.assert_called_once_with({"client_id": "lab"})
+        self.assertEqual(result["identity"], "URI:feclora-client-lab")
+
+    def test_complete_client_enrollment_is_exposed_through_allowlisted_api(self):
+        with patch("feclora.webapi._complete_client_enrollment", return_value={"identity": "URI:feclora-client-lab"}) as complete:
+            result = dispatch({"action": "complete_client_enrollment", "params": {"client_id": "lab"}})
+        complete.assert_called_once_with({"client_id": "lab"})
+        self.assertEqual(result["identity"], "URI:feclora-client-lab")
     def test_inspect_client_csr_is_exposed_through_allowlisted_api(self):
         with patch("feclora.webapi._inspect_client_csr", return_value={"identity": "URI:feclora-client-lab"}) as inspect:
             result = dispatch({"action": "inspect_client_csr", "params": {"csr_path": "/run/media/usb/request.csr"}})
