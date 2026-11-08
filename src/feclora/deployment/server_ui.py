@@ -108,9 +108,9 @@ def _choose_job(
     else:
         if len(enrolled) < 2:
             raise DeploymentControlError("multicast restore requires at least two enrolled Clients")
-        args = ["--title", "Enrolled Clients", "--checklist",
+        args = ["--title", "Enrolled Clients", "--separate-output", "--checklist",
                 "Select at least two authenticated Clients for this multicast job.",
-                "22", "92", "12", "--separate-output"]
+                "22", "92", "12"]
         for identity, label in enrolled:
             args.extend([identity, label, "off"])
         result = dialog_app._dialog(args)
