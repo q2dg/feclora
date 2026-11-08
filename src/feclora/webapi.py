@@ -311,6 +311,115 @@ def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _verify_image(params: dict[str, Any]) -> dict[str, Any]:
+    """Read-only, end-to-end verification of every stored image artifact."""
+    if set(params) != {"image_id"}:
+        raise WebAPIError("verify_image requires exactly image_id")
+    image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+    manifest_path = _image_manifest(image_id)
+    try:
+        manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise WebAPIError(f"cannot read selected image manifest: {exc}") from exc
+    if manifest.image_id != image_id:
+        raise WebAPIError("selected image manifest identifier does not match its repository name")
+
+    from feclora.storage.image_security import verify_manifest_signature
+    signed = os.path.isfile(str(manifest_path) + ".minisig")
+    trusted_keys: list[Path] = []
+    security = _security_material()
+    pki = Path("/etc/feclora/pki")
+    if security["image_verification_available"]:
+        trusted_keys.append(pki / "server.pub")
+    client_config = _client_runtime_config()
+    if client_config and client_config.trusted_server_public_key:
+        trusted_keys.insert(0, Path(client_config.trusted_server_public_key))
+    signature_status = "unsigned"
+    if signed:
+        verified_key = None
+        for candidate in dict.fromkeys(trusted_keys):
+            try:
+                verify_manifest_signature(manifest_path, candidate)
+                verified_key = candidate
+                break
+            except Exception:
+                continue
+        if verified_key is None:
+            raise WebAPIError("manifest signature is present but does not verify against any locally trusted signing key")
+        signature_status = "verified"
+
+    encrypted = any(item.encryption == "age" for item in manifest.artifacts)
+    identities: list[Path] = []
+    if security["age_decryption_available"]:
+        identities.append(pki / "server.age")
+    if client_config and client_config.age_identity_file:
+        identities.append(Path(client_config.age_identity_file))
+    if encrypted and not identities:
+        raise WebAPIError("image contains age-encrypted artifacts but no local age identity is available")
+
+    from feclora.storage.disk_restore import (
+        DiskRestoreError, _decoded_stream, _verified_artifact_stream,
+    )
+    artifact_reports = []
+    total_decoded = 0
+    for artifact in manifest.artifacts:
+        identity_context = tempfile.TemporaryDirectory(prefix="feclora-verify-identities-") if (
+            artifact.encryption == "age" and len(identities) > 1
+        ) else None
+        try:
+            if identity_context:
+                identity_file = Path(identity_context.name) / "identities.txt"
+                identity_file.write_text(
+                    "\n".join(item.read_text(encoding="ascii").strip() for item in identities) + "\n",
+                    encoding="ascii",
+                )
+                os.chmod(identity_file, 0o600)
+            else:
+                identity_file = identities[0] if artifact.encryption == "age" else None
+            decoded_bytes = 0
+            with _verified_artifact_stream(
+                str(_repository()), artifact, identity_file, "/usr/bin/age",
+            ) as verified_stream:
+                decoded_stream = _decoded_stream(verified_stream, artifact.compression)
+                try:
+                    while True:
+                        chunk = decoded_stream.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        decoded_bytes += len(chunk)
+                    if hasattr(decoded_stream, "finish"):
+                        decoded_stream.finish()
+                finally:
+                    if decoded_stream is not verified_stream:
+                        decoded_stream.close()
+            if artifact.role == "disk-image" and decoded_bytes != manifest.source_size_bytes:
+                raise WebAPIError(
+                    f"decoded disk artifact size mismatch: expected {manifest.source_size_bytes}, got {decoded_bytes}"
+                )
+            total_decoded += decoded_bytes
+            artifact_reports.append({
+                "filename": artifact.filename, "role": artifact.role,
+                "stored_bytes": artifact.size_bytes, "decoded_bytes": decoded_bytes,
+                "sha256": artifact.sha256, "stored_digest": "verified",
+                "age_authentication": "verified" if artifact.encryption == "age" else "not encrypted",
+                "decompression": "verified" if artifact.compression != "none" else "not compressed",
+                "format": artifact.format,
+            })
+        except Exception as exc:
+            raise WebAPIError(f"artifact verification failed for {artifact.filename}: {exc}") from exc
+        finally:
+            if identity_context:
+                identity_context.cleanup()
+    return {
+        "image_id": image_id, "image_type": manifest.image_type,
+        "manifest": "valid", "signature": signature_status,
+        "artifact_count": len(artifact_reports), "total_decoded_bytes": total_decoded,
+        "artifacts": artifact_reports,
+        "verified": True,
+        "message": "All stored artifact digests, age authentication and compression streams were verified. This is a read-only check; unsigned images remain unsigned.",
+    }
+
+
 def _operations() -> list[dict[str, Any]]:
     path = Path("/var/lib/feclora/operations.jsonl")
     try:
@@ -1647,6 +1756,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return {"images": _images()}
     if action == "inspect_image_layout":
         return _inspect_image_layout(params)
+    if action == "verify_image":
+        return _verify_image(params)
     if action == "operations":
         if params:
             raise WebAPIError("operations does not accept parameters")
