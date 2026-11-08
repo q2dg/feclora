@@ -511,11 +511,13 @@ class WebAPITests(unittest.TestCase):
                     "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
                     "confirmation": "ERASE /dev/sda FROM URI:server", "compression": "gzip",
                     "network_interface": None,
+                    "igmp_confirmed": False,
                 }})
             request = json.loads((root / (job_id + ".request.json")).read_text(encoding="utf-8"))
         self.assertEqual(result["phase"], "connecting")
         self.assertEqual(request["device_path"], "/dev/sda")
         self.assertIsNone(request["network_interface"])
+        self.assertFalse(request["igmp_confirmed"])
         self.assertEqual(runner.call_args.args[0], [
             "/usr/bin/systemctl", "start", "feclora-client@" + job_id + ".service",
         ])
@@ -555,10 +557,12 @@ class WebAPITests(unittest.TestCase):
                     "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
                     "confirmation": "ERASE /dev/sda FROM URI:server", "compression": "gzip",
                     "network_interface": "enp1s0",
+                    "igmp_confirmed": True,
                 }})
             request = json.loads((root / (job_id + ".request.json")).read_text(encoding="utf-8"))
         inspect.assert_called_once_with("enp1s0", "239.10.10.10", role="receiver")
         self.assertEqual(request["network_interface"], "enp1s0")
+        self.assertTrue(request["igmp_confirmed"])
         self.assertEqual(result["multicast_preflight"]["warnings"], list(preflight.warnings))
 
     def test_client_job_status_marks_nonterminal_inactive_service_interrupted(self):
