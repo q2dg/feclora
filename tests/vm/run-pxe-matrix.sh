@@ -3,14 +3,14 @@ set -Eeuo pipefail
 
 ISO=${1:-}
 if [[ -z "$ISO" || ! -f "$ISO" ]]; then
-  echo "Usage: sudo $0 /path/to/feclora-live.iso" >&2
+  echo "Usage: sudo bash $0 /path/to/feclora-live.iso" >&2
   exit 2
 fi
 if [[ $EUID -ne 0 ]]; then
   echo "Run this script with sudo (libvirt system network and VM creation required)." >&2
   exit 1
 fi
-for command in virsh virt-install qemu-img; do
+for command in virsh virt-install; do
   command -v "$command" >/dev/null || { echo "Missing host command: $command" >&2; exit 1; }
 done
 [[ -r /usr/share/OVMF/OVMF_CODE.fd || -r /usr/share/edk2/ovmf/OVMF_CODE.fd ]] || {
@@ -64,12 +64,16 @@ create_vm() {
     echo "VM $name already exists; refusing to overwrite it." >&2
     return 1
   fi
-  virt-install --connect qemu:///system --name "$name" \
+  if ! virt-install --connect qemu:///system --name "$name" \
     --memory 4096 --vcpus 2 \
     --disk "path=$disk,size=24,format=qcow2,bus=virtio" \
     --network "network=$NETWORK,model=virtio" \
     --graphics none --console pty,target_type=serial \
-    --noautoconsole --wait 0 "$@"
+    --noautoconsole --wait 0 "$@"; then
+    virsh destroy "$name" >/dev/null 2>&1 || true
+    virsh undefine "$name" --nvram --remove-all-storage >/dev/null 2>&1 || true
+    return 1
+  fi
   created_vms+=("$name")
 }
 
