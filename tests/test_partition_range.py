@@ -89,6 +89,22 @@ class PartitionRangeTests(unittest.TestCase):
         with self.assertRaises(PartitionRangeError):
             load_sfdisk_json('{"partitiontable": {}, "partitiontable": {}}')
 
+    def test_rejects_overlapping_partition_ranges(self):
+        table = {"partitiontable": {"partitions": [
+            {"node": "/dev/loop0p1", "start": 10, "size": 20},
+            {"node": "/dev/loop0p2", "start": 25, "size": 20},
+        ]}}
+        with self.assertRaises(PartitionRangeError):
+            partition_ranges(table, image_size_bytes=64 * 512)
+
+    def test_copy_rejects_source_range_past_end(self):
+        with tempfile.TemporaryFile() as source, tempfile.TemporaryFile() as target:
+            source.write(b"small")
+            source.flush()
+            target.truncate(16)
+            with self.assertRaises(PartitionRangeError):
+                copy_fd_range(source.fileno(), target.fileno(), source_offset=2, length=8)
+
 
 if __name__ == "__main__":
     unittest.main()
