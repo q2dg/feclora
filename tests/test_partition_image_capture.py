@@ -48,7 +48,7 @@ class PartitionImageCaptureTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             def runner(command, **kwargs):
                 if command[0] == "lsblk":
-                    return SimpleNamespace(stdout="4096 512 part btrfs\\n")
+                    return SimpleNamespace(stdout="4096 512 part btrfs\n")
                 return SimpleNamespace(stdout=payload, returncode=0)
             with self.assertRaisesRegex(PartitionImageCaptureError, "multi-device Btrfs"):
                 capture_partition_image(
