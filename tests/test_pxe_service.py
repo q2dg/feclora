@@ -36,9 +36,10 @@ class PxeServiceTests(unittest.TestCase):
             firewall = FakeFirewall()
             manager = PXEServiceManager(tmp, runner=runner, preflight=lambda _config: None, firewall=firewall, boot_stager=lambda _config: None)
             manager.start(config())
-            self.assertEqual(len(calls), 2)
-            self.assertTrue(any(arg.startswith("--unit=feclora-dnsmasq-") for arg in calls[0]))
-            self.assertTrue(any(arg.startswith("--unit=feclora-caddy-") for arg in calls[1]))
+            starts = [call for call in calls if call[0].endswith("systemd-run")]
+            self.assertEqual(len(starts), 2)
+            self.assertTrue(any(arg.startswith("--unit=feclora-dnsmasq-") for arg in starts[0]))
+            self.assertTrue(any(arg.startswith("--unit=feclora-caddy-") for arg in starts[1]))
             self.assertEqual((Path(tmp) / "dnsmasq.conf").stat().st_mode & 0o777, 0o600)
             self.assertEqual((Path(tmp) / "Caddyfile").stat().st_mode & 0o777, 0o644)
             self.assertNotIn("enable", " ".join(calls[0]))
