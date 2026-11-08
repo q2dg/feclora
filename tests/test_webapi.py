@@ -1,6 +1,6 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from feclora.webapi import WebAPIError, dispatch, _device
 from feclora.deployment.job import DeploymentJob
