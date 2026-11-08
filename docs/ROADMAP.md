@@ -48,7 +48,7 @@
 - [ ] Support GPT/MBR, LVM (PV/VG/LV topology, safe activation/deactivation and snapshots), LUKS and boot-area/bootloader workflows.
 - [x] Add conservative read-only LVM PV/LV, Stratis mapper and Btrfs filesystem classification to the lsblk inventory; package Stratis management tools.
 - [x] Add a read-only LVM PV/VG/LV topology collector using LVM JSON reports (`--readonly`) and include it in storage inventory. Real LVM device validation remains pending.
-- [x] Add a read-only Btrfs multi-device topology scan using btrfs-progs and include it in storage inventory. Subvolume/snapshot handling and physical-device validation remain pending.
+- [x] Add a read-only Btrfs multi-device topology scan using btrfs-progs, validate reported member counts, include it in storage inventory, and reject partition capture unless the source is proven single-device. Subvolume/snapshot-aware capture/restore and physical-device validation remain pending.
 - [x] Add active Stratis pool/filesystem discovery from /dev/stratis and recursively trace device-mapper slaves through sysfs; stopped-pool metadata and physical-device validation remain pending.
 - [ ] Add stopped-Stratis-pool metadata, Btrfs subvolume/snapshot topology and filesystem-aware capture/restore workflows; keep unsupported layouts fail-closed.
 - [ ] Complete remote repository lifecycle for SSHFS, NFS, SMB/CIFS, WebDAV and S3 (provider validation and mount argv builders exist; credential provisioning, mount lifecycle, durability checks, packaging and integration tests remain).
