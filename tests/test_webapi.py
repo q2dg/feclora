@@ -121,7 +121,7 @@ class WebAPITests(unittest.TestCase):
             image_id="source", image_type="disk",
             artifacts=[SimpleNamespace(encryption="none")],
         )
-        extracted = SimpleNamespace(image_id="source-part-abc123", image_type="partition")
+        extracted = SimpleNamespace(image_id="source-part-abc123", image_type="partition", artifacts=[])
         with patch("feclora.webapi._image_manifest", return_value=Path("/repo/source.manifest.json")), patch(
             "pathlib.Path.read_text", return_value="{}"
         ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
