@@ -96,6 +96,8 @@ rules, boot-tree staging, and a basic interactive Server-mode flow for
 interface selection, DHCP profile confirmation, startup and shutdown exist as
 code. The authenticated PXE client/job protocol, real-daemon validation, and
 BIOS/UEFI hardware testing remain.
+The packaged UEFI iPXE binary is not yet certified by Feclora for Secure Boot;
+Secure Boot compatibility must be tested or supplied through a signed chain.
 
 ## References
 
