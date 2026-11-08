@@ -1,4 +1,4 @@
-# Runtime packages for the initial feclora rescue live image.
+# Runtime packages for the initial feclora rescue live image (Fedora 45 x86_64).
 # Keep this list aligned with kickstart/feclora-live.ks.
 kernel
 tar
