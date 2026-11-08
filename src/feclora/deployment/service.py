@@ -52,8 +52,26 @@ def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def _acquire_recovery_lock() -> int:
+    runtime_info = os.lstat(RUNTIME_DIRECTORY)
+    if (not stat.S_ISDIR(runtime_info.st_mode) or stat.S_ISLNK(runtime_info.st_mode)
+            or runtime_info.st_uid != 0 or runtime_info.st_mode & 0o022):
+        raise DeploymentServiceError("runtime directory is unsafe during recovery")
+    fd = os.open(LOCK_FILE, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    info = os.fstat(fd)
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+        os.close(fd)
+        raise DeploymentServiceError("deployment service lock file is unsafe during recovery")
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as exc:
+        os.close(fd)
+        raise DeploymentServiceError("another deployment service is active; refusing runtime recovery") from exc
+    return fd
+
+
 def recover_stale_firewall_state(*, lock_held: bool = False) -> None:
-    """Restore a deployment-owned temporary firewalld change after a crash."""
+    """Restore deployment-owned temporary firewalld rules after a crash."""
     try:
         initial = os.lstat(FIREWALL_STATE)
     except FileNotFoundError:
@@ -64,24 +82,7 @@ def recover_stale_firewall_state(*, lock_held: bool = False) -> None:
     lock_fd = None
     try:
         if not lock_held:
-            runtime_info = os.lstat(RUNTIME_DIRECTORY)
-            if (not stat.S_ISDIR(runtime_info.st_mode) or stat.S_ISLNK(runtime_info.st_mode)
-                    or runtime_info.st_uid != 0 or runtime_info.st_mode & 0o022):
-                raise DeploymentServiceError("runtime directory is unsafe during firewall recovery")
-            lock_fd = os.open(
-                LOCK_FILE, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600,
-            )
-            lock_info = os.fstat(lock_fd)
-            if (not stat.S_ISREG(lock_info.st_mode) or lock_info.st_uid != 0
-                    or lock_info.st_mode & 0o077):
-                raise DeploymentServiceError("deployment service lock file is unsafe during firewall recovery")
-            try:
-                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError as exc:
-                raise DeploymentServiceError(
-                    "another deployment service is active; refusing stale firewall cleanup"
-                ) from exc
-
+            lock_fd = _acquire_recovery_lock()
         fd = os.open(FIREWALL_STATE, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         try:
             info = os.fstat(fd)
@@ -146,6 +147,47 @@ def recover_stale_firewall_state(*, lock_held: bool = False) -> None:
             os.fsync(directory_fd)
         finally:
             os.close(directory_fd)
+    finally:
+        if lock_fd is not None:
+            os.close(lock_fd)
+
+
+def recover_stale_ipc_socket(*, lock_held: bool = False) -> None:
+    """Remove only a stale root-owned Feclora Unix socket after its service lock is free."""
+    try:
+        initial = os.lstat(IPC_SOCKET)
+    except FileNotFoundError:
+        return
+    if (not stat.S_ISSOCK(initial.st_mode) or initial.st_uid != 0
+            or initial.st_mode & 0o077):
+        raise DeploymentServiceError("stale deployment IPC path is not a private root-owned Unix socket")
+    lock_fd = None
+    try:
+        if not lock_held:
+            lock_fd = _acquire_recovery_lock()
+        current = os.lstat(IPC_SOCKET)
+        if (not stat.S_ISSOCK(current.st_mode) or current.st_uid != 0
+                or (current.st_dev, current.st_ino) != (initial.st_dev, initial.st_ino)):
+            raise DeploymentServiceError("deployment IPC socket changed during stale-path inspection")
+        IPC_SOCKET.unlink()
+        directory_fd = os.open(RUNTIME_DIRECTORY, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if lock_fd is not None:
+            os.close(lock_fd)
+
+
+def recover_stale_runtime_artifacts(*, lock_held: bool = False) -> None:
+    """Recover stale firewall and IPC artifacts while holding single-job ownership."""
+    lock_fd = None
+    try:
+        if not lock_held:
+            lock_fd = _acquire_recovery_lock()
+        recover_stale_firewall_state(lock_held=True)
+        recover_stale_ipc_socket(lock_held=True)
     finally:
         if lock_fd is not None:
             os.close(lock_fd)
@@ -434,7 +476,7 @@ class DeploymentService:
         self._acquire_instance_lock()
         service_start_recorded = False
         try:
-            self._recover_stale_firewall_state()
+            recover_stale_runtime_artifacts(lock_held=True)
             if (self._pxe_state is not None
                     and self._pxe_state["interface"] == self.job.network_interface):
                 self.firewall.adopt(self.job.network_interface, self._pxe_state["firewall"])
@@ -481,14 +523,14 @@ class DeploymentService:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Feclora persistent deployment Server service")
     parser.add_argument("--job-id")
-    parser.add_argument("--recover-firewall", action="store_true")
+    parser.add_argument("--recover-runtime", action="store_true")
     args = parser.parse_args(argv)
-    if args.recover_firewall:
+    if args.recover_runtime:
         try:
-            recover_stale_firewall_state()
+            recover_stale_runtime_artifacts()
             return 0
         except Exception as exc:
-            print(f"feclora deployment firewall recovery: {exc}", file=sys.stderr)
+            print(f"feclora deployment runtime recovery: {exc}", file=sys.stderr)
             return 1
     if not args.job_id:
         parser.error("--job-id is required unless --recover-firewall is selected")
