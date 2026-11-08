@@ -135,6 +135,35 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(len(manager.started), 1)
         self.assertEqual(manager.started[0].interface, "enp1s0")
 
+    def test_stop_pxe_services_restores_firewall_and_reports_inactive_state(self):
+        class Manager:
+            def __init__(self):
+                self.stopped = False
+            def stop(self):
+                self.stopped = True
+            def status(self):
+                return {"active": False, "configured": False, "interface": None, "services": {}}
+
+        manager = Manager()
+        with patch("feclora.network.pxe_service.PXEServiceManager", return_value=manager):
+            result = dispatch({"action": "stop_pxe_services"})
+        self.assertTrue(manager.stopped)
+        self.assertFalse(result["active"])
+        self.assertIn("previous firewalld zone restored", result["message"])
+
+    def test_stop_pxe_services_reports_incomplete_cleanup(self):
+        class Manager:
+            def stop(self):
+                pass
+            def status(self):
+                return {"active": True, "configured": True, "interface": "enp1s0",
+                        "services": {"dnsmasq": "active"}}
+
+        with patch("feclora.network.pxe_service.PXEServiceManager", return_value=Manager()):
+            result = dispatch({"action": "stop_pxe_services"})
+        self.assertTrue(result["active"])
+        self.assertIn("shutdown is incomplete", result["message"])
+
     def test_stop_pxe_services_rejects_parameters(self):
         with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
             dispatch({"action": "stop_pxe_services", "params": {"interface": "enp1s0"}})
