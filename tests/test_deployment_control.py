@@ -413,12 +413,18 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
 
     def test_mtls_session_transfers_signed_image_set_before_client_result(self):
         with tempfile.TemporaryDirectory() as directory:
-            ca_key, ca_cert = self._certificate(directory, "ca", "URI:feclora-test-ca", ca=True)
-            server_key, server_cert = self._certificate(
-                directory, "server", "URI:feclora-server", ca_cert=ca_cert, ca_key=ca_key,
+            ca_key = os.path.join(directory, "ca.key")
+            ca_cert = os.path.join(directory, "ca.crt")
+            subprocess.run([
+                "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+                "-keyout", ca_key, "-out", ca_cert, "-subj", "/CN=Feclora Test CA",
+                "-days", "1",
+            ], check=True, capture_output=True)
+            server_cert, server_key = self._certificate(
+                directory, "server", "URI:feclora-server", ca_key, ca_cert,
             )
-            client_key, client_cert = self._certificate(
-                directory, "client", "URI:feclora-client", ca_cert=ca_cert, ca_key=ca_key,
+            client_cert, client_key = self._certificate(
+                directory, "client", "URI:feclora-client", ca_key, ca_cert,
             )
             server_context = create_mutual_tls_context(
                 "server", ca_file=ca_cert, certificate_file=server_cert,
