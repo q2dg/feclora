@@ -11,6 +11,9 @@ class CapabilityDiscoveryTests(unittest.TestCase):
             "partclone.ntfs": "/usr/sbin/partclone.ntfs",
             "sfdisk": "/usr/sbin/sfdisk",
             "dd": "/usr/bin/dd",
+            "lvm": "/usr/sbin/lvm",
+            "dmsetup": "/usr/sbin/dmsetup",
+            "stratis": "/usr/bin/stratis",
         }
         calls = []
 
@@ -30,6 +33,8 @@ class CapabilityDiscoveryTests(unittest.TestCase):
         )
         self.assertIn("partclone.btrfs", result["missing"])
         self.assertIn("dd", result["available"])
+        self.assertEqual(result["groups"]["volume_management"]["lvm"], "/usr/sbin/lvm")
+        self.assertEqual(result["groups"]["volume_management"]["stratis"], "/usr/bin/stratis")
         self.assertEqual(result["status"], "executable_presence_only")
         self.assertEqual(len(calls), len(set(calls)))
 
