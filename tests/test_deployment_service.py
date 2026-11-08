@@ -88,7 +88,7 @@ class DeploymentServiceCommandTests(unittest.TestCase):
     def test_arm_starts_one_worker_after_all_clients_are_ready(self):
         client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
         service = make_service(clients=(client,))
-        with unittest.mock.patch("feclora.deployment.service.threading.Thread", FakeThread):
+        with mock.patch("feclora.deployment.service.threading.Thread", FakeThread):
             result = service._handle_ipc("arm", {
                 "job_id": service.job.job_id,
                 "confirmation": "ARM " + service.job.job_id,
