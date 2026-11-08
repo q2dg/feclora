@@ -53,10 +53,14 @@ class ImageTransferTests(unittest.TestCase):
             manifest_path = make_image_set(source)
             left, right = socket.socketpair()
             errors = []
+            send_progress = []
+            receive_progress = []
             def sender():
                 try:
                     send_image_set(
-                        left, source, manifest_path, expected_image_id="golden", trusted_public_key="/trusted/server.pub",
+                        left, source, manifest_path, expected_image_id="golden",
+                        trusted_public_key="/trusted/server.pub",
+                        progress_callback=lambda current, total: send_progress.append((current, total)),
                     )
                 except Exception as exc:
                     errors.append(exc)
@@ -68,11 +72,16 @@ class ImageTransferTests(unittest.TestCase):
                 received_manifest = receive_image_set(
                     right, target, expected_image_id="golden",
                     trusted_public_key="/trusted/server.pub",
+                    progress_callback=lambda current, total: receive_progress.append((current, total)),
                 )
                 thread.join(5)
             right.close()
             self.assertFalse(thread.is_alive())
             self.assertFalse(errors, str(errors))
+            self.assertEqual(send_progress[0], (0, 9))
+            self.assertEqual(send_progress[-1], (9, 9))
+            self.assertEqual(receive_progress[0], (0, 9))
+            self.assertEqual(receive_progress[-1], (9, 9))
             self.assertTrue(os.path.isfile(received_manifest))
             self.assertTrue(os.path.isfile(received_manifest + ".minisig"))
             with open(os.path.join(target, "disk.raw"), "rb") as stream:
