@@ -64,10 +64,11 @@ Client merely because it appears on DHCP/PXE or presents a MAC address.
 - Existing TLS sessions are not dynamically revoked by the allowlist. The
   current UI performs trust administration before arming a job; do not use
   it as an in-flight session termination control.
-- The Client currently receives a snapshot of the age recipient inventory at
-  enrollment/renewal. If the inventory changes later, re-export and refresh
-  the recipient list on Clients that will capture images for newly enrolled
-  recipients.
+- The Client receives a snapshot of the age recipient inventory at
+  enrollment/renewal. If the inventory changes later, export the current
+  `age-recipients.txt` from the Server's Cockpit trust panel and use
+  the Client's Cockpit enrollment panel to verify and atomically refresh it.
+  This remains a manual removable-media exchange; there is no network push.
 - The CA private key is root-only but is not encrypted at rest in the Live
   appliance. Protect persistent Server storage and keep an encrypted offline
   backup. If lost or compromised, create a new CA and re-enroll every
@@ -83,14 +84,17 @@ Client merely because it appears on DHCP/PXE or presents a MAC address.
 
 Implemented: first-run CA/Server bootstrap, endpoint-local TLS and age key
 creation, CSR signing, CA and minisign-key fingerprint checks, Client
-certificate installation, Client renewal, Server allowlist enrollment and
-revocation, per-Client age recipient registration/removal, and Cockpit Server-side
-CSR inspection/approval with public response-bundle export.
+certificate installation, the existing removable-media Client renewal
+primitives, Server allowlist enrollment and revocation, per-Client age
+recipient registration/removal, Cockpit Server-side CSR inspection/approval
+with public response-bundle export, Cockpit trusted-Client inventory and
+exact-confirmation revocation, plus Cockpit Server export and Client-side
+verification/atomic refresh of the age recipient snapshot.
 
-Not yet implemented: a Cockpit-based trust-management screen (the current
-enrollment workflow is in the dialog UI), CRL/OCSP validation, server-side
-certificate expiry/last-seen inventory, automatic push refresh of age recipient snapshots on already-enrolled
-Clients, and automated Server certificate renewal.
+Not yet implemented: Cockpit-based Client certificate renewal, full managed
+CA and Server identity rotation/renewal from Cockpit, CRL/OCSP validation,
+server-side certificate expiry/last-seen inventory, or automatic network push
+of age recipient snapshots to already-enrolled Clients.
 
 ## Explicit non-goals
 
