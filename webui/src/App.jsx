@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert, Button, Card, CardBody, CardTitle, Flex, FlexItem, Label, Page,
   PageSection, Progress, Spinner, Stack, StackItem, Tab, Tabs, Title, Toolbar,
@@ -367,6 +367,19 @@ export default function App() {
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
+
+  const serviceStatusesRef = useRef(serviceStatuses);
+  useEffect(() => { serviceStatusesRef.current = serviceStatuses; }, [serviceStatuses]);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      for (const jobId of Object.keys(serviceStatusesRef.current)) {
+        callFeclora("deployment_service_status", { job_id: jobId })
+          .then((result) => setServiceStatuses((current) => ({ ...current, [jobId]: result })))
+          .catch(() => {});
+      }
+    }, 2000);
+    return () => clearInterval(timer);
+  }, []);
 
   const inspectClientRemoteJob = async () => {
     setBusy(true); setError(""); setNotice("");
