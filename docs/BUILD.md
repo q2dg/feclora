@@ -1,6 +1,6 @@
 # Build and validate the live ISO
 
-This procedure describes how to build the initial Fedora 43 x86_64 feclora
+This procedure describes how to build the initial Fedora 45 x86_64 feclora
 rescue image and how to validate it in disposable QEMU virtual machines.
 It is a runbook, not evidence that the build or boot tests have passed.
 
@@ -11,24 +11,24 @@ It is a runbook, not evidence that the build or boot tests have passed.
 
 ## 1. Scope and build host
 
-The initial build target is Fedora 43 on an x86_64 host. The build uses
+The initial build target is Fedora 45 on an x86_64 host. The build uses
 Anaconda/Kickstart through Lorax `livemedia-creator`, with QEMU virtualization.
 The script intentionally does not use `--no-virt`.
 
 Use a dedicated build machine or VM with:
 
-- Fedora 43 x86_64 and working Fedora package repositories.
+- Fedora 45 x86_64 and working Fedora package repositories.
 - Hardware virtualization enabled in firmware and KVM available to the host.
 - Enough free disk space for the source DVD, augmented installer ISO,
   intermediate build tree, logs, and final ISO. Allow tens of GiB rather than
   planning around the final ISO size alone.
 - A graphical session for the interactive QEMU smoke tests, or a separately
   configured display/serial workflow.
-- A Fedora 43 x86_64 DVD installer ISO.
+- A Fedora 45 x86_64 DVD installer ISO.
 
-Fedora releases have finite support windows. Fedora 43 is the project's
+Fedora releases have finite support windows. Fedora 45 is the project's
 initial baseline, not a promise that it will remain a supported build host.
-If Fedora 43 repositories are no longer available, do not silently substitute
+If Fedora 45 repositories are no longer available, do not silently substitute
 another release: first update and test the project baseline and build inputs.
 
 ## 2. Prepare the host
@@ -58,7 +58,7 @@ test -c /dev/kvm && echo "KVM device available" || echo "KVM unavailable"
 df -h .
 ```
 
-The expected host is Fedora 43 on `x86_64`. If `/dev/kvm` is unavailable,
+The expected host is Fedora 45 on `x86_64`. If `/dev/kvm` is unavailable,
 fix host virtualization permissions/configuration before building; the normal
 build path requires QEMU virtualization.
 
@@ -78,14 +78,14 @@ guarantee that the build will fit or complete.
 
 ## 3. Obtain and verify the Fedora installer ISO
 
-Download the Fedora 43 x86_64 DVD installer ISO from an official Fedora
+Download the Fedora 45 x86_64 DVD installer ISO from an official Fedora
 distribution mirror. Verify its SHA-256 digest against the checksum published
 by Fedora for that exact image before using it.
 
 For example:
 
 ```bash
-sha256sum Fedora-43-x86_64-DVD.iso
+sha256sum Fedora-45-x86_64-DVD.iso
 ```
 
 Compare the result manually with the official published checksum. Do not
@@ -95,7 +95,7 @@ value, as authenticity verification.
 Set the path to the verified ISO:
 
 ```bash
-export FEDORA_INSTALL_ISO="$PWD/Fedora-43-x86_64-DVD.iso"
+export FEDORA_INSTALL_ISO="$PWD/Fedora-45-x86_64-DVD.iso"
 test -f "$FEDORA_INSTALL_ISO"
 ```
 
@@ -125,7 +125,7 @@ make build FEDORA_INSTALL_ISO="$FEDORA_INSTALL_ISO"
 
 The target invokes `build/build-iso.sh` with root privileges. The script:
 
-1. Runs the host preflight: checks Fedora 43, x86_64, the input ISO,
+1. Runs the host preflight: checks Fedora 45, x86_64, the input ISO,
    Kickstart, application source, required executables, KVM access, and a
    configurable minimum of free output space.
 2. Stages the Python application at `out/feclora-app/src/feclora`.
