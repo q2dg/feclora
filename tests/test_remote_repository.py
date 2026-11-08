@@ -68,6 +68,14 @@ class RemoteRepositoryTests(unittest.TestCase):
         self.assertEqual(required_tools("sshfs"), ("sshfs",))
         self.assertEqual(required_tools("s3"), ("rclone",))
 
+    def test_sshfs_rejects_missing_pinned_host_keys(self):
+        with self.assertRaises(RepositoryError):
+            RemoteRepository(
+                provider="sshfs", host="images.example.net", remote_path="/backup",
+                mountpoint="/mnt/images", username="backup",
+                identity_file="/etc/feclora/ssh/id_ed25519",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
