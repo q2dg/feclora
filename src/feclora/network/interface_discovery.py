@@ -120,3 +120,43 @@ def validate_selected_address(
             "Selected IPv4 address/prefix is not currently assigned to the selected interface"
         )
     return matches[0]
+
+
+
+def detect_existing_dhcp_server(
+    interface: str,
+    *,
+    nmcli: str | None = None,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> str | None:
+    """Return a DHCP server identifier from the current NetworkManager lease, if any.
+
+    Absence of a lease identifier is not evidence that the network is isolated.
+    """
+    if not _INTERFACE_RE.fullmatch(interface):
+        raise InterfaceDiscoveryError("Invalid Linux interface name")
+    executable = nmcli or shutil.which("nmcli")
+    if executable is None:
+        return None
+    try:
+        completed = runner(
+            [executable, "-g", "DHCP4.OPTION", "device", "show", interface],
+            check=False, capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise InterfaceDiscoveryError(f"cannot inspect current DHCP lease: {exc}") from exc
+    if completed.returncode != 0:
+        return None
+    for line in completed.stdout.splitlines():
+        key, separator, value = line.partition("=")
+        if separator and key.strip().lower() in {
+            "dhcp_server_identifier", "dhcp-server-identifier",
+        }:
+            candidate = value.strip()
+            try:
+                parsed = ipaddress.ip_address(candidate)
+            except ValueError:
+                continue
+            if parsed.version == 4 and not parsed.is_unspecified and not parsed.is_multicast:
+                return str(parsed)
+    return None
