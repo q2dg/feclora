@@ -329,6 +329,30 @@ def run_deployment_server_ui(
         journal_dir = _journal_directory()
         _review_previous_journals(journal_dir)
         job, manifest_path, selected_macs = _choose_job(config, interface)
+        multicast_config = None
+        if job.transport == "multicast":
+            multicast_config = udpcast_config_for_job(
+                job, min_receivers=len(selected_macs),
+            )
+            dialog_app._message(
+                "Multicast network preflight",
+                f"Data group: {multicast_config.data_group}\n"
+                f"Rendezvous group: {multicast_config.rendezvous_group}\n"
+                f"UDP ports: {multicast_config.portbase} and {multicast_config.portbase + 1}\n"
+                f"Interface: {multicast_config.interface}\nTTL: 1\n"
+                f"Required receivers: {multicast_config.min_receivers}\n\n"
+                "All selected Clients must be on the same multicast-enabled VLAN/L2 segment. "
+                "Ensure switch IGMP snooping has a working querier, multicast is not filtered "
+                "by Wi-Fi/client isolation, and the selected interface is correct. "
+                "Cross-VLAN multicast routing is not supported by this TTL=1 profile. "
+                "Feclora will temporarily open only the two UDPcast ports on this interface.",
+            )
+            confirmation = dialog_app._input(
+                "Confirm multicast network readiness",
+                f"Type exactly: MULTICAST READY {job.job_id}",
+            )
+            if confirmation != f"MULTICAST READY {job.job_id}":
+                raise DeploymentControlError("multicast network preflight was not confirmed")
         context = create_mutual_tls_context(
             "server", ca_file=config.ca_file,
             certificate_file=config.certificate_file,
@@ -386,14 +410,11 @@ def run_deployment_server_ui(
                     )
                     continue
                 if job.transport == "multicast":
-                    udpcast_config = udpcast_config_for_job(
-                        job, min_receivers=expected_clients,
-                    )
                     results = control.run_multicast_restore_job(
                         config.repository,
                         manifest_path,
                         trusted_public_key=config.server_minisign_public_key,
-                        udpcast_config=udpcast_config,
+                        udpcast_config=multicast_config,
                     )
                 else:
                     selected_mac = selected_macs[0]
