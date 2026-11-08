@@ -947,6 +947,16 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
         except WebAPIError as exc:
             last_error = exc
             time.sleep(0.1)
+    try:
+        active_check = subprocess.run(
+            ["/usr/bin/systemctl", "is-active", "--quiet", unit],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=5,
+        )
+        if active_check.returncode != 0 and request_path.exists():
+            request_path.unlink()
+    except (OSError, subprocess.SubprocessError):
+        pass
     raise WebAPIError(f"Client service started but did not publish status: {last_error}")
 
 
