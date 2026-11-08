@@ -44,7 +44,7 @@ class CockpitClientTests(unittest.TestCase):
             media = root / "usb"
             media.mkdir()
             source = media / "age-recipients.txt"
-            source.write_text(recipient + "\\n", encoding="ascii")
+            source.write_text(recipient + "\n", encoding="ascii")
             identity = root / "client.age"
             identity.write_text("private identity stays local", encoding="ascii")
             destination = root / "installed-recipients.txt"
@@ -63,10 +63,10 @@ class CockpitClientTests(unittest.TestCase):
                 "feclora.deployment.cockpit_client.load_client_runtime_config", return_value=config
             ), patch("feclora.deployment.cockpit_client.os.lstat", side_effect=lstat), patch(
                 "feclora.deployment.cockpit_client.subprocess.run",
-                return_value=SimpleNamespace(returncode=0, stdout=recipient + "\\n"),
+                return_value=SimpleNamespace(returncode=0, stdout=recipient + "\n"),
             ):
                 result = refresh_client_age_recipients({"inventory_path": str(source)})
-            self.assertEqual(destination.read_text(encoding="ascii"), recipient + "\\n")
+            self.assertEqual(destination.read_text(encoding="ascii"), recipient + "\n")
             self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
             self.assertEqual(result["recipient_count"], 1)
             self.assertEqual(identity.read_text(encoding="ascii"), "private identity stays local")
