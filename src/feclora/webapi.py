@@ -19,6 +19,7 @@ import subprocess
 import tempfile
 import sys
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -698,7 +699,44 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             **result}
 
 
+@contextmanager
+def _storage_operation_lock():
+    runtime_directory = Path("/run/feclora")
+    try:
+        runtime_directory.mkdir(mode=0o755, parents=True, exist_ok=True)
+        directory_info = os.lstat(runtime_directory)
+        if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
+                or directory_info.st_uid != 0 or directory_info.st_mode & 0o022):
+            raise WebAPIError("deployment runtime directory is unsafe")
+        fd = os.open(
+            runtime_directory / "deployment.lock",
+            os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600,
+        )
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+            os.close(fd)
+            raise WebAPIError("deployment operation lock file is unsafe")
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            os.close(fd)
+            raise WebAPIError("another Server, Client or local storage operation is active on this host") from exc
+    except WebAPIError:
+        raise
+    except OSError as exc:
+        raise WebAPIError(f"cannot acquire host-wide storage operation lock: {exc}") from exc
+    try:
+        yield
+    finally:
+        os.close(fd)
+
+
 def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
+    with _storage_operation_lock():
+        return _run_operation_locked(action, params)
+
+
+def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]:
     operation_fields = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "sign"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign"},
