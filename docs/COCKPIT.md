@@ -81,19 +81,35 @@ and blocks isolated authoritative DHCP in that case. A missing DHCP lease
 identifier is not proof of an isolated network. This step does not start
 services, alter firewall rules or persist a network profile.
 
-The Cockpit workflows now cover PXE profile preflight and service
-activation/shutdown, removable-media Client enrollment, Server-side CSR
-approval, and validated remote-job definition. These steps do not yet form a
-complete remote deployment lifecycle: jobs are persisted as definitions, but
-Cockpit does not start Clients, collect local destructive-target approvals,
-run the deployment coordinator as a persistent service, or display live
-per-client progress. Multicast partition restore is supported by the runtime
-but still awaits that execution and monitoring integration. The old
-dialog-based modules are migration-era code and are not part of the supported
-Cockpit workflow.
+The Server **Remote jobs** tab now provides the persistent deployment
+lifecycle for supported jobs. Cockpit can start a non-boot-enabled
+`feclora-deployment@<UUID>.service`, inspect its mTLS listener and live
+per-Client READY/running/terminal states, explicitly arm a job after every
+authorized Client is READY, cancel only before arming, and stop the service
+when it is not performing storage I/O. The service uses the existing
+coordinator, hash-chained journal, TLS control protocol and transfer engines;
+the local IPC socket accepts root peers only and validates the exact job UUID
+and typed confirmation.
+
+Unicast whole-disk capture and disk/partition restore are supported by the
+Cockpit Server/Client services. Multicast restore is also wired into the
+persistent Server service, with interface/route preflight and a separate
+`ARM MULTICAST <UUID>` confirmation. UDPcast data packets themselves are
+not encrypted or authenticated; mTLS protects the control channel, not the
+multicast payload. Multicast capture and concurrent unicast deployments
+remain out of scope.
+
+The Server service is never enabled at boot and never resumes an interrupted
+job. A stop request closes the local IPC listener first, refuses new arm
+requests, and waits for an active storage worker to reach its own terminal
+state before closing Client sessions; its systemd stop timeout is therefore
+unbounded. Interrupted journals require operator inspection and audit-only
+reconciliation. Client-local target approval remains mandatory before READY.
+The old dialog-based modules are migration-era code and are not part of the
+supported Cockpit workflow.
 
 No ISO build, hardware restore, PXE boot or multi-machine laboratory test is
-claimed by the source-level checks.
+claimed by source-level checks.
 
 
 ## Client remote jobs
