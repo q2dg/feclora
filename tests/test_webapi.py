@@ -357,6 +357,19 @@ class WebAPITests(unittest.TestCase):
                     "job_id": job_id, "confirmation": "RECONCILE " + job_id,
                 }})
 
+    def test_create_unicast_job_rejects_multiple_clients(self):
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        job = {
+            "schema_version": 1, "job_id": job_id, "operation": "save",
+            "image_id": "capture-1", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56", "52:54:00:12:34:57"],
+            "network_interface": "enp1s0", "transport": "unicast",
+            "multicast_group": None, "multicast_port": None,
+            "start_policy": "manual", "expected_clients": None, "start_deadline": None,
+        }
+        with self.assertRaisesRegex(WebAPIError, "exactly one Client"):
+            dispatch({"action": "create_deployment_job", "params": {"job": job}})
+
 
 if __name__ == "__main__":
     unittest.main()
