@@ -11,7 +11,7 @@ NetworkManager
 # Embedded Server-mode PXE stack (installed, never enabled by default)
 dnsmasq
 ipxe-bootimgs-x86
-nginx
+caddy
 
 # Live-media boot support
 dracut-config-generic
