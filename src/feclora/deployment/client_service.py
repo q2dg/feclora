@@ -360,13 +360,18 @@ class ClientDeploymentService:
 
                 last_reported_bytes = 0
                 last_reported_at = 0.0
+                last_reported_phase = None
 
-                def progress(current: int, total: int | None) -> None:
-                    nonlocal last_reported_bytes, last_reported_at
+                def report_progress(phase: str, current: int, total: int | None) -> None:
+                    nonlocal last_reported_bytes, last_reported_at, last_reported_phase
                     completed = max(0, int(current))
                     total_bytes = max(0, int(total)) if total is not None else None
+                    if phase != last_reported_phase:
+                        last_reported_bytes = 0
+                        last_reported_at = 0.0
+                        last_reported_phase = phase
                     self._set_status("running", progress={
-                        "completed_bytes": completed, "total_bytes": total_bytes,
+                        "phase": phase, "completed_bytes": completed, "total_bytes": total_bytes,
                     })
                     now = time.monotonic()
                     if (now - last_reported_at >= 1.0
@@ -374,7 +379,7 @@ class ClientDeploymentService:
                         try:
                             send_control_message(tls_socket, {
                                 "type": "progress", "job_id": job.job_id,
-                                "phase": job.operation, "completed_bytes": completed,
+                                "phase": phase, "completed_bytes": completed,
                                 "total_bytes": total_bytes,
                             })
                             last_reported_bytes = completed
@@ -382,6 +387,12 @@ class ClientDeploymentService:
                         except (DeploymentControlError, OSError):
                             # Telemetry must never abort an otherwise safe local disk operation.
                             pass
+
+                def progress(current: int, total: int | None) -> None:
+                    report_progress(job.operation, current, total)
+
+                def transfer_progress(current: int, total: int) -> None:
+                    report_progress("transfer", current, total)
 
                 if job.transport == "multicast":
                     return execute_multicast_restore(
@@ -406,6 +417,7 @@ class ClientDeploymentService:
                     compression=compression,
                     compression_level=level,
                     progress_callback=progress,
+                    transfer_progress_callback=transfer_progress,
                 )
 
             try:
