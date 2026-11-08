@@ -89,6 +89,19 @@ if ! grep -q 'def _start_pxe_services' "$ROOT_DIR/src/feclora/webapi.py"; then
   fail "Cockpit backend is missing PXE service activation."
 fi
 
+if ! grep -q 'def _create_deployment_job' "$ROOT_DIR/src/feclora/webapi.py"; then
+  fail "Cockpit backend is missing safe remote deployment job persistence."
+fi
+if ! grep -q '"deployment_jobs", "create_deployment_job"' "$ROOT_DIR/webui/src/api.js"; then
+  fail "Cockpit API client does not allow remote deployment job actions."
+fi
+if ! grep -q 'deployment_jobs|create_deployment_job' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "Kickstart API wrapper does not allow remote deployment job actions."
+fi
+if ! grep -q 'eventKey="remote-jobs"' "$ROOT_DIR/webui/src/App.jsx"; then
+  fail "Cockpit frontend is missing the remote deployment job definition wizard."
+fi
+
 if grep -qx 'dialog' "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "The legacy dialog package must not be included in the Cockpit-first Live image."
 fi
