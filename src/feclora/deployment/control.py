@@ -26,7 +26,7 @@ from feclora.network.remote_clone_protocol import verify_peer_identity
 from feclora.network.tls import connect_mutual_tls
 
 MAX_CONTROL_FRAME = 16 * 1024
-_CONTROL_TYPES = {"hello", "job", "ready", "start", "result", "cancel", "error"}
+_CONTROL_TYPES = {"hello", "job", "ready", "start", "result", "cancel", "error", "transfer_offer", "transfer_ready"}
 
 
 class DeploymentControlError(RuntimeError):
@@ -337,6 +337,11 @@ class DeploymentControlServer:
         """Send the job's signed image set to one authenticated running restore client."""
         tls_socket = self._running_session(mac_address, "restore")
         try:
+            tls_socket.settimeout(86400)
+            send_control_message(tls_socket, {
+                "type": "transfer_offer", "job_id": self.coordinator.job.job_id,
+                "image_id": self.coordinator.job.image_id,
+            })
             return send_image_set(
                 tls_socket, repository, manifest_path,
                 expected_image_id=self.coordinator.job.image_id,
@@ -357,6 +362,24 @@ class DeploymentControlServer:
         """Receive a signed image set from one authenticated running save client."""
         tls_socket = self._running_session(mac_address, "save")
         try:
+            tls_socket.settimeout(86400)
+            transfer = receive_control_message(tls_socket)
+            if transfer.get("type") == "result":
+                if (set(transfer) != {"type", "job_id", "success", "detail"}
+                        or transfer.get("job_id") != self.coordinator.job.job_id
+                        or not isinstance(transfer.get("success"), bool)
+                        or not isinstance(transfer.get("detail"), str)
+                        or len(transfer["detail"]) > 512):
+                    raise DeploymentControlError("client failure result is invalid")
+                self.coordinator.report_result(
+                    mac_address, success=transfer["success"], detail=transfer["detail"],
+                )
+                return ""
+            if (set(transfer) != {"type", "job_id", "image_id"}
+                    or transfer.get("type") != "transfer_ready"
+                    or transfer.get("job_id") != self.coordinator.job.job_id
+                    or transfer.get("image_id") != self.coordinator.job.image_id):
+                raise DeploymentControlError("client image-transfer readiness is not bound to this job")
             return receive_image_set(
                 tls_socket, repository,
                 expected_image_id=self.coordinator.job.image_id,
@@ -372,6 +395,15 @@ class DeploymentControlServer:
         with self._lock:
             sessions = tuple(self._sessions.items())
         for mac, tls_socket in sessions:
+            record = next(
+                (item for item in self.coordinator.clients() if item.mac_address == mac), None,
+            )
+            if record is not None and record.state in {
+                ClientState.SUCCEEDED, ClientState.FAILED, ClientState.DISCONNECTED,
+            }:
+                tls_socket.close()
+                results[mac] = record.state.value
+                continue
             try:
                 tls_socket.settimeout(timeout)
                 message = receive_control_message(tls_socket, expected_type="result")
