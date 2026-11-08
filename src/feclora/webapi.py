@@ -449,6 +449,53 @@ def _validate_pxe_profile(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+
+def _pxe_service_manager() -> Any:
+    from feclora.network.pxe_service import PXEServiceManager
+    return PXEServiceManager()
+
+
+def _start_pxe_services(params: dict[str, Any]) -> dict[str, Any]:
+    _validate_pxe_profile(params)
+    from feclora.network.pxe_config import PXENetworkConfig
+    config = PXENetworkConfig(
+        interface=params["interface"], address=params["address"],
+        prefix_length=params["prefix_length"], mode=params["mode"],
+        tftp_root="/srv/feclora/tftp", bios_boot_file="undionly.kpxe",
+        uefi_boot_file="ipxe-snponly-x86_64.efi", http_root="/srv/feclora/http",
+        http_port=params["http_port"], pool_start=params["pool_start"],
+        pool_end=params["pool_end"], lease_time=params["lease_time"],
+        gateway=params["gateway"], dns_server=params["dns_server"],
+        authoritative_confirmed=params["authoritative_confirmed"],
+    )
+    try:
+        _pxe_service_manager().start(config)
+        status = _pxe_service_manager().status()
+    except Exception as exc:
+        raise WebAPIError(f"PXE service activation failed: {exc}") from exc
+    return {
+        "active": status["active"], "interface": status["interface"],
+        "services": status["services"],
+        "message": "PXE services started with a temporary interface-scoped firewall zone. They are not enabled at boot.",
+    }
+
+
+def _stop_pxe_services() -> dict[str, Any]:
+    manager = _pxe_service_manager()
+    try:
+        manager.stop()
+        status = manager.status()
+    except Exception as exc:
+        raise WebAPIError(f"PXE service shutdown failed: {exc}") from exc
+    return {
+        "active": status["active"], "interface": status["interface"],
+        "services": status["services"],
+        "message": "PXE services stopped and the interface's previous firewalld zone restored."
+        if not status["configured"] else
+        "PXE shutdown is incomplete; inspect service and firewall state before continuing.",
+    }
+
+
 def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "sign"},
@@ -645,6 +692,16 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _bootstrap_server(params)
     if action == "validate_pxe_profile":
         return _validate_pxe_profile(params)
+    if action == "start_pxe_services":
+        return _start_pxe_services(params)
+    if action == "stop_pxe_services":
+        if params:
+            raise WebAPIError("stop_pxe_services does not accept parameters")
+        return _stop_pxe_services()
+    if action == "pxe_service_status":
+        if params:
+            raise WebAPIError("pxe_service_status does not accept parameters")
+        return _pxe_service_manager().status()
     if action == "inventory":
         if params:
             raise WebAPIError("inventory does not accept parameters")
