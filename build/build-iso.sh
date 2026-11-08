@@ -16,7 +16,7 @@ Environment:
   FEDORA_INSTALL_ISO  Fedora 45 x86_64 DVD installation ISO (required).
   FECLORA_KS          Kickstart file (default: kickstart/feclora-live.ks).
   FECLORA_RESULT_DIR  Output directory (default: out/).
-  FECLORA_RELEASEVER  Fedora release version (default: 43).
+  FECLORA_RELEASEVER  Fedora release version (default: 45).
 
 Run on a Fedora 45 x86_64 build host. Install lorax, lorax-lmc-virt,
 qemu-kvm and the other build dependencies first. The build requires root.
