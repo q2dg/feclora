@@ -13,7 +13,7 @@ import stat
 from typing import Any, Callable
 
 from feclora.deployment.artifact_transfer import ImageTransferError, receive_image_set, send_image_set
-from feclora.deployment.control import DeploymentControlError, receive_control_message, send_control_message
+from feclora.deployment.control import LocalTargetApproval, receive_control_message, send_control_message
 from feclora.deployment.job import DeploymentJob
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
 from feclora.storage.disk_restore import DiskRestoreError, restore_disk
@@ -27,9 +27,8 @@ class ClientImageRuntimeError(RuntimeError):
 def execute_client_image_job(
     job: DeploymentJob,
     tls_socket: Any,
+    approval: LocalTargetApproval,
     *,
-    local_device_path: str,
-    confirmation: str,
     server_identity: str,
     repository: str | os.PathLike[str],
     trusted_server_public_key: str | os.PathLike[str],
@@ -42,6 +41,8 @@ def execute_client_image_job(
     executables: dict[str, str | None] | None = None,
 ) -> tuple[bool, str]:
     """Run one signed whole-disk image job after local, role-specific approval."""
+    local_device_path = approval.device_path
+    confirmation = approval.confirmation
     if not isinstance(local_device_path, str) or not local_device_path.startswith("/dev/"):
         raise ClientImageRuntimeError("local device selection must be an absolute /dev path")
     try:
