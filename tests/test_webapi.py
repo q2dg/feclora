@@ -94,6 +94,30 @@ class WebAPITests(unittest.TestCase):
                     "http_port": 8080, "authoritative_confirmed": True,
                 }})
 
+    def test_start_pxe_services_requires_successful_preflight_and_uses_manager(self):
+        class Manager:
+            def __init__(self): self.started = []
+            def start(self, config): self.started.append(config)
+            def status(self): return {"active": True, "interface": "enp1s0", "services": {"dnsmasq": "active"}}
+        manager = Manager()
+        params = {
+            "interface": "enp1s0", "address": "192.0.2.1", "prefix_length": 24,
+            "mode": "proxy", "pool_start": None, "pool_end": None,
+            "lease_time": "1h", "gateway": None, "dns_server": None,
+            "http_port": 8080, "authoritative_confirmed": False,
+        }
+        with patch("feclora.network.pxe_preflight.validate_pxe_configuration"), \\
+             patch("feclora.network.interface_discovery.detect_existing_dhcp_server", return_value=None), \\
+             patch("feclora.network.pxe_service.PXEServiceManager", return_value=manager):
+            result = dispatch({"action": "start_pxe_services", "params": params})
+        self.assertTrue(result["active"])
+        self.assertEqual(len(manager.started), 1)
+        self.assertEqual(manager.started[0].interface, "enp1s0")
+
+    def test_stop_pxe_services_rejects_parameters(self):
+        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
+            dispatch({"action": "stop_pxe_services", "params": {"interface": "enp1s0"}})
+
     def test_validate_pxe_profile_rejects_unknown_fields(self):
         with self.assertRaisesRegex(WebAPIError, "complete PXE profile"):
             dispatch({"action": "validate_pxe_profile", "params": {"mode": "proxy"}})
