@@ -43,7 +43,7 @@ class BtrfsInventoryTests(unittest.TestCase):
         def runner(argv, **kwargs):
             calls.append(argv)
             return subprocess.CompletedProcess(argv, 0, SAMPLE, "")
-        result = collect_btrfs_topology(which=lambda name: "/usr/bin/btrfs", runner=runner)
+        result = collect_btrfs_topology(which=lambda name: "/usr/bin/btrfs", runner=runner, effective_uid=lambda: 0)
         self.assertEqual(len(result["filesystems"]), 2)
         self.assertEqual(calls[0][1:], ["filesystem", "show", "--raw", "--all-devices"])
 
