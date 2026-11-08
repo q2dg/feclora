@@ -108,14 +108,12 @@ class PXEServiceManager:
                 "--property=Restart=no", "--property=KillMode=mixed", "--",
                 self.dnsmasq, "--keep-in-foreground", f"--conf-file={dnsmasq_config}",
             ], "starting dnsmasq")
-            self._started_units.add(self._dnsmasq_unit + ".service")
             self._started_units.add(self._caddy_unit + ".service")
             self._run([
                 self.systemd_run, f"--unit={self._caddy_unit}", "--collect",
                 "--property=Restart=no", "--property=KillMode=mixed", "--property=User=caddy", "--property=Group=caddy", "--",
                 self.caddy, "run", "--config", caddy_config, "--adapter", "caddyfile",
             ], "starting Caddy")
-            self._started_units.add(self._caddy_unit + ".service")
         except PXEServiceError as start_error:
             try:
                 self.stop()
@@ -128,7 +126,7 @@ class PXEServiceManager:
     def stop(self) -> None:
         """Stop active transient units and remove only firewall ports we added."""
         errors = []
-        for unit in ("feclora-caddy.service", "feclora-dnsmasq.service"):
+        for unit in (self._caddy_unit + ".service", self._dnsmasq_unit + ".service"):
             if unit not in self._started_units:
                 continue
             try:
