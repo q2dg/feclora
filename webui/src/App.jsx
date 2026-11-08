@@ -921,7 +921,8 @@ export default function App() {
                 <Field label="Client minisign public key (optional)" help="Provide only if this Client may capture images for the Server.">
                   <input className="pf-v5-c-form-control" value={clientMinisignPath} onChange={(e) => { setClientMinisignPath(e.target.value); setCsrReview(null); }} placeholder="/run/media/.../client.minisign.pub" />
                 </Field>
-                <Button variant="secondary" onClick={inspectClientCSR} isLoading={busy} isDisabled={busy || !csrPath || !ageRecipientPath || !clientMac}>Inspect enrollment request</Button>
+                <label><input type="checkbox" checked={csrRenewal} onChange={(event) => { setCsrRenewal(event.target.checked); setCsrReview(null); setCsrConfirmation(""); }} /> This CSR renews an already-enrolled Client certificate (preserve its MAC, age identity and image-signing trust)</label>
+                <Button variant="secondary" onClick={inspectClientCSR} isLoading={busy} isDisabled={busy || !csrPath || !ageRecipientPath || !clientMac}>Inspect {csrRenewal ? "renewal" : "enrollment"} request</Button>
                 {csrApprovalResult && <Card className="pf-v5-u-mt-md"><CardBody>
                   <Alert variant="success" title="Client enrolled" isInline>{csrApprovalResult.message}</Alert>
                   <p>Identity: {csrApprovalResult.identity} · MAC: {csrApprovalResult.mac_address}</p>
@@ -931,12 +932,12 @@ export default function App() {
                   <p>Client image capture: {csrApprovalResult.image_capture_enabled ? "authorized" : "not authorized"}</p>
                 </CardBody></Card>}
                 {csrReview && <Card className="pf-v5-u-mt-md"><CardBody>
-                  <Alert variant="warning" title="Review this identity before enrollment" isInline>Identity: {csrReview.identity} · MAC: {csrReview.mac_address}. Image capture permission: {csrReview.image_capture_enabled === "true" ? "enabled" : "not granted"}. No enrollment has occurred yet.</Alert>
+                  <Alert variant="warning" title={csrReview.renewal === "true" ? "Review Client certificate renewal" : "Review this identity before enrollment"} isInline>Identity: {csrReview.identity} · MAC: {csrReview.mac_address}. Image capture permission: {csrReview.image_capture_enabled === "true" ? "enabled" : "not granted"}. {csrReview.renewal === "true" ? "Only the TLS certificate will be renewed; existing trust mappings remain unchanged." : "No enrollment has occurred yet."}</Alert>
                   <p>To approve, type this exact phrase:</p><code>{csrReview.confirmation_phrase}</code>
                   <Field label="Explicit enrollment confirmation">
                     <input className="pf-v5-c-form-control" value={csrConfirmation} onChange={(e) => setCsrConfirmation(e.target.value)} />
                   </Field>
-                  <Button variant="danger" onClick={approveClientCSR} isLoading={busy} isDisabled={busy || csrConfirmation !== csrReview.confirmation_phrase}>Approve CSR, enroll Client and export response bundle</Button>
+                  <Button variant="danger" onClick={approveClientCSR} isLoading={busy} isDisabled={busy || csrConfirmation !== csrReview.confirmation_phrase}>Approve CSR, {csrReview.renewal === "true" ? "renew certificate and export response bundle" : "enroll Client and export response bundle"}</Button>
                 </CardBody></Card>}
               </StackItem>
               <StackItem>
@@ -983,7 +984,18 @@ export default function App() {
                 <Button variant="primary" onClick={refreshClientAgeRecipients} isLoading={busy} isDisabled={busy || !clientAgeInventoryPath}>Verify and refresh inventory</Button>
                 {clientAgeInventoryResult && <Alert variant="success" title="Age recipient inventory refreshed" isInline>{clientAgeInventoryResult.message} · {clientAgeInventoryResult.recipient_count} recipients · SHA-256 {clientAgeInventoryResult.sha256}</Alert>}
               </StackItem>}
-              {status?.client_configured ? <StackItem><Alert variant="success" title="Client already configured" isInline>This endpoint has a deployment Client configuration. Cockpit certificate renewal is not yet available; this wizard will not overwrite the existing identity. Age recipient inventory refresh is available below.</Alert></StackItem> : <>
+              {status?.client_configured ? <StackItem><Card><CardBody>
+                <Title headingLevel="h3" size="lg">Renew Client TLS certificate</Title>
+                <Alert variant="info" title="Key-preserving renewal" isInline>The existing TLS private key, age identity, MAC authorization and image-signing key are retained. Only the TLS certificate is replaced after verifying the Server CA fingerprint and response bundle.</Alert>
+                <Field label="Mounted removable-media directory for renewal request"><input className="pf-v5-c-form-control" value={clientRenewalExportDirectory} onChange={(event) => { setClientRenewalExportDirectory(event.target.value); setClientRenewalPrepared(null); }} placeholder="/run/media/liveuser/USB" /></Field>
+                <Button variant="primary" onClick={prepareClientRenewal} isLoading={busy} isDisabled={busy || !clientRenewalExportDirectory}>Prepare renewal CSR</Button>
+                {clientRenewalPrepared && <Alert variant="success" title="Renewal request prepared" isInline>{clientRenewalPrepared.message}<p>Identity: {clientRenewalPrepared.identity}</p><p>CSR: {clientRenewalPrepared.csr_file}</p><p>Age recipient: {clientRenewalPrepared.age_recipient_file}</p>{clientRenewalPrepared.minisign_public_file && <p>Existing public minisign key: {clientRenewalPrepared.minisign_public_file}</p>}</Alert>}
+                <Field label="Mounted Server renewal response bundle directory"><input className="pf-v5-c-form-control" value={clientRenewalBundleDirectory} onChange={(event) => setClientRenewalBundleDirectory(event.target.value)} placeholder="/run/media/liveuser/USB" /></Field>
+                <Field label="Feclora CA SHA-256 fingerprint"><input className="pf-v5-c-form-control" value={clientCaFingerprint} onChange={(event) => setClientCaFingerprint(event.target.value)} /></Field>
+                <Field label="Server minisign public-key SHA-256 fingerprint"><input className="pf-v5-c-form-control" value={clientServerFingerprint} onChange={(event) => setClientServerFingerprint(event.target.value)} /></Field>
+                <Button variant="danger" onClick={completeClientRenewal} isLoading={busy} isDisabled={busy || !clientRenewalBundleDirectory || !clientCaFingerprint || !clientServerFingerprint}>Verify and install renewed certificate</Button>
+                {clientRenewalCompleted && <Alert variant="success" title="Client certificate renewed" isInline>{clientRenewalCompleted.message}</Alert>}
+              </CardBody></Card></StackItem> : <>
                 <StackItem>
                   <Title headingLevel="h3" size="lg">1. Prepare enrollment request</Title>
                   <Field label="Client identifier"><input className="pf-v5-c-form-control" value={clientId} onChange={(e) => { setClientId(e.target.value); setClientPrepared(null); }} placeholder="lab-01" /></Field>
