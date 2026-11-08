@@ -84,8 +84,6 @@ class PxeServiceTests(unittest.TestCase):
             self.assertEqual(firewall2.adopted[0], "enp1s0")
             self.assertEqual(firewall2.closed, ["enp1s0"])
             self.assertFalse((Path(tmp) / "active.json").exists())
-            stopped = [argv[-1] for argv in calls if argv[:2] == ["/usr/bin/systemctl", "stop"]]
-            self.assertEqual(stopped, ["feclora-caddy-0.service", "feclora-dnsmasq-0.service"] if False else stopped)
 
     def test_rejects_symlink_runtime_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
