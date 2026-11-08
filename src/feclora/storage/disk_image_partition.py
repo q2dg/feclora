@@ -99,9 +99,14 @@ def extract_partition_image(
     table_artifact = table_artifacts[0]
     if table_artifact.encryption != "none" or table_artifact.compression != "none":
         raise DiskImagePartitionError("partition-table metadata must be stored unencrypted and uncompressed")
-    with _open_artifact(repo, table_artifact) as table_stream:
-        _verify_stored_artifact(table_stream, table_artifact)
-        table_raw = table_stream.read(1024 * 1024 + 1)
+    try:
+        with _open_artifact(repo, table_artifact) as table_stream:
+            _verify_stored_artifact(table_stream, table_artifact)
+            table_raw = table_stream.read(1024 * 1024 + 1)
+    except DiskRestoreError as exc:
+        raise DiskImagePartitionError(
+            f"partition-table artifact verification failed: {exc}"
+        ) from exc
     if len(table_raw) > 1024 * 1024:
         raise DiskImagePartitionError("partition-table metadata exceeds 1 MiB")
     try:
