@@ -73,6 +73,14 @@ DHCP server, verifies the selected address is still assigned to the interface,
 and initializes or validates the managed CA, mTLS Server identity, age
 recipient and minisign signing material without enabling DHCP/PXE services.
 
+The Server setup tab also provides a PXE network-profile preflight. It
+validates ProxyDHCP or explicitly confirmed isolated DHCP, checks pool bounds,
+verifies the selected interface and runs dnsmasq/Caddy configuration tests.
+It reports an existing DHCP server when NetworkManager has lease information
+and blocks isolated authoritative DHCP in that case. A missing DHCP lease
+identifier is not proof of an isolated network. This step does not start
+services, alter firewall rules or persist a network profile.
+
 The rest of Server/Client provisioning and the complete PXE deployment
 lifecycle still require web workflows: network mode and address-pool setup,
 PXE service activation, CSR approval and Client enrollment, job creation and
