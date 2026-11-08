@@ -274,7 +274,7 @@ class CoordinatorControlTests(unittest.TestCase):
         context.verify_mode = ssl.CERT_REQUIRED
         firewall = unittest.mock.Mock()
         firewall.is_open.return_value = True
-        firewall.add_ports.return_value = ("9443/tcp",)
+        firewall.add_ports.side_effect = lambda interface, ports: tuple(ports)
         server = DeploymentControlServer(
             DeploymentCoordinator(make_job()), context,
             local_identity="URI:feclora-server",
@@ -284,7 +284,7 @@ class CoordinatorControlTests(unittest.TestCase):
         _host, port = server.start("127.0.0.1", 0)
         firewall.add_ports.assert_called_once_with("enp1s0", [f"{port}/tcp"])
         server.stop()
-        firewall.remove_ports.assert_called_once_with("enp1s0", ("9443/tcp",))
+        firewall.remove_ports.assert_called_once_with("enp1s0", (f"{port}/tcp",))
         firewall.close.assert_not_called()
 
     def test_server_arms_and_tracks_authenticated_ready_client(self):
