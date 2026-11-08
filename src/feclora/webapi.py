@@ -655,7 +655,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             if identity_context:
                 identity_file = Path(identity_context.name) / "identities.txt"
                 identity_file.write_text(
-                    "\\n".join(path.read_text(encoding="ascii").strip() for path in identity_paths) + "\\n",
+                    "\n".join(path.read_text(encoding="ascii").strip() for path in identity_paths) + "\n",
                     encoding="ascii",
                 )
                 os.chmod(identity_file, 0o600)
