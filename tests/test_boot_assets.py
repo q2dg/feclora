@@ -13,7 +13,7 @@ class BootAssetTests(unittest.TestCase):
             source = root / "rpm-files"
             source.mkdir()
             (source / "undionly.kpxe").write_bytes(b"bios")
-            (source / "snponly.efi").write_bytes(b"uefi")
+            (source / "ipxe-snponly-x86_64.efi").write_bytes(b"uefi")
             listing = "\n".join(str(p) for p in source.iterdir()) + "\n"
             def runner(argv, **kwargs):
                 self.assertEqual(argv, ["/usr/bin/rpm", "-ql", "ipxe-bootimgs-x86"])
@@ -23,7 +23,7 @@ class BootAssetTests(unittest.TestCase):
                 str(target), rpm="/usr/bin/rpm", runner=runner,
             )
             self.assertEqual(Path(result["undionly.kpxe"]).read_bytes(), b"bios")
-            self.assertEqual(Path(result["snponly.efi"]).read_bytes(), b"uefi")
+            self.assertEqual(Path(result["ipxe-snponly-x86_64.efi"]).read_bytes(), b"uefi")
             self.assertEqual((target / "undionly.kpxe").stat().st_mode & 0o777, 0o444)
 
     def test_rejects_missing_or_ambiguous_firmware(self):
@@ -39,7 +39,7 @@ class BootAssetTests(unittest.TestCase):
             src = root / "src"
             src.mkdir()
             (src / "undionly.kpxe").write_bytes(b"bios")
-            (src / "snponly.efi").write_bytes(b"uefi")
+            (src / "ipxe-snponly-x86_64.efi").write_bytes(b"uefi")
             target = root / "target"
             target.mkdir()
             (target / "undionly.kpxe").write_bytes(b"old")
