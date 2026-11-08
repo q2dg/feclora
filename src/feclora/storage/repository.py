@@ -124,9 +124,11 @@ class RemoteRepository:
             return [exe("mount.davfs"), "-o", ",".join(options),
                     f"https://{self.host}{self.remote_path}", self.mountpoint]
         bucket_path = self.remote_path.lstrip("/")
-        return [exe("rclone"), "mount", f"{self.rclone_remote}:{bucket_path}",
-                self.mountpoint, "--vfs-cache-mode", "writes", "--dir-cache-time", "5m",
-                "--read-only" if self.read_only else "--allow-other"]
+        argv = [exe("rclone"), "mount", f"{self.rclone_remote}:{bucket_path}",
+                self.mountpoint, "--vfs-cache-mode", "writes", "--dir-cache-time", "5m"]
+        if self.read_only:
+            argv.append("--read-only")
+        return argv
 
 
 def required_tools(provider: str) -> tuple[str, ...]:
