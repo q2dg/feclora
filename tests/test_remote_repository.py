@@ -21,7 +21,7 @@ class RemoteRepositoryTests(unittest.TestCase):
         )
         argv = repo.mount_argv()
         self.assertIn("vers=4.2", argv[4])
-        self.assertIn("hard", argv[6])
+        self.assertIn("hard", argv[4])
 
     def test_smb_requires_credentials_file(self):
         with self.assertRaises(RepositoryError):
@@ -33,7 +33,7 @@ class RemoteRepositoryTests(unittest.TestCase):
             provider="smb", host="nas.example.net", remote_path="/images/feclora",
             mountpoint="/mnt/images", credential_file="/etc/feclora/smb.creds",
         )
-        self.assertIn("credentials=/etc/feclora/smb.creds", repo.mount_argv()[6])
+        self.assertIn("credentials=/etc/feclora/smb.creds", repo.mount_argv()[4])
 
     def test_webdav_uses_https(self):
         repo = RemoteRepository(
