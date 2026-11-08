@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from feclora.network.pxe_config import PXENetworkConfig, render_caddy, render_dnsmasq\nfrom feclora.network.pxe_preflight import validate_pxe_configuration
+from feclora.network.firewall import PXEFirewall
 
 
 class PXEServiceError(RuntimeError):
