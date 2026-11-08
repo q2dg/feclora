@@ -12,6 +12,11 @@ iproute
 firewalld
 openssl
 
+# Cockpit web UI (socket remains disabled in the Live session)
+cockpit
+cockpit-system
+cockpit-storaged
+
 # Embedded Server-mode PXE stack (installed, never enabled by default)
 dnsmasq
 ipxe-bootimgs-x86
