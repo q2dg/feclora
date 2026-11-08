@@ -8,7 +8,7 @@ class FirewallTests(unittest.TestCase):
     def test_uses_a_temporary_zone_bound_only_to_the_selected_interface(self):
         calls = []
         zones = {"work", "public"}
-        current = {"enp1s0": "work"}
+        current = {"enp1s0": "work", "enp2s0": "work"}
         def runner(argv, **kwargs):
             calls.append(argv)
             args = argv[1:]
@@ -48,7 +48,7 @@ class FirewallTests(unittest.TestCase):
         firewall.open("enp1s0", ["67/udp", "4011/udp", "8080/tcp"])
         temp_zone = current["enp1s0"]
         self.assertTrue(temp_zone.startswith("feclora-pxe-"))
-        self.assertNotEqual(current["enp2s0"] if "enp2s0" in current else "work", temp_zone)
+        self.assertEqual(current["enp2s0"], "work")
         self.assertTrue(any("--add-service=tftp" in call for call in calls))
         firewall.close("enp1s0")
         self.assertEqual(current["enp1s0"], "work")
