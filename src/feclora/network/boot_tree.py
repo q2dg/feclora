@@ -89,12 +89,23 @@ def stage_live_boot_assets(
 ) -> dict[str, str]:
     """Publish kernel/initramfs/squashfs from mounted Fedora Live media."""
     source_root = Path(live_root)
+    if source_root.is_symlink() or not source_root.is_dir():
+        raise LiveBootAssetError("Live media root must be a real mounted directory")
+    target_root = Path(http_root)
+    target_root.mkdir(mode=0o755, parents=True, exist_ok=True)
+    if target_root.is_symlink() or not target_root.is_dir():
+        raise LiveBootAssetError("HTTP root must be a real directory")
+    os.chmod(target_root, 0o755)
+    live_target = target_root / "live"
+    live_target.mkdir(mode=0o755, exist_ok=True)
+    if live_target.is_symlink() or not live_target.is_dir():
+        raise LiveBootAssetError("HTTP live payload directory must be a real directory")
+    os.chmod(live_target, 0o755)
     sources = {
         "vmlinuz": source_root / "images" / "pxeboot" / "vmlinuz",
         "initrd.img": source_root / "images" / "pxeboot" / "initrd.img",
         "squashfs.img": source_root / "LiveOS" / "squashfs.img",
     }
-    target_root = Path(http_root)
     staged: dict[str, str] = {}
     for name, source in sources.items():
         destination = target_root / "live" / name
@@ -102,7 +113,6 @@ def stage_live_boot_assets(
         staged[name] = str(destination)
     script = render_ipxe_script(address, http_port)
     script_path = target_root / "boot.ipxe"
-    target_root.mkdir(mode=0o755, parents=True, exist_ok=True)
     if script_path.exists() or script_path.is_symlink():
         try:
             info = script_path.lstat()
