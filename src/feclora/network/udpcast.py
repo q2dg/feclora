@@ -199,7 +199,7 @@ def multicast_firewall_scope(firewall: Any, interface: str, portbase: int) -> It
         return
     opened = False
     try:
-        firewall.open(interface, [f"{portbase}/udp", f"{portbase + 1}/udp"])
+        firewall.open(interface, [f"{portbase}/udp", f"{portbase + 1}/udp"], include_tftp=False)
         opened = True
         yield
     finally:
