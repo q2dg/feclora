@@ -1,0 +1,302 @@
+"""Authenticated Server/Client deployment control plane.
+
+The control channel is TLS 1.3 mutual-authenticated. Certificate SAN identity is
+mapped to an explicitly authorized client MAC; MAC is an inventory key only,
+never an authenticator. This module coordinates readiness and job arming. It
+does not implement the image data plane or execute storage operations.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import socket
+import ssl
+import struct
+import threading
+from dataclasses import dataclass
+from typing import Any, Callable, Mapping
+
+from feclora.deployment.coordinator import (
+    ClientState, CoordinatorError, DeploymentCoordinator, JobState,
+)
+from feclora.deployment.job import DeploymentJob, JobValidationError
+from feclora.network.remote_clone_protocol import verify_peer_identity
+from feclora.network.tls import connect_mutual_tls
+
+MAX_CONTROL_FRAME = 16 * 1024
+_CONTROL_TYPES = {"hello", "job", "ready", "start", "result", "cancel", "error"}
+
+
+class DeploymentControlError(RuntimeError):
+    """An authenticated deployment control exchange failed."""
+
+
+def _recv_exact(sock: Any, count: int) -> bytes:
+    chunks = bytearray()
+    while len(chunks) < count:
+        part = sock.recv(count - len(chunks))
+        if not part:
+            raise DeploymentControlError("peer closed the deployment control channel")
+        chunks.extend(part)
+    return bytes(chunks)
+
+
+def send_control_message(sock: Any, payload: Mapping[str, Any]) -> None:
+    if not isinstance(payload, Mapping) or payload.get("type") not in _CONTROL_TYPES:
+        raise DeploymentControlError("invalid deployment control message type")
+    try:
+        encoded = json.dumps(dict(payload), sort_keys=True, separators=(",", ":"),
+                             ensure_ascii=True, allow_nan=False).encode("ascii")
+    except (TypeError, ValueError) as exc:
+        raise DeploymentControlError(f"control message is not JSON serializable: {exc}") from exc
+    if not encoded or len(encoded) > MAX_CONTROL_FRAME:
+        raise DeploymentControlError("deployment control message exceeds the frame limit")
+    sock.sendall(struct.pack("!I", len(encoded)) + encoded)
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise DeploymentControlError(f"duplicate control message field: {key}")
+        result[key] = value
+    return result
+
+
+def receive_control_message(sock: Any, *, expected_type: str | None = None) -> dict[str, Any]:
+    length = struct.unpack("!I", _recv_exact(sock, 4))[0]
+    if not 1 <= length <= MAX_CONTROL_FRAME:
+        raise DeploymentControlError("invalid deployment control frame length")
+    try:
+        payload = json.loads(
+            _recv_exact(sock, length).decode("ascii"),
+            object_pairs_hook=_reject_duplicate_keys,
+        )
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise DeploymentControlError(f"invalid deployment control JSON: {exc}") from exc
+    if not isinstance(payload, dict) or payload.get("type") not in _CONTROL_TYPES:
+        raise DeploymentControlError("invalid deployment control message")
+    if expected_type is not None and payload["type"] != expected_type:
+        raise DeploymentControlError(
+            f"expected {expected_type!r} control message, received {payload['type']!r}"
+        )
+    return payload
+
+
+def _certificate_identity(sock: Any) -> str:
+    certificate = sock.getpeercert()
+    if not isinstance(certificate, dict):
+        raise DeploymentControlError("client certificate details are unavailable")
+    names = certificate.get("subjectAltName", ())
+    for kind in ("URI", "DNS", "IP Address", "email"):
+        for name_kind, value in names:
+            if name_kind == kind and isinstance(value, str) and value:
+                prefix = {"IP Address": "IP", "email": "EMAIL"}.get(kind, kind)
+                return f"{prefix}:{value}"
+    der = sock.getpeercert(binary_form=True)
+    if not der:
+        raise DeploymentControlError("client did not present a certificate")
+    return "sha256:" + hashlib.sha256(der).hexdigest()
+
+
+@dataclass(frozen=True)
+class ReadyClient:
+    mac_address: str
+    certificate_identity: str
+    target_description: str
+
+
+class DeploymentControlServer:
+    """Single-job listener adapter around the existing in-memory coordinator."""
+
+    def __init__(
+        self,
+        coordinator: DeploymentCoordinator,
+        tls_context: ssl.SSLContext,
+        *,
+        local_identity: str,
+        client_identity_to_mac: Mapping[str, str],
+    ) -> None:
+        self.coordinator = coordinator
+        self.tls_context = tls_context
+        self.local_identity = local_identity
+        self.client_identity_to_mac = {
+            identity: mac.lower() for identity, mac in client_identity_to_mac.items()
+        }
+        if not self.client_identity_to_mac:
+            raise DeploymentControlError("at least one certificate-identity-to-MAC mapping is required")
+        self._sessions: dict[str, Any] = {}
+        self._identities: dict[str, str] = {}
+        self._lock = threading.RLock()
+
+    def accept_ready_client(self, listener: Any) -> ReadyClient:
+        accepted, _address = listener.accept()
+        tls_socket = None
+        try:
+            accepted.settimeout(30)
+            tls_socket = self.tls_context.wrap_socket(accepted, server_side=True)
+            tls_socket.settimeout(120)
+            identity = _certificate_identity(tls_socket)
+            mac = self.client_identity_to_mac.get(identity)
+            if mac is None:
+                raise DeploymentControlError("client certificate identity is not enrolled for this deployment")
+            verify_peer_identity(tls_socket, identity)
+            hello = receive_control_message(tls_socket, expected_type="hello")
+            if set(hello) != {"type", "job_id", "mac_address"}:
+                raise DeploymentControlError("client hello contains missing or unknown fields")
+            if hello["job_id"] != self.coordinator.job.job_id or hello["mac_address"] != mac:
+                raise DeploymentControlError("client hello does not match the enrolled identity and active job")
+            self.coordinator.register_client(mac, authenticated=True)
+            send_control_message(tls_socket, {
+                "type": "job", "job": self.coordinator.job.to_dict(),
+                "server_identity": self.local_identity,
+            })
+            ready = receive_control_message(tls_socket, expected_type="ready")
+            if set(ready) != {"type", "job_id", "target_description", "locally_authorized"}:
+                raise DeploymentControlError("client readiness contains missing or unknown fields")
+            description = ready["target_description"]
+            if (ready["job_id"] != self.coordinator.job.job_id
+                    or ready["locally_authorized"] is not True
+                    or not isinstance(description, str) or not description
+                    or len(description) > 256 or any(ord(c) < 32 for c in description)):
+                raise DeploymentControlError("client has not supplied valid local target authorization")
+            self.coordinator.mark_ready(mac)
+            with self._lock:
+                self._sessions[mac] = tls_socket
+                self._identities[mac] = identity
+            return ReadyClient(mac, identity, description)
+        except Exception:
+            if tls_socket is not None:
+                tls_socket.close()
+            else:
+                accepted.close()
+            raise
+
+    def arm_and_start(self) -> tuple[str, ...]:
+        """Arm only through the coordinator, then notify every authenticated READY client."""
+        self.coordinator.arm()
+        started: list[str] = []
+        with self._lock:
+            sessions = tuple(self._sessions.items())
+        for mac, tls_socket in sessions:
+            try:
+                self.coordinator.mark_running(mac)
+                send_control_message(tls_socket, {
+                    "type": "start", "job_id": self.coordinator.job.job_id,
+                    "operation": self.coordinator.job.operation,
+                    "image_id": self.coordinator.job.image_id,
+                })
+                started.append(mac)
+            except (OSError, DeploymentControlError, CoordinatorError) as exc:
+                try:
+                    self.coordinator.disconnect_client(mac, f"could not start client: {exc}")
+                except CoordinatorError:
+                    pass
+                tls_socket.close()
+        return tuple(started)
+
+    def collect_results(self, *, timeout: float = 3600) -> dict[str, str]:
+        results: dict[str, str] = {}
+        with self._lock:
+            sessions = tuple(self._sessions.items())
+        for mac, tls_socket in sessions:
+            try:
+                tls_socket.settimeout(timeout)
+                message = receive_control_message(tls_socket, expected_type="result")
+                if set(message) != {"type", "job_id", "success", "detail"}:
+                    raise DeploymentControlError("client result contains missing or unknown fields")
+                if message["job_id"] != self.coordinator.job.job_id:
+                    raise DeploymentControlError("client result belongs to another job")
+                if not isinstance(message["success"], bool):
+                    raise DeploymentControlError("client result success flag must be boolean")
+                detail = message["detail"]
+                if not isinstance(detail, str) or len(detail) > 512:
+                    raise DeploymentControlError("client result detail is invalid")
+                self.coordinator.report_result(mac, success=message["success"], detail=detail)
+                results[mac] = "succeeded" if message["success"] else "failed"
+            except (OSError, DeploymentControlError, CoordinatorError, TimeoutError) as exc:
+                try:
+                    self.coordinator.disconnect_client(mac, f"result not received: {exc}")
+                except CoordinatorError:
+                    pass
+                results[mac] = "disconnected"
+            finally:
+                tls_socket.close()
+        return results
+
+    def cancel(self) -> None:
+        with self._lock:
+            sessions = tuple(self._sessions.values())
+        for tls_socket in sessions:
+            try:
+                send_control_message(tls_socket, {
+                    "type": "cancel", "job_id": self.coordinator.job.job_id,
+                })
+            except (OSError, DeploymentControlError):
+                pass
+            tls_socket.close()
+        if self.coordinator.state not in {
+            JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED,
+        }:
+            self.coordinator.cancel()
+
+
+def join_deployment(
+    host: str,
+    port: int,
+    tls_context: ssl.SSLContext,
+    *,
+    local_identity: str,
+    expected_server_identity: str,
+    mac_address: str,
+    job_id: str,
+    prepare_local_target: Callable[[DeploymentJob], str],
+    execute_job: Callable[[DeploymentJob], tuple[bool, str]],
+    timeout: float = 120,
+) -> tuple[DeploymentJob, bool, str]:
+    """Authenticate, receive a job, obtain local target approval, then execute on START."""
+    tls_socket = connect_mutual_tls(
+        tls_context, host, port, expected_peer_identity=expected_server_identity,
+        timeout=15, io_timeout=timeout,
+    )
+    with tls_socket:
+        send_control_message(tls_socket, {
+            "type": "hello", "job_id": job_id, "mac_address": mac_address.lower(),
+        })
+        offer = receive_control_message(tls_socket, expected_type="job")
+        if set(offer) != {"type", "job", "server_identity"}:
+            raise DeploymentControlError("server job offer contains missing or unknown fields")
+        if offer["server_identity"] != expected_server_identity:
+            raise DeploymentControlError("job offer is not bound to the authenticated server identity")
+        try:
+            job = DeploymentJob.from_dict(offer["job"])
+        except (JobValidationError, TypeError) as exc:
+            raise DeploymentControlError(f"server supplied an invalid deployment job: {exc}") from exc
+        if job.job_id != job_id or not job.authorizes_client(mac_address):
+            raise DeploymentControlError("job does not authorize this client identity")
+        target_description = prepare_local_target(job)
+        if (not isinstance(target_description, str) or not target_description
+                or len(target_description) > 256 or any(ord(c) < 32 for c in target_description)):
+            raise DeploymentControlError("local target approval callback returned an invalid description")
+        send_control_message(tls_socket, {
+            "type": "ready", "job_id": job.job_id,
+            "target_description": target_description, "locally_authorized": True,
+        })
+        start = receive_control_message(tls_socket)
+        if start.get("type") == "cancel":
+            raise DeploymentControlError("server cancelled the deployment before start")
+        if start.get("type") != "start" or start.get("job_id") != job.job_id:
+            raise DeploymentControlError("server did not arm this deployment job")
+        if start.get("operation") != job.operation or start.get("image_id") != job.image_id:
+            raise DeploymentControlError("server start command does not match the authorized job")
+        try:
+            success, detail = execute_job(job)
+        except Exception as exc:
+            success, detail = False, str(exc)
+        if not isinstance(success, bool) or not isinstance(detail, str):
+            success, detail = False, "client execution callback returned an invalid result"
+        send_control_message(tls_socket, {
+            "type": "result", "job_id": job.job_id,
+            "success": success, "detail": detail[:512],
+        })
+        return job, success, detail[:512]
