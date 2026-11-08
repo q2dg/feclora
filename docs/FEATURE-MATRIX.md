@@ -14,6 +14,7 @@ Status meanings:
 | Imaging | Whole-disk capture/restore | Implemented | Cockpit | Automated tests; operator validation |
 | Imaging | Partition capture/restore | Implemented | Cockpit | Automated tests; operator validation |
 | Imaging | Extract partition from whole-disk image | Implemented; verified partition-table preview, age decrypt/re-encryption when source is encrypted, source signature verification and signed output when key is available | Cockpit | Automated tests |
+| Imaging | Whole-disk restore layout preview | Read-only source partition map and destination capacity comparison; no automatic growth | Cockpit | Automated tests; operator validation |
 | Cloning | Local disk-to-disk | Implemented | Cockpit | Automated tests; operator validation |
 | Cloning | Local partition-to-partition | Implemented | Cockpit | Automated tests; operator validation |
 | Integrity | Manifest and SHA-256 | Implemented | Cockpit inventory/restore | Automated tests |
