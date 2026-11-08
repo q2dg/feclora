@@ -1056,19 +1056,13 @@ def dispatch(request: Any) -> dict[str, Any]:
     if action == "journals":
         if params:
             raise WebAPIError("journals does not accept parameters")
-        from feclora.deployment.journal import DeploymentJournal
-        directory = Path("/var/lib/feclora/deployments")
-        reports = []
-        if directory.exists():
-            info = os.lstat(directory)
-            if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
-                raise WebAPIError("deployment journal directory is unsafe")
-            for journal_path in sorted(directory.glob("*.jsonl")):
-                report = DeploymentJournal.inspect(journal_path).recovery_report()
-                reports.append({"job_id": report["job_id"], "job_state": report["job_state"],
-                                "interrupted": report["interrupted"], "event_count": report["event_count"],
-                                "clients": {mac: item["state"] for mac, item in report["clients"].items()}})
-        return {"journals": reports}
+        reports = _deployment_jobs()
+        return {"journals": [
+            {"job_id": item["job_id"], "job_state": item["job_state"],
+             "interrupted": item["interrupted"], "event_count": item["event_count"],
+             "clients": {mac: state["state"] for mac, state in item["clients"].items()}}
+            for item in reports
+        ]}
     if action in {"capture_disk", "capture_partition", "restore_disk", "restore_partition",
                   "clone_disk", "clone_partition"}:
         return _run_operation(action, params)
