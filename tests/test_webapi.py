@@ -142,6 +142,10 @@ class WebAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "complete PXE profile"):
             dispatch({"action": "validate_pxe_profile", "params": {"mode": "proxy"}})
 
+    def test_deployment_jobs_returns_empty_before_first_job_exists(self):
+        with patch("feclora.webapi.os.path.lexists", return_value=False):
+            self.assertEqual(dispatch({"action": "deployment_jobs"}), {"jobs": []})
+
     def test_deployment_jobs_action_is_read_only(self):
         expected = [{"job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479"}]
         with patch("feclora.webapi._deployment_jobs", return_value=expected):
