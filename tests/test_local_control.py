@@ -3,7 +3,7 @@ import struct
 import unittest
 
 from feclora.deployment.local_control import (
-    MAX_FRAME, LocalControlError, _receive, _send,
+    MAX_FRAME, LocalControlError, _receive, _send, local_control_request,
 )
 
 
@@ -61,6 +61,18 @@ class LocalControlProtocolTests(unittest.TestCase):
         sock = FakeSocket(struct.pack("!I", MAX_FRAME + 1))
         with self.assertRaisesRegex(LocalControlError, "frame length"):
             _receive(sock)
+
+    def test_client_rejects_non_string_action_before_connecting(self):
+        with self.assertRaisesRegex(LocalControlError, "unsupported"):
+            local_control_request("/unused/socket", [], {})
+
+    def test_client_enforces_exact_arm_parameters_before_connecting(self):
+        with self.assertRaisesRegex(LocalControlError, "exactly job_id"):
+            local_control_request("/unused/socket", "arm", {"job_id": "not-enough"})
+
+    def test_client_rejects_status_parameters_before_connecting(self):
+        with self.assertRaisesRegex(LocalControlError, "does not accept"):
+            local_control_request("/unused/socket", "status", {"unexpected": True})
 
 
 if __name__ == "__main__":
