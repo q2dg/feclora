@@ -1,0 +1,122 @@
+"""Read-only Linux interface/address discovery for PXE preflight."""
+from __future__ import annotations
+
+import ipaddress
+import json
+import re
+import shutil
+import subprocess
+from dataclasses import dataclass
+from typing import Any, Callable
+
+
+class InterfaceDiscoveryError(RuntimeError):
+    """The selected deployment interface cannot be safely identified."""
+
+
+_INTERFACE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,15}$")
+
+
+@dataclass(frozen=True)
+class InterfaceAddress:
+    interface: str
+    address: str
+    prefix_length: int
+    scope: str
+    flags: tuple[str, ...] = ()
+
+    @property
+    def network(self) -> ipaddress.IPv4Network:
+        return ipaddress.ip_network(
+            f"{self.address}/{self.prefix_length}", strict=False
+        )
+
+
+def parse_interface_addresses(payload: str, interface: str) -> list[InterfaceAddress]:
+    if not _INTERFACE_RE.fullmatch(interface):
+        raise InterfaceDiscoveryError("Invalid Linux interface name")
+    try:
+        rows = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise InterfaceDiscoveryError(f"ip returned invalid JSON: {exc}") from exc
+    if not isinstance(rows, list):
+        raise InterfaceDiscoveryError("ip JSON must be an array")
+    found = []
+    for row in rows:
+        if not isinstance(row, dict) or row.get("ifname") != interface:
+            continue
+        flags = tuple(str(flag) for flag in row.get("flags", []))
+        if "UP" not in flags or "LOOPBACK" in flags:
+            continue
+        addr_info = row.get("addr_info", [])
+        if not isinstance(addr_info, list):
+            raise InterfaceDiscoveryError("ip address list is malformed")
+        for address in addr_info:
+            if not isinstance(address, dict) or address.get("family") != "inet":
+                continue
+            local = address.get("local")
+            prefix = address.get("prefixlen")
+            try:
+                parsed = ipaddress.ip_address(local)
+            except (ValueError, TypeError):
+                continue
+            if parsed.version != 4 or parsed.is_unspecified or parsed.is_loopback or parsed.is_multicast:
+                continue
+            if isinstance(prefix, bool) or not isinstance(prefix, int) or not 1 <= prefix <= 30:
+                continue
+            found.append(InterfaceAddress(
+                interface=interface,
+                address=str(parsed),
+                prefix_length=prefix,
+                scope=str(address.get("scope") or ""),
+                flags=flags,
+            ))
+    return found
+
+
+def discover_interface_addresses(
+    interface: str,
+    *,
+    executable: str | None = None,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> list[InterfaceAddress]:
+    if not _INTERFACE_RE.fullmatch(interface):
+        raise InterfaceDiscoveryError("Invalid Linux interface name")
+    ip = executable or shutil.which("ip")
+    if not ip:
+        raise InterfaceDiscoveryError("iproute is required for interface discovery")
+    try:
+        completed = runner(
+            [ip, "-j", "-4", "address", "show", "dev", interface],
+            check=True, capture_output=True, text=True, timeout=10,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise InterfaceDiscoveryError("Interface discovery timed out") from exc
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or "").strip()
+        raise InterfaceDiscoveryError(detail or f"cannot inspect interface {interface}") from exc
+    addresses = parse_interface_addresses(completed.stdout, interface)
+    if not addresses:
+        raise InterfaceDiscoveryError(
+            f"Interface {interface} has no usable IPv4 address and is not UP"
+        )
+    return addresses
+
+
+def validate_selected_address(
+    interface: str,
+    address: str,
+    prefix_length: int,
+    discovered: list[InterfaceAddress],
+) -> InterfaceAddress:
+    matches = [
+        item for item in discovered
+        if item.interface == interface
+        and item.address == address
+        and item.prefix_length == prefix_length
+    ]
+    if len(matches) != 1:
+        raise InterfaceDiscoveryError(
+            "Selected IPv4 address/prefix is not currently assigned to the selected interface"
+        )
+    return matches[0]
