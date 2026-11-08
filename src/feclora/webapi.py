@@ -862,6 +862,13 @@ def _reconcile_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(confirmation, str) or len(confirmation) > 96:
         raise WebAPIError("operator reconciliation confirmation is invalid")
     from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
+    try:
+        from feclora.deployment.local_control import LocalControlError, local_control_request
+        active_service = local_control_request("/run/feclora/deployment.sock", "status")
+    except (OSError, LocalControlError):
+        active_service = None
+    if active_service and active_service.get("job_id") == job_id:
+        raise WebAPIError("stop the active deployment service before reconciling its journal")
 
     directory = _deployment_journal_directory()
     journal_path = directory / f"{job_id}.jsonl"
