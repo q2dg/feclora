@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import tempfile
+from dataclasses import replace
 import unittest
 from unittest.mock import patch
 
@@ -75,6 +76,27 @@ class DiskImagePartitionTests(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(self.temp.name, filename + ".minisig")))
         with open(os.path.join(self.temp.name, filename + ".minisig"), "rb") as stream:
             self.assertEqual(stream.read(), b"signature")
+
+    def test_preserves_age_encryption_for_extracted_partition_artifact(self):
+        def encrypt(path, artifact, recipients_file, **kwargs):
+            encrypted_name = artifact.filename + ".age"
+            encrypted_path = os.path.join(os.path.dirname(path), encrypted_name)
+            with open(encrypted_path, "wb") as stream:
+                stream.write(b"encrypted")
+            os.unlink(path)
+            return replace(
+                artifact, filename=encrypted_name, size_bytes=9,
+                sha256=hashlib.sha256(b"encrypted").hexdigest(), encryption="age",
+            )
+        with patch("feclora.storage.disk_image_partition.encrypt_artifact", side_effect=encrypt) as encrypt_call:
+            extracted, filename = extract_partition_image(
+                self.manifest, self.temp.name, "aaaa-bbbb",
+                age_recipients_file="/pki/age-recipients.txt",
+            )
+        encrypt_call.assert_called_once()
+        self.assertEqual(extracted.artifacts[0].encryption, "age")
+        self.assertTrue(os.path.isfile(os.path.join(self.temp.name, extracted.artifacts[0].filename)))
+        self.assertFalse(os.path.exists(os.path.join(self.temp.name, extracted.artifacts[0].filename.removesuffix(".age"))))
 
     def test_selects_partition_by_name(self):
         extracted, _ = extract_partition_image(
