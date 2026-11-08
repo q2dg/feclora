@@ -45,7 +45,7 @@ def _choose_job(
 ) -> tuple[DeploymentJob, str | None, list[str]]:
     transport = dialog_app._menu(
         "Deployment transport",
-        "Choose authenticated unicast or one-to-many multicast restore.",
+        "Choose authenticated unicast or one-to-many multicast restore. Multicast supports whole-disk and partition images.",
         [
             ("unicast", "Unicast (one Client; save or restore)"),
             ("multicast", "Multicast (multiple Clients; restore only)"),
@@ -54,7 +54,7 @@ def _choose_job(
     if transport is None:
         raise DeploymentControlError("transport selection cancelled")
     operation_choices = (
-        [("restore", "Restore a signed image to multiple Client disks")]
+        [("restore", "Restore a signed disk or partition image to multiple Clients")]
         if transport == "multicast" else
         [
             ("restore", "Restore a signed image to one Client disk"),
@@ -70,7 +70,7 @@ def _choose_job(
     if operation == "restore":
         images = _available_images(config.repository)
         choices = [
-            (manifest.image_id, f"{manifest.image_id} | {manifest.source_size_bytes:,} bytes")
+            (manifest.image_id, f"{manifest.image_id} | {manifest.image_type} | {manifest.source_size_bytes:,} bytes")
             for _filename, manifest in images
         ]
         image_id = dialog_app._menu(
@@ -78,13 +78,16 @@ def _choose_job(
         )
         if image_id is None:
             raise DeploymentControlError("image selection cancelled")
-        selected_manifest = next(
-            (name for name, manifest in images if manifest.image_id == image_id), None,
+        selected_entry = next(
+            ((name, manifest) for name, manifest in images if manifest.image_id == image_id), None,
         )
+        selected_manifest = selected_entry[0] if selected_entry else None
+        target_type = selected_entry[1].image_type if selected_entry else "disk"
         if selected_manifest is None:
             raise DeploymentControlError("selected image is no longer available")
         manifest_path = os.path.join(config.repository, selected_manifest)
     else:
+        target_type = "disk"
         image_id = dialog_app._input("New image identifier", "Enter a unique image identifier:")
         if image_id is None:
             raise DeploymentControlError("image creation cancelled")
@@ -147,6 +150,7 @@ def _choose_job(
         "job_id": str(uuid.uuid4()),
         "operation": operation,
         "image_id": image_id,
+        "target_type": target_type,
         "authorized_clients": selected_macs,
         "network_interface": interface,
         "transport": transport,
