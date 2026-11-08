@@ -169,14 +169,13 @@ def parse_sfdisk_dump(
     image_size_bytes: int,
     default_sector_size: int = 512,
 ) -> Mapping[str, object]:
-    """Parse the sfdisk --dump text stored by disk_capture into range metadata."""
+    """Parse sfdisk --dump text into validated partition byte-range metadata."""
     if not isinstance(document, str) or len(document) > 1024 * 1024:
         raise PartitionRangeError("sfdisk dump must be text no larger than 1 MiB")
     sector_size = default_sector_size
     partitions = []
-    seen_fields: set[str] = set()
-    field_pattern = __import__("re").compile(
-        r'([A-Za-z][A-Za-z0-9_-]*)\\s*=\\s*(?:"([^"]*)"|([^,\\s]+))'
+    field_pattern = re.compile(
+        r'([A-Za-z][A-Za-z0-9_-]*)\s*=\s*("[^"]*"|[^,\s]+)'
     )
     for raw_line in document.splitlines():
         line = raw_line.strip()
@@ -192,12 +191,15 @@ def parse_sfdisk_dump(
             continue
         node, fields_text = line.split(":", 1)
         node = node.strip()
-        fields = {}
+        fields: dict[str, str] = {}
         for match in field_pattern.finditer(fields_text):
-            key = match.group(1)
+            key, raw_value = match.groups()
             if key in fields:
                 raise PartitionRangeError(f"duplicate {key} field for {node}")
-            fields[key] = match.group(2) if match.group(2) is not None else match.group(3)
+            value = raw_value.strip()
+            if value.startswith('"') and value.endswith('"'):
+                value = value[1:-1]
+            fields[key] = value
         try:
             start = int(fields["start"])
             size = int(fields["size"])
