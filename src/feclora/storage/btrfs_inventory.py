@@ -11,8 +11,9 @@ class BtrfsInventoryError(RuntimeError):
     """Btrfs returned invalid device topology."""
 
 
-_UUID = re.compile(r"^Label:\s*(.*?)\s+uuid:\s*([0-9a-fA-F-]{36})\s*$")
-_DEVICE = re.compile(r"^\s*devid\s+(\d+)\s+size\s+(\d+)\s+path\s+(.+?)\s*$")
+_UUID = re.compile(r"^Label:\\s*(.*?)\\s+uuid:\\s*([0-9a-fA-F-]{36})\\s*$")
+_TOTAL = re.compile(r"^\\s*Total devices\\s+(\\d+)\\b")
+_DEVICE = re.compile(r"^\\s*devid\\s+(\\d+)\\s+size\\s+(\\d+)\\s+path\\s+(.+?)\\s*$")
 
 
 def parse_filesystem_show(payload: str) -> list[dict[str, Any]]:
@@ -25,7 +26,16 @@ def parse_filesystem_show(payload: str) -> list[dict[str, Any]]:
             if current is not None:
                 filesystems.append(current)
             label, uuid = match.groups()
-            current = {"label": None if label == "none" else label, "uuid": uuid, "devices": []}
+            current = {
+                "label": None if label == "none" else label,
+                "uuid": uuid,
+                "total_devices": None,
+                "devices": [],
+            }
+            continue
+        total_match = _TOTAL.match(line)
+        if total_match and current is not None:
+            current["total_devices"] = int(total_match.group(1))
             continue
         match = _DEVICE.match(line)
         if match and current is not None:
@@ -36,9 +46,11 @@ def parse_filesystem_show(payload: str) -> list[dict[str, Any]]:
     if current is not None:
         filesystems.append(current)
     for filesystem in filesystems:
-        if not filesystem["devices"]:
+        expected = filesystem["total_devices"]
+        actual = len(filesystem["devices"])
+        if expected is None or actual == 0 or actual != expected:
             raise BtrfsInventoryError(
-                f"Btrfs filesystem {filesystem['uuid']} has no listed devices"
+                f"Btrfs filesystem {filesystem['uuid']} reports {expected} devices but lists {actual}"
             )
     return filesystems
 
