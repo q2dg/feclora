@@ -35,7 +35,9 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [ ] Client certificate renewal/revocation and age-recipient management from Cockpit.
 - [x] Client enrollment preparation and completion from Cockpit, including local key generation and removable-media exchange.
 - [ ] Local destructive-target approval for remote jobs from Cockpit.
-- [x] Cockpit remote-job definition wizard: validate enrolled Clients, image/signature, interface and transport, then persist a hash-chained job journal (definition only; no start).\n- [ ] Persistent job execution service, explicit target approval, arm/cancel/reconcile and per-Client progress.
+- [x] Cockpit remote-job definition wizard: validate enrolled Clients, image/signature, interface and transport, then persist a hash-chained job journal (definition only; no start).
+- [x] Cockpit audit-only reconciliation of interrupted job journals, requiring inspection and exact typed confirmation; no storage operation is resumed.
+- [ ] Persistent job execution service and lifecycle controls.
 - [ ] Persistent job daemon/service lifecycle so a browser disconnect does not terminate the control plane.
 - [ ] Arm, cancel, inspect and reconcile jobs through Cockpit.
 - [ ] Per-client state, byte progress, throughput, results and error logs.
