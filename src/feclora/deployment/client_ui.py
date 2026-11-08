@@ -1,6 +1,7 @@
 """Dialog workflow for an authenticated Client save/restore job."""
 from __future__ import annotations
 
+import socket
 from typing import Any
 
 from feclora.deployment.client_runtime import execute_client_image_job
@@ -38,6 +39,23 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
         state: dict[str, Any] = {}
 
         def prepare_local_target(job):
+            if job.transport == "multicast":
+                try:
+                    interfaces = [
+                        (name, f"{name} (local multicast receiver interface)")
+                        for _index, name in socket.if_nameindex() if name != "lo"
+                    ]
+                except OSError as exc:
+                    raise DeploymentControlError(f"cannot enumerate local network interfaces: {exc}") from exc
+                selected_interface = dialog_app._menu(
+                    "Client multicast interface",
+                    "Select this Client's local interface for receiving the multicast image. "
+                    "It may have a different name from the Server interface.",
+                    interfaces,
+                )
+                if selected_interface is None:
+                    raise DeploymentControlError("local multicast interface selection cancelled")
+                state["multicast_interface"] = selected_interface
             if job.operation == "save" and not config.local_minisign_secret_key:
                 raise DeploymentControlError("this Client has no enrolled minisign signing key and cannot create images")
             inventory = collect_inventory()
@@ -85,6 +103,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                     repository=config.repository,
                     trusted_server_public_key=config.trusted_server_public_key,
                     firewall=PXEFirewall(),
+                    network_interface=state.get("multicast_interface"),
                     age_identity_file=config.age_identity_file,
                     progress_callback=progress,
                 )
