@@ -148,6 +148,40 @@ class FirewallTests(unittest.TestCase):
         with self.assertRaises(PXEFirewallError):
             firewall.open("enp1s0", ["99999/tcp"])
 
+    def test_export_and_adopt_preserves_multicast_protocol_state(self):
+        firewall = PXEFirewall(executable="/usr/bin/firewall-cmd")
+        firewall._opened["enp1s0"] = {
+            "zone": "feclora-pxe-test",
+            "restore_zone": "work",
+            "interface_added": True,
+            "ports": ["9443/tcp", "9000/udp"],
+            "protocols": ["igmp"],
+        }
+        firewall._current_zone = lambda interface: "feclora-pxe-test"
+        state = firewall.export_state("enp1s0")
+        self.assertEqual(state["protocols"], ["igmp"])
+
+        recovered = PXEFirewall(executable="/usr/bin/firewall-cmd")
+        recovered._current_zone = lambda interface: "feclora-pxe-test"
+        recovered.adopt("enp1s0", state)
+        self.assertEqual(recovered.export_state("enp1s0"), state)
+
+    def test_multicast_rule_changes_notify_persistent_state_observer(self):
+        firewall = PXEFirewall(executable="/usr/bin/firewall-cmd")
+        firewall._opened["enp1s0"] = {
+            "zone": "feclora-pxe-test",
+            "restore_zone": "work",
+            "interface_added": True,
+            "ports": ["67/udp"],
+        }
+        firewall._current_zone = lambda interface: "feclora-pxe-test"
+        firewall._call = lambda args, check=True: subprocess.CompletedProcess(args, 0, "", "")
+        changed = []
+        firewall.on_change = changed.append
+        added = firewall.add_protocols("enp1s0", ["igmp"])
+        firewall.remove_protocols("enp1s0", added)
+        self.assertEqual(changed, ["enp1s0", "enp1s0"])
+
 
 if __name__ == "__main__":
     unittest.main()
