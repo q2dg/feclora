@@ -88,6 +88,46 @@ class TLSContextTests(unittest.TestCase):
             )
 
 
+    def test_listener_persists_and_clears_firewall_ownership_callback(self):
+        class Firewall:
+            def __init__(self):
+                self.opened = False
+
+            def is_open(self, interface):
+                return self.opened
+
+            def open(self, interface, ports, include_tftp=False):
+                self.opened = True
+
+            def export_state(self, interface):
+                return {"zone": "feclora-pxe-12345678", "restore_zone": "public",
+                        "ports": ["9443/tcp"]}
+
+            def close(self, interface):
+                self.opened = False
+
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.maximum_version = ssl.TLSVersion.TLSv1_3
+        context.verify_mode = ssl.CERT_REQUIRED
+        firewall = Firewall()
+        callbacks = []
+        server = DeploymentControlServer(
+            DeploymentCoordinator(make_job()), context,
+            local_identity="URI:feclora-server",
+            client_identity_to_mac={"URI:feclora-client": MAC},
+            firewall=firewall, interface="enp1s0",
+        )
+        try:
+            server.start("127.0.0.1", 0, firewall_state_callback=callbacks.append)
+            self.assertTrue(callbacks[0]["opened_by_service"])
+            self.assertEqual(callbacks[0]["interface"], "enp1s0")
+        finally:
+            server.stop()
+        self.assertEqual(callbacks[-1], None)
+        self.assertFalse(firewall.opened)
+
+
 class ControlFramingTests(unittest.TestCase):
     def test_round_trip_fragmented_socket(self):
         left, right = socket.socketpair()
