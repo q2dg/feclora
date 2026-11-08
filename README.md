@@ -34,6 +34,7 @@ Operational design notes:
 - [Authenticated Server/Client deployment control, signed unicast transfer and multi-client multicast restore](docs/DEPLOYMENT-CONTROL.md)
 - [Server and Client runtime configuration](docs/DEPLOYMENT-SETUP.md)
 - [Signed, single-use unattended restore profiles](docs/RESTORE-PROFILES.md)
+- [Certificate management policy and current limitations](docs/CERTIFICATE-MANAGEMENT.md)
 - [Isolated BIOS/UEFI PXE VM lab](tests/vm/README.md)
 
 ## Repository layout
