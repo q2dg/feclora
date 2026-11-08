@@ -27,6 +27,8 @@ _MAC = re.compile(r"^(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$")
 
 
 def _secure_regular_file(path: str, label: str) -> None:
+    if not isinstance(path, str) or not os.path.isabs(path):
+        raise EnrollmentError(f"{label} path must be absolute")
     try:
         info = os.lstat(path)
     except OSError as exc:
@@ -135,7 +137,12 @@ def enroll_client_certificate(
     if not isinstance(mac_address, str) or not _MAC.fullmatch(mac_address):
         raise EnrollmentError("Client MAC address is invalid")
     mac = mac_address.lower()
+    first_octet = int(mac.split(":", 1)[0], 16)
+    if first_octet & 1 or mac == "00:00:00:00:00:00":
+        raise EnrollmentError("Client MAC must be a unicast hardware address")
     identity = _verify_client_certificate(certificate_path, config["ca_file"])
+    if (len(identity) > 256 or not re.fullmatch(r"(?:DNS|IP|URI|EMAIL):[^\\x00-\\x20]+", identity)):
+        raise EnrollmentError("Client certificate SAN identity is not supported by the deployment configuration")
     if confirmation != f"ENROLL {identity} {mac}":
         raise EnrollmentError("enrollment confirmation does not match")
     if minisign_public_key is not None:
