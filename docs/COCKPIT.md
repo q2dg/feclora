@@ -130,9 +130,8 @@ exports `feclora-<id>.crt`, `ca.crt`, `server.pub` and
 overwritten.
 
 Only public enrollment material is copied to removable media. TLS and age
-private keys remain on the Client. This Cockpit step does not yet replace the
-Client-side dialog workflow for preparing the request and importing/verifying
-the returned bundle.
+private keys remain on the Client. The Client-side preparation and response-import stages are also integrated
+in Cockpit; no dialog workflow is required for enrollment.
 
 
 ## Client enrollment
@@ -161,3 +160,19 @@ selected interface, required per-Client signing keys for capture, and the
 Server signature and Client age-recipient registrations for encrypted restore.
 Persisting a job does not contact Clients, arm the job, or start disk I/O; those
 steps require the persistent control-plane service and explicit operator actions.
+
+
+## Remote deployment job definitions
+
+The **Remote jobs** tab creates and lists validated Server-side job definitions.
+For restore, select an existing signed disk or partition image; for capture,
+choose a new image identifier. Select already enrolled Client MAC addresses,
+the Server interface and unicast or multicast restore transport. The backend
+revalidates enrollment, signing-key availability, image signature, image type
+and age-recipient registrations before persisting a hash-chained journal.
+
+This is a definition-only milestone. It does not contact Clients, obtain local
+destination approval, arm the job or start storage I/O. UDPcast multicast data
+is not encrypted or authenticated; only the control plane uses mTLS. The
+persistent control-plane service, explicit per-Client target approval and
+execution/progress controls remain pending.
