@@ -1,44 +1,38 @@
 # Configuring authenticated Server and Client modes
 
 The authenticated deployment runtime is opt-in. PXE services and the control
-listener do not start automatically at boot. Provision endpoint credentials
-and configuration files out of band before selecting deployment mode.
+listener do not start automatically at boot. On first Server use, Feclora
+creates a root-only local CA, Server TLS identity, minisign signing key and
+age identity, then generates a default Server configuration. Client TLS and
+age keys are generated locally during the guided enrollment workflow.
+External organizational PKI remains supported.
 
-**Current limitation:** the present release requires an external CA and
-out-of-band endpoint certificate/key provisioning. Feclora's Server UI can
-enroll, rotate, and remove already-issued Client identities, but it does not
-yet issue certificates or provision Client private keys. The intended
-operator-friendly lifecycle and its security boundaries are specified in
-[Certificate management](CERTIFICATE-MANAGEMENT.md); do not treat that target
-workflow as implemented.
+See [Certificate management](CERTIFICATE-MANAGEMENT.md) for the USB-based CSR
+approval ceremony, renewal, revocation and key-separation model.
 
 ## Filesystem preparation
 
-On each Feclora Live endpoint, create the configuration and key directories
-as root. Keep private keys and endpoint configuration readable only by root.
-
-~~~bash
-sudo install -d -o root -g root -m 0700 /etc/feclora /etc/feclora/pki
-sudo install -d -o root -g root -m 0700 /var/lib/feclora/images
-~~~
+Feclora creates these directories on first Server/Client enrollment. They
+must remain root-owned and mode 0700. The Server creates
+`/etc/feclora/deployment-server.json` automatically when it has no existing
+configuration. Do not copy its CA private key to a Client.
 
 The JSON configuration files must be root-owned regular files with mode 0600.
 CA certificates, endpoint certificates and minisign public keys must be
 root-owned regular files. TLS private keys and minisign secret keys must also
 have no group/other permissions. Symlink paths are rejected.
 
-Create a private CA and issue separate Server and Client certificates using
-your organization's PKI procedure. Each certificate must contain one stable
-SAN identity, for example URI:feclora-server or URI:feclora-client-01.
-Every endpoint validates the CA chain and then pins the exact expected SAN
-identity. The Server additionally maps each Client certificate identity to
-one enrolled unicast MAC address. MAC is an allowlist/inventory key, not
-authentication. A Client that is restore-only does not need a minisign keypair;
-its MAC is simply omitted from client_minisign_public_keys on the Server.
+For the Feclora-managed flow, use the Client mode **Prepare enrollment
+request** and the Server's **Trusted Clients → Approve Client CSR** screen.
+Private keys never leave their endpoint. The Server validates the CSR SAN,
+signs it for 90 days, maps its identity to the operator-approved MAC and
+registers the Client's age recipient. The Client verifies the CA fingerprint
+and Server minisign public-key fingerprint before installing the response.
+A restore-only Client does not need a minisign signing keypair. Do not put
+private keys or trust material in TFTP/HTTP boot assets.
 
-Generate a minisign key pair for the Server and one for each Client that may
-save images. Distribute only the relevant public keys to the opposite
-endpoint. Do not put private keys or trust material in TFTP/HTTP boot assets.
+For an organization-issued CA, provision the endpoint TLS certificate/key
+out of band and use **Import an externally issued Client certificate**.
 
 ## Server configuration
 
@@ -71,12 +65,12 @@ The Server writes a private hash-chained job journal under /var/lib/feclora/depl
 
 For an interrupted job, the startup review offers an explicit operator reconciliation action. First inspect every Client and destination disk out of band; then select the acknowledgement and type exactly `RECONCILE <job-UUID>`. This appends a durable `operator_reconciled` event and closes the journal as failed, not successful. It does not retry, roll back, resume, or access any block device. Leaving the action pending is safe and prevents any implicit assumption about partial writes; Server refuses to create/arm another deployment until every interrupted journal has been reconciled.
 
-The Server now offers a **Client certificate trust** screen before creating a job:
-- **Enroll/rotate:** provide a root-owned PEM Client certificate, its authorized unicast MAC, and optionally a root-owned minisign public key. Feclora verifies the certificate chain with `openssl verify -purpose sslclient`, extracts its single SAN identity, and requires the exact `ENROLL <identity> <mac>` confirmation. Re-enrolling the same MAC rotates the certificate identity.
-- **Revoke:** select an enrolled identity and type `REVOKE <identity>`. The identity-to-MAC mapping and its associated Client minisign public key are removed atomically.
-- **Restore-only Client:** leave the minisign public-key path blank. A Client authorized to save must be enrolled with its public key.
+The Server's **Trusted Clients** screen offers:
+- **Approve Client CSR:** validate the Client-generated CSR, review the URI identity and MAC, issue a 90-day certificate, enroll the identity and add its age recipient to the Server inventory. The response bundle includes the CA certificate, Server minisign public key and current age recipients.
+- **Import external certificate:** verify an organization-issued certificate for TLS client use, then bind its identity to the approved MAC.
+- **Revoke:** remove the TLS identity/MAC authorization, optional Client minisign trust and the mapped age recipient from future image-encryption inventories.
 
-The UI never generates, imports, exports, or transmits private keys and does not issue certificates. A trusted CA must issue Client certificates out of band; the Client's matching private key must be provisioned securely on that Client. Certificate expiry/renewal and CA revocation-list/OCSP policy remain responsibilities of the external PKI. Rotation takes effect for new TLS handshakes; an already established session must be stopped.
+The Client warns within 30 days of certificate expiry and can prepare a renewal CSR using its existing TLS key. The Server must approve the renewal and the Client must install the returned bundle. CRL/OCSP checks and server-side expiry inventory are not implemented.
 
 The bind address must exactly match the IPv4 address selected in Server mode.
 The Server UI creates either a one-client unicast save/restore job or a multi-client multicast restore job and displays the job UUID. Each selected Client operator enters that UUID. The Server listener opens TCP/9443 only on the selected interface in Feclora's temporary firewalld zone. During multicast transfers it temporarily adds the UDPcast port pair and IGMP on that same interface. The listener and temporary firewall rules are removed when the job UI exits.
@@ -104,8 +98,8 @@ Install /etc/feclora/deployment-client.json on each Client:
   "trusted_server_public_key": "/etc/feclora/pki/server.pub",
   "local_minisign_secret_key": "/etc/feclora/pki/client-01.key.minisign",
   "local_minisign_public_key": "/etc/feclora/pki/client-01.pub",
-  "age_identity_file": null,
-  "age_recipients_file": null,
+  "age_identity_file": "/etc/feclora/pki/client-01.age",
+  "age_recipients_file": "/etc/feclora/pki/age-recipients.txt",
   "repository": "/var/lib/feclora/images"
 }
 ~~~
@@ -119,12 +113,12 @@ must independently approve the target before sending READY.
 
 ## Scope and safety limits
 
-- Unicast supports one authenticated Client per job for whole-disk save/restore.
-- Multicast supports one-to-many whole-disk **restore** to multiple authenticated Clients. The mTLS control plane authenticates every Client, obtains local target approval, distributes the signed manifest and records per-client results. UDPcast sends artifact bytes to each Client's private staging area; each Client verifies the signed manifest, exact artifact size and SHA-256 before invoking the normal protected restore/read-back path.
+- Unicast supports one authenticated Client per job: whole-disk save, and whole-disk or existing-partition restore.
+- Multicast supports one-to-many **restore** of signed whole-disk or partition images to existing local targets on multiple authenticated Clients. The mTLS control plane authenticates every Client, obtains local target approval, distributes the signed manifest and records per-client results. Each Client stages privately and verifies the signed manifest, exact artifact size and SHA-256 before invoking the normal protected restore/read-back path. Partition targets are not created or resized.
 - Multicast uses an administratively scoped 239.0.0.0/8 data group, a derived separate rendezvous group, an even UDPcast port base (the base and base+1 UDP ports plus IGMP are opened temporarily), TTL 1 and a 100 Mbit/s default sender limit. Each Client selects its own local receive interface; it need not have the same interface name as the Server.
 - Multicast requires all selected Clients on the same multicast-enabled L2/VLAN segment, with switch IGMP snooping and a functioning querier. The current TTL=1 profile does not support routed cross-VLAN multicast. Use unicast when the network cannot meet these conditions.
-- UDPcast is an unauthenticated, unencrypted data plane. The mTLS channel authorizes the job and the signed manifest plus SHA-256 checks protect integrity before restore, but they do not provide payload confidentiality or prevent passive reception. Use only a trusted isolated network; use age-encrypted artifacts when image confidentiality is required.
-- Multicast save, multi-client unicast, partition deployment, unattended target approval, automatic restart/resume of destructive writes, automatic key distribution, per-client live progress, Wake-on-LAN and post-job power policies are not implemented.
+- Multicast jobs accept only artifacts encrypted with age for the enrolled recipient set. The detached minisign signature authenticates the manifest and binds the exact ciphertext; age's authenticated encryption detects ciphertext modification on decryption. This is artifact-level protection, not per-datagram authentication: UDPcast metadata remains visible and an on-path attacker can still disrupt a transfer. The Server and Client perform local interface/route/tool preflight; switch IGMP snooping and querier configuration must still be verified by the operator.
+- Multicast save, partition-image capture over the network, multi-client unicast, unattended target approval, automatic restart/resume of destructive writes, per-client live byte progress, Wake-on-LAN and post-job power policies are not implemented.
 - Save sources and restore targets must pass existing block-device safety
   checks. Restore verifies the signed manifest and all artifact digests before
   writing, then reads the destination back and verifies SHA-256.
