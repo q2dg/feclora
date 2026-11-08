@@ -116,7 +116,7 @@ class RuntimeConfigTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = self.write_config(directory, payload)
             with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
-                with self.assertRaisesRegex(RuntimeConfigError, "must either both"):
+                with self.assertRaisesRegex(RuntimeConfigError, "must be configured together"):
                     load_client_runtime_config(path)
     def test_restore_only_client_may_omit_its_signing_keypair(self):
         payload = self.client_config()
