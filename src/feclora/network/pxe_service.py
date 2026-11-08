@@ -12,7 +12,6 @@ import re
 import stat
 import subprocess
 import tempfile
-import uuid
 from pathlib import Path
 from typing import Any, Callable
 
@@ -226,10 +225,15 @@ class PXEServiceManager:
             self._dnsmasq_unit = saved["dnsmasq_unit"]
             self._caddy_unit = saved["caddy_unit"]
             self._started_units.update({self._dnsmasq_unit + ".service", self._caddy_unit + ".service"})
+            firewall_recovery_error = None
             try:
                 self.firewall.adopt(self._active_interface, saved["firewall"])
             except Exception as exc:
-                raise PXEServiceError(f"cannot safely recover PXE firewall state: {exc}") from exc
+                # Stop daemons even if an administrator changed the interface
+                # zone; firewall restoration can then be inspected separately.
+                firewall_recovery_error = str(exc)
+        else:
+            firewall_recovery_error = None
         errors = []
         for unit in (self._caddy_unit + ".service", self._dnsmasq_unit + ".service"):
             if unit not in self._started_units:
@@ -247,11 +251,14 @@ class PXEServiceManager:
             except (OSError, subprocess.TimeoutExpired, PXEServiceError) as exc:
                 errors.append(f"{unit}: {exc}")
         if self._active_interface is not None and not self._started_units:
-            try:
-                self.firewall.close(self._active_interface)
-                self._active_interface = None
-            except Exception as exc:
-                errors.append(f"firewall: {exc}")
+            if firewall_recovery_error is not None:
+                errors.append(f"firewall recovery: {firewall_recovery_error}")
+            else:
+                try:
+                    self.firewall.close(self._active_interface)
+                    self._active_interface = None
+                except Exception as exc:
+                    errors.append(f"firewall: {exc}")
         if errors:
             raise PXEServiceError("failed to stop PXE runtime cleanly: " + "; ".join(errors))
         if self._active_interface is None:
