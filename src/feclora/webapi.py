@@ -742,9 +742,8 @@ def _deployment_jobs() -> list[dict[str, Any]]:
 def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"job"} or not isinstance(params["job"], dict):
         raise WebAPIError("create_deployment_job requires exactly one job object")
-    from uuid import UUID
     from feclora.deployment.job import DeploymentJob, JobValidationError
-    from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
+    from feclora.deployment.journal import DeploymentJournal
     from feclora.deployment.runtime_config import load_server_runtime_config, RuntimeConfigError
 
     try:
@@ -782,14 +781,25 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         except Exception as exc:
             raise WebAPIError(f"restore image must have a valid Server signature: {exc}") from exc
         if any(item.encryption == "age" for item in manifest.artifacts):
-            pki = Path("/etc/feclora/pki/age-recipients")
+            pki = Path("/etc/feclora/pki")
+            recipients_directory = pki / "age-recipients"
+            try:
+                pki_info = os.lstat(pki)
+                directory_info = os.lstat(recipients_directory)
+            except OSError as exc:
+                raise WebAPIError("Server age-recipient registry is unavailable") from exc
+            if (not stat.S_ISDIR(pki_info.st_mode) or stat.S_ISLNK(pki_info.st_mode)
+                    or pki_info.st_uid != 0 or pki_info.st_mode & 0o077
+                    or not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
+                    or directory_info.st_uid != 0 or directory_info.st_mode & 0o077):
+                raise WebAPIError("Server age-recipient registry directories are unsafe")
             for mac in job.authorized_clients:
                 identity = next(
                     identity for identity, enrolled_mac in config.client_identity_to_mac.items()
                     if enrolled_mac == mac
                 )
                 client_id = identity.removeprefix("URI:feclora-client-")
-                mapping = pki / f"{client_id}.txt"
+                mapping = recipients_directory / f"{client_id}.txt"
                 try:
                     info = os.lstat(mapping)
                     recipient = mapping.read_text(encoding="ascii").strip()
@@ -806,7 +816,7 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         journal = DeploymentJournal(journal_path, job.job_id)
         from feclora.deployment.coordinator import DeploymentCoordinator
         coordinator = DeploymentCoordinator(job, event_sink=journal)
-    except (DeploymentJournalError, Exception) as exc:
+    except Exception as exc:
         try:
             if journal_path.exists() and journal_path.stat().st_size == 0:
                 journal_path.unlink()
