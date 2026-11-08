@@ -89,6 +89,7 @@ Install /etc/feclora/deployment-client.json on each Client:
   "local_minisign_secret_key": "/etc/feclora/pki/client-01.key.minisign",
   "local_minisign_public_key": "/etc/feclora/pki/client-01.pub",
   "age_identity_file": null,
+  "age_recipients_file": null,
   "repository": "/var/lib/feclora/images"
 }
 ~~~
