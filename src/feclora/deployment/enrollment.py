@@ -153,14 +153,19 @@ def enroll_client_certificate(
     existing_for_mac = [item for item, enrolled_mac in identities.items() if enrolled_mac.lower() == mac]
     if identity in identities and identities[identity].lower() != mac:
         raise EnrollmentError("certificate identity is already enrolled for a different MAC")
+    # Preserve an existing image-signing key across TLS certificate renewal.
+    existing_signing_key = keys.get(mac)
     # Re-enrolling the same MAC rotates its certificate identity atomically.
     for old_identity in existing_for_mac:
         remove_age_recipient(os.path.dirname(config["ca_file"]), old_identity)
         del identities[old_identity]
     identities[identity] = mac
-    keys.pop(mac, None)
     if minisign_public_key is not None:
         keys[mac] = minisign_public_key
+    elif existing_signing_key is not None:
+        keys[mac] = existing_signing_key
+    else:
+        keys.pop(mac, None)
     config["client_identity_to_mac"] = identities
     config["client_minisign_public_keys"] = keys
     _write_config_atomically(config_path, config)
