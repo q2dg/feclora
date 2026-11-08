@@ -26,13 +26,14 @@ class ModeSelectorTests(unittest.TestCase):
         ]
         self.assertEqual(mode_selector.main(), 0)
         run_server.assert_called_once_with()
+
     @patch("feclora.ui.mode_selector.shutil.which", return_value="/usr/bin/loadkeys")
     @patch("feclora.ui.mode_selector.subprocess.run")
     @patch("feclora.ui.mode_selector._dialog")
     def test_keyboard_layout_applies_allowlisted_layout(self, dialog, run, _which):
         from subprocess import CompletedProcess
         dialog.side_effect = [
-            CompletedProcess([], 0, "es\\n", ""),
+            CompletedProcess([], 0, "es\n", ""),
             CompletedProcess([], 0, "", ""),
         ]
         run.return_value = CompletedProcess([], 0, "", "")
