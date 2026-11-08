@@ -307,7 +307,7 @@ class DeploymentControlServer:
             finally:
                 self._firewall_state_callback = None
 
-    def accept_ready_client(self, listener: Any) -> ReadyClient:
+    def accept_ready_client(self, listener: Any) -> ReadyClient | None:
         accepted, _address = listener.accept()
         tls_socket = None
         registered_mac = None
