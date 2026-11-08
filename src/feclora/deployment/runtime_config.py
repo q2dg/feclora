@@ -134,8 +134,9 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
         normalized[identity] = mac
         seen_macs.add(mac)
     client_keys = value["client_minisign_public_keys"]
-    if not isinstance(client_keys, dict) or set(client_keys) != seen_macs:
-        raise RuntimeConfigError("a minisign public key is required for every enrolled client MAC")
+    if (not isinstance(client_keys, dict) or len(client_keys) > 128
+            or not set(client_keys).issubset(seen_macs)):
+        raise RuntimeConfigError("client minisign public keys must reference only enrolled client MACs")
     checked_client_keys = {mac: _secure_file(key, "client minisign public key") for mac, key in client_keys.items()}
     return ServerRuntimeConfig(
         bind_address=address,
