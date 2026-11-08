@@ -30,6 +30,8 @@ parted
 gdisk
 util-linux
 lvm2
+stratisd
+stratis-cli
 cryptsetup
 age
 minisign
