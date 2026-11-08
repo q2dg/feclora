@@ -100,7 +100,10 @@ def export_server_age_recipients(params: dict[str, object]) -> dict[str, object]
         payload = Path(source).read_bytes()
     except OSError as exc:
         raise CockpitEnrollmentError(f"cannot read Server age recipient inventory: {exc}") from exc
-    recipients = [line.strip() for line in payload.decode("ascii").splitlines() if line.strip()]
+    try:
+        recipients = [line.strip() for line in payload.decode("ascii").splitlines() if line.strip()]
+    except UnicodeError as exc:
+        raise CockpitEnrollmentError("Server age recipient inventory is not valid ASCII") from exc
     if not recipients or len(recipients) != len(set(recipients)) or any(
         not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients
     ):
