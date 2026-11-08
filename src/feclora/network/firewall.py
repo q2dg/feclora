@@ -1,9 +1,10 @@
-"""Interface-scoped, runtime-only firewalld rules for PXE services."""
+"""Temporary, interface-exclusive firewalld zone for PXE services."""
 from __future__ import annotations
 
 import re
 import shutil
 import subprocess
+import uuid
 from typing import Any, Callable, Iterable
 
 
@@ -24,7 +25,7 @@ class PXEFirewall:
     ) -> None:
         self.executable = executable or shutil.which("firewall-cmd")
         self.runner = runner
-        self._opened: dict[str, tuple[str, list[str], list[str]]] = {}
+        self._opened: dict[str, dict[str, Any]] = {}
 
     def _call(self, args: list[str], *, check: bool = True) -> Any:
         if not self.executable:
@@ -41,6 +42,12 @@ class PXEFirewall:
             raise PXEFirewallError(detail or "firewall-cmd command failed")
         return result
 
+    def _current_zone(self, interface: str) -> str | None:
+        result = self._call([f"--get-zone-of-interface={interface}"], check=False)
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+        return None
+
     def open(self, interface: str, ports: Iterable[str]) -> None:
         if not _INTERFACE_RE.fullmatch(interface):
             raise PXEFirewallError("Invalid interface name for firewall scope")
@@ -50,34 +57,29 @@ class PXEFirewall:
         if interface in self._opened:
             raise PXEFirewallError(f"PXE firewall is already open for {interface}")
         self._call(["--state"])
-        zone_result = self._call([f"--get-zone-of-interface={interface}"], check=False)
-        if zone_result.returncode == 0 and zone_result.stdout.strip():
-            zone = zone_result.stdout.strip()
-        else:
-            zone = self._call(["--get-default-zone"]).stdout.strip()
-        if not zone or any(ch.isspace() for ch in zone):
-            raise PXEFirewallError("Could not determine the selected interface firewalld zone")
-        self._opened[interface] = (zone, [], [])
+        current = self._current_zone(interface)
+        if current is None:
+            current = self._call(["--get-default-zone"]).stdout.strip()
+        if not current:
+            raise PXEFirewallError("Could not determine the selected interface's current firewalld zone")
+        explicit_interfaces = self._call([f"--zone={current}", "--list-interfaces"]).stdout.split()
+        restore_zone = current if interface in explicit_interfaces else None
+        zone = "feclora-pxe-" + uuid.uuid4().hex[:8]
+        self._call([f"--new-zone={zone}"])
+        self._opened[interface] = {
+            "zone": zone,
+            "restore_zone": restore_zone,
+            "interface_added": False,
+        }
         try:
-            # firewalld's named TFTP service also enables nf_conntrack_tftp,
-            # required for the server's dynamically negotiated data channel.
-            tftp = self._call([f"--zone={zone}", "--query-service=tftp"], check=False)
-            if tftp.returncode == 1:
-                self._call([f"--zone={zone}", "--add-service=tftp"])
-                self._opened[interface] = (zone, [], ["tftp"])
-            elif tftp.returncode != 0:
-                raise PXEFirewallError("cannot query existing TFTP firewall service")
+            self._call([f"--zone={zone}", f"--add-interface={interface}"])
+            self._opened[interface]["interface_added"] = True
+            if self._current_zone(interface) != zone:
+                raise PXEFirewallError("firewalld did not bind the selected interface exclusively to the PXE zone")
+            # The named service carries firewalld's nf_conntrack_tftp helper.
+            self._call([f"--zone={zone}", "--add-service=tftp"])
             for port in requested:
-                query = self._call([f"--zone={zone}", f"--query-port={port}"], check=False)
-                if query.returncode == 0:
-                    continue
-                if query.returncode != 1:
-                    raise PXEFirewallError(f"cannot query existing firewall rule {port}")
                 self._call([f"--zone={zone}", f"--add-port={port}"])
-                current_zone, added_ports, added_services = self._opened[interface]
-                self._opened[interface] = (
-                    current_zone, [*added_ports, port], added_services
-                )
         except PXEFirewallError as start_error:
             try:
                 self.close(interface)
@@ -91,21 +93,35 @@ class PXEFirewall:
         state = self._opened.get(interface)
         if state is None:
             return
-        zone, ports, services = state
-        remaining_ports = []
-        remaining_services = []
-        for port in reversed(ports):
-            result = self._call([f"--zone={zone}", f"--remove-port={port}"], check=False)
-            if result.returncode != 0:
-                remaining_ports.append(port)
-        for service in reversed(services):
-            result = self._call([f"--zone={zone}", f"--remove-service={service}"], check=False)
-            if result.returncode != 0:
-                remaining_services.append(service)
-        if remaining_ports or remaining_services:
-            self._opened[interface] = (
-                zone, list(reversed(remaining_ports)), list(reversed(remaining_services))
+        zone = state["zone"]
+        restore_zone = state["restore_zone"]
+        errors: list[str] = []
+
+        current = self._current_zone(interface)
+        if current == zone:
+            result = self._call(
+                [f"--zone={zone}", f"--remove-interface={interface}"],
+                check=False,
             )
-            failed = remaining_ports + remaining_services
-            raise PXEFirewallError("could not remove runtime firewall entries: " + ", ".join(failed))
+            if result.returncode != 0:
+                errors.append("remove interface from temporary PXE zone")
+            else:
+                state["interface_added"] = False
+
+        if restore_zone:
+            current = self._current_zone(interface)
+            if current != restore_zone:
+                result = self._call(
+                    [f"--zone={restore_zone}", f"--add-interface={interface}"],
+                    check=False,
+                )
+                if result.returncode != 0:
+                    errors.append(f"restore interface to zone {restore_zone}")
+
+        deleted = self._call([f"--delete-zone={zone}"], check=False)
+        if deleted.returncode != 0:
+            errors.append(f"delete temporary zone {zone}")
+
+        if errors:
+            raise PXEFirewallError("could not restore firewalld state: " + "; ".join(errors))
         del self._opened[interface]
