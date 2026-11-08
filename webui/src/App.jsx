@@ -47,6 +47,7 @@ export default function App() {
   const [extractPartitionSelector, setExtractPartitionSelector] = useState("");
   const [extractPartitionResult, setExtractPartitionResult] = useState(null);
   const [extractLayout, setExtractLayout] = useState(null);
+  const [restoreLayoutPreview, setRestoreLayoutPreview] = useState(null);
   const [images, setImages] = useState([]);
   const [journals, setJournals] = useState([]);
   const [deploymentJobs, setDeploymentJobs] = useState([]);
@@ -140,6 +141,7 @@ export default function App() {
     return flat;
   }, [inventory]);
   const disks = devices.filter((d) => d.type === "disk" && d.path);
+  const restoreTargetDevice = devices.find((device) => device.path === target);
   const partitions = devices.filter((d) => d.type === "part" && d.path);
   const clientRemoteJob = clientRemoteInspection?.job;
   const clientRemoteDeviceOptions = clientRemoteJob?.target_type === "partition" ? partitions : disks;
@@ -187,6 +189,17 @@ export default function App() {
       setNotice(`Revoked ${result.identity}; future image encryption will exclude this Client.`);
       setRevokeIdentity(""); setRevokeConfirmation("");
       await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const inspectRestoreLayout = async (sourceImageId) => {
+    setRestoreLayoutPreview(null);
+    if (!sourceImageId) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("inspect_image_layout", { image_id: sourceImageId });
+      setRestoreLayoutPreview(result);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -567,7 +580,7 @@ export default function App() {
                     </>}
                     {isRestore && <>
                       <Field label={isDisk ? "Disk image" : "Partition image"}>
-                        <select className="pf-v5-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)}>
+                        <select className="pf-v5-c-form-control" value={imageId} disabled={busy} onChange={(e) => { setImageId(e.target.value); if (isDisk) inspectRestoreLayout(e.target.value); else setRestoreLayoutPreview(null); }}>
                           <option value="">Select an image…</option>
                           {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                         </select>
@@ -578,6 +591,19 @@ export default function App() {
                           {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
                         </select>
                       </Field>
+                      {isDisk && restoreLayoutPreview && restoreTargetDevice && <>
+                        {restoreTargetDevice.size_bytes < restoreLayoutPreview.source_size_bytes
+                          ? <Alert variant="danger" title="Destination disk is too small" isInline>Source layout requires {formatBytes(restoreLayoutPreview.source_size_bytes)}; selected disk has {formatBytes(restoreTargetDevice.size_bytes)}. The restore engine will reject this target.</Alert>
+                          : <Alert variant="info" title="Read-only restore layout preview" isInline>
+                              Source image: {formatBytes(restoreLayoutPreview.source_size_bytes)} · Destination: {formatBytes(restoreTargetDevice.size_bytes)} · {restoreLayoutPreview.partitions.length} partitions. The source partition layout is written as captured; extra destination capacity is left unused. No automatic partition/filesystem growth is performed.
+                            </Alert>}
+                        <Table aria-label="Restore source partition layout preview" variant="compact">
+                          <Thead><Tr><Th>Partition</Th><Th>UUID / label</Th><Th>Start sector</Th><Th>Size</Th></Tr></Thead>
+                          <Tbody>{restoreLayoutPreview.partitions.map((part) => <Tr key={part.node}>
+                            <Td>{part.node}</Td><Td>{part.uuid || part.name || "—"}</Td><Td>{part.start_sector}</Td><Td>{formatBytes(part.size_bytes)}</Td>
+                          </Tr>)}</Tbody>
+                        </Table>
+                      </>}
                     </>}
                     {operation.startsWith("clone_") && <>
                       <Field label={isDisk ? "Source disk" : "Source partition"}>
