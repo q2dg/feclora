@@ -150,7 +150,45 @@ class ClientJoinTests(unittest.TestCase):
         self.assertNotIn("/dev/", ready["target_description"])
         self.assertTrue(result["success"])
 
-    def test_client_never_sends_local_device_path_to_server(self):
+    def test_client_keeps_selected_device_path_local(self):
+        job = make_job()
+        fake = FakeSocket(frame({
+            "type": "job", "job": job.to_dict(),
+            "server_identity": "URI:feclora-server",
+        }) + frame({
+            "type": "start", "job_id": JOB_ID,
+            "operation": "restore", "image_id": "golden-image",
+        }))
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.maximum_version = ssl.TLSVersion.TLSv1_3
+        context.verify_mode = ssl.CERT_REQUIRED
+        approval = LocalTargetApproval(
+            "/dev/vda", "Virtual disk 1",
+            "ERASE /dev/vda FROM URI:feclora-server",
+        )
+        observed = []
+        with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
+            join_deployment(
+                "192.0.2.10", 9443, context,
+                local_identity="URI:feclora-client",
+                expected_server_identity="URI:feclora-server",
+                mac_address=MAC, job_id=JOB_ID,
+                prepare_local_target=lambda offered: approval,
+                execute_job=lambda offered, tls, local: (
+                    observed.append(local.device_path) or True, "simulated",
+                ),
+            )
+        self.assertEqual(observed, ["/dev/vda"])
+        outgoing = FakeSocket(bytes(fake.outgoing))
+        hello = receive_control_message(outgoing, expected_type="hello")
+        ready = receive_control_message(outgoing, expected_type="ready")
+        result = receive_control_message(outgoing, expected_type="result")
+        self.assertEqual(hello["certificate_identity"], "URI:feclora-client")
+        self.assertNotIn("/dev/vda", json.dumps(ready))
+        self.assertTrue(result["success"])
+
+    def test_client_rejects_wrong_typed_confirmation_before_ready(self):
         job = make_job()
         fake = FakeSocket(frame({
             "type": "job", "job": job.to_dict(),
@@ -161,14 +199,16 @@ class ClientJoinTests(unittest.TestCase):
         context.maximum_version = ssl.TLSVersion.TLSv1_3
         context.verify_mode = ssl.CERT_REQUIRED
         with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
-            with self.assertRaisesRegex(DeploymentControlError, "invalid description"):
+            with self.assertRaisesRegex(DeploymentControlError, "typed target confirmation"):
                 join_deployment(
                     "192.0.2.10", 9443, context,
                     local_identity="URI:feclora-client",
                     expected_server_identity="URI:feclora-server",
                     mac_address=MAC, job_id=JOB_ID,
-                    prepare_local_target=lambda offered: "/dev/vda",
-                    execute_job=lambda offered, tls: (True, "unexpected"),
+                    prepare_local_target=lambda offered: LocalTargetApproval(
+                        "/dev/vda", "Virtual disk 1", "ERASE /dev/vdb FROM URI:feclora-server",
+                    ),
+                    execute_job=lambda offered, tls, approval: (True, "unexpected"),
                 )
 
     def test_client_refuses_unarmed_or_mismatched_start(self):
@@ -188,8 +228,11 @@ class ClientJoinTests(unittest.TestCase):
                     local_identity="URI:feclora-client",
                     expected_server_identity="URI:feclora-server",
                     mac_address=MAC, job_id=JOB_ID,
-                    prepare_local_target=lambda offered: "local target approved",
-                    execute_job=lambda offered: (True, "unexpected"),
+                    prepare_local_target=lambda offered: LocalTargetApproval(
+                        "/dev/vda", "Local virtual disk",
+                        "ERASE /dev/vda FROM URI:feclora-server",
+                    ),
+                    execute_job=lambda offered, tls, approval: (True, "unexpected"),
                 )
 
 
