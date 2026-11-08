@@ -93,7 +93,7 @@ class UDPcastConfigTests(unittest.TestCase):
     def test_firewall_scope_opens_exact_two_udp_ports_and_closes(self):
         firewall = Mock()
         with multicast_firewall_scope(firewall, "enp1s0", 9000):
-            firewall.open.assert_called_once_with("enp1s0", ["9000/udp", "9001/udp"])
+            firewall.open.assert_called_once_with("enp1s0", ["9000/udp", "9001/udp"], include_tftp=False)
         firewall.close.assert_called_once_with("enp1s0")
 
     def test_firewall_scope_closes_after_transfer_exception(self):
