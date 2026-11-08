@@ -21,7 +21,7 @@ from .disk_restore import (
     _verify_stored_artifact,
 )
 from .image_manifest import ImageManifest, ManifestValidationError
-from .image_security import ImageSecurityError, sign_manifest, verify_manifest_signature
+from .image_security import ImageSecurityError, encrypt_artifact, sign_manifest, verify_manifest_signature
 from .partition_range import PartitionRangeError, parse_sfdisk_dump, select_partition_range
 
 
@@ -54,6 +54,7 @@ def extract_partition_image(
     minisign_public_key: str | os.PathLike[str] | None = None,
     require_signature: bool = False,
     minisign_secret_key: str | os.PathLike[str] | None = None,
+    age_recipients_file: str | os.PathLike[str] | None = None,
     executables: dict[str, str | None] | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
 ) -> tuple[ImageManifest, str]:
@@ -172,6 +173,12 @@ def extract_partition_image(
                 if decoded is not stored:
                     decoded.close()
 
+        if age_recipients_file is not None:
+            image_artifact = encrypt_artifact(
+                os.path.join(stage, artifact_name), image_artifact, age_recipients_file,
+                age_executable=(executables or {}).get("age"),
+            )
+            artifact_name = image_artifact.filename
         extracted_manifest = ImageManifest.from_dict({
             "schema_version": 1,
             "image_id": f"{safe_prefix}-part-{uuid.uuid4().hex[:12]}"[:128],
