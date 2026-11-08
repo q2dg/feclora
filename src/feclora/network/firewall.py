@@ -87,6 +87,7 @@ class PXEFirewall:
                 self._call([f"--zone={zone}", "--add-service=tftp"])
             for port in requested:
                 self._call([f"--zone={zone}", f"--add-port={port}"])
+            self._notify(interface)
         except PXEFirewallError as start_error:
             try:
                 self.close(interface)
@@ -173,6 +174,8 @@ class PXEFirewall:
                 self._call([f"--zone={state['zone']}", f"--remove-port={port}"], check=False)
                 state["ports"].remove(port)
             raise
+        if added:
+            self._notify(interface)
         return tuple(added)
 
     def add_protocols(self, interface: str, protocols: Iterable[str]) -> tuple[str, ...]:
@@ -196,6 +199,8 @@ class PXEFirewall:
                 self._call([f"--zone={state['zone']}", f"--remove-protocol={protocol}"], check=False)
                 state["protocols"].remove(protocol)
             raise
+        if added:
+            self._notify(interface)
         return tuple(added)
 
     def remove_protocols(self, interface: str, protocols: Iterable[str]) -> None:
@@ -214,6 +219,7 @@ class PXEFirewall:
                 state["protocols"].remove(protocol)
         if errors:
             raise PXEFirewallError("Could not remove temporary firewall protocols: " + ", ".join(errors))
+        self._notify(interface)
 
     def remove_ports(self, interface: str, ports: Iterable[str]) -> None:
         """Remove only the temporary ports added for a transfer."""
@@ -231,6 +237,7 @@ class PXEFirewall:
                 state["ports"].remove(port)
         if errors:
             raise PXEFirewallError("Could not remove temporary firewall ports: " + ", ".join(errors))
+        self._notify(interface)
 
     def close(self, interface: str) -> None:
         state = self._opened.get(interface)
@@ -274,3 +281,4 @@ class PXEFirewall:
         if errors:
             raise PXEFirewallError("could not restore firewalld state: " + "; ".join(errors))
         del self._opened[interface]
+        self._notify(interface)
