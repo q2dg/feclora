@@ -4,6 +4,14 @@ The authenticated deployment runtime is opt-in. PXE services and the control
 listener do not start automatically at boot. Provision endpoint credentials
 and configuration files out of band before selecting deployment mode.
 
+**Current limitation:** the present release requires an external CA and
+out-of-band endpoint certificate/key provisioning. Feclora's Server UI can
+enroll, rotate, and remove already-issued Client identities, but it does not
+yet issue certificates or provision Client private keys. The intended
+operator-friendly lifecycle and its security boundaries are specified in
+[Certificate management](CERTIFICATE-MANAGEMENT.md); do not treat that target
+workflow as implemented.
+
 ## Filesystem preparation
 
 On each Feclora Live endpoint, create the configuration and key directories
