@@ -13,7 +13,7 @@ from feclora.deployment.coordinator import DeploymentCoordinator
 from feclora.deployment.job import DeploymentJob
 from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
 from feclora.deployment.enrollment import (
-    EnrollmentError, enroll_client_certificate, inspect_client_certificate,
+    enroll_client_certificate, inspect_client_certificate,
     revoke_client_certificate,
 )
 from feclora.deployment.runtime_config import (
