@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from feclora.storage.disk_image_partition import DiskImagePartitionError, extract_partition_image
 from feclora.storage.image_manifest import ImageManifest
@@ -65,17 +66,15 @@ class DiskImagePartitionTests(unittest.TestCase):
         def sign(path, secret_key, **kwargs):
             with open(path + ".minisig", "wb") as stream:
                 stream.write(b"signature")
-        with unittest.mock.patch("feclora.storage.disk_image_partition.sign_manifest", side_effect=sign) as signer:
+        with patch("feclora.storage.disk_image_partition.sign_manifest", side_effect=sign) as signer:
             _manifest, filename = extract_partition_image(
                 self.manifest, self.temp.name, "aaaa-bbbb",
                 minisign_secret_key="/secure/server.minisign.key",
             )
         signer.assert_called_once()
         self.assertTrue(os.path.isfile(os.path.join(self.temp.name, filename + ".minisig")))
-        self.assertEqual(
-            open(os.path.join(self.temp.name, filename + ".minisig"), "rb").read(),
-            b"signature",
-        )
+        with open(os.path.join(self.temp.name, filename + ".minisig"), "rb") as stream:
+            self.assertEqual(stream.read(), b"signature")
 
     def test_selects_partition_by_name(self):
         extracted, _ = extract_partition_image(
