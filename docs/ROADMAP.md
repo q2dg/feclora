@@ -74,15 +74,13 @@
 - [x] Define and validate the shared versioned deployment job schema.
 - [x] Implement the in-memory Server deployment coordinator and client lifecycle state machine.
 - [x] Specify one-to-one remote disk clone over TLS 1.3 mTLS, including exact peer identity checks, role/device-bound local authorization, bounded streaming, session SHA-256 and receiver read-back.
-- [x] Implement the separate TLS 1.3 mTLS deployment control protocol: certificate identity-to-MAC enrollment mapping, job allowlist enforcement, HELLO/JOB/READY/START/RESULT/CANCEL framing, local target approval boundary, explicit coordinator arming, managed listener lifecycle and per-client result tracking.
-- [x] Implement signed unicast whole-disk image-set transfer over the authenticated TLS session: verify manifest signature and artifact SHA-256/size, stage privately, publish without overwrite, integrate Client capture/sign/send and receive/verify/restore/read-back callbacks. Unit and loopback mTLS tests are added; CI and real block-device execution remain pending.
-- [ ] Integrate the managed control listener into Server mode UI: job authoring, trusted key/enrollment configuration, repository selection, arm/cancel controls and per-client progress/results.
-- [ ] Implement Client mode UI: load credentials, discover/select local disks, typed local confirmation, repository/staging selection and invoke the authenticated runtime.
-- [ ] Implement persistent job/session journal, restart recovery and reconciliation of interrupted transfers.
-- [ ] Implement secure certificate and minisign-key enrollment, revocation and rotation.
+- [x] Implement the separate TLS 1.3 mTLS deployment control protocol: certificate identity-to-MAC enrollment mapping, job allowlist enforcement, HELLO/JOB/READY/START/RESULT/CANCEL framing, typed LocalTargetApproval, explicit coordinator arming, managed listener lifecycle and per-client result tracking.
+- [x] Implement signed unicast whole-disk image-set transfer over the authenticated TLS session: verify manifest signature and artifact SHA-256/size, stage privately, publish without overwrite, integrate Client capture/sign/send and receive/verify/restore/read-back callbacks. A one-client end-to-end orchestration API is implemented; unit and loopback mTLS tests are added, but CI and real block-device execution remain pending.
+- [x] Integrate Server and Client dialog workflows: root-owned runtime configuration, job authoring, certificate identity enrollment mapping, repository selection, local disk inventory, exact typed confirmation, listener/firewall lifecycle, explicit arm and per-client result display.
+- [ ] Implement persistent job/session journal, crash recovery and reconciliation of interrupted transfers.
+- [ ] Implement secure certificate and minisign-key enrollment, revocation and rotation UI.
 - [x] Select and package the embedded PXE stack: dnsmasq (DHCP/ProxyDHCP/PXE/TFTP), Fedora iPXE BIOS/UEFI boot images, and Caddy for HTTP boot (ADR 0006; services remain disabled by default).
-- [ ] Complete Server PXE runtime integration and validate DHCP/ProxyDHCP, TFTP/HTTP, BIOS/UEFI chainloading and firewalld rollback in virtual machines.
-- [ ] Complete one-client save/restore over PXE and authenticated unicast using disposable virtual disks; verify image signature, full transfer digest, destination read-back and per-client result.
+- [ ] Validate Server PXE runtime and authenticated unicast deployment in isolated BIOS/UEFI VMs: DHCP/ProxyDHCP, TFTP/HTTP, chainloading, signed image transfer, disposable-disk restore, read-back and firewalld rollback.
 - [x] Add an isolated libvirt PXE VM matrix harness for one Server and BIOS/UEFI Clients; VM creation is scripted, but boot and end-to-end acceptance remain manual and unverified.
 ## Milestone 4 — Mass deployment
 - [ ] Implement unicast deployment to multiple clients.
