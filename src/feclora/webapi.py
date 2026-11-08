@@ -723,6 +723,22 @@ def _complete_client_enrollment(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError(f"Client enrollment completion failed: {exc}") from exc
 
 
+def _prepare_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
+    from feclora.deployment.cockpit_client import prepare_client_renewal
+    try:
+        return prepare_client_renewal(params)
+    except Exception as exc:
+        raise WebAPIError(f"Client renewal request preparation failed: {exc}") from exc
+
+
+def _complete_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
+    from feclora.deployment.cockpit_client import complete_client_renewal
+    try:
+        return complete_client_renewal(params)
+    except Exception as exc:
+        raise WebAPIError(f"Client renewal installation failed: {exc}") from exc
+
+
 def _inspect_client_csr(params: dict[str, Any]) -> dict[str, str]:
     from feclora.deployment.cockpit_enrollment import inspect_client_request
     try:
@@ -1730,6 +1746,10 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _prepare_client_request(params)
     if action == "complete_client_enrollment":
         return _complete_client_enrollment(params)
+    if action == "prepare_client_renewal":
+        return _prepare_client_renewal(params)
+    if action == "complete_client_renewal":
+        return _complete_client_renewal(params)
     if action == "inspect_client_csr":
         return _inspect_client_csr(params)
     if action == "approve_client_csr":
