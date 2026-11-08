@@ -38,12 +38,25 @@ default), requires a root-owned non-writable parent directory, refuses to
 replace an existing socket, and creates the socket with mode 0600. It does not
 provide a shell or arbitrary method dispatch.
 
-This is currently a protocol/server primitive with unit coverage, **not yet a
-running systemd service and not yet connected to Cockpit**. The eventual service
-handler must independently verify the active job UUID, coordinator state and
-the exact confirmation phrase before calling coordinator transitions. Cockpit
-integration, service lifecycle, durable active-job ownership and end-to-end
-IPC authorization tests remain outstanding.
+The primitive is now used by `feclora.deployment.service`, installed as
+the non-boot-enabled systemd template `feclora-deployment@.service` and
+controlled through the Cockpit API. A service instance loads one fresh,
+verified job journal, validates the Server interface and signed restore image,
+owns a single-job lock, starts the existing TLS control listener and exposes
+status/arm/cancel over the root-only socket. It can adopt the existing PXE
+firewall zone on the same interface so the deployment TCP port is added and
+removed without replacing PXE rules.
+
+Cockpit can start/connect to the service, inspect live Client readiness, arm
+with an exact job-specific phrase, cancel only before arming, and stop the
+service only when no Client is actively writing. Unicast save/restore and
+multicast restore use the existing control-plane execution methods; the daemon
+does not duplicate the storage engines. The service is not enabled at boot,
+supports one job per Server, and refuses to start from an interrupted journal.
+No TLS session or storage operation is resumed after a process crash. If the
+service exits during an armed/running job, manual disk inspection and audit
+reconciliation are required. Automated unit/CI checks do not establish
+real-network, VM or destructive storage acceptance.
 
 ## Implemented and remaining
 
