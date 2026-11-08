@@ -13,7 +13,7 @@ using Fedora-native tools.
 
 ## Start here
 
-- [Project overview](../README.md)
+- [Project overview](https://github.com/q2dg/feclora)
 - [Build and installation](BUILD.md)
 - [Cockpit interface and first login](COCKPIT.md)
 - [Local imaging and cloning workflows](LOCAL-RESCUE-UI.md)
