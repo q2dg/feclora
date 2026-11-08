@@ -110,8 +110,13 @@ class PXEServiceManager:
                 self.caddy, "run", "--config", caddy_config, "--adapter", "caddyfile",
             ], "starting Caddy")
             self._started_units.add("feclora-caddy.service")
-        except PXEServiceError:
-            self.stop()
+        except PXEServiceError as start_error:
+            try:
+                self.stop()
+            except PXEServiceError as rollback_error:
+                raise PXEServiceError(
+                    f"{start_error}; rollback also failed: {rollback_error}"
+                ) from start_error
             raise
 
     def stop(self) -> None:
