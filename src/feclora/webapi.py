@@ -718,6 +718,8 @@ def _deployment_journal_directory(*, create: bool = False) -> Path:
 
 def _deployment_jobs() -> list[dict[str, Any]]:
     from feclora.deployment.journal import DeploymentJournal
+    if not os.path.lexists("/var/lib/feclora/deployments"):
+        return []
     directory = _deployment_journal_directory()
     jobs = []
     for path in sorted(directory.glob("*.jsonl")):
