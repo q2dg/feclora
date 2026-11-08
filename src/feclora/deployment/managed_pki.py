@@ -163,7 +163,7 @@ def initialize_server_pki(
 
 def ca_fingerprint(ca_file: str, *, runner: Callable[..., Any] | None = None,
                    openssl: str = "/usr/bin/openssl") -> str:
-    _regular_file(ca_file, "CA certificate", root_owned=True)
+    _regular_file(ca_file, "CA certificate")
     result = _run([openssl, "x509", "-in", ca_file, "-noout", "-fingerprint", "-sha256"], runner)
     value = result.stdout.strip()
     prefix = "sha256 Fingerprint="
@@ -287,8 +287,14 @@ def issue_client_certificate(
     _regular_file(ca_file, "CA certificate", root_owned=True)
     if os.stat(ca_key).st_mode & 0o077:
         raise PKIError("CA private key must not be accessible by group or other users")
+    output_directory = os.path.dirname(os.path.abspath(output_certificate))
+    if not os.path.isdir(output_directory) or os.path.islink(output_directory):
+        raise PKIError("certificate output directory must be an existing real directory")
+    if os.path.lexists(output_certificate):
+        raise PKIError("refusing to overwrite an existing Client certificate export")
     extension_file = os.path.join(root, ".client-extensions.tmp")
-    temporary = output_certificate + ".tmp"
+    fd, temporary = tempfile.mkstemp(prefix=".feclora-client-cert-", dir=output_directory)
+    os.close(fd)
     serial = "0x" + os.urandom(16).hex()
     try:
         Path(extension_file).write_text(
@@ -331,7 +337,7 @@ def install_client_certificate(
     for path, label in ((certificate_path, "Client certificate"), (ca_path, "CA certificate"),
                         (private_key_path, "local Client private key")):
         _regular_file(path, label)
-    actual_fingerprint = ca_fingerprint(ca_path, runner=runner, openssl=openssl)
+    if os.stat(private_key_path).st_mode & 0o077:\n        raise PKIError("local Client private key must not be accessible by group or other users")\n    actual_fingerprint = ca_fingerprint(ca_path, runner=runner, openssl=openssl)
     if actual_fingerprint != expected_fingerprint.replace(":", "").lower():
         raise PKIError("CA fingerprint does not match the fingerprint verified from the Server")
     _run([openssl, "verify", "-purpose", "sslclient", "-CAfile", ca_path, certificate_path], runner)
