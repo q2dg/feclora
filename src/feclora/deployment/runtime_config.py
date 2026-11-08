@@ -165,6 +165,7 @@ class ClientRuntimeConfig:
     local_minisign_secret_key: str
     local_minisign_public_key: str
     age_identity_file: str | None
+    age_recipients_file: str | None
     repository: str
 
 
@@ -173,13 +174,14 @@ def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
         "schema_version", "host", "port", "local_identity", "server_identity",
         "mac_address", "ca_file", "certificate_file", "private_key_file",
         "trusted_server_public_key", "local_minisign_secret_key",
-        "local_minisign_public_key", "age_identity_file", "repository",
+        "local_minisign_public_key", "age_identity_file", "age_recipients_file", "repository",
     }
     value = _read_config(path, fields)
     host = value["host"]
     if not isinstance(host, str) or not host or len(host) > 253 or any(ord(c) < 33 for c in host):
         raise RuntimeConfigError("Server host must be a valid hostname or address")
     age_identity = value["age_identity_file"]
+    age_recipients = value["age_recipients_file"]
     return ClientRuntimeConfig(
         host=host,
         port=_port(value["port"]),
@@ -193,5 +195,6 @@ def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
         local_minisign_secret_key=_secure_file(value["local_minisign_secret_key"], "Client minisign secret key", private=True),
         local_minisign_public_key=_secure_file(value["local_minisign_public_key"], "Client minisign public key"),
         age_identity_file=_secure_file(age_identity, "age identity file", private=True) if age_identity else None,
+        age_recipients_file=_secure_file(age_recipients, "age recipients file") if age_recipients else None,
         repository=_repository(value["repository"]),
     )
