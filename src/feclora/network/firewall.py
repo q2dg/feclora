@@ -70,6 +70,7 @@ class PXEFirewall:
             "zone": zone,
             "restore_zone": restore_zone,
             "interface_added": False,
+            "ports": list(requested),
         }
         try:
             self._call([f"--zone={zone}", f"--add-interface={interface}"])
@@ -89,6 +90,48 @@ class PXEFirewall:
                     f"{start_error}; firewall rollback failed: {rollback_error}"
                 ) from start_error
             raise
+
+    def is_open(self, interface: str) -> bool:
+        """Return whether this manager currently owns a temporary zone for interface."""
+        return interface in self._opened
+
+    def add_ports(self, interface: str, ports: Iterable[str]) -> None:
+        """Add temporary ports to an active zone without replacing existing PXE rules."""
+        state = self._opened.get(interface)
+        if state is None or self._current_zone(interface) != state["zone"]:
+            raise PXEFirewallError("No active Feclora temporary firewall zone for interface")
+        requested = list(dict.fromkeys(ports))
+        if any(not _PORT_RE.fullmatch(port) or int(port.split("/", 1)[0]) > 65535 for port in requested):
+            raise PXEFirewallError("Invalid temporary firewall port list")
+        added = []
+        try:
+            for port in requested:
+                if port not in state["ports"]:
+                    self._call([f"--zone={state['zone']}", f"--add-port={port}"])
+                    state["ports"].append(port)
+                    added.append(port)
+        except PXEFirewallError:
+            for port in reversed(added):
+                self._call([f"--zone={state['zone']}", f"--remove-port={port}"], check=False)
+                state["ports"].remove(port)
+            raise
+
+    def remove_ports(self, interface: str, ports: Iterable[str]) -> None:
+        """Remove only the temporary ports added for a transfer."""
+        state = self._opened.get(interface)
+        if state is None:
+            raise PXEFirewallError("No active Feclora temporary firewall zone for interface")
+        errors = []
+        for port in dict.fromkeys(ports):
+            if port not in state["ports"]:
+                continue
+            result = self._call([f"--zone={state['zone']}", f"--remove-port={port}"], check=False)
+            if result.returncode != 0:
+                errors.append(port)
+            else:
+                state["ports"].remove(port)
+        if errors:
+            raise PXEFirewallError("Could not remove temporary firewall ports: " + ", ".join(errors))
 
     def close(self, interface: str) -> None:
         state = self._opened.get(interface)
