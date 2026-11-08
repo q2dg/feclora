@@ -220,7 +220,8 @@ def local_control_request(
             response = json.loads(_recv_exact(connection, size).decode("utf-8"))
         except (UnicodeError, json.JSONDecodeError) as exc:
             raise LocalControlError(f"invalid IPC response: {exc}") from exc
-    if not isinstance(response, dict) or response.get("ok") not in {True, False}:
+    if (not isinstance(response, dict)
+            or (response.get("ok") is not True and response.get("ok") is not False)):
         raise LocalControlError("invalid IPC response structure")
     if response["ok"] is True:
         if set(response) != {"ok", "data"} or not isinstance(response["data"], dict):
