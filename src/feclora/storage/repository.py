@@ -122,6 +122,8 @@ class RemoteRepository:
             source = f"//{self.host}/{parts[0]}" + (f"/{'/'.join(parts[1:])}" if len(parts) > 1 else "")
             options += ["vers=3.1.1", "seal", "serverino",
                         f"credentials={self.credential_file}"]
+            if len(parts) > 1:
+                options.append("prefixpath=" + "/".join(parts[1:]))
             if self.username:
                 options.append(f"username={self.username}")
             if self.port is not None:
