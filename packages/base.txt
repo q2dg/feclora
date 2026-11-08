@@ -4,7 +4,6 @@ kernel
 tar
 sudo
 python3
-dialog
 kbd
 psmisc
 NetworkManager
@@ -12,7 +11,7 @@ iproute
 firewalld
 openssl
 
-# Cockpit web UI (socket remains disabled in the Live session)
+# Cockpit web UI (primary operator interface)
 cockpit
 cockpit-system
 cockpit-storaged
