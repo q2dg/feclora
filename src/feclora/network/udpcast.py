@@ -18,9 +18,10 @@ import stat
 import subprocess
 import tempfile
 import time
-from typing import Any, Callable
+from contextlib import contextmanager
+from typing import Any, Callable, Iterator
 
-from feclora.deployment.coordinator import DeploymentCoordinator, JobState
+from feclora.deployment.coordinator import ClientState, DeploymentCoordinator, JobState
 from feclora.storage.image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
 from feclora.storage.image_security import ImageSecurityError, verify_manifest_signature
 
@@ -190,6 +191,22 @@ def _run_process(
         raise UDPcastError(f"Could not execute UDPcast: {exc}") from exc
 
 
+@contextmanager
+def multicast_firewall_scope(firewall: Any, interface: str, portbase: int) -> Iterator[None]:
+    """Temporarily allow only UDPcast's two UDP ports on the selected interface."""
+    if firewall is None:
+        yield
+        return
+    opened = False
+    try:
+        firewall.open(interface, [f"{portbase}/udp", f"{portbase + 1}/udp"])
+        opened = True
+        yield
+    finally:
+        if opened:
+            firewall.close(interface)
+
+
 def send_multicast_artifact(
     coordinator: DeploymentCoordinator,
     source_path: str,
@@ -201,6 +218,7 @@ def send_multicast_artifact(
     minisign_executable: str | None = None,
     runner_popen: Callable[..., Any] = subprocess.Popen,
     cancel_check: Callable[[], bool] | None = None,
+    firewall: Any = None,
 ) -> None:
     """Send a single artifact only after the deployment coordinator is armed."""
     job = coordinator.job
@@ -210,6 +228,9 @@ def send_multicast_artifact(
         raise UDPcastError("UDPcast configuration does not match the deployment job")
     if job.multicast_group != config.data_group or job.multicast_port != config.portbase:
         raise UDPcastError("UDPcast group/port do not match the deployment job")
+    ready_count = sum(client.state is ClientState.READY for client in coordinator.clients())
+    if ready_count < config.min_receivers:
+        raise UDPcastError("Not enough authenticated, ready clients for the configured receiver threshold")
     manifest = _load_signed_manifest(
         manifest_path, public_key_path, minisign_executable=minisign_executable,
     )
@@ -223,11 +244,12 @@ def send_multicast_artifact(
     executable = udp_sender or shutil.which("udp-sender")
     if not executable:
         raise UDPcastError("udp-sender is required for multicast deployment")
-    _run_process(
-        build_sender_argv(executable, os.path.abspath(source_path), config),
-        runner_popen=runner_popen, cancel_check=cancel_check,
-        timeout_seconds=config.max_wait_seconds + 86400,
-    )
+    with multicast_firewall_scope(firewall, config.interface, config.portbase):
+        _run_process(
+            build_sender_argv(executable, os.path.abspath(source_path), config),
+            runner_popen=runner_popen, cancel_check=cancel_check,
+            timeout_seconds=config.max_wait_seconds + 86400,
+        )
 
 
 def receive_multicast_artifact_to_staging(
@@ -239,6 +261,7 @@ def receive_multicast_artifact_to_staging(
     runner_popen: Callable[..., Any] = subprocess.Popen,
     cancel_check: Callable[[], bool] | None = None,
     timeout_seconds: int = 86400,
+    firewall: Any = None,
 ) -> str:
     """Receive into a 0600 temporary file; caller must verify signed manifest before restore."""
     directory = os.path.abspath(staging_directory)
@@ -248,7 +271,9 @@ def receive_multicast_artifact_to_staging(
             raise UDPcastError("Staging directory must be a real directory")
         if shutil.disk_usage(directory).free < artifact.size_bytes:
             raise UDPcastError("Insufficient free space for a complete staged multicast artifact")
-        fd, path = tempfile.mkstemp(prefix=".feclora-udpcast-", dir=directory)
+        private_dir = tempfile.mkdtemp(prefix=".feclora-udpcast-", dir=directory)
+        os.chmod(private_dir, 0o700)
+        fd, path = tempfile.mkstemp(prefix="artifact-", dir=private_dir)
         os.fchmod(fd, 0o600)
         os.close(fd)
     except UDPcastError:
@@ -260,20 +285,18 @@ def receive_multicast_artifact_to_staging(
         os.unlink(path)
         raise UDPcastError("udp-receiver is required for multicast deployment")
     try:
-        _run_process(
-            build_receiver_argv(executable, path, config),
-            runner_popen=runner_popen, cancel_check=cancel_check,
-            timeout_seconds=timeout_seconds,
-        )
+        with multicast_firewall_scope(firewall, config.interface, config.portbase):
+            _run_process(
+                build_receiver_argv(executable, path, config),
+                runner_popen=runner_popen, cancel_check=cancel_check,
+                timeout_seconds=timeout_seconds,
+            )
         info = _regular_file(path, "Received staging artifact")
         if info.st_size != artifact.size_bytes:
             raise UDPcastError("Received artifact size does not match the expected manifest")
         return path
     except Exception:
-        try:
-            os.unlink(path)
-        except FileNotFoundError:
-            pass
+        shutil.rmtree(private_dir, ignore_errors=True)
         raise
 
 
