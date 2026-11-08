@@ -87,11 +87,12 @@ class WebAPITests(unittest.TestCase):
         )
         with patch("feclora.webapi.os.path.isfile", side_effect=lambda path: path == "/etc/feclora/deployment-server.json"), patch(
             "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
-        ), patch("feclora.deployment.managed_pki.certificate_expiry_days", return_value=12):
+        ), patch("feclora.deployment.managed_pki.certificate_expiry_days", side_effect=[12, 1200]):
             result = _certificate_status()
         self.assertEqual(result, [{
             "role": "Server", "identity": "URI:feclora-server",
             "expiry_days": 12, "status": "expiring",
+            "ca_expiry_days": 1200, "ca_status": "valid",
         }])
 
     def test_client_renewal_actions_are_exposed_through_allowlisted_dispatch(self):
