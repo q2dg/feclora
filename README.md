@@ -49,7 +49,7 @@ Early implementation. The repository contains an initial Kickstart and a QEMU-ba
 
 ## Fedora baseline lifecycle
 
-Fedora Linux 45 is the current project baseline. The Fedora Project announced its general availability on 3 November 2026. The ISO build scripts, Kickstart, package manifest, preflight checks, and build runbook are aligned to Fedora 45. Do not describe Fedora 43 as the current target.
+Fedora Linux 45 is the current project baseline. The Fedora Project announced its general availability on 3 November 2026. The ISO build scripts, Kickstart, package manifest, preflight checks, and build runbook are aligned to Fedora 45. Do not describe an older release as the current target.
 
 Fedora has a short, regularly advancing release lifecycle. Before changing the project baseline again, update the release version consistently across the build scripts, Kickstart, package set, CI/build documentation, and acceptance tests; then build and boot-test the resulting ISO. A newer Fedora release must not become the baseline merely by changing a version string: validate package availability (especially storage and boot packages), installer behavior, BIOS/UEFI boot, and the rescue workflows first.
 
