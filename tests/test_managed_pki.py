@@ -61,7 +61,7 @@ class ManagedPKITests(unittest.TestCase):
             server_recipient = "age1" + "s" * 40
             client_recipient = "age1" + "c" * 40
             with open(recipients_file, "w", encoding="ascii") as stream:
-                stream.write(server_recipient + "\\n")
+                stream.write(server_recipient + "\n")
             real_atomic_text = __import__(
                 "feclora.deployment.managed_pki", fromlist=["_atomic_text"]
             )._atomic_text
@@ -84,7 +84,7 @@ class ManagedPKITests(unittest.TestCase):
                 with self.assertRaisesRegex(OSError, "simulated"):
                     register_age_recipient(root, "URI:feclora-client-lab", client_recipient)
             with open(recipients_file, encoding="ascii") as stream:
-                self.assertEqual(stream.read(), server_recipient + "\\n")
+                self.assertEqual(stream.read(), server_recipient + "\n")
             self.assertFalse(os.path.exists(os.path.join(root, "age-recipients", "lab.txt")))
 
     def test_certificate_expiry_uses_utc_and_returns_negative_when_expired(self):
