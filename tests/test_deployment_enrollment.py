@@ -1,8 +1,9 @@
 import unittest
 from unittest.mock import patch
+from subprocess import CompletedProcess
 
 from feclora.deployment.enrollment import (
-    EnrollmentError, enroll_client_certificate, revoke_client_certificate,
+    EnrollmentError, _certificate_identity, enroll_client_certificate, revoke_client_certificate,
 )
 
 
@@ -27,6 +28,27 @@ def config():
 
 
 class EnrollmentTests(unittest.TestCase):
+    def test_certificate_san_extracts_one_stable_uri_identity(self):
+        result = CompletedProcess(
+            args=[], returncode=0, stdout="X509v3 Subject Alternative Name:\\n    URI:feclora-client-02\\n",
+            stderr="",
+        )
+        with patch("feclora.deployment.enrollment.subprocess.run", return_value=result):
+            self.assertEqual(
+                _certificate_identity("/pki/client.crt"),
+                "URI:feclora-client-02",
+            )
+
+    def test_certificate_san_rejects_ambiguous_multiple_identities(self):
+        result = CompletedProcess(
+            args=[], returncode=0,
+            stdout="X509v3 Subject Alternative Name:\\n    URI:feclora-client-02, DNS:client.example\\n",
+            stderr="",
+        )
+        with patch("feclora.deployment.enrollment.subprocess.run", return_value=result):
+            with self.assertRaisesRegex(EnrollmentError, "exactly one"):
+                _certificate_identity("/pki/client.crt")
+
     def test_enrollment_rotates_identity_for_same_mac_and_replaces_public_key(self):
         value = config()
         with (
