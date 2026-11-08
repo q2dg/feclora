@@ -154,6 +154,7 @@ class UDPcastConfigTests(unittest.TestCase):
         firewall = Mock()
         firewall.is_open.return_value = True
         firewall.add_ports.return_value = ("9000/udp", "9001/udp")
+        firewall.add_protocols.return_value = ("igmp",)
         with multicast_firewall_scope(firewall, "enp1s0", 9000):
             firewall.add_ports.assert_called_once_with("enp1s0", ["9000/udp", "9001/udp"])
             firewall.open.assert_not_called()
