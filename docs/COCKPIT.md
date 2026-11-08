@@ -1,54 +1,63 @@
 # Cockpit web interface
 
-Feclora ships a dedicated Cockpit package built with React and PatternFly.
-It is an optional web dashboard; local rescue remains available without
-Cockpit or a network service.
+Cockpit is Feclora's primary operator interface. The React/PatternFly
+application is installed at `/usr/share/cockpit/feclora` and uses Cockpit's
+authenticated session and explicit superuser authorization for privileged
+operations.
+
+## First login
+
+The live console prints the Cockpit URL and setup instructions. From the
+console, set a password for the live account:
+
+```bash
+sudo passwd feclora
+```
+
+Then open `https://<management-interface-address>:9090` from a trusted
+management workstation and sign in as `feclora`. Restrict access to a
+trusted management network. Cockpit's Terminal page is available for system
+administration and diagnostics; it is not used as a substitute for Feclora's
+validated storage workflows.
 
 ## Build and package
 
 On the Fedora 45 build host, install Node.js and npm with
 `build/install-host-deps.sh`. The ISO build invokes
-`build/build-webui.sh`, which installs the exact top-level versions pinned
-in `webui/package.json` and produces `webui/dist/`. The generated package
-is staged on the augmented installer media and installed at
-`/usr/share/cockpit/feclora`.
+`build/build-webui.sh`, which installs the frontend dependencies and builds
+`webui/dist/`. The generated package is staged on the augmented installer
+media and installed at `/usr/share/cockpit/feclora`.
 
 The Live image includes `cockpit`, `cockpit-system` and
-`cockpit-storaged`, but `cockpit.socket` is disabled by default. Feclora
-does not expose a web listener automatically.
+`cockpit-storaged`; `cockpit.socket` is enabled. The operator must set a
+non-empty live-account password before browser login.
 
-## Explicit operator activation
+## Storage workflows
 
-The Live user has no password by default. Before enabling Cockpit, set a
-strong password locally:
+The Operations wizard provides:
+- whole-disk and partition image capture;
+- whole-disk and partition image restoration;
+- whole-disk and partition-to-partition cloning;
+- device discovery, image selection, compression selection and typed
+  destructive confirmation;
+- streamed byte-progress events from the storage engine.
 
-```bash
-sudo passwd feclora
-sudo systemctl start cockpit.socket
-```
+The browser calls the same Python storage engines as the rest of Feclora.
+The root-owned `/usr/libexec/feclora/cockpit-api` wrapper accepts a fixed
+allowlist of actions. Requests are bounded JSON on stdin; device paths,
+operation parameters, image identifiers and typed confirmations are
+validated again by the backend. No shell or arbitrary command execution is
+exposed through the API.
 
-Then access `https://<management-interface-address>:9090` from a trusted
-management workstation and authenticate as `feclora`. Configure firewall
-access only on a trusted management interface/VLAN; do not expose port 9090
-on a shared or untrusted network. Cockpit uses its normal TLS and PAM login
-flow. The web page's privileged inventory calls use Cockpit's superuser
-authorization.
+## Current scope and limitations
 
-## Current functionality and security boundary
+The Cockpit application currently exposes local imaging operations, storage
+inventory, image inventory, deployment journal summaries and system status.
+The remote Server/Client provisioning and complete PXE deployment lifecycle
+still require web workflows; existing dialog-based Server/Client UI modules
+are not the primary supported operator path. Multicast partition restore is
+supported by the runtime but still requires complete Cockpit job orchestration
+and live per-client progress reporting.
 
-The React/PatternFly page currently provides read-only:
-- host and Cockpit/PXE service status;
-- manifest-backed image inventory, including signature and age-encryption
-  indicators;
-- hash-chained deployment journal summaries and interrupted-job flags;
-- local storage inventory.
-
-The root-owned `/usr/libexec/feclora/cockpit-api` wrapper accepts only four
-fixed actions: `status`, `inventory`, `images` and `journals`. The Python
-API rejects unknown actions and exposes no shell, arbitrary argv, disk write,
-capture, restore, clone, job-arm, PXE-start or firewall mutation operation.
-
-Destructive imaging and deployment remain in the existing guarded dialog
-workflows. React forms for those operations, full server/client management,
-and live multicast progress are not yet implemented. Do not interpret the
-dashboard as a replacement for the explicit local-target approval gates.
+No ISO build, hardware restore, PXE boot or multi-machine laboratory test is
+claimed by the source-level checks.
