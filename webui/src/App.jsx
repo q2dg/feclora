@@ -627,7 +627,7 @@ export default function App() {
                   <Title headingLevel="h3" size="lg">Extract a partition from a whole-disk image</Title>
                   <p>Select a verified whole-disk image and identify one partition by PARTUUID, PARTLABEL or partition node recorded in its partition table. Feclora verifies the source image and publishes a separate partition image; age-encrypted sources are re-encrypted to the current recipient inventory. The source image is not modified.</p>
                   <Field label="Whole-disk source image">
-                    <select className="pf-v5-c-form-control" value={extractImageId} onChange={(event) => { setExtractImageId(event.target.value); inspectImageLayout(event.target.value); }}>
+                    <select className="pf-v5-c-form-control" value={extractImageId} disabled={busy} onChange={(event) => { setExtractImageId(event.target.value); inspectImageLayout(event.target.value); }}>
                       <option value="">Select whole-disk image…</option>
                       {images.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}{item.signed ? " · signed" : " · unsigned"}</option>)}
                     </select>
