@@ -207,7 +207,10 @@ class DeploymentJournal:
         job_state = events[-1].get("job_state")
         if job_state not in {"created", "armed", "running", "completed", "failed", "cancelled"}:
             raise DeploymentJournalError("journal contains an unknown job state")
+        operator_reconciled = events[-1].get("event") == "operator_reconciled"
         interrupted = job_state in {"created", "armed", "running"}
+        if operator_reconciled and job_state != "failed":
+            raise DeploymentJournalError("operator reconciliation must close the interrupted job as failed")
         return {
             "job_id": self.job_id,
             "job": dict(job),
@@ -216,14 +219,38 @@ class DeploymentJournal:
             "event_count": len(events),
             "last_event": events[-1].get("event"),
             "interrupted": interrupted,
+            "operator_reconciled": operator_reconciled,
             "automatic_resume": False,
             "recommendation": (
                 "Inspect every client and destination disk, then create a new job; "
                 "Feclora never resumes destructive writes after a crash."
                 if interrupted else
-                "Audit-only terminal record; no session or device operation is resumed."
+                ("Operator inspected/reconciled this interrupted job; it remains failed and no operation was resumed."
+                 if operator_reconciled else
+                 "Audit-only terminal record; no session or device operation is resumed.")
             ),
         }
+
+    def reconcile_after_operator_inspection(self, confirmation: str) -> dict[str, Any]:
+        """Durably close an interrupted record after an operator inspected every target.
+
+        This is an audit/reconciliation action only: it does not resume, retry,
+        roll back, or otherwise touch a block device.
+        """
+        report = self.recovery_report()
+        expected = f"RECONCILE {self.job_id}"
+        if confirmation != expected:
+            raise DeploymentJournalError("operator reconciliation confirmation does not match")
+        if not report["interrupted"]:
+            raise DeploymentJournalError("deployment journal is not awaiting recovery reconciliation")
+        self({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "job_id": self.job_id,
+            "event": "operator_reconciled",
+            "job_state": "failed",
+            "detail": "Operator confirmed manual inspection of every client and destination; no automatic resume performed.",
+        })
+        return self.recovery_report()
 
     def latest_state(self) -> dict[str, Any] | None:
         """Return the most recent recorded job/client state without resuming a job."""
