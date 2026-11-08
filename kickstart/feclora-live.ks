@@ -23,6 +23,7 @@ tar
 sudo
 python3
 dialog
+kbd
 psmisc
 NetworkManager
 iproute
