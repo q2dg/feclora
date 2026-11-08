@@ -57,7 +57,8 @@ independent test run. Remove the temporary copy after the test.
 - [ ] `sudo -n true` succeeds in this explicitly privileged rescue image.
 - [ ] `/usr/local/bin/feclora-ui` exists and is executable.
 - [ ] `/usr/share/feclora/python/feclora` contains the application payload.
-- [ ] The launcher starts the read-only `dialog` storage browser.
+- [ ] The launcher starts the Local rescue / Server / Client mode selector.
+- [ ] Local rescue opens the dialog-based storage and imaging interface.
 - [ ] Kernel command line and boot logs are captured.
 - [ ] ISO checksum and VM firmware details are recorded.
 
@@ -69,8 +70,8 @@ independent test run. Remove the temporary copy after the test.
 
 ## Imaging safety
 
-These checks are future acceptance criteria; the current UI is read-only and
-does not expose imaging actions.
+These are destructive-workflow acceptance checks for the implemented imaging
+paths. They remain unvalidated until run against disposable virtual disks.
 
 - [ ] Source and target are unambiguously identified.
 - [ ] Destructive operations require explicit confirmation.
@@ -78,8 +79,8 @@ does not expose imaging actions.
 
 ## Image workflow
 
-These checks must be performed only after imaging functionality is implemented,
-using disposable virtual disks.
+Run these checks only against disposable virtual disks. Local whole-disk and
+partition capture/restore are implemented, but must still pass runtime acceptance.
 
 - [ ] Create a test image from a disposable disk.
 - [ ] Verify image integrity.
