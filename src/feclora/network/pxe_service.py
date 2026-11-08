@@ -192,6 +192,26 @@ class PXEServiceManager:
                 raise
             raise PXEServiceError(f"PXE startup failed: {start_error}") from start_error
 
+    def status(self) -> dict[str, Any]:
+        """Inspect persisted service state without changing the host."""
+        saved = self._read_state()
+        if saved is None:
+            return {"active": False, "configured": False, "interface": None, "services": {}}
+        services = {}
+        for unit in (saved["dnsmasq_unit"] + ".service", saved["caddy_unit"] + ".service"):
+            try:
+                result = self.runner([self.systemctl, "is-active", unit], check=False,
+                                     capture_output=True, text=True, timeout=10)
+                services[unit] = result.stdout.strip() or "inactive"
+            except (OSError, subprocess.TimeoutExpired):
+                services[unit] = "unknown"
+        return {
+            "active": all(value == "active" for value in services.values()),
+            "configured": True,
+            "interface": saved["interface"],
+            "services": services,
+        }
+
     def stop(self) -> None:
         """Stop persisted transient units and restore the interface's previous firewalld zone."""
         if self._active_interface is None:
