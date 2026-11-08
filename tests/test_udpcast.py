@@ -139,6 +139,7 @@ class UDPcastConfigTests(unittest.TestCase):
         firewall.is_open.return_value = False
         with multicast_firewall_scope(firewall, "enp1s0", 9000):
             firewall.open.assert_called_once_with("enp1s0", ["9000/udp", "9001/udp"], include_tftp=False)
+        firewall.add_protocols.assert_called_once_with("enp1s0", ["igmp"])
         firewall.close.assert_called_once_with("enp1s0")
 
     def test_firewall_scope_closes_after_transfer_exception(self):
@@ -156,6 +157,8 @@ class UDPcastConfigTests(unittest.TestCase):
         with multicast_firewall_scope(firewall, "enp1s0", 9000):
             firewall.add_ports.assert_called_once_with("enp1s0", ["9000/udp", "9001/udp"])
             firewall.open.assert_not_called()
+        firewall.add_protocols.assert_called_once_with("enp1s0", ["igmp"])
+        firewall.remove_protocols.assert_called_once_with("enp1s0", ("igmp",))
         firewall.remove_ports.assert_called_once_with(
             "enp1s0", ("9000/udp", "9001/udp"),
         )
