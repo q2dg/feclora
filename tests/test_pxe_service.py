@@ -67,7 +67,7 @@ class PxeServiceTests(unittest.TestCase):
             real.mkdir()
             link = Path(tmp) / "link"
             link.symlink_to(real)
-            manager = PXEServiceManager(str(link), runner=lambda *a, **k: None, preflight=lambda _config: None, firewall=FakeFirewall())
+            manager = PXEServiceManager(str(link), runner=lambda *a, **k: None, preflight=lambda _config: None, firewall=FakeFirewall(), boot_stager=lambda _config: None)
             with self.assertRaises(PXEServiceError):
                 manager.start(config())
 
