@@ -542,7 +542,7 @@ export default function App() {
               <StackItem>
                 <Card><CardBody><form onSubmit={createRemoteJob}>
                   <Field label="Operation">
-                    <select className="pf-v5-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); if (e.target.value === "save") setRemoteTransport("unicast"); }}>
+                    <select className="pf-v5-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); if (e.target.value === "save") { setRemoteTransport("unicast"); setRemoteTargetType("disk"); } }}>
                       <option value="restore">Restore a signed Server image to Clients</option>
                       <option value="save">Capture whole disks from Clients to Server</option>
                     </select>
