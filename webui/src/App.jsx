@@ -49,6 +49,7 @@ export default function App() {
   const [clientMinisignPath, setClientMinisignPath] = useState("");
   const [csrReview, setCsrReview] = useState(null);
   const [csrConfirmation, setCsrConfirmation] = useState("");
+  const [csrApprovalResult, setCsrApprovalResult] = useState(null);
   const [pxeMode, setPxeMode] = useState("proxy");
   const [pxePoolStart, setPxePoolStart] = useState("");
   const [pxePoolEnd, setPxePoolEnd] = useState("");
@@ -165,7 +166,7 @@ export default function App() {
         minisign_public_path: clientMinisignPath || null, confirmation: csrConfirmation
       });
       setNotice(result.message + " Bundle: " + result.bundle_directory);
-      setCsrReview(null); setCsrConfirmation("");
+      setCsrReview(null); setCsrConfirmation(""); setCsrApprovalResult(result);
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -405,6 +406,14 @@ export default function App() {
                   <input className="pf-v5-c-form-control" value={clientMinisignPath} onChange={(e) => { setClientMinisignPath(e.target.value); setCsrReview(null); }} placeholder="/run/media/.../client.minisign.pub" />
                 </Field>
                 <Button variant="secondary" onClick={inspectClientCSR} isLoading={busy} isDisabled={busy || !csrPath || !ageRecipientPath || !clientMac}>Inspect enrollment request</Button>
+                {csrApprovalResult && <Card className="pf-v5-u-mt-md"><CardBody>
+                  <Alert variant="success" title="Client enrolled" isInline>{csrApprovalResult.message}</Alert>
+                  <p>Identity: {csrApprovalResult.identity} · MAC: {csrApprovalResult.mac_address}</p>
+                  <p>Response bundle: {csrApprovalResult.bundle_directory}</p>
+                  <p>Feclora CA SHA-256 fingerprint (verify on Client):</p><code>{csrApprovalResult.ca_fingerprint}</code>
+                  <p>Server minisign public-key SHA-256 fingerprint (verify on Client):</p><code>{csrApprovalResult.server_minisign_sha256}</code>
+                  <p>Client image capture: {csrApprovalResult.image_capture_enabled ? "authorized" : "not authorized"}</p>
+                </CardBody></Card>}
                 {csrReview && <Card className="pf-v5-u-mt-md"><CardBody>
                   <Alert variant="warning" title="Review this identity before enrollment" isInline>Identity: {csrReview.identity} · MAC: {csrReview.mac_address}. Image capture permission: {csrReview.image_capture_enabled === "true" ? "enabled" : "not granted"}. No enrollment has occurred yet.</Alert>
                   <p>To approve, type this exact phrase:</p><code>{csrReview.confirmation_phrase}</code>
