@@ -331,6 +331,8 @@ class DeploymentControlServer:
             if (hello["job_id"] != self.coordinator.job.job_id or hello["mac_address"] != mac
                     or hello["certificate_identity"] != identity):
                 raise DeploymentControlError("client hello does not match the enrolled identity and active job")
+            if not self.coordinator.job.authorizes_client(mac):
+                raise DeploymentControlError("Client is not authorized for this deployment job")
             if hello["type"] == "inspect":
                 send_control_message(tls_socket, {
                     "type": "job", "job": self.coordinator.job.to_dict(),
