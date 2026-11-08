@@ -241,6 +241,13 @@ class DeploymentService:
             self.job.operation != "restore" or len(self.job.authorized_clients) < 2
         ):
             raise DeploymentServiceError("persistent multicast service requires a multi-Client restore job")
+        if self.job.transport == "multicast":
+            try:
+                inspect_multicast_interface(
+                    self.job.network_interface, self.job.multicast_group, role="sender",
+                )
+            except Exception as exc:
+                raise DeploymentServiceError(f"multicast Server interface preflight failed: {exc}") from exc
         if self.job.operation == "restore":
             self.manifest_path = str(Path(self.config.repository) / (self.job.image_id + ".manifest.json"))
             verify_manifest_signature(self.manifest_path, self.config.server_minisign_public_key)
@@ -413,6 +420,13 @@ class DeploymentService:
                 )
                 if preflight.route_interface != self.job.network_interface:
                     raise DeploymentServiceError("multicast route does not use the selected deployment interface")
+            if self.job.transport == "multicast":
+                try:
+                    inspect_multicast_interface(
+                        self.job.network_interface, self.job.multicast_group, role="sender",
+                    )
+                except Exception as exc:
+                    raise DeploymentServiceError(f"multicast Server interface preflight failed: {exc}") from exc
             with self._worker_lock:
                 if self._stop_event.is_set():
                     raise DeploymentServiceError("service shutdown has begun; refusing to arm a new storage operation")
