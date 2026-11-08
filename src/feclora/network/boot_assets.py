@@ -65,6 +65,10 @@ def stage_ipxe_assets(
     candidates = _package_files(package, rpm=rpm_bin, runner=runner)
     staged: dict[str, str] = {}
     target = Path(destination)
+    target.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+    if target.parent.is_symlink() or not target.parent.is_dir():
+        raise BootAssetError("TFTP parent root must be a real directory")
+    os.chmod(target.parent, 0o755)
     target.mkdir(mode=0o755, parents=True, exist_ok=True)
     if target.is_symlink() or not target.is_dir():
         raise BootAssetError("TFTP root must be a real directory")
