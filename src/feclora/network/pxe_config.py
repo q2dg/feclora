@@ -124,10 +124,9 @@ def render_dnsmasq(config: PXENetworkConfig) -> str:
         "dhcp-match=set:efi64,option:client-arch,7",
         "dhcp-match=set:efi64,option:client-arch,9",
         "dhcp-match=set:bios,option:client-arch,0",
-        "dhcp-boot=tag:!ipxe," + config.bios_boot_file,
         "dhcp-boot=tag:ipxe,http://" + config.address + ":" + str(config.http_port) + "/boot.ipxe",
-        "pxe-service=tag:!ipxe,x86PC,\"feclora BIOS\"," + config.bios_boot_file,
-        "pxe-service=tag:!ipxe,BC_EFI,\"feclora UEFI\"," + config.uefi_boot_file,
+        "dhcp-boot=net:bios," + config.bios_boot_file,
+        "dhcp-boot=net:efi64," + config.uefi_boot_file,
         "dhcp-option=option:router," + (config.gateway or config.address) if config.mode == "isolated" else "# ProxyDHCP does not assign router options",
     ]
     if config.mode == "proxy":
