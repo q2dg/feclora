@@ -1,6 +1,6 @@
 const ACTIONS = new Set([
   "status", "inventory", "images", "journals", "operations", "initialize_security",
-  "network_interfaces", "bootstrap_server", "validate_pxe_profile",
+  "network_interfaces", "bootstrap_server", "validate_pxe_profile", "start_pxe_services", "stop_pxe_services", "pxe_service_status",
   "capture_disk", "capture_partition", "restore_disk", "restore_partition",
   "clone_disk", "clone_partition"
 ]);
