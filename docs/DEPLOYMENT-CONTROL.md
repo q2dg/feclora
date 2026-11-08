@@ -24,6 +24,7 @@ Control messages are length-prefixed JSON with a 16 KiB maximum frame, strict me
 8. Client returns a bounded per-client result. Server records the result in the coordinator.
 
 For multicast restore, every selected Client first completes the same mTLS HELLO/JOB/READY exchange and independently selects/authorizes its local disk and receive interface. Server refuses to arm unless every selected Client is READY. After explicit arming, Server sends the signed manifest and detached signature over the authenticated control channel; UDPcast then sends each artifact to all Clients using a 239.0.0.0/8 data group and a distinct derived rendezvous group. Each Client stages the full image set privately, verifies the signature and every size/SHA-256, then invokes the same protected restore/read-back path. UDPcast bytes are not treated as authenticated and are never written directly to a block device.
+UDPcast does not authenticate or encrypt the artifact data plane. Manifest signatures and SHA-256 digests provide integrity checks before disk writes, not confidentiality or receiver identity. Use a trusted isolated multicast segment and age-encrypt image artifacts when confidentiality is required.
 
 ## Implemented and remaining
 
