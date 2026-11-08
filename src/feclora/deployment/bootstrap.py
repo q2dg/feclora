@@ -80,6 +80,24 @@ def ensure_server_deployment_config(
             raise BootstrapError("existing Server deployment config must be root-owned mode 0600")
         return False
     pki = initialize_server_pki(pki_directory, runner=runner, openssl=openssl)
+    age_identity = os.path.join(pki_directory, "server.age")
+    age_recipients = os.path.join(pki_directory, "age-recipients.txt")
+    if not os.path.exists(age_identity):
+        execute = runner or subprocess.run
+        try:
+            result = execute(["/usr/bin/age-keygen", "-o", age_identity], stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=60)
+            if result.returncode != 0:
+                raise BootstrapError("age-keygen failed while creating Server recipient identity")
+            public = execute(["/usr/bin/age-keygen", "-y", age_identity], stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=30)
+            if public.returncode != 0 or not public.stdout.strip().startswith("age1"):
+                raise BootstrapError("age-keygen did not return a valid Server recipient")
+            Path(age_recipients).write_text(public.stdout.strip() + "\\n", encoding="ascii")
+            os.chmod(age_identity, 0o600)
+            os.chmod(age_recipients, 0o600)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise BootstrapError(f"could not create Server age identity: {exc}") from exc
+    elif not os.path.isfile(age_recipients):
+        raise BootstrapError("Server age identity exists but its recipient inventory is missing; refusing to regenerate trust material")
     signing_secret = os.path.join(pki_directory, "server.minisign.key")
     signing_public = os.path.join(pki_directory, "server.pub")
     if os.path.exists(signing_secret) != os.path.exists(signing_public):
