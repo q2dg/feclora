@@ -1,8 +1,14 @@
 # Roadmap
 
+## Fedora baseline policy
+
+- Current baseline: Fedora Linux 45 x86_64 (GA 3 November 2026).
+- The README, Kickstart, runtime package manifest, build/preflight scripts and build runbook must agree on the baseline.
+- A baseline bump requires checking RPM availability and package names, rebuilding the Live ISO, and recording BIOS/UEFI boot and storage-workflow results. A version-string-only change is not an accepted migration.
+
 ## Milestone 0 — Project foundation
 - [x] Create the independent feclora repository.
-- [x] Define Fedora 45 x86_64 as the initial target.
+- [x] Set Fedora Linux 45 x86_64 as the current build baseline and align the README, Kickstart, package manifest, build scripts and build runbook.
 - [x] Publish architecture decisions for the single-ISO, multi-mode design and generic-tools-only storage implementation.
 - [ ] Define the project license and contribution policy.
 
@@ -31,9 +37,9 @@
 - [x] Implement direct local whole-disk-to-whole-disk clone using bounded raw dd, source/target safety checks, larger-target support and GPT backup-header relocation (mocked tests; runtime validation pending).
 - [ ] Complete one-to-one remote disk-to-disk clone between separate source and receiver machines over authenticated, integrity-protected transport (dd sender/receiver, receiver-ready authorization handshake, independent local device selection, one-session TLS wrappers and per-endpoint journaling are implemented; larger targets are accepted and GPT backup metadata is relocated/validated after source-range read-back; CI, interactive UI and physical-device validation remain pending).
 - [ ] Implement partition-aware proportional layout restoration, including filesystem-aware growth; raw block cloning must retain original partition starts and must not blindly expand contiguous partitions.
-- [x] Add a low-level partition-range parser/copier for whole-disk image extraction (sfdisk JSON validation, bounds/overlap checks, PARTUUID/name selection, bounded pread/pwrite, SHA-256, progress and cancellation; not yet wired into the TUI or destructive restore orchestration).
+- [x] Add a low-level partition-range parser/copier for whole-disk image extraction (sfdisk dump/JSON validation, bounds/overlap checks, PARTUUID/name selection, bounded pread/pwrite, SHA-256, progress and cancellation); integrated into the disk-image-to-selected-partition extraction and restore workflow.
 - [ ] Add direct partition-to-partition cloning with independent source/target selection, mounted/root-device and shared-backing-disk protection, bounded dd streaming, SHA-256 read-back verification, progress and cancellation (runtime and Local rescue UI implemented; mocked tests added but not yet executed; CI and physical-device validation pending).
-- [ ] Allow selecting a partition from an existing whole-disk image as a restore source for a selected destination partition; verify the source manifest, optional signature, stored payload digest, decompressed byte count and partition-table metadata before extracting the exact byte range into a new raw partition image, then use the existing destructive-confirmation, safety, progress/cancel and read-back restore path (runtime and Local rescue UI implemented; mocked tests added but not yet executed; CI and ISO validation pending).
+- [ ] Allow selecting a partition from an existing whole-disk image as a restore source for a selected destination partition; runtime and Local rescue UI are implemented with manifest/signature/digest verification, bounded extraction, and the existing protected restore path. Mocked tests are added but not yet executed; CI and ISO validation remain pending.
 - [ ] Allow whole-disk image restore to selected individual partitions without restoring the disk's partition table or unrelated partitions.
 - [ ] Add restore layout choices: preserve original partition geometry, proportional expansion, and explicitly selected partition growth; preview the resulting sector layout before destructive confirmation.
 - [x] Add strict restore profile schema and stable WWN/serial target matching, including signed, expiring, single-use unattended whole-disk execution and a durable replay ledger (TUI profile authoring and an optional disabled-by-default systemd unit are implemented; operator enablement and physical validation remain pending).
