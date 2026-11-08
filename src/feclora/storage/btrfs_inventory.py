@@ -1,6 +1,7 @@
 """Read-only Btrfs multi-device inventory from btrfs-progs."""
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -59,12 +60,20 @@ def collect_btrfs_topology(
     *,
     which: Callable[[str], str | None] = shutil.which,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+    effective_uid: Callable[[], int] = os.geteuid,
+    sudo: str | None = None,
 ) -> dict[str, Any]:
     """Scan existing Btrfs signatures without mounting or changing filesystems."""
     executable = which("btrfs")
     if executable is None:
         return {"status": "unavailable", "filesystems": []}
-    argv = [executable, "filesystem", "show", "--raw", "--all-devices"]
+    prefix: list[str] = []
+    if effective_uid() != 0:
+        sudo_bin = sudo or shutil.which("sudo")
+        if not sudo_bin:
+            return {"status": "permission_required", "filesystems": []}
+        prefix = [sudo_bin, "-n"]
+    argv = [*prefix, executable, "filesystem", "show", "--raw", "--all-devices"]
     try:
         completed = runner(
             argv, check=True, capture_output=True, text=True, timeout=30,
