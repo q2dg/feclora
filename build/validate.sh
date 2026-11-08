@@ -218,6 +218,28 @@ if ! grep -q 'test_rejects_duplicate_fields' "$ROOT_DIR/tests/test_local_control
   fail "Deployment service IPC protocol tests are missing."
 fi
 
+if ! grep -q '"transfer_ready", "progress"' "$ROOT_DIR/src/feclora/deployment/control.py"; then
+  fail "Authenticated deployment control protocol is missing progress frames."
+fi
+if ! grep -q 'def _record_client_progress' "$ROOT_DIR/src/feclora/deployment/control.py"; then
+  fail "Server-side Client progress validation is missing."
+fi
+if ! grep -q '"phase": job.operation' "$ROOT_DIR/src/feclora/deployment/client_service.py"; then
+  fail "Client service is not reporting disk-operation progress over mTLS."
+fi
+if ! grep -q 'self.control.client_progress()' "$ROOT_DIR/src/feclora/deployment/service.py"; then
+  fail "Persistent Server status is not exposing per-Client progress."
+fi
+if ! grep -q 'test_progress_frame_is_validated_and_exposed_with_throughput' "$ROOT_DIR/tests/test_deployment_control.py"; then
+  fail "Authenticated Client progress regression tests are missing."
+fi
+if ! grep -q 'MiB/s' "$ROOT_DIR/webui/src/App.jsx"; then
+  fail "Cockpit does not display per-Client transfer throughput."
+fi
+if ! grep -q 'setInterval' "$ROOT_DIR/webui/src/App.jsx"; then
+  fail "Cockpit does not refresh active deployment progress automatically."
+fi
+
 if (( errors > 0 )); then
   printf 'Validation failed with %d error(s).\n' "$errors" >&2
   exit 1
