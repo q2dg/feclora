@@ -51,7 +51,7 @@ class Tests(unittest.TestCase):
         progress = []
         self.assertEqual(self.run_clone(progress_callback=lambda a,b: progress.append((a,b))), len(self.payload))
         self.assertEqual(self.processes[1].stdin.getvalue(), self.payload)
-        self.assertEqual(progress[-1], (len(self.payload), len(self.payload)))
+        self.assertEqual(progress[-1], (len(self.payload) * 2, len(self.payload) * 2))
         self.assertEqual(len(self.calls), 3)
     def test_confirmation_gate(self):
         with self.assertRaises(PartitionCloneError):
