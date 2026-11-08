@@ -59,6 +59,8 @@ class PXENetworkConfig:
         for label, path in (("TFTP root", self.tftp_root), ("HTTP root", self.http_root)):
             if not isinstance(path, str) or not path.startswith("/") or any(ch in path for ch in ("\n", "\r", "\x00", ",")):
                 raise PXEConfigError(f"{label} must be an absolute filesystem path")
+            if label == "TFTP root" and any(ch.isspace() or ch in "#=" for ch in path):
+                raise PXEConfigError("TFTP root cannot contain whitespace or dnsmasq config delimiters")
         for label, filename in (("BIOS boot file", self.bios_boot_file), ("UEFI boot file", self.uefi_boot_file)):
             if not isinstance(filename, str) or not _FILENAME_RE.fullmatch(filename):
                 raise PXEConfigError(f"{label} must be a simple filename")
@@ -130,7 +132,7 @@ def render_dnsmasq(config: PXENetworkConfig) -> str:
         "dhcp-boot=tag:ipxe,http://" + config.address + ":" + str(config.http_port) + "/boot.ipxe",
         "dhcp-boot=net:bios," + config.bios_boot_file,
         "dhcp-boot=net:efi64," + config.uefi_boot_file,
-        "dhcp-option=option:router," + (config.gateway or config.address) if config.mode == "isolated" else "# ProxyDHCP does not assign router options",
+        "# ProxyDHCP does not assign router options",
     ]
     if config.mode == "proxy":
         lines.extend([
@@ -142,6 +144,8 @@ def render_dnsmasq(config: PXENetworkConfig) -> str:
             "dhcp-authoritative",
             f"dhcp-range={config.pool_start},{config.pool_end},{network.netmask},{config.lease_time}",
         ])
+        if config.gateway:
+            lines.append("dhcp-option=option:router," + config.gateway)
         if config.dns_server:
             lines.append("dhcp-option=option:dns-server," + config.dns_server)
     return "\n".join(lines) + "\n"
