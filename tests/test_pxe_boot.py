@@ -31,10 +31,6 @@ class PxeBootTreeTests(unittest.TestCase):
             (live / "images" / "pxeboot" / "vmlinuz").write_bytes(b"kernel")
             (live / "images" / "pxeboot" / "initrd.img").write_bytes(b"initrd")
             (live / "LiveOS" / "squashfs.img").write_bytes(b"squashfs")
-            def runner(argv, **kwargs):
-                return __import__("subprocess").CompletedProcess(
-                    argv, 0, "\\n".join(str(p) for p in rpm_files.iterdir()), ""
-                )
             with patch("feclora.network.pxe_boot.stage_ipxe_assets") as stage_tftp, patch(
                 "feclora.network.pxe_boot.stage_live_boot_assets"
             ) as stage_http:
