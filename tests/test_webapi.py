@@ -456,7 +456,7 @@ class WebAPITests(unittest.TestCase):
             }), patch("feclora.webapi._client_job_directory", return_value=root), \
                  patch("feclora.storage.inventory.collect_inventory", return_value={
                      "devices": [{"type": "disk", "path": "/dev/sda", "children": []}],
-                 }), patch("feclora.webapi.os.lstat", return_value=block_info), \
+                 }), patch("feclora.webapi.os.lstat", side_effect=lambda path: block_info if os.fspath(path) == "/dev/sda" else real_lstat(path)), \
                  patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
                      returncode=0, stdout="", stderr="",
                  )) as runner, patch("feclora.webapi._client_job_status", return_value={
