@@ -24,15 +24,15 @@ class FirewallTests(unittest.TestCase):
             if args and args[0].startswith("--new-zone="):
                 zones.add(args[0].split("=", 1)[1])
                 return subprocess.CompletedProcess(argv, 0, "", "")
-            if args and args[1].startswith("--add-interface="):
+            if len(args) > 1 and args[1].startswith("--add-interface="):
                 current[args[1].split("=", 1)[1]] = args[0].split("=", 1)[1]
                 return subprocess.CompletedProcess(argv, 0, "", "")
-            if args and args[1].startswith("--remove-interface="):
+            if len(args) > 1 and args[1].startswith("--remove-interface="):
                 current[args[1].split("=", 1)[1]] = "public"
                 return subprocess.CompletedProcess(argv, 0, "", "")
-            if args and args[1] == "--add-service=tftp":
+            if len(args) > 1 and args[1] == "--add-service=tftp":
                 return subprocess.CompletedProcess(argv, 0, "", "")
-            if args and args[1].startswith("--add-port="):
+            if len(args) > 1 and args[1].startswith("--add-port="):
                 return subprocess.CompletedProcess(argv, 0, "", "")
             if args and args[0].startswith("--zone=work") and args[1].startswith("--add-interface="):
                 current[args[1].split("=", 1)[1]] = "work"
@@ -81,7 +81,7 @@ class FirewallTests(unittest.TestCase):
                 return subprocess.CompletedProcess(argv, 0, "", "")
             if args and args[1] == "--add-service=tftp":
                 return subprocess.CompletedProcess(argv, 0, "", "")
-            if args and args[1] == "--add-port=4011/udp":
+            if len(args) > 1 and args[1] == "--add-port=4011/udp":
                 return subprocess.CompletedProcess(argv, 1, "", "denied")
             if args == ["--get-zones"]:
                 return subprocess.CompletedProcess(argv, 0, " ".join(sorted(zones)), "")
