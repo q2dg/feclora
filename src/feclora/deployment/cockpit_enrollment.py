@@ -5,6 +5,8 @@ import hashlib
 import os
 import re
 import stat
+import subprocess
+import tempfile
 from pathlib import Path
 
 from feclora.deployment.managed_pki import (
@@ -147,6 +149,86 @@ def export_server_age_recipients(params: dict[str, object]) -> dict[str, object]
         "sha256": hashlib.sha256(payload).hexdigest(),
         "message": "Updated public age recipient inventory exported. Copy it to each remaining enrolled Client and refresh that Client's local inventory.",
     }
+
+
+def _client_pin_directory() -> Path:
+    directory = Path(PKI) / "client-certificate-pins"
+    directory.mkdir(mode=0o700, exist_ok=True)
+    info = os.lstat(directory)
+    if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+        raise CockpitEnrollmentError("Client certificate pin directory must be root-owned and private")
+    return directory
+
+
+def _public_key_fingerprint(path: str, *, csr: bool) -> str:
+    command = ["openssl", "req" if csr else "x509", "-in", path,
+               "-pubkey", "-noout"]
+    try:
+        public = subprocess.run(
+            command, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=15,
+        )
+        if public.returncode != 0 or not public.stdout.strip():
+            raise CockpitEnrollmentError("cannot extract public key from Client CSR/certificate")
+        der = subprocess.run(
+            ["openssl", "pkey", "-pubin", "-outform", "DER"],
+            input=public.stdout, stdin=subprocess.PIPE, capture_output=True,
+            check=False, timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise CockpitEnrollmentError(f"cannot fingerprint Client public key: {exc}") from exc
+    if der.returncode != 0 or not der.stdout:
+        raise CockpitEnrollmentError("cannot encode Client public key for fingerprinting")
+    return hashlib.sha256(der.stdout).hexdigest()
+
+
+def _client_pin_path(identity: str) -> Path:
+    prefix = "URI:feclora-client-"
+    if not isinstance(identity, str) or not identity.startswith(prefix):
+        raise CockpitEnrollmentError("Client certificate identity is invalid for key pinning")
+    client_id = identity.removeprefix(prefix)
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", client_id):
+        raise CockpitEnrollmentError("Client identifier is invalid for key pinning")
+    return _client_pin_directory() / f"{client_id}.sha256"
+
+
+def _verify_client_csr_pin(identity: str, csr_path: str) -> str:
+    path = _client_pin_path(identity)
+    try:
+        info = os.lstat(path)
+        expected = path.read_text(encoding="ascii").strip()
+    except OSError as exc:
+        raise CockpitEnrollmentError("this Client has no stored TLS public-key pin; safe renewal is unavailable until it is re-enrolled") from exc
+    if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+        raise CockpitEnrollmentError("stored Client TLS public-key pin is unsafe")
+    if not re.fullmatch(r"[0-9a-f]{64}", expected):
+        raise CockpitEnrollmentError("stored Client TLS public-key pin is malformed")
+    actual = _public_key_fingerprint(csr_path, csr=True)
+    if actual != expected:
+        raise CockpitEnrollmentError("renewal CSR public key does not match the TLS key pinned at Client enrollment")
+    return expected
+
+
+def _store_client_certificate_pin(identity: str, certificate_path: str) -> Path:
+    path = _client_pin_path(identity)
+    if os.path.lexists(path):
+        raise CockpitEnrollmentError("Client TLS public-key pin already exists; inspect enrollment state before proceeding")
+    fingerprint = _public_key_fingerprint(certificate_path, csr=False)
+    fd, temporary = tempfile.mkstemp(prefix=".feclora-client-pin-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="ascii") as stream:
+            stream.write(fingerprint + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, path)
+        return path
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
 
 
 def inspect_client_request(params: dict[str, object]) -> dict[str, str]:
