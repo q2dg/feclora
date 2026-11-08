@@ -186,6 +186,56 @@ fi
 if ! grep -q 'ExecStopPost=.*--mark-interrupted' "$ROOT_DIR/src/feclora/data/feclora-client@.service"; then
   fail "Client service unit does not mark interrupted work without resuming it."
 fi
+if ! grep -q '^Environment=PYTHONPATH=/usr/share/feclora/pythonif ! grep -q 'inspect_remote_job|start_client_job|client_job_status' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "Kickstart Cockpit wrapper does not allow Client job lifecycle actions."
+fi
+if ! grep -q '"inspect_remote_job", "start_client_job", "client_job_status"' "$ROOT_DIR/webui/src/api.js"; then
+  fail "Cockpit API client does not allow Client job lifecycle actions."
+fi
+
+if ! grep -q 'class LocalControlServer' "$ROOT_DIR/src/feclora/deployment/local_control.py"; then
+  fail "Deployment service local IPC server primitive is missing."
+fi
+if ! grep -q 'SO_PEERCRED' "$ROOT_DIR/src/feclora/deployment/local_control.py"; then
+  fail "Deployment service IPC does not authenticate local peer credentials."
+fi
+if ! grep -q 'test_rejects_duplicate_fields' "$ROOT_DIR/tests/test_local_control.py"; then
+  fail "Deployment service IPC protocol tests are missing."
+fi
+
+if (( errors > 0 )); then
+  printf 'Validation failed with %d error(s).\n' "$errors" >&2
+  exit 1
+fi
+printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
+ "$ROOT_DIR/src/feclora/data/feclora-client@.service"; then
+  fail "Client service unit does not configure the Feclora Python module path."
+fi
+if ! grep -q '^TimeoutStopSec=infinityif ! grep -q 'inspect_remote_job|start_client_job|client_job_status' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "Kickstart Cockpit wrapper does not allow Client job lifecycle actions."
+fi
+if ! grep -q '"inspect_remote_job", "start_client_job", "client_job_status"' "$ROOT_DIR/webui/src/api.js"; then
+  fail "Cockpit API client does not allow Client job lifecycle actions."
+fi
+
+if ! grep -q 'class LocalControlServer' "$ROOT_DIR/src/feclora/deployment/local_control.py"; then
+  fail "Deployment service local IPC server primitive is missing."
+fi
+if ! grep -q 'SO_PEERCRED' "$ROOT_DIR/src/feclora/deployment/local_control.py"; then
+  fail "Deployment service IPC does not authenticate local peer credentials."
+fi
+if ! grep -q 'test_rejects_duplicate_fields' "$ROOT_DIR/tests/test_local_control.py"; then
+  fail "Deployment service IPC protocol tests are missing."
+fi
+
+if (( errors > 0 )); then
+  printf 'Validation failed with %d error(s).\n' "$errors" >&2
+  exit 1
+fi
+printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
+ "$ROOT_DIR/src/feclora/data/feclora-client@.service"; then
+  fail "Client service unit must not force-kill an active storage operation on timeout."
+fi
 if ! grep -q 'inspect_remote_job|start_client_job|client_job_status' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Kickstart Cockpit wrapper does not allow Client job lifecycle actions."
 fi
