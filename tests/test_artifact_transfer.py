@@ -56,7 +56,7 @@ class ImageTransferTests(unittest.TestCase):
             def sender():
                 try:
                     send_image_set(
-                        left, source, manifest_path, trusted_public_key="/trusted/server.pub",
+                        left, source, manifest_path, expected_image_id="golden", trusted_public_key="/trusted/server.pub",
                     )
                 except Exception as exc:
                     errors.append(exc)
