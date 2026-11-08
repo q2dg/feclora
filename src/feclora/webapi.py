@@ -861,8 +861,11 @@ def _read_client_job_status(job_id: str) -> dict[str, Any]:
             os.close(fd)
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise WebAPIError(f"cannot read Client job status: {exc}") from exc
-    if not isinstance(value, dict) or value.get("job_id") != job_id:
-        raise WebAPIError("Client job status does not match the requested UUID")
+    if (not isinstance(value, dict) or value.get("job_id") != job_id
+            or value.get("schema_version") != 1
+            or value.get("phase") not in {"connecting", "ready", "running", "completed", "failed", "cancelled", "interrupted"}
+            or not isinstance(value.get("detail", ""), str)):
+        raise WebAPIError("Client job status has an invalid schema or does not match the requested UUID")
     return value
 
 
