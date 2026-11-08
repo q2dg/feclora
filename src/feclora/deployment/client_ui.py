@@ -328,6 +328,13 @@ def _prepare_client_renewal(config: ClientRuntimeConfig) -> None:
     identity, _key, exported = create_client_csr(
         "/etc/feclora/pki", export_directory, client_id, reuse_existing_key=True,
     )
+    signing_public = os.path.join("/etc/feclora/pki", f"client-{client_id}.minisign.pub")
+    if os.path.isfile(signing_public):
+        exported_public = os.path.join(export_directory, f"feclora-{client_id}-renewal.minisign.pub")
+        if os.path.lexists(exported_public):
+            raise PKIError("Client minisign public-key renewal export already exists")
+        shutil.copyfile(signing_public, exported_public)
+        os.chmod(exported_public, 0o644)
     dialog_app._message(
         "Renewal request prepared",
         f"Identity: {identity}\nCSR: {exported}\n\n"
