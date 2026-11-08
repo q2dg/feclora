@@ -4,9 +4,9 @@
 
 It is not a fork of Clonezilla and does not depend on its repository, branches, or release process. Clonezilla may be used as a functional reference during requirements analysis; implementation and project history live here.
 
-## Initial target
+## Current build baseline
 
-- Fedora 43
+- Fedora Linux 45 (released 3 November 2026)
 - x86_64
 - Rescue-style bootable live ISO
 - BIOS and UEFI boot support
@@ -49,7 +49,9 @@ Early implementation. The repository contains an initial Kickstart and a QEMU-ba
 
 ## Fedora baseline lifecycle
 
-Fedora 43 remains the agreed initial baseline, but its support window is close to ending. Keep the release version configurable and plan a tested migration to a currently supported Fedora release before publishing production images.
+Fedora Linux 45 is the current project baseline. The Fedora Project announced its general availability on 3 November 2026. The ISO build scripts, Kickstart, package manifest, preflight checks, and build runbook are aligned to Fedora 45. Do not describe Fedora 43 as the current target.
+
+Fedora has a short, regularly advancing release lifecycle. Before changing the project baseline again, update the release version consistently across the build scripts, Kickstart, package set, CI/build documentation, and acceptance tests; then build and boot-test the resulting ISO. A newer Fedora release must not become the baseline merely by changing a version string: validate package availability (especially storage and boot packages), installer behavior, BIOS/UEFI boot, and the rescue workflows first.
 
 ## License
 
