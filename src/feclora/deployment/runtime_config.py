@@ -182,6 +182,10 @@ def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
         raise RuntimeConfigError("Server host must be a valid hostname or address")
     age_identity = value["age_identity_file"]
     age_recipients = value["age_recipients_file"]
+    signing_secret = value["local_minisign_secret_key"]
+    signing_public = value["local_minisign_public_key"]
+    if bool(signing_secret) != bool(signing_public):
+        raise RuntimeConfigError("Client minisign secret and public keys must be configured together")
     minisign_secret = value["local_minisign_secret_key"]
     minisign_public = value["local_minisign_public_key"]
     if bool(minisign_secret) != bool(minisign_public):
