@@ -347,6 +347,16 @@ class WebAPITests(unittest.TestCase):
         self.assertFalse(jobs[0]["interrupted"])
         self.assertTrue(jobs[0]["service_active"])
 
+    def test_reconcile_rejects_a_job_owned_by_the_live_service(self):
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        with patch("feclora.deployment.local_control.local_control_request", return_value={
+            "job_id": job_id, "job_state": "created",
+        }):
+            with self.assertRaisesRegex(WebAPIError, "stop the active deployment service"):
+                dispatch({"action": "reconcile_deployment_job", "params": {
+                    "job_id": job_id, "confirmation": "RECONCILE " + job_id,
+                }})
+
 
 if __name__ == "__main__":
     unittest.main()
