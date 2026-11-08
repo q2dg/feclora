@@ -109,8 +109,10 @@ class PXEFirewall:
                 state["interface_added"] = False
 
         if restore_zone:
-            current = self._current_zone(interface)
-            if current != restore_zone:
+            assigned = self._call(
+                [f"--zone={restore_zone}", "--list-interfaces"], check=False
+            ).stdout.split()
+            if interface not in assigned:
                 result = self._call(
                     [f"--zone={restore_zone}", f"--add-interface={interface}"],
                     check=False,
