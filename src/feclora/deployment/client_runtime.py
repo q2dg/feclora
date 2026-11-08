@@ -13,7 +13,7 @@ import stat
 from typing import Any, Callable
 
 from feclora.deployment.artifact_transfer import ImageTransferError, receive_image_set, send_image_set
-from feclora.deployment.control import DeploymentControlError
+from feclora.deployment.control import DeploymentControlError, receive_control_message, send_control_message
 from feclora.deployment.job import DeploymentJob
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
 from feclora.storage.disk_restore import DiskRestoreError, restore_disk
@@ -50,11 +50,17 @@ def execute_client_image_job(
         raise ClientImageRuntimeError(f"cannot inspect locally selected device: {exc}") from exc
     if not stat.S_ISBLK(info.st_mode):
         raise ClientImageRuntimeError("local device selection must resolve to a block device")
+    tls_socket.settimeout(86400)
     if job.operation == "restore":
         required = f"ERASE {local_device_path} FROM {server_identity}"
         if confirmation != required:
             raise ClientImageRuntimeError(f"explicit local restore confirmation required: {required}")
         try:
+            offer = receive_control_message(tls_socket, expected_type="transfer_offer")
+            if (set(offer) != {"type", "job_id", "image_id"}
+                    or offer.get("job_id") != job.job_id
+                    or offer.get("image_id") != job.image_id):
+                raise ClientImageRuntimeError("Server image offer is not bound to this armed job")
             manifest_path = receive_image_set(
                 tls_socket, repository, expected_image_id=job.image_id,
                 trusted_public_key=trusted_server_public_key,
@@ -87,6 +93,10 @@ def execute_client_image_job(
                 executables=executables,
             )
             manifest_path = os.path.join(os.fspath(repository), job.image_id + ".manifest.json")
+            send_control_message(tls_socket, {
+                "type": "transfer_ready", "job_id": job.job_id,
+                "image_id": job.image_id,
+            })
             send_image_set(
                 tls_socket, repository, manifest_path,
                 expected_image_id=job.image_id,
