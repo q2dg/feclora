@@ -2,7 +2,7 @@
 
 This lab creates an isolated libvirt network with no libvirt DHCP service. Feclora Server must be the only DHCP/PXE authority on this test segment. Do not attach this network to a production bridge or a physical LAN.
 
-The harness creates one Feclora Server VM and two PXE clients (legacy BIOS and UEFI). The Server VM starts from the Live ISO; both PXE clients are deliberately powered off after creation so they cannot attempt PXE before the Server is configured. PXE boot and authenticated unicast save/restore acceptance remain operator-driven and must be recorded separately. Server/Client dialog workflows and the signed image data plane are implemented, but the VM orchestrator does not drive them unattended.
+The harness creates one Feclora Server VM and two PXE clients (legacy BIOS and UEFI). The Server VM starts from the Live ISO; both PXE clients are deliberately powered off after creation so they cannot attempt PXE before the Server is configured. PXE boot, authenticated unicast save/restore, and multi-client multicast restore acceptance remain operator-driven and must be recorded separately. The Server/Client control and data paths plus this multi-VM runbook are implemented, but the VM orchestrator does not drive them unattended.
 
 ## Host requirements
 
