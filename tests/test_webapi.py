@@ -123,8 +123,10 @@ class WebAPITests(unittest.TestCase):
         )
         extracted = SimpleNamespace(image_id="source-part-abc123", image_type="partition")
         with patch("feclora.webapi._image_manifest", return_value=Path("/repo/source.manifest.json")), patch(
-            "feclora.webapi.ImageManifest.from_json", return_value=manifest
-        ), patch("feclora.webapi.os.path.isfile", return_value=False), patch(
+            "pathlib.Path.read_text", return_value="{}"
+        ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
+            "feclora.webapi.os.path.isfile", return_value=False
+        ), patch(
             "feclora.webapi._security_material",
             return_value={"age_decryption_available": False, "image_verification_available": False, "image_signing_available": False},
         ), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
