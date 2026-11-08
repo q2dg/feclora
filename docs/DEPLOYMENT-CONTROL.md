@@ -28,6 +28,23 @@ Control messages are length-prefixed JSON with a 16 KiB maximum frame, strict me
 For multicast restore, every selected Client first completes the same mTLS HELLO/JOB/READY exchange and independently selects/authorizes its local disk and receive interface. Server refuses to arm unless every selected Client is READY. After explicit arming, Server sends the signed manifest and detached signature over the authenticated control channel; UDPcast then sends each artifact to all Clients using a 239.0.0.0/8 data group and a distinct derived rendezvous group. Each Client stages the full image set privately, verifies the signature and every size/SHA-256, then invokes the same protected restore/read-back path. UDPcast bytes are not treated as authenticated and are never written directly to a block device.
 UDPcast does not authenticate or encrypt the artifact data plane. Manifest signatures and SHA-256 digests provide integrity checks before disk writes, not confidentiality or receiver identity. Use a trusted isolated multicast segment and age-encrypt image artifacts when confidentiality is required.
 
+## Local service IPC foundation
+
+`feclora.deployment.local_control` defines a bounded, length-prefixed JSON protocol
+for a future persistent deployment service. It accepts only `status`, `arm`
+and `cancel`; mutating requests must carry both a job UUID and an operator
+confirmation. The Unix listener checks Linux peer credentials (UID 0 by
+default), requires a root-owned non-writable parent directory, refuses to
+replace an existing socket, and creates the socket with mode 0600. It does not
+provide a shell or arbitrary method dispatch.
+
+This is currently a protocol/server primitive with unit coverage, **not yet a
+running systemd service and not yet connected to Cockpit**. The eventual service
+handler must independently verify the active job UUID, coordinator state and
+the exact confirmation phrase before calling coordinator transitions. Cockpit
+integration, service lifecycle, durable active-job ownership and end-to-end
+IPC authorization tests remain outstanding.
+
 ## Implemented and remaining
 
 Implemented:
