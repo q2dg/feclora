@@ -9,7 +9,7 @@ class FirewallTests(unittest.TestCase):
         calls = []
         def runner(argv, **kwargs):
             calls.append(argv)
-            if "--get-zone-of-interface" in argv:
+            if any(arg.startswith("--get-zone-of-interface=") for arg in argv):
                 return subprocess.CompletedProcess(argv, 0, "work\n", "")
             if any(arg == "--query-port=69/udp" for arg in argv):
                 return subprocess.CompletedProcess(argv, 0, "", "")
@@ -19,10 +19,10 @@ class FirewallTests(unittest.TestCase):
         firewall = PXEFirewall(executable="/usr/bin/firewall-cmd", runner=runner)
         firewall.open("enp1s0", ["67/udp", "69/udp", "4011/udp", "8080/tcp"])
         additions = [call for call in calls if any(arg.startswith("--add-port=") for arg in call)]
-        self.assertEqual([call[-1] for call in additions], ["67/udp", "4011/udp", "8080/tcp"])
+        self.assertEqual([call[-1].split("=", 1)[1] for call in additions], ["67/udp", "4011/udp", "8080/tcp"])
         firewall.close("enp1s0")
         removals = [call for call in calls if any(arg.startswith("--remove-port=") for arg in call)]
-        self.assertEqual([call[-1] for call in removals], ["8080/tcp", "4011/udp", "67/udp"])
+        self.assertEqual([call[-1].split("=", 1)[1] for call in removals], ["8080/tcp", "4011/udp", "67/udp"])
 
     def test_rolls_back_added_ports_after_failure(self):
         calls = []
@@ -30,7 +30,7 @@ class FirewallTests(unittest.TestCase):
             calls.append(argv)
             if "--get-zone-of-interface" in argv:
                 return subprocess.CompletedProcess(argv, 0, "work\n", "")
-            if "--query-port" in argv:
+            if any(arg.startswith("--query-port=") for arg in argv):
                 return subprocess.CompletedProcess(argv, 1, "", "")
             if any(arg == "--add-port=69/udp" for arg in argv):
                 return subprocess.CompletedProcess(argv, 1, "", "denied")
