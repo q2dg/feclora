@@ -793,10 +793,10 @@ export default function App() {
             </Stack>
           </Tab>
           <Tab eventKey="operation-log" title="Operation log">
-            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Local operation history</Title><p>Last 200 durable operation journal events. A started entry without a terminal event requires operator review.</p></StackItem>
-              <StackItem><Table aria-label="Local operation history" variant="compact"><Thead><Tr><Th>Timestamp</Th><Th>Operation</Th><Th>Target</Th><Th>Image</Th><Th>Status</Th><Th>Operation ID</Th></Tr></Thead><Tbody>
-                {operations.map((item, index) => <Tr key={item.operation_id + "-" + item.status + "-" + index}><Td>{item.timestamp || "—"}</Td><Td>{item.operation || "—"}</Td><Td>{item.target || "—"}</Td><Td>{item.image_id || "—"}</Td><Td><Label color={item.status === "completed" ? "green" : item.status === "failed" ? "red" : "orange"}>{item.status || "unknown"}</Label></Td><Td>{item.operation_id || "—"}</Td></Tr>)}
-                {!operations.length && <Tr><Td colSpan={6}>No local operations recorded.</Td></Tr>}
+            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Local operation history</Title><p>Last 200 durable operation journal events, including recorded failure type and diagnostic text. A started entry without a terminal event requires operator review.</p></StackItem>
+              <StackItem><Table aria-label="Local operation history" variant="compact"><Thead><Tr><Th>Timestamp</Th><Th>Operation</Th><Th>Target</Th><Th>Image</Th><Th>Status</Th><Th>Operation ID</Th><Th>Failure detail</Th></Tr></Thead><Tbody>
+                {operations.map((item, index) => <Tr key={item.operation_id + "-" + item.status + "-" + index}><Td>{item.timestamp || "—"}</Td><Td>{item.operation || "—"}</Td><Td>{item.target || "—"}</Td><Td>{item.image_id || "—"}</Td><Td><Label color={item.status === "completed" ? "green" : item.status === "failed" || item.status === "cancelled" ? "red" : "orange"}>{item.status || "unknown"}</Label></Td><Td>{item.operation_id || "—"}</Td><Td>{item.error ? <><strong>{item.error_type || "Operation error"}:</strong> {item.error}</> : "—"}</Td></Tr>)}
+                {!operations.length && <Tr><Td colSpan={7}>No local operations recorded.</Td></Tr>}
               </Tbody></Table></StackItem>
             </Stack>
           </Tab>
