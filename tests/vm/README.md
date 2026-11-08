@@ -11,7 +11,7 @@ On a Fedora test host install qemu-kvm, libvirt, virt-install, virt-viewer, edk2
 ## Run
 
 ~~~bash
-sudo tests/vm/run-pxe-matrix.sh /path/to/feclora-live.iso
+sudo bash tests/vm/run-pxe-matrix.sh /path/to/feclora-live.iso
 ~~~
 
 The script creates a private libvirt network named feclora-pxe-lab and three guests. Connect to their consoles with virt-viewer or virsh console. The host-side bridge is normally virbr-feclora with 192.0.2.1/24; configure the Server guest's test NIC as a static address such as 192.0.2.2/24. Do not configure a gateway or forward this test network.
