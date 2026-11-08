@@ -80,7 +80,7 @@ class PXEFirewall:
         zone, ports = state
         errors = []
         for port in reversed(ports):
-            result = self._call(["--zone", zone, "--remove-port", port], check=False)
+            result = self._call([f"--zone={zone}", f"--remove-port={port}"], check=False)
             if result.returncode != 0:
                 errors.append(port)
         if errors:
