@@ -34,7 +34,7 @@ class PxeServiceTests(unittest.TestCase):
             return subprocess.CompletedProcess(argv, 0, "", "")
         with tempfile.TemporaryDirectory() as tmp:
             firewall = FakeFirewall()
-            manager = PXEServiceManager(tmp, runner=runner, preflight=lambda _config: None, firewall=firewall)
+            manager = PXEServiceManager(tmp, runner=runner, preflight=lambda _config: None, firewall=firewall, boot_stager=lambda _config: None)
             manager.start(config())
             self.assertEqual(len(calls), 2)
             self.assertIn("--unit=feclora-dnsmasq", calls[0])
