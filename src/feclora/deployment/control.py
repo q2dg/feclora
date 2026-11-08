@@ -125,6 +125,8 @@ class DeploymentControlServer:
         client_identity_to_mac: Mapping[str, str],
     ) -> None:
         _require_tls13_mtls(tls_context)
+        if not isinstance(local_identity, str) or not local_identity or len(local_identity) > 256:
+            raise DeploymentControlError("Server certificate identity is required")
         self.coordinator = coordinator
         self.tls_context = tls_context
         self.local_identity = local_identity
@@ -258,7 +260,7 @@ class DeploymentControlServer:
             if (ready["job_id"] != self.coordinator.job.job_id
                     or ready["locally_authorized"] is not True
                     or not isinstance(description, str) or not description
-                    or len(description) > 256 or any(ord(c) < 32 for c in description)):
+                    or len(description) > 256 or "/dev/" in description or any(ord(c) < 32 for c in description)):
                 raise DeploymentControlError("client has not supplied valid local target authorization")
             self.coordinator.mark_ready(mac)
             with self._lock:
@@ -368,6 +370,10 @@ def join_deployment(
     _require_tls13_mtls(tls_context)
     if not isinstance(local_identity, str) or not local_identity or len(local_identity) > 256:
         raise DeploymentControlError("local certificate identity is required")
+    if not isinstance(mac_address, str) or not mac_address or len(mac_address) > 32:
+        raise DeploymentControlError("client MAC address is required")
+    if not isinstance(job_id, str) or not job_id or len(job_id) > 64:
+        raise DeploymentControlError("deployment job UUID is required")
     tls_socket = connect_mutual_tls(
         tls_context, host, port, expected_peer_identity=expected_server_identity,
         timeout=15, io_timeout=timeout,
@@ -390,7 +396,7 @@ def join_deployment(
             raise DeploymentControlError("job does not authorize this client identity")
         target_description = prepare_local_target(job)
         if (not isinstance(target_description, str) or not target_description
-                or len(target_description) > 256 or any(ord(c) < 32 for c in target_description)):
+                or len(target_description) > 256 or "/dev/" in target_description or any(ord(c) < 32 for c in target_description)):
             raise DeploymentControlError("local target approval callback returned an invalid description")
         send_control_message(tls_socket, {
             "type": "ready", "job_id": job.job_id,
