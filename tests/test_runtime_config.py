@@ -57,6 +57,7 @@ class RuntimeConfigTests(unittest.TestCase):
             "local_minisign_secret_key": "/pki/client.key.minisign",
             "local_minisign_public_key": "/pki/client.pub",
             "age_identity_file": None,
+            "age_recipients_file": None,
             "repository": "/repo",
         }
 
@@ -77,6 +78,7 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config.server_identity, "URI:feclora-server")
         self.assertEqual(config.mac_address, "52:54:00:12:34:56")
         self.assertIsNone(config.age_identity_file)
+        self.assertIsNone(config.age_recipients_file)
 
     def test_rejects_duplicate_client_mac_enrollment(self):
         payload = self.server_config()
