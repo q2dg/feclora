@@ -107,6 +107,9 @@ def send_image_set(
             raise ImageTransferError(f"invalid image manifest: {exc}") from exc
         if len(manifest.artifacts) > _MAX_ARTIFACTS:
             raise ImageTransferError("image set contains too many artifacts")
+        reserved_names = {manifest.image_id + ".manifest.json", manifest.image_id + ".manifest.json.minisig"}
+        if any(item.filename in reserved_names for item in manifest.artifacts):
+            raise ImageTransferError("artifact filename collides with the manifest commit marker")
         signature_path = manifest_file + ".minisig"
         signature_fd, signature_info = _open_regular(signature_path)
         if not 1 <= signature_info.st_size <= _MAX_SIGNATURE_BYTES:
@@ -114,12 +117,22 @@ def send_image_set(
         signature = os.read(signature_fd, _MAX_SIGNATURE_BYTES + 1)
         if len(signature) != signature_info.st_size:
             raise ImageTransferError("manifest signature changed while being read")
-        try:
-            verify_manifest_signature(
-                manifest_file, trusted_public_key, signature_path=signature_path,
-            )
-        except (ImageSecurityError, OSError) as exc:
-            raise ImageTransferError(f"source manifest signature is invalid: {exc}") from exc
+        with tempfile.TemporaryDirectory(prefix="feclora-send-manifest-") as verify_dir:
+            os.chmod(verify_dir, 0o700)
+            verify_manifest = os.path.join(verify_dir, "manifest.json")
+            verify_signature = verify_manifest + ".minisig"
+            for verify_path, payload in ((verify_manifest, manifest_bytes), (verify_signature, signature)):
+                fd = os.open(verify_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "wb") as stream:
+                    stream.write(payload)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            try:
+                verify_manifest_signature(
+                    verify_manifest, trusted_public_key, signature_path=verify_signature,
+                )
+            except (ImageSecurityError, OSError) as exc:
+                raise ImageTransferError(f"source manifest signature is invalid: {exc}") from exc
 
         total_bytes = 0
         for artifact in manifest.artifacts:
