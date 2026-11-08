@@ -25,6 +25,7 @@ from feclora.deployment.runtime_config import (
     RuntimeConfigError, ServerRuntimeConfig, load_server_runtime_config,
 )
 from feclora.network.remote_clone_protocol import create_mutual_tls_context
+from feclora.network.multicast_preflight import inspect_multicast_interface
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.ui import dialog_app
 
@@ -457,6 +458,14 @@ def run_deployment_server_ui(
         if job.transport == "multicast":
             multicast_config = udpcast_config_for_job(
                 job, min_receivers=len(selected_macs),
+            )
+            preflight = inspect_multicast_interface(
+                multicast_config.interface, multicast_config.data_group, role="sender",
+            )
+            dialog_app._message(
+                "Local multicast preflight",
+                f"Interface: {preflight.interface} ({preflight.ipv4_address})\\nKernel route: {preflight.route_interface}\\n\\n"
+                + "\\n".join(preflight.warnings),
             )
             dialog_app._message(
                 "Multicast network preflight",
