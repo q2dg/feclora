@@ -17,7 +17,7 @@ class ManagedPKITests(unittest.TestCase):
                 "feclora.deployment.managed_pki._run",
                 side_effect=[
                     SimpleNamespace(stdout="Certificate request self-signature verify OK"),
-                    SimpleNamespace(stdout="X509v3 Subject Alternative Name:\\n    URI:feclora-client-lab-01\\n"),
+                    SimpleNamespace(stdout="X509v3 Subject Alternative Name:\n    URI:feclora-client-lab-01\n"),
                 ],
             ):
                 self.assertEqual(inspect_client_csr(csr.name), "URI:feclora-client-lab-01")
@@ -28,7 +28,7 @@ class ManagedPKITests(unittest.TestCase):
                 "feclora.deployment.managed_pki._run",
                 side_effect=[
                     SimpleNamespace(stdout="verified"),
-                    SimpleNamespace(stdout="X509v3 Subject Alternative Name:\\n    URI:feclora-client-lab-01, DNS:untrusted.example\\n"),
+                    SimpleNamespace(stdout="X509v3 Subject Alternative Name:\n    URI:feclora-client-lab-01, DNS:untrusted.example\n"),
                 ],
             ):
                 with self.assertRaisesRegex(PKIError, "exactly one"):
@@ -62,7 +62,7 @@ class ManagedPKITests(unittest.TestCase):
                         stream.write("AGE-SECRET-KEY")
                     return SimpleNamespace(stdout="")
                 if argv[1:3] == ["age-keygen", "-y"]:
-                    return SimpleNamespace(stdout="age1" + "a" * 40 + "\\n")
+                    return SimpleNamespace(stdout="age1" + "a" * 40 + "\n")
                 raise AssertionError(argv)
 
             with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
