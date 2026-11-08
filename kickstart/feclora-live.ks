@@ -34,6 +34,7 @@ firewalld
 dnsmasq
 ipxe-bootimgs-x86
 caddy
+udpcast
 
 # Required live-media boot components
 dracut-config-generic
