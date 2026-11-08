@@ -59,10 +59,10 @@ and [upstream command-line documentation](https://www.udpcast.linux.lu/cmd.html)
 2. Implement the Client mode runtime: certificate identity, independent local
    target selection, capacity/geometry checks, staging-volume selection,
    signed-manifest delivery, receive, verify, protected restore, and result ACK.
-3. Add UDPcast ports to a scoped temporary firewalld zone with rollback and
-   restoration of the original interface zone.
-4. Integrate per-client progress/results and cancellation; ensure partial
+3. Integrate per-client progress/results and cancellation; ensure partial
    staging files are cleaned up after failure or cancellation.
+4. Add multicast interface/subnet preflight, IGMP snooping/querier checks and
+   explicit unicast fallback when multicast is unavailable.
 5. Exercise sender plus multiple receivers in isolated BIOS/UEFI VMs and on
    networks with IGMP snooping/querier; test packet loss, insufficient space,
    wrong signatures, wrong hashes, receiver loss and cancellation.
