@@ -71,6 +71,7 @@ class MulticastRuntimeTests(unittest.TestCase):
         artifact = ImageArtifact(
             "golden-image.raw", "disk-image", "raw", "none", 3,
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            encryption="age",
         )
         manifest = SimpleNamespace(image_id="golden-image", image_type="disk", artifacts=(artifact,))
         offer = {
@@ -108,7 +109,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                     repository=repository,
                     trusted_server_public_key="/pki/server.pub",
                     firewall=Mock(),
-                    network_interface="enp1s0",
+                    network_interface="enp1s0", age_identity_file="/pki/client.age",
                 )
             self.assertTrue(result[0])
             restore.assert_called_once()
@@ -125,7 +126,7 @@ class MulticastRuntimeTests(unittest.TestCase):
         artifact = ImageArtifact(
             "golden-image_sda1.img", "partition-image", "raw", "none", 3,
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-            partition_id="sda1",
+            partition_id="sda1", encryption="age",
         )
         manifest = SimpleNamespace(image_id="golden-image", image_type="partition", artifacts=(artifact,))
         offer = {
@@ -159,7 +160,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                 result = execute_multicast_restore(
                     job, tls, approval, server_identity="URI:feclora-server",
                     repository=repository, trusted_server_public_key="/pki/server.pub",
-                    firewall=Mock(), network_interface="enp1s0",
+                    firewall=Mock(), network_interface="enp1s0", age_identity_file="/pki/client.age",
                 )
             self.assertTrue(result[0])
             restore_partition.assert_called_once()
