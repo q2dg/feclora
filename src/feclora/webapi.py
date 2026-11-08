@@ -721,8 +721,12 @@ def _storage_operation_lock():
         except BlockingIOError as exc:
             os.close(fd)
             raise WebAPIError("another Server, Client or local storage operation is active on this host") from exc
-        from feclora.deployment.service import recover_stale_runtime_artifacts
-        recover_stale_runtime_artifacts(lock_held=True)
+        try:
+            from feclora.deployment.service import recover_stale_runtime_artifacts
+            recover_stale_runtime_artifacts(lock_held=True)
+        except Exception:
+            os.close(fd)
+            raise
     except WebAPIError:
         raise
     except OSError as exc:
