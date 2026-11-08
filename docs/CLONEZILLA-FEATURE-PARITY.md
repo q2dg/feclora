@@ -27,7 +27,7 @@ Clonezilla Live and Clonezilla Server Edition define the user-visible feature ta
 | GPT/MBR partition-table handling | sfdisk, sgdisk, parted | Discovery only |
 | LVM logical volumes and encrypted volumes | lsblk, pvs, vgs, lvs, lvm2, cryptsetup, dmsetup | Read-only PV/VG/LV topology is included in inventory; activation, snapshots, LUKS integration and volume-aware capture/restore remain pending |
 | Stratis pools and filesystems | /dev/stratis, sysfs device-mapper topology, stratis-cli, stratisd | Active pool/filesystem links and backing block-device chains are inventoried read-only; stopped pools, authoritative daemon metadata and management workflows remain pending |
-| Btrfs filesystems | lsblk, btrfs-progs, Partclone where supported | Filesystem classification and read-only multi-device membership scan are included; subvolume/snapshot-aware imaging and restore remain pending |
+| Btrfs filesystems | lsblk, btrfs-progs, Partclone where supported | Filesystem classification and read-only multi-device membership scan are included; partition capture verifies single-device scope and rejects multi-device Btrfs; subvolume/snapshot-aware imaging and restore remain pending |
 | Remote image repositories | SSH/SFTP, NFS, SMB/CIFS, WebDAV | Not implemented |
 | Bootloader/boot-area preservation | dd, partition-table and bootloader utilities | Not implemented |
 | Interactive rescue UI | dialog initially | Capture, restore and direct local disk clone actions connected; progress/cancellation and runtime validation pending |
