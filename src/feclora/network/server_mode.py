@@ -199,6 +199,7 @@ def run_server_ui(
         return 0
 
     manager = manager_factory()
+    failure: Exception | None = None
     try:
         manager.start(config)
         _dialog([
@@ -209,13 +210,17 @@ def run_server_ui(
             "stop", "Stop PXE services and close the firewall ports",
         ])
     except Exception as exc:
-        _message("PXE Server failed", str(exc))
-        return 1
+        failure = exc
     finally:
         try:
             manager.stop()
         except PXEServiceError as exc:
-            _message("PXE shutdown warning", str(exc))
+            failure = PXEServiceError(
+                f"{failure}; shutdown incomplete: {exc}" if failure else str(exc)
+            )
+    if failure is not None:
+        _message("PXE Server did not stop cleanly", str(failure))
+        return 1
     _message("PXE Server stopped", "dnsmasq, Caddy and Feclora's runtime firewall rules have been stopped.")
     return 0
 
