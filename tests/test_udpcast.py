@@ -91,17 +91,27 @@ class UDPcastConfigTests(unittest.TestCase):
                 self.assertEqual(stream.read(), b"abc")
 
     def test_firewall_scope_opens_exact_two_udp_ports_and_closes(self):
-        firewall = Mock()
-        with multicast_firewall_scope(firewall, "enp1s0", 9000):
+        firewall = Mock()\n        firewall.is_open.return_value = False\n        with multicast_firewall_scope(firewall, "enp1s0", 9000):
             firewall.open.assert_called_once_with("enp1s0", ["9000/udp", "9001/udp"], include_tftp=False)
         firewall.close.assert_called_once_with("enp1s0")
 
     def test_firewall_scope_closes_after_transfer_exception(self):
-        firewall = Mock()
-        with self.assertRaisesRegex(RuntimeError, "transfer failed"):
+        firewall = Mock()\n        firewall.is_open.return_value = False\n        with self.assertRaisesRegex(RuntimeError, "transfer failed"):
             with multicast_firewall_scope(firewall, "enp1s0", 9000):
                 raise RuntimeError("transfer failed")
         firewall.close.assert_called_once_with("enp1s0")
+
+    def test_existing_pxe_zone_gets_only_temporary_udpcast_ports(self):
+        firewall = Mock()
+        firewall.is_open.return_value = True
+        firewall.add_ports.return_value = ("9000/udp", "9001/udp")
+        with multicast_firewall_scope(firewall, "enp1s0", 9000):
+            firewall.add_ports.assert_called_once_with("enp1s0", ["9000/udp", "9001/udp"])
+            firewall.open.assert_not_called()
+        firewall.remove_ports.assert_called_once_with(
+            "enp1s0", ("9000/udp", "9001/udp"),
+        )
+        firewall.close.assert_not_called()
 
     def test_staging_rejects_short_file_and_removes_it(self):
         artifact = ImageArtifact(
