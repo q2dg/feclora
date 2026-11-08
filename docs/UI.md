@@ -1,38 +1,33 @@
 # User interface
 
-## Initial console browser
+## Cockpit is the primary interface
 
-The initial UI uses the standard `dialog` utility. From a checkout:
+Feclora uses Cockpit with a React/PatternFly application as its primary
+operator interface. The browser workflow is the supported path for local
+storage inventory, whole-disk/partition image capture, restoration and
+disk/partition cloning. Cockpit's Terminal page provides access to the
+underlying Linux system for diagnostics and advanced administration.
 
-```bash
-./scripts/feclora-ui.sh
-```
+There is no requirement to retain the old `dialog` console application.
+Storage and deployment engines remain independent Python modules and are
+called by the Cockpit backend; the browser does not assemble shell commands.
 
-It displays devices reported by `lsblk` and allows their metadata and child
-partitions to be inspected. The current prototype is deliberately read-only:
-there are no clone, restore, format, partition-edit, mount, or unmount actions.
+## Safety and operation lifecycle
 
-The interface is separate from the storage inventory and future imaging
-backends. This is intentional: the same engine should be reusable by another
-frontend without duplicating disk-handling logic.
+The Cockpit API is an allowlisted privileged helper. It accepts bounded JSON
+requests, validates exact parameter sets and typed destructive confirmations,
+and delegates to the existing storage engines. Those engines re-check device
+identity, source safety, destination geometry and image integrity immediately
+before writing. Progress is streamed to the browser as newline-delimited
+events.
 
-## Live ISO integration status
+The Cockpit frontend does not expose arbitrary command execution. Terminal
+access is provided by Cockpit itself and is intended for system administration,
+not as a bypass around Feclora's guarded storage operations.
 
-The build script now stages `src/feclora` under `out/feclora-app`, adds that
-directory to a temporary copy of the Fedora installer DVD with `mkksiso`, and
-passes the augmented DVD to `livemedia-creator`. A Kickstart `%post --nochroot`
-section copies the payload into `/usr/share/feclora/python/feclora` and creates
-`/usr/local/bin/feclora-ui`.
+## Build integration
 
-This removes the need for a network download or a separately hosted package
-repository. The payload is copied from the installer media into the installed
-live filesystem using Anaconda's documented `--nochroot` post-install mode.
-The pipeline change is implemented, but the ISO has not yet been built or boot
-tested; keep the roadmap item open until those checks pass.
-
-## Why not Cockpit yet?
-
-Cockpit is a credible option for a future server-oriented edition. For the
-initial offline rescue image, a local TUI avoids a web server, browser,
-network-facing management endpoint, and additional service configuration.
-Revisit Cockpit when remote administration becomes a concrete requirement.
+The build script stages `src/feclora` and the built `webui/dist` on a
+temporary copy of the Fedora installer DVD. The Kickstart installs the Python
+package and Cockpit application into the Live filesystem. The ISO is not
+built or boot-tested as part of source-only repository work.
