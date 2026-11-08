@@ -132,8 +132,10 @@ then reports READY. It waits for the Server's explicit ARM command before
 starting disk I/O. Cockpit can inspect the Client's phase, target description,
 byte progress and terminal result after the browser disconnects.
 
-The Cockpit Client service currently supports unicast disk capture, whole-disk
-restore and partition restore. A host runs only one storage/deployment job at a time across Server, Client and local Cockpit operations.
+The Cockpit Client service supports unicast whole-disk capture, whole-disk
+and partition restore, plus multicast restore of age-encrypted images. A host
+runs only one storage/deployment job at a time across Server, Client and local
+Cockpit operations.
 Interrupted Client services are marked for inspection and are never
 automatically reconnected or resumed. An orderly systemd stop is deferred
 while the Client is in its storage-I/O phase; the unit has no stop timeout that
