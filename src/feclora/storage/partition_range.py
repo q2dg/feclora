@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import stat
 from dataclasses import dataclass
 from typing import Callable, Mapping
@@ -211,9 +212,7 @@ def parse_sfdisk_dump(
     if not partitions:
         raise PartitionRangeError("sfdisk dump contains no partition entries")
     table = {"partitiontable": {"partitions": partitions}}
-    ranges = partition_ranges(
-        table, image_size_bytes=image_size_bytes, sector_size=sector_size
-    )
+    partition_ranges(table, image_size_bytes=image_size_bytes, sector_size=sector_size)
     return table
 
 
