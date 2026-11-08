@@ -50,12 +50,15 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 2
 fi
 
-for cmd in livemedia-creator mkksiso qemu-system-x86_64; do
+for cmd in livemedia-creator mkksiso qemu-system-x86_64 npm; do
   if ! command -v "${cmd}" >/dev/null 2>&1; then
     echo "Required command not found: ${cmd}. Install the build dependencies first." >&2
     exit 127
   fi
 done
+
+# Build the Cockpit frontend before staging the augmented installer media.
+bash "${ROOT_DIR}/build/build-webui.sh"
 
 # Fail early if KVM, source inputs, or output capacity are not ready.
 bash "${ROOT_DIR}/build/preflight.sh"
@@ -68,8 +71,9 @@ RESULT_DIR="$(cd -- "${RESULT_DIR}" && pwd)"
 APP_STAGE="${RESULT_DIR}/feclora-app"
 AUGMENTED_ISO="${RESULT_DIR}/feclora-installer.iso"
 rm -rf "${APP_STAGE}"
-mkdir -p "${APP_STAGE}/src"
+mkdir -p "${APP_STAGE}/src" "${APP_STAGE}/webui/dist"
 cp -a "${ROOT_DIR}/src/feclora" "${APP_STAGE}/src/feclora"
+cp -a "${ROOT_DIR}/webui/dist/." "${APP_STAGE}/webui/dist/"
 
 # mkksiso positional arguments are: Kickstart, input ISO, output ISO.
 mkksiso --add "${APP_STAGE}" "${KS_FILE}" "${INSTALL_ISO}" "${AUGMENTED_ISO}"
