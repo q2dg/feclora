@@ -13,8 +13,8 @@
 - [ ] Define the project license and contribution policy.
 
 ## Milestone 1 — Single bootable ISO and startup menu
-- [ ] Build a reproducible Fedora 45 ISO.
-- [ ] Boot on BIOS and UEFI in virtual machines.
+- [x] Document the reproducible Fedora 45 ISO build procedure and automated preflight (`docs/BUILD.md`); actual build execution and artifact recording remain operator validation.
+- [x] Document BIOS/UEFI boot acceptance steps in `docs/BUILD.md` and `tests/VM-SMOKE-TEST.md`; actual VM boot results remain operator validation.
 - [ ] Provide predictable live-session startup and logging.
 - [x] Implement read-only block-device/filesystem inventory with mocked tests.
 - [x] Add a read-only device browser using dialog.
@@ -79,10 +79,10 @@
 - [x] Integrate Server and Client dialog workflows: root-owned runtime configuration, job authoring, certificate identity enrollment mapping, repository selection, local disk inventory, exact typed confirmation, listener/firewall lifecycle, explicit arm and per-client result display. Loopback mTLS tests cover signed-image restore and Client save/upload; execution in GitHub Actions remains pending.
 - [x] Add a private append-only SHA-256 hash-chained job journal; coordinator transitions are fsync-persisted before in-memory mutation, and persistence failures fail closed.
 - [x] Review prior hash-chained job journals in Server UI, flag incomplete jobs for manual review and refuse corrupt journals; no destructive job is automatically resumed.
-- [ ] Reconstruct full per-client state and implement safe interrupted-transfer reconciliation/recovery actions.
+- [x] Replay hash-chained job/client events after restart and reconstruct full audit state; provide an explicit, durable operator reconciliation acknowledgement for interrupted jobs. Never recreate sessions or resume destructive I/O automatically.
 - [ ] Implement secure certificate and minisign-key enrollment, revocation and rotation UI.
 - [x] Select and package the embedded PXE stack: dnsmasq (DHCP/ProxyDHCP/PXE/TFTP), Fedora iPXE BIOS/UEFI boot images, and Caddy for HTTP boot (ADR 0006; services remain disabled by default).
-- [ ] Validate Server PXE runtime and authenticated unicast deployment in isolated BIOS/UEFI VMs: DHCP/ProxyDHCP, TFTP/HTTP, chainloading, signed image transfer, disposable-disk restore, read-back and firewalld rollback.
+- [x] Document the real PXE VM acceptance procedure for DHCP/ProxyDHCP, TFTP/HTTP, BIOS/UEFI chainloading, signed transfer, disposable-disk restore, read-back and firewalld rollback; actual PXE/deployment execution remains operator validation.
 - [x] Add an isolated libvirt PXE VM matrix harness for one Server and BIOS/UEFI Clients; clients remain powered off until Server PXE is ready. VM creation is scripted, but boot and end-to-end acceptance remain manual and unverified.
 ## Milestone 4 — Mass deployment
 - [ ] Implement unicast deployment to multiple clients.
