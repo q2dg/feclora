@@ -235,7 +235,7 @@ class ClientDeploymentService:
             from feclora.deployment.service import recover_stale_runtime_artifacts
             recover_stale_runtime_artifacts(lock_held=True)
             request = _read_private_json(self.request_path)
-            expected = {"schema_version", "job_id", "host", "device_path", "confirmation", "compression", "network_interface"}
+            expected = {"schema_version", "job_id", "host", "device_path", "confirmation", "compression", "network_interface", "igmp_confirmed"}
             if set(request) != expected or request.get("schema_version") != 1 or request.get("job_id") != self.job_id:
                 raise ClientJobServiceError("Client job request has an invalid schema or job identifier")
             host = request["host"]
@@ -243,6 +243,9 @@ class ClientDeploymentService:
             confirmation = request["confirmation"]
             compression = request["compression"]
             network_interface = request["network_interface"]
+            igmp_confirmed = request["igmp_confirmed"]
+            if not isinstance(igmp_confirmed, bool):
+                raise ClientJobServiceError("IGMP network acknowledgement must be boolean")
             if (not isinstance(host, str) or not host or len(host) > 253
                     or any(ord(char) < 33 for char in host)):
                 raise ClientJobServiceError("Server host is invalid")
@@ -271,8 +274,8 @@ class ClientDeploymentService:
                 if job.job_id != self.job_id or job.transport not in {"unicast", "multicast"}:
                     raise DeploymentControlError("Server job does not match this Client service request or supported transport")
                 if job.transport == "multicast":
-                    if job.operation != "restore" or not network_interface:
-                        raise DeploymentControlError("multicast Client jobs require a restore operation and a selected receive interface")
+                    if job.operation != "restore" or not network_interface or igmp_confirmed is not True:
+                        raise DeploymentControlError("multicast Client jobs require restore, a receive interface and explicit IGMP acknowledgement")
                     try:
                         preflight = inspect_multicast_interface(
                             network_interface, job.multicast_group, role="receiver",
@@ -283,8 +286,8 @@ class ClientDeploymentService:
                         "connecting", network_interface=network_interface,
                         multicast_warnings=list(preflight.warnings),
                     )
-                elif network_interface is not None:
-                    raise DeploymentControlError("unicast Client job must not specify a multicast receive interface")
+                elif network_interface is not None or igmp_confirmed is not False:
+                    raise DeploymentControlError("unicast Client job must not specify multicast interface or IGMP acknowledgement")
                 if job.operation == "save" and job.target_type != "disk":
                     raise DeploymentControlError("Client capture currently supports whole-disk jobs only")
                 if job.operation == "save" and (
