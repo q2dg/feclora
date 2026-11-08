@@ -228,6 +228,15 @@ def _review_previous_journals(directory: str) -> None:
             raise RuntimeConfigError(
                 "could not record operator reconciliation for " + job_id + ": " + str(exc)
             ) from exc
+    pending = [
+        job_id for journal_path, job_id in interrupted
+        if DeploymentJournal.inspect(journal_path).recovery_report()["interrupted"]
+    ]
+    if pending:
+        raise RuntimeConfigError(
+            "previous deployment(s) still require manual disk inspection and explicit reconciliation; "
+            "refusing to arm a new job: " + ", ".join(pending)
+        )
     if summaries:
         dialog_app._message(
             "Previous deployment journal review",
