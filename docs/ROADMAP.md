@@ -32,7 +32,6 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [x] Cockpit Server-side CSR inspection, explicit approval, certificate issuance, Client allowlist/age-recipient registration and public response-bundle export.
 - [ ] Complete Server setup wizard: manage persistent network configuration and expose richer PXE service diagnostics.
 - [ ] Full managed deployment CA lifecycle and Server identity rotation/renewal from Cockpit (initial identity bootstrap and Client enrollment are implemented).
-- [x] Cockpit Server-side CSR inspection/approval and Client-side response-bundle import with CA/Server-key fingerprint verification.
 - [ ] Client certificate renewal/revocation and age-recipient management from Cockpit.
 - [x] Client enrollment preparation and completion from Cockpit, including local key generation and removable-media exchange.
 - [ ] Local destructive-target approval for remote jobs from Cockpit.
@@ -57,7 +56,7 @@ the old local `dialog` menu is no longer installed in the Live package.
 
 - [ ] Select and document the project license and contribution policy.
 - [ ] Add reproducible dependency lockfiles for the web frontend.
-- [ ] Confirm GitHub Pages publication and canonical hostname. The minimalist landing page and deployment workflow are in source. The selected project URL is `https://q2dg.github.io/feclora/`; a repository owner must select GitHub Actions under Settings → Pages before the workflow can publish.
+- [ ] Confirm GitHub Pages publication and canonical hostname. The minimalist landing page and deployment workflow are in source. GitHub Pages is enabled with GitHub Actions as the source; confirm a successful deployment run and public URL response before treating publication as complete.
 
 ## Explicitly out of scope unless requested
 
