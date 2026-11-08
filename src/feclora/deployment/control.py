@@ -8,6 +8,7 @@ does not implement the image data plane or execute storage operations.
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import socket
 import ssl
@@ -125,6 +126,8 @@ class DeploymentControlServer:
         *,
         local_identity: str,
         client_identity_to_mac: Mapping[str, str],
+        firewall: Any = None,
+        interface: str | None = None,
     ) -> None:
         _require_tls13_mtls(tls_context)
         if coordinator.job.transport != "unicast":
@@ -134,6 +137,10 @@ class DeploymentControlServer:
         self.coordinator = coordinator
         self.tls_context = tls_context
         self.local_identity = local_identity
+        self.firewall = firewall
+        self.interface = interface
+        self._firewall_added: tuple[str, ...] = ()
+        self._firewall_opened = False
         self.client_identity_to_mac = {
             identity: mac.lower() for identity, mac in client_identity_to_mac.items()
         }
@@ -161,14 +168,33 @@ class DeploymentControlServer:
             raise DeploymentControlError("deployment control listener is already running")
         if not isinstance(port, int) or isinstance(port, bool) or not 0 <= port <= 65535:
             raise DeploymentControlError("deployment control port must be between 0 and 65535")
+        try:
+            loopback = ipaddress.ip_address(host).is_loopback
+        except ValueError as exc:
+            raise DeploymentControlError("control listener bind address must be an IPv4 address") from exc
+        if not loopback and (self.firewall is None or not self.interface):
+            raise DeploymentControlError("non-loopback control listeners require an interface-scoped firewalld manager")
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             listener.bind((host, port))
             listener.listen(backlog)
             listener.settimeout(1.0)
-        except OSError as exc:
+            if self.firewall is not None:
+                port_spec = f"{listener.getsockname()[1]}/tcp"
+                if self.firewall.is_open(self.interface):
+                    self._firewall_added = self.firewall.add_ports(self.interface, [port_spec])
+                else:
+                    self.firewall.open(self.interface, [port_spec], include_tftp=False)
+                    self._firewall_opened = True
+        except Exception as exc:
             listener.close()
+            if self._firewall_added and self.firewall is not None:
+                self.firewall.remove_ports(self.interface, self._firewall_added)
+                self._firewall_added = ()
+            if self._firewall_opened and self.firewall is not None:
+                self.firewall.close(self.interface)
+                self._firewall_opened = False
             raise DeploymentControlError(f"cannot bind deployment control listener: {exc}") from exc
         self._listener = listener
         self._stop_event.clear()
@@ -226,6 +252,17 @@ class DeploymentControlServer:
                 tls_socket.close()
             except OSError:
                 pass
+
+        if self.firewall is not None and self.interface:
+            try:
+                if self._firewall_added:
+                    self.firewall.remove_ports(self.interface, self._firewall_added)
+                    self._firewall_added = ()
+                if self._firewall_opened:
+                    self.firewall.close(self.interface)
+                    self._firewall_opened = False
+            except Exception as exc:
+                self.listener_errors.append(f"firewall cleanup failed: {exc}")
 
     def accept_ready_client(self, listener: Any) -> ReadyClient:
         accepted, _address = listener.accept()
