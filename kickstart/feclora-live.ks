@@ -25,6 +25,8 @@ python3
 dialog
 psmisc
 NetworkManager
+iproute
+firewalld
 
 # Embedded Server-mode PXE stack; services remain disabled until explicitly selected
 # dnsmasq provides DHCP/ProxyDHCP, PXE and read-only TFTP; Caddy serves HTTP boot assets
