@@ -313,8 +313,9 @@ def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> Non
     )
     dialog_app._message(
         "Client certificate issued",
-        f"Identity: {issued}\nCertificate bundle: {output_directory}\n\n"
-        "Copy this removable media to the Client and complete enrollment there. "
+        f"Identity: {issued}\nCertificate bundle: {output_directory}\n"
+        f"Server image-signing key SHA-256: {server_key_digest}\n\n"
+        "Compare this fingerprint and the CA fingerprint on the Client before installing. "
         "The Client private key was generated locally and was never sent to the Server.",
     )
 
