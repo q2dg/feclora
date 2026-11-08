@@ -35,6 +35,7 @@ def execute_client_image_job(
     local_minisign_secret_key: str | os.PathLike[str] | None = None,
     local_minisign_public_key: str | os.PathLike[str] | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
+    age_recipients_file: str | os.PathLike[str] | None = None,
     compression: str = "gzip",
     compression_level: int | None = 6,
     progress_callback: Callable[[int, int | None], None] | None = None,
@@ -90,6 +91,7 @@ def execute_client_image_job(
                 local_device_path, job.image_id, repository,
                 compression=compression, compression_level=compression_level,
                 minisign_secret_key=local_minisign_secret_key,
+                age_recipients_file=age_recipients_file,
                 progress_callback=progress_callback,
                 executables=executables,
             )
