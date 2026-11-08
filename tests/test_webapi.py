@@ -202,22 +202,26 @@ class WebAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "job_id must be a UUID"):
             dispatch({"action": "create_deployment_job", "params": {"job": invalid_job}})
 
-    def test_start_deployment_service_rejects_legacy_multicast_journal(self):
+    def test_start_deployment_service_accepts_fresh_multicast_restore_journal(self):
         import tempfile
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
         journal = SimpleNamespace(recovery_report=lambda: {
-            "job_id": job_id,
-            "job": {"transport": "multicast"},
-            "job_state": "created",
-            "interrupted": False,
+            "job_id": job_id, "job": {"transport": "multicast"},
+            "job_state": "created", "interrupted": False,
         })
+        status = {"job_id": job_id, "job_state": "created", "worker_active": False}
         with tempfile.TemporaryDirectory() as directory, patch(
             "feclora.webapi._active_deployment_service_status", return_value=None
         ), patch(
             "feclora.webapi._deployment_journal_directory", return_value=Path(directory)
-        ), patch("feclora.deployment.journal.DeploymentJournal.inspect", return_value=journal):
-            with self.assertRaisesRegex(WebAPIError, "cannot start multicast jobs"):
-                dispatch({"action": "start_deployment_service", "params": {"job_id": job_id}})
+        ), patch("feclora.deployment.journal.DeploymentJournal.inspect", return_value=journal), patch(
+            "feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")
+        ) as runner, patch("feclora.webapi._deployment_service_status", return_value=status):
+            result = dispatch({"action": "start_deployment_service", "params": {"job_id": job_id}})
+        self.assertEqual(result, status)
+        self.assertEqual(runner.call_args.args[0], [
+            "/usr/bin/systemctl", "start", "feclora-deployment@" + job_id + ".service",
+        ])
 
     def test_start_deployment_service_reconnects_to_active_job_without_revalidating_freshness(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
@@ -229,7 +233,8 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(result, status)
         run.assert_not_called()
 
-    def test_create_deployment_job_rejects_multicast_until_client_receiver_exists(self):
+    def test_create_deployment_job_reaches_server_validation_for_multicast(self):
+        from feclora.deployment.runtime_config import RuntimeConfigError
         payload = {
             "schema_version": 1, "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
             "operation": "restore", "image_id": "lab-image", "target_type": "disk",
@@ -238,8 +243,12 @@ class WebAPITests(unittest.TestCase):
             "multicast_group": "239.10.10.10", "multicast_port": 9000,
             "start_policy": "manual", "expected_clients": None, "start_deadline": None,
         }
-        with self.assertRaisesRegex(WebAPIError, "Client-side multicast receiver workflow is pending"):
-            dispatch({"action": "create_deployment_job", "params": {"job": payload}})
+        with patch(
+            "feclora.deployment.runtime_config.load_server_runtime_config",
+            side_effect=RuntimeConfigError("test Server config"),
+        ):
+            with self.assertRaisesRegex(WebAPIError, "configure the Feclora Server"):
+                dispatch({"action": "create_deployment_job", "params": {"job": payload}})
 
     def test_create_deployment_job_persists_valid_definition_without_starting_io(self):
         import tempfile
@@ -501,10 +510,12 @@ class WebAPITests(unittest.TestCase):
                 result = dispatch({"action": "start_client_job", "params": {
                     "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
                     "confirmation": "ERASE /dev/sda FROM URI:server", "compression": "gzip",
+                    "network_interface": None,
                 }})
             request = json.loads((root / (job_id + ".request.json")).read_text(encoding="utf-8"))
         self.assertEqual(result["phase"], "connecting")
         self.assertEqual(request["device_path"], "/dev/sda")
+        self.assertIsNone(request["network_interface"])
         self.assertEqual(runner.call_args.args[0], [
             "/usr/bin/systemctl", "start", "feclora-client@" + job_id + ".service",
         ])
