@@ -131,7 +131,7 @@ def render_dnsmasq(config: PXENetworkConfig) -> str:
     ]
     if config.mode == "proxy":
         lines.extend([
-            "dhcp-range=" + str(network) + ",proxy",
+            "dhcp-range=" + str(network.network_address) + ",proxy",
             "dhcp-no-override",
         ])
     else:
