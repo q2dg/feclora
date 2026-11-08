@@ -60,6 +60,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 return job, success, detail
 
             with mock.patch.object(service, "_acquire_lock"), \
+                 mock.patch("feclora.deployment.client_service.CLIENT_JOB_DIRECTORY", root), \
                  mock.patch("feclora.deployment.client_service._ensure_directory"), \
                  mock.patch("feclora.deployment.client_service._read_private_json", return_value={
                      "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
