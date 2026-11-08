@@ -83,6 +83,7 @@ class WebAPITests(unittest.TestCase):
     def test_certificate_status_warns_before_managed_identity_expiry(self):
         config = SimpleNamespace(
             certificate_file="/etc/feclora/pki/server.crt",
+            ca_file="/etc/feclora/pki/ca.crt",
             local_identity="URI:feclora-server",
         )
         with patch("feclora.webapi.os.path.isfile", side_effect=lambda path: path == "/etc/feclora/deployment-server.json"), patch(
