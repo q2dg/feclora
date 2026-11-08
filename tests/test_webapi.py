@@ -36,6 +36,17 @@ class WebAPITests(unittest.TestCase):
         with patch("feclora.webapi._network_interfaces", return_value=expected):
             self.assertEqual(dispatch({"action": "network_interfaces"}), {"interfaces": expected})
 
+    def test_inspect_client_csr_is_exposed_through_allowlisted_api(self):
+        with patch("feclora.webapi._inspect_client_csr", return_value={"identity": "URI:feclora-client-lab"}) as inspect:
+            result = dispatch({"action": "inspect_client_csr", "params": {"csr_path": "/run/media/usb/request.csr"}})
+        inspect.assert_called_once_with({"csr_path": "/run/media/usb/request.csr"})
+        self.assertEqual(result["identity"], "URI:feclora-client-lab")
+
+    def test_approve_client_csr_is_exposed_through_allowlisted_api(self):
+        with patch("feclora.webapi._approve_client_csr", return_value={"identity": "URI:feclora-client-lab"}) as approve:
+            result = dispatch({"action": "approve_client_csr", "params": {"confirmation": "ENROLL"}})
+        approve.assert_called_once_with({"confirmation": "ENROLL"})
+        self.assertEqual(result["identity"], "URI:feclora-client-lab")
     def test_bootstrap_server_requires_exact_parameters(self):
         with self.assertRaisesRegex(WebAPIError, "requires interface"):
             dispatch({"action": "bootstrap_server", "params": {"address": "192.0.2.10"}})
