@@ -172,7 +172,7 @@ def _public_key_fingerprint(path: str, *, csr: bool) -> str:
             raise CockpitEnrollmentError("cannot extract public key from Client CSR/certificate")
         der = subprocess.run(
             ["openssl", "pkey", "-pubin", "-outform", "DER"],
-            input=public.stdout, stdin=subprocess.PIPE, capture_output=True,
+            input=public.stdout.encode("ascii"), capture_output=True,
             check=False, timeout=15,
         )
     except (OSError, subprocess.SubprocessError) as exc:
