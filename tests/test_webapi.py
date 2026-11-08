@@ -115,6 +115,13 @@ class WebAPITests(unittest.TestCase):
             with self.assertRaisesRegex(WebAPIError, "Client revocation failed: inventory corrupt"):
                 _revoke_server_client({"identity": identity, "confirmation": f"REVOKE {identity}"})
 
+    def test_partition_extraction_is_exposed_as_a_storage_operation(self):
+        params = {"image_id": "whole-disk", "selector": "PARTUUID=abc"}
+        with patch("feclora.webapi._run_operation", return_value={"image_id": "whole-disk-part-123"}) as run:
+            result = dispatch({"action": "extract_partition_image", "params": params})
+        run.assert_called_once_with("extract_partition_image", params)
+        self.assertEqual(result["image_id"], "whole-disk-part-123")
+
     def test_age_recipient_export_and_refresh_actions_are_allowlisted(self):
         with patch("feclora.deployment.cockpit_enrollment.export_server_age_recipients",
                    return_value={"recipient_count": 2}) as export:
