@@ -199,7 +199,7 @@ class DeploymentJob:
 
     def to_dict(self) -> dict[str, Any]:
         """Return the canonical schema-v1 representation."""
-        return {
+        document = {
             "schema_version": self.schema_version,
             "job_id": self.job_id,
             "operation": self.operation,
@@ -213,8 +213,11 @@ class DeploymentJob:
             "start_policy": self.start_policy,
             "expected_clients": self.expected_clients,
             "start_deadline": self.start_deadline,
-            "staging_required_bytes": self.staging_required_bytes,
         }
+        # Keep pre-capacity schema-v1 journals byte-for-byte reconstructible.
+        if self.staging_required_bytes is not None:
+            document["staging_required_bytes"] = self.staging_required_bytes
+        return document
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"))
