@@ -69,6 +69,16 @@ class PXEConfigTests(unittest.TestCase):
         with self.assertRaises(PXEConfigError):
             render_dnsmasq(proxy(address="0.0.0.0"))
 
+    def test_rejects_unsafe_lease_duration(self):
+        with self.assertRaisesRegex(PXEConfigError, "Lease time"):
+            render_dnsmasq(proxy(
+                mode="isolated",
+                pool_start="192.0.2.20",
+                pool_end="192.0.2.80",
+                authoritative_confirmed=True,
+                lease_time="1h\\ndhcp-authoritative",
+            ))
+
     def test_caddy_is_plain_http_and_bound_to_deployment_address(self):
         rendered = render_caddy(proxy())
         self.assertIn("http://192.0.2.1:8080", rendered)
