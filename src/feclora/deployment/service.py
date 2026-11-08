@@ -303,10 +303,11 @@ class DeploymentService:
             "image_id": self.job.image_id,
             "transport": self.job.transport,
             "clients": [
-                {"mac_address": item.mac_address, "state": item.state.value, "detail": item.detail}
-                for item in clients
+                {"mac_address": item.mac_address, "state": item.state.value}
+                for item in clients[:128]
             ],
-            "authorized_clients": list(self.job.authorized_clients),
+            "client_count": len(clients),
+            "clients_truncated": len(clients) > 128,
             "listener_address": self.control.bound_address,
             "listener_errors": self.control.listener_errors[-5:],
             "worker_active": bool(self._worker and self._worker.is_alive()),
