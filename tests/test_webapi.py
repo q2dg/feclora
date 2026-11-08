@@ -370,6 +370,34 @@ class WebAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "exactly one Client"):
             dispatch({"action": "create_deployment_job", "params": {"job": job}})
 
+    def test_pxe_start_refuses_to_replace_active_deployment_firewall_zone(self):
+        params = {
+            "interface": "enp1s0", "address": "192.0.2.1", "prefix_length": 24,
+            "mode": "proxy", "pool_start": "192.0.2.100", "pool_end": "192.0.2.150",
+            "lease_time": "1h", "gateway": "", "dns_server": "192.0.2.1",
+            "http_port": 8080, "authoritative_confirmed": False,
+        }
+        with patch("feclora.webapi._validate_pxe_profile"), \
+             patch("feclora.network.pxe_config.PXENetworkConfig", return_value=SimpleNamespace(interface="enp1s0")), \
+             patch("feclora.webapi._active_deployment_service_status", return_value={
+                 "network_interface": "enp1s0",
+             }), patch("feclora.webapi._pxe_service_manager") as manager:
+            with self.assertRaisesRegex(WebAPIError, "active deployment service"):
+                dispatch({"action": "start_pxe_services", "params": params})
+        manager.assert_not_called()
+
+    def test_pxe_stop_refuses_to_remove_active_deployment_firewall_zone(self):
+        manager = SimpleNamespace(status=lambda: {
+            "active": True, "interface": "enp1s0",
+        }, stop=Mock())
+        with patch("feclora.webapi._pxe_service_manager", return_value=manager), \
+             patch("feclora.webapi._active_deployment_service_status", return_value={
+                 "network_interface": "enp1s0",
+             }):
+            with self.assertRaisesRegex(WebAPIError, "stop the deployment service"):
+                dispatch({"action": "stop_pxe_services"})
+        manager.stop.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
