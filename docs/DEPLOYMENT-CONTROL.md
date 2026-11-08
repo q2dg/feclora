@@ -74,7 +74,7 @@ Implemented:
 - private append-only SHA-256 hash-chained job journal; coordinator transitions are fsync-persisted before in-memory state changes, journal failures fail closed, verified journals can reconstruct the recorded coordinator/client state for audit, and interrupted jobs require explicit operator reconciliation. Reconstruction does not recreate TLS sessions, mark Clients READY, or resume storage work;
 - signed image-set transfer with manifest signature validation, exact artifact size/SHA-256 checks, private staging and no-overwrite publication;
 - Client whole-disk save/restore callback integration with capture_disk and restore_disk, local typed confirmations, trusted minisign keys and destination read-back;
-- Server runtime is now exposed through the persistent Cockpit service for unicast save/restore and multi-client multicast restore. Client runtime still performs local target selection and typed confirmation outside the Cockpit Client workflow; exposing Client inventory/target approval and execution in Cockpit remains outstanding.
+- Server runtime is now exposed through the persistent Cockpit service for unicast save/restore and multi-client multicast restore. Client runtime now has a read-only mTLS job-inspection handshake that does not register a Client; it still performs local target selection and typed confirmation outside the Cockpit Client workflow; exposing Client inventory/target approval and execution in Cockpit remains outstanding.
 - tests for framing, invalid messages, image transfer integrity, Client save/restore callbacks, scoped firewall lifecycle and a loopback TLS 1.3 client/server handshake using ephemeral test certificates.
 
 Still required:
