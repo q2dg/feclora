@@ -151,3 +151,13 @@ fingerprints, the CA chain, the certificate SAN and private-key match, then
 installs the identity and writes the Client runtime configuration. Existing
 Client configuration or partial identity files are not overwritten. This
 wizard does not initiate a remote deployment job.
+
+
+## Cockpit deployment-job API
+
+The Server Cockpit API can validate and persist a deployment-job definition in the
+root-owned hash-chained journal. Creation verifies enrolled Client MACs, the
+selected interface, required per-Client signing keys for capture, and the
+Server signature and Client age-recipient registrations for encrypted restore.
+Persisting a job does not contact Clients, arm the job, or start disk I/O; those
+steps require the persistent control-plane service and explicit operator actions.
