@@ -56,6 +56,8 @@ class PXEServiceManager:
             self.runner(argv, check=True, capture_output=True, text=True, timeout=30)
         except subprocess.TimeoutExpired as exc:
             raise PXEServiceError(f"{label} timed out") from exc
+        except OSError as exc:
+            raise PXEServiceError(f"{label} could not execute: {exc}") from exc
         except subprocess.CalledProcessError as exc:
             detail = (exc.stderr or exc.stdout or "").strip()
             raise PXEServiceError(f"{label} failed: {detail or exc}") from exc
