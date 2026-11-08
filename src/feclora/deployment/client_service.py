@@ -6,6 +6,7 @@ import fcntl
 import json
 import os
 import re
+import signal
 import stat
 import tempfile
 import threading
@@ -207,6 +208,12 @@ class ClientDeploymentService:
             raise ClientJobServiceError("selected local target is not uniquely present in the current block-device inventory")
         return matches[0]
 
+    def _handle_signal(self, _signum: int, _frame: Any) -> None:
+        if self._phase == "running":
+            # Do not interrupt a block-device operation during orderly shutdown.
+            return
+        raise SystemExit(0)
+
     def run(self) -> None:
         self._acquire_lock()
         try:
@@ -342,7 +349,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.mark_interrupted:
             mark_client_job_interrupted(args.job_id)
             return 0
-        ClientDeploymentService(args.job_id).run()
+        service = ClientDeploymentService(args.job_id)
+        signal.signal(signal.SIGTERM, service._handle_signal)
+        signal.signal(signal.SIGINT, service._handle_signal)
+        service.run()
         return 0
     except Exception as exc:
         print(f"feclora Client service: {exc}", file=__import__("sys").stderr)
