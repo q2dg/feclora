@@ -612,7 +612,7 @@ export default function App() {
               <StackItem>
                 <Card><CardBody>
                   <Title headingLevel="h3" size="lg">Extract a partition from a whole-disk image</Title>
-                  <p>Select a verified whole-disk image and identify one partition by PARTUUID, PARTLABEL or partition node recorded in its partition table. Feclora reads and verifies the source image and publishes a separate partition image; the source image is not modified.</p>
+                  <p>Select a verified whole-disk image and identify one partition by PARTUUID, PARTLABEL or partition node recorded in its partition table. Feclora verifies the source image and publishes a separate partition image; age-encrypted sources are re-encrypted to the current recipient inventory. The source image is not modified.</p>
                   <Field label="Whole-disk source image">
                     <select className="pf-v5-c-form-control" value={extractImageId} onChange={(event) => { setExtractImageId(event.target.value); setExtractPartitionResult(null); }}>
                       <option value="">Select whole-disk image…</option>
