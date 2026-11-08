@@ -43,6 +43,42 @@ JOURNAL_DIRECTORY = Path("/var/lib/feclora/deployments")
 CONFIG_FILE = "/etc/feclora/deployment-server.json"
 
 
+def recover_stale_firewall_state() -> None:
+    """Restore a deployment-owned temporary firewalld change after a crash."""
+    try:
+        info = os.lstat(FIREWALL_STATE)
+    except FileNotFoundError:
+        return
+    if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+            or info.st_uid != 0 or info.st_mode & 0o077 or info.st_size > 8192):
+        raise DeploymentServiceError("stale deployment firewall state is unsafe")
+    try:
+        with FIREWALL_STATE.open("r", encoding="utf-8") as stream:
+            value = json.load(stream)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise DeploymentServiceError("stale deployment firewall state is unreadable") from exc
+    if (not isinstance(value, dict)
+            or set(value) != {"schema_version", "interface", "firewall", "opened_by_service", "added_ports"}
+            or value["schema_version"] != 1 or isinstance(value["schema_version"], bool)
+            or not isinstance(value["interface"], str)
+            or not isinstance(value["opened_by_service"], bool)
+            or not isinstance(value["added_ports"], list)
+            or any(not isinstance(port, str) for port in value["added_ports"])):
+        raise DeploymentServiceError("stale deployment firewall state has an invalid schema")
+    recovery = PXEFirewall()
+    try:
+        recovery.adopt(value["interface"], value["firewall"])
+        if value["opened_by_service"]:
+            recovery.close(value["interface"])
+        else:
+            recovery.remove_ports(value["interface"], value["added_ports"])
+    except Exception as exc:
+        raise DeploymentServiceError(f"cannot safely restore stale deployment firewall state: {exc}") from exc
+    FIREWALL_STATE.unlink()
+
+
+
+
 class DeploymentServiceError(RuntimeError):
     """Persistent deployment service could not start or execute safely."""
 
@@ -153,36 +189,7 @@ class DeploymentService:
             raise
 
     def _recover_stale_firewall_state(self) -> None:
-        try:
-            info = os.lstat(FIREWALL_STATE)
-        except FileNotFoundError:
-            return
-        if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
-                or info.st_uid != 0 or info.st_mode & 0o077 or info.st_size > 8192):
-            raise DeploymentServiceError("stale deployment firewall state is unsafe")
-        try:
-            with FIREWALL_STATE.open("r", encoding="utf-8") as stream:
-                value = json.load(stream)
-        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-            raise DeploymentServiceError("stale deployment firewall state is unreadable") from exc
-        if (not isinstance(value, dict)
-                or set(value) != {"schema_version", "interface", "firewall", "opened_by_service", "added_ports"}
-                or value["schema_version"] != 1 or isinstance(value["schema_version"], bool)
-                or not isinstance(value["interface"], str)
-                or not isinstance(value["opened_by_service"], bool)
-                or not isinstance(value["added_ports"], list)
-                or any(not isinstance(port, str) for port in value["added_ports"])):
-            raise DeploymentServiceError("stale deployment firewall state has an invalid schema")
-        recovery = PXEFirewall()
-        try:
-            recovery.adopt(value["interface"], value["firewall"])
-            if value["opened_by_service"]:
-                recovery.close(value["interface"])
-            else:
-                recovery.remove_ports(value["interface"], value["added_ports"])
-        except Exception as exc:
-            raise DeploymentServiceError(f"cannot safely restore stale deployment firewall state: {exc}") from exc
-        FIREWALL_STATE.unlink()
+        recover_stale_firewall_state()
 
     def _acquire_instance_lock(self) -> None:
         info = os.lstat(RUNTIME_DIRECTORY)
@@ -368,8 +375,18 @@ class DeploymentService:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Feclora persistent deployment Server service")
-    parser.add_argument("--job-id", required=True)
+    parser.add_argument("--job-id")
+    parser.add_argument("--recover-firewall", action="store_true")
     args = parser.parse_args(argv)
+    if args.recover_firewall:
+        try:
+            recover_stale_firewall_state()
+            return 0
+        except Exception as exc:
+            print(f"feclora deployment firewall recovery: {exc}", file=sys.stderr)
+            return 1
+    if not args.job_id:
+        parser.error("--job-id is required unless --recover-firewall is selected")
     service = None
     try:
         service = DeploymentService(args.job_id)
