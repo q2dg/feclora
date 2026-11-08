@@ -1,28 +1,27 @@
 # ADR 0002: Initial console interface
 
-- Status: Accepted
+- Status: Superseded by ADR 0007
 - Date: 2026-11-07
 
 ## Context
 
-feclora is initially a rescue Live environment. It must remain usable without
-network access, a browser, or a running web service. The storage/imaging engine
-must not depend on a particular user interface.
+Feclora initially used `dialog` as a local rescue prototype. The project
+subsequently adopted Cockpit as the primary operator interface, with access
+to Cockpit Terminal for low-level system administration.
 
-## Decision
+## Historical decision
 
-Use the standard `dialog` utility for the first console interface. Keep the
-UI in `feclora.ui` and keep storage operations in separate modules. The
-initial screen is inspection-only: it lists block devices and displays
-metadata. It must not offer destructive actions.
+The first prototype used `dialog` to keep storage discovery and the initial
+local rescue flow separate from the Python storage engines. That decision
+was appropriate for the early read-only console browser but no longer defines
+the product interface.
 
-Cockpit remains a candidate for optional host administration, not the default rescue wizard. A browser-based Feclora UI should be evaluated separately and must preserve a fully offline local-console fallback. Cockpit's web service, authentication, plugin integration, network exposure and resource cost must be assessed before adding it to the Live image.
+## Current decision
 
-## Consequences
+Cockpit is the primary operator UI. The old `dialog` application is not
+included in the Live package. Local imaging operations are exposed through a
+narrow privileged API and the shared Python storage engines. Terminal access
+is available for diagnostics and advanced administration, not as a bypass
+around Feclora's safety checks.
 
-- The first UI works in a local text console and does not require a network.
-- The UI adds only the standard `dialog` package.
-- Future interfaces can call the same engine without reimplementing storage
-  operations.
-- Similarity to Clonezilla's navigation is useful, but feclora does not copy
-  Clonezilla's implementation or inherit its upstream dependencies.
+See ADR 0007 and `docs/COCKPIT.md`.
