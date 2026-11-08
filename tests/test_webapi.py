@@ -143,6 +143,39 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(result["source_image_id"], "source")
         extract.assert_called_once()
 
+    def test_encrypted_partition_extraction_reencrypts_to_current_recipients(self):
+        from pathlib import Path
+        manifest = SimpleNamespace(
+            image_id="source", image_type="disk",
+            artifacts=[SimpleNamespace(encryption="age")],
+        )
+        extracted = SimpleNamespace(
+            image_id="source-part-abc123", image_type="partition",
+            artifacts=[SimpleNamespace(encryption="age")],
+        )
+        with patch("feclora.webapi._image_manifest", return_value=Path("/repo/source.manifest.json")), patch(
+            "pathlib.Path.read_text", return_value="{}"
+        ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
+            "feclora.webapi.os.path.isfile", return_value=False
+        ), patch("feclora.webapi._security_material", return_value={
+            "age_decryption_available": True, "age_encryption_available": True,
+            "image_verification_available": False, "image_signing_available": False,
+        }), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
+            "feclora.webapi._capture_material",
+            return_value=(Path("/etc/feclora/pki/age-recipients.txt"), None),
+        ), patch("feclora.webapi._repository", return_value=Path("/repo")), patch(
+            "feclora.storage.disk_image_partition.extract_partition_image",
+            return_value=(extracted, "source-part-abc123.manifest.json"),
+        ) as extract:
+            result = __import__("feclora.webapi", fromlist=["_execute_operation"])._execute_operation(
+                "extract_partition_image", {"image_id": "source", "selector": "PARTUUID=abc"}, "operation-2"
+            )
+        self.assertTrue(result["encrypted"])
+        self.assertEqual(
+            extract.call_args.kwargs["age_recipients_file"],
+            Path("/etc/feclora/pki/age-recipients.txt"),
+        )
+
     def test_partition_extraction_is_exposed_as_a_storage_operation(self):
         params = {"image_id": "whole-disk", "selector": "PARTUUID=abc"}
         with patch("feclora.webapi._run_operation", return_value={"image_id": "whole-disk-part-123"}) as run:
