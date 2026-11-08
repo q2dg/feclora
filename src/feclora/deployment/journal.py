@@ -63,7 +63,7 @@ class DeploymentJournal:
                 first_line = bytearray()
                 while len(first_line) <= _MAX_EVENT_BYTES:
                     chunk = os.read(fd, 1)
-                    if not chunk or chunk == b"\\n":
+                    if not chunk or chunk == b"\n":
                         break
                     first_line.extend(chunk)
             finally:
