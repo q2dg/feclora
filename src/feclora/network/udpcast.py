@@ -212,22 +212,31 @@ def _run_process(
 
 @contextmanager
 def multicast_firewall_scope(firewall: Any, interface: str, portbase: int) -> Iterator[None]:
-    """Temporarily allow only UDPcast's two UDP ports on the selected interface."""
+    """Temporarily allow UDPcast ports and IGMP on the selected interface only."""
     if firewall is None:
         raise UDPcastError("A scoped firewalld manager is required for multicast transport")
     ports = [f"{portbase}/udp", f"{portbase + 1}/udp"]
+    protocols = ["igmp"]
     if firewall.is_open(interface):
-        added = firewall.add_ports(interface, ports)
+        added_ports: tuple[str, ...] = ()
+        added_protocols: tuple[str, ...] = ()
         try:
+            added_ports = firewall.add_ports(interface, ports)
+            added_protocols = firewall.add_protocols(interface, protocols)
             yield
         finally:
-            if added:
-                firewall.remove_ports(interface, added)
+            try:
+                if added_protocols:
+                    firewall.remove_protocols(interface, added_protocols)
+            finally:
+                if added_ports:
+                    firewall.remove_ports(interface, added_ports)
         return
     opened = False
     try:
         firewall.open(interface, ports, include_tftp=False)
         opened = True
+        firewall.add_protocols(interface, protocols)
         yield
     finally:
         if opened:
