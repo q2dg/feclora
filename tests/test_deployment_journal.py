@@ -85,6 +85,21 @@ class DeploymentJournalTests(unittest.TestCase):
             )
             self.assertEqual(journal.latest_state()["job_state"], "completed")
 
+    def test_recovery_report_reconstructs_interrupted_job_without_resuming(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
+            coordinator.register_client(MAC, authenticated=True)
+            coordinator.mark_ready(MAC)
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+            report = DeploymentJournal.inspect(path).recovery_report()
+            self.assertTrue(report["interrupted"])
+            self.assertFalse(report["automatic_resume"])
+            self.assertEqual(report["job_state"], "running")
+            self.assertEqual(report["clients"][MAC]["state"], "running")
+            self.assertEqual(report["job"]["job_id"], JOB_ID)
     def test_journal_failure_does_not_mutate_coordinator_state(self):
         def failing_sink(event):
             if event["event"] == "client_ready":
