@@ -68,9 +68,11 @@ class ClientImageRuntimeTests(unittest.TestCase):
                 make_job("restore"), tls, self.approval,
                 server_identity="URI:feclora-server", repository="/repo",
                 trusted_server_public_key="/trusted/server.pub",
+                transfer_progress_callback=lambda current, total: None,
             )
         self.assertTrue(result[0])
         receive.assert_called_once()
+        self.assertIsNotNone(receive.call_args.kwargs["progress_callback"])
         restore.assert_called_once()
         self.assertEqual(restore.call_args.args[0], "/repo/golden-image.manifest.json")
         self.assertTrue(restore.call_args.kwargs["require_signature"])
@@ -91,6 +93,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
                 trusted_server_public_key="/trusted/server.pub",
                 local_minisign_secret_key="/keys/client.key",
                 local_minisign_public_key="/keys/client.pub",
+                transfer_progress_callback=lambda current, total: None,
             )
         self.assertTrue(result[0])
         capture.assert_called_once()
