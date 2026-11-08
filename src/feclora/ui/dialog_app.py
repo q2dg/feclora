@@ -18,6 +18,7 @@ from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError,
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import InventoryError, collect_inventory
 from feclora.storage.partition_image_capture import PartitionImageCaptureError, capture_partition_image
+from feclora.storage.partition_clone import PartitionCloneCancelled, PartitionCloneError, clone_partition
 from feclora.storage.partition_restore import PartitionRestoreCancelled, PartitionRestoreError, restore_partition
 from feclora.storage.operation_log import DEFAULT_LOG_PATH, OperationLogError, operation_record
 from feclora.storage.restore_profile import RestoreProfile, RestoreProfileError, RestoreTargetSelector, save_unattended_restore_profile
@@ -319,6 +320,84 @@ def _clone_disk(inventory: dict[str, Any]) -> None:
         _message("Clone cancelled", str(exc) + "\nThe destination may contain a partial clone.")
     except (DiskCloneError, OperationLogError, OSError) as exc:
         _message("Clone failed", str(exc))
+    finally:
+        if gauge is not None:
+            if gauge.stdin is not None:
+                try:
+                    gauge.stdin.close()
+                except (BrokenPipeError, OSError):
+                    pass
+            if gauge.poll() is None:
+                gauge.terminate()
+                gauge.wait()
+
+
+def _clone_partition(inventory: dict[str, Any]) -> None:
+    source = _select_device(
+        inventory, "part", "Clone partition - source",
+        "Select the source partition. It must be offline and not mounted.",
+    )
+    if source is None:
+        return
+    targets = [
+        item for item in _select_devices(inventory, "part")
+        if item.get("path") and item.get("path") != source.get("path")
+    ]
+    choices = [
+        (item["path"], f"{item['path']} | {item.get('size_bytes') or '?'} bytes")
+        for item in targets
+    ]
+    target_path = _menu(
+        "Clone partition - destination",
+        "Select the destination partition. Its contents will be overwritten.",
+        choices,
+    )
+    if target_path is None:
+        return
+    phrase = f"ERASE {target_path} FROM {source['path']}"
+    typed = _input(
+        "Destructive confirmation",
+        f"Source: {source['path']}\nDestination: {target_path}\nType exactly:\n{phrase}",
+    )
+    if typed != phrase:
+        _message("Clone cancelled", "The confirmation did not match. No write was started.")
+        return
+
+    gauge = None
+    try:
+        gauge = subprocess.Popen(
+            ["dialog", "--title", "Cloning partition", "--gauge",
+             f"Copying {source['path']} to {target_path}; destination read-back will be verified.",
+             "10", "76", "0"],
+            stdin=subprocess.PIPE, text=True,
+        )
+        def report_progress(done: int, total: int) -> None:
+            if gauge is None or gauge.poll() is not None or gauge.stdin is None:
+                raise PartitionCloneCancelled("progress dialog closed; partition clone was cancelled")
+            percent = min(99, int(done * 100 / total)) if total else 0
+            gauge.stdin.write(f"{percent}\n")
+            gauge.stdin.flush()
+        copied = _run_logged(
+            "clone_partition", target_path, None,
+            lambda: clone_partition(
+                source["path"], target_path, confirmation=typed,
+                progress_callback=report_progress,
+            ),
+        )
+        if gauge is not None and gauge.stdin is not None:
+            gauge.stdin.write("100\n")
+            gauge.stdin.flush()
+            gauge.stdin.close()
+            gauge.stdin = None
+            gauge.wait()
+        _message(
+            "Partition clone completed",
+            f"Copied and read-back verified {copied:,} bytes from {source['path']} to {target_path}.",
+        )
+    except PartitionCloneCancelled as exc:
+        _message("Partition clone cancelled", str(exc) + "\nThe destination may contain a partial clone.")
+    except (PartitionCloneError, OperationLogError, OSError) as exc:
+        _message("Partition clone failed", str(exc))
     finally:
         if gauge is not None:
             if gauge.stdin is not None:
@@ -646,6 +725,7 @@ def main() -> int:
             ("capture-partition", "Capture a partition"),
             ("restore", "Restore an image"),
             ("clone-disk", "Clone one local disk directly to another"),
+            ("clone-partition", "Clone one partition directly to another"),
             ("history", "View persistent operation history"),
             ("exit", "Return to operating mode selector"),
         ])
@@ -663,6 +743,8 @@ def main() -> int:
             _restore(inventory)
         elif choice == "clone-disk":
             _clone_disk(inventory)
+        elif choice == "clone-partition":
+            _clone_partition(inventory)
         elif choice == "history":
             _show_operation_log()
 
