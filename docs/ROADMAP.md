@@ -34,7 +34,7 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [ ] Complete Server setup wizard: manage persistent network configuration and expose richer PXE service diagnostics.
 - [ ] Full managed deployment CA lifecycle and Server identity rotation/renewal from Cockpit (initial identity bootstrap and Client enrollment are implemented).
 - [x] Cockpit inventory of enrolled Client identities, authorized MACs and image-capture trust; exact-confirmation revocation removes future MAC authorization, signing trust and Server age-recipient mapping.
-- [ ] Complete Client certificate renewal from Cockpit; CSR renewal and certificate rotation still require the existing removable-media workflow.
+- [x] Complete Client certificate renewal from Cockpit through removable media: reuse and verify the existing TLS key, exact identity/MAC approval, preserve age recipient and minisign trust, validate Server fingerprints and install the renewed certificate transactionally.
 - [x] Cockpit Server export of the current age-recipient inventory to removable media and Client-side verification/atomic refresh, including a check that the Client's own age identity is present.
 - [x] Client enrollment preparation and completion from Cockpit, including local key generation and removable-media exchange.
 - [x] Read-only mTLS Client job inspection from Cockpit API without Client registration or READY transition.
