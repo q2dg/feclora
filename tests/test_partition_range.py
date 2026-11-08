@@ -7,6 +7,7 @@ from feclora.storage.partition_range import (
     copy_fd_range,
     load_sfdisk_json,
     partition_ranges,
+    parse_sfdisk_dump,
     select_partition_range,
 )
 
@@ -104,6 +105,16 @@ class PartitionRangeTests(unittest.TestCase):
             target.truncate(16)
             with self.assertRaises(PartitionRangeError):
                 copy_fd_range(source.fileno(), target.fileno(), source_offset=2, length=8)
+
+    def test_parses_sfdisk_dump_from_whole_disk_capture(self):
+        dump = ('label: gpt\nsector-size: 512\n'
+                '/dev/sda1 : start=2048, size=4096, type=EF00, uuid=1111-AAAA, name="EFI System"\n'
+                '/dev/sda2 : start=6144, size=8192, type=8300, uuid=2222-BBBB, name="root"\n')
+        table = parse_sfdisk_dump(dump, image_size_bytes=16 * 1024 * 1024)
+        selected = select_partition_range(
+            table, "EFI System", image_size_bytes=16 * 1024 * 1024
+        )
+        self.assertEqual(selected.node, "/dev/sda1")
 
 
 if __name__ == "__main__":
