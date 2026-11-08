@@ -158,7 +158,7 @@ def _initialize_security() -> dict[str, Any]:
             raise WebAPIError("age-keygen did not return a valid recipient")
         fd = os.open(age_recipients, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "w", encoding="ascii") as stream:
-            stream.write(recipient + "\\n")
+            stream.write(recipient + "\n")
             stream.flush()
             os.fsync(stream.fileno())
         os.chmod(age_identity, 0o600)
