@@ -40,6 +40,7 @@ def execute_client_image_job(
     compression: str = "gzip",
     compression_level: int | None = 6,
     progress_callback: Callable[[int, int | None], None] | None = None,
+    transfer_progress_callback: Callable[[int, int], None] | None = None,
     executables: dict[str, str | None] | None = None,
 ) -> tuple[bool, str]:
     """Run one signed whole-disk image job after local, role-specific approval."""
@@ -67,6 +68,7 @@ def execute_client_image_job(
             manifest_path = receive_image_set(
                 tls_socket, repository, expected_image_id=job.image_id,
                 trusted_public_key=trusted_server_public_key,
+                progress_callback=transfer_progress_callback,
             )
             restore_function = restore_partition if job.target_type == "partition" else restore_disk
             restore_function(
@@ -106,6 +108,7 @@ def execute_client_image_job(
                 tls_socket, repository, manifest_path,
                 expected_image_id=job.image_id,
                 trusted_public_key=local_minisign_public_key,
+                progress_callback=transfer_progress_callback,
             )
             return True, f"image {job.image_id} captured, signed and transferred"
         except (ImageTransferError, DiskCaptureError, ImageSecurityError, OSError) as exc:
