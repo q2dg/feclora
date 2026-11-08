@@ -118,18 +118,15 @@ def main() -> int:
     if os.geteuid() != 0:
         print(json.dumps({"error": "Feclora Cockpit API requires authorized root execution"}))
         return 1
-    payload = sys.stdin.buffer.read(64 * 1024 + 1)
-    if len(payload) > 64 * 1024:
-        print(json.dumps({"error": "request exceeds 64 KiB"}))
+    if len(sys.argv) != 2:
+        print(json.dumps({"ok": False, "error": "one allowlisted action argument is required"}))
         return 2
     try:
-        request = json.loads(payload.decode("utf-8"), object_pairs_hook=_reject_duplicates)
-        response = {"ok": True, "data": dispatch(request)}
-    except (UnicodeError, json.JSONDecodeError, WebAPIError, Exception) as exc:
+        response = {"ok": True, "data": dispatch({"action": sys.argv[1]})}
+    except Exception as exc:
         response = {"ok": False, "error": str(exc)[:512]}
     sys.stdout.write(json.dumps(response, sort_keys=True, separators=(",", ":")) + "\n")
     return 0 if response["ok"] else 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
