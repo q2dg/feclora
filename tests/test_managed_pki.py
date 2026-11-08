@@ -110,11 +110,11 @@ class ManagedPKITests(unittest.TestCase):
                     with open(csr, "w", encoding="ascii") as stream:
                         stream.write("CSR")
                     return SimpleNamespace(stdout="")
-                if argv[1:3] == ["age-keygen", "-o"]:
+                if os.path.basename(argv[0]) == "age-keygen" and argv[1:2] == ["-o"]:
                     with open(argv[-1], "w", encoding="ascii") as stream:
                         stream.write("AGE-SECRET-KEY")
                     return SimpleNamespace(stdout="")
-                if argv[1:3] == ["age-keygen", "-y"]:
+                if os.path.basename(argv[0]) == "age-keygen" and argv[1:2] == ["-y"]:
                     return SimpleNamespace(stdout="age1" + "a" * 40 + "\n")
                 raise AssertionError(argv)
 
