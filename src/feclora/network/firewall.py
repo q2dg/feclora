@@ -120,8 +120,10 @@ class PXEFirewall:
                 if result.returncode != 0:
                     errors.append(f"restore interface to zone {restore_zone}")
 
-        zones = self._call(["--get-zones"], check=False).stdout.split()
-        if zone in zones:
+        zone_list = self._call(["--get-zones"], check=False)
+        if zone_list.returncode != 0:
+            errors.append("list firewalld zones")
+        elif zone in zone_list.stdout.split():
             deleted = self._call([f"--delete-zone={zone}"], check=False)
             if deleted.returncode != 0:
                 errors.append(f"delete temporary zone {zone}")
