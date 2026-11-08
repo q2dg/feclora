@@ -1,0 +1,29 @@
+[Unit]
+Description=Feclora authenticated deployment job %i
+After=network-online.target firewalld.service
+Wants=network-online.target
+Requires=firewalld.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStartPre=/usr/bin/install -d -o root -g root -m 0755 /run/feclora
+Environment=PYTHONPATH=/usr/share/feclora/python
+ExecStart=/usr/bin/python3 -m feclora.deployment.service --job-id %i
+Restart=no
+TimeoutStopSec=30
+KillMode=mixed
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/run/feclora /var/lib/feclora /etc/feclora /srv/feclora
+
+[Install]
+# Intentionally not enabled at boot; Cockpit starts a validated job instance.
