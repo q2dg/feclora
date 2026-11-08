@@ -31,9 +31,11 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [x] Cockpit PXE activation/shutdown: persist transient dnsmasq/Caddy unit and interface-scoped firewalld state across API calls; stop restores the previous interface zone. Services are not enabled at boot.
 - [x] Cockpit Server-side CSR inspection, explicit approval, certificate issuance, Client allowlist/age-recipient registration and public response-bundle export.
 - [ ] Complete Server setup wizard: manage persistent network configuration and expose richer PXE service diagnostics.
-- [ ] Full managed deployment CA and Server identity administration from Cockpit (the initial identity bootstrap step is implemented).
-- [ ] Client CSR import/approval, certificate issue/rotation/revocation and age-recipient management from Cockpit.
-- [ ] Client enrollment workflow and local target approval from Cockpit.
+- [ ] Full managed deployment CA lifecycle and Server identity rotation/renewal from Cockpit (initial identity bootstrap and Client enrollment are implemented).
+- [x] Cockpit Server-side CSR inspection/approval and Client-side response-bundle import with CA/Server-key fingerprint verification.
+- [ ] Client certificate renewal/revocation and age-recipient management from Cockpit.
+- [x] Client enrollment preparation and completion from Cockpit, including local key generation and removable-media exchange.
+- [ ] Local destructive-target approval for remote jobs from Cockpit.
 - [ ] Deployment job wizard: signed image, operation, enrolled clients, unicast/multicast transport, multicast group/port and start policy.
 - [ ] Persistent job daemon/service lifecycle so a browser disconnect does not terminate the control plane.
 - [ ] Arm, cancel, inspect and reconcile jobs through Cockpit.
