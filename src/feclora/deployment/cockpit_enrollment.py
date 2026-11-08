@@ -93,13 +93,20 @@ def export_server_age_recipients(params: dict[str, object]) -> dict[str, object]
         raise CockpitEnrollmentError("export_server_age_recipients requires exactly export_directory")
     directory = _media_directory(params["export_directory"], "Age recipient export directory")
     source = os.path.join(PKI, "age-recipients.txt")
+    source_fd = -1
     try:
-        info = os.lstat(source)
-        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_size > 65536:
+        source_fd = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        info = os.fstat(source_fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_size > 65536:
             raise CockpitEnrollmentError("Server age recipient inventory must be a root-owned regular file within 64 KiB")
-        payload = Path(source).read_bytes()
+        payload = os.read(source_fd, 65537)
+        if len(payload) != info.st_size:
+            raise CockpitEnrollmentError("Server age recipient inventory changed while being read")
     except OSError as exc:
         raise CockpitEnrollmentError(f"cannot read Server age recipient inventory: {exc}") from exc
+    finally:
+        if source_fd >= 0:
+            os.close(source_fd)
     try:
         recipients = [line.strip() for line in payload.decode("ascii").splitlines() if line.strip()]
     except UnicodeError as exc:
@@ -112,10 +119,17 @@ def export_server_age_recipients(params: dict[str, object]) -> dict[str, object]
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     try:
         fd = os.open(destination, flags, 0o600)
-        with os.fdopen(fd, "wb") as stream:
-            stream.write(payload)
-            stream.flush()
-            os.fsync(stream.fileno())
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+        except Exception:
+            try:
+                os.unlink(destination)
+            except OSError:
+                pass
+            raise
     except FileExistsError as exc:
         raise CockpitEnrollmentError("age-recipients.txt already exists on the removable media; refusing to overwrite it") from exc
     except OSError as exc:
