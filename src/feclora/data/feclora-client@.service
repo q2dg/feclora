@@ -7,11 +7,12 @@ Wants=network-online.target
 Type=simple
 User=root
 Group=root
+Environment=PYTHONPATH=/usr/share/feclora/python
 ExecStartPre=/usr/bin/install -d -o root -g root -m 0700 /var/lib/feclora/client-jobs
 ExecStart=/usr/bin/python3 -m feclora.deployment.client_service --job-id %i
 ExecStopPost=/usr/bin/python3 -m feclora.deployment.client_service --job-id %i --mark-interrupted
 Restart=no
-TimeoutStopSec=30
+TimeoutStopSec=infinity
 KillMode=mixed
 UMask=0077
 NoNewPrivileges=true
