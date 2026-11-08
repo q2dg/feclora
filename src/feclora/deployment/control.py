@@ -411,7 +411,8 @@ def join_deployment(
             if set(start) != {"type", "job_id"} or start.get("job_id") != job.job_id:
                 raise DeploymentControlError("server cancellation is not bound to this job")
             raise DeploymentControlError("server cancelled the deployment before start")
-        if set(start) != {"type", "job_id", "operation", "image_id"}:\n            raise DeploymentControlError("server start command contains missing or unknown fields")\n        if start.get("type") != "start" or start.get("job_id") != job.job_id:
+        if set(start) != {"type", "job_id", "operation", "image_id"}:\n            raise DeploymentControlError("server start command contains missing or unknown fields")
+        if start.get("type") != "start" or start.get("job_id") != job.job_id:
             raise DeploymentControlError("server did not arm this deployment job")
         if start.get("operation") != job.operation or start.get("image_id") != job.image_id:
             raise DeploymentControlError("server start command does not match the authorized job")
