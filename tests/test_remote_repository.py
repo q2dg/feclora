@@ -7,11 +7,11 @@ class RemoteRepositoryTests(unittest.TestCase):
     def test_sshfs_uses_identity_file_and_never_inline_secret(self):
         repo = RemoteRepository(
             provider="sshfs", host="images.example.net", remote_path="/backup/feclora",
-            mountpoint="/mnt/images", username="backup", identity_file="/etc/feclora/ssh/id_ed25519",
+            mountpoint="/mnt/images", username="backup", identity_file="/etc/feclora/ssh/id_ed25519",\n            known_hosts_file="/etc/feclora/ssh/known_hosts",
         )
         argv = repo.mount_argv()
         self.assertEqual(argv[0], "sshfs")
-        self.assertIn("IdentityFile=/etc/feclora/ssh/id_ed25519", argv[2])
+        self.assertIn("IdentityFile=/etc/feclora/ssh/id_ed25519", argv[2])\n        self.assertIn("StrictHostKeyChecking=yes", argv[2])\n        self.assertIn("UserKnownHostsFile=/etc/feclora/ssh/known_hosts", argv[2])
         self.assertFalse(any("password" in item.lower() for item in argv))
 
     def test_nfs_uses_hard_mount_and_nfs4(self):
