@@ -5,7 +5,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALL_ISO="${FEDORA_INSTALL_ISO:-}"
 KS_FILE="${FECLORA_KS:-${ROOT_DIR}/kickstart/feclora-live.ks}"
 RESULT_DIR="${FECLORA_RESULT_DIR:-${ROOT_DIR}/out}"
-RELEASEVER="${FECLORA_RELEASEVER:-43}"
+RELEASEVER="${FECLORA_RELEASEVER:-45}"
 MIN_FREE_GIB="${FECLORA_MIN_FREE_GIB:-20}"
 
 fail() {
@@ -16,7 +16,7 @@ fail() {
 usage() {
   cat <<'EOF'
 Usage:
-  FEDORA_INSTALL_ISO=/path/to/Fedora-43-x86_64-DVD.iso make preflight
+  FEDORA_INSTALL_ISO=/path/to/Fedora-45-x86_64-DVD.iso make preflight
 
 Environment:
   FEDORA_INSTALL_ISO   Fedora DVD installer ISO (required).
@@ -41,11 +41,11 @@ fi
 [[ "$(uname -m)" == "x86_64" ]] ||
   fail "Expected an x86_64 build host; detected $(uname -m)."
 grep -qx 'ID=fedora' /etc/os-release ||
-  fail "The build host must be Fedora 43; detected a non-Fedora distribution."
+  fail "The build host must be Fedora 45; detected a non-Fedora distribution."
 grep -qx 'VERSION_ID="43"' /etc/os-release ||
-  fail "The build host must be Fedora 43; check /etc/os-release."
-[[ "$RELEASEVER" == "43" ]] ||
-  fail "The current Kickstart baseline is Fedora 43; FECLORA_RELEASEVER=$RELEASEVER is inconsistent."
+  fail "The build host must be Fedora 45; check /etc/os-release."
+[[ "$RELEASEVER" == "45" ]] ||
+  fail "The current Kickstart baseline is Fedora 45; FECLORA_RELEASEVER=$RELEASEVER is inconsistent."
 
 if [[ "$EUID" -ne 0 ]]; then
   fail "Run preflight as root, for example: sudo -E make preflight FEDORA_INSTALL_ISO=..."
