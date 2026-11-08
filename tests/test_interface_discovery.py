@@ -5,6 +5,7 @@ import unittest
 from feclora.network.interface_discovery import (
     InterfaceDiscoveryError,
     discover_interface_addresses,
+    detect_existing_dhcp_server,
     parse_interface_addresses,
     validate_selected_address,
 )
@@ -36,6 +37,19 @@ class InterfaceDiscoveryTests(unittest.TestCase):
             {"family":"inet","local":"192.0.2.10","prefixlen":24}
         ]}])
         self.assertEqual(parse_interface_addresses(payload, "enp1s0"), [])
+
+    def test_detects_dhcp_server_from_existing_nm_lease(self):
+        def runner(argv, **kwargs):
+            return subprocess.CompletedProcess(
+                argv, 0, "dhcp_lease_time = 3600\\ndhcp_server_identifier = 192.0.2.254\\n", ""
+            )
+        self.assertEqual(
+            detect_existing_dhcp_server("enp1s0", nmcli="/usr/bin/nmcli", runner=runner),
+            "192.0.2.254",
+        )
+
+    def test_absence_of_nmcli_or_lease_is_not_reported_as_a_server(self):
+        self.assertIsNone(detect_existing_dhcp_server("enp1s0", nmcli="/missing"))
 
     def test_discovery_uses_read_only_ip_json_command(self):
         seen = []
