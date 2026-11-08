@@ -14,7 +14,8 @@ import subprocess
 import tempfile
 from typing import Any
 
-from feclora.deployment.managed_pki import remove_age_recipient\nfrom feclora.deployment.runtime_config import (
+from feclora.deployment.managed_pki import remove_age_recipient
+from feclora.deployment.runtime_config import (
     load_server_runtime_config,
 )
 
