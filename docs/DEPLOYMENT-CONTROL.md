@@ -39,13 +39,10 @@ Implemented:
 - tests for framing, invalid messages, image transfer integrity, Client save/restore callbacks, scoped firewall lifecycle and a loopback TLS 1.3 client/server handshake using ephemeral test certificates.
 
 Still required:
-- Server-mode UI integration: job authoring, listener controls, repository selection and per-client progress/results;
-- Client-mode UI: credential loading, storage inventory selection, local typed confirmation and repository selection;
 - persistent job/session storage, crash recovery and safe handling of interrupted transfers;
 - secure certificate and minisign-key enrollment, revocation and rotation UI;
-- integration tests that execute real capture/restore against disposable block devices over mTLS;
+- automated integration tests that execute real capture/restore against disposable block devices over mTLS;
 - automated PXE BIOS/UEFI VM boot, Server/Client orchestration and full end-to-end acceptance. The libvirt harness creates guests; it does not execute the tests automatically or imply they passed.
-
 ## PXE VM test lab
 
 See [tests/vm/README.md](../tests/vm/README.md) and [run-pxe-matrix.sh](../tests/vm/run-pxe-matrix.sh). The lab uses an isolated libvirt network without libvirt DHCP so Feclora can be the only DHCP/PXE authority. Never use authoritative DHCP on a shared network.
