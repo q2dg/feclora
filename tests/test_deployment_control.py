@@ -133,7 +133,7 @@ class ClientJoinTests(unittest.TestCase):
                 expected_server_identity="URI:feclora-server",
                 mac_address=MAC, job_id=JOB_ID,
                 prepare_local_target=lambda offered: "Samsung SSD 1 TB (locally confirmed)",
-                execute_job=lambda offered: (True, "restore verified"),
+                execute_job=lambda offered, tls: (True, "restore verified"),
             )
         self.assertEqual(received.job_id, JOB_ID)
         self.assertTrue(success)
@@ -163,7 +163,7 @@ class ClientJoinTests(unittest.TestCase):
                     expected_server_identity="URI:feclora-server",
                     mac_address=MAC, job_id=JOB_ID,
                     prepare_local_target=lambda offered: "/dev/vda",
-                    execute_job=lambda offered: (True, "unexpected"),
+                    execute_job=lambda offered, tls: (True, "unexpected"),
                 )
 
     def test_client_refuses_unarmed_or_mismatched_start(self):
@@ -272,7 +272,7 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
                         expected_server_identity="URI:feclora-server",
                         mac_address=MAC, job_id=JOB_ID,
                         prepare_local_target=lambda job: "Virtual disk 1 (locally approved)",
-                        execute_job=lambda job: (True, "simulated protected operation verified"),
+                        execute_job=lambda job, tls: (True, "simulated protected operation verified"),
                         timeout=10,
                     ))
                 except Exception as exc:
