@@ -89,7 +89,7 @@ class WebAPITests(unittest.TestCase):
             }})
         with self.assertRaisesRegex(WebAPIError, "IPv4"):
             dispatch({"action": "bootstrap_server", "params": {
-                "interface": "enp1s0", "address": "2001:db8::1", "prefix_length": 64
+                "interface": "enp1s0", "address": "2001:db8::1", "prefix_length": 24
             }})
 
     def test_validate_pxe_profile_runs_daemon_preflight_without_starting_services(self):
