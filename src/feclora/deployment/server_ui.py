@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import stat
 import uuid
 from pathlib import Path
@@ -57,6 +58,8 @@ def _choose_job(config: ServerRuntimeConfig, interface: str) -> tuple[Deployment
         image_id = dialog_app._input("New image identifier", "Enter a unique image identifier:")
         if image_id is None:
             raise DeploymentControlError("image creation cancelled")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
+            raise DeploymentControlError("image identifier must be a safe basename of at most 128 characters")
         if os.path.lexists(os.path.join(config.repository, image_id + ".manifest.json")):
             raise DeploymentControlError("an image with this identifier already exists")
 
