@@ -38,8 +38,8 @@ Clonezilla Live and Clonezilla Server Edition define the user-visible feature ta
 |---|---|---|
 | Central image repository | Local filesystem; NFS, SMB/CIFS, SSH/SFTP, WebDAV | Not implemented |
 | Central deployment job management | feclora server-side job/configuration service | Not implemented |
-| Client network boot | DHCP or existing DHCP integration, TFTP, PXE/iPXE, HTTP boot where firmware supports it | Not implemented |
-| UEFI and legacy BIOS client boot | GRUB/iPXE/Syslinux-compatible boot chain and tested firmware assets | Not implemented |
+| Client network boot | dnsmasq ProxyDHCP/isolated DHCP, TFTP, iPXE, Caddy HTTP Live boot | Server UI, config validation, boot-tree staging and transient service lifecycle are implemented; real daemon, BIOS/UEFI and client boot validation pending |
+| UEFI and legacy BIOS client boot | Fedora RPM-owned iPXE BIOS and UEFI firmware assets, HTTP iPXE script | Firmware staging and chainloading configuration are implemented; Secure Boot compatibility and hardware validation pending |
 | Client discovery and identity | DHCP leases, MAC inventory/reservations, client allowlists | Not implemented |
 | Unattended client imaging | feclora client runtime + generic storage tools | Not implemented |
 | One-to-many unicast deployment | Standard IP networking and per-client sessions | Not implemented |
@@ -50,7 +50,7 @@ Clonezilla Live and Clonezilla Server Edition define the user-visible feature ta
 | Progress and per-client results | Server job state, client status channel, structured logs | Not implemented |
 | Concurrency and resource limits | Server-side scheduler, network/storage capacity controls | Not implemented |
 | Secure client authorization | Per-job tokens/keys, allowlisted identities, authenticated control channel | Not implemented |
-| Safe network isolation | Dedicated VLAN/subnet or isolated deployment network; explicit DHCP ownership/relay | Not implemented |
+| Safe network isolation | Interface-bound dnsmasq, ProxyDHCP/authoritative DHCP profiles, interface-zone firewalld rules | Interface/address revalidation, explicit isolated-DHCP typed confirmation and current NetworkManager lease warning implemented; physical VLAN/isolation validation pending |
 | Reboot/poweroff after deployment | Client-side systemd/runtime action under job policy | Not implemented |
 
 ## Single-ISO mode architecture
