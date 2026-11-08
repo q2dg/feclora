@@ -108,6 +108,19 @@ class DeploymentServiceCommandTests(unittest.TestCase):
                 "confirmation": "ARM " + service.job.job_id,
             })
 
+    def test_arm_is_rejected_after_shutdown_begins(self):
+        client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
+        service = make_service(clients=(client,))
+        service._stop_event = threading.Event()
+        service._stop_event.set()
+        with mock.patch("feclora.deployment.service.threading.Thread", FakeThread):
+            with self.assertRaisesRegex(DeploymentServiceError, "shutdown has begun"):
+                service._handle_ipc("arm", {
+                    "job_id": service.job.job_id,
+                    "confirmation": "ARM " + service.job.job_id,
+                })
+        self.assertEqual(FakeThread.instances, [])
+
     def test_cancel_is_available_only_before_arm(self):
         service = make_service()
         result = service._handle_ipc("cancel", {
