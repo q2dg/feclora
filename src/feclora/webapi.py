@@ -105,6 +105,35 @@ def _progress(done: int, total: int | None) -> None:
            "bytes_total": int(total) if total is not None else None})
 
 
+def _security_material() -> dict[str, bool]:
+    directory = Path("/etc/feclora/pki")
+    files = {
+        "age_encryption_available": directory / "age-recipients.txt",
+        "age_decryption_available": directory / "server.age",
+        "image_signing_available": directory / "server.minisign.key",
+        "image_verification_available": directory / "server.pub",
+    }
+    result = {}
+    for label, path in files.items():
+        try:
+            info = os.lstat(path)
+            result[label] = (
+                stat.S_ISREG(info.st_mode) and not stat.S_ISLNK(info.st_mode)
+                and info.st_uid == 0
+                and (label not in {"age_decryption_available", "image_signing_available"}
+                     or not info.st_mode & 0o077)
+            )
+        except OSError:
+            result[label] = False
+    return result
+
+
+def _initialize_security() -> dict[str, Any]:
+    from feclora.deployment.bootstrap import ensure_server_deployment_config
+    created = ensure_server_deployment_config("127.0.0.1")
+    return {"created": created, **_security_material()}
+
+
 def _images() -> list[dict[str, Any]]:
     path = _repository()
     if not path.exists():
@@ -149,8 +178,8 @@ def _service_state() -> dict[str, str]:
 
 def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
-        "capture_disk": {"source", "image_id", "compression"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign"},
         "restore_disk": {"image_id", "target", "confirmation"},
         "restore_partition": {"image_id", "target", "confirmation"},
         "clone_disk": {"source", "target", "confirmation"},
@@ -165,8 +194,21 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         source = _device(params["source"], "source")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         compression = _text(params, "compression", pattern=r"(?:none|gzip|zstd|lz4)")
-        manifest = capture_disk(source, image_id, _repository(create=True),
-                                compression=compression, progress_callback=_progress)
+        encrypt, sign = params["encrypt"], params["sign"]
+        if not isinstance(encrypt, bool) or not isinstance(sign, bool):
+            raise WebAPIError("encrypt and sign must be boolean values")
+        security = _security_material()
+        if encrypt and not security["age_encryption_available"]:
+            raise WebAPIError("initialize Feclora security keys before enabling age encryption")
+        if sign and not security["image_signing_available"]:
+            raise WebAPIError("initialize Feclora security keys before enabling image signatures")
+        pki = Path("/etc/feclora/pki")
+        manifest = capture_disk(
+            source, image_id, _repository(create=True), compression=compression,
+            progress_callback=_progress,
+            age_recipients_file=pki / "age-recipients.txt" if encrypt else None,
+            minisign_secret_key=pki / "server.minisign.key" if sign else None,
+        )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
     elif action == "capture_partition":
         from feclora.storage.partition_image_capture import capture_partition_image
@@ -174,9 +216,21 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         partition_id = _text(params, "partition_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         compression = _text(params, "compression", pattern=r"(?:none|gzip|zstd|lz4)")
-        manifest = capture_partition_image(source, image_id, partition_id,
-                                           _repository(create=True), compression=compression,
-                                           progress_callback=_progress)
+        encrypt, sign = params["encrypt"], params["sign"]
+        if not isinstance(encrypt, bool) or not isinstance(sign, bool):
+            raise WebAPIError("encrypt and sign must be boolean values")
+        security = _security_material()
+        if encrypt and not security["age_encryption_available"]:
+            raise WebAPIError("initialize Feclora security keys before enabling age encryption")
+        if sign and not security["image_signing_available"]:
+            raise WebAPIError("initialize Feclora security keys before enabling image signatures")
+        pki = Path("/etc/feclora/pki")
+        manifest = capture_partition_image(
+            source, image_id, partition_id, _repository(create=True),
+            compression=compression, progress_callback=_progress,
+            age_recipients_file=pki / "age-recipients.txt" if encrypt else None,
+            minisign_secret_key=pki / "server.minisign.key" if sign else None,
+        )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
     elif action in {"restore_disk", "restore_partition"}:
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
@@ -189,14 +243,32 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         expected_type = "disk" if action == "restore_disk" else "partition"
         if manifest.image_type != expected_type:
             raise WebAPIError(f"selected image is not a {expected_type} image")
+        security = _security_material()
+        signed = os.path.isfile(str(manifest_path) + ".minisig")
+        encrypted = any(item.encryption == "age" for item in manifest.artifacts)
+        if signed and not security["image_verification_available"]:
+            raise WebAPIError("signed image requires the trusted Feclora minisign public key")
+        if encrypted and not security["age_decryption_available"]:
+            raise WebAPIError("age-encrypted image requires the local Feclora age identity")
+        pki = Path("/etc/feclora/pki")
         if action == "restore_disk":
             from feclora.storage.disk_restore import restore_disk
-            restore_disk(manifest_path, _repository(), target, confirmation=expected,
-                         progress_callback=_progress)
+            restore_disk(
+                manifest_path, _repository(), target, confirmation=expected,
+                progress_callback=_progress,
+                age_identity_file=pki / "server.age" if encrypted else None,
+                minisign_public_key=pki / "server.pub" if signed else None,
+                require_signature=signed,
+            )
         else:
             from feclora.storage.partition_restore import restore_partition
-            restore_partition(manifest_path, _repository(), target, confirmation=expected,
-                              progress_callback=_progress)
+            restore_partition(
+                manifest_path, _repository(), target, confirmation=expected,
+                progress_callback=_progress,
+                age_identity_file=pki / "server.age" if encrypted else None,
+                minisign_public_key=pki / "server.pub" if signed else None,
+                require_signature=signed,
+            )
         result = {"image_id": image_id, "target": target, "verified": True}
     elif action == "clone_disk":
         from feclora.storage.disk_clone import clone_disk
@@ -249,6 +321,7 @@ def dispatch(request: Any) -> dict[str, Any]:
             "server_configured": os.path.isfile("/etc/feclora/deployment-server.json"),
             "client_configured": os.path.isfile("/etc/feclora/deployment-client.json"),
             "services": _service_state(),
+            "security": _security_material(),
         }
     if action == "inventory":
         if params:
@@ -258,6 +331,10 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise WebAPIError("images does not accept parameters")
         return {"images": _images()}
+    if action == "initialize_security":
+        if params:
+            raise WebAPIError("initialize_security does not accept parameters")
+        return _initialize_security()
     if action == "journals":
         if params:
             raise WebAPIError("journals does not accept parameters")
