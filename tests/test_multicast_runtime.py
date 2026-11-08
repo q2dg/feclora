@@ -13,6 +13,7 @@ from feclora.deployment.multicast_runtime import (
     rendezvous_group_for, udpcast_config_for_job,
 )
 from feclora.storage.image_manifest import ImageArtifact
+from feclora.storage.image_security import ImageSecurityError
 
 
 def multicast_job(**changes):
@@ -114,6 +115,43 @@ class MulticastRuntimeTests(unittest.TestCase):
             self.assertEqual(restore.call_args.args[0].endswith(".manifest.json"), True)
             self.assertEqual(restore.call_args.args[2], approval.device_path)
             self.assertTrue(tls.settimeout.called)
+
+    def test_invalid_signed_manifest_never_reaches_restore(self):
+        job = multicast_job()
+        approval = LocalTargetApproval(
+            "/dev/feclora-test", "Disposable test disk",
+            "ERASE /dev/feclora-test FROM URI:feclora-server",
+        )
+        offer = {
+            "type": "transfer_offer",
+            "job_id": job.job_id,
+            "image_id": job.image_id,
+            "manifest_b64": base64.b64encode(b"{}").decode("ascii"),
+            "signature_b64": base64.b64encode(b"bad-signature").decode("ascii"),
+        }
+        with tempfile.TemporaryDirectory() as repository:
+            real_lstat = os.lstat
+            def fake_lstat(path):
+                if path == approval.device_path:
+                    return SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
+                return real_lstat(path)
+            with (
+                patch("feclora.deployment.multicast_runtime.os.lstat", side_effect=fake_lstat),
+                patch("feclora.deployment.multicast_runtime.receive_control_message", return_value=offer),
+                patch("feclora.deployment.multicast_runtime.verify_manifest_signature",
+                      side_effect=ImageSecurityError("bad signature")),
+                patch("feclora.deployment.multicast_runtime.restore_disk") as restore,
+            ):
+                with self.assertRaisesRegex(MulticastDeploymentError, "bad signature"):
+                    execute_multicast_restore(
+                        job, Mock(), approval,
+                        server_identity="URI:feclora-server",
+                        repository=repository,
+                        trusted_server_public_key="/pki/server.pub",
+                        firewall=Mock(),
+                        network_interface="enp1s0",
+                    )
+            restore.assert_not_called()
 
     def test_client_rejects_wrong_local_confirmation_before_receiving(self):
         job = multicast_job()
