@@ -14,9 +14,17 @@ console, set a password for the live account:
 sudo passwd feclora
 ```
 
+Then allow Cockpit through firewalld only on the trusted management network
+(or use the host's existing interface-specific firewall policy):
+
+```bash
+sudo firewall-cmd --add-service=cockpit
+```
+
 Then open `https://<management-interface-address>:9090` from a trusted
-management workstation and sign in as `feclora`. Restrict access to a
-trusted management network. Cockpit's Terminal page is available for system
+management workstation and sign in as `feclora`. The firewall rule above is
+runtime-only; do not make it permanent unless the management VLAN/interface
+is correctly isolated. Cockpit's Terminal page is available for system
 administration and diagnostics; it is not used as a substitute for Feclora's
 validated storage workflows.
 
