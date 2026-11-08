@@ -83,7 +83,9 @@ class CockpitEnrollmentTests(unittest.TestCase):
             "feclora.deployment.cockpit_enrollment.Path.read_text", return_value=recipient
         ), patch("feclora.deployment.cockpit_enrollment.os.lstat", return_value=SimpleNamespace(
             st_mode=stat.S_IFREG | 0o600, st_uid=0
-        )), patch("feclora.deployment.cockpit_enrollment.load_server_runtime_config", return_value=config):
+        )), patch("feclora.deployment.cockpit_enrollment.load_server_runtime_config", return_value=config), patch(
+            "feclora.deployment.cockpit_enrollment._verify_client_csr_pin"
+        ):
             result = inspect_client_request(params)
         self.assertEqual(result["confirmation_phrase"], f"RENEW {identity}")
         self.assertEqual(result["renewal"], "true")
@@ -111,7 +113,8 @@ class CockpitEnrollmentTests(unittest.TestCase):
         ), patch("feclora.deployment.cockpit_enrollment.os.lstat", return_value=SimpleNamespace(
             st_mode=stat.S_IFREG | 0o600, st_uid=0
         )), patch("feclora.deployment.cockpit_enrollment.load_server_runtime_config", return_value=config), patch(
-            "feclora.deployment.cockpit_enrollment.os.path.lexists", return_value=False
+            "feclora.deployment.cockpit_enrollment._verify_client_csr_pin"
+        ), patch("feclora.deployment.cockpit_enrollment.os.path.lexists", return_value=False
         ), patch("feclora.deployment.cockpit_enrollment.issue_client_certificate") as issue, patch(
             "feclora.deployment.cockpit_enrollment._atomic_copy"
         ) as copy, patch("feclora.deployment.cockpit_enrollment.ca_fingerprint", return_value="a" * 64), patch(
@@ -148,8 +151,8 @@ class CockpitEnrollmentTests(unittest.TestCase):
         ) as enroll, patch(
             "feclora.deployment.cockpit_enrollment.register_age_recipient"
         ) as register, patch(
-            "feclora.deployment.cockpit_enrollment._atomic_copy"
-        ) as copy, patch(
+            "feclora.deployment.cockpit_enrollment._store_client_certificate_pin"
+        ) as store_pin, patch("feclora.deployment.cockpit_enrollment._atomic_copy") as copy, patch(
             "feclora.deployment.cockpit_enrollment.ca_fingerprint", return_value="a" * 64
         ), patch("feclora.deployment.cockpit_enrollment.Path.read_bytes", return_value=b"server key"):
             result = approve_client_csr(params)
