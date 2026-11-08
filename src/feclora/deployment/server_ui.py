@@ -332,11 +332,12 @@ def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> Non
     os.chmod(os.path.join(output_directory, "server.pub"), 0o644)
     os.chmod(os.path.join(output_directory, "age-recipients.txt"), 0o644)
     server_key_digest = hashlib.sha256(Path(os.path.join(output_directory, "server.pub")).read_bytes()).hexdigest()
+    ca_digest = ca_fingerprint(config.ca_file)
     dialog_app._message(
         "Client certificate issued",
         f"Identity: {issued}\nCertificate bundle: {output_directory}\n"
-        f"Server image-signing key SHA-256: {server_key_digest}\n\n"
-        "Compare this fingerprint and the CA fingerprint on the Client before installing. "
+        f"CA SHA-256: {ca_digest}\nServer image-signing key SHA-256: {server_key_digest}\n\n"
+        "Compare both fingerprints on the Client before installing. "
         "The Client private key was generated locally and was never sent to the Server.",
     )
 
@@ -351,6 +352,7 @@ def _manage_client_enrollment(config_path: str) -> None:
             ("continue", "Continue to deployment"),
             ("issue", "Approve Client CSR (recommended)"),
             ("export-age", "Export updated age recipient inventory"),
+            ("fingerprints", "Show CA and Server signing-key fingerprints"),
             ("enroll", "Import an externally issued Client certificate"),
             ("revoke", "Revoke an enrolled Client certificate"),
         ],
@@ -359,6 +361,15 @@ def _manage_client_enrollment(config_path: str) -> None:
         return
     if choice == "issue":
         _issue_client_from_csr(config_path, config)
+        return
+    if choice == "fingerprints":
+        ca_digest = ca_fingerprint(config.ca_file)
+        with open(config.server_minisign_public_key, "rb") as stream:
+            server_digest = hashlib.sha256(stream.read()).hexdigest()
+        dialog_app._message(
+            "Feclora trust fingerprints",
+            f"CA SHA-256: {ca_digest}\\nServer minisign public key SHA-256: {server_digest}",
+        )
         return
     if choice == "export-age":
         output_directory = dialog_app._input(
