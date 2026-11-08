@@ -13,7 +13,9 @@ import sys
 from typing import Any
 
 from feclora.deployment.client_runtime import execute_client_image_job
-from feclora.deployment.managed_pki import (\n    PKIError, certificate_expiry_days, create_client_csr, install_client_certificate,\n)
+from feclora.deployment.managed_pki import (
+    PKIError, certificate_expiry_days, create_client_csr, install_client_certificate,
+)
 from feclora.deployment.multicast_runtime import execute_multicast_restore
 from feclora.deployment.control import (
     DeploymentControlError, LocalTargetApproval, join_deployment,
@@ -60,7 +62,7 @@ def _write_client_config(path: str, value: dict[str, Any]) -> None:
         os.fchmod(fd, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
             json.dump(value, stream, indent=2, sort_keys=True)
-            stream.write("\\n")
+            stream.write("\n")
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
