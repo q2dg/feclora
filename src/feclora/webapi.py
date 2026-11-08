@@ -205,6 +205,27 @@ def _images() -> list[dict[str, Any]]:
     return items
 
 
+def _operations() -> list[dict[str, Any]]:
+    path = Path("/var/lib/feclora/operations.jsonl")
+    try:
+        info = os.lstat(path)
+    except FileNotFoundError:
+        return []
+    if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+        raise WebAPIError("operation journal must be a private root-owned regular file")
+    if info.st_size > 2 * 1024 * 1024:
+        raise WebAPIError("operation journal exceeds the Cockpit read limit")
+    records = []
+    for line in path.read_text(encoding="utf-8").splitlines()[-200:]:
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            records.append(value)
+    return records
+
+
 def _service_state() -> dict[str, str]:
     services = {}
     for service in ("cockpit.socket", "feclora-dnsmasq.service", "feclora-caddy.service"):
@@ -385,6 +406,10 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise WebAPIError("images does not accept parameters")
         return {"images": _images()}
+    if action == "operations":
+        if params:
+            raise WebAPIError("operations does not accept parameters")
+        return {"operations": _operations()}
     if action == "initialize_security":
         if params:
             raise WebAPIError("initialize_security does not accept parameters")
