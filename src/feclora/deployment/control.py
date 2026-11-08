@@ -533,6 +533,8 @@ class DeploymentControlServer:
         return results
 
     def cancel(self) -> None:
+        # Persist the terminal transition before telling peers to stop.
+        self.coordinator.cancel()
         with self._lock:
             sessions = tuple(self._sessions.values())
         for tls_socket in sessions:
@@ -543,10 +545,7 @@ class DeploymentControlServer:
             except (OSError, DeploymentControlError):
                 pass
             tls_socket.close()
-        if self.coordinator.state not in {
-            JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED,
-        }:
-            self.coordinator.cancel()
+
 
 
 def join_deployment(
