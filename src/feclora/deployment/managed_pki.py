@@ -103,7 +103,7 @@ def initialize_server_pki(
             _regular_file(path, key, root_owned=True)
         if os.stat(paths["ca_key"]).st_mode & 0o077 or os.stat(paths["server_key"]).st_mode & 0o077:
             raise PKIError("TLS private keys must have mode 0600 or stricter")
-        _run([openssl, "verify", "-CAfile", paths["ca_file"], paths["server_certificate"]], runner)
+        _run([openssl, "verify", "-no_check_time", "-CAfile", paths["ca_file"], paths["server_certificate"]], runner)
         return paths
 
     ca_tmp = os.path.join(root, "ca.key.tmp")
