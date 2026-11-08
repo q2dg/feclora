@@ -282,7 +282,7 @@ def receive_multicast_artifact_to_staging(
         raise UDPcastError(f"Cannot prepare private staging file: {exc}") from exc
     executable = udp_receiver or shutil.which("udp-receiver")
     if not executable:
-        os.unlink(path)
+        shutil.rmtree(private_dir, ignore_errors=True)
         raise UDPcastError("udp-receiver is required for multicast deployment")
     try:
         with multicast_firewall_scope(firewall, config.interface, config.portbase):
@@ -317,3 +317,21 @@ def verify_staged_multicast_artifact(
         raise UDPcastError("Received artifact is not uniquely listed in the signed manifest")
     verify_artifact_file(staged_path, matches[0])
     return matches[0]
+
+
+def discard_staged_multicast_artifact(staged_path: str) -> None:
+    """Remove a staged payload and its private per-transfer directory after restore."""
+    path = os.path.abspath(staged_path)
+    parent = os.path.dirname(path)
+    if not os.path.basename(parent).startswith(".feclora-udpcast-"):
+        raise UDPcastError("Refusing to remove a file outside a Feclora multicast staging directory")
+    try:
+        info = os.lstat(path)
+        if not stat.S_ISREG(info.st_mode):
+            raise UDPcastError("Staged artifact is not a regular file")
+        os.unlink(path)
+        os.rmdir(parent)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise UDPcastError(f"Could not remove staged multicast artifact: {exc}") from exc
