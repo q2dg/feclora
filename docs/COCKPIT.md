@@ -241,13 +241,14 @@ and multicast capture remain out of scope.
 For each fresh job, use **Start / connect service** to start its
 non-boot-enabled `feclora-deployment@<UUID>.service` instance. The service
 holds the mTLS listener and journal independently of the browser. Clients
-connect with their enrolled certificates and must select a local target and
-type its destructive/read confirmation through the existing Client-local
-runtime before reporting READY; the Client-side Cockpit target-selection
-wizard remains outstanding. Cockpit shows
-live Client states and the service listener. Only after every authorized
-Client is READY can the operator enter the exact job-specific phrase
-`ARM <UUID>` (unicast) or `ARM MULTICAST <UUID>` (multicast) and select
+connect with their enrolled certificates and select a local target and type
+its destructive/read confirmation through the Cockpit **Client jobs** tab
+before reporting READY. For multicast, each Client also selects its receive
+interface and confirms the VLAN's IGMP snooping/querier configuration.
+Cockpit shows live Client states and the service listener. Only after every
+authorized Client is READY can the operator enter the exact job-specific
+phrase `ARM <UUID>` (unicast) or
+`ARM MULTICAST <UUID> IGMP-VERIFIED` (multicast) and select
 **Arm and execute**. The existing unicast save/restore or multicast restore
 engine then runs in the service process.
 
