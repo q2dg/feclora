@@ -100,6 +100,38 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertEqual(report["job_state"], "running")
             self.assertEqual(report["clients"][MAC]["state"], "running")
             self.assertEqual(report["job"]["job_id"], JOB_ID)
+    def test_coordinator_rehydrates_interrupted_state_without_resuming(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
+            coordinator.register_client(MAC, authenticated=True)
+            coordinator.mark_ready(MAC)
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+
+            reopened = DeploymentJournal.inspect(path)
+            recovered = DeploymentCoordinator.from_journal(make_job(), reopened)
+
+            self.assertEqual(recovered.state, JobState.RUNNING)
+            self.assertEqual(recovered.clients()[0].state, ClientState.RUNNING)
+            self.assertEqual(len(reopened.events), 5)
+            with self.assertRaisesRegex(CoordinatorError, "newly created"):
+                recovered.arm()
+            self.assertEqual(len(reopened.events), 5)
+
+    def test_coordinator_rejects_journal_for_another_job(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            DeploymentCoordinator(make_job(), event_sink=journal)
+            other_job = DeploymentJob.from_dict({
+                **make_job().to_dict(),
+                "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d480",
+            })
+            with self.assertRaisesRegex(CoordinatorError, "does not match"):
+                DeploymentCoordinator.from_journal(other_job, journal)
+
     def test_operator_reconciliation_is_durable_and_never_resumes_job(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "job.jsonl")
