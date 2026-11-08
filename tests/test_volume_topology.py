@@ -55,7 +55,7 @@ class LvmTopologyTests(unittest.TestCase):
         self.assertEqual(topology["status"], "permission_required")
 
     def test_missing_tools_mark_topology_incomplete(self):
-        topology = collect_lvm_topology(which=lambda _name: None)
+        topology = collect_lvm_topology(which=lambda _name: None, effective_uid=lambda: 0)
         self.assertEqual(topology["status"], "incomplete")
         self.assertEqual(set(topology["missing"]), {"pvs", "vgs", "lvs"})
 
