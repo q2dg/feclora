@@ -29,6 +29,8 @@ def _leaf_slaves(block_name: str, sys_class_block: Path, seen: set[str]) -> list
     except OSError as exc:
         raise StratisInventoryError(f"cannot inspect sysfs slaves for {block_name}: {exc}") from exc
     if not entries:
+        if block_name.startswith("dm-"):
+            raise StratisInventoryError(f"device-mapper node has no backing slaves: {block_name}")
         return [block_name]
     result: list[str] = []
     for entry in entries:
