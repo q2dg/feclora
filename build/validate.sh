@@ -138,12 +138,6 @@ while IFS= read -r -d '' script; do
   bash -n "$script" || fail "Bash syntax check failed: $script"
 done < <(find "$ROOT_DIR/build" "$ROOT_DIR/tests/vm" -type f -name '*.sh' -print0)
 
-if (( errors > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$errors" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
-
 if ! grep -q 'class DeploymentService' "$ROOT_DIR/src/feclora/deployment/service.py"; then
   fail "Persistent deployment service runtime is missing."
 fi
@@ -181,3 +175,9 @@ fi
 if ! grep -q 'test_rejects_duplicate_fields' "$ROOT_DIR/tests/test_local_control.py"; then
   fail "Deployment service IPC protocol tests are missing."
 fi
+
+if (( errors > 0 )); then
+  printf 'Validation failed with %d error(s).\n' "$errors" >&2
+  exit 1
+fi
+printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
