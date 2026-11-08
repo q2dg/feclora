@@ -1,0 +1,118 @@
+import json
+import os
+import stat
+import struct
+import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from feclora.deployment.client_runtime import (
+    ClientImageRuntimeError, execute_client_image_job,
+)
+from feclora.deployment.control import LocalTargetApproval
+from feclora.deployment.job import DeploymentJob
+
+
+JOB_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+
+
+def make_job(operation):
+    return DeploymentJob.from_dict({
+        "schema_version": 1, "job_id": JOB_ID, "operation": operation,
+        "image_id": "golden-image", "authorized_clients": ["52:54:00:12:34:56"],
+        "network_interface": "enp1s0", "transport": "unicast",
+        "multicast_group": None, "multicast_port": None,
+        "start_policy": "manual", "expected_clients": None, "start_deadline": None,
+    })
+
+
+def control_frame(message):
+    encoded = json.dumps(message, separators=(",", ":")).encode("ascii")
+    return struct.pack("!I", len(encoded)) + encoded
+
+
+class FakeTLS:
+    def __init__(self, incoming=b""):
+        self.incoming = bytearray(incoming)
+        self.outgoing = bytearray()
+        self.timeout = None
+
+    def settimeout(self, value):
+        self.timeout = value
+
+    def recv(self, count):
+        result = bytes(self.incoming[:count])
+        del self.incoming[:count]
+        return result
+
+    def sendall(self, data):
+        self.outgoing.extend(data)
+
+
+class ClientImageRuntimeTests(unittest.TestCase):
+    def setUp(self):
+        self.approval = LocalTargetApproval(
+            "/dev/vda", "Virtual disk 1",
+            "ERASE /dev/vda FROM URI:feclora-server",
+        )
+        self.block_device = SimpleNamespace(st_mode=stat.S_IFBLK)
+
+    def test_restore_receives_signed_image_before_protected_disk_restore(self):
+        tls = FakeTLS(control_frame({
+            "type": "transfer_offer", "job_id": JOB_ID, "image_id": "golden-image",
+        }))
+        with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
+             patch("feclora.deployment.client_runtime.receive_image_set", return_value="/repo/golden-image.manifest.json") as receive, \
+             patch("feclora.deployment.client_runtime.restore_disk") as restore:
+            result = execute_client_image_job(
+                make_job("restore"), tls, self.approval,
+                server_identity="URI:feclora-server", repository="/repo",
+                trusted_server_public_key="/trusted/server.pub",
+            )
+        self.assertTrue(result[0])
+        receive.assert_called_once()
+        restore.assert_called_once()
+        self.assertEqual(restore.call_args.args[0], "/repo/golden-image.manifest.json")
+        self.assertTrue(restore.call_args.kwargs["require_signature"])
+        self.assertEqual(restore.call_args.kwargs["confirmation"], "ERASE /dev/vda")
+
+    def test_save_captures_signs_then_announces_transfer(self):
+        tls = FakeTLS()
+        approval = LocalTargetApproval(
+            "/dev/vda", "Virtual disk 1",
+            "READ /dev/vda TO URI:feclora-server",
+        )
+        with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
+             patch("feclora.deployment.client_runtime.capture_disk") as capture, \
+             patch("feclora.deployment.client_runtime.send_image_set") as send:
+            result = execute_client_image_job(
+                make_job("save"), tls, approval,
+                server_identity="URI:feclora-server", repository="/repo",
+                trusted_server_public_key="/trusted/server.pub",
+                local_minisign_secret_key="/keys/client.key",
+                local_minisign_public_key="/keys/client.pub",
+            )
+        self.assertTrue(result[0])
+        capture.assert_called_once()
+        self.assertEqual(capture.call_args.kwargs["minisign_secret_key"], "/keys/client.key")
+        send.assert_called_once()
+        self.assertIn(b"transfer_ready", bytes(tls.outgoing))
+
+    def test_restore_rejects_wrong_local_confirmation_before_network_read(self):
+        tls = FakeTLS()
+        wrong = LocalTargetApproval(
+            "/dev/vda", "Virtual disk 1",
+            "ERASE /dev/vdb FROM URI:feclora-server",
+        )
+        with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device):
+            with self.assertRaisesRegex(ClientImageRuntimeError, "confirmation required"):
+                execute_client_image_job(
+                    make_job("restore"), tls, wrong,
+                    server_identity="URI:feclora-server", repository="/repo",
+                    trusted_server_public_key="/trusted/server.pub",
+                )
+        self.assertEqual(bytes(tls.outgoing), b"")
+
+
+if __name__ == "__main__":
+    unittest.main()
