@@ -95,7 +95,7 @@ class PXEFirewall:
         """Return whether this manager currently owns a temporary zone for interface."""
         return interface in self._opened
 
-    def add_ports(self, interface: str, ports: Iterable[str]) -> None:
+    def add_ports(self, interface: str, ports: Iterable[str]) -> tuple[str, ...]:
         """Add temporary ports to an active zone without replacing existing PXE rules."""
         state = self._opened.get(interface)
         if state is None or self._current_zone(interface) != state["zone"]:
@@ -115,6 +115,7 @@ class PXEFirewall:
                 self._call([f"--zone={state['zone']}", f"--remove-port={port}"], check=False)
                 state["ports"].remove(port)
             raise
+        return tuple(added)
 
     def remove_ports(self, interface: str, ports: Iterable[str]) -> None:
         """Remove only the temporary ports added for a transfer."""
