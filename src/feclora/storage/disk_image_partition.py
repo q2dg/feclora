@@ -200,7 +200,7 @@ def extract_partition_image(
             published.append(name)
         os.fsync(directory_fd)
         return extracted_manifest, manifest_name
-    except (ArtifactWriteError, DiskRestoreError, OSError, ManifestValidationError) as exc:
+    except (ArtifactWriteError, DiskRestoreError, ImageSecurityError, OSError, ManifestValidationError) as exc:
         for name in reversed(published):
             try:
                 if directory_fd is not None:
