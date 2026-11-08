@@ -209,6 +209,18 @@ def _verify_client_csr_pin(identity: str, csr_path: str) -> str:
     return expected
 
 
+def remove_client_certificate_pin(identity: str) -> bool:
+    path = _client_pin_path(identity)
+    try:
+        info = os.lstat(path)
+    except FileNotFoundError:
+        return False
+    if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+        raise CockpitEnrollmentError("stored Client TLS public-key pin is unsafe; inspect it manually")
+    os.unlink(path)
+    return True
+
+
 def _store_client_certificate_pin(identity: str, certificate_path: str) -> Path:
     path = _client_pin_path(identity)
     if os.path.lexists(path):
