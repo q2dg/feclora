@@ -625,7 +625,7 @@ export default function App() {
                   <Button variant="primary" onClick={extractPartitionFromImage} isLoading={busy} isDisabled={busy || !extractImageId || !extractPartitionSelector.trim()}>Extract partition image</Button>
                   {busy && progress && <Progress value={progress.bytes_total ? Math.min(100, progress.bytes_done / progress.bytes_total * 100) : 0} title="Partition extraction progress" measureLocation="outside" label={formatBytes(progress.bytes_done) + " / " + formatBytes(progress.bytes_total)} />}
                   {extractPartitionResult && <Alert variant="success" title="Partition image published" isInline>
-                    Source: {extractPartitionResult.source_image_id} · New image: {extractPartitionResult.image_id} · {extractPartitionResult.signed ? "Signed" : "Unsigned"}
+                    Source: {extractPartitionResult.source_image_id} · New image: {extractPartitionResult.image_id} · {extractPartitionResult.signed ? "Signed" : "Unsigned"} · {extractPartitionResult.encrypted ? "age-encrypted" : "unencrypted"}
                   </Alert>}
                 </CardBody></Card>
               </StackItem>
