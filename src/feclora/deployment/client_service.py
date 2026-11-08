@@ -16,11 +16,14 @@ from pathlib import Path
 from typing import Any
 
 from feclora.deployment.client_runtime import execute_client_image_job
+from feclora.deployment.multicast_runtime import execute_multicast_restore
 from feclora.deployment.control import (
     DeploymentControlError, LocalTargetApproval, join_deployment, send_control_message,
 )
 from feclora.deployment.runtime_config import load_client_runtime_config
 from feclora.network.remote_clone_protocol import create_mutual_tls_context
+from feclora.network.firewall import PXEFirewall
+from feclora.network.multicast_preflight import inspect_multicast_interface
 from feclora.storage.inventory import collect_inventory
 from feclora.storage.source_safety import SourceSafetyError, check_capture_source_safe
 
@@ -158,6 +161,7 @@ class ClientDeploymentService:
         self._status: dict[str, Any] = {
             "schema_version": 1, "job_id": job_id, "phase": "created",
             "target_description": None, "progress": None,
+            "network_interface": None, "multicast_warnings": [],
             "success": None, "detail": "", "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -177,7 +181,9 @@ class ClientDeploymentService:
 
     def _set_status(self, phase: str, *, detail: str | None = None,
                     success: bool | None = None, target_description: str | None = None,
-                    progress: dict[str, int | None] | None = None) -> None:
+                    progress: dict[str, int | None] | None = None,
+                    network_interface: str | None = None,
+                    multicast_warnings: list[str] | None = None) -> None:
         with self._status_lock:
             self._phase = phase
             self._status.update({
@@ -192,6 +198,10 @@ class ClientDeploymentService:
                 self._status["target_description"] = target_description[:256]
             if progress is not None:
                 self._status["progress"] = progress
+            if network_interface is not None:
+                self._status["network_interface"] = network_interface
+            if multicast_warnings is not None:
+                self._status["multicast_warnings"] = list(multicast_warnings)
             _write_private_json(self.status_path, self._status)
 
     @staticmethod
@@ -225,13 +235,14 @@ class ClientDeploymentService:
             from feclora.deployment.service import recover_stale_runtime_artifacts
             recover_stale_runtime_artifacts(lock_held=True)
             request = _read_private_json(self.request_path)
-            expected = {"schema_version", "job_id", "host", "device_path", "confirmation", "compression"}
+            expected = {"schema_version", "job_id", "host", "device_path", "confirmation", "compression", "network_interface"}
             if set(request) != expected or request.get("schema_version") != 1 or request.get("job_id") != self.job_id:
                 raise ClientJobServiceError("Client job request has an invalid schema or job identifier")
             host = request["host"]
             device_path = request["device_path"]
             confirmation = request["confirmation"]
             compression = request["compression"]
+            network_interface = request["network_interface"]
             if (not isinstance(host, str) or not host or len(host) > 253
                     or any(ord(char) < 33 for char in host)):
                 raise ClientJobServiceError("Server host is invalid")
@@ -242,6 +253,11 @@ class ClientDeploymentService:
                 raise ClientJobServiceError("local target confirmation is invalid")
             if not isinstance(compression, str) or compression not in {"none", "gzip", "xz"}:
                 raise ClientJobServiceError("capture compression must be none, gzip or xz")
+            if network_interface is not None and (
+                not isinstance(network_interface, str)
+                or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,15}", network_interface)
+            ):
+                raise ClientJobServiceError("multicast receive interface is invalid")
             self.request_path.unlink()
             config = load_client_runtime_config("/etc/feclora/deployment-client.json")
             context = create_mutual_tls_context(
@@ -252,8 +268,23 @@ class ClientDeploymentService:
             self._set_status("connecting", detail="Connecting to the authenticated Server; no local disk operation has started.")
 
             def prepare_local_target(job):
-                if job.job_id != self.job_id or job.transport != "unicast":
-                    raise DeploymentControlError("Server job does not match this Client service request or transport")
+                if job.job_id != self.job_id or job.transport not in {"unicast", "multicast"}:
+                    raise DeploymentControlError("Server job does not match this Client service request or supported transport")
+                if job.transport == "multicast":
+                    if job.operation != "restore" or not network_interface:
+                        raise DeploymentControlError("multicast Client jobs require a restore operation and a selected receive interface")
+                    try:
+                        preflight = inspect_multicast_interface(
+                            network_interface, job.multicast_group, role="receiver",
+                        )
+                    except Exception as exc:
+                        raise DeploymentControlError(f"multicast receive interface preflight failed: {exc}") from exc
+                    self._set_status(
+                        "connecting", network_interface=network_interface,
+                        multicast_warnings=list(preflight.warnings),
+                    )
+                elif network_interface is not None:
+                    raise DeploymentControlError("unicast Client job must not specify a multicast receive interface")
                 if job.operation == "save" and job.target_type != "disk":
                     raise DeploymentControlError("Client capture currently supports whole-disk jobs only")
                 if job.operation == "save" and (
@@ -285,8 +316,11 @@ class ClientDeploymentService:
                     ) if value
                 ) or ("Selected local partition" if job.target_type == "partition" else "Selected local whole disk")
                 description = " ".join(description.split())[:200]
-                self._set_status("ready", detail="Local target is present and explicitly approved. Waiting for the Server operator to arm the job.",
-                                 target_description=description)
+                self._set_status(
+                    "ready", detail="Local target is present and explicitly approved. Waiting for the Server operator to arm the job.",
+                    target_description=description,
+                    network_interface=network_interface if job.transport == "multicast" else None,
+                )
                 return LocalTargetApproval(device_path, description, confirmation)
 
             def execute_job(job, tls_socket, approval):
@@ -318,6 +352,17 @@ class ClientDeploymentService:
                             # Telemetry must never abort an otherwise safe local disk operation.
                             pass
 
+                if job.transport == "multicast":
+                    return execute_multicast_restore(
+                        job, tls_socket, approval,
+                        server_identity=config.server_identity,
+                        repository=config.repository,
+                        trusted_server_public_key=config.trusted_server_public_key,
+                        firewall=PXEFirewall(),
+                        network_interface=network_interface,
+                        age_identity_file=config.age_identity_file,
+                        progress_callback=progress,
+                    )
                 return execute_client_image_job(
                     job, tls_socket, approval,
                     server_identity=config.server_identity,
