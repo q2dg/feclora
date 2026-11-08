@@ -8,6 +8,7 @@ untyped destructive operation is exposed.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 import ipaddress
 import os
 import platform
@@ -1309,6 +1310,11 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
                 raise WebAPIError("multicast restore requires every image artifact to be age-encrypted")
             from feclora.storage.image_security import verify_manifest_signature
             verify_manifest_signature(manifest_path, config.server_minisign_public_key)
+            if job.transport == "multicast":
+                job = replace(
+                    job,
+                    staging_required_bytes=sum(item.size_bytes for item in manifest.artifacts),
+                )
         except WebAPIError:
             raise
         except Exception as exc:
