@@ -1,5 +1,5 @@
 const ACTIONS = new Set([
-  "status", "inventory", "images", "journals", "deployment_jobs", "create_deployment_job", "reconcile_deployment_job", "operations", "initialize_security",
+  "status", "inventory", "images", "journals", "deployment_jobs", "create_deployment_job", "reconcile_deployment_job", "start_deployment_service", "deployment_service_status", "stop_deployment_service", "arm_deployment_job", "cancel_deployment_job", "operations", "initialize_security",
   "network_interfaces", "bootstrap_server", "approve_client_csr", "inspect_client_csr", "prepare_client_request", "complete_client_enrollment", "validate_pxe_profile", "start_pxe_services", "stop_pxe_services", "pxe_service_status",
   "capture_disk", "capture_partition", "restore_disk", "restore_partition",
   "clone_disk", "clone_partition"
