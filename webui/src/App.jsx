@@ -583,6 +583,16 @@ export default function App() {
           <FlexItem flex={{ default: "1" }}><StatusCard title="Deployment jobs" value={String(journals.length)} icon={<ExclamationTriangleIcon />} description="Recorded jobs and recovery state" /></FlexItem>
         </Flex> : <Spinner aria-label="Loading Feclora" />}
       </PageSection>
+      {status?.certificate_status?.length > 0 && <PageSection>
+        <Stack hasGutter>
+          {status.certificate_status.map((item) => <Alert key={item.role} variant={
+            item.status === "expired" || item.status === "error" ? "danger"
+              : item.status === "expiring" ? "warning" : "success"
+          } title={item.role + " TLS certificate: " + item.status} isInline>
+            {item.identity ? item.identity + " · " : ""}{item.expiry_days === null ? (item.detail || "Certificate status could not be read.") : item.expiry_days < 0 ? "Expired " + (-item.expiry_days) + " days ago." : "Expires in " + item.expiry_days + " days."}
+          </Alert>)}
+        </Stack>
+      </PageSection>}
       <PageSection>
         <Tabs activeKey={tab} onSelect={(_event, key) => setTab(key)}>
           <Tab eventKey="operations" title="Imaging operations">
