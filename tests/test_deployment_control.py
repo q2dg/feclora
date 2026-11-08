@@ -14,6 +14,7 @@ from unittest.mock import Mock, patch
 from feclora.deployment.control import (
     DeploymentControlError,
     DeploymentControlServer,
+    LocalTargetApproval,
     join_deployment,
     receive_control_message,
     send_control_message,
@@ -134,8 +135,7 @@ class ClientJoinTests(unittest.TestCase):
                 local_identity="URI:feclora-client",
                 expected_server_identity="URI:feclora-server",
                 mac_address=MAC, job_id=JOB_ID,
-                prepare_local_target=lambda offered: "Samsung SSD 1 TB (locally confirmed)",
-                execute_job=lambda offered, tls: (True, "restore verified"),
+                prepare_local_target=lambda offered: LocalTargetApproval(\n                    "/dev/vda", "Samsung SSD 1 TB", "ERASE /dev/vda FROM URI:feclora-server",\n                ),\n                execute_job=lambda offered, tls, approval: (True, "restore verified"),
             )
         self.assertEqual(received.job_id, JOB_ID)
         self.assertTrue(success)
@@ -369,8 +369,7 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
                         local_identity="URI:feclora-client",
                         expected_server_identity="URI:feclora-server",
                         mac_address=MAC, job_id=JOB_ID,
-                        prepare_local_target=lambda job: "Virtual disk 1 (locally approved)",
-                        execute_job=lambda job, tls: (True, "simulated protected operation verified"),
+                        prepare_local_target=lambda job: LocalTargetApproval(\n                            "/dev/vda", "Virtual disk 1", "ERASE /dev/vda FROM URI:feclora-server",\n                        ),\n                        execute_job=lambda job, tls, approval: (True, "simulated protected operation verified"),
                         timeout=10,
                     ))
                 except Exception as exc:
