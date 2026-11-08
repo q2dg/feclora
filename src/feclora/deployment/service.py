@@ -395,6 +395,7 @@ class DeploymentService:
         raise DeploymentServiceError("unsupported deployment service action")
 
     def _run_job(self) -> None:
+        self._last_error = None
         try:
             if self.job.transport == "multicast":
                 udpcast = udpcast_config_for_job(
