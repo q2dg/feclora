@@ -115,6 +115,35 @@ class WebAPITests(unittest.TestCase):
             with self.assertRaisesRegex(WebAPIError, "Client revocation failed: inventory corrupt"):
                 _revoke_server_client({"identity": identity, "confirmation": f"REVOKE {identity}"})
 
+    def test_inspect_image_layout_verifies_and_returns_partition_selectors(self):
+        import io
+        from contextlib import nullcontext
+        from pathlib import Path
+        table = (
+            "label: gpt\\nsector-size: 512\\n"
+            '/dev/sda1 : start=1, size=2, uuid="root-uuid", name="root"\\n'
+        ).encode("utf-8")
+        table_artifact = SimpleNamespace(
+            role="partition-table", format="raw", encryption="none", compression="none",
+        )
+        manifest = SimpleNamespace(
+            image_id="source", image_type="disk", source_size_bytes=4096,
+            logical_sector_size=512, artifacts=[table_artifact],
+        )
+        with patch("feclora.webapi._image_manifest", return_value=Path("/repo/source.manifest.json")), patch(
+            "pathlib.Path.read_text", return_value="{}"
+        ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
+            "feclora.webapi.os.path.isfile", return_value=False
+        ), patch("feclora.webapi._repository", return_value=Path("/repo")), patch(
+            "feclora.storage.disk_restore._open_artifact", return_value=nullcontext(io.BytesIO(table))
+        ), patch("feclora.storage.disk_restore._verify_stored_artifact"):
+            result = __import__("feclora.webapi", fromlist=["_inspect_image_layout"])._inspect_image_layout(
+                {"image_id": "source"}
+            )
+        self.assertEqual(result["partitions"][0]["selector"], "root-uuid")
+        self.assertEqual(result["partitions"][0]["size_bytes"], 1024)
+        self.assertIn("full disk data artifact", result["message"])
+
     def test_partition_extraction_verifies_disk_type_and_publishes_new_manifest(self):
         from pathlib import Path
         manifest = SimpleNamespace(
