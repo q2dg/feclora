@@ -17,6 +17,7 @@ from feclora.deployment.control import LocalTargetApproval, receive_control_mess
 from feclora.deployment.job import DeploymentJob
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
 from feclora.storage.disk_restore import DiskRestoreError, restore_disk
+from feclora.storage.partition_restore import PartitionRestoreError, restore_partition
 from feclora.storage.image_security import ImageSecurityError
 
 
@@ -67,7 +68,8 @@ def execute_client_image_job(
                 tls_socket, repository, expected_image_id=job.image_id,
                 trusted_public_key=trusted_server_public_key,
             )
-            restore_disk(
+            restore_function = restore_partition if job.target_type == "partition" else restore_disk
+            restore_function(
                 manifest_path, repository, local_device_path,
                 confirmation=f"ERASE {local_device_path}",
                 minisign_public_key=trusted_server_public_key,
@@ -77,7 +79,7 @@ def execute_client_image_job(
                 executables=executables,
             )
             return True, f"image {job.image_id} restored and destination read-back verified"
-        except (ImageTransferError, DiskRestoreError, ImageSecurityError, OSError) as exc:
+        except (ImageTransferError, DiskRestoreError, PartitionRestoreError, ImageSecurityError, OSError) as exc:
             raise ClientImageRuntimeError(f"restore failed: {exc}") from exc
 
     if job.operation == "save":
