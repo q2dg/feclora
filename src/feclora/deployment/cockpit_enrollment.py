@@ -117,16 +117,21 @@ def export_server_age_recipients(params: dict[str, object]) -> dict[str, object]
         raise CockpitEnrollmentError("Server age recipient inventory is empty, duplicated or malformed")
     destination = os.path.join(directory, "age-recipients.txt")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    directory_fd = -1
     try:
-        fd = os.open(destination, flags, 0o600)
+        directory_fd = os.open(
+            directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        )
+        fd = os.open("age-recipients.txt", flags, 0o600, dir_fd=directory_fd)
         try:
             with os.fdopen(fd, "wb") as stream:
                 stream.write(payload)
                 stream.flush()
                 os.fsync(stream.fileno())
+            os.fsync(directory_fd)
         except Exception:
             try:
-                os.unlink(destination)
+                os.unlink("age-recipients.txt", dir_fd=directory_fd)
             except OSError:
                 pass
             raise
@@ -134,6 +139,9 @@ def export_server_age_recipients(params: dict[str, object]) -> dict[str, object]
         raise CockpitEnrollmentError("age-recipients.txt already exists on the removable media; refusing to overwrite it") from exc
     except OSError as exc:
         raise CockpitEnrollmentError(f"cannot export age recipient inventory: {exc}") from exc
+    finally:
+        if directory_fd >= 0:
+            os.close(directory_fd)
     return {
         "path": destination, "recipient_count": len(recipients),
         "sha256": hashlib.sha256(payload).hexdigest(),
