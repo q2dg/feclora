@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 from dataclasses import dataclass
 from typing import Callable, Mapping
 
@@ -56,6 +57,7 @@ def partition_ranges(
         raise PartitionRangeError("partitiontable.partitions must be a list")
     result: list[PartitionRange] = []
     seen_nodes: set[str] = set()
+    occupied: list[tuple[int, int, str]] = []
     for index, raw in enumerate(raw_parts):
         if not isinstance(raw, Mapping):
             raise PartitionRangeError(f"partition {index} is not an object")
@@ -72,8 +74,13 @@ def partition_ranges(
         count = _positive_int(count, f"partition {node} size")
         offset = start * sector_size
         length = count * sector_size
-        if offset + length > image_size:
+        end = offset + length
+        if end > image_size:
             raise PartitionRangeError(f"partition {node} extends beyond the source image")
+        for previous_start, previous_end, previous_node in occupied:
+            if offset < previous_end and previous_start < end:
+                raise PartitionRangeError(f"partition ranges overlap: {previous_node} and {node}")
+        occupied.append((offset, end, node))
         result.append(PartitionRange(node, start, count, sector_size, offset, length))
     return tuple(result)
 
@@ -126,7 +133,7 @@ def copy_fd_range(
     chunk_size = _positive_int(chunk_size, "chunk_size")
     source_stat = os.fstat(source_fd)
     target_stat = os.fstat(target_fd)
-    if os.path.isfile(f"/proc/self/fd/{source_fd}") and source_offset + length > source_stat.st_size:
+    if stat.S_ISREG(source_stat.st_mode) and source_offset + length > source_stat.st_size:
         raise PartitionRangeError("requested source range exceeds source file")
     if target_stat.st_size and target_stat.st_size < length:
         raise PartitionRangeError("target file is smaller than requested partition range")
