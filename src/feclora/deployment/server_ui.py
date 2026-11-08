@@ -171,7 +171,7 @@ def _journal_directory() -> str:
 def _review_previous_journals(directory: str) -> None:
     summaries = []
     interrupted: list[tuple[str, str]] = []
-    for path in sorted(Path(directory).glob("*.jsonl"))[-20:]:
+    for path in sorted(Path(directory).glob("*.jsonl")):
         try:
             journal = DeploymentJournal.inspect(path)
             report = journal.recovery_report()
