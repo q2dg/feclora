@@ -21,11 +21,8 @@ The repository includes a Jekyll landing page, responsive CSS and a GitHub
 Actions deployment workflow. The workflow uses the GitHub Pages Actions
 deployment method and does not require a dedicated publishing branch.
 
-One repository-level setting must be enabled by an owner/administrator:
-open **Settings → Pages → Build and deployment → Source** and select
-**GitHub Actions**. The workflow deliberately does not try to create the Pages
-site using `GITHUB_TOKEN`, because GitHub's `configure-pages` action requires
-a separate elevated token for that operation. After selecting GitHub Actions,
-pushes to `main` will publish the site automatically. The site is considered
-published only after the workflow completes successfully and GitHub Pages
-reports the deployment URL; publication can take several minutes.
+GitHub Pages is now enabled for this repository with **GitHub Actions** as the
+source. Pushes to `main` that change `docs/` trigger the deployment workflow.
+The site is considered published only after the workflow completes successfully
+and the public URL responds with the landing page; publication can take several
+minutes after the deployment job succeeds.
