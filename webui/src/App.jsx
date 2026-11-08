@@ -343,7 +343,7 @@ export default function App() {
         minisign_public_path: clientMinisignPath || null, renewal: csrRenewal
       });
       setCsrReview(result);
-      setNotice("CSR signature, Client identity and age recipient inspected. No trust changes have been made.");
+      setNotice(csrRenewal ? "Renewal CSR inspected; existing trust mappings remain unchanged until the new certificate is installed." : "CSR signature, Client identity and age recipient inspected. No trust changes have been made.");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -924,7 +924,7 @@ export default function App() {
                 <label><input type="checkbox" checked={csrRenewal} onChange={(event) => { setCsrRenewal(event.target.checked); setCsrReview(null); setCsrConfirmation(""); }} /> This CSR renews an already-enrolled Client certificate (preserve its MAC, age identity and image-signing trust)</label>
                 <Button variant="secondary" onClick={inspectClientCSR} isLoading={busy} isDisabled={busy || !csrPath || !ageRecipientPath || !clientMac}>Inspect {csrRenewal ? "renewal" : "enrollment"} request</Button>
                 {csrApprovalResult && <Card className="pf-v5-u-mt-md"><CardBody>
-                  <Alert variant="success" title="Client enrolled" isInline>{csrApprovalResult.message}</Alert>
+                  <Alert variant="success" title={csrApprovalResult.renewal ? "Client certificate renewed" : "Client enrolled"} isInline>{csrApprovalResult.message}</Alert>
                   <p>Identity: {csrApprovalResult.identity} · MAC: {csrApprovalResult.mac_address}</p>
                   <p>Response bundle: {csrApprovalResult.bundle_directory}</p>
                   <p>Feclora CA SHA-256 fingerprint (verify on Client):</p><code>{csrApprovalResult.ca_fingerprint}</code>
