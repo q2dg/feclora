@@ -133,7 +133,7 @@ cat > "$TARGET_ROOT/usr/libexec/feclora/cockpit-api" <<'EOF'
 #!/bin/sh
 set -eu
 case "${1:-}" in
-  status|inventory|images|journals|operations|initialize_security|network_interfaces|bootstrap_server|approve_client_csr|validate_pxe_profile|start_pxe_services|stop_pxe_services|pxe_service_status|capture_disk|capture_partition|restore_disk|restore_partition|clone_disk|clone_partition) ;;
+  status|inventory|images|journals|operations|initialize_security|network_interfaces|bootstrap_server|inspect_client_csr|approve_client_csr|validate_pxe_profile|start_pxe_services|stop_pxe_services|pxe_service_status|capture_disk|capture_partition|restore_disk|restore_partition|clone_disk|clone_partition) ;;
   *) echo '{"ok":false,"error":"unsupported action"}' >&2; exit 2 ;;
 esac
 export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
