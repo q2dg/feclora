@@ -180,6 +180,7 @@ def create_client_csr(
     runner: Callable[..., Any] | None = None,
     openssl: str = "/usr/bin/openssl",
     reuse_existing_key: bool = False,
+    age_keygen: str = "/usr/bin/age-keygen",
 ) -> tuple[str, str, str]:
     """Generate a Client key locally, or reuse it for renewal, and export only its CSR."""
     if not isinstance(client_id, str) or not _CLIENT_ID.fullmatch(client_id):
@@ -193,8 +194,10 @@ def create_client_csr(
     suffix = "-renewal" if reuse_existing_key else ""
     csr = os.path.join(root, f"client-{client_id}{suffix}.csr")
     exported = os.path.join(export, f"feclora-{client_id}{suffix}.csr")
-    if os.path.lexists(csr) or os.path.lexists(exported):
-        raise PKIError("CSR already exists; remove or rename the previous request before creating another")
+    age_identity = os.path.join(root, f"client-{client_id}.age")
+    age_recipient_export = os.path.join(export, f"feclora-{client_id}.age-recipient")
+    if os.path.lexists(csr) or os.path.lexists(exported) or os.path.lexists(age_recipient_export):
+        raise PKIError("CSR or age-recipient export already exists; remove or rename the previous request")
     if reuse_existing_key:
         _regular_file(key, "existing Client private key", root_owned=True)
         if os.stat(key).st_mode & 0o077:
@@ -211,6 +214,35 @@ def create_client_csr(
     os.chmod(key, 0o600)
     os.chmod(csr, 0o600)
     _atomic_copy(csr, exported, 0o644)
+    if not os.path.exists(age_identity):
+        age_result = _run([age_keygen, "-o", age_identity], runner)
+        os.chmod(age_identity, 0o600)
+        match = re.search(r"Public key:\s*(age1[0-9a-z]+)", age_result.stdout)
+        if not match:
+            raise PKIError("age-keygen did not report a valid public recipient")
+        recipient = match.group(1)
+    else:
+        _regular_file(age_identity, "Client age identity", root_owned=True)
+        if os.stat(age_identity).st_mode & 0o077:
+            raise PKIError("Client age identity must not be accessible by group or other users")
+        age_result = _run([age_keygen, "-y", age_identity], runner)
+        recipient = age_result.stdout.strip()
+        if not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
+            raise PKIError("existing age identity did not produce a valid public recipient")
+    fd, temporary = tempfile.mkstemp(prefix=".feclora-age-recipient-", dir=export)
+    try:
+        with os.fdopen(fd, "w", encoding="ascii") as stream:
+            stream.write(recipient + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, age_recipient_export)
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
     return identity, key, exported
 
 
