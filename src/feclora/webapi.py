@@ -1372,6 +1372,43 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+
+def _server_trusted_clients() -> dict[str, Any]:
+    """Return enrolled Client identities without exposing key material."""
+    from feclora.deployment.runtime_config import load_server_runtime_config
+    config_path = "/etc/feclora/deployment-server.json"
+    if not os.path.isfile(config_path):
+        return {"clients": []}
+    try:
+        config = load_server_runtime_config(config_path)
+    except Exception as exc:
+        raise WebAPIError(f"cannot read Server trust configuration: {exc}") from exc
+    return {"clients": [
+        {"identity": identity, "mac_address": mac,
+         "image_capture": mac in config.client_minisign_public_keys}
+        for identity, mac in sorted(config.client_identity_to_mac.items())
+    ]}
+
+
+def _revoke_server_client(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"identity", "confirmation"}:
+        raise WebAPIError("Client revocation requires exactly identity and confirmation")
+    identity, confirmation = params["identity"], params["confirmation"]
+    if not isinstance(identity, str) or not identity.startswith("URI:feclora-client-"):
+        raise WebAPIError("Client identity is invalid")
+    if not isinstance(confirmation, str) or confirmation != f"REVOKE {identity}":
+        raise WebAPIError("revocation confirmation does not match")
+    from feclora.deployment.enrollment import revoke_client_certificate
+    try:
+        mac = revoke_client_certificate(
+            "/etc/feclora/deployment-server.json", identity,
+            confirmation=confirmation,
+        )
+    except Exception as exc:
+        raise WebAPIError(f"Client revocation failed: {exc}") from exc
+    return {"identity": identity, "mac_address": mac, "revoked": True}
+
+
 def dispatch(request: Any) -> dict[str, Any]:
     if not isinstance(request, dict) or set(request) - {"action", "params"} or "action" not in request:
         raise WebAPIError("request must contain an action and optional params object")
@@ -1390,6 +1427,12 @@ def dispatch(request: Any) -> dict[str, Any]:
             "services": _service_state(),
             "security": _security_material(),
         }
+    if action == "server_trusted_clients":
+        if params:
+            raise WebAPIError("server_trusted_clients does not accept parameters")
+        return _server_trusted_clients()
+    if action == "revoke_server_client":
+        return _revoke_server_client(params)
     if action == "network_interfaces":
         if params:
             raise WebAPIError("network_interfaces does not accept parameters")
