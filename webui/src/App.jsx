@@ -479,7 +479,7 @@ export default function App() {
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Create a remote deployment job</Title>
                 <Alert variant="warning" title="Definition only — service not started; no Client contact or disk I/O" isInline>
-                  This step validates and journals a job definition. Start its persistent service separately; Clients then authenticate and approve their own local target. No storage operation starts until you explicitly arm the job here.
+                  This step validates and journals a job definition. Start its persistent service separately; Clients then authenticate and approve their own local target through the existing Client-local runtime. The Client-side Cockpit target wizard remains pending. No storage operation starts until you explicitly arm the job here.
                 </Alert>
               </StackItem>
               <StackItem>
