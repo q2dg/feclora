@@ -54,17 +54,24 @@ and [upstream command-line documentation](https://www.udpcast.linux.lu/cmd.html)
 
 ## Remaining integration and acceptance work
 
-1. Add the mTLS control service and a persistent job/session store around the
-   existing coordinator; MAC allowlists remain an additional policy, not auth.
-2. Implement the Client mode runtime: certificate identity, independent local
-   target selection, capacity/geometry checks, staging-volume selection,
-   signed-manifest delivery, receive, verify, protected restore, and result ACK.
-3. Integrate per-client progress/results and cancellation; ensure partial
-   staging files are cleaned up after failure or cancellation.
-4. Add multicast interface/subnet preflight, IGMP snooping/querier checks and
-   explicit unicast fallback when multicast is unavailable.
-5. Exercise sender plus multiple receivers in isolated BIOS/UEFI VMs and on
-   networks with IGMP snooping/querier; test packet loss, insufficient space,
-   wrong signatures, wrong hashes, receiver loss and cancellation.
+The authenticated control service, persistent job journal, Client-side whole-disk
+restore runtime, signed-manifest delivery, private staging, and per-client
+terminal results are integrated in the current application. The following
+work remains:
 
-No end-to-end multicast deployment or VM validation is claimed by this adapter.
+1. Extend the authenticated deployment protocol and Client UI to support
+   manifest-backed **partition-image** multicast restore to an already existing
+   target partition. Keep whole-disk restore as the only multicast mode until
+   this path has its own target-approval and geometry checks.
+2. Add automated multicast interface/subnet capability preflight, including
+   local route/interface checks and clear diagnostics for IGMP snooping and
+   querier requirements. Retain an explicit operator fallback to one-to-one
+   unicast; do not silently change transport mid-job.
+3. Add per-client live byte progress and streaming logs without weakening the
+   explicit start/cancel gates.
+4. Execute the sender and multiple receivers in isolated BIOS/UEFI VMs and on
+   networks with IGMP snooping/querier. Test packet loss, insufficient space,
+   wrong signatures, wrong hashes, receiver loss, cancellation and recovery.
+
+This document describes the adapter and remaining work; it is not evidence
+that end-to-end multicast or VM acceptance has passed.
