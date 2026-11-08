@@ -14,6 +14,8 @@ The script intentionally does not use `--no-virt`.
 
 Use a dedicated build machine or VM with:
 
+- Node.js and npm (the build-host dependency installer provides both) to compile the React/PatternFly Cockpit package.
+
 - Fedora 45 x86_64 and working Fedora package repositories.
 - Hardware virtualization enabled in firmware and KVM available to the host.
 - Enough free disk space for the source DVD, augmented installer ISO,
