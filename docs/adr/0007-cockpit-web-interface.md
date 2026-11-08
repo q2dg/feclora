@@ -21,16 +21,19 @@ service, React and PatternFly. Do not fork Anaconda, depend on Anaconda's
 installer-specific Web UI internals, or attempt to extend Anaconda's screens:
 third-party add-on support in Anaconda's Web UI is not yet available.
 
-The frontend will call a separately testable Feclora backend. Storage,
-imaging, deployment and PXE operations remain in domain modules and must not
-depend on Cockpit. The initial backend may remain Python; a narrow privileged
-service/API boundary must validate every request and must not expose arbitrary
-shell execution.
+The frontend calls a separately testable Feclora backend through a root-owned
+wrapper and Cockpit's superuser authorization. The initial API is deliberately
+read-only: status, image manifests, deployment journal summaries and storage
+inventory. It rejects arbitrary actions and exposes no shell or arbitrary argv.
+Storage, imaging, deployment and PXE operations remain in domain modules and
+must not depend on Cockpit. Destructive web workflows are future work and must
+preserve the existing target-approval and typed-confirmation gates.
 
-The interface should provide local rescue, image capture/restore, clone,
-Server/PXE administration, connected-client status, deployment progress and
-operation logs. Destructive operations require explicit review and typed
-confirmation, enforced by the backend as well as the UI.
+The long-term interface should provide local rescue, image capture/restore,
+clone, Server/PXE administration, connected-client status, deployment
+progress and operation logs. The initial React page currently provides
+read-only status and inventory only. Destructive operations require explicit
+review and typed confirmation, enforced by the backend as well as the UI.
 
 Keep the dialog/text-console interface as an offline fallback until the
 Cockpit application has passed equivalent usability, accessibility and
@@ -44,9 +47,10 @@ to explicitly selected interfaces.
   components without coupling Feclora to Anaconda.
 - The web frontend can be accessed locally and, when explicitly enabled,
   remotely by an administrator.
-- Cockpit packaging, authentication, privilege separation, SELinux policy,
-  service lifecycle, browser availability and Live-image resource cost need
-  implementation and validation.
+- Cockpit packaging and the initial dashboard are integrated into Kickstart.
+  The socket remains disabled by default. Authentication, SELinux policy,
+  remote firewall scoping, browser compatibility and Live-image resource cost
+  still require validation.
 - The dialog interface remains supported until the web UI reaches feature
   parity and has been tested without network connectivity.
 
