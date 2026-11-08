@@ -55,6 +55,15 @@ fi
 if ! grep -q 'def _bootstrap_server' "$ROOT_DIR/src/feclora/webapi.py"; then
   fail "Cockpit backend is missing the Server identity bootstrap implementation."
 fi
+if ! grep -q 'def _validate_pxe_profile' "$ROOT_DIR/src/feclora/webapi.py"; then
+  fail "Cockpit backend is missing PXE profile preflight."
+fi
+if ! grep -q '"validate_pxe_profile"' "$ROOT_DIR/webui/src/api.js"; then
+  fail "Cockpit API client does not allow PXE profile preflight."
+fi
+if ! grep -q 'validate_pxe_profile' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "Kickstart Cockpit API wrapper does not allow PXE profile preflight."
+fi
 
 if grep -qx 'dialog' "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "The legacy dialog package must not be included in the Cockpit-first Live image."
