@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from feclora.deployment.cockpit_enrollment import (
-    CockpitEnrollmentError, inspect_client_request, approve_client_csr,
+    CockpitEnrollmentError, inspect_client_request, approve_client_csr, export_server_age_recipients,
 )
 
 
@@ -15,6 +15,28 @@ class CockpitEnrollmentTests(unittest.TestCase):
             with self.assertRaisesRegex(CockpitEnrollmentError, "under /run/media"):
                 from feclora.deployment.cockpit_enrollment import _media_file
                 _media_file(source.name, "CSR")
+
+    def test_export_server_age_recipients_writes_private_non_overwriting_bundle(self):
+        import hashlib
+        import os
+        import tempfile
+
+        payload = ("age1" + "a" * 40 + "\\n").encode("ascii")
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "age-recipients.txt"
+            source.write_bytes(payload)
+            with patch("feclora.deployment.cockpit_enrollment.PKI", directory), patch(
+                "feclora.deployment.cockpit_enrollment._media_directory", return_value=directory
+            ):
+                result = export_server_age_recipients({"export_directory": directory})
+            self.assertEqual(Path(result["path"]).read_bytes(), payload)
+            self.assertEqual(result["sha256"], hashlib.sha256(payload).hexdigest())
+            self.assertEqual(os.stat(result["path"]).st_mode & 0o777, 0o600)
+            with patch("feclora.deployment.cockpit_enrollment.PKI", directory), patch(
+                "feclora.deployment.cockpit_enrollment._media_directory", return_value=directory
+            ):
+                with self.assertRaisesRegex(CockpitEnrollmentError, "refusing to overwrite"):
+                    export_server_age_recipients({"export_directory": directory})
 
     def test_inspection_returns_exact_confirmation_without_enrolling(self):
         config = SimpleNamespace(client_identity_to_mac={})
