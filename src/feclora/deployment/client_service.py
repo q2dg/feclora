@@ -25,6 +25,7 @@ from feclora.storage.source_safety import SourceSafetyError, check_capture_sourc
 
 
 CLIENT_JOB_DIRECTORY = Path("/var/lib/feclora/client-jobs")
+RUNTIME_DIRECTORY = Path("/run/feclora")
 JOB_ID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")
 TERMINAL_PHASES = {"completed", "failed", "cancelled", "interrupted"}
 
@@ -48,7 +49,7 @@ def _job_paths(job_id: str) -> tuple[Path, Path, Path]:
     return (
         CLIENT_JOB_DIRECTORY / f"{job_id}.request.json",
         CLIENT_JOB_DIRECTORY / f"{job_id}.status.json",
-        CLIENT_JOB_DIRECTORY / "active.lock",
+        RUNTIME_DIRECTORY / "deployment.lock",
     )
 
 
@@ -61,6 +62,17 @@ def _ensure_directory() -> None:
     if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
             or info.st_uid != 0 or info.st_mode & 0o077):
         raise ClientJobServiceError("Client job directory must be a private root-owned real directory")
+
+
+def _ensure_runtime_directory() -> None:
+    try:
+        RUNTIME_DIRECTORY.mkdir(mode=0o755, parents=True, exist_ok=True)
+        info = os.lstat(RUNTIME_DIRECTORY)
+    except OSError as exc:
+        raise ClientJobServiceError(f"cannot prepare deployment runtime directory: {exc}") from exc
+    if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
+            or info.st_uid != 0 or info.st_mode & 0o022):
+        raise ClientJobServiceError("deployment runtime directory is unsafe")
 
 
 def _read_private_json(path: Path, *, limit: int = 8192) -> dict[str, Any]:
@@ -119,6 +131,7 @@ def _write_private_json(path: Path, value: dict[str, Any]) -> None:
 
 def mark_client_job_interrupted(job_id: str) -> None:
     _ensure_directory()
+    _ensure_runtime_directory()
     _request_path, status_path, lock_path = _job_paths(job_id)
     if not status_path.exists():
         return
@@ -159,6 +172,7 @@ class ClientDeploymentService:
 
     def _acquire_lock(self) -> None:
         _ensure_directory()
+        _ensure_runtime_directory()
         self._lock_fd = os.open(
             self.lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600,
         )
