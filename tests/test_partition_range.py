@@ -1,4 +1,4 @@
-import os
+import hashlib
 import tempfile
 import unittest
 
@@ -64,7 +64,7 @@ class PartitionRangeTests(unittest.TestCase):
             target.seek(0)
             self.assertEqual(target.read(), b"456789ab")
             self.assertEqual(result.bytes_copied, 8)
-            self.assertEqual(result.sha256, "f9f6f4c7c3d8f0f9e2e3f7c9c7c7f9d7") if False else None
+            self.assertEqual(result.sha256, hashlib.sha256(b"456789ab").hexdigest())
 
     def test_copy_reports_progress_and_honors_cancel(self):
         with tempfile.TemporaryFile() as source, tempfile.TemporaryFile() as target:
