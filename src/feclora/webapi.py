@@ -107,6 +107,22 @@ def _progress(done: int, total: int | None) -> None:
            "bytes_total": int(total) if total is not None else None})
 
 
+def _client_runtime_config() -> Any | None:
+    path = Path("/etc/feclora/deployment-client.json")
+    if not path.exists():
+        return None
+    from feclora.deployment.runtime_config import load_client_runtime_config
+    return load_client_runtime_config(str(path))
+
+
+def _capture_material() -> tuple[Path | None, Path | None]:
+    pki = Path("/etc/feclora/pki")
+    client = _client_runtime_config()
+    recipients = Path(client.age_recipients_file) if client and client.age_recipients_file else pki / "age-recipients.txt"
+    signing = Path(client.local_minisign_secret_key) if client and client.local_minisign_secret_key else pki / "server.minisign.key"
+    return recipients, signing
+
+
 def _security_material() -> dict[str, bool]:
     directory = Path("/etc/feclora/pki")
     files = {
@@ -127,6 +143,12 @@ def _security_material() -> dict[str, bool]:
             )
         except OSError:
             result[label] = False
+    client = _client_runtime_config()
+    if client:
+        result["age_encryption_available"] = result["age_encryption_available"] or bool(client.age_recipients_file)
+        result["age_decryption_available"] = result["age_decryption_available"] or bool(client.age_identity_file)
+        result["image_signing_available"] = result["image_signing_available"] or bool(client.local_minisign_secret_key)
+        result["image_verification_available"] = result["image_verification_available"] or bool(client.trusted_server_public_key)
     return result
 
 
@@ -269,12 +291,12 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             raise WebAPIError("initialize Feclora security keys before enabling age encryption")
         if sign and not security["image_signing_available"]:
             raise WebAPIError("initialize Feclora security keys before enabling image signatures")
-        pki = Path("/etc/feclora/pki")
+        recipients_file, signing_key = _capture_material()
         manifest = capture_disk(
             source, image_id, _repository(create=True), compression=compression,
             progress_callback=_progress,
-            age_recipients_file=pki / "age-recipients.txt" if encrypt else None,
-            minisign_secret_key=pki / "server.minisign.key" if sign else None,
+            age_recipients_file=recipients_file if encrypt else None,
+            minisign_secret_key=signing_key if sign else None,
         )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
     elif action == "capture_partition":
@@ -291,12 +313,12 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             raise WebAPIError("initialize Feclora security keys before enabling age encryption")
         if sign and not security["image_signing_available"]:
             raise WebAPIError("initialize Feclora security keys before enabling image signatures")
-        pki = Path("/etc/feclora/pki")
+        recipients_file, signing_key = _capture_material()
         manifest = capture_partition_image(
             source, image_id, partition_id, _repository(create=True),
             compression=compression, progress_callback=_progress,
-            age_recipients_file=pki / "age-recipients.txt" if encrypt else None,
-            minisign_secret_key=pki / "server.minisign.key" if sign else None,
+            age_recipients_file=recipients_file if encrypt else None,
+            minisign_secret_key=signing_key if sign else None,
         )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
     elif action in {"restore_disk", "restore_partition"}:
@@ -321,10 +343,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         trusted_keys: list[Path] = []
         if security["image_verification_available"]:
             trusted_keys.append(pki / "server.pub")
-        client_config_path = Path("/etc/feclora/deployment-client.json")
-        if client_config_path.exists():
-            from feclora.deployment.runtime_config import load_client_runtime_config
-            client_config = load_client_runtime_config(str(client_config_path))
+        client_config = _client_runtime_config()
+        if client_config:
             if client_config.age_identity_file:
                 identity_paths.append(Path(client_config.age_identity_file))
             trusted_keys.insert(0, Path(client_config.trusted_server_public_key))
