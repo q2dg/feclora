@@ -89,6 +89,76 @@ def _write_config(path: str, value: dict[str, Any]) -> None:
         raise
 
 
+def refresh_client_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"inventory_path"}:
+        raise CockpitEnrollmentError("refresh_client_age_recipients requires exactly inventory_path")
+    inventory_path = params["inventory_path"]
+    if not isinstance(inventory_path, str) or os.path.basename(inventory_path) != "age-recipients.txt":
+        raise CockpitEnrollmentError("inventory_path must identify age-recipients.txt on removable media")
+    media_directory = _mounted_media_directory(os.path.dirname(inventory_path))
+    source = _bundle_file(media_directory, "age-recipients.txt", maximum=65536)
+    config = load_client_runtime_config(CONFIG)
+    if not config.age_identity_file or not config.age_recipients_file:
+        raise CockpitEnrollmentError("this Client has no configured age identity and recipient inventory")
+    try:
+        info = os.lstat(config.age_identity_file)
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
+            raise CockpitEnrollmentError("Client age identity must be a root-owned regular file")
+        with open(source, "rb") as stream:
+            payload = stream.read(65537)
+        if len(payload) > 65536:
+            raise CockpitEnrollmentError("age recipient inventory exceeds 64 KiB")
+        recipients = [line.strip() for line in payload.decode("ascii").splitlines() if line.strip()]
+    except (OSError, UnicodeError) as exc:
+        raise CockpitEnrollmentError(f"cannot read age recipient inventory: {exc}") from exc
+    if not recipients or len(recipients) != len(set(recipients)) or any(
+        not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients
+    ):
+        raise CockpitEnrollmentError("age recipient inventory is empty, duplicated or malformed")
+    result = subprocess.run(
+        ["/usr/bin/age-keygen", "-y", config.age_identity_file],
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=15,
+    )
+    if result.returncode != 0 or result.stdout.strip() not in recipients:
+        raise CockpitEnrollmentError("updated recipient inventory does not contain this Client's own age identity")
+    destination = config.age_recipients_file
+    parent = os.path.dirname(destination)
+    try:
+        parent_info = os.lstat(parent)
+        if not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode) or parent_info.st_uid != 0:
+            raise CockpitEnrollmentError("Client age recipient directory must be root-owned and real")
+        if os.path.lexists(destination):
+            destination_info = os.lstat(destination)
+            if not stat.S_ISREG(destination_info.st_mode) or stat.S_ISLNK(destination_info.st_mode) or destination_info.st_uid != 0:
+                raise CockpitEnrollmentError("existing Client age recipient inventory must be a root-owned regular file")
+        fd, temporary = tempfile.mkstemp(prefix=".feclora-age-recipients-", dir=parent)
+        try:
+            os.fchmod(fd, 0o600)
+            with open(source, "rb") as src, os.fdopen(fd, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+                dst.flush()
+                os.fsync(dst.fileno())
+            os.replace(temporary, destination)
+            directory_fd = os.open(parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except Exception:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
+            raise
+    except OSError as exc:
+        raise CockpitEnrollmentError(f"cannot install updated age recipient inventory: {exc}") from exc
+    return {
+        "recipient_count": len(recipients),
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "message": "Client age recipient inventory refreshed. This Client can encrypt new images for the current Server recipient set; existing encrypted images are unchanged.",
+    }
+
+
 def prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"client_id", "export_directory", "image_capture"}:
         raise CockpitEnrollmentError("prepare_client_request requires client_id, export_directory and image_capture")
