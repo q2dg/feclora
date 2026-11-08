@@ -1,7 +1,11 @@
 """Dialog workflow for an authenticated Client save/restore job."""
 from __future__ import annotations
 
+import os
+import shutil
 import socket
+import subprocess
+import sys
 from typing import Any
 
 from feclora.deployment.client_runtime import execute_client_image_job
@@ -21,8 +25,28 @@ from feclora.ui import dialog_app
 CONFIG_PATH = "/etc/feclora/deployment-client.json"
 
 
+def _elevate() -> int:
+    sudo = shutil.which("sudo")
+    if not sudo:
+        dialog_app._message(
+            "Client mode requires root",
+            "sudo is required to inspect and restore local block devices and manage multicast firewall rules.",
+        )
+        return 1
+    pythonpath = os.environ.get("PYTHONPATH") or "/usr/share/feclora/python"
+    term = os.environ.get("TERM") or "linux"
+    result = subprocess.run(
+        [sudo, "-n", "env", f"PYTHONPATH={pythonpath}", f"TERM={term}",
+         sys.executable, "-m", "feclora.deployment.client_ui"],
+        check=False,
+    )
+    return result.returncode
+
+
 def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
     """Join one Server job after local device selection and typed approval."""
+    if os.geteuid() != 0:
+        return _elevate()
     try:
         config = load_client_runtime_config(config_path)
         job_id = dialog_app._input(
@@ -160,3 +184,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
     except Exception as exc:
         dialog_app._message("Client deployment failed", str(exc))
         return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(run_client_ui())
