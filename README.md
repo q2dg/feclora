@@ -106,7 +106,8 @@ The underlying Python storage engines include safety checks, manifest-backed
 artifact publication, compression, integrity verification, and restore
 preflight. The remote deployment engines include mTLS enrollment, signed
 unicast image transfer, PXE/iPXE boot infrastructure and UDPcast multicast
-restore. Their complete Cockpit Server/Client setup, job lifecycle and
+restore. Cockpit now provides the first Server identity bootstrap step;
+complete Server/Client network provisioning, enrollment, job lifecycle and
 per-client live progress still need to be integrated. Local storage flows and
 the new Cockpit frontend have not yet been exercised against a built ISO or
 physical disks; CI status must be checked before claiming automated test
