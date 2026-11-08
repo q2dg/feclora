@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import json
 import os
 import signal
 import socket
 import stat
 import sys
+import tempfile
 import threading
 import time
 from datetime import datetime, timezone
@@ -36,6 +38,7 @@ from feclora.storage.image_security import verify_manifest_signature
 RUNTIME_DIRECTORY = Path("/run/feclora")
 IPC_SOCKET = RUNTIME_DIRECTORY / "deployment.sock"
 LOCK_FILE = RUNTIME_DIRECTORY / "deployment.lock"
+FIREWALL_STATE = RUNTIME_DIRECTORY / "deployment-firewall.json"
 JOURNAL_DIRECTORY = Path("/var/lib/feclora/deployments")
 CONFIG_FILE = "/etc/feclora/deployment-server.json"
 
@@ -96,9 +99,7 @@ class DeploymentService:
         # If PXE already owns this interface's temporary zone, adopt it so the
         # deployment listener adds/removes only its own TCP port.
         pxe_manager = PXEServiceManager(firewall=self.firewall)
-        pxe_state = pxe_manager._read_state()
-        if pxe_state is not None and pxe_state["interface"] == self.job.network_interface:
-            self.firewall.adopt(self.job.network_interface, pxe_state["firewall"])
+        self._pxe_state = pxe_manager._read_state()
         context = create_mutual_tls_context(
             "server", ca_file=self.config.ca_file,
             certificate_file=self.config.certificate_file,
@@ -118,6 +119,70 @@ class DeploymentService:
         self._last_error: str | None = None
         self._stop_event = threading.Event()
         self._lock_fd: int | None = None
+
+    def _write_firewall_state(self, value: dict[str, Any] | None) -> None:
+        if value is None:
+            try:
+                info = os.lstat(FIREWALL_STATE)
+                if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
+                    raise DeploymentServiceError("deployment firewall state path is unsafe")
+                FIREWALL_STATE.unlink()
+            except FileNotFoundError:
+                pass
+            return
+        record = {"schema_version": 1, **value}
+        fd, temporary = tempfile.mkstemp(prefix=".deployment-firewall.", dir=RUNTIME_DIRECTORY)
+        try:
+            os.fchmod(fd, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                json.dump(record, stream, sort_keys=True, separators=(",", ":"))
+                stream.write("\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, FIREWALL_STATE)
+            directory_fd = os.open(RUNTIME_DIRECTORY, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except Exception:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
+            raise
+
+    def _recover_stale_firewall_state(self) -> None:
+        try:
+            info = os.lstat(FIREWALL_STATE)
+        except FileNotFoundError:
+            return
+        if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != 0 or info.st_mode & 0o077 or info.st_size > 8192):
+            raise DeploymentServiceError("stale deployment firewall state is unsafe")
+        try:
+            with FIREWALL_STATE.open("r", encoding="utf-8") as stream:
+                value = json.load(stream)
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise DeploymentServiceError("stale deployment firewall state is unreadable") from exc
+        if (not isinstance(value, dict)
+                or set(value) != {"schema_version", "interface", "firewall", "opened_by_service", "added_ports"}
+                or value["schema_version"] != 1 or isinstance(value["schema_version"], bool)
+                or not isinstance(value["interface"], str)
+                or not isinstance(value["opened_by_service"], bool)
+                or not isinstance(value["added_ports"], list)
+                or any(not isinstance(port, str) for port in value["added_ports"])):
+            raise DeploymentServiceError("stale deployment firewall state has an invalid schema")
+        recovery = PXEFirewall()
+        try:
+            recovery.adopt(value["interface"], value["firewall"])
+            if value["opened_by_service"]:
+                recovery.close(value["interface"])
+            else:
+                recovery.remove_ports(value["interface"], value["added_ports"])
+        except Exception as exc:
+            raise DeploymentServiceError(f"cannot safely restore stale deployment firewall state: {exc}") from exc
+        FIREWALL_STATE.unlink()
 
     def _acquire_instance_lock(self) -> None:
         info = os.lstat(RUNTIME_DIRECTORY)
@@ -258,6 +323,10 @@ class DeploymentService:
         self._acquire_instance_lock()
         service_start_recorded = False
         try:
+            self._recover_stale_firewall_state()
+            if (self._pxe_state is not None
+                    and self._pxe_state["interface"] == self.job.network_interface):
+                self.firewall.adopt(self.job.network_interface, self._pxe_state["firewall"])
             self.journal({
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "job_id": self.job.job_id,
@@ -266,7 +335,10 @@ class DeploymentService:
                 "detail": "Persistent Server control service started; no storage operation armed.",
             })
             service_start_recorded = True
-            self.control.start(self.config.bind_address, self.config.port)
+            self.control.start(
+                self.config.bind_address, self.config.port,
+                firewall_state_callback=self._write_firewall_state,
+            )
             self.ipc.start()
             while not self._stop_event.wait(0.5):
                 pass
