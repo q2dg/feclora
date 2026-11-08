@@ -14,6 +14,7 @@ from typing import Any, Callable
 from feclora.network.pxe_config import PXENetworkConfig, render_caddy, render_dnsmasq
 from feclora.network.pxe_preflight import validate_pxe_configuration
 from feclora.network.firewall import PXEFirewall
+from feclora.network.pxe_boot import stage_pxe_boot_tree
 
 
 class PXEServiceError(RuntimeError):
@@ -32,6 +33,7 @@ class PXEServiceManager:
         caddy: str = "/usr/bin/caddy",
         preflight: Callable[[PXENetworkConfig], None] = validate_pxe_configuration,
         firewall: PXEFirewall | None = None,
+        boot_stager: Callable[[PXENetworkConfig], Any] = stage_pxe_boot_tree,
     ) -> None:
         self.runtime_dir = Path(runtime_dir)
         self.runner = runner
@@ -41,6 +43,7 @@ class PXEServiceManager:
         self.caddy = caddy
         self.preflight = preflight
         self.firewall = firewall or PXEFirewall()
+        self.boot_stager = boot_stager
         self._active_interface: str | None = None
         self._started_units: set[str] = set()
 
@@ -80,6 +83,7 @@ class PXEServiceManager:
     def start(self, config: PXENetworkConfig) -> None:
         """Start dnsmasq then Caddy; roll back services and firewall on failure."""
         config.validated()
+        self.boot_stager(config)
         self.preflight(config)
         self._prepare_runtime()
         dnsmasq_config = self._write_config("dnsmasq.conf", render_dnsmasq(config))
