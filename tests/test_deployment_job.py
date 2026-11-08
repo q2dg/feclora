@@ -90,6 +90,16 @@ class DeploymentJobTests(unittest.TestCase):
                 transport="multicast", multicast_group="239.10.10.10", multicast_port=80
             ))
 
+    def test_multicast_portbase_must_be_even_and_within_udpcast_range(self):
+        for port in (1023, 9001, 65535):
+            with self.subTest(port=port):
+                with self.assertRaisesRegex(JobValidationError, "even UDPcast"):
+                    DeploymentJob.from_dict(valid_job(
+                        transport="multicast",
+                        multicast_group="239.10.10.10",
+                        multicast_port=port,
+                    ))
+
     def test_unicast_rejects_multicast_parameters(self):
         with self.assertRaisesRegex(JobValidationError, "only valid for multicast"):
             DeploymentJob.from_dict(valid_job(multicast_group="239.10.10.10"))
