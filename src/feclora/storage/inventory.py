@@ -13,6 +13,7 @@ from feclora.storage.volume_metadata import annotate_inventory
 from feclora.storage.volume_topology import collect_lvm_topology, VolumeTopologyError
 from feclora.storage.btrfs_inventory import collect_btrfs_topology, BtrfsInventoryError
 from feclora.storage.stratis_inventory import collect_stratis_topology, StratisInventoryError
+from feclora.storage.stratis_inventory import collect_stratis_topology, StratisInventoryError
 
 LSBLK_COLUMNS = (
     "NAME,PATH,TYPE,SIZE,RO,TRAN,MODEL,VENDOR,SERIAL,WWN,"
