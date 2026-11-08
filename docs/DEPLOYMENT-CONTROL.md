@@ -5,7 +5,7 @@ The Server/Client control-plane implementation is in `feclora.deployment.control
 ## Trust and enrollment
 
 - TLS is restricted to TLS 1.3 and requires a certificate from the configured CA on both endpoints.
-- The Server maps an exact client certificate SAN identity (URI, DNS, IP or EMAIL) or SHA-256 certificate fingerprint to one enrolled unicast MAC.
+- The Server maps an exact client certificate SAN identity (URI, DNS, IP or EMAIL) or SHA-256 certificate fingerprint to one enrolled Client MAC.
 - The MAC is checked against the job allowlist only after certificate authentication. A MAC address, DHCP lease, PXE UUID or source IP is never an authentication factor.
 - The Client pins the expected Server SAN identity or SHA-256 certificate fingerprint after CA validation.
 - Server UI supports CA-verified Client certificate enrollment/rotation and revocation, including an optional Client minisign public key. CA issuance, private-key generation/distribution, CRL/OCSP and Client-side private-key provisioning remain out of band. Protect CA private keys and endpoint private keys outside the repository; never place them in PXE/TFTP/HTTP boot assets.
