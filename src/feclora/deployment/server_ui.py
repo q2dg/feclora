@@ -225,7 +225,6 @@ def _manage_client_enrollment(config_path: str) -> None:
         )
         dialog_app._message("Client enrolled", f"Enrolled certificate identity: {enrolled}")
         return
-    identities = sorted(config.client_identity_to_mac)
     selected = dialog_app._menu(
         "Revoke Client certificate",
         "Select the certificate identity to remove. Its associated minisign public key is also removed.",
