@@ -329,8 +329,6 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             ])
             if config.age_identity_file and config.age_recipients_file:
                 identity_choices.append(("refresh-age", "Refresh age recipient inventory"))
-            identity_choices.extend([
-            ])
         identity_choices.append(("cancel", "Cancel"))
         identity_action = dialog_app._menu(
             "Client identity",
