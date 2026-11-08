@@ -435,8 +435,22 @@ def register_age_recipient(
     if any(not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in inventory):
         raise PKIError("Server age recipient inventory contains an invalid entry")
     directory = _root_only_directory(os.path.join(root, "age-recipients"))
-    _atomic_text(recipients_file, "\n".join(sorted(set(inventory + [recipient]))) + "\n")
-    _atomic_text(os.path.join(directory, client_id + ".txt"), recipient + "\n")
+    mapping_file = os.path.join(directory, client_id + ".txt")
+    if os.path.lexists(mapping_file):
+        raise PKIError("Client age-recipient mapping already exists; refusing to overwrite it")
+    original_inventory = Path(recipients_file).read_text(encoding="ascii")
+    updated_inventory = "\n".join(sorted(set(inventory + [recipient]))) + "\n"
+    _atomic_text(recipients_file, updated_inventory)
+    try:
+        _atomic_text(mapping_file, recipient + "\n")
+    except Exception as exc:
+        try:
+            _atomic_text(recipients_file, original_inventory)
+        except Exception as rollback_error:
+            raise PKIError(
+                f"could not persist Client age-recipient mapping or roll back the inventory: {rollback_error}"
+            ) from exc
+        raise
 
 
 def remove_age_recipient(
