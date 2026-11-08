@@ -289,3 +289,8 @@ the control plane uses mTLS.
 ## Age recipient inventory refresh
 
 The Server trust panel exports the current public `age-recipients.txt` to a mounted removable-media directory without overwriting an existing file. On each remaining Client, the Cockpit Client enrollment panel verifies that the inventory includes its own age identity before atomically refreshing the local recipient list. Private age identities remain local. Existing encrypted images are unchanged.
+
+
+## Partition extraction
+
+The image repository panel also exposes extraction of a selected partition from a whole-disk image. The operator selects a disk image and a partition-table selector (PARTUUID, PARTLABEL or partition node); Feclora verifies the source manifest/signature, decrypts and decompresses the disk artifact as needed, extracts the exact byte range, and publishes a separate partition manifest/artifact transactionally. When a local minisign secret key is available, the extracted manifest is signed before publication. The source image is never modified.
