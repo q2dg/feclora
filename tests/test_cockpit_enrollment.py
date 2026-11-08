@@ -23,16 +23,18 @@ class CockpitEnrollmentTests(unittest.TestCase):
 
         payload = ("age1" + "a" * 40 + "\\n").encode("ascii")
         with tempfile.TemporaryDirectory() as directory:
-            source = Path(directory) / "age-recipients.txt"
+            pki_directory = Path(directory) / "pki"
+            pki_directory.mkdir()
+            source = pki_directory / "age-recipients.txt"
             source.write_bytes(payload)
-            with patch("feclora.deployment.cockpit_enrollment.PKI", directory), patch(
+            with patch("feclora.deployment.cockpit_enrollment.PKI", str(pki_directory)), patch(
                 "feclora.deployment.cockpit_enrollment._media_directory", return_value=directory
             ):
                 result = export_server_age_recipients({"export_directory": directory})
             self.assertEqual(Path(result["path"]).read_bytes(), payload)
             self.assertEqual(result["sha256"], hashlib.sha256(payload).hexdigest())
             self.assertEqual(os.stat(result["path"]).st_mode & 0o777, 0o600)
-            with patch("feclora.deployment.cockpit_enrollment.PKI", directory), patch(
+            with patch("feclora.deployment.cockpit_enrollment.PKI", str(pki_directory)), patch(
                 "feclora.deployment.cockpit_enrollment._media_directory", return_value=directory
             ):
                 with self.assertRaisesRegex(CockpitEnrollmentError, "refusing to overwrite"):
