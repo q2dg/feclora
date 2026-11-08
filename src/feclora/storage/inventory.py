@@ -108,7 +108,7 @@ def collect_inventory(
     except subprocess.CalledProcessError as exc:
         detail = (exc.stderr or "").strip()
         raise InventoryError(f"lsblk failed: {detail or exc}") from exc
-    return parse_lsblk(result.stdout)
+    inventory = parse_lsblk(result.stdout)\n    try:\n        inventory["volume_topology"] = collect_lvm_topology(which=shutil.which, runner=runner)\n    except VolumeTopologyError as exc:\n        inventory["volume_topology"] = {"status": "error", "error": str(exc)}\n    try:\n        inventory["btrfs_topology"] = collect_btrfs_topology(which=shutil.which, runner=runner)\n    except BtrfsInventoryError as exc:\n        inventory["btrfs_topology"] = {"status": "error", "error": str(exc)}\n    try:\n        inventory["stratis_topology"] = collect_stratis_topology()\n    except StratisInventoryError as exc:\n        inventory["stratis_topology"] = {"status": "error", "error": str(exc)}\n    return inventory
 
 
 def main(argv: list[str] | None = None) -> int:
