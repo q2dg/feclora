@@ -64,6 +64,64 @@ class CockpitEnrollmentTests(unittest.TestCase):
         self.assertEqual(result["confirmation_phrase"], "ENROLL URI:feclora-client-lab-01 02:11:22:33:44:55")
         self.assertEqual(result["image_capture_enabled"], "false")
 
+    def test_inspection_recognizes_existing_identity_as_key_preserving_renewal(self):
+        identity = "URI:feclora-client-lab-01"
+        recipient = "age1" + "a" * 40
+        config = SimpleNamespace(
+            client_identity_to_mac={identity: "02:11:22:33:44:55"},
+            client_minisign_public_keys={},
+        )
+        params = {
+            "csr_path": "/run/media/usb/feclora-lab-01-renewal.csr",
+            "age_recipient_path": "/run/media/usb/feclora-lab-01-renewal.age-recipient",
+            "mac_address": "02:11:22:33:44:55", "renewal": True,
+        }
+        with patch("feclora.deployment.cockpit_enrollment._media_file", side_effect=[
+            params["csr_path"], params["age_recipient_path"], None
+        ]), patch("feclora.deployment.cockpit_enrollment.inspect_client_csr", return_value=identity), patch(
+            "feclora.deployment.cockpit_enrollment.Path.read_text", return_value=recipient
+        ), patch("feclora.deployment.cockpit_enrollment.os.lstat", return_value=SimpleNamespace(
+            st_mode=stat.S_IFREG | 0o600, st_uid=0
+        )), patch("feclora.deployment.cockpit_enrollment.load_server_runtime_config", return_value=config):
+            result = inspect_client_request(params)
+        self.assertEqual(result["confirmation_phrase"], f"RENEW {identity}")
+        self.assertEqual(result["renewal"], "true")
+
+    def test_renewal_approval_preserves_existing_trust_mappings(self):
+        import stat
+        identity = "URI:feclora-client-lab-01"
+        recipient = "age1" + "a" * 40
+        config = SimpleNamespace(
+            client_identity_to_mac={identity: "02:11:22:33:44:55"},
+            client_minisign_public_keys={},
+            ca_file="/etc/feclora/pki/ca.crt",
+            server_minisign_public_key="/etc/feclora/pki/server.pub",
+        )
+        params = {
+            "csr_path": "/run/media/usb/feclora-lab-01-renewal.csr",
+            "age_recipient_path": "/run/media/usb/feclora-lab-01-renewal.age-recipient",
+            "mac_address": "02:11:22:33:44:55",
+            "confirmation": f"RENEW {identity}", "renewal": True,
+        }
+        with patch("feclora.deployment.cockpit_enrollment._media_file", side_effect=[
+            params["csr_path"], params["age_recipient_path"], None
+        ]), patch("feclora.deployment.cockpit_enrollment.inspect_client_csr", return_value=identity), patch(
+            "feclora.deployment.cockpit_enrollment.Path.read_text", return_value=recipient
+        ), patch("feclora.deployment.cockpit_enrollment.os.lstat", return_value=SimpleNamespace(
+            st_mode=stat.S_IFREG | 0o600, st_uid=0
+        )), patch("feclora.deployment.cockpit_enrollment.load_server_runtime_config", return_value=config), patch(
+            "feclora.deployment.cockpit_enrollment.os.path.lexists", return_value=False
+        ), patch("feclora.deployment.cockpit_enrollment.issue_client_certificate") as issue, patch(
+            "feclora.deployment.cockpit_enrollment._atomic_copy"
+        ) as copy, patch("feclora.deployment.cockpit_enrollment.ca_fingerprint", return_value="a" * 64), patch(
+            "feclora.deployment.cockpit_enrollment.Path.read_bytes", return_value=b"server key"
+        ):
+            result = approve_client_csr(params)
+        issue.assert_called_once()
+        self.assertEqual(copy.call_count, 3)
+        self.assertTrue(result["renewal"])
+        self.assertEqual(result["identity"], identity)
+
     def test_approval_issues_certificate_enrolls_and_exports_public_bundle(self):
         config = SimpleNamespace(
             client_identity_to_mac={}, ca_file="/etc/feclora/pki/ca.crt",
