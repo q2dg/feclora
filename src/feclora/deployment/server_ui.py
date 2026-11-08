@@ -16,7 +16,9 @@ from feclora.deployment.job import DeploymentJob
 from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
 from feclora.deployment.multicast_runtime import udpcast_config_for_job
 from feclora.deployment.bootstrap import ensure_server_deployment_config
-from feclora.deployment.managed_pki import (\n    PKIError, ca_fingerprint, inspect_client_csr, issue_client_certificate, register_age_recipient,\n)
+from feclora.deployment.managed_pki import (
+    PKIError, ca_fingerprint, inspect_client_csr, issue_client_certificate, register_age_recipient,
+)
 from feclora.deployment.enrollment import (
     enroll_client_certificate, inspect_client_certificate,
     revoke_client_certificate,
