@@ -17,7 +17,7 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [x] Authenticated unicast deployment engine and UDPcast multicast restore engine.
 - [x] PXE/iPXE boot-tree staging and transient dnsmasq/Caddy/firewalld service lifecycle.
 - [x] Durable deployment journals, audit-state reconstruction from verified journals, and explicit interrupted-job reconciliation (reconstruction does not restore sessions or resume work).
-- [x] Root-peer Unix IPC protocol/server primitive for future deployment-service control (not yet packaged as a running service or connected to Cockpit).
+- [x] Root-peer Unix IPC protocol integrated with the persistent systemd Server service and Cockpit lifecycle API.
 - [x] Cockpit React/PatternFly package and privileged allowlisted backend.
 - [x] Cockpit local operations wizard: disk/partition capture, restore and clone.
 - [x] Cockpit storage/image inventory, operation journal summary and local image-security setup.
@@ -35,6 +35,8 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [ ] Full managed deployment CA lifecycle and Server identity rotation/renewal from Cockpit (initial identity bootstrap and Client enrollment are implemented).
 - [ ] Client certificate renewal/revocation and age-recipient management from Cockpit.
 - [x] Client enrollment preparation and completion from Cockpit, including local key generation and removable-media exchange.
+- [x] Read-only mTLS Client job inspection from Cockpit API without Client registration or READY transition.
+- [ ] Persistent Client execution service and Cockpit Client job lifecycle (connect, target approval, live state and safe stop).
 - [ ] Local destructive-target approval for remote jobs from Cockpit.
 - [x] Cockpit remote-job definition wizard: validate enrolled Clients, image/signature, interface and transport, then persist a hash-chained job journal (definition only; no start).
 - [x] Cockpit audit-only reconciliation of interrupted job journals, requiring inspection and exact typed confirmation; no storage operation is resumed.
