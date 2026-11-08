@@ -455,6 +455,16 @@ def _pxe_service_manager() -> Any:
     return PXEServiceManager()
 
 
+def _active_deployment_service_status() -> dict[str, Any] | None:
+    from feclora.deployment.local_control import LocalControlError, local_control_request
+    try:
+        return local_control_request("/run/feclora/deployment.sock", "status")
+    except (FileNotFoundError, ConnectionRefusedError):
+        return None
+    except (OSError, LocalControlError) as exc:
+        raise WebAPIError(f"cannot verify active deployment service ownership: {exc}") from exc
+
+
 def _start_pxe_services(params: dict[str, Any]) -> dict[str, Any]:
     _validate_pxe_profile(params)
     from feclora.network.pxe_config import PXENetworkConfig
@@ -468,6 +478,9 @@ def _start_pxe_services(params: dict[str, Any]) -> dict[str, Any]:
         gateway=params["gateway"], dns_server=params["dns_server"],
         authoritative_confirmed=params["authoritative_confirmed"],
     )
+    active_service = _active_deployment_service_status()
+    if active_service and active_service.get("network_interface") == config.interface:
+        raise WebAPIError("stop the active deployment service before activating PXE on the same interface")
     try:
         manager = _pxe_service_manager()
         manager.start(config)
@@ -484,6 +497,11 @@ def _start_pxe_services(params: dict[str, Any]) -> dict[str, Any]:
 def _stop_pxe_services() -> dict[str, Any]:
     manager = _pxe_service_manager()
     try:
+        current = manager.status()
+        active_service = _active_deployment_service_status()
+        if (current.get("active") and active_service
+                and current.get("interface") == active_service.get("network_interface")):
+            raise WebAPIError("stop the deployment service before stopping PXE on the same interface")
         manager.stop()
         status = manager.status()
     except Exception as exc:
