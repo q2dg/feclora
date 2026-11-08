@@ -24,6 +24,11 @@ class WebAPITests(unittest.TestCase):
         with patch("feclora.webapi._images", return_value=[{"image_id": "base"}]):
             self.assertEqual(dispatch({"action": "images"}), {"images": [{"image_id": "base"}]})
 
+    def test_operations_action_returns_durable_local_history(self):
+        expected = [{"operation": "capture_disk", "status": "completed"}]
+        with patch("feclora.webapi._operations", return_value=expected):
+            self.assertEqual(dispatch({"action": "operations"}), {"operations": expected})
+
     def test_device_paths_are_restricted_to_dev_nodes(self):
         self.assertEqual(_device("/dev/nvme0n1p2", "target"), "/dev/nvme0n1p2")
         for invalid in ("/etc/passwd", "/dev/../etc/shadow", "sda", "/dev/sda;id"):
