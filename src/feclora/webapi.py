@@ -499,6 +499,23 @@ def _stop_pxe_services() -> dict[str, Any]:
 
 
 
+
+def _prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
+    from feclora.deployment.cockpit_client import prepare_client_request
+    try:
+        return prepare_client_request(params)
+    except Exception as exc:
+        raise WebAPIError(f"Client enrollment request preparation failed: {exc}") from exc
+
+
+def _complete_client_enrollment(params: dict[str, Any]) -> dict[str, Any]:
+    from feclora.deployment.cockpit_client import complete_client_enrollment
+    try:
+        return complete_client_enrollment(params)
+    except Exception as exc:
+        raise WebAPIError(f"Client enrollment completion failed: {exc}") from exc
+
+
 def _inspect_client_csr(params: dict[str, Any]) -> dict[str, str]:
     from feclora.deployment.cockpit_enrollment import inspect_client_request
     try:
@@ -709,6 +726,10 @@ def dispatch(request: Any) -> dict[str, Any]:
         return {"interfaces": _network_interfaces()}
     if action == "bootstrap_server":
         return _bootstrap_server(params)
+    if action == "prepare_client_request":
+        return _prepare_client_request(params)
+    if action == "complete_client_enrollment":
+        return _complete_client_enrollment(params)
     if action == "inspect_client_csr":
         return _inspect_client_csr(params)
     if action == "approve_client_csr":
