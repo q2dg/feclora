@@ -192,6 +192,21 @@ Only public enrollment material is copied to removable media. TLS and age
 private keys remain on the Client. The Client-side preparation and response-import stages are also integrated
 in Cockpit; no dialog workflow is required for enrollment.
 
+The Server setup tab also exposes the enrolled Client trust inventory. It shows
+each stable TLS URI identity, its authorized unicast MAC and whether image
+capture is authorized by a Client minisign key. Revocation requires typing the
+exact `REVOKE <identity>` phrase. The backend removes the identity-to-MAC
+authorization, associated image-signing trust and the Client's age recipient
+from the Server inventory used for future captures. The updated age recipient
+inventory must then be exported and refreshed on remaining Clients.
+
+This is an authorization and future-encryption change, not a retroactive
+network revocation: established TLS sessions are not forcibly terminated,
+previously exported recipient lists remain unchanged, and old encrypted
+images remain decryptable by any identity already included in them. Operators
+must stop/inspect active work and distribute the refreshed recipient inventory
+through the existing removable-media process.
+
 
 ## Client enrollment
 
