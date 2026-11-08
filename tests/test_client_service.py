@@ -62,6 +62,8 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             with mock.patch.object(service, "_acquire_lock"), \
                  mock.patch("feclora.deployment.client_service.CLIENT_JOB_DIRECTORY", root), \
                  mock.patch("feclora.deployment.client_service._ensure_directory"), \
+                 mock.patch("feclora.deployment.client_service._write_private_json",
+                            side_effect=lambda path, value: Path(path).write_text(json.dumps(value), encoding="utf-8")), \
                  mock.patch("feclora.deployment.client_service._read_private_json", return_value={
                      "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
                      "device_path": DEVICE,
