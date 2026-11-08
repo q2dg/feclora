@@ -741,6 +741,41 @@ def _deployment_jobs() -> list[dict[str, Any]]:
     return jobs
 
 
+
+def _reconcile_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"job_id", "confirmation"}:
+        raise WebAPIError("reconcile_deployment_job requires exactly job_id and confirmation")
+    job_id = params["job_id"]
+    confirmation = params["confirmation"]
+    if not isinstance(job_id, str) or not re.fullmatch(
+        r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
+        job_id,
+    ):
+        raise WebAPIError("job_id must be a canonical UUID")
+    if not isinstance(confirmation, str) or len(confirmation) > 96:
+        raise WebAPIError("operator reconciliation confirmation is invalid")
+    from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
+
+    directory = _deployment_journal_directory()
+    journal_path = directory / f"{job_id}.jsonl"
+    if not os.path.lexists(journal_path):
+        raise WebAPIError("deployment job journal does not exist")
+    try:
+        journal = DeploymentJournal.inspect(journal_path)
+        if journal.job_id != job_id:
+            raise WebAPIError("deployment journal UUID does not match the requested job")
+        report = journal.reconcile_after_operator_inspection(confirmation)
+    except DeploymentJournalError as exc:
+        raise WebAPIError(str(exc)) from exc
+    return {
+        "job_id": job_id,
+        "job_state": report["job_state"],
+        "interrupted": report["interrupted"],
+        "operator_reconciled": report["operator_reconciled"],
+        "message": "Interrupted job closed for audit. No operation was resumed or performed on storage.",
+    }
+
+
 def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"job"} or not isinstance(params["job"], dict):
         raise WebAPIError("create_deployment_job requires exactly one job object")
@@ -901,6 +936,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return {"jobs": _deployment_jobs()}
     if action == "create_deployment_job":
         return _create_deployment_job(params)
+    if action == "reconcile_deployment_job":
+        return _reconcile_deployment_job(params)
     if action == "journals":
         if params:
             raise WebAPIError("journals does not accept parameters")
