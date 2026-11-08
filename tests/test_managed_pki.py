@@ -54,6 +54,39 @@ class ManagedPKITests(unittest.TestCase):
                 self.assertEqual(stream.read(), server_recipient + "\n")
             self.assertFalse(os.path.exists(os.path.join(root, "age-recipients", "lab.txt")))
 
+    def test_age_recipient_registration_rolls_back_inventory_if_mapping_write_fails(self):
+        with tempfile.TemporaryDirectory() as root:
+            recipients_file = os.path.join(root, "age-recipients.txt")
+            os.mkdir(os.path.join(root, "age-recipients"))
+            server_recipient = "age1" + "s" * 40
+            client_recipient = "age1" + "c" * 40
+            with open(recipients_file, "w", encoding="ascii") as stream:
+                stream.write(server_recipient + "\\n")
+            real_atomic_text = __import__(
+                "feclora.deployment.managed_pki", fromlist=["_atomic_text"]
+            )._atomic_text
+            calls = 0
+
+            def fail_mapping_once(path, content, mode=0o600):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    raise OSError("simulated removable-media/state write failure")
+                return real_atomic_text(path, content, mode)
+
+            with (
+                patch("feclora.deployment.managed_pki.os.geteuid", return_value=0),
+                patch("feclora.deployment.managed_pki._root_only_directory", side_effect=lambda path: os.fspath(path)),
+                patch("feclora.deployment.managed_pki._regular_file"),
+                patch("feclora.deployment.managed_pki._atomic_text", side_effect=fail_mapping_once),
+            ):
+                from feclora.deployment.managed_pki import register_age_recipient
+                with self.assertRaisesRegex(OSError, "simulated"):
+                    register_age_recipient(root, "URI:feclora-client-lab", client_recipient)
+            with open(recipients_file, encoding="ascii") as stream:
+                self.assertEqual(stream.read(), server_recipient + "\\n")
+            self.assertFalse(os.path.exists(os.path.join(root, "age-recipients", "lab.txt")))
+
     def test_certificate_expiry_uses_utc_and_returns_negative_when_expired(self):
         with tempfile.NamedTemporaryFile() as certificate:
             with patch(
