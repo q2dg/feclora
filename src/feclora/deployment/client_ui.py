@@ -224,6 +224,51 @@ def _client_enrollment_wizard(config_path: str) -> bool:
     )
     return True
 
+def _refresh_client_age_recipients(config: ClientRuntimeConfig) -> None:
+    if not config.age_identity_file or not config.age_recipients_file:
+        raise PKIError("this Client has no configured age identity/recipient inventory")
+    bundle = dialog_app._input(
+        "Updated age recipient inventory",
+        "Path to a removable-media directory containing age-recipients.txt exported by the Server:",
+    )
+    if not bundle:
+        return
+    source = os.path.join(bundle, "age-recipients.txt")
+    info = os.lstat(source)
+    if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
+        raise PKIError("age recipient inventory must be a regular file, not a symlink")
+    with open(source, encoding="ascii") as stream:
+        recipients = [line.strip() for line in stream if line.strip()]
+    if not recipients or any(not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients):
+        raise PKIError("age recipient inventory is empty or malformed")
+    result = subprocess.run(
+        ["/usr/bin/age-keygen", "-y", config.age_identity_file],
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=15,
+    )
+    if result.returncode != 0 or result.stdout.strip() not in recipients:
+        raise PKIError("updated recipient inventory does not contain this Client's own age identity")
+    destination = config.age_recipients_file
+    parent = os.path.dirname(destination)
+    fd, temporary = tempfile.mkstemp(prefix=".feclora-age-recipients-", dir=parent)
+    try:
+        with open(source, "rb") as src, os.fdopen(fd, "wb") as dst:
+            shutil.copyfileobj(src, dst)
+            dst.flush()
+            os.fsync(dst.fileno())
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, destination)
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
+    dialog_app._message(
+        "Age recipient inventory refreshed",
+        "This Client can now encrypt new images for the current enrolled recipient set. Existing encrypted images are unchanged.",
+    )
+
+
 def _prepare_client_renewal(config: ClientRuntimeConfig) -> None:
     prefix = "URI:feclora-client-"
     if not config.local_identity.startswith(prefix):
@@ -266,6 +311,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 ("join", "Join deployment job"),
                 ("renew", "Prepare certificate renewal request"),
                 ("install", "Install Server-approved certificate response"),
+                ("refresh-age", "Refresh age recipient inventory"),
                 ("cancel", "Cancel"),
             ],
         )
@@ -276,6 +322,9 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             return 0
         if identity_action == "install":
             _client_enrollment_wizard(config_path)
+            return 0
+        if identity_action == "refresh-age":
+            _refresh_client_age_recipients(config)
             return 0
         job_id = dialog_app._input(
             "Join deployment job",
