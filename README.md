@@ -2,6 +2,8 @@
 
 **feclora** is an independent project to build a Fedora-based live system for disk imaging, cloning, and recovery, with a Cockpit-based web interface for local imaging, restoration, cloning and remote deployment management.
 
+Project website: [https://q2dg.github.io/feclora/](https://q2dg.github.io/feclora/).
+
 It is not a fork of Clonezilla and does not depend on its repository, branches, or release process. Clonezilla may be used as a functional reference during requirements analysis; implementation and project history live here.
 
 ## Current build baseline
