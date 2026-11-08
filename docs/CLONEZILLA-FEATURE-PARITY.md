@@ -25,7 +25,7 @@ Clonezilla Live and Clonezilla Server Edition define the user-visible feature ta
 | Raw imaging for unsupported filesystems | dd | Not implemented |
 | Compression and integrity verification | gzip, pigz, zstd, xz, sha256sum | Discovery only |
 | GPT/MBR partition-table handling | sfdisk, sgdisk, parted | Discovery only |
-| LVM logical volumes and encrypted volumes | lvm2, cryptsetup, dmsetup | Executable discovery only; PV/VG/LV topology, activation, snapshots and restore workflows not implemented |\n| Stratis pools and filesystems | stratis-cli, stratisd, device-mapper | No Stratis-specific inventory, pool/filesystem management or image/restore workflow implemented |
+| LVM logical volumes and encrypted volumes | lsblk, lvm2, cryptsetup, dmsetup | Read-only lsblk classification of PV/LV layers; VG/PV/LV relationships, activation, snapshots and filesystem-aware restore remain pending |\n| Stratis pools and filesystems | lsblk, stratis-cli, stratisd, device-mapper | Conservative Stratis mapper-name classification; authoritative pool/filesystem topology and lifecycle workflows remain pending |\n| Btrfs filesystems | lsblk, btrfs-progs, Partclone where supported | Filesystem type is identified in inventory; multi-device topology, subvolume/snapshot handling and validated capture/restore workflows remain pending |
 | Remote image repositories | SSH/SFTP, NFS, SMB/CIFS, WebDAV | Not implemented |
 | Bootloader/boot-area preservation | dd, partition-table and bootloader utilities | Not implemented |
 | Interactive rescue UI | dialog initially | Capture, restore and direct local disk clone actions connected; progress/cancellation and runtime validation pending |
