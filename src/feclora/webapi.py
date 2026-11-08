@@ -497,6 +497,15 @@ def _stop_pxe_services() -> dict[str, Any]:
     }
 
 
+
+def _approve_client_csr(params: dict[str, Any]) -> dict[str, Any]:
+    from feclora.deployment.cockpit_enrollment import approve_client_csr
+    try:
+        return approve_client_csr(params)
+    except Exception as exc:
+        raise WebAPIError(f"Client CSR approval failed: {exc}") from exc
+
+
 def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "sign"},
@@ -691,6 +700,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return {"interfaces": _network_interfaces()}
     if action == "bootstrap_server":
         return _bootstrap_server(params)
+    if action == "approve_client_csr":
+        return _approve_client_csr(params)
     if action == "validate_pxe_profile":
         return _validate_pxe_profile(params)
     if action == "start_pxe_services":
