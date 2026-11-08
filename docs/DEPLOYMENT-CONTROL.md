@@ -39,7 +39,7 @@ Implemented:
 - private append-only SHA-256 hash-chained job journal; coordinator transitions are fsync-persisted before in-memory state changes, journal failures fail closed, prior events replay into per-client audit state, and interrupted jobs require an explicit operator reconciliation acknowledgement;
 - signed image-set transfer with manifest signature validation, exact artifact size/SHA-256 checks, private staging and no-overwrite publication;
 - Client whole-disk save/restore callback integration with capture_disk and restore_disk, local typed confirmations, trusted minisign keys and destination read-back;
-- Server and Client dialog workflows, root-owned runtime configuration validation, local inventory selection, typed confirmation, unicast and multi-client multicast restore job authoring/arming, Client-local multicast interface selection and per-client result display;
+- Server and Client runtime engines, root-owned configuration validation, local inventory selection, typed confirmation, unicast and multi-client multicast restore orchestration, Client-local multicast interface selection and per-client result collection. These runtime workflows still need Cockpit operator wizards; the old dialog menus are not the supported interface.
 - tests for framing, invalid messages, image transfer integrity, Client save/restore callbacks, scoped firewall lifecycle and a loopback TLS 1.3 client/server handshake using ephemeral test certificates.
 
 Still required:
