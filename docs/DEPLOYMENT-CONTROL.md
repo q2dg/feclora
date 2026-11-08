@@ -35,7 +35,7 @@ Implemented:
 - coordinator registration, readiness, explicit arming, running and per-client result transitions, plus a single-client end-to-end unicast job orchestrator;
 - signed image-set transfer with manifest signature validation, exact artifact size/SHA-256 checks, private staging and no-overwrite publication;
 - Client whole-disk save/restore callback integration with capture_disk and restore_disk, local typed confirmations, trusted minisign keys and destination read-back;
-- tests for framing, invalid messages, image transfer integrity and a loopback TLS 1.3 client/server handshake using ephemeral test certificates.
+- Server and Client dialog workflows, root-owned runtime configuration validation, local inventory selection, typed confirmation, one-client job authoring/arming and per-client result display;\n- tests for framing, invalid messages, image transfer integrity, Client save/restore callbacks, scoped firewall lifecycle and a loopback TLS 1.3 client/server handshake using ephemeral test certificates.
 
 Still required:
 - Server-mode UI integration: job authoring, listener controls, repository selection and per-client progress/results;
