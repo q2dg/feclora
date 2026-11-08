@@ -498,6 +498,15 @@ def _stop_pxe_services() -> dict[str, Any]:
 
 
 
+
+def _inspect_client_csr(params: dict[str, Any]) -> dict[str, str]:
+    from feclora.deployment.cockpit_enrollment import inspect_client_request
+    try:
+        return inspect_client_request(params)
+    except Exception as exc:
+        raise WebAPIError(f"Client CSR inspection failed: {exc}") from exc
+
+
 def _approve_client_csr(params: dict[str, Any]) -> dict[str, Any]:
     from feclora.deployment.cockpit_enrollment import approve_client_csr
     try:
@@ -700,6 +709,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return {"interfaces": _network_interfaces()}
     if action == "bootstrap_server":
         return _bootstrap_server(params)
+    if action == "inspect_client_csr":
+        return _inspect_client_csr(params)
     if action == "approve_client_csr":
         return _approve_client_csr(params)
     if action == "validate_pxe_profile":
