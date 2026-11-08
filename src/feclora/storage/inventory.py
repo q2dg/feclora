@@ -74,7 +74,7 @@ def parse_lsblk(payload: str) -> dict[str, Any]:
         for item in data["blockdevices"]
         if isinstance(item, dict)
     ]
-    inventory = annotate_inventory({"schema_version": 1, "devices": devices})\n    inventory["volume_topology"] = collect_lvm_topology(which=shutil.which, runner=runner)\n    inventory["btrfs_topology"] = collect_btrfs_topology(which=shutil.which, runner=runner)\n    return inventory
+    inventory = annotate_inventory({"schema_version": 1, "devices": devices})\n    inventory["volume_topology"] = collect_lvm_topology(which=shutil.which, runner=runner)\n    inventory["btrfs_topology"] = collect_btrfs_topology(which=shutil.which, runner=runner)\n    inventory["stratis_topology"] = collect_stratis_topology()\n    return inventory
 
 
 def collect_inventory(
