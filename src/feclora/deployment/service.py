@@ -360,7 +360,10 @@ class DeploymentService:
             "transport": self.job.transport,
             "network_interface": self.job.network_interface,
             "clients": [
-                {"mac_address": item.mac_address, "state": item.state.value}
+                {
+                    "mac_address": item.mac_address, "state": item.state.value,
+                    "progress": self.control.client_progress().get(item.mac_address),
+                }
                 for item in clients[:128]
             ],
             "client_count": len(clients),
