@@ -137,6 +137,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                      "device_path": DEVICE,
                      "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
                      "compression": "gzip", "network_interface": "enp1s0",
+                     "igmp_confirmed": True,
                  }), \
                  mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
                  mock.patch("feclora.deployment.client_service.create_mutual_tls_context", return_value=object()), \
