@@ -69,6 +69,35 @@ class WebAPITests(unittest.TestCase):
                 "interface": "enp1s0", "address": "2001:db8::1", "prefix_length": 64
             }})
 
+    def test_validate_pxe_profile_runs_daemon_preflight_without_starting_services(self):
+        with patch("feclora.network.pxe_preflight.validate_pxe_configuration") as preflight, \
+             patch("feclora.network.interface_discovery.detect_existing_dhcp_server", return_value=None):
+            result = dispatch({"action": "validate_pxe_profile", "params": {
+                "interface": "enp1s0", "address": "192.0.2.1", "prefix_length": 24,
+                "mode": "proxy", "pool_start": None, "pool_end": None,
+                "lease_time": "1h", "gateway": None, "dns_server": None,
+                "http_port": 8080, "authoritative_confirmed": False,
+            }})
+        preflight.assert_called_once()
+        self.assertTrue(result["valid"])
+        self.assertFalse(result["services_started"])
+        self.assertEqual(result["subnet"], "192.0.2.0/24")
+
+    def test_validate_pxe_profile_rejects_existing_dhcp_for_isolated_mode(self):
+        with patch("feclora.network.pxe_preflight.validate_pxe_configuration"), \
+             patch("feclora.network.interface_discovery.detect_existing_dhcp_server", return_value="192.0.2.254"):
+            with self.assertRaisesRegex(WebAPIError, "existing DHCP server"):
+                dispatch({"action": "validate_pxe_profile", "params": {
+                    "interface": "enp1s0", "address": "192.0.2.1", "prefix_length": 24,
+                    "mode": "isolated", "pool_start": "192.0.2.100", "pool_end": "192.0.2.180",
+                    "lease_time": "1h", "gateway": None, "dns_server": None,
+                    "http_port": 8080, "authoritative_confirmed": True,
+                }})
+
+    def test_validate_pxe_profile_rejects_unknown_fields(self):
+        with self.assertRaisesRegex(WebAPIError, "complete PXE profile"):
+            dispatch({"action": "validate_pxe_profile", "params": {"mode": "proxy"}})
+
     def test_device_paths_are_restricted_to_dev_nodes(self):
         self.assertEqual(_device("/dev/nvme0n1p2", "target"), "/dev/nvme0n1p2")
         for invalid in ("/etc/passwd", "/dev/../etc/shadow", "sda", "/dev/sda;id"):
