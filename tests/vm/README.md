@@ -2,7 +2,7 @@
 
 This lab creates an isolated libvirt network with no libvirt DHCP service. Feclora Server must be the only DHCP/PXE authority on this test segment. Do not attach this network to a production bridge or a physical LAN.
 
-The harness creates one Feclora Server VM and two PXE clients (legacy BIOS and UEFI). It does not claim an automated end-to-end deployment: the Server UI, client local-disk confirmation, TLS enrollment and storage operation still require operator interaction until the image data plane and unattended VM orchestrator are complete.
+The harness creates one Feclora Server VM and two PXE clients (legacy BIOS and UEFI). It creates guests only; PXE boot and the authenticated unicast save/restore acceptance remain operator-driven and must be recorded separately. Server/Client dialog workflows and the signed image data plane are implemented, but the VM orchestrator does not drive them unattended.
 
 ## Host requirements
 
@@ -21,7 +21,7 @@ In the Server guest:
 2. Choose isolated DHCP and a small pool such as 192.0.2.100-192.0.2.150.
 3. Type the exact authoritative-DHCP confirmation shown by Feclora.
 4. Start PXE services; confirm dnsmasq, Caddy and firewalld are active.
-5. Boot both client VMs from the network. Confirm BIOS loads undionly.kpxe and UEFI loads ipxe-snponly-x86_64.efi, then iPXE fetches the Feclora kernel, initramfs and squashfs over HTTP.
+5. Boot both client VMs from the network. Confirm BIOS loads undionly.kpxe and UEFI loads ipxe-snponly-x86_64.efi, then iPXE fetches the Feclora kernel, initramfs and squashfs over HTTP.\n6. Provision the root-owned Server/Client config files and test certificates described in docs/DEPLOYMENT-SETUP.md.\n7. Create a signed whole-disk image, run one authenticated unicast restore to a disposable client disk, and verify the journal, destination read-back and result.
 
 ## Acceptance checklist
 
@@ -36,7 +36,7 @@ In the Server guest:
 - [ ] A disposable client target is selected and authorized locally before any write.
 - [ ] End-to-end image transfer, restore, read-back and per-client result are verified.
 
-Do not mark the final three items complete until the authenticated artifact data plane is integrated and the tests have actually run. VM PXE boot success alone does not prove a deployment or restore succeeded.
+Do not mark the mTLS/artifact-transfer, disposable-disk restore or read-back items complete until those operations have actually run and the results have been recorded. VM PXE boot success alone does not prove a deployment or restore succeeded.
 
 ## Cleanup
 
