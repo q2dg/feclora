@@ -334,6 +334,8 @@ class DeploymentControlServer:
             if not self.coordinator.job.authorizes_client(mac):
                 raise DeploymentControlError("Client is not authorized for this deployment job")
             if hello["type"] == "inspect":
+                if self.coordinator.state.value != "created":
+                    raise DeploymentControlError("Server job no longer accepts Client inspection or admission")
                 send_control_message(tls_socket, {
                     "type": "job", "job": self.coordinator.job.to_dict(),
                     "server_identity": self.local_identity,
