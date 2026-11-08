@@ -57,8 +57,8 @@ class UDPcastConfig:
                 address = ipaddress.ip_address(value)
             except (ValueError, TypeError) as exc:
                 raise UDPcastError(f"{label} group must be an IPv4 multicast address") from exc
-            if address.version != 4 or not address.is_multicast or address.is_unspecified:
-                raise UDPcastError(f"{label} group must be an IPv4 multicast address")
+            if (address.version != 4 or address not in ipaddress.ip_network("239.0.0.0/8")):
+                raise UDPcastError(f"{label} group must be in the administratively scoped IPv4 multicast range 239.0.0.0/8")
         if self.data_group == self.rendezvous_group:
             raise UDPcastError("Use distinct multicast groups for data and rendezvous")
         if isinstance(self.portbase, bool) or not isinstance(self.portbase, int) or not 1024 <= self.portbase <= 65534 or self.portbase % 2:
