@@ -5,20 +5,20 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 KS_FILE="${FECLORA_KS:-${ROOT_DIR}/kickstart/feclora-live.ks}"
 RESULT_DIR="${FECLORA_RESULT_DIR:-${ROOT_DIR}/out}"
 INSTALL_ISO="${FEDORA_INSTALL_ISO:-}"
-RELEASEVER="${FECLORA_RELEASEVER:-43}"
+RELEASEVER="${FECLORA_RELEASEVER:-45}"
 
 usage() {
   cat <<'EOF'
 Usage:
-  FEDORA_INSTALL_ISO=/path/to/Fedora-43-x86_64-DVD.iso ./build/build-iso.sh
+  FEDORA_INSTALL_ISO=/path/to/Fedora-45-x86_64-DVD.iso ./build/build-iso.sh
 
 Environment:
-  FEDORA_INSTALL_ISO  Fedora 43 x86_64 DVD installation ISO (required).
+  FEDORA_INSTALL_ISO  Fedora 45 x86_64 DVD installation ISO (required).
   FECLORA_KS          Kickstart file (default: kickstart/feclora-live.ks).
   FECLORA_RESULT_DIR  Output directory (default: out/).
   FECLORA_RELEASEVER  Fedora release version (default: 43).
 
-Run on a Fedora 43 x86_64 build host. Install lorax, lorax-lmc-virt,
+Run on a Fedora 45 x86_64 build host. Install lorax, lorax-lmc-virt,
 qemu-kvm and the other build dependencies first. The build requires root.
 The build uses QEMU virtualization; it deliberately does not use --no-virt.
 EOF
