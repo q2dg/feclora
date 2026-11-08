@@ -71,6 +71,7 @@ class WebAPITests(unittest.TestCase):
             "feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="")
         ), patch("feclora.deployment.managed_pki.renew_server_certificate", return_value={
             "certificate_file": "/etc/feclora/pki/server.crt", "ca_fingerprint": "a" * 64,
+            "ca_expiry_days": 1200,
         }) as renew, patch(
             "feclora.deployment.managed_pki.certificate_expiry_days", return_value=825
         ):
