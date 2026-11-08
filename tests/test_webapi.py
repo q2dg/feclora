@@ -77,8 +77,10 @@ class WebAPITests(unittest.TestCase):
             },
             client_minisign_public_keys={"52:54:00:00:00:02": "public-key"},
         )
-        with patch("os.path.isfile", return_value=True), \\
-             patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=config) as load:
+        with (
+            patch("os.path.isfile", return_value=True),
+            patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=config) as load,
+        ):
             result = _server_trusted_clients()
         load.assert_called_once_with("/etc/feclora/deployment-server.json")
         self.assertEqual(result, {"clients": [
