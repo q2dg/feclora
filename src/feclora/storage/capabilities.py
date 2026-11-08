@@ -29,6 +29,7 @@ TOOL_GROUPS = {
     "encryption": ("cryptsetup", "age"),
     "image_signing": ("minisign",),
     "volume_management": ("lvm", "dmsetup", "stratis"),
+    "btrfs": ("btrfs",),
     "hardware_diagnostics": ("smartctl",),
 }
 
