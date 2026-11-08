@@ -36,6 +36,15 @@ class DeploymentJobTests(unittest.TestCase):
         self.assertEqual(decoded, job)
         self.assertEqual(json.loads(job.to_json())["schema_version"], 1)
 
+    def test_partition_target_type_is_preserved_and_validated(self):
+        job = DeploymentJob.from_dict(valid_job(target_type="partition", transport="multicast", multicast_group="239.10.10.10", multicast_port=5000))
+        self.assertEqual(job.target_type, "partition")
+        self.assertEqual(DeploymentJob.from_json(job.to_json()).target_type, "partition")
+        with self.assertRaisesRegex(JobValidationError, "target_type"):
+            DeploymentJob.from_dict(valid_job(target_type="volume"))
+        with self.assertRaisesRegex(JobValidationError, "whole disks"):
+            DeploymentJob.from_dict(valid_job(operation="save", target_type="partition"))
+
     def test_rejects_unknown_fields(self):
         with self.assertRaisesRegex(JobValidationError, "Unknown"):
             DeploymentJob.from_dict(valid_job(shell_command="dd if=/dev/zero"))
