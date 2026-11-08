@@ -47,7 +47,7 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [x] Start/connect, inspect live Client state, arm, pre-arm cancel, safe stop and audit reconciliation through Cockpit.
 - [x] Live per-client READY/running/terminal state and service errors through Cockpit.
 - [x] Per-client disk-operation byte progress and sampled throughput over the authenticated TLS control channel; transfer-stage progress is not yet separately reported.
-- [x] Server-side multicast restore engine, interface/route preflight and explicit arm confirmation; Cockpit activation remains blocked until the Client-side receiver workflow is integrated.
+- [x] Server-side multicast restore engine, interface/route preflight, explicit arm confirmation and integrated Cockpit Server/Client receiver lifecycle.
 - [ ] Report Client staging capacity and add operator-confirmed switch IGMP snooping/querier validation.
 - [ ] Remote disk-to-disk clone source/receiver workflow and status in Cockpit.
 - [ ] Remote repository lifecycle and secure credential management.
