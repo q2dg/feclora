@@ -55,8 +55,8 @@ does not duplicate the storage engines. The service is not enabled at boot,
 supports one job per Server, and refuses to start from an interrupted journal.
 A fresh definition is not considered interrupted until a service session has
 started; a clean unarmed stop is restartable only when no Client session was
-recorded. The listener's temporary firewall ownership is persisted, and
-systemd's `ExecStopPost` attempts safe recovery after abnormal exit while
+recorded. The listener's temporary firewall ownership and Unix-socket path are persisted/validated, and
+systemd's `ExecStopPost` removes only stale root-owned socket/firewall artifacts after exit while
 holding the single-service lock. No TLS session or storage operation is
 resumed after a process crash. If the service exits during an armed/running
 job, manual disk inspection and audit reconciliation are required. Automated
