@@ -192,9 +192,11 @@ def run_server_ui(
         f"Interface: {config.interface}\nAddress: {config.address}/{config.prefix_length}\n"
         f"DHCP mode: {config.mode}\nTFTP: {config.tftp_root}\n"
         f"HTTP URL: http://{config.address}:{config.http_port}\nHTTP root: {config.http_root}\n\n"
-        "This starts DHCP/PXE/TFTP and HTTP boot services and opens only the required "
-        "ports in this interface's firewalld zone. The current boot payload starts "
-        "Feclora Live; authenticated deployment jobs and Client mode are not yet wired."
+        "This starts DHCP/PXE/TFTP and HTTP boot services. The selected interface is "
+        "temporarily moved into a dedicated Feclora firewalld zone; its previous "
+        "zone is restored on shutdown. Other services on this interface may be "
+        "interrupted. The current boot payload starts Feclora Live; authenticated "
+        "deployment jobs and Client mode are not yet wired."
     )
     confirm = _dialog([
         "--title", "Confirm PXE Server startup",
