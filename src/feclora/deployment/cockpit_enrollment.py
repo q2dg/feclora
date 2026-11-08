@@ -194,8 +194,8 @@ def _client_pin_path(identity: str, *, create_directory: bool = False) -> Path:
 
 
 def _verify_client_csr_pin(identity: str, csr_path: str) -> str:
-    path = _client_pin_path(identity)
     try:
+        path = _client_pin_path(identity)
         info = os.lstat(path)
         expected = path.read_text(encoding="ascii").strip()
     except OSError as exc:
@@ -211,8 +211,8 @@ def _verify_client_csr_pin(identity: str, csr_path: str) -> str:
 
 
 def remove_client_certificate_pin(identity: str) -> bool:
-    path = _client_pin_path(identity)
     try:
+        path = _client_pin_path(identity)
         info = os.lstat(path)
     except FileNotFoundError:
         return False
