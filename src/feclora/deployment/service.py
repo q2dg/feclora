@@ -9,6 +9,7 @@ import argparse
 import fcntl
 import json
 import os
+import re
 import signal
 import socket
 import stat
@@ -43,58 +44,95 @@ JOURNAL_DIRECTORY = Path("/var/lib/feclora/deployments")
 CONFIG_FILE = "/etc/feclora/deployment-server.json"
 
 
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate firewall state field")
+        result[key] = value
+    return result
+
+
 def recover_stale_firewall_state(*, lock_held: bool = False) -> None:
     """Restore a deployment-owned temporary firewalld change after a crash."""
     try:
-        info = os.lstat(FIREWALL_STATE)
+        initial = os.lstat(FIREWALL_STATE)
     except FileNotFoundError:
         return
-    if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != 0 or info.st_mode & 0o077 or info.st_size > 8192):
+    if (not stat.S_ISREG(initial.st_mode) or stat.S_ISLNK(initial.st_mode)
+            or initial.st_uid != 0 or initial.st_mode & 0o077 or initial.st_size > 8192):
         raise DeploymentServiceError("stale deployment firewall state is unsafe")
     lock_fd = None
-    if not lock_held:
-        runtime_info = os.lstat(RUNTIME_DIRECTORY)
-        if (not stat.S_ISDIR(runtime_info.st_mode) or stat.S_ISLNK(runtime_info.st_mode)
-                or runtime_info.st_uid != 0 or runtime_info.st_mode & 0o022):
-            raise DeploymentServiceError("runtime directory is unsafe during firewall recovery")
-        lock_fd = os.open(LOCK_FILE, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
-        lock_info = os.fstat(lock_fd)
-        if (not stat.S_ISREG(lock_info.st_mode) or lock_info.st_uid != 0
-                or lock_info.st_mode & 0o077):
-            os.close(lock_fd)
-            raise DeploymentServiceError("deployment service lock file is unsafe during firewall recovery")
-        try:
-            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as exc:
-            os.close(lock_fd)
-            raise DeploymentServiceError("another deployment service is active; refusing stale firewall cleanup") from exc
     try:
-        with FIREWALL_STATE.open("r", encoding="utf-8") as stream:
-            value = json.load(stream)
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise DeploymentServiceError("stale deployment firewall state is unreadable") from exc
-    if (not isinstance(value, dict)
-            or set(value) != {"schema_version", "interface", "firewall", "opened_by_service", "added_ports"}
-            or value["schema_version"] != 1 or isinstance(value["schema_version"], bool)
-            or not isinstance(value["interface"], str)
-            or not isinstance(value["opened_by_service"], bool)
-            or not isinstance(value["added_ports"], list)
-            or any(not isinstance(port, str) for port in value["added_ports"])):
-        raise DeploymentServiceError("stale deployment firewall state has an invalid schema")
-    recovery = PXEFirewall()
-    try:
-        recovery.adopt(value["interface"], value["firewall"])
-        if value["opened_by_service"]:
-            recovery.close(value["interface"])
-        else:
-            recovery.remove_ports(value["interface"], value["added_ports"])
-    except Exception as exc:
-        raise DeploymentServiceError(f"cannot safely restore stale deployment firewall state: {exc}") from exc
-    FIREWALL_STATE.unlink()
-    if lock_fd is not None:
-        os.close(lock_fd)
+        if not lock_held:
+            runtime_info = os.lstat(RUNTIME_DIRECTORY)
+            if (not stat.S_ISDIR(runtime_info.st_mode) or stat.S_ISLNK(runtime_info.st_mode)
+                    or runtime_info.st_uid != 0 or runtime_info.st_mode & 0o022):
+                raise DeploymentServiceError("runtime directory is unsafe during firewall recovery")
+            lock_fd = os.open(
+                LOCK_FILE, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600,
+            )
+            lock_info = os.fstat(lock_fd)
+            if (not stat.S_ISREG(lock_info.st_mode) or lock_info.st_uid != 0
+                    or lock_info.st_mode & 0o077):
+                raise DeploymentServiceError("deployment service lock file is unsafe during firewall recovery")
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise DeploymentServiceError(
+                    "another deployment service is active; refusing stale firewall cleanup"
+                ) from exc
 
+        fd = os.open(FIREWALL_STATE, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            info = os.fstat(fd)
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
+                    or info.st_mode & 0o077 or info.st_size > 8192
+                    or (info.st_dev, info.st_ino) != (initial.st_dev, initial.st_ino)):
+                raise DeploymentServiceError("stale deployment firewall state changed during inspection")
+            raw = os.read(fd, 8193)
+        finally:
+            os.close(fd)
+        try:
+            value = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+        except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
+            raise DeploymentServiceError("stale deployment firewall state is unreadable") from exc
+        if (not isinstance(value, dict)
+                or set(value) != {"schema_version", "interface", "firewall", "opened_by_service", "added_ports"}
+                or value["schema_version"] != 1 or isinstance(value["schema_version"], bool)
+                or not isinstance(value["interface"], str)
+                or not isinstance(value["opened_by_service"], bool)
+                or not isinstance(value["added_ports"], list)
+                or any(
+                    not isinstance(port, str)
+                    or not re.fullmatch(r"(?:[1-9][0-9]{0,4})/(?:tcp|udp)", port)
+                    or int(port.split("/", 1)[0]) > 65535
+                    for port in value["added_ports"]
+                )):
+            raise DeploymentServiceError("stale deployment firewall state has an invalid schema")
+        recovery = PXEFirewall()
+        try:
+            recovery.adopt(value["interface"], value["firewall"])
+            if value["opened_by_service"]:
+                if value["added_ports"]:
+                    raise DeploymentServiceError("owned firewall zone cannot also declare separately added ports")
+                recovery.close(value["interface"])
+            else:
+                recovery.remove_ports(value["interface"], value["added_ports"])
+        except Exception as exc:
+            raise DeploymentServiceError(f"cannot safely restore stale deployment firewall state: {exc}") from exc
+        current = os.lstat(FIREWALL_STATE)
+        if (current.st_dev, current.st_ino) != (initial.st_dev, initial.st_ino):
+            raise DeploymentServiceError("stale deployment firewall state changed before cleanup")
+        FIREWALL_STATE.unlink()
+        directory_fd = os.open(RUNTIME_DIRECTORY, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if lock_fd is not None:
+            os.close(lock_fd)
 
 
 
