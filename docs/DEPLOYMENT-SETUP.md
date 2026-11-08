@@ -59,6 +59,8 @@ example path and identity):
 
 The Server writes a private hash-chained job journal under /var/lib/feclora/deployments; the directory is created root-owned with mode 0700. On startup, verified journals reconstruct the last job/client states for operator review. This is audit-only recovery: live sessions are not recreated and destructive jobs are never resumed automatically.
 
+For an interrupted job, the startup review offers an explicit operator reconciliation action. First inspect every Client and destination disk out of band; then select the acknowledgement and type exactly `RECONCILE <job-UUID>`. This appends a durable `operator_reconciled` event and closes the journal as failed, not successful. It does not retry, roll back, resume, or access any block device. Leaving the action pending is safe and prevents any implicit assumption about partial writes.
+
 The Server now offers a **Client certificate trust** screen before creating a job:
 - **Enroll/rotate:** provide a root-owned PEM Client certificate, its authorized unicast MAC, and optionally a root-owned minisign public key. Feclora verifies the certificate chain with `openssl verify -purpose sslclient`, extracts its single SAN identity, and requires the exact `ENROLL <identity> <mac>` confirmation. Re-enrolling the same MAC rotates the certificate identity.
 - **Revoke:** select an enrolled identity and type `REVOKE <identity>`. The identity-to-MAC mapping and its associated Client minisign public key are removed atomically.
