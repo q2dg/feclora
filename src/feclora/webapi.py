@@ -292,7 +292,8 @@ def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
     raw_parts = table["partitiontable"]["partitions"]
     partitions = []
     for item, part in zip(ranges, raw_parts):
-        selector = part.get("uuid") or part.get("name") or item.node
+        # Device nodes are unique in the parsed table; UUIDs/labels can be duplicated or ambiguous.
+        selector = item.node
         partitions.append({
             "selector": selector, "node": item.node,
             "uuid": part.get("uuid"), "name": part.get("name"),
