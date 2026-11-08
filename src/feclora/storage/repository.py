@@ -49,6 +49,7 @@ class RemoteRepository:
     username: str | None = None
     credential_file: str | None = None
     identity_file: str | None = None
+    known_hosts_file: str | None = None
     port: int | None = None
     rclone_remote: str | None = None
     read_only: bool = False
@@ -78,9 +79,14 @@ class RemoteRepository:
             object.__setattr__(self, "identity_file", identity_path)
         if not isinstance(self.read_only, bool):
             raise RepositoryError("read_only must be boolean")
+        if self.known_hosts_file is not None:
+            known_hosts_path = _absolute_path(self.known_hosts_file, "known_hosts_file")
+            if "," in known_hosts_path or "\\" in known_hosts_path:
+                raise RepositoryError("known_hosts_file must not contain mount-option separators")
+            object.__setattr__(self, "known_hosts_file", known_hosts_path)
         if self.provider == "sshfs":
-            if self.username is None or self.identity_file is None:
-                raise RepositoryError("sshfs requires a username and explicit identity_file")
+            if self.username is None or self.identity_file is None or self.known_hosts_file is None:
+                raise RepositoryError("sshfs requires username, identity_file and known_hosts_file")
         elif self.provider == "smb":
             if self.credential_file is None:
                 raise RepositoryError("SMB requires a protected credentials file")
@@ -108,6 +114,8 @@ class RemoteRepository:
         options = ["ro"] if self.read_only else ["rw"]
         if self.provider == "sshfs":
             options += ["reconnect", "ServerAliveInterval=15", "ServerAliveCountMax=3",
+                        "StrictHostKeyChecking=yes",
+                        f"UserKnownHostsFile={self.known_hosts_file}",
                         f"IdentityFile={self.identity_file}"]
             if self.port is not None:
                 options.append(f"port={self.port}")
