@@ -122,8 +122,8 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
     if parsed.version != 4 or parsed.is_unspecified or parsed.is_multicast:
         raise RuntimeConfigError("bind_address must be a concrete unicast interface address")
     identities = value["client_identity_to_mac"]
-    if not isinstance(identities, dict) or not identities or len(identities) > 128:
-        raise RuntimeConfigError("client_identity_to_mac must contain 1-128 enrolled clients")
+    if not isinstance(identities, dict) or len(identities) > 128:
+        raise RuntimeConfigError("client_identity_to_mac must be an object with at most 128 enrolled clients")
     normalized: dict[str, str] = {}
     seen_macs: set[str] = set()
     for identity, mac in identities.items():
