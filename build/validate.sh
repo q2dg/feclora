@@ -89,6 +89,19 @@ if ! grep -q 'def _start_pxe_services' "$ROOT_DIR/src/feclora/webapi.py"; then
   fail "Cockpit backend is missing PXE service activation."
 fi
 
+if ! grep -q 'def _reconcile_deployment_job' "$ROOT_DIR/src/feclora/webapi.py"; then
+  fail "Cockpit backend is missing explicit audit-only job reconciliation."
+fi
+if ! grep -q '"reconcile_deployment_job"' "$ROOT_DIR/webui/src/api.js"; then
+  fail "Cockpit API client does not allow job journal reconciliation."
+fi
+if ! grep -q 'reconcile_deployment_job' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "Kickstart API wrapper does not allow job journal reconciliation."
+fi
+if ! grep -q 'Close for audit' "$ROOT_DIR/webui/src/App.jsx"; then
+  fail "Cockpit frontend is missing manual job journal reconciliation."
+fi
+
 if ! grep -q 'def _create_deployment_job' "$ROOT_DIR/src/feclora/webapi.py"; then
   fail "Cockpit backend is missing safe remote deployment job persistence."
 fi
