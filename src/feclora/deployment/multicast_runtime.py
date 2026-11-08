@@ -144,7 +144,6 @@ def execute_multicast_restore(
         for artifact in manifest.artifacts:
             staged = receive_multicast_artifact_to_staging(
                 workdir, artifact, config, firewall=firewall,
-                timeout_seconds=config.max_wait_seconds + 5,
             )
             destination = os.path.join(workdir, artifact.filename)
             os.replace(staged, destination)
