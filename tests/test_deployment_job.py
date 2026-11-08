@@ -81,7 +81,7 @@ class DeploymentJobTests(unittest.TestCase):
             multicast_port=5000,
         )
         self.assertEqual(DeploymentJob.from_dict(payload).multicast_group, "239.10.10.10")
-        with self.assertRaisesRegex(JobValidationError, "multicast address"):
+        with self.assertRaisesRegex(JobValidationError, "administratively scoped"):
             DeploymentJob.from_dict(valid_job(
                 transport="multicast", multicast_group="192.0.2.1", multicast_port=5000
             ))
