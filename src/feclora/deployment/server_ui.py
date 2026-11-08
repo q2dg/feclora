@@ -138,6 +138,8 @@ def run_deployment_server_ui(
             state_text = "\n".join(
                 f"{item.mac_address}: {item.state.value}" for item in clients
             ) or "No Client has connected yet."
+            if control.listener_errors:
+                state_text += "\nRecent listener errors: " + " | ".join(control.listener_errors[-3:])
             choice = dialog_app._menu(
                 "Authenticated deployment",
                 f"Job state: {coordinator.state.value}\n{state_text}\n\n"
