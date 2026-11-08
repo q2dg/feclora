@@ -16,9 +16,7 @@ UI in `feclora.ui` and keep storage operations in separate modules. The
 initial screen is inspection-only: it lists block devices and displays
 metadata. It must not offer destructive actions.
 
-Cockpit is not part of the initial Live image. It may be evaluated later for a
-separate server/remote-administration edition, where its service lifecycle,
-authentication, network exposure, and resource cost can be assessed explicitly.
+Cockpit remains a candidate for optional host administration, not the default rescue wizard. A browser-based Feclora UI should be evaluated separately and must preserve a fully offline local-console fallback. Cockpit's web service, authentication, plugin integration, network exposure and resource cost must be assessed before adding it to the Live image.
 
 ## Consequences
 
