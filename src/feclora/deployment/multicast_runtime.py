@@ -113,7 +113,7 @@ def execute_multicast_restore(
         signature_bytes = base64.b64decode(offer["signature_b64"], validate=True)
     except (ValueError, TypeError) as exc:
         raise MulticastDeploymentError("multicast manifest offer contains invalid base64") from exc
-    if not manifest_bytes or len(manifest_bytes) > 10 * 1024 or not signature_bytes or len(signature_bytes) > 4096:
+    if not manifest_bytes or len(manifest_bytes) > 8 * 1024 or not signature_bytes or len(signature_bytes) > 2048:
         raise MulticastDeploymentError("multicast signed manifest exceeds the control-plane size limit")
     root = os.path.abspath(os.fspath(repository))
     try:
@@ -133,10 +133,10 @@ def execute_multicast_restore(
         if shutil.disk_usage(workdir).free < required_bytes:
             raise MulticastDeploymentError("insufficient Client staging space for the complete signed image set")
         config = udpcast_config_for_job(job, min_receivers=len(job.authorized_clients))
-        staged_paths: list[str] = []
         for artifact in manifest.artifacts:
             staged = receive_multicast_artifact_to_staging(
                 workdir, artifact, config, firewall=firewall,
+                timeout_seconds=config.max_wait_seconds + 5,
             )
             destination = os.path.join(workdir, artifact.filename)
             os.replace(staged, destination)
@@ -144,7 +144,6 @@ def execute_multicast_restore(
             verify_staged_multicast_artifact(
                 destination, manifest_path, trusted_server_public_key, artifact.filename,
             )
-            staged_paths.append(destination)
         # The restore function re-verifies the signature and every artifact
         # before opening the selected block device for writing.
         restore_disk(
