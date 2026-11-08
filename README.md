@@ -1,6 +1,6 @@
 # feclora
 
-**feclora** is an independent project to build a Fedora-based live system for disk imaging, cloning, and recovery, aiming for functional coverage comparable to Clonezilla.
+**feclora** is an independent project to build a Fedora-based live system for disk imaging, cloning, and recovery, with a Cockpit-based web interface for local imaging, restoration, cloning and remote deployment management.
 
 It is not a fork of Clonezilla and does not depend on its repository, branches, or release process. Clonezilla may be used as a functional reference during requirements analysis; implementation and project history live here.
 
@@ -11,7 +11,8 @@ It is not a fork of Clonezilla and does not depend on its repository, branches, 
 - Rescue-style bootable live ISO
 - BIOS and UEFI boot support
 - Native Fedora package management and system integration
-- Imaging, cloning, restoration, and storage administration
+- Imaging, cloning, restoration, and storage administration from Cockpit
+- Cockpit Terminal for system-level diagnostics and advanced administration
 
 The first milestone is a reproducible bootable live ISO with a verified core workflow. Broader functionality will be added in measured, testable increments.
 
@@ -51,7 +52,23 @@ Operational design notes:
 
 ## Development status
 
-Early implementation. The repository contains an initial Kickstart and a QEMU-backed `livemedia-creator` build script. The Python application payload and a React/PatternFly Cockpit package are wired into the Live-image pipeline; the Cockpit page currently provides a read-only dashboard for host/service status, image manifests, deployment journals and storage inventory. Local rescue supports manifest-backed whole-disk and partition capture/restore. Server mode has an opt-in dnsmasq/iPXE/Caddy PXE boot path, TLS 1.3 mTLS unicast save and disk/partition restore, and multi-client multicast disk/partition restore. Multicast accepts age-encrypted artifacts only; signed manifests bind the ciphertext and age authenticates it during decryption. Host-side multicast preflight checks interface flags, IPv4 address, kernel route and UDPcast tools, while switch IGMP configuration remains an operator check. The Server bootstraps a local CA and signs Client CSRs; Clients generate their own TLS and age keys, verify fingerprints, and can renew certificates using existing keys. Hash-chained journal replay and operator-driven restart reconciliation are implemented without automatic destructive resume. Full destructive workflows in Cockpit, per-client live multicast progress, server-side certificate expiry inventory and CRL validation remain pending. Multi-VM execution, ISO creation and BIOS/UEFI/PXE end-to-end acceptance have not been validated; no functional parity claim is made.
+Feclora's primary operator interface is Cockpit (React + PatternFly); the old
+`dialog` local-rescue menu is no longer part of the Live package. The current
+web application provides local whole-disk and partition image capture,
+restoration, whole-disk and partition cloning, device and image inventories,
+operation journals, streamed progress, and optional age encryption plus
+minisign signatures using locally managed keys.
+
+The underlying Python storage engines include safety checks, manifest-backed
+artifact publication, compression, integrity verification, and restore
+preflight. The remote deployment engines include mTLS enrollment, signed
+unicast image transfer, PXE/iPXE boot infrastructure and UDPcast multicast
+restore. Their complete Cockpit Server/Client setup, job lifecycle and
+per-client live progress still need to be integrated. Local storage flows and
+the new Cockpit frontend have not yet been exercised against a built ISO or
+physical disks; CI status must be checked before claiming automated test
+success. ISO generation, BIOS/UEFI boot and laboratory restore/deployment
+acceptance are intentionally left to the operator.
 
 ## Fedora baseline lifecycle
 
