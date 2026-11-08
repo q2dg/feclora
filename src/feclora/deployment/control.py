@@ -431,10 +431,10 @@ class DeploymentControlServer:
             raise DeploymentControlError("client progress frame has missing or unknown fields")
         if message.get("job_id") != self.coordinator.job.job_id:
             raise DeploymentControlError("client progress belongs to another deployment job")
-        if message.get("phase") not in {"save", "restore"}:
+        if message.get("phase") not in {"save", "restore", "transfer"}:
             raise DeploymentControlError("client progress phase is invalid")
-        if message["phase"] != self.coordinator.job.operation:
-            raise DeploymentControlError("client progress phase does not match the deployment operation")
+        if message["phase"] != "transfer" and message["phase"] != self.coordinator.job.operation:
+            raise DeploymentControlError("client disk-I/O progress phase does not match the deployment operation")
         completed = message.get("completed_bytes")
         total = message.get("total_bytes")
         if (isinstance(completed, bool) or not isinstance(completed, int) or completed < 0
@@ -451,7 +451,8 @@ class DeploymentControlServer:
         with self._lock:
             previous = self._progress.get(mac)
             rate = 0.0
-            if previous is not None and now > previous["monotonic"]:
+            if (previous is not None and previous["phase"] == message["phase"]
+                    and now > previous["monotonic"]):
                 rate = max(0.0, (completed - previous["completed_bytes"]) / (now - previous["monotonic"]))
             self._progress[mac] = {
                 "phase": message["phase"], "completed_bytes": completed,
