@@ -102,4 +102,4 @@ hardware testing remain.
 - iPXE ProxyDHCP notes: https://ipxe.org/appnote/proxydhcp
 - Fedora dnsmasq package: https://packages.fedoraproject.org/pkgs/dnsmasq/dnsmasq/
 - Fedora iPXE x86 boot images: https://packages.fedoraproject.org/pkgs/ipxe/ipxe-bootimgs-x86/
-- Fedora Caddy package: https://packages.fedoraproject.org/pkgs/caddy/caddy/
+- Fedora Caddy package: https://packages.fedoraproject.org/pkgs/caddy/caddy/\n- firewalld TFTP service/helper definitions: https://firewalld.org/documentation/man-pages/firewalld.service.html
