@@ -213,6 +213,67 @@ class WebAPITests(unittest.TestCase):
         inspect.assert_called_once_with({"image_id": "source"})
         self.assertEqual(result, {"partitions": []})
 
+    def test_verify_image_returns_stored_and_decoded_artifact_report(self):
+        import io
+        from contextlib import nullcontext
+        from pathlib import Path
+        artifact = SimpleNamespace(
+            filename="disk.img", role="disk-image", size_bytes=4,
+            sha256="a" * 64, encryption="none", compression="none", format="raw",
+        )
+        manifest = SimpleNamespace(
+            image_id="verified", image_type="disk", source_size_bytes=4,
+            artifacts=[artifact],
+        )
+        with patch("feclora.webapi._image_manifest", return_value=Path("/repo/verified.manifest.json")), patch(
+            "pathlib.Path.read_text", return_value="{}"
+        ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
+            "feclora.webapi.os.path.isfile", return_value=False
+        ), patch("feclora.webapi._security_material", return_value={
+            "image_verification_available": False, "age_decryption_available": False,
+        }), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
+            "feclora.webapi._repository", return_value=Path("/repo")
+        ), patch(
+            "feclora.storage.disk_restore._verified_artifact_stream",
+            return_value=nullcontext(io.BytesIO(b"data")),
+        ), patch("feclora.storage.disk_restore._decoded_stream", side_effect=lambda stream, _compression: stream):
+            report = __import__("feclora.webapi", fromlist=["_verify_image"])._verify_image(
+                {"image_id": "verified"}
+            )
+        self.assertTrue(report["verified"])
+        self.assertEqual(report["signature"], "unsigned")
+        self.assertEqual(report["artifacts"][0]["stored_digest"], "verified")
+        self.assertEqual(report["artifacts"][0]["decoded_bytes"], 4)
+
+    def test_verify_image_rejects_decoded_disk_size_mismatch(self):
+        import io
+        from contextlib import nullcontext
+        from pathlib import Path
+        artifact = SimpleNamespace(
+            filename="disk.img", role="disk-image", size_bytes=3,
+            sha256="b" * 64, encryption="none", compression="none", format="raw",
+        )
+        manifest = SimpleNamespace(
+            image_id="wrong-size", image_type="disk", source_size_bytes=4,
+            artifacts=[artifact],
+        )
+        with patch("feclora.webapi._image_manifest", return_value=Path("/repo/wrong-size.manifest.json")), patch(
+            "pathlib.Path.read_text", return_value="{}"
+        ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
+            "feclora.webapi.os.path.isfile", return_value=False
+        ), patch("feclora.webapi._security_material", return_value={
+            "image_verification_available": False, "age_decryption_available": False,
+        }), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
+            "feclora.webapi._repository", return_value=Path("/repo")
+        ), patch(
+            "feclora.storage.disk_restore._verified_artifact_stream",
+            return_value=nullcontext(io.BytesIO(b"bad")),
+        ), patch("feclora.storage.disk_restore._decoded_stream", side_effect=lambda stream, _compression: stream):
+            with self.assertRaisesRegex(Exception, "decoded disk artifact size mismatch"):
+                __import__("feclora.webapi", fromlist=["_verify_image"])._verify_image(
+                    {"image_id": "wrong-size"}
+                )
+
     def test_partition_extraction_is_exposed_as_a_storage_operation(self):
         params = {"image_id": "whole-disk", "selector": "PARTUUID=abc"}
         with patch("feclora.webapi._run_operation", return_value={"image_id": "whole-disk-part-123"}) as run:
