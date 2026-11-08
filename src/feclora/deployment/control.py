@@ -21,6 +21,7 @@ from feclora.deployment.coordinator import (
     ClientState, CoordinatorError, DeploymentCoordinator, JobState,
 )
 from feclora.deployment.job import DeploymentJob, JobValidationError
+from feclora.storage.image_manifest import ImageManifest
 from feclora.network.remote_clone_protocol import verify_peer_identity
 from feclora.network.tls import connect_mutual_tls
 
