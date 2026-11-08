@@ -57,6 +57,7 @@ def make_service(transport="unicast", clients=()):
         operation="restore", image_id="image-1", transport=transport,
         authorized_clients=tuple(item.mac_address for item in clients),
         network_interface="enp1s0",
+        multicast_group="239.10.10.10",
     )
     service.coordinator = FakeCoordinator(clients=clients)
     service.control = FakeControl(service.coordinator)
@@ -116,6 +117,20 @@ class DeploymentServiceCommandTests(unittest.TestCase):
         self.assertTrue(service._arm_requested)
         self.assertEqual(len(FakeThread.instances), 1)
         self.assertTrue(FakeThread.instances[0].started)
+
+    def test_multicast_arm_requires_igmp_verification_phrase(self):
+        client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
+        service = make_service(transport="multicast", clients=(client,))
+        with mock.patch(
+            "feclora.deployment.service.inspect_multicast_interface",
+            return_value=SimpleNamespace(route_interface="enp1s0"),
+        ) as preflight, mock.patch("feclora.deployment.service.threading.Thread", FakeThread):
+            result = service._handle_ipc("arm", {
+                "job_id": service.job.job_id,
+                "confirmation": "ARM MULTICAST " + service.job.job_id + " IGMP-VERIFIED",
+            })
+        self.assertTrue(result["accepted"])
+        preflight.assert_called_once_with("enp1s0", "239.10.10.10", role="sender")
 
     def test_multicast_requires_distinct_typed_confirmation(self):
         client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
