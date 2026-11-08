@@ -265,6 +265,9 @@ def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
                 continue
         if not verified:
             raise WebAPIError("signed disk image does not verify against any locally trusted Feclora signing key")
+    disk_artifacts = [item for item in manifest.artifacts if item.role == "disk-image"]
+    if len(disk_artifacts) != 1 or disk_artifacts[0].format != "raw":
+        raise WebAPIError("whole-disk image must contain exactly one raw disk-image artifact")
     table_artifacts = [item for item in manifest.artifacts if item.role == "partition-table"]
     if len(table_artifacts) != 1 or table_artifacts[0].format != "raw":
         raise WebAPIError("whole-disk image must contain exactly one raw partition-table artifact")
