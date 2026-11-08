@@ -71,17 +71,19 @@
 - [ ] Validate all destructive paths on disposable BIOS/UEFI VMs.
 
 ## Milestone 3 — Network client and server modes in the same ISO
-- [x] Define and validate the shared versioned deployment job schema (no networking or storage writes).
-- [x] Implement the in-memory Server deployment coordinator and client lifecycle state machine (no network transport or storage writes).
-- [x] Specify the one-to-one remote clone protocol and implement TLS 1.3 mutual-authentication contexts, exact peer identity checks, role/device-bound local authorization, bounded framing/streaming, session-bound SHA-256, dd-based sender/receiver runtimes and receiver read-back acknowledgements (mocked device-I/O and real TLS 1.3 certificate handshake tests added; CI execution, interactive UI/listener wiring and hardware validation remain).
-- [ ] Define the separate authenticated, integrity-protected PXE client/server deployment protocol.
-- [ ] Implement client identity, allowlisting and explicit job arming.
-- [ ] Implement Client mode runtime using the same generic imaging commands.
-- [ ] Implement Server mode control plane, repository management and job lifecycle.
+- [x] Define and validate the shared versioned deployment job schema.
+- [x] Implement the in-memory Server deployment coordinator and client lifecycle state machine.
+- [x] Specify one-to-one remote disk clone over TLS 1.3 mTLS, including exact peer identity checks, role/device-bound local authorization, bounded streaming, session SHA-256 and receiver read-back.
+- [x] Implement the separate TLS 1.3 mTLS deployment control protocol: certificate identity-to-MAC enrollment mapping, job allowlist enforcement, HELLO/JOB/READY/START/RESULT/CANCEL framing, local target approval boundary, explicit coordinator arming, managed listener lifecycle and per-client result tracking.
+- [x] Implement signed unicast whole-disk image-set transfer over the authenticated TLS session: verify manifest signature and artifact SHA-256/size, stage privately, publish without overwrite, integrate Client capture/sign/send and receive/verify/restore/read-back callbacks. Unit and loopback mTLS tests are added; CI and real block-device execution remain pending.
+- [ ] Integrate the managed control listener into Server mode UI: job authoring, trusted key/enrollment configuration, repository selection, arm/cancel controls and per-client progress/results.
+- [ ] Implement Client mode UI: load credentials, discover/select local disks, typed local confirmation, repository/staging selection and invoke the authenticated runtime.
+- [ ] Implement persistent job/session journal, restart recovery and reconciliation of interrupted transfers.
+- [ ] Implement secure certificate and minisign-key enrollment, revocation and rotation.
 - [x] Select and package the embedded PXE stack: dnsmasq (DHCP/ProxyDHCP/PXE/TFTP), Fedora iPXE BIOS/UEFI boot images, and Caddy for HTTP boot (ADR 0006; services remain disabled by default).
-- [ ] Implement the Server-mode runtime for dnsmasq ProxyDHCP and isolated DHCP, interface/subnet safety validation, read-only TFTP, Caddy HTTP boot, and BIOS/UEFI iPXE chainloading (side-effect-free DHCP/Caddy configuration rendering and unit tests are now implemented; read-only interface/address discovery/revalidation, pre-activation dnsmasq/Caddy configuration validation, RPM-based read-only iPXE firmware staging, Fedora Live kernel/initramfs/squashfs HTTP staging with a generated iPXE script, and an explicit transactional transient-systemd service manager with a temporary interface-exclusive firewalld zone that restores the previous assignment are implemented; basic Server-mode interface selection, ProxyDHCP/isolated-DHCP confirmation and service stop UI are implemented; Client mode and authenticated client/job protocol remain).
-- [ ] Complete one-client save/restore over the network (control-plane handshake exists; artifact data plane and storage callback integration remain).\n- [x] Add an isolated libvirt PXE VM matrix harness for one Server and BIOS/UEFI Clients; VM creation is scripted, but boot and end-to-end acceptance remain manual and unverified.
-
+- [ ] Complete Server PXE runtime integration and validate DHCP/ProxyDHCP, TFTP/HTTP, BIOS/UEFI chainloading and firewalld rollback in virtual machines.
+- [ ] Complete one-client save/restore over PXE and authenticated unicast using disposable virtual disks; verify image signature, full transfer digest, destination read-back and per-client result.
+- [x] Add an isolated libvirt PXE VM matrix harness for one Server and BIOS/UEFI Clients; VM creation is scripted, but boot and end-to-end acceptance remain manual and unverified.
 ## Milestone 4 — Mass deployment
 - [ ] Implement unicast deployment to multiple clients.
 - [x] Select UDPcast as the initial multicast transport (ADR 0008; package included in the Live image).
