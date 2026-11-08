@@ -66,22 +66,32 @@ def _choose_job(
     )
     if operation is None:
         raise DeploymentControlError("job creation cancelled")
-    images = _available_images(config.repository)
-    choices = [
-        (manifest.image_id, f"{manifest.image_id} | {manifest.source_size_bytes:,} bytes")
-        for _filename, manifest in images
-    ]
-    image_id = dialog_app._menu(
-        "Select signed image", "Only images with a detached signature are listed.", choices,
-    )
-    if image_id is None:
-        raise DeploymentControlError("image selection cancelled")
-    selected_manifest = next(
-        (name for name, manifest in images if manifest.image_id == image_id), None,
-    )
-    if selected_manifest is None:
-        raise DeploymentControlError("selected image is no longer available")
-    manifest_path = os.path.join(config.repository, selected_manifest)
+    manifest_path = None
+    if operation == "restore":
+        images = _available_images(config.repository)
+        choices = [
+            (manifest.image_id, f"{manifest.image_id} | {manifest.source_size_bytes:,} bytes")
+            for _filename, manifest in images
+        ]
+        image_id = dialog_app._menu(
+            "Select signed image", "Only images with a detached signature are listed.", choices,
+        )
+        if image_id is None:
+            raise DeploymentControlError("image selection cancelled")
+        selected_manifest = next(
+            (name for name, manifest in images if manifest.image_id == image_id), None,
+        )
+        if selected_manifest is None:
+            raise DeploymentControlError("selected image is no longer available")
+        manifest_path = os.path.join(config.repository, selected_manifest)
+    else:
+        image_id = dialog_app._input("New image identifier", "Enter a unique image identifier:")
+        if image_id is None:
+            raise DeploymentControlError("image creation cancelled")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
+            raise DeploymentControlError("image identifier must be a safe basename of at most 128 characters")
+        if os.path.lexists(os.path.join(config.repository, image_id + ".manifest.json")):
+            raise DeploymentControlError("an image with this identifier already exists")
 
     enrolled = [
         (identity, f"{identity} -> {mac}")
