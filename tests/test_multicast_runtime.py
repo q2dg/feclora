@@ -181,10 +181,10 @@ class MulticastRuntimeTests(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as repository:
             real_lstat = os.lstat
-            def fake_lstat(path):
-                if path == approval.device_path:
+            def fake_lstat(path, **kwargs):
+                if path == approval.device_path and not kwargs:
                     return SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
-                return real_lstat(path)
+                return real_lstat(path, **kwargs)
             with (
                 patch("feclora.deployment.multicast_runtime.os.lstat", side_effect=fake_lstat),
                 patch("feclora.deployment.multicast_runtime.receive_control_message", return_value=offer),
