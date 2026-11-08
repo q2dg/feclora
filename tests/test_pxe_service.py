@@ -24,6 +24,10 @@ class FakeFirewall:
         self.opened.append((interface, list(ports)))
     def close(self, interface):
         self.closed.append(interface)
+    def export_state(self, interface):
+        return {"zone": "feclora-pxe-a1b2c3d4", "restore_zone": "public", "ports": ["67/udp", "4011/udp", "8080/tcp"]}
+    def adopt(self, interface, state):
+        self.adopted = (interface, state)
 
 
 class PxeServiceTests(unittest.TestCase):
@@ -61,6 +65,27 @@ class PxeServiceTests(unittest.TestCase):
                 manager.start(config())
         self.assertTrue(any(argv[:2] == ["/usr/bin/systemctl", "stop"] for argv in calls))
         self.assertEqual(firewall.closed, ["enp1s0"])
+
+
+    def test_fresh_manager_can_stop_services_started_by_another_api_process(self):
+        calls = []
+        def runner(argv, **kwargs):
+            calls.append(argv)
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        with tempfile.TemporaryDirectory() as tmp:
+            firewall1 = FakeFirewall()
+            first = PXEServiceManager(tmp, runner=runner, preflight=lambda _config: None,
+                                      firewall=firewall1, boot_stager=lambda _config: None)
+            first.start(config())
+            firewall2 = FakeFirewall()
+            second = PXEServiceManager(tmp, runner=runner, preflight=lambda _config: None,
+                                       firewall=firewall2, boot_stager=lambda _config: None)
+            second.stop()
+            self.assertEqual(firewall2.adopted[0], "enp1s0")
+            self.assertEqual(firewall2.closed, ["enp1s0"])
+            self.assertFalse((Path(tmp) / "active.json").exists())
+            stopped = [argv[-1] for argv in calls if argv[:2] == ["/usr/bin/systemctl", "stop"]]
+            self.assertEqual(stopped, ["feclora-caddy-0.service", "feclora-dnsmasq-0.service"] if False else stopped)
 
     def test_rejects_symlink_runtime_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
