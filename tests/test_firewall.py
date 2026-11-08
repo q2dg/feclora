@@ -142,7 +142,7 @@ class FirewallTests(unittest.TestCase):
         self.assertTrue(any("--remove-protocol=igmp" in call for call in calls))
 
     def test_rejects_invalid_port_and_interface(self):
-        firewall = PXEFirewall(executable="/usr/bin/firewall-cmd", runner=lambda *a, **k: None)
+        firewall = PXEFirewall(executable="/usr/bin/firewall-cmd", runner=lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0, "running\\n", ""))
         with self.assertRaises(PXEFirewallError):
             firewall.open("any", ["67/udp"])
         with self.assertRaises(PXEFirewallError):
