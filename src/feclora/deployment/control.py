@@ -2,8 +2,10 @@
 
 The control channel is TLS 1.3 mutual-authenticated. Certificate SAN identity is
 mapped to an explicitly authorized client MAC; MAC is an inventory key only,
-never an authenticator. This module coordinates readiness and job arming. It
-does not implement the image data plane or execute storage operations.
+never an authenticator. This module coordinates readiness and job arming,
+unicast TLS image transfer, and multicast UDPcast artifact delivery. It does not
+execute block-device writes; the Client runtime performs protected staging,
+verification and restore.
 """
 from __future__ import annotations
 
