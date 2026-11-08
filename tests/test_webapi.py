@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from feclora.webapi import WebAPIError, dispatch, _device, _server_trusted_clients, _revoke_server_client
+from feclora.webapi import WebAPIError, dispatch, _device, _server_trusted_clients, _revoke_server_client, _certificate_status
 from feclora.deployment.job import DeploymentJob
 
 
@@ -39,6 +39,20 @@ class WebAPITests(unittest.TestCase):
                      "dhcp_server": None, "binding": "enp1s0|192.0.2.10|24"}]
         with patch("feclora.webapi._network_interfaces", return_value=expected):
             self.assertEqual(dispatch({"action": "network_interfaces"}), {"interfaces": expected})
+
+    def test_certificate_status_warns_before_managed_identity_expiry(self):
+        config = SimpleNamespace(
+            certificate_file="/etc/feclora/pki/server.crt",
+            local_identity="URI:feclora-server",
+        )
+        with patch("feclora.webapi.os.path.isfile", side_effect=lambda path: path == "/etc/feclora/deployment-server.json"), patch(
+            "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
+        ), patch("feclora.deployment.managed_pki.certificate_expiry_days", return_value=12):
+            result = _certificate_status()
+        self.assertEqual(result, [{
+            "role": "Server", "identity": "URI:feclora-server",
+            "expiry_days": 12, "status": "expiring",
+        }])
 
     def test_client_renewal_actions_are_exposed_through_allowlisted_dispatch(self):
         prepared = {"identity": "URI:feclora-client-lab-01"}
