@@ -219,7 +219,7 @@ def _prepare_client_renewal(config: ClientRuntimeConfig) -> None:
     )
     dialog_app._message(
         "Renewal request prepared",
-        f"Identity: {identity}\\nCSR: {exported}\\n\\n"
+        f"Identity: {identity}\nCSR: {exported}\n\n"
         "Take the CSR and age-recipient file to the Server. Approve the CSR there, then return the signed response bundle and choose Install renewed certificate.",
     )
 
@@ -291,8 +291,8 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 )
                 dialog_app._message(
                     "Client multicast preflight",
-                    f"Interface: {preflight.interface} ({preflight.ipv4_address})\\nKernel route: {preflight.route_interface}\\n\\n"
-                    + "\\n".join(preflight.warnings),
+                    f"Interface: {preflight.interface} ({preflight.ipv4_address})\nKernel route: {preflight.route_interface}\n\n"
+                    + "\n".join(preflight.warnings),
                 )
                 state["multicast_interface"] = selected_interface
             if job.operation == "save" and not config.local_minisign_secret_key:
