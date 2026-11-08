@@ -118,7 +118,7 @@ class WebAPITests(unittest.TestCase):
     def test_partition_extraction_verifies_disk_type_and_publishes_new_manifest(self):
         from pathlib import Path
         manifest = SimpleNamespace(
-            image_type="disk",
+            image_id="source", image_type="disk",
             artifacts=[SimpleNamespace(encryption="none")],
         )
         extracted = SimpleNamespace(image_id="source-part-abc123", image_type="partition")
