@@ -79,6 +79,7 @@ def capture_partition_image(
             topology = collect_btrfs_topology(
                 which=lambda name: btrfs_executable if name == "btrfs" else None,
                 runner=run,
+                effective_uid=effective_uid or os.geteuid,
             )
         except BtrfsInventoryError as exc:
             raise PartitionImageCaptureError(
