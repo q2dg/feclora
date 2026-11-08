@@ -1,4 +1,4 @@
-"""Dialog workflow for one authenticated unicast Server deployment."""
+"""Dialog workflows for authenticated unicast and multi-client multicast deployments."""
 from __future__ import annotations
 
 import os
