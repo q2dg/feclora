@@ -153,6 +153,8 @@ def mark_client_job_interrupted(job_id: str) -> None:
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             })
             _write_private_json(status_path, status)
+        from feclora.deployment.service import recover_stale_runtime_artifacts
+        recover_stale_runtime_artifacts(lock_held=True)
     finally:
         os.close(fd)
 
