@@ -151,22 +151,37 @@ def _compression() -> tuple[str, int | None] | None:
 
 
 def _image_security_options() -> tuple[str | None, str | None] | None:
-    mode = _menu("Image security", "Choose optional image encryption and manifest signing.", [
-        ("none", "Neither encryption nor signature"),
-        ("age", "Encrypt with age"),
-        ("minisign", "Sign manifest with minisign"),
-        ("both", "Encrypt with age and sign with minisign"),
-    ])
+    mode = _menu(
+        "Image security",
+        "Multicast restore requires BOTH age encryption and a minisign manifest signature.",
+        [
+            ("both", "Recommended for deployment: encrypt with age and sign with minisign"),
+            ("age", "Encrypt with age only"),
+            ("minisign", "Sign manifest with minisign only"),
+            ("none", "Neither encryption nor signature"),
+        ],
+    )
     if mode is None:
         return None
     recipients = None
     secret_key = None
     if mode in {"age", "both"}:
-        recipients = _input("age recipients", "Path to recipients file (public age keys, one per line):")
+        default_recipients = (
+            "/etc/feclora/pki/age-recipients.txt"
+            if os.path.isfile("/etc/feclora/pki/age-recipients.txt") else ""
+        )
+        recipients = _input(
+            "age recipients", "Path to recipients file (public age keys, one per line):",
+            initial=default_recipients,
+        )
         if not recipients:
             return None
     if mode in {"minisign", "both"}:
-        secret_key = _input("minisign signing key", "Path to minisign secret key:")
+        default_secret = (
+            "/etc/feclora/pki/server.minisign.key"
+            if os.path.isfile("/etc/feclora/pki/server.minisign.key") else ""
+        )
+        secret_key = _input("minisign signing key", "Path to minisign secret key:", initial=default_secret)
         if not secret_key:
             return None
     return recipients, secret_key
