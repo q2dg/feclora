@@ -171,8 +171,12 @@ the Server interface and unicast or multicast restore transport. The backend
 revalidates enrollment, signing-key availability, image signature, image type
 and age-recipient registrations before persisting a hash-chained journal.
 
+The persisted-job table also shows each Client's last journaled state,
+the event count and whether a job was interrupted. An interrupted job is marked
+for operator review; Feclora never automatically resumes a destructive write.
+
 This is a definition-only milestone. It does not contact Clients, obtain local
 destination approval, arm the job or start storage I/O. UDPcast multicast data
 is not encrypted or authenticated; only the control plane uses mTLS. The
-persistent control-plane service, explicit per-Client target approval and
-execution/progress controls remain pending.
+persistent control-plane service, Cockpit-driven per-Client target approval
+and execution/progress controls remain pending.
