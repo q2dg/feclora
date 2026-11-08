@@ -12,6 +12,10 @@ from feclora.deployment.control import DeploymentControlError, DeploymentControl
 from feclora.deployment.coordinator import DeploymentCoordinator
 from feclora.deployment.job import DeploymentJob
 from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
+from feclora.deployment.enrollment import (
+    EnrollmentError, enroll_client_certificate, inspect_client_certificate,
+    revoke_client_certificate,
+)
 from feclora.deployment.runtime_config import (
     RuntimeConfigError, ServerRuntimeConfig, load_server_runtime_config,
 )
@@ -168,6 +172,81 @@ def _review_previous_journals(directory: str) -> None:
             + "\n".join(summaries),
         )
 
+def _manage_client_enrollment(config_path: str) -> None:
+    """Offer explicit certificate enrollment, rotation and revocation before job setup."""
+    config = load_server_runtime_config(config_path)
+    choice = dialog_app._menu(
+        "Client certificate trust",
+        "Manage the Server's allowlist of TLS Client certificate identities. "
+        "Private keys are never imported or generated here; provision them out of band.",
+        [
+            ("continue", "Continue to deployment"),
+            ("enroll", "Enroll or rotate a Client certificate"),
+            ("revoke", "Revoke an enrolled Client certificate"),
+        ],
+    )
+    if choice in (None, "continue"):
+        return
+    if choice == "enroll":
+        certificate = dialog_app._input(
+            "Client certificate",
+            "Absolute path to the root-owned PEM Client certificate (not its private key):",
+        )
+        if not certificate:
+            return
+        identity = inspect_client_certificate(certificate, config.ca_file)
+        mac = dialog_app._input(
+            "Client MAC address",
+            "Enter the unicast MAC address authorized for this certificate:",
+        )
+        if not mac:
+            return
+        public_key = dialog_app._input(
+            "Client image-signing key",
+            "Optional root-owned minisign PUBLIC key path; leave blank for restore-only Client:",
+        )
+        public_key = public_key or None
+        dialog_app._message(
+            "Review Client enrollment",
+            f"Certificate identity: {identity}\nMAC allowlist entry: {mac.lower()}\n"
+            f"Image signing key: {public_key or 'none (restore-only)'}\n\n"
+            "The certificate chain and TLS client purpose have been verified against "
+            "the configured CA. Re-enrolling the same MAC rotates its certificate identity.",
+        )
+        confirmation = dialog_app._input(
+            "Confirm Client enrollment",
+            f"Type exactly: ENROLL {identity} {mac.lower()}",
+        )
+        if confirmation is None:
+            return
+        enrolled = enroll_client_certificate(
+            config_path, certificate, mac,
+            minisign_public_key=public_key, confirmation=confirmation,
+        )
+        dialog_app._message("Client enrolled", f"Enrolled certificate identity: {enrolled}")
+        return
+    identities = sorted(config.client_identity_to_mac)
+    selected = dialog_app._menu(
+        "Revoke Client certificate",
+        "Select the certificate identity to remove. Its associated minisign public key is also removed.",
+        [(identity, f"{identity} -> {mac}") for identity, mac in config.client_identity_to_mac.items()],
+    )
+    if selected is None:
+        return
+    confirmation = dialog_app._input(
+        "Confirm Client revocation",
+        f"Type exactly: REVOKE {selected}",
+    )
+    if confirmation is None:
+        return
+    mac = revoke_client_certificate(config_path, selected, confirmation=confirmation)
+    dialog_app._message(
+        "Client revoked",
+        f"Revoked {selected} and removed image-signing trust for {mac}. "
+        "The Client must reconnect with a newly enrolled certificate.",
+    )
+
+
 def run_deployment_server_ui(
     interface: str,
     address: str,
@@ -178,6 +257,7 @@ def run_deployment_server_ui(
     """Load root-provisioned trust material and run one authenticated unicast job."""
     control = None
     try:
+        _manage_client_enrollment(config_path)
         config = load_server_runtime_config(config_path)
         if config.bind_address != address:
             raise RuntimeConfigError(
