@@ -12,7 +12,7 @@ def config(root):
     return PXENetworkConfig(
         interface="enp1s0", address="192.0.2.10", prefix_length=24,
         mode="proxy", tftp_root=str(Path(root) / "tftp"),
-        bios_boot_file="undionly.kpxe", uefi_boot_file="snponly.efi",
+        bios_boot_file="undionly.kpxe", uefi_boot_file="ipxe-snponly-x86_64.efi",
         http_root=str(Path(root) / "http"),
     )
 
@@ -24,7 +24,7 @@ class PxeBootTreeTests(unittest.TestCase):
             rpm_files = root / "rpm"
             rpm_files.mkdir()
             (rpm_files / "undionly.kpxe").write_bytes(b"bios")
-            (rpm_files / "snponly.efi").write_bytes(b"uefi")
+            (rpm_files / "ipxe-snponly-x86_64.efi").write_bytes(b"uefi")
             live = root / "live"
             (live / "images" / "pxeboot").mkdir(parents=True)
             (live / "LiveOS").mkdir()
