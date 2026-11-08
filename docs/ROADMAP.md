@@ -16,7 +16,8 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [x] Local managed CA/TLS identity bootstrap and Client CSR enrollment primitives.
 - [x] Authenticated unicast deployment engine and UDPcast multicast restore engine.
 - [x] PXE/iPXE boot-tree staging and transient dnsmasq/Caddy/firewalld service lifecycle.
-- [x] Durable deployment journals, audit-state reconstruction from verified journals, and explicit interrupted-job reconciliation (reconstruction does not restore sessions or resume work).\n- [x] Root-peer Unix IPC protocol/server primitive for future deployment-service control (not yet packaged as a running service or connected to Cockpit).
+- [x] Durable deployment journals, audit-state reconstruction from verified journals, and explicit interrupted-job reconciliation (reconstruction does not restore sessions or resume work).
+- [x] Root-peer Unix IPC protocol/server primitive for future deployment-service control (not yet packaged as a running service or connected to Cockpit).
 - [x] Cockpit React/PatternFly package and privileged allowlisted backend.
 - [x] Cockpit local operations wizard: disk/partition capture, restore and clone.
 - [x] Cockpit storage/image inventory, operation journal summary and local image-security setup.
@@ -37,7 +38,8 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [ ] Local destructive-target approval for remote jobs from Cockpit.
 - [x] Cockpit remote-job definition wizard: validate enrolled Clients, image/signature, interface and transport, then persist a hash-chained job journal (definition only; no start).
 - [x] Cockpit audit-only reconciliation of interrupted job journals, requiring inspection and exact typed confirmation; no storage operation is resumed.
-- [ ] Persistent job execution service and lifecycle controls.\n- [ ] Integrate the root-only Unix IPC primitive with a systemd-managed service and Cockpit API; enforce single-job ownership and explicit arm/cancel semantics.
+- [ ] Persistent job execution service and lifecycle controls.
+- [ ] Integrate the root-only Unix IPC primitive with a systemd-managed service and Cockpit API; enforce single-job ownership and explicit arm/cancel semantics.
 - [ ] Persistent job daemon/service lifecycle so a browser disconnect does not terminate the control plane.
 - [ ] Arm, cancel, inspect and reconcile jobs through Cockpit.
 - [ ] Per-client state, byte progress, throughput, results and error logs.
