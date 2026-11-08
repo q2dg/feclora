@@ -36,6 +36,7 @@ Operational design notes:
 - [Signed, single-use unattended restore profiles](docs/RESTORE-PROFILES.md)
 - [Certificate management policy and current limitations](docs/CERTIFICATE-MANAGEMENT.md)
 - [Cockpit React/PatternFly web dashboard](webui/README.md)
+- [Cockpit activation, access and security boundary](docs/COCKPIT.md)
 - [Isolated BIOS/UEFI PXE VM lab](tests/vm/README.md)
 
 ## Repository layout
