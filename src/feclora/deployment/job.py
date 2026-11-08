@@ -28,6 +28,7 @@ _ALLOWED_FIELDS = {
     "job_id",
     "operation",
     "image_id",
+    "target_type",
     "authorized_clients",
     "network_interface",
     "transport",
@@ -54,6 +55,7 @@ class DeploymentJob:
     start_policy: str
     expected_clients: int | None
     start_deadline: str | None
+    target_type: str = "disk"
     schema_version: int = 1
 
     @classmethod
@@ -62,7 +64,7 @@ class DeploymentJob:
             raise JobValidationError("Job document must be a JSON object")
         unknown = set(payload) - _ALLOWED_FIELDS
         missing = _ALLOWED_FIELDS - set(payload) - {
-            "multicast_group", "multicast_port", "expected_clients", "start_deadline"
+            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type"
         }
         if unknown:
             raise JobValidationError(f"Unknown job fields: {', '.join(sorted(unknown))}")
@@ -87,6 +89,11 @@ class DeploymentJob:
         image_id = payload.get("image_id")
         if not isinstance(image_id, str) or not _IMAGE_ID_RE.fullmatch(image_id):
             raise JobValidationError("image_id must be a simple identifier, not a path")
+        target_type = payload.get("target_type", "disk")
+        if target_type not in {"disk", "partition"}:
+            raise JobValidationError("target_type must be disk or partition")
+        if operation == "save" and target_type != "disk":
+            raise JobValidationError("network save currently supports whole disks only")
 
         clients = payload.get("authorized_clients")
         if not isinstance(clients, list) or not clients:
@@ -166,6 +173,7 @@ class DeploymentJob:
             start_policy=policy,
             expected_clients=expected,
             start_deadline=deadline,
+            target_type=target_type,
         )
 
     @classmethod
@@ -183,6 +191,7 @@ class DeploymentJob:
             "job_id": self.job_id,
             "operation": self.operation,
             "image_id": self.image_id,
+            "target_type": self.target_type,
             "authorized_clients": list(self.authorized_clients),
             "network_interface": self.network_interface,
             "transport": self.transport,
