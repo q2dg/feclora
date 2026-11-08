@@ -57,7 +57,7 @@ Implemented:
 Still required:
 - persistent job/session storage and restart recovery;
 - secure certificate enrollment, revocation and rotation UI;
-- server listener lifecycle and Server-mode UI integration;
+- Server-mode UI integration and runtime configuration/enrollment authoring;
 - Client-mode UI, actual storage inventory selection and typed destructive
   confirmation;
 - authenticated image-artifact data plane for save and restore, including
