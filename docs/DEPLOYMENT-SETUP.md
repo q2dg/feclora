@@ -1,6 +1,6 @@
 # Configuring authenticated Server and Client modes
 
-The authenticated unicast runtime is opt-in. PXE services and the control
+The authenticated deployment runtime is opt-in. PXE services and the control
 listener do not start automatically at boot. Provision endpoint credentials
 and configuration files out of band before selecting deployment mode.
 
@@ -47,10 +47,12 @@ example path and identity):
   "certificate_file": "/etc/feclora/pki/server.crt",
   "private_key_file": "/etc/feclora/pki/server.key",
   "client_identity_to_mac": {
-    "URI:feclora-client-01": "52:54:00:12:34:56"
+    "URI:feclora-client-01": "52:54:00:12:34:56",
+    "URI:feclora-client-02": "52:54:00:12:34:57"
   },
   "client_minisign_public_keys": {
-    "52:54:00:12:34:56": "/etc/feclora/pki/client-01.pub"
+    "52:54:00:12:34:56": "/etc/feclora/pki/client-01.pub",
+    "52:54:00:12:34:57": "/etc/feclora/pki/client-02.pub"
   },
   "server_minisign_public_key": "/etc/feclora/pki/server.pub",
   "repository": "/var/lib/feclora/images"
@@ -69,11 +71,7 @@ The Server now offers a **Client certificate trust** screen before creating a jo
 The UI never generates, imports, exports, or transmits private keys and does not issue certificates. A trusted CA must issue Client certificates out of band; the Client's matching private key must be provisioned securely on that Client. Certificate expiry/renewal and CA revocation-list/OCSP policy remain responsibilities of the external PKI. Rotation takes effect for new TLS handshakes; an already established session must be stopped.
 
 The bind address must exactly match the IPv4 address selected in Server mode.
-The Server UI creates a one-client job, selects save or restore, and displays
-the job UUID. The Client operator enters that UUID. The Server listener opens
-TCP/9443 only on the selected interface in Feclora's temporary firewalld zone.
-The listener is stopped and its temporary firewall rule is removed when the
-job UI exits.
+The Server UI creates either a one-client unicast save/restore job or a multi-client multicast restore job and displays the job UUID. Each selected Client operator enters that UUID. The Server listener opens TCP/9443 only on the selected interface in Feclora's temporary firewalld zone. During multicast transfers it temporarily adds the UDPcast port pair and IGMP on that same interface. The listener and temporary firewall rules are removed when the job UI exits.
 
 For restore, the Server selects a manifest in the repository with a detached
 minisign signature and verifies it with server.pub before sending. For save,
