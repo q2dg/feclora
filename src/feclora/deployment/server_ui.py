@@ -165,7 +165,7 @@ def run_deployment_server_ui(
                     + "\n".join(f"{mac}: {state}" for mac, state in results.items()),
                 )
                 return 0
-    except (RuntimeConfigError, DeploymentControlError, OSError, ValueError) as exc:
+    except Exception as exc:
         dialog_app._message("Deployment setup failed", str(exc))
         return 1
     finally:
