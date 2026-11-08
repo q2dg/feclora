@@ -48,12 +48,14 @@ def rendezvous_group_for(data_group: str) -> str:
     return str(ipaddress.ip_address(candidate))
 
 
-def udpcast_config_for_job(job: DeploymentJob, *, min_receivers: int) -> UDPcastConfig:
+def udpcast_config_for_job(
+    job: DeploymentJob, *, min_receivers: int, network_interface: str | None = None,
+) -> UDPcastConfig:
     if job.transport != "multicast" or job.multicast_group is None or job.multicast_port is None:
         raise MulticastDeploymentError("deployment job is not configured for multicast")
     try:
         return UDPcastConfig(
-            interface=job.network_interface,
+            interface=network_interface or job.network_interface,
             data_group=job.multicast_group,
             rendezvous_group=rendezvous_group_for(job.multicast_group),
             portbase=job.multicast_port,
@@ -86,6 +88,7 @@ def execute_multicast_restore(
     repository: str | os.PathLike[str],
     trusted_server_public_key: str | os.PathLike[str],
     firewall: Any,
+    network_interface: str | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
     progress_callback: Callable[[int, int | None], None] | None = None,
     executables: dict[str, str | None] | None = None,
@@ -132,7 +135,10 @@ def execute_multicast_restore(
         required_bytes = sum(item.size_bytes for item in manifest.artifacts)
         if shutil.disk_usage(workdir).free < required_bytes:
             raise MulticastDeploymentError("insufficient Client staging space for the complete signed image set")
-        config = udpcast_config_for_job(job, min_receivers=len(job.authorized_clients))
+        config = udpcast_config_for_job(
+            job, min_receivers=len(job.authorized_clients),
+            network_interface=network_interface,
+        )
         for artifact in manifest.artifacts:
             staged = receive_multicast_artifact_to_staging(
                 workdir, artifact, config, firewall=firewall,
