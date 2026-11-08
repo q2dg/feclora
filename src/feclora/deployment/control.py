@@ -27,7 +27,7 @@ from feclora.deployment.coordinator import (
 from feclora.deployment.job import DeploymentJob, JobValidationError
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.image_security import ImageSecurityError, verify_manifest_signature
-from feclora.network.udpcast import UDPcastConfig, UDPcastError, send_multicast_artifact
+from feclora.network.udpcast import UDPcastConfig, UDPcastError, send_multicast_artifact, verify_artifact_file
 from feclora.network.remote_clone_protocol import verify_peer_identity
 from feclora.network.tls import connect_mutual_tls
 
@@ -530,10 +530,12 @@ class DeploymentControlServer:
             if len(manifest_bytes) > 8 * 1024 or len(signature_bytes) > 2048:
                 raise DeploymentControlError("signed manifest exceeds the multicast control-plane size limit")
             manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
-        except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError) as exc:
+            if manifest.image_id != job.image_id:
+                raise DeploymentControlError("signed manifest image identifier does not match the multicast job")
+            for artifact in manifest.artifacts:
+                verify_artifact_file(os.path.join(repository, artifact.filename), artifact)
+        except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError, UDPcastError) as exc:
             raise DeploymentControlError(f"cannot verify multicast image manifest: {exc}") from exc
-        if manifest.image_id != job.image_id:
-            raise DeploymentControlError("signed manifest image identifier does not match the multicast job")
         expected_macs = tuple(sorted(job.authorized_clients))
         started = self.arm_and_start()
         if tuple(sorted(started)) != expected_macs:
