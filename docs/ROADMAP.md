@@ -89,10 +89,10 @@
 - [x] Select UDPcast as the initial multicast transport (ADR 0008; package included in the Live image).
 - [x] Implement a fail-closed UDPcast transport adapter and integrate it with authenticated multi-client whole-disk restore: explicit armed/running-job sender gate, all-client readiness threshold, signed-manifest/source digest verification, private receiver staging, exact size/hash verification, cancellable subprocesses, and scoped firewalld UDP ports (unit tests added; execution and live networking validation pending).
 - [x] Integrate UDPcast restore with the mTLS control service, persistent job/client lifecycle, Client-mode local target authorization, private per-client staging, signed-manifest/artifact verification and per-client terminal results. The operator confirms the TTL=1/IGMP/L2 network preflight; automated network capability detection remains pending.
-- [ ] Add client-count/deadline/manual deployment start conditions.
-- [ ] Add per-client progress, completion, failure reporting and logs.
+- [x] Require every selected Client to authenticate and become READY before the explicit manual multicast start; expected-client/deadline policies are present in the coordinator schema but are not yet exposed in the Server UI.
+- [x] Persist and display per-client terminal completion/failure results for multicast jobs; live byte-progress and streaming log display remain pending.
 - [ ] Add Wake-on-LAN and post-job reboot/poweroff policies.
-- [ ] Add network interface selection, capacity limits and isolated-network safeguards.
+- [x] Select the Server interface through Server mode and each Client's local multicast receive interface through Client mode; enforce a dedicated TTL=1 239.0.0.0/8 profile and temporary interface-scoped UDP firewall rules. Automated capacity estimation and network capability detection remain pending.
 - [x] Document multi-client multicast restore acceptance with one Server and BIOS/UEFI Client VMs in `tests/vm/README.md`; execution, packet-loss/interrupt testing and recorded acceptance results remain operator validation.
 
 ## Milestone 5 — Compatibility and expansion
