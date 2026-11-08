@@ -64,7 +64,7 @@ def inspect_multicast_interface(
     if not ipv4:
         raise MulticastPreflightError("selected multicast interface has no IPv4 address")
     route_output = query([ip, "-4", "route", "get", str(address)], "multicast route inspection")
-    route = re.search(r"\\bdev\\s+(\S+)", route_output)
+    route = re.search(r"\bdev\s+(\S+)", route_output)
     if not route:
         raise MulticastPreflightError("kernel did not select a route for the multicast group")
     if route.group(1) != interface:
