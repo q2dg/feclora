@@ -137,6 +137,8 @@ class DeploymentControlServer:
         self.coordinator = coordinator
         self.tls_context = tls_context
         self.local_identity = local_identity
+        if firewall is not None and not interface:
+            raise DeploymentControlError("firewall-scoped control service requires a selected interface")
         self.firewall = firewall
         self.interface = interface
         self._firewall_added: tuple[str, ...] = ()
