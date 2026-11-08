@@ -131,6 +131,8 @@ def _security_material() -> dict[str, bool]:
 def _initialize_security() -> dict[str, Any]:
     from feclora.deployment.managed_pki import initialize_server_pki
 
+    before = _security_material()
+    created = not all(before.values())
     pki = Path("/etc/feclora/pki")
     initialize_server_pki(pki)
     age_identity = pki / "server.age"
@@ -173,7 +175,7 @@ def _initialize_security() -> dict[str, Any]:
             raise WebAPIError("minisign failed while creating the local image-signing key")
         os.chmod(signing_secret, 0o600)
         os.chmod(signing_public, 0o644)
-    return {"created": True, **_security_material()}
+    return {"created": created, **_security_material()}
 
 
 def _images() -> list[dict[str, Any]]:
