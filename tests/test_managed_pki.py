@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from feclora.deployment.managed_pki import (
-    PKIError, certificate_expiry_days, create_client_csr, inspect_client_csr,
+    PKIError, certificate_expiry_days, create_client_csr, inspect_client_csr, renew_server_certificate,
 )
 
 
@@ -86,6 +86,48 @@ class ManagedPKITests(unittest.TestCase):
             with open(recipients_file, encoding="ascii") as stream:
                 self.assertEqual(stream.read(), server_recipient + "\n")
             self.assertFalse(os.path.exists(os.path.join(root, "age-recipients", "lab.txt")))
+
+    def test_server_certificate_renewal_preserves_ca_and_private_key(self):
+        with tempfile.TemporaryDirectory() as root:
+            paths = {
+                "ca.key": os.path.join(root, "ca.key"),
+                "ca.crt": os.path.join(root, "ca.crt"),
+                "server.key": os.path.join(root, "server.key"),
+                "server.crt": os.path.join(root, "server.crt"),
+            }
+            for name, path in paths.items():
+                with open(path, "w", encoding="ascii") as stream:
+                    stream.write("existing " + name)
+                os.chmod(path, 0o600 if name.endswith(".key") else 0o644)
+            original_key = open(paths["server.key"], "rb").read()
+            calls = []
+
+            def fake_run(argv, _runner=None):
+                calls.append(argv)
+                if argv[1:3] == ["x509", "-in"] and argv[-4:] == ["-noout", "-ext", "subjectAltName"]:
+                    return SimpleNamespace(stdout="X509v3 Subject Alternative Name:\n    URI:feclora-server\n")
+                if argv[1:2] == ["req"] and "-out" in argv:
+                    output = argv[argv.index("-out") + 1]
+                    Path(output).write_text("new CSR", encoding="ascii")
+                elif argv[1:3] == ["x509", "-req"]:
+                    output = argv[argv.index("-out") + 1]
+                    Path(output).write_text("renewed certificate", encoding="ascii")
+                elif argv[1:3] == ["x509", "-in"] and "-pubkey" in argv:
+                    return SimpleNamespace(stdout="PUBLIC KEY")
+                elif argv[1:2] == ["pkey"]:
+                    return SimpleNamespace(stdout="PUBLIC KEY")
+                elif argv[1:3] == ["x509", "-in"] and "-fingerprint" in argv:
+                    return SimpleNamespace(stdout="sha256 Fingerprint=" + "A" * 64)
+                return SimpleNamespace(stdout="verified")
+
+            with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
+                "feclora.deployment.managed_pki._regular_file"
+            ), patch("feclora.deployment.managed_pki._run", side_effect=fake_run):
+                result = renew_server_certificate(root)
+            self.assertEqual(Path(paths["server.crt"]).read_text(encoding="ascii"), "renewed certificate")
+            self.assertEqual(Path(paths["server.key"]).read_bytes(), original_key)
+            self.assertEqual(result["ca_fingerprint"], "a" * 64)
+            self.assertTrue(any("-no_check_time" in command for command in calls))
 
     def test_certificate_expiry_uses_utc_and_returns_negative_when_expired(self):
         with tempfile.NamedTemporaryFile() as certificate:
