@@ -40,6 +40,22 @@ In the Server guest:
 
 Do not mark the mTLS/artifact-transfer, disposable-disk restore or read-back items complete until those operations have actually run and the results have been recorded. VM PXE boot success alone does not prove a deployment or restore succeeded.
 
+## Multi-client multicast restore acceptance
+
+The same isolated lab has one Server and two independently bootable Clients (BIOS and UEFI), which is the minimum useful multi-receiver test. This is an operator acceptance procedure; creating the VMs does not execute it.
+
+1. Boot the Server ISO and both Client ISOs on the isolated libvirt network. Give the Server a static address and start Feclora PXE. Confirm both clients can reach the control listener over the isolated network.
+2. Provision a distinct CA-issued TLS client certificate and identity for each Client, map each certificate to that VM's unique MAC in the Server enrollment UI, and provision the matching private key only on that Client. Use the same trusted Server CA/public minisign key on both Clients.
+3. Ensure the switch/bridge path forwards IPv4 multicast on this isolated segment. Configure IGMP snooping with a working querier. The current profile uses TTL 1 and cannot route between VLANs.
+4. Place one signed whole-disk image set in the Server repository. Use disposable qcow2 target disks on both Clients; never attach host block devices.
+5. In Server mode choose **Multicast**, **Restore**, select both enrolled Clients, select the signed image, and use a group in 239.0.0.0/8 with an even UDPcast port base such as 9000. Confirm the displayed network preflight using the exact job-specific phrase.
+6. On each Client select **Client**, enter the same job UUID, select its own local multicast receive interface, select its disposable target disk and type the exact confirmation phrase for that disk and Server identity. The Server must show both MACs READY before it will arm.
+7. Arm once on Server. Each Client receives the signed manifest over mTLS, receives every artifact over UDPcast into private staging, verifies signature/size/SHA-256, restores its selected disk and performs destination read-back verification.
+8. Record the Server per-client result, job journal, both destination read-back results and the interface/firewall state. Confirm UDPcast's temporary UDP rules are removed on both Clients and Server.
+9. Repeat negative tests: leave one Client unready (arming must be refused); use a wrong Server minisign public key (no disk write); interrupt one receiver (the job must fail rather than report success); and verify no automatic restart after powering a VM off mid-transfer.
+
+The multicast receiver count is deliberately set to the full selected Client count. The sender must not start unless every selected Client is authenticated and READY. The current sender is bounded by its configured wait and bitrate limits. If the multicast path or IGMP behavior is unreliable, do not weaken the receiver threshold to hide packet loss; use unicast instead.
+
 ## Cleanup
 
 After recording results, remove the guests and isolated network:
