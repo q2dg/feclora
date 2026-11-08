@@ -304,16 +304,29 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             f"expires in {expiry_days} days" if expiry_days >= 0
             else f"expired {-expiry_days} days ago"
         )
-        identity_action = dialog_app._menu(
-            "Client identity",
-            f"TLS certificate {expiry_label}. Renew it before expiry; private keys remain local.",
-            [
-                ("join", "Join deployment job"),
+        managed_identity = (
+            config.local_identity.startswith("URI:feclora-client-")
+            and os.path.isfile("/etc/feclora/pki/" + config.local_identity.removeprefix("URI:feclora-client-") .join([]))
+        )
+        managed_client_id = config.local_identity.removeprefix("URI:feclora-client-")
+        managed_key = os.path.join("/etc/feclora/pki", f"client-{managed_client_id}.key")
+        managed_age = os.path.join("/etc/feclora/pki", f"client-{managed_client_id}.age")
+        managed_identity = (
+            config.local_identity.startswith("URI:feclora-client-")
+            and os.path.isfile(managed_key) and os.path.isfile(managed_age)
+        )
+        identity_choices = [("join", "Join deployment job")]
+        if managed_identity:
+            identity_choices.extend([
                 ("renew", "Prepare certificate renewal request"),
                 ("install", "Install Server-approved certificate response"),
                 ("refresh-age", "Refresh age recipient inventory"),
-                ("cancel", "Cancel"),
-            ],
+            ])
+        identity_choices.append(("cancel", "Cancel"))
+        identity_action = dialog_app._menu(
+            "Client identity",
+            f"TLS certificate {expiry_label}. Renew it before expiry; private keys remain local.",
+            identity_choices,
         )
         if identity_action in (None, "cancel"):
             return 0
