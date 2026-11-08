@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import stat
 import uuid
 from pathlib import Path
 from typing import Any
@@ -108,7 +109,7 @@ def run_deployment_server_ui(
         journal_dir = "/var/lib/feclora/deployments"
         os.makedirs(journal_dir, mode=0o700, exist_ok=True)
         journal_info = os.lstat(journal_dir)
-        if (not os.path.isdir(journal_dir) or journal_info.st_uid != 0
+        if (not stat.S_ISDIR(journal_info.st_mode) or journal_info.st_uid != 0
                 or journal_info.st_mode & 0o077):
             raise RuntimeConfigError("deployment journal directory must be root-owned with mode 0700")
         journal_path = os.path.join(journal_dir, job.job_id + ".jsonl")
