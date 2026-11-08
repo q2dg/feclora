@@ -66,7 +66,7 @@ class ParseInventoryTests(unittest.TestCase):
         with self.assertRaises(InventoryError):
             parse_lsblk('{"devices":[]}')
 
-    @patch("feclora.storage.inventory.shutil.which", return_value="/usr/bin/lsblk")
+    @patch("feclora.storage.inventory.shutil.which", side_effect=lambda name: "/usr/bin/lsblk" if name == "lsblk" else None)
     def test_collect_invokes_lsblk_in_query_only_mode(self, _which):
         completed = subprocess.CompletedProcess(
             args=["lsblk"], returncode=0, stdout=json.dumps(SAMPLE), stderr=""
@@ -80,7 +80,7 @@ class ParseInventoryTests(unittest.TestCase):
         self.assertIn("--bytes", command)
         self.assertIn("--output", command)
         self.assertNotIn("wipefs", command)
-        self.assertEqual(len(inventory["devices"]), 1)
+        self.assertEqual(len(inventory["devices"]), 1)\n        self.assertEqual(inventory["volume_topology"]["status"], "incomplete")
 
     @patch("feclora.storage.inventory.shutil.which", return_value="/usr/bin/lsblk")
     def test_reports_lsblk_failure(self, _which):
