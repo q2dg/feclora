@@ -176,6 +176,55 @@ class DeploymentJournal:
                 raise DeploymentJournalError(f"cannot persist deployment event: {exc}") from exc
             self._events.append(record)
 
+
+    def recovery_report(self) -> dict[str, Any]:
+        """Reconstruct an audit-only recovery summary; never recreate live sessions."""
+        with self._lock:
+            events = tuple(dict(event) for event in self._events)
+        if not events:
+            raise DeploymentJournalError("cannot recover an empty deployment journal")
+        first = events[0]
+        job = first.get("job")
+        if first.get("event") != "job_created" or not isinstance(job, dict):
+            raise DeploymentJournalError("journal does not begin with a valid job_created event")
+        clients: dict[str, dict[str, Any]] = {}
+        for event in events:
+            mac = event.get("client_mac")
+            if mac is None:
+                continue
+            if not isinstance(mac, str) or not mac:
+                raise DeploymentJournalError("journal contains an invalid client identity")
+            state = event.get("client_state")
+            if state is not None:
+                if state not in {"connected", "ready", "running", "succeeded", "failed", "disconnected"}:
+                    raise DeploymentJournalError("journal contains an unknown client state")
+                clients[mac] = {
+                    "state": state,
+                    "detail": event.get("detail"),
+                    "last_event": event.get("event"),
+                    "timestamp": event.get("timestamp"),
+                }
+        job_state = events[-1].get("job_state")
+        if job_state not in {"created", "armed", "running", "completed", "failed", "cancelled"}:
+            raise DeploymentJournalError("journal contains an unknown job state")
+        interrupted = job_state in {"created", "armed", "running"}
+        return {
+            "job_id": self.job_id,
+            "job": dict(job),
+            "job_state": job_state,
+            "clients": clients,
+            "event_count": len(events),
+            "last_event": events[-1].get("event"),
+            "interrupted": interrupted,
+            "automatic_resume": False,
+            "recommendation": (
+                "Inspect every client and destination disk, then create a new job; "
+                "Feclora never resumes destructive writes after a crash."
+                if interrupted else
+                "Audit-only terminal record; no session or device operation is resumed."
+            ),
+        }
+
     def latest_state(self) -> dict[str, Any] | None:
         """Return the most recent recorded job/client state without resuming a job."""
         with self._lock:
