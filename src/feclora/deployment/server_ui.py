@@ -11,7 +11,7 @@ from typing import Any
 from feclora.deployment.control import DeploymentControlError, DeploymentControlServer
 from feclora.deployment.coordinator import DeploymentCoordinator
 from feclora.deployment.job import DeploymentJob
-from feclora.deployment.journal import DeploymentJournal
+from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
 from feclora.deployment.runtime_config import (
     RuntimeConfigError, ServerRuntimeConfig, load_server_runtime_config,
 )
@@ -100,14 +100,19 @@ def _journal_directory() -> str:
 
 def _review_previous_journals(directory: str) -> None:
     summaries = []
+    interrupted: list[tuple[str, str]] = []
     for path in sorted(Path(directory).glob("*.jsonl"))[-20:]:
         try:
-            report = DeploymentJournal.inspect(path).recovery_report()
+            journal = DeploymentJournal.inspect(path)
+            report = journal.recovery_report()
             state = str(report["job_state"])
-            status = (
-                "INTERRUPTED — inspect destination disks; never auto-resumed"
-                if report["interrupted"] else state.upper()
-            )
+            if report["interrupted"]:
+                status = "INTERRUPTED — manual disk inspection required"
+                interrupted.append((str(path), str(report["job_id"])))
+            elif report.get("operator_reconciled"):
+                status = "FAILED — operator inspected/reconciled"
+            else:
+                status = state.upper()
             clients = ", ".join(
                 str(mac) + "=" + str(item["state"])
                 for mac, item in sorted(report["clients"].items())
@@ -120,13 +125,47 @@ def _review_previous_journals(directory: str) -> None:
             raise RuntimeConfigError(
                 "deployment journal " + path.name + " is corrupt or unsafe; refusing new jobs: " + str(exc)
             ) from exc
+    for journal_path, job_id in interrupted:
+        choice = dialog_app._menu(
+            "Interrupted deployment recovery",
+            f"Job {job_id} was interrupted. Feclora has replayed its verified journal, "
+            "but deliberately has not recreated a session or resumed disk I/O. "
+            "Inspect the source and every destination disk on every listed Client. "
+            "Only acknowledge after checking actual on-disk state.",
+            [
+                ("reconcile", "I inspected every target; record operator reconciliation"),
+                ("later", "Leave this journal awaiting inspection"),
+            ],
+        )
+        if choice != "reconcile":
+            continue
+        confirmation = dialog_app._input(
+            "Confirm manual recovery",
+            f"Type exactly: RECONCILE {job_id}",
+        )
+        if confirmation is None:
+            continue
+        try:
+            report = DeploymentJournal.inspect(journal_path).reconcile_after_operator_inspection(
+                confirmation
+            )
+            if not report.get("operator_reconciled"):
+                raise DeploymentJournalError("operator reconciliation was not persisted")
+            summaries.append(
+                f"{job_id}: FAILED — operator inspected/reconciled; no restart or disk I/O performed"
+            )
+        except Exception as exc:
+            raise RuntimeConfigError(
+                "could not record operator reconciliation for " + job_id + ": " + str(exc)
+            ) from exc
     if summaries:
         dialog_app._message(
             "Previous deployment journal review",
-            "Previous jobs are reconstructed from verified hash-chained journals. "
-            "Interrupted operations are never resumed automatically. Inspect each "
-            "client and destination disk, reconcile partial writes manually, and "
-            "create a new job only after the target state is known.\n\n" + "\n".join(summaries),
+            "Journal events and per-client states were replayed from verified hash chains. "
+            "Interrupted jobs are never resumed automatically. An operator reconciliation "
+            "record means only that you asserted that every target was manually inspected; "
+            "it does not mean the deployment succeeded or that partial writes were rolled back.\n\n"
+            + "\n".join(summaries),
         )
 
 def run_deployment_server_ui(
