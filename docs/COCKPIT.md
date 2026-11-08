@@ -172,11 +172,15 @@ revalidates enrollment, signing-key availability, image signature, image type
 and age-recipient registrations before persisting a hash-chained journal.
 
 The persisted-job table also shows each Client's last journaled state,
-the event count and whether a job was interrupted. An interrupted job is marked
-for operator review; Feclora never automatically resumes a destructive write.
+the event count and whether a job was interrupted. After inspecting every
+Client and destination manually, the operator can close an interrupted journal
+for audit by entering the exact `RECONCILE <job-UUID>` phrase. This records
+that manual inspection occurred; it does not resume, retry, roll back or touch
+any storage device. The action is rejected for non-interrupted jobs.
 
-This is a definition-only milestone. It does not contact Clients, obtain local
-destination approval, arm the job or start storage I/O. UDPcast multicast data
-is not encrypted or authenticated; only the control plane uses mTLS. The
-persistent control-plane service, Cockpit-driven per-Client target approval
-and execution/progress controls remain pending.
+This remains a definition and audit milestone. Cockpit does not yet contact
+Clients, collect their local target approvals, arm jobs or start storage I/O.
+The Client control protocol already requires a local target selection and
+typed confirmation before reporting READY, but the persistent Cockpit-driven
+Server lifecycle is not integrated. UDPcast multicast data is not encrypted
+or authenticated; only the control plane uses mTLS.
