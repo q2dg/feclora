@@ -22,7 +22,7 @@ class CockpitEnrollmentTests(unittest.TestCase):
         import stat
         import tempfile
 
-        payload = ("age1" + "a" * 40 + "\\n").encode("ascii")
+        payload = ("age1" + "a" * 40 + "\n").encode("ascii")
         with tempfile.TemporaryDirectory() as directory:
             pki_directory = Path(directory) / "pki"
             pki_directory.mkdir()
