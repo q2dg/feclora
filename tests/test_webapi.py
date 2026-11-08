@@ -126,7 +126,7 @@ class WebAPITests(unittest.TestCase):
             "feclora.webapi.ImageManifest.from_json", return_value=manifest
         ), patch("feclora.webapi.os.path.isfile", return_value=False), patch(
             "feclora.webapi._security_material",
-            return_value={"age_decryption_available": False, "image_verification_available": False},
+            return_value={"age_decryption_available": False, "image_verification_available": False, "image_signing_available": False},
         ), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
             "feclora.webapi._capture_material", return_value=(None, None)
         ), patch("feclora.webapi._repository", return_value=Path("/repo")), patch(
