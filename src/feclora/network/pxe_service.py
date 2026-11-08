@@ -60,6 +60,18 @@ class PXEServiceManager:
             detail = (exc.stderr or exc.stdout or "").strip()
             raise PXEServiceError(f"{label} failed: {detail or exc}") from exc
 
+    def _assert_active(self, unit: str) -> None:
+        try:
+            result = self.runner(
+                [self.systemctl, "is-active", unit], check=False,
+                capture_output=True, text=True, timeout=15,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise PXEServiceError(f"cannot verify {unit} startup: {exc}") from exc
+        if result.returncode != 0:
+            detail = (result.stdout or result.stderr or "").strip()
+            raise PXEServiceError(f"{unit} did not remain active after startup: {detail or result.returncode}")
+
     def _prepare_runtime(self) -> None:
         self.runtime_dir.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
         if self.runtime_dir.parent.is_symlink() or not self.runtime_dir.parent.is_dir():
@@ -108,12 +120,14 @@ class PXEServiceManager:
                 "--property=Restart=no", "--property=KillMode=mixed", "--",
                 self.dnsmasq, "--keep-in-foreground", f"--conf-file={dnsmasq_config}",
             ], "starting dnsmasq")
+            self._assert_active(self._dnsmasq_unit + ".service")
             self._started_units.add(self._caddy_unit + ".service")
             self._run([
                 self.systemd_run, f"--unit={self._caddy_unit}", "--collect",
                 "--property=Restart=no", "--property=KillMode=mixed", "--property=User=caddy", "--property=Group=caddy", "--",
                 self.caddy, "run", "--config", caddy_config, "--adapter", "caddyfile",
             ], "starting Caddy")
+            self._assert_active(self._caddy_unit + ".service")
         except Exception as start_error:
             try:
                 self.stop()
