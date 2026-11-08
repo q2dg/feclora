@@ -185,6 +185,10 @@ for audit by entering the exact `RECONCILE <job-UUID>` phrase. This records
 that manual inspection occurred; it does not resume, retry, roll back or touch
 any storage device. The action is rejected for non-interrupted jobs.
 
+A persistent unicast job is limited to one Client; UDPcast multicast
+restore requires at least two authorized Clients. Concurrent unicast fan-out
+and multicast capture remain out of scope.
+
 For each fresh job, use **Start / connect service** to start its
 non-boot-enabled `feclora-deployment@<UUID>.service` instance. The service
 holds the mTLS listener and journal independently of the browser. Clients
