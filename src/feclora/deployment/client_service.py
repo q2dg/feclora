@@ -7,6 +7,7 @@ import json
 import os
 import re
 import signal
+import shutil
 import stat
 import tempfile
 import threading
@@ -273,6 +274,7 @@ class ClientDeploymentService:
             def prepare_local_target(job):
                 if job.job_id != self.job_id or job.transport not in {"unicast", "multicast"}:
                     raise DeploymentControlError("Server job does not match this Client service request or supported transport")
+                staging_detail = ""
                 if job.transport == "multicast":
                     if job.operation != "restore" or not network_interface or igmp_confirmed is not True:
                         raise DeploymentControlError("multicast Client jobs require restore, a receive interface and explicit IGMP acknowledgement")
@@ -285,6 +287,29 @@ class ClientDeploymentService:
                     self._set_status(
                         "connecting", network_interface=network_interface,
                         multicast_warnings=list(preflight.warnings),
+                    )
+                    required_bytes = job.staging_required_bytes
+                    if (isinstance(required_bytes, bool) or not isinstance(required_bytes, int)
+                            or required_bytes < 0):
+                        raise DeploymentControlError(
+                            "Server did not provide a validated multicast staging requirement"
+                        )
+                    try:
+                        free_bytes = shutil.disk_usage(config.repository).free
+                    except OSError as exc:
+                        raise DeploymentControlError(
+                            f"cannot inspect Client staging repository capacity: {exc}"
+                        ) from exc
+                    reserve_bytes = 64 * 1024 * 1024
+                    if free_bytes < required_bytes + reserve_bytes:
+                        raise DeploymentControlError(
+                            "insufficient Client staging capacity before READY: "
+                            f"{free_bytes} bytes free, {required_bytes} bytes required "
+                            f"plus {reserve_bytes} bytes safety reserve"
+                        )
+                    staging_detail = (
+                        f" Multicast staging preflight passed: {required_bytes} bytes required, "
+                        f"{free_bytes} bytes free, {reserve_bytes} bytes reserved."
                     )
                 elif network_interface is not None or igmp_confirmed is not False:
                     raise DeploymentControlError("unicast Client job must not specify multicast interface or IGMP acknowledgement")
@@ -320,7 +345,10 @@ class ClientDeploymentService:
                 ) or ("Selected local partition" if job.target_type == "partition" else "Selected local whole disk")
                 description = " ".join(description.split())[:200]
                 self._set_status(
-                    "ready", detail="Local target is present and explicitly approved. Waiting for the Server operator to arm the job.",
+                    "ready", detail=(
+                        "Local target is present and explicitly approved. "
+                        "Waiting for the Server operator to arm the job." + staging_detail
+                    ),
                     target_description=description,
                     network_interface=network_interface if job.transport == "multicast" else None,
                 )
