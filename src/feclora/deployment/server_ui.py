@@ -464,8 +464,8 @@ def run_deployment_server_ui(
             )
             dialog_app._message(
                 "Local multicast preflight",
-                f"Interface: {preflight.interface} ({preflight.ipv4_address})\\nKernel route: {preflight.route_interface}\\n\\n"
-                + "\\n".join(preflight.warnings),
+                f"Interface: {preflight.interface} ({preflight.ipv4_address})\nKernel route: {preflight.route_interface}\n\n"
+                + "\n".join(preflight.warnings),
             )
             dialog_app._message(
                 "Multicast network preflight",
