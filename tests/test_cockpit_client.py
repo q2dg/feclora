@@ -70,16 +70,16 @@ class CockpitClientTests(unittest.TestCase):
             self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
             self.assertEqual(result["recipient_count"], 1)
             self.assertEqual(identity.read_text(encoding="ascii"), "private identity stays local")
-            source.write_text("age1" + "b" * 40 + "\\n", encoding="ascii")
+            source.write_text("age1" + "b" * 40 + "\n", encoding="ascii")
             with patch("feclora.deployment.cockpit_client._mounted_media_directory", return_value=str(media)), patch(
                 "feclora.deployment.cockpit_client.load_client_runtime_config", return_value=config
             ), patch("feclora.deployment.cockpit_client.os.lstat", side_effect=lstat), patch(
                 "feclora.deployment.cockpit_client.subprocess.run",
-                return_value=SimpleNamespace(returncode=0, stdout=recipient + "\\n"),
+                return_value=SimpleNamespace(returncode=0, stdout=recipient + "\n"),
             ):
                 with self.assertRaisesRegex(CockpitEnrollmentError, "does not contain this Client"):
                     refresh_client_age_recipients({"inventory_path": str(source)})
-            self.assertEqual(destination.read_text(encoding="ascii"), recipient + "\\n")
+            self.assertEqual(destination.read_text(encoding="ascii"), recipient + "\n")
 
     def test_complete_rejects_multicast_mac_before_reading_bundle(self):
         with patch("feclora.deployment.cockpit_client.CONFIG", "/tmp/nonexistent-feclora-client.json"):
