@@ -161,8 +161,12 @@ The Server Cockpit API can validate and persist a deployment-job definition in t
 root-owned hash-chained journal. Creation verifies enrolled Client MACs, the
 selected interface, required per-Client signing keys for capture, and the
 Server signature and Client age-recipient registrations for encrypted restore.
-Persisting a job does not contact Clients, arm the job, or start disk I/O; those
-steps require the persistent control-plane service and explicit operator actions.
+Persisting a job does not contact Clients, arm the job, or start disk I/O. The
+coordinator can now reconstruct its recorded job/client state from a verified
+journal for audit and future service integration. Reconstruction creates no
+TLS sessions, does not mark Clients READY, and never resumes an interrupted
+operation. The persistent control-plane service and explicit Cockpit lifecycle
+actions remain outstanding.
 
 
 ## Remote deployment job definitions
