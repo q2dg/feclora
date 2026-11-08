@@ -157,6 +157,7 @@ class DeploymentControlServer:
         self.interface = interface
         self._firewall_added: tuple[str, ...] = ()
         self._firewall_opened = False
+        self._firewall_state_callback: Callable[[dict[str, Any] | None], None] | None = None
         self.client_identity_to_mac = {
             identity: mac.lower() for identity, mac in client_identity_to_mac.items()
         }
@@ -178,7 +179,10 @@ class DeploymentControlServer:
         address = self._listener.getsockname()
         return str(address[0]), int(address[1])
 
-    def start(self, host: str, port: int, *, backlog: int = 16) -> tuple[str, int]:
+    def start(
+        self, host: str, port: int, *, backlog: int = 16,
+        firewall_state_callback: Callable[[dict[str, Any] | None], None] | None = None,
+    ) -> tuple[str, int]:
         """Bind a control listener and accept authenticated clients in a background thread."""
         if self._listener is not None:
             raise DeploymentControlError("deployment control listener is already running")
@@ -203,6 +207,14 @@ class DeploymentControlServer:
                 else:
                     self.firewall.open(self.interface, [port_spec], include_tftp=False)
                     self._firewall_opened = True
+                self._firewall_state_callback = firewall_state_callback
+                if firewall_state_callback is not None:
+                    firewall_state_callback({
+                        "interface": self.interface,
+                        "firewall": self.firewall.export_state(self.interface),
+                        "opened_by_service": self._firewall_opened,
+                        "added_ports": list(self._firewall_added),
+                    })
         except Exception as exc:
             listener.close()
             if self._firewall_added and self.firewall is not None:
@@ -211,6 +223,12 @@ class DeploymentControlServer:
             if self._firewall_opened and self.firewall is not None:
                 self.firewall.close(self.interface)
                 self._firewall_opened = False
+            if firewall_state_callback is not None:
+                try:
+                    firewall_state_callback(None)
+                except Exception:
+                    pass
+            self._firewall_state_callback = None
             raise DeploymentControlError(f"cannot bind deployment control listener: {exc}") from exc
         self._listener = listener
         self._stop_event.clear()
@@ -283,6 +301,11 @@ class DeploymentControlServer:
                 self.listener_errors.append(f"firewall cleanup failed: {exc}")
         if cleanup_error is not None:
             raise DeploymentControlError(f"control firewall cleanup failed: {cleanup_error}") from cleanup_error
+        if self._firewall_state_callback is not None:
+            try:
+                self._firewall_state_callback(None)
+            finally:
+                self._firewall_state_callback = None
 
     def accept_ready_client(self, listener: Any) -> ReadyClient:
         accepted, _address = listener.accept()
