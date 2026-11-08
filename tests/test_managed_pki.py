@@ -104,7 +104,7 @@ class ManagedPKITests(unittest.TestCase):
 
             def fake_run(argv, _runner=None):
                 calls.append(argv)
-                if argv[1:3] == ["x509", "-in"] and argv[-4:] == ["-noout", "-ext", "subjectAltName"]:
+                if argv[1:3] == ["x509", "-in"] and argv[-3:] == ["-noout", "-ext", "subjectAltName"]:
                     return SimpleNamespace(stdout="X509v3 Subject Alternative Name:\n    URI:feclora-server\n")
                 if argv[1:2] == ["req"] and "-out" in argv:
                     output = argv[argv.index("-out") + 1]
