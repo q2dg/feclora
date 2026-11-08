@@ -1,27 +1,39 @@
-"""Narrow, read-only Cockpit API for Feclora status and inventory.
+"""Privileged, allowlisted Cockpit API for Feclora storage workflows.
 
-The command accepts one bounded JSON request on stdin and returns one JSON
-response. It deliberately exposes no shell, arbitrary argv, or destructive
-storage/deployment operation.
+Requests are one bounded JSON object on stdin. Long operations run in this
+process and emit newline-delimited progress events followed by one result.
+No shell, arbitrary argv, filesystem path outside the Feclora repository, or
+untyped destructive operation is exposed.
 """
 from __future__ import annotations
 
 import json
 import os
 import platform
+import re
 import socket
 import stat
 import subprocess
 import sys
+import time
+import uuid
 from pathlib import Path
 from typing import Any
 
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import collect_inventory
 
+REPOSITORY = Path("/var/lib/feclora/images")
+MAX_REQUEST = 16 * 1024
+
 
 class WebAPIError(RuntimeError):
     """A Cockpit API request was invalid or could not be fulfilled."""
+
+
+def _emit(value: dict[str, Any]) -> None:
+    sys.stdout.write(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
+    sys.stdout.flush()
 
 
 def _reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -33,16 +45,63 @@ def _reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
-def _images(repository: str = "/var/lib/feclora/images") -> list[dict[str, Any]]:
-    path = Path(repository)
+def _repository(*, create: bool = False) -> Path:
+    if create:
+        REPOSITORY.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(REPOSITORY, 0o700)
+    try:
+        info = os.lstat(REPOSITORY)
+    except FileNotFoundError:
+        return REPOSITORY
+    if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
+        raise WebAPIError("Feclora image repository must be a root-owned real directory")
+    return REPOSITORY
+
+
+def _image_manifest(image_id: str) -> Path:
+    if not isinstance(image_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
+        raise WebAPIError("image identifier is invalid")
+    path = _repository() / f"{image_id}.manifest.json"
+    try:
+        info = os.lstat(path)
+    except OSError as exc:
+        raise WebAPIError("selected image manifest does not exist") from exc
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
+        raise WebAPIError("selected image manifest is not a root-owned regular file")
+    return path
+
+
+def _device(value: Any, field: str) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"/dev/[A-Za-z0-9_.!/+:-]{1,120}", value):
+        raise WebAPIError(f"{field} must be a valid /dev block-device path")
+    return value
+
+
+def _text(params: dict[str, Any], key: str, *, default: str | None = None,
+          pattern: str | None = None, maximum: int = 128) -> str:
+    value = params.get(key, default)
+    if not isinstance(value, str) or not value or len(value) > maximum:
+        raise WebAPIError(f"{key} must be a non-empty string of at most {maximum} characters")
+    if pattern and not re.fullmatch(pattern, value):
+        raise WebAPIError(f"{key} contains unsupported characters")
+    return value
+
+
+def _progress(done: int, total: int | None) -> None:
+    _emit({"event": "progress", "bytes_done": max(0, int(done)),
+           "bytes_total": int(total) if total is not None else None})
+
+
+def _images() -> list[dict[str, Any]]:
+    path = _repository()
     if not path.exists():
         return []
-    info = os.lstat(path)
-    if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
-        raise WebAPIError("image repository is not a root-owned real directory")
     items = []
     for manifest_path in sorted(path.glob("*.manifest.json")):
         try:
+            info = os.lstat(manifest_path)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
+                continue
             manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, ManifestValidationError):
             continue
@@ -50,6 +109,7 @@ def _images(repository: str = "/var/lib/feclora/images") -> list[dict[str, Any]]
             "image_id": manifest.image_id,
             "image_type": manifest.image_type,
             "source_size_bytes": manifest.source_size_bytes,
+            "logical_sector_size": manifest.logical_sector_size,
             "signed": os.path.isfile(str(manifest_path) + ".minisig"),
             "encrypted": bool(manifest.artifacts) and all(
                 artifact.encryption == "age" for artifact in manifest.artifacts
@@ -74,24 +134,115 @@ def _service_state() -> dict[str, str]:
     return services
 
 
+def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
+    allowed = {
+        "capture_disk": {"source", "image_id", "compression"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression"},
+        "restore_disk": {"image_id", "target", "confirmation"},
+        "restore_partition": {"image_id", "target", "confirmation"},
+        "clone_disk": {"source", "target", "confirmation"},
+        "clone_partition": {"source", "target", "confirmation"},
+    }
+    if action not in allowed or set(params) != allowed[action]:
+        raise WebAPIError("operation parameters do not match the selected operation")
+    from feclora.storage.operation_log import operation_record
+
+    started = time.monotonic()
+    operation_id = str(uuid.uuid4())
+    _emit({"event": "started", "operation_id": operation_id, "operation": action})
+    if action == "capture_disk":
+        from feclora.storage.disk_capture import capture_disk
+        source = _device(params["source"], "source")
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        compression = _text(params, "compression", pattern=r"(?:none|gzip|zstd|lz4)")
+        manifest = capture_disk(source, image_id, _repository(create=True),
+                                compression=compression, progress_callback=_progress)
+        result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
+    elif action == "capture_partition":
+        from feclora.storage.partition_image_capture import capture_partition_image
+        source = _device(params["source"], "source")
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        partition_id = _text(params, "partition_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        compression = _text(params, "compression", pattern=r"(?:none|gzip|zstd|lz4)")
+        manifest = capture_partition_image(source, image_id, partition_id,
+                                           _repository(create=True), compression=compression,
+                                           progress_callback=_progress)
+        result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
+    elif action in {"restore_disk", "restore_partition"}:
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        target = _device(params["target"], "target")
+        expected = f"ERASE {target}"
+        if params["confirmation"] != expected:
+            raise WebAPIError(f"explicit confirmation required: {expected}")
+        manifest_path = _image_manifest(image_id)
+        manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+        expected_type = "disk" if action == "restore_disk" else "partition"
+        if manifest.image_type != expected_type:
+            raise WebAPIError(f"selected image is not a {expected_type} image")
+        if action == "restore_disk":
+            from feclora.storage.disk_restore import restore_disk
+            restore_disk(manifest_path, _repository(), target, confirmation=expected,
+                         progress_callback=_progress)
+        else:
+            from feclora.storage.partition_restore import restore_partition
+            restore_partition(manifest_path, _repository(), target, confirmation=expected,
+                              progress_callback=_progress)
+        result = {"image_id": image_id, "target": target, "verified": True}
+    elif action == "clone_disk":
+        from feclora.storage.disk_clone import clone_disk
+        source, target = _device(params["source"], "source"), _device(params["target"], "target")
+        expected = f"ERASE {target}"
+        if params["confirmation"] != expected:
+            raise WebAPIError(f"explicit confirmation required: {expected}")
+        copied = clone_disk(source, target, confirmation=expected,
+                            progress_callback=lambda done, message: _emit(
+                                {"event": "progress", "bytes_done": int(done),
+                                 "bytes_total": None, "message": str(message)[:256]}))
+        result = {"source": source, "target": target, "bytes_copied": copied}
+    else:
+        from feclora.storage.partition_clone import clone_partition
+        source, target = _device(params["source"], "source"), _device(params["target"], "target")
+        expected = f"ERASE {target} FROM {source}"
+        if params["confirmation"] != expected:
+            raise WebAPIError(f"explicit confirmation required: {expected}")
+        copied = clone_partition(source, target, confirmation=expected, progress_callback=_progress)
+        result = {"source": source, "target": target, "bytes_copied": copied}
+    try:
+        operation_record(action, "success", {"operation_id": operation_id, **result})
+    except Exception:
+        pass
+    return {"operation_id": operation_id, "elapsed_seconds": round(time.monotonic() - started, 2),
+            **result}
+
+
 def dispatch(request: Any) -> dict[str, Any]:
-    if not isinstance(request, dict) or set(request) != {"action"}:
-        raise WebAPIError("request must contain exactly one action field")
+    if not isinstance(request, dict) or set(request) - {"action", "params"} or "action" not in request:
+        raise WebAPIError("request must contain an action and optional params object")
     action = request["action"]
+    params = request.get("params", {})
+    if not isinstance(params, dict):
+        raise WebAPIError("params must be a JSON object")
     if action == "status":
+        if params:
+            raise WebAPIError("status does not accept parameters")
         return {
-            "hostname": socket.gethostname(),
-            "platform": platform.platform(),
+            "hostname": socket.gethostname(), "platform": platform.platform(),
             "python": platform.python_version(),
             "server_configured": os.path.isfile("/etc/feclora/deployment-server.json"),
             "client_configured": os.path.isfile("/etc/feclora/deployment-client.json"),
             "services": _service_state(),
         }
     if action == "inventory":
+        if params:
+            raise WebAPIError("inventory does not accept parameters")
         return collect_inventory()
     if action == "images":
+        if params:
+            raise WebAPIError("images does not accept parameters")
         return {"images": _images()}
     if action == "journals":
+        if params:
+            raise WebAPIError("journals does not accept parameters")
         from feclora.deployment.journal import DeploymentJournal
         directory = Path("/var/lib/feclora/deployments")
         reports = []
@@ -101,32 +252,35 @@ def dispatch(request: Any) -> dict[str, Any]:
                 raise WebAPIError("deployment journal directory is unsafe")
             for journal_path in sorted(directory.glob("*.jsonl")):
                 report = DeploymentJournal.inspect(journal_path).recovery_report()
-                reports.append({
-                    "job_id": report["job_id"],
-                    "job_state": report["job_state"],
-                    "interrupted": report["interrupted"],
-                    "event_count": report["event_count"],
-                    "clients": {
-                        mac: item["state"] for mac, item in report["clients"].items()
-                    },
-                })
+                reports.append({"job_id": report["job_id"], "job_state": report["job_state"],
+                                "interrupted": report["interrupted"], "event_count": report["event_count"],
+                                "clients": {mac: item["state"] for mac, item in report["clients"].items()}})
         return {"journals": reports}
+    if action in {"capture_disk", "capture_partition", "restore_disk", "restore_partition",
+                  "clone_disk", "clone_partition"}:
+        return _run_operation(action, params)
     raise WebAPIError("unsupported Cockpit API action")
 
 
 def main() -> int:
     if os.geteuid() != 0:
-        print(json.dumps({"error": "Feclora Cockpit API requires authorized root execution"}))
+        _emit({"ok": False, "error": "Feclora Cockpit API requires authorized root execution"})
         return 1
     if len(sys.argv) != 2:
-        print(json.dumps({"ok": False, "error": "one allowlisted action argument is required"}))
+        _emit({"ok": False, "error": "one API command is required"})
         return 2
     try:
-        response = {"ok": True, "data": dispatch({"action": sys.argv[1]})}
+        raw = sys.stdin.read(MAX_REQUEST + 1)
+        if len(raw) > MAX_REQUEST:
+            raise WebAPIError("request exceeds the size limit")
+        request = json.loads(raw or "{}", object_pairs_hook=_reject_duplicates)
+        response = {"ok": True, "data": dispatch(request)}
     except Exception as exc:
-        response = {"ok": False, "error": str(exc)[:512]}
-    sys.stdout.write(json.dumps(response, sort_keys=True, separators=(",", ":")) + "\n")
-    return 0 if response["ok"] else 1
+        _emit({"ok": False, "error": str(exc)[:512]})
+        return 1
+    _emit(response)
+    return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
