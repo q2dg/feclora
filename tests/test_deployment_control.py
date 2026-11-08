@@ -746,8 +746,8 @@ class MulticastControlTests(unittest.TestCase):
             portbase=9000, min_receivers=2,
         )
         manifest = SimpleNamespace(
-            image_id="golden-image",
-            artifacts=(SimpleNamespace(filename="image.raw"),),
+            image_id="golden-image", image_type="disk",
+            artifacts=(SimpleNamespace(filename="image.raw", encryption="age"),),
         )
         with tempfile.TemporaryDirectory() as directory:
             manifest_path = os.path.join(directory, "golden-image.manifest.json")
