@@ -8,9 +8,11 @@ untyped destructive operation is exposed.
 from __future__ import annotations
 
 import json
+import ipaddress
 import os
 import platform
 import re
+import shutil
 import socket
 import stat
 import subprocess
@@ -278,6 +280,93 @@ def _service_state() -> dict[str, str]:
     return services
 
 
+def _network_interfaces() -> list[dict[str, Any]]:
+    from feclora.network.interface_discovery import (
+        detect_existing_dhcp_server, parse_interface_addresses,
+    )
+
+    executable = shutil.which("ip")
+    if not executable:
+        raise WebAPIError("iproute is required for network interface discovery")
+    try:
+        result = subprocess.run(
+            [executable, "-j", "-4", "address", "show"],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=True, timeout=10,
+        )
+        rows = json.loads(result.stdout)
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
+        raise WebAPIError(f"cannot inspect network interfaces: {exc}") from exc
+    if not isinstance(rows, list):
+        raise WebAPIError("ip returned an invalid interface inventory")
+    interfaces = []
+    dhcp_cache: dict[str, str | None] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        name = row.get("ifname")
+        if not isinstance(name, str):
+            continue
+        try:
+            addresses = parse_interface_addresses(json.dumps([row]), name)
+        except Exception:
+            continue
+        if name not in dhcp_cache:
+            dhcp_cache[name] = detect_existing_dhcp_server(name)
+        for address in addresses:
+            interfaces.append({
+                "interface": address.interface,
+                "address": address.address,
+                "prefix_length": address.prefix_length,
+                "dhcp_server": dhcp_cache[name],
+                "binding": f"{address.interface}|{address.address}|{address.prefix_length}",
+            })
+    return interfaces
+
+
+def _bootstrap_server(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"interface", "address", "prefix_length"}:
+        raise WebAPIError("bootstrap_server requires interface, address and prefix_length")
+    interface = _text(params, "interface", pattern=r"[A-Za-z0-9_.:-]{1,15}", maximum=15)
+    address = _text(params, "address", maximum=45)
+    prefix = params["prefix_length"]
+    if isinstance(prefix, bool) or not isinstance(prefix, int) or not 1 <= prefix <= 30:
+        raise WebAPIError("prefix_length must be an integer between 1 and 30")
+    try:
+        parsed = ipaddress.ip_address(address)
+    except ValueError as exc:
+        raise WebAPIError("Server address must be a valid IPv4 address") from exc
+    if parsed.version != 4 or parsed.is_unspecified or parsed.is_multicast or parsed.is_loopback:
+        raise WebAPIError("Server address must be a concrete unicast IPv4 address")
+
+    from feclora.network.interface_discovery import (
+        discover_interface_addresses, validate_selected_address,
+    )
+    from feclora.deployment.bootstrap import ensure_server_deployment_config
+    from feclora.deployment.runtime_config import load_server_runtime_config
+
+    try:
+        discovered = discover_interface_addresses(interface)
+        validate_selected_address(interface, str(parsed), prefix, discovered)
+        created = ensure_server_deployment_config(str(parsed))
+        config = load_server_runtime_config("/etc/feclora/deployment-server.json")
+    except Exception as exc:
+        raise WebAPIError(f"Server identity initialization failed: {exc}") from exc
+    return {
+        "created": created,
+        "configured": True,
+        "bind_address": config.bind_address,
+        "port": config.port,
+        "server_identity": config.local_identity,
+        "enrolled_clients": len(config.client_identity_to_mac),
+        "message": (
+            "Server identity and managed trust material initialized."
+            if created else
+            "An existing Server configuration was validated and left unchanged."
+        ),
+    }
+
+
 def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "sign"},
@@ -466,6 +555,12 @@ def dispatch(request: Any) -> dict[str, Any]:
             "services": _service_state(),
             "security": _security_material(),
         }
+    if action == "network_interfaces":
+        if params:
+            raise WebAPIError("network_interfaces does not accept parameters")
+        return {"interfaces": _network_interfaces()}
+    if action == "bootstrap_server":
+        return _bootstrap_server(params)
     if action == "inventory":
         if params:
             raise WebAPIError("inventory does not accept parameters")
