@@ -94,7 +94,7 @@ class PXEServiceManager:
         caddy_config = self._write_config("Caddyfile", render_caddy(config), mode=0o644)
         self.firewall.open(
             config.interface,
-            ["67/udp", "69/udp", "4011/udp", f"{config.http_port}/tcp"],
+            ["67/udp", "4011/udp", f"{config.http_port}/tcp"],
         )
         self._active_interface = config.interface
         try:
