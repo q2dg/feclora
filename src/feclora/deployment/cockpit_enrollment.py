@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 import stat
 from pathlib import Path
 
@@ -70,8 +69,11 @@ def approve_client_csr(params: dict[str, object]) -> dict[str, object]:
             raise CockpitEnrollmentError("MAC address is already assigned to another enrolled Client")
         export_dir = str(Path(csr).parent)
         certificate = os.path.join(export_dir, f"feclora-{client_id}.crt")
-        if os.path.lexists(certificate):
-            raise CockpitEnrollmentError("Client certificate export already exists; refusing to overwrite it")
+        bundle_files = (certificate, os.path.join(export_dir, "ca.crt"),
+                        os.path.join(export_dir, "server.pub"),
+                        os.path.join(export_dir, "age-recipients.txt"))
+        if any(os.path.lexists(path) for path in bundle_files):
+            raise CockpitEnrollmentError("A Server response bundle file already exists; refusing to overwrite removable-media contents")
         issue_client_certificate(csr, certificate, pki_directory=PKI)
         public_key_destination = None
         if minisign_file:
@@ -79,7 +81,6 @@ def approve_client_csr(params: dict[str, object]) -> dict[str, object]:
             if os.path.lexists(public_key_destination):
                 raise CockpitEnrollmentError("Client minisign public key is already registered locally")
             _atomic_copy(minisign_file, public_key_destination, 0o644)
-        expected = f"ENROLL {identity} {mac.lower()}"
         enroll_client_certificate(
             CONFIG, certificate, mac,
             minisign_public_key=public_key_destination,
