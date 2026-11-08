@@ -72,7 +72,7 @@
 - [ ] Implement Client mode runtime using the same generic imaging commands.
 - [ ] Implement Server mode control plane, repository management and job lifecycle.
 - [x] Select and package the embedded PXE stack: dnsmasq (DHCP/ProxyDHCP/PXE/TFTP), Fedora iPXE BIOS/UEFI boot images, and Caddy for HTTP boot (ADR 0006; services remain disabled by default).
-- [ ] Implement the Server-mode runtime for dnsmasq ProxyDHCP and isolated DHCP, interface/subnet safety validation, read-only TFTP, Caddy HTTP boot, and BIOS/UEFI iPXE chainloading.
+- [ ] Implement the Server-mode runtime for dnsmasq ProxyDHCP and isolated DHCP, interface/subnet safety validation, read-only TFTP, Caddy HTTP boot, and BIOS/UEFI iPXE chainloading (side-effect-free DHCP/Caddy configuration rendering and unit tests are now implemented; actual interface discovery, dnsmasq/Caddy config testing, service lifecycle, firewall integration and boot-file staging remain).
 - [ ] Complete one-client unattended save/restore over the network.
 
 ## Milestone 4 — Mass deployment
