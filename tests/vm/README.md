@@ -2,7 +2,7 @@
 
 This lab creates an isolated libvirt network with no libvirt DHCP service. Feclora Server must be the only DHCP/PXE authority on this test segment. Do not attach this network to a production bridge or a physical LAN.
 
-The harness creates one Feclora Server VM and two PXE clients (legacy BIOS and UEFI). It creates guests only; PXE boot and the authenticated unicast save/restore acceptance remain operator-driven and must be recorded separately. Server/Client dialog workflows and the signed image data plane are implemented, but the VM orchestrator does not drive them unattended.
+The harness creates one Feclora Server VM and two PXE clients (legacy BIOS and UEFI). The Server VM starts from the Live ISO; both PXE clients are deliberately powered off after creation so they cannot attempt PXE before the Server is configured. PXE boot and authenticated unicast save/restore acceptance remain operator-driven and must be recorded separately. Server/Client dialog workflows and the signed image data plane are implemented, but the VM orchestrator does not drive them unattended.
 
 ## Host requirements
 
@@ -14,14 +14,14 @@ On a Fedora test host install qemu-kvm, libvirt, virt-install, virt-viewer, edk2
 sudo bash tests/vm/run-pxe-matrix.sh /path/to/feclora-live.iso
 ~~~
 
-The script creates a private libvirt network named feclora-pxe-lab and three guests. Connect to their consoles with virt-viewer or virsh console. The host-side bridge is normally virbr-feclora with 192.0.2.1/24; configure the Server guest's test NIC as a static address such as 192.0.2.2/24. Do not configure a gateway or forward this test network.
+The script creates a private libvirt network named feclora-pxe-lab and three guests. Connect to their consoles with virt-viewer or virsh console. The client VMs remain powered off until explicitly started after Server setup. The host-side bridge is normally virbr-feclora with 192.0.2.1/24; configure the Server guest's test NIC as a static address such as 192.0.2.2/24. Do not configure a gateway or forward this test network.
 
 In the Server guest:
 1. Select the test NIC in Feclora Server mode.
 2. Choose isolated DHCP and a small pool such as 192.0.2.100-192.0.2.150.
 3. Type the exact authoritative-DHCP confirmation shown by Feclora.
 4. Start PXE services; confirm dnsmasq, Caddy and firewalld are active.
-5. Boot both client VMs from the network. Confirm BIOS loads undionly.kpxe and UEFI loads ipxe-snponly-x86_64.efi, then iPXE fetches the Feclora kernel, initramfs and squashfs over HTTP.
+5. Start the clients only after Server PXE services are active: `sudo virsh start feclora-pxe-bios` and `sudo virsh start feclora-pxe-uefi`. Confirm BIOS loads undionly.kpxe and UEFI loads ipxe-snponly-x86_64.efi, then iPXE fetches the Feclora kernel, initramfs and squashfs over HTTP. If a client is already running, shut it down and start it again after Server readiness.
 6. Provision the root-owned Server/Client config files and test certificates described in docs/DEPLOYMENT-SETUP.md.
 7. Create a signed whole-disk image, run one authenticated unicast restore to a disposable client disk, and verify the journal, destination read-back and result.
 
