@@ -209,13 +209,22 @@ def run_server_ui(
     failure: Exception | None = None
     try:
         manager.start(config)
-        _dialog([
-            "--title", "PXE Server active",
-            "--menu",
-            "PXE services are running. Clients can chainload iPXE and boot the Feclora Live environment. Select Stop before leaving Server mode.",
-            "14", "82", "2",
-            "stop", "Stop PXE services and close the firewall ports",
-        ])
+        while True:
+            choice = _dialog([
+                "--title", "PXE Server active",
+                "--menu",
+                "PXE services are running. Start an authenticated one-client unicast job, or stop all PXE services.",
+                "16", "84", "2",
+                "deploy", "Create/run an authenticated unicast deployment",
+                "stop", "Stop PXE services and close the firewall ports",
+            ])
+            if choice.returncode != 0 or choice.stdout.strip() == "stop":
+                break
+            if choice.stdout.strip() == "deploy":
+                from feclora.deployment.server_ui import run_deployment_server_ui
+                run_deployment_server_ui(
+                    config.interface, config.address, firewall=manager.firewall,
+                )
     except Exception as exc:
         failure = exc
     finally:
