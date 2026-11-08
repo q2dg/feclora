@@ -616,6 +616,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         selector = _text(params, "selector", maximum=256)
         manifest_path = _image_manifest(image_id)
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+        if manifest.image_id != image_id:
+            raise WebAPIError("selected image manifest identifier does not match its repository name")
         if manifest.image_type != "disk":
             raise WebAPIError("partition extraction requires a whole-disk image")
         signed = os.path.isfile(str(manifest_path) + ".minisig")
