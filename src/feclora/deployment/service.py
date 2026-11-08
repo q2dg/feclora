@@ -233,6 +233,8 @@ class DeploymentService:
             raise DeploymentServiceError("configured Server bind address is not assigned to the job interface")
         if self.job.start_policy != "manual":
             raise DeploymentServiceError("persistent Cockpit deployment service accepts manual start policy only")
+        if self.job.operation == "save" and self.job.target_type != "disk":
+            raise DeploymentServiceError("persistent Client capture supports whole-disk jobs only")
         if self.job.transport == "unicast" and len(self.job.authorized_clients) != 1:
             raise DeploymentServiceError("persistent unicast service requires exactly one authorized Client")
         if self.job.transport == "multicast" and (
