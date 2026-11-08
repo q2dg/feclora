@@ -54,6 +54,29 @@ class PXEConfigTests(unittest.TestCase):
         self.assertIn("dhcp-authoritative", rendered)
         self.assertIn("dhcp-range=192.0.2.20,192.0.2.80,255.255.255.0,1h", rendered)
 
+    def test_isolated_does_not_advertise_server_as_an_implicit_gateway(self):
+        rendered = render_dnsmasq(proxy(
+            mode="isolated",
+            pool_start="192.0.2.20",
+            pool_end="192.0.2.80",
+            authoritative_confirmed=True,
+        ))
+        self.assertNotIn("dhcp-option=option:router", rendered)
+
+    def test_isolated_advertises_only_explicit_gateway(self):
+        rendered = render_dnsmasq(proxy(
+            mode="isolated",
+            pool_start="192.0.2.20",
+            pool_end="192.0.2.80",
+            authoritative_confirmed=True,
+            gateway="192.0.2.254",
+        ))
+        self.assertIn("dhcp-option=option:router,192.0.2.254", rendered)
+
+    def test_rejects_tftp_root_with_config_whitespace(self):
+        with self.assertRaisesRegex(PXEConfigError, "TFTP root"):
+            render_dnsmasq(proxy(tftp_root="/srv/feclora boot"))
+
     def test_rejects_server_address_inside_pool(self):
         with self.assertRaisesRegex(PXEConfigError, "exclude the server"):
             render_dnsmasq(proxy(
