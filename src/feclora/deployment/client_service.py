@@ -230,9 +230,6 @@ class ClientDeploymentService:
                 raise ClientJobServiceError("capture compression must be none, gzip or xz")
             self.request_path.unlink()
             config = load_client_runtime_config("/etc/feclora/deployment-client.json")
-            if config.local_minisign_secret_key is None and config.local_minisign_public_key is None:
-                if compression != "gzip":
-                    raise ClientJobServiceError("compression choice is only configurable for an image-capture Client")
             context = create_mutual_tls_context(
                 "client", ca_file=config.ca_file,
                 certificate_file=config.certificate_file,
