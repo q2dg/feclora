@@ -80,6 +80,25 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertIsNone(config.age_identity_file)
         self.assertIsNone(config.age_recipients_file)
 
+    def test_restore_only_client_does_not_need_a_minisign_secret_key(self):
+        payload = self.client_config()
+        payload["local_minisign_secret_key"] = None
+        payload["local_minisign_public_key"] = None
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.write_config(directory, payload)
+            with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
+                config = load_client_runtime_config(path)
+        self.assertIsNone(config.local_minisign_secret_key)
+        self.assertIsNone(config.local_minisign_public_key)
+
+    def test_client_signing_keys_must_be_configured_as_a_pair(self):
+        payload = self.client_config()
+        payload["local_minisign_secret_key"] = None
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.write_config(directory, payload)
+            with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
+                with self.assertRaisesRegex(RuntimeConfigError, "must either both"):
+                    load_client_runtime_config(path)
     def test_rejects_duplicate_client_mac_enrollment(self):
         payload = self.server_config()
         payload["client_identity_to_mac"]["URI:other-client"] = "52:54:00:12:34:56"
