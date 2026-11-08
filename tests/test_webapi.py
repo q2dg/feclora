@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from feclora.webapi import WebAPIError, dispatch, _device, _server_trusted_clients, _revoke_server_client, _certificate_status
+from feclora.webapi import WebAPIError, dispatch, _device, _server_trusted_clients, _revoke_server_client, _certificate_status, _renew_server_certificate
 from feclora.deployment.job import DeploymentJob
 
 
@@ -39,6 +39,45 @@ class WebAPITests(unittest.TestCase):
                      "dhcp_server": None, "binding": "enp1s0|192.0.2.10|24"}]
         with patch("feclora.webapi._network_interfaces", return_value=expected):
             self.assertEqual(dispatch({"action": "network_interfaces"}), {"interfaces": expected})
+
+    def test_server_certificate_renewal_requires_exact_confirmation(self):
+        with self.assertRaisesRegex(WebAPIError, "RENEW SERVER CERTIFICATE"):
+            _renew_server_certificate({"confirmation": "renew it"})
+
+    def test_server_certificate_renewal_refuses_active_deployment_service(self):
+        config = SimpleNamespace(
+            certificate_file="/etc/feclora/pki/server.crt",
+            private_key_file="/etc/feclora/pki/server.key",
+            ca_file="/etc/feclora/pki/ca.crt",
+            local_identity="URI:feclora-server",
+        )
+        with patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=config), patch(
+            "feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+                returncode=0, stdout="feclora-deployment@123.service active"
+            )
+        ), patch("feclora.deployment.managed_pki.renew_server_certificate") as renew:
+            with self.assertRaisesRegex(WebAPIError, "stop all active deployment jobs"):
+                _renew_server_certificate({"confirmation": "RENEW SERVER CERTIFICATE"})
+        renew.assert_not_called()
+
+    def test_server_certificate_renewal_calls_managed_key_preserving_rotation(self):
+        config = SimpleNamespace(
+            certificate_file="/etc/feclora/pki/server.crt",
+            private_key_file="/etc/feclora/pki/server.key",
+            ca_file="/etc/feclora/pki/ca.crt",
+            local_identity="URI:feclora-server",
+        )
+        with patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=config), patch(
+            "feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="")
+        ), patch("feclora.deployment.managed_pki.renew_server_certificate", return_value={
+            "certificate_file": "/etc/feclora/pki/server.crt", "ca_fingerprint": "a" * 64,
+        }) as renew, patch(
+            "feclora.deployment.managed_pki.certificate_expiry_days", return_value=825
+        ):
+            result = _renew_server_certificate({"confirmation": "RENEW SERVER CERTIFICATE"})
+        renew.assert_called_once_with("/etc/feclora/pki")
+        self.assertTrue(result["renewed"])
+        self.assertEqual(result["expiry_days"], 825)
 
     def test_certificate_status_warns_before_managed_identity_expiry(self):
         config = SimpleNamespace(
