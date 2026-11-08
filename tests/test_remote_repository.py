@@ -20,7 +20,7 @@ class RemoteRepositoryTests(unittest.TestCase):
             mountpoint="/mnt/images",
         )
         argv = repo.mount_argv()
-        self.assertIn("vers=4.2", argv[6])
+        self.assertIn("vers=4.2", argv[4])
         self.assertIn("hard", argv[6])
 
     def test_smb_requires_credentials_file(self):
