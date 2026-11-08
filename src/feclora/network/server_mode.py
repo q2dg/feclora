@@ -192,7 +192,7 @@ def run_server_ui(
             "14", "82", "2",
             "stop", "Stop PXE services and close the firewall ports",
         ])
-    except (PXEServiceError, Exception) as exc:
+    except Exception as exc:
         _message("PXE Server failed", str(exc))
         return 1
     finally:
