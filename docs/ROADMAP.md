@@ -84,7 +84,8 @@
 
 ## Milestone 4 — Mass deployment
 - [ ] Implement unicast deployment to multiple clients.
-- [ ] Implement multicast/broadcast transport (evaluate UDPcast and alternatives).
+- [x] Select UDPcast as the initial multicast transport (ADR 0008; package included in the Live image).
+- [ ] Integrate UDPcast sender/receiver with authenticated deployment jobs, receiver staging, signed-manifest/digest verification, per-client results and multicast network preflight.
 - [ ] Add client-count/deadline/manual deployment start conditions.
 - [ ] Add per-client progress, completion, failure reporting and logs.
 - [ ] Add Wake-on-LAN and post-job reboot/poweroff policies.
