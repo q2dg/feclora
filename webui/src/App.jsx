@@ -547,7 +547,7 @@ export default function App() {
                           <StackItem><input className="pf-v5-c-form-control" aria-label={"Cancel confirmation for " + job.job_id} placeholder={"CANCEL " + job.job_id} value={serviceConfirmations[job.job_id + "-cancel"] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id + "-cancel"]: event.target.value }))} /></StackItem>
                           <StackItem><Button size="sm" variant="secondary" isDisabled={busy || serviceConfirmations[job.job_id + "-cancel"] !== "CANCEL " + job.job_id} onClick={() => sendDeploymentServiceCommand(job.job_id, "cancel_deployment_job", serviceConfirmations[job.job_id + "-cancel"])}>Cancel before arm</Button></StackItem>
                         </>}
-                        {!(serviceStatuses[job.job_id].worker_active) && !["armed", "running"].includes(serviceStatuses[job.job_id].job_state) && <StackItem><Button size="sm" variant="link" isDisabled={busy} onClick={() => stopDeploymentService(job.job_id)}>Stop service</Button></StackItem>}
+                        {!(serviceStatuses[job.job_id].worker_active) && serviceStatuses[job.job_id].job_state !== "running" && !(serviceStatuses[job.job_id].clients || []).some((client) => client.state === "running") && <StackItem><Button size="sm" variant="link" isDisabled={busy} onClick={() => stopDeploymentService(job.job_id)}>Stop service</Button></StackItem>}
                         {serviceStatuses[job.job_id].last_error && <StackItem><Alert variant="danger" isInline title="Execution error">{serviceStatuses[job.job_id].last_error}</Alert></StackItem>}
                       </>}
                     </Stack>
