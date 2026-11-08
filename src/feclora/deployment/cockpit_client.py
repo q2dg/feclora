@@ -104,10 +104,16 @@ def refresh_client_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
         info = os.lstat(config.age_identity_file)
         if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
             raise CockpitEnrollmentError("Client age identity must be a root-owned regular file")
-        with open(source, "rb") as stream:
-            payload = stream.read(65537)
-        if len(payload) > 65536:
-            raise CockpitEnrollmentError("age recipient inventory exceeds 64 KiB")
+        source_fd = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            source_info = os.fstat(source_fd)
+            if not stat.S_ISREG(source_info.st_mode) or source_info.st_size > 65536:
+                raise CockpitEnrollmentError("age recipient inventory must be a regular file within 64 KiB")
+            payload = os.read(source_fd, 65537)
+            if len(payload) != source_info.st_size:
+                raise CockpitEnrollmentError("age recipient inventory changed while being read")
+        finally:
+            os.close(source_fd)
         recipients = [line.strip() for line in payload.decode("ascii").splitlines() if line.strip()]
     except (OSError, UnicodeError) as exc:
         raise CockpitEnrollmentError(f"cannot read age recipient inventory: {exc}") from exc
