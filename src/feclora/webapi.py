@@ -1016,6 +1016,20 @@ def _deployment_service_status(job_id: str) -> dict[str, Any]:
 
 def _start_deployment_service(params: dict[str, Any]) -> dict[str, Any]:
     job_id = _deployment_service_job_id(params)
+    from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
+    journal_path = _deployment_journal_directory() / f"{job_id}.jsonl"
+    try:
+        report = DeploymentJournal.inspect(journal_path).recovery_report()
+    except (OSError, DeploymentJournalError) as exc:
+        raise WebAPIError(f"cannot inspect the requested deployment job journal: {exc}") from exc
+    if report.get("job_id") != job_id:
+        raise WebAPIError("deployment journal UUID does not match the requested job")
+    if report.get("job", {}).get("transport") == "multicast":
+        raise WebAPIError(
+            "Cockpit cannot start multicast jobs until the Client-side multicast receiver workflow is integrated"
+        )
+    if report.get("job_state") != "created" or report.get("interrupted"):
+        raise WebAPIError("only a fresh, unstarted deployment job can be started from Cockpit")
     unit = _deployment_service_unit(job_id)
     try:
         result = subprocess.run(
