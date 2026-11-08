@@ -9,6 +9,8 @@ import subprocess
 import sys
 from typing import Any, Callable
 
+from feclora.storage.volume_metadata import annotate_inventory
+
 LSBLK_COLUMNS = (
     "NAME,PATH,TYPE,SIZE,RO,TRAN,MODEL,VENDOR,SERIAL,WWN,"
     "FSTYPE,LABEL,UUID,MOUNTPOINTS"
@@ -70,7 +72,7 @@ def parse_lsblk(payload: str) -> dict[str, Any]:
         for item in data["blockdevices"]
         if isinstance(item, dict)
     ]
-    return {"schema_version": 1, "devices": devices}
+    return annotate_inventory({"schema_version": 1, "devices": devices})
 
 
 def collect_inventory(
