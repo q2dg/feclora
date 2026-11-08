@@ -16,7 +16,6 @@ import stat
 import subprocess
 import sys
 import time
-import uuid
 from pathlib import Path
 from typing import Any
 
@@ -53,16 +52,18 @@ def _repository(*, create: bool = False) -> Path:
         parent_info = os.lstat(parent)
     except OSError as exc:
         raise WebAPIError("Feclora state directory is unavailable") from exc
-    if not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode) or parent_info.st_uid != 0:
-        raise WebAPIError("Feclora state directory must be a root-owned real directory")
+    if (not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode)
+            or parent_info.st_uid != 0 or parent_info.st_mode & 0o077):
+        raise WebAPIError("Feclora state directory must be a private root-owned real directory")
     if create:
         REPOSITORY.mkdir(mode=0o700, exist_ok=True)
     try:
         info = os.lstat(REPOSITORY)
     except FileNotFoundError:
         return REPOSITORY
-    if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
-        raise WebAPIError("Feclora image repository must be a root-owned real directory")
+    if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
+            or info.st_uid != 0 or info.st_mode & 0o077):
+        raise WebAPIError("Feclora image repository must be a private root-owned real directory")
     if create:
         os.chmod(REPOSITORY, 0o700)
     return REPOSITORY
