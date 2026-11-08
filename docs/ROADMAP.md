@@ -22,12 +22,13 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [x] Cockpit storage/image inventory, operation journal summary and local image-security setup.
 - [x] Cockpit Terminal remains available for system administration.
 - [x] Initial Cockpit Server identity bootstrap from a currently assigned IPv4 address, including DHCP-server warning and managed trust-material initialization.
+- [x] Cockpit PXE network-profile preflight for ProxyDHCP and isolated DHCP, including address-pool validation and dnsmasq/Caddy daemon checks; it does not activate services.
 
 ## Remaining implementation work
 
 ### Cockpit remote deployment
 
-- [ ] Server setup wizard: select and validate network interface, ProxyDHCP vs isolated DHCP, address pools, PXE services and firewall scope.
+- [ ] Complete Server setup wizard: activate and persist the validated ProxyDHCP/isolated-DHCP profile, manage PXE services and firewall scope. Cockpit currently provides configuration preflight only.
 - [ ] Full managed deployment CA and Server identity administration from Cockpit (the initial identity bootstrap step is implemented).
 - [ ] Client CSR import/approval, certificate issue/rotation/revocation and age-recipient management from Cockpit.
 - [ ] Client enrollment workflow and local target approval from Cockpit.
