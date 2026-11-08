@@ -53,7 +53,7 @@ the old local `dialog` menu is no longer installed in the Live package.
 
 - [ ] Select and document the project license and contribution policy.
 - [ ] Add reproducible dependency lockfiles for the web frontend.
-- [ ] Publish the design and operations documentation through GitHub Pages.
+- [ ] Confirm GitHub Pages publication and canonical hostname. The minimalist landing page, responsive styling and deployment workflow are in source; the current repository owner namespace cannot publish `feclora.github.io` directly.
 
 ## Explicitly out of scope unless requested
 
