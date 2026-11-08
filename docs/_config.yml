@@ -1,4 +1,6 @@
 title: Feclora
 description: Fedora-based disk imaging, cloning, recovery and deployment.
+url: https://q2dg.github.io
+baseurl: /feclora
 theme: minima
 markdown: kramdown
