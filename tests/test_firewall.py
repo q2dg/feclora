@@ -28,7 +28,7 @@ class FirewallTests(unittest.TestCase):
         calls = []
         def runner(argv, **kwargs):
             calls.append(argv)
-            if "--get-zone-of-interface" in argv:
+            if any(arg.startswith("--get-zone-of-interface=") for arg in argv):
                 return subprocess.CompletedProcess(argv, 0, "work\n", "")
             if any(arg.startswith("--query-port=") for arg in argv):
                 return subprocess.CompletedProcess(argv, 1, "", "")
