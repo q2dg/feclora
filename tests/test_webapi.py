@@ -280,6 +280,43 @@ class WebAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "parameters do not match"):
             dispatch({"action": "clone_disk", "params": {"source": "/dev/sda", "target": "/dev/sdb"}})
 
+    def test_start_deployment_service_uses_validated_systemd_instance(self):
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        with patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+            returncode=0, stdout="", stderr="",
+        )) as runner, patch("feclora.webapi._deployment_service_status", return_value={
+            "job_id": job_id, "job_state": "created",
+        }):
+            result = dispatch({"action": "start_deployment_service", "params": {"job_id": job_id}})
+        self.assertEqual(result["job_state"], "created")
+        self.assertEqual(runner.call_args.args[0], [
+            "/usr/bin/systemctl", "start", "feclora-deployment@" + job_id + ".service",
+        ])
+
+    def test_deployment_service_status_requires_canonical_uuid(self):
+        with self.assertRaisesRegex(WebAPIError, "canonical UUID"):
+            dispatch({"action": "deployment_service_status", "params": {"job_id": "../bad"}})
+
+    def test_arm_deployment_job_uses_root_local_ipc(self):
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        with patch("feclora.deployment.local_control.local_control_request", return_value={
+            "job_id": job_id, "accepted": True,
+        }) as request:
+            result = dispatch({"action": "arm_deployment_job", "params": {
+                "job_id": job_id, "confirmation": "ARM " + job_id,
+            }})
+        self.assertTrue(result["accepted"])
+        self.assertEqual(request.call_args.args[:2], ("/run/feclora/deployment.sock", "arm"))
+
+    def test_stop_deployment_service_refuses_active_worker(self):
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        with patch("feclora.webapi._deployment_service_status", return_value={
+            "job_id": job_id, "job_state": "running", "worker_active": True, "clients": [],
+        }), patch("feclora.webapi.subprocess.run") as runner:
+            with self.assertRaisesRegex(WebAPIError, "while a deployment worker"):
+                dispatch({"action": "stop_deployment_service", "params": {"job_id": job_id}})
+        runner.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
