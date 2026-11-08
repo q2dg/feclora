@@ -84,7 +84,8 @@ Client merely because it appears on DHCP/PXE or presents a MAC address.
 Implemented: first-run CA/Server bootstrap, endpoint-local TLS and age key
 creation, CSR signing, CA and minisign-key fingerprint checks, Client
 certificate installation, Client renewal, Server allowlist enrollment and
-revocation, and per-Client age recipient registration/removal.
+revocation, per-Client age recipient registration/removal, and Cockpit Server-side
+CSR inspection/approval with public response-bundle export.
 
 Not yet implemented: a Cockpit-based trust-management screen (the current
 enrollment workflow is in the dialog UI), CRL/OCSP validation, server-side
