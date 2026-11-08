@@ -350,6 +350,7 @@ def _manage_client_enrollment(config_path: str) -> None:
         [
             ("continue", "Continue to deployment"),
             ("issue", "Approve Client CSR (recommended)"),
+            ("export-age", "Export updated age recipient inventory"),
             ("enroll", "Import an externally issued Client certificate"),
             ("revoke", "Revoke an enrolled Client certificate"),
         ],
@@ -358,6 +359,30 @@ def _manage_client_enrollment(config_path: str) -> None:
         return
     if choice == "issue":
         _issue_client_from_csr(config_path, config)
+        return
+    if choice == "export-age":
+        output_directory = dialog_app._input(
+            "Export encryption recipients",
+            "Path to an existing removable-media directory:",
+        )
+        if not output_directory:
+            return
+        if not os.path.isdir(output_directory) or os.path.islink(output_directory):
+            raise PKIError("recipient export destination must be an existing real directory")
+        source = os.path.join(os.path.dirname(config.ca_file), "age-recipients.txt")
+        destination = os.path.join(output_directory, "age-recipients.txt")
+        if os.path.lexists(destination):
+            raise PKIError("age-recipients.txt already exists in the selected directory")
+        source_info = os.lstat(source)
+        if not stat.S_ISREG(source_info.st_mode) or source_info.st_uid != 0:
+            raise PKIError("Server age recipient inventory is not a root-owned regular file")
+        shutil.copyfile(source, destination)
+        os.chmod(destination, 0o644)
+        dialog_app._message(
+            "Recipient inventory exported",
+            "Take this file to each already-enrolled Client and choose Refresh age recipient inventory. "
+            "This updates future image-encryption recipients; it does not change old encrypted images.",
+        )
         return
     if choice == "enroll":
         certificate = dialog_app._input(
