@@ -90,7 +90,7 @@ class DeploymentJob:
         if not isinstance(image_id, str) or not _IMAGE_ID_RE.fullmatch(image_id):
             raise JobValidationError("image_id must be a simple identifier, not a path")
         target_type = payload.get("target_type", "disk")
-        if target_type not in {"disk", "partition"}:
+        if not isinstance(target_type, str) or target_type not in {"disk", "partition"}:
             raise JobValidationError("target_type must be disk or partition")
         if operation == "save" and target_type != "disk":
             raise JobValidationError("network save currently supports whole disks only")
