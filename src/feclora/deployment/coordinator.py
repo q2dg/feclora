@@ -1,9 +1,4 @@
-"""In-memory deployment session coordinator.
-
-This is control-plane state only. It does not open network sockets, authenticate
-clients, start storage commands, or persist state across process restarts.
-"""
-
+"""Thread-safe deployment state machine with optional durable event sink."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -52,19 +47,60 @@ class ClientRecord:
 
 
 class DeploymentCoordinator:
-    """Thread-safe state machine for one deployment job."""
+    """Thread-safe state machine for one deployment job.
+
+    When event_sink is configured, every transition is persisted before the
+    in-memory state is changed. A persistence failure therefore fails closed.
+    """
 
     def __init__(
         self,
         job: DeploymentJob,
         *,
         clock: Callable[[], datetime] | None = None,
+        event_sink: Callable[[dict[str, object]], None] | None = None,
     ) -> None:
         self.job = job
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._lock = RLock()
         self._state = JobState.CREATED
         self._clients: dict[str, ClientRecord] = {}
+        self._event_sink = event_sink
+        self._record_event(
+            "job_created", job_state=JobState.CREATED, job_document=self.job.to_dict(),
+        )
+
+    def _record_event(
+        self,
+        event: str,
+        *,
+        job_state: JobState | None = None,
+        client: ClientRecord | None = None,
+        detail: str | None = None,
+        job_document: dict[str, object] | None = None,
+    ) -> None:
+        if self._event_sink is None:
+            return
+        timestamp = self._clock()
+        if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+            raise CoordinatorError("Clock must return a timezone-aware datetime")
+        payload: dict[str, object] = {
+            "timestamp": timestamp.astimezone(timezone.utc).isoformat(),
+            "job_id": self.job.job_id,
+            "event": event,
+            "job_state": (job_state or self._state).value,
+        }
+        if client is not None:
+            payload["client_mac"] = client.mac_address
+            payload["client_state"] = client.state.value
+        if detail is not None:
+            payload["detail"] = detail[:512]
+        if job_document is not None:
+            payload["job"] = job_document
+        try:
+            self._event_sink(payload)
+        except Exception as exc:
+            raise CoordinatorError(f"could not persist deployment state: {exc}") from exc
 
     @property
     def state(self) -> JobState:
@@ -76,11 +112,7 @@ class DeploymentCoordinator:
             return tuple(self._clients[key] for key in sorted(self._clients))
 
     def register_client(self, mac_address: str, *, authenticated: bool) -> ClientRecord:
-        """Register a peer only after an external transport authenticates it.
-
-        The boolean is an integration boundary, not authentication itself.
-        Callers must not set it based only on a MAC address.
-        """
+        """Register a peer only after an external transport authenticates it."""
         with self._lock:
             if authenticated is not True:
                 raise CoordinatorError("Client control channel is not authenticated")
@@ -95,6 +127,7 @@ class DeploymentCoordinator:
             if self._state in {JobState.ARMED, JobState.RUNNING}:
                 raise CoordinatorError("Cannot add clients after the job is armed")
             record = ClientRecord(mac, ClientState.CONNECTED)
+            self._record_event("client_authenticated", client=record)
             self._clients[mac] = record
             return record
 
@@ -106,6 +139,7 @@ class DeploymentCoordinator:
             if record.state is not ClientState.CONNECTED:
                 raise CoordinatorError("Only a connected client can become ready")
             updated = ClientRecord(record.mac_address, ClientState.READY)
+            self._record_event("client_ready", client=updated)
             self._clients[record.mac_address] = updated
             return updated
 
@@ -137,6 +171,7 @@ class DeploymentCoordinator:
                 raise CoordinatorError("Only a newly created job can be armed")
             if not self.can_start(now=now):
                 raise CoordinatorError("Deployment start condition has not been met")
+            self._record_event("job_armed", job_state=JobState.ARMED)
             self._state = JobState.ARMED
 
     def mark_running(self, mac_address: str) -> ClientRecord:
@@ -147,6 +182,7 @@ class DeploymentCoordinator:
             if record.state is not ClientState.READY:
                 raise CoordinatorError("Only a ready client can start")
             updated = ClientRecord(record.mac_address, ClientState.RUNNING)
+            self._record_event("client_running", client=updated, job_state=JobState.RUNNING)
             self._clients[record.mac_address] = updated
             self._state = JobState.RUNNING
             return updated
@@ -167,14 +203,20 @@ class DeploymentCoordinator:
                 ClientState.SUCCEEDED if success else ClientState.FAILED,
                 detail,
             )
-            self._clients[record.mac_address] = updated
-            states = [client.state for client in self._clients.values()]
+            states = [
+                updated.state if item.mac_address == record.mac_address else item.state
+                for item in self._clients.values()
+            ]
+            next_state = self._state
             if all(state in _TERMINAL_CLIENT_STATES for state in states):
-                self._state = (
+                next_state = (
                     JobState.COMPLETED
                     if all(state is ClientState.SUCCEEDED for state in states)
                     else JobState.FAILED
                 )
+            self._record_event("client_result", client=updated, detail=detail, job_state=next_state)
+            self._clients[record.mac_address] = updated
+            self._state = next_state
             return updated
 
     def disconnect_client(self, mac_address: str, detail: str | None = None) -> ClientRecord:
@@ -183,17 +225,25 @@ class DeploymentCoordinator:
             if record.state in _TERMINAL_CLIENT_STATES:
                 raise CoordinatorError("Client is already in a terminal state")
             updated = ClientRecord(record.mac_address, ClientState.DISCONNECTED, detail)
-            self._clients[record.mac_address] = updated
+            next_state = self._state
+            future_states = [
+                updated.state if item.mac_address == record.mac_address else item.state
+                for item in self._clients.values()
+            ]
             if self._state in {JobState.ARMED, JobState.RUNNING} and all(
-                client.state in _TERMINAL_CLIENT_STATES for client in self._clients.values()
+                state in _TERMINAL_CLIENT_STATES for state in future_states
             ):
-                self._state = JobState.FAILED
+                next_state = JobState.FAILED
+            self._record_event("client_disconnected", client=updated, detail=detail, job_state=next_state)
+            self._clients[record.mac_address] = updated
+            self._state = next_state
             return updated
 
     def cancel(self) -> None:
         with self._lock:
             if self._state in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED}:
                 raise CoordinatorError("Deployment job is already terminal")
+            self._record_event("job_cancelled", job_state=JobState.CANCELLED)
             self._state = JobState.CANCELLED
 
     def summary(self) -> dict[str, int | str]:
