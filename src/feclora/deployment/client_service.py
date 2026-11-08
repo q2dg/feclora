@@ -225,7 +225,7 @@ class ClientDeploymentService:
                 raise ClientJobServiceError("selected local device path is invalid")
             if not isinstance(confirmation, str) or len(confirmation) > 512:
                 raise ClientJobServiceError("local target confirmation is invalid")
-            if compression not in {"none", "gzip", "xz"}:
+            if not isinstance(compression, str) or compression not in {"none", "gzip", "xz"}:
                 raise ClientJobServiceError("capture compression must be none, gzip or xz")
             self.request_path.unlink()
             config = load_client_runtime_config("/etc/feclora/deployment-client.json")
@@ -244,6 +244,10 @@ class ClientDeploymentService:
                     raise DeploymentControlError("Server job does not match this Client service request or transport")
                 if job.operation == "save" and job.target_type != "disk":
                     raise DeploymentControlError("Client capture currently supports whole-disk jobs only")
+                if job.operation == "save" and (
+                    not config.local_minisign_secret_key or not config.local_minisign_public_key
+                ):
+                    raise DeploymentControlError("this Client has no enrolled image-signing key and cannot capture images")
                 selected = self._find_device(device_path, job.target_type)
                 try:
                     info = os.lstat(device_path)
@@ -259,10 +263,12 @@ class ClientDeploymentService:
                 if confirmation != required:
                     raise DeploymentControlError("local typed target confirmation does not match the selected device and Server")
                 description = " ".join(
-                    str(value) for value in (
+                    str(value).replace("/dev/", "device ").replace("\n", " ")
+                    for value in (
                         selected.get("model"), selected.get("size_bytes"), selected.get("serial"),
                     ) if value
                 ) or ("Selected local partition" if job.target_type == "partition" else "Selected local whole disk")
+                description = " ".join(description.split())[:200]
                 self._set_status("ready", detail="Local target is present and explicitly approved. Waiting for the Server operator to arm the job.",
                                  target_description=description)
                 return LocalTargetApproval(device_path, description, confirmation)
