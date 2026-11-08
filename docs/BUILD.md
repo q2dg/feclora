@@ -127,12 +127,14 @@ The target invokes `build/build-iso.sh` with root privileges. The script:
 1. Runs the host preflight: checks Fedora 45, x86_64, the input ISO,
    Kickstart, application source, required executables, KVM access, and a
    configurable minimum of free output space.
-2. Stages the Python application at `out/feclora-app/src/feclora`.
-3. Uses `mkksiso --add` to add that payload and the Kickstart to a temporary
-   installer ISO named `out/feclora-installer.iso`.
-4. Runs `livemedia-creator --make-iso` against the augmented installer ISO,
+2. Builds the React/PatternFly Cockpit frontend with `build/build-webui.sh`.
+3. Stages the Python application at `out/feclora-app/src/feclora` and the
+   frontend build at `out/feclora-app/webui/dist`.
+4. Uses `mkksiso --add` to add the complete application payload and Kickstart
+   to a temporary installer ISO named `out/feclora-installer.iso`.
+5. Runs `livemedia-creator --make-iso` against the augmented installer ISO,
    using QEMU virtualization and the project's Kickstart.
-5. Requests the final image as `out/feclora-live.iso`.
+6. Requests the final image as `out/feclora-live.iso`.
 
 The expected final artifact is:
 
@@ -169,24 +171,37 @@ At minimum, verify:
 
 - BIOS boot reaches the expected live session.
 - UEFI boot reaches the expected live session.
-- The feclora user/session starts as configured.
+- The feclora live user/session starts as configured.
 - `sudo -n true` succeeds in this explicitly privileged rescue image.
-- The feclora launcher exists and starts:
-  `/usr/local/bin/feclora-ui`.
-- The UI displays the virtual block device and its metadata.
-- The application payload was copied into the live root filesystem at
+- Cockpit socket activation is available and the Cockpit app is installed:
+  `systemctl status cockpit.socket` and
+  `test -s /usr/share/cockpit/feclora/index.html`.
+- The Python application payload exists at
   `/usr/share/feclora/python/feclora`.
+- Cockpit displays storage inventory and the local Operations wizard.
+- Disposable virtual disks are detected and the operation forms enforce
+  typed destructive confirmation.
 
-For payload diagnosis in the live session, inspect:
+For first browser login, set a password on the live account from the console:
 
 ```bash
-test -d /usr/share/feclora/python/feclora
-test -x /usr/local/bin/feclora-ui
-/usr/local/bin/feclora-ui
+sudo passwd feclora
+sudo firewall-cmd --add-service=cockpit
 ```
 
-A successful launcher invocation should display the Local rescue / Server / Client mode selector. Local rescue exposes the dialog-based storage and imaging workflows; Server and Client networking remain opt-in. The startup menu also offers a live-session keyboard-layout selector (including Spanish); it changes the active console keymap using `loadkeys` and does not alter the image language or persist across reboots. Verify capture/restore workflows only with disposable virtual disks and follow the dedicated imaging acceptance checks. A successful launcher start alone does not validate destructive workflows.
+Open `https://<live-host-ip>:9090` from a trusted management network.
+Do not expose Cockpit on an untrusted/shared network. The firewalld command
+above is runtime-only.
 
+The Cockpit Terminal page is available for diagnostics. The old `dialog`
+menu is not part of the supported startup flow. Remote Server/Client
+provisioning and PXE job orchestration are not yet fully integrated into
+Cockpit; consult the [feature matrix](FEATURE-MATRIX.md) before claiming
+remote deployment readiness.
+
+A successful Cockpit page load does not validate destructive workflows.
+Verify capture/restore/clone only with disposable virtual disks and follow
+the dedicated imaging acceptance checks.
 ## 8. Record results
 
 For every build/test run, record:
