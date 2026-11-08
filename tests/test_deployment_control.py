@@ -247,6 +247,46 @@ class CoordinatorControlTests(unittest.TestCase):
         self.assertEqual(coordinator.state, JobState.FAILED)
         self.assertEqual(server.collect_results(), {MAC: "failed"})
 
+    def test_control_listener_scopes_port_and_restores_firewall(self):
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.maximum_version = ssl.TLSVersion.TLSv1_3
+        context.verify_mode = ssl.CERT_REQUIRED
+        firewall = unittest.mock.Mock()
+        firewall.is_open.return_value = False
+        server = DeploymentControlServer(
+            DeploymentCoordinator(make_job()), context,
+            local_identity="URI:feclora-server",
+            client_identity_to_mac={"URI:feclora-client": MAC},
+            firewall=firewall, interface="enp1s0",
+        )
+        _host, port = server.start("127.0.0.1", 0)
+        firewall.open.assert_called_once_with(
+            "enp1s0", [f"{port}/tcp"], include_tftp=False,
+        )
+        server.stop()
+        firewall.close.assert_called_once_with("enp1s0")
+
+    def test_control_listener_adds_only_its_port_to_existing_pxe_zone(self):
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.maximum_version = ssl.TLSVersion.TLSv1_3
+        context.verify_mode = ssl.CERT_REQUIRED
+        firewall = unittest.mock.Mock()
+        firewall.is_open.return_value = True
+        firewall.add_ports.return_value = ("9443/tcp",)
+        server = DeploymentControlServer(
+            DeploymentCoordinator(make_job()), context,
+            local_identity="URI:feclora-server",
+            client_identity_to_mac={"URI:feclora-client": MAC},
+            firewall=firewall, interface="enp1s0",
+        )
+        _host, port = server.start("127.0.0.1", 0)
+        firewall.add_ports.assert_called_once_with("enp1s0", [f"{port}/tcp"])
+        server.stop()
+        firewall.remove_ports.assert_called_once_with("enp1s0", ("9443/tcp",))
+        firewall.close.assert_not_called()
+
     def test_server_arms_and_tracks_authenticated_ready_client(self):
         coordinator = DeploymentCoordinator(make_job())
         coordinator.register_client(MAC, authenticated=True)
