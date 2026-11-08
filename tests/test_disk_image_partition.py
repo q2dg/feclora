@@ -13,7 +13,7 @@ class DiskImagePartitionTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.payload = bytes(range(256)) * 32
+        self.payload = bytes(range(256)) * 8200
         self.stored = gzip.compress(self.payload, mtime=0)
         with open(os.path.join(self.temp.name, "source.disk.gz"), "wb") as stream:
             stream.write(self.stored)
