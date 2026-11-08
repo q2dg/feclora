@@ -156,8 +156,8 @@ fi
 if ! grep -q '"start_deployment_service", "deployment_service_status", "stop_deployment_service", "arm_deployment_job", "cancel_deployment_job"' "$ROOT_DIR/webui/src/api.js"; then
   fail "Cockpit API client does not allow persistent deployment service actions."
 fi
-if ! grep -q 'ExecStopPost=.*--recover-firewall' "$ROOT_DIR/src/feclora/data/feclora-deployment@.service"; then
-  fail "Deployment service unit does not recover stale firewall state after exit."
+if ! grep -q 'ExecStopPost=.*--recover-runtime' "$ROOT_DIR/src/feclora/data/feclora-deployment@.service"; then
+  fail "Deployment service unit does not recover stale runtime socket and firewall state after exit."
 fi
 
 if ! grep -q 'class LocalControlServer' "$ROOT_DIR/src/feclora/deployment/local_control.py"; then
