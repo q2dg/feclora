@@ -54,7 +54,8 @@ class PxeServiceTests(unittest.TestCase):
                 raise subprocess.CalledProcessError(1, argv, stderr="Caddy failed")
             return subprocess.CompletedProcess(argv, 0, "", "")
         with tempfile.TemporaryDirectory() as tmp:
-            manager = PXEServiceManager(tmp, runner=runner)
+            firewall = FakeFirewall()
+            manager = PXEServiceManager(tmp, runner=runner, preflight=lambda _config: None, firewall=firewall)
             with self.assertRaises(PXEServiceError):
                 manager.start(config())
         self.assertTrue(any(argv[:2] == ["/usr/bin/systemctl", "stop"] for argv in calls))
