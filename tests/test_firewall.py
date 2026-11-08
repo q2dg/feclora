@@ -119,6 +119,28 @@ class FirewallTests(unittest.TestCase):
         self.assertTrue(any("--add-port=9000/udp" in call for call in calls))
         self.assertTrue(any("--remove-port=9001/udp" in call for call in calls))
 
+    def test_add_and_remove_igmp_preserves_existing_pxe_rules(self):
+        firewall = PXEFirewall(executable="/usr/bin/firewall-cmd")
+        firewall._opened["enp1s0"] = {
+            "zone": "feclora-pxe-test",
+            "restore_zone": "work",
+            "interface_added": True,
+            "ports": ["67/udp", "8080/tcp"],
+        }
+        calls = []
+        firewall._current_zone = lambda interface: "feclora-pxe-test"
+        def call(args, *, check=True):
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 0, "", "")
+        firewall._call = call
+        added = firewall.add_protocols("enp1s0", ["igmp"])
+        self.assertEqual(added, ("igmp",))
+        firewall.remove_protocols("enp1s0", added)
+        self.assertEqual(firewall._opened["enp1s0"]["protocols"], [])
+        self.assertEqual(firewall._opened["enp1s0"]["ports"], ["67/udp", "8080/tcp"])
+        self.assertTrue(any("--add-protocol=igmp" in call for call in calls))
+        self.assertTrue(any("--remove-protocol=igmp" in call for call in calls))
+
     def test_rejects_invalid_port_and_interface(self):
         firewall = PXEFirewall(executable="/usr/bin/firewall-cmd", runner=lambda *a, **k: None)
         with self.assertRaises(PXEFirewallError):
