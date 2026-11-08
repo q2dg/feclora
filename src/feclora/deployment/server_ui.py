@@ -101,29 +101,32 @@ def _review_previous_journals(directory: str) -> None:
     summaries = []
     for path in sorted(Path(directory).glob("*.jsonl"))[-20:]:
         try:
-            journal = DeploymentJournal.inspect(path)
-            latest = journal.latest_state()
-            if latest is None:
-                continue
-            state = str(latest.get("job_state", "unknown"))
-            status = "INTERRUPTED — manual review required; never auto-resumed" if state in {
-                "created", "armed", "running",
-            } else state.upper()
+            report = DeploymentJournal.inspect(path).recovery_report()
+            state = str(report["job_state"])
+            status = (
+                "INTERRUPTED — inspect destination disks; never auto-resumed"
+                if report["interrupted"] else state.upper()
+            )
+            clients = ", ".join(
+                str(mac) + "=" + str(item["state"])
+                for mac, item in sorted(report["clients"].items())
+            ) or "no clients recorded"
             summaries.append(
-                f"{journal.job_id}: {status} (events: {len(journal.events)})"
+                str(report["job_id"]) + ": " + status +
+                " (events: " + str(report["event_count"]) + "; " + clients + ")"
             )
         except Exception as exc:
             raise RuntimeConfigError(
-                f"deployment journal {path.name} is corrupt or unsafe; refusing new jobs: {exc}"
+                "deployment journal " + path.name + " is corrupt or unsafe; refusing new jobs: " + str(exc)
             ) from exc
     if summaries:
         dialog_app._message(
             "Previous deployment journal review",
-            "Previous jobs are audit records only. Interrupted jobs are not resumed "
-            "automatically; reconcile any partially written target before starting "
-            "another job.\n\n" + "\n".join(summaries),
+            "Previous jobs are reconstructed from verified hash-chained journals. "
+            "Interrupted operations are never resumed automatically. Inspect each "
+            "client and destination disk, reconcile partial writes manually, and "
+            "create a new job only after the target state is known.\n\n" + "\n".join(summaries),
         )
-
 
 def run_deployment_server_ui(
     interface: str,
