@@ -540,7 +540,9 @@ export default function App() {
                         <StackItem>Control listener: {(serviceStatuses[job.job_id].listener_address || []).join(":") || "unavailable"}</StackItem>
                         <StackItem>Execution worker: {serviceStatuses[job.job_id].worker_active ? "active" : "idle"}</StackItem>
                         <StackItem><Button size="sm" variant="link" isDisabled={busy} onClick={() => refreshDeploymentService(job.job_id)}>Refresh live status</Button></StackItem>
+                        <StackItem>Connected Clients: {serviceStatuses[job.job_id].client_count ?? (serviceStatuses[job.job_id].clients || []).length}</StackItem>
                         <StackItem>{(serviceStatuses[job.job_id].clients || []).map((client) => <p key={client.mac_address}>{client.mac_address}: {client.state}</p>)}</StackItem>
+                        {serviceStatuses[job.job_id].clients_truncated && <StackItem><Alert variant="warning" isInline title="Client list truncated">The local service status response is capped at 128 Client records.</Alert></StackItem>}
                         {serviceStatuses[job.job_id].multicast_preflight?.warnings?.length > 0 && <StackItem><Alert variant="warning" isInline title="Multicast network warnings">{serviceStatuses[job.job_id].multicast_preflight.warnings.join(" ")}</Alert></StackItem>}
                         {serviceStatuses[job.job_id].multicast_preflight?.error && <StackItem><Alert variant="danger" isInline title="Multicast preflight failed">{serviceStatuses[job.job_id].multicast_preflight.error}</Alert></StackItem>}
                         {serviceStatuses[job.job_id].job_state === "created" && <>
