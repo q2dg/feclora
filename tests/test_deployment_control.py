@@ -1,7 +1,13 @@
 import json
+import os
+import shutil
 import socket
 import ssl
 import struct
+import subprocess
+import tempfile
+import threading
+import time
 import unittest
 from unittest.mock import patch
 
@@ -13,7 +19,7 @@ from feclora.deployment.control import (
     send_control_message,
 )
 from feclora.deployment.coordinator import DeploymentCoordinator, JobState
-from feclora.deployment.job import DeploymentJob
+from feclora.deployment.job import DeploymentJob\nfrom feclora.network.remote_clone_protocol import create_mutual_tls_context
 
 
 JOB_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
@@ -181,6 +187,105 @@ class CoordinatorControlTests(unittest.TestCase):
         start = receive_control_message(outgoing, expected_type="start")
         self.assertEqual(start["job_id"], JOB_ID)
         self.assertEqual(start["operation"], "restore")
+
+
+
+@unittest.skipUnless(shutil.which("openssl"), "openssl is required for loopback mTLS integration")
+class MutualTLSControlIntegrationTests(unittest.TestCase):
+    def _certificate(self, directory, name, san, ca_key, ca_cert):
+        key = os.path.join(directory, name + ".key")
+        csr = os.path.join(directory, name + ".csr")
+        cert = os.path.join(directory, name + ".crt")
+        subprocess.run([
+            "openssl", "req", "-new", "-newkey", "rsa:2048", "-nodes",
+            "-keyout", key, "-out", csr, "-subj", f"/CN={name}",
+        ], check=True, capture_output=True)
+        ext = os.path.join(directory, name + ".ext")
+        with open(ext, "w", encoding="ascii") as stream:
+            stream.write(f"subjectAltName={san}\\nextendedKeyUsage={'serverAuth' if name == 'server' else 'clientAuth'}\\n")
+        subprocess.run([
+            "openssl", "x509", "-req", "-in", csr, "-CA", ca_cert,
+            "-CAkey", ca_key, "-CAcreateserial", "-out", cert, "-days", "1",
+            "-extfile", ext,
+        ], check=True, capture_output=True)
+        return cert, key
+
+    def test_tls13_client_server_job_ready_arm_and_result(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ca_key = os.path.join(directory, "ca.key")
+            ca_cert = os.path.join(directory, "ca.crt")
+            subprocess.run([
+                "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+                "-keyout", ca_key, "-out", ca_cert, "-subj", "/CN=Feclora Test CA",
+                "-days", "1",
+            ], check=True, capture_output=True)
+            server_cert, server_key = self._certificate(
+                directory, "server", "URI:feclora-server", ca_key, ca_cert,
+            )
+            client_cert, client_key = self._certificate(
+                directory, "client", "URI:feclora-client", ca_key, ca_cert,
+            )
+            server_context = create_mutual_tls_context(
+                "server", ca_file=ca_cert,
+                certificate_file=server_cert, private_key_file=server_key,
+            )
+            client_context = create_mutual_tls_context(
+                "client", ca_file=ca_cert,
+                certificate_file=client_cert, private_key_file=client_key,
+            )
+            listener = socket.socket()
+            listener.bind(("127.0.0.1", 0))
+            listener.listen(1)
+            listener.settimeout(10)
+            port = listener.getsockname()[1]
+            coordinator = DeploymentCoordinator(make_job())
+            server = DeploymentControlServer(
+                coordinator, server_context, local_identity="URI:feclora-server",
+                client_identity_to_mac={"URI:feclora-client": MAC},
+            )
+            accepted = []
+            errors = []
+
+            def accept_client():
+                try:
+                    accepted.append(server.accept_ready_client(listener))
+                except Exception as exc:
+                    errors.append(exc)
+
+            accept_thread = threading.Thread(target=accept_client, daemon=True)
+            accept_thread.start()
+            client_result = []
+            client_errors = []
+
+            def run_client():
+                try:
+                    client_result.append(join_deployment(
+                        "127.0.0.1", port, client_context,
+                        local_identity="URI:feclora-client",
+                        expected_server_identity="URI:feclora-server",
+                        mac_address=MAC, job_id=JOB_ID,
+                        prepare_local_target=lambda job: "Virtual disk 1 (locally approved)",
+                        execute_job=lambda job: (True, "simulated protected operation verified"),
+                        timeout=10,
+                    ))
+                except Exception as exc:
+                    client_errors.append(exc)
+
+            client_thread = threading.Thread(target=run_client, daemon=True)
+            client_thread.start()
+            accept_thread.join(15)
+            self.assertFalse(accept_thread.is_alive(), "server did not complete mTLS readiness")
+            self.assertFalse(errors, str(errors))
+            self.assertEqual(len(accepted), 1)
+            self.assertEqual(accepted[0].mac_address, MAC)
+            self.assertEqual(server.arm_and_start(), (MAC,))
+            client_thread.join(15)
+            self.assertFalse(client_thread.is_alive(), "client did not finish after START")
+            self.assertFalse(client_errors, str(client_errors))
+            results = server.collect_results(timeout=10)
+            self.assertEqual(results[MAC], "succeeded")
+            self.assertEqual(coordinator.state, JobState.COMPLETED)
+            listener.close()
 
 
 if __name__ == "__main__":
