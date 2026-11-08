@@ -70,6 +70,48 @@ class DeploymentCoordinator:
             "job_created", job_state=JobState.CREATED, job_document=self.job.to_dict(),
         )
 
+    @classmethod
+    def from_journal(cls, job: DeploymentJob, journal: object) -> "DeploymentCoordinator":
+        """Rebuild audit state from a verified journal without restoring sessions.
+
+        In-flight jobs remain in their recorded state and cannot be armed again.
+        The caller must reconcile an interrupted job after inspecting every
+        Client and destination; this method never reconnects peers or resumes I/O.
+        """
+        if not isinstance(job, DeploymentJob):
+            raise CoordinatorError("journal recovery requires a validated deployment job")
+        report_method = getattr(journal, "recovery_report", None)
+        if not callable(report_method):
+            raise CoordinatorError("journal recovery requires a verified deployment journal")
+        try:
+            report = report_method()
+        except Exception as exc:
+            raise CoordinatorError(f"could not inspect deployment journal: {exc}") from exc
+        if report.get("job_id") != job.job_id or report.get("job") != job.to_dict():
+            raise CoordinatorError("deployment journal does not match the supplied job definition")
+        try:
+            state = JobState(report["job_state"])
+            clients = {
+                mac: ClientRecord(
+                    mac,
+                    ClientState(record["state"]),
+                    record.get("detail"),
+                )
+                for mac, record in report["clients"].items()
+            }
+        except (KeyError, TypeError, ValueError) as exc:
+            raise CoordinatorError(f"deployment journal contains invalid coordinator state: {exc}") from exc
+        if any(not job.authorizes_client(mac) for mac in clients):
+            raise CoordinatorError("deployment journal contains a Client outside the job allowlist")
+        coordinator = cls.__new__(cls)
+        coordinator.job = job
+        coordinator._clock = lambda: datetime.now(timezone.utc)
+        coordinator._lock = RLock()
+        coordinator._state = state
+        coordinator._clients = clients
+        coordinator._event_sink = journal
+        return coordinator
+
     def _record_event(
         self,
         event: str,
