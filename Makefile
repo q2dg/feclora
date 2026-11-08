@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help deps preflight validate test ui build clean
+.PHONY: help deps preflight validate test ui webui build clean
 
 help:
 	@echo 'deps     Install Fedora build-host dependencies'
@@ -26,6 +26,9 @@ test:
 
 ui:
 	./scripts/feclora-ui.sh
+
+webui:
+	bash build/build-webui.sh
 
 build:
 	@test -n "$(FEDORA_INSTALL_ISO)" || (echo 'Set FEDORA_INSTALL_ISO=/path/to/Fedora-45-x86_64-DVD.iso' >&2; exit 2)
