@@ -129,6 +129,9 @@ fi
 if ! grep -q 'test_start_deployment_service_rejects_legacy_multicast_journal' "$ROOT_DIR/tests/test_webapi.py"; then
   fail "Legacy multicast service-start regression test is missing."
 fi
+if ! grep -q 'test_start_deployment_service_reconnects_to_active_job_without_revalidating_freshness' "$ROOT_DIR/tests/test_webapi.py"; then
+  fail "Cockpit active-service reconnect regression test is missing."
+fi
 
 if grep -qx 'dialog' "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "The legacy dialog package must not be included in the Cockpit-first Live image."
