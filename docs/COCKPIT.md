@@ -110,3 +110,26 @@ the temporary zone or services may still exist. Isolated authoritative DHCP
 must only be activated on a dedicated VLAN where Feclora is the sole DHCP
 server. A missing DHCP server in the NetworkManager lease is not proof of
 network isolation.
+
+
+## Trusted Client enrollment
+
+The Server setup tab now includes **Trusted Clients · Approve CSR**. On a
+Client, prepare the enrollment request and public age recipient on removable
+media. Optionally include its minisign public key only when that Client is
+authorized to capture images for the Server.
+
+On the Server, provide the CSR path, age-recipient path and Client unicast MAC.
+Paths must refer to regular files on mounted media under `/run/media`,
+`/media` or `/mnt`. Inspect the request first; Cockpit verifies the CSR
+signature and its single Feclora Client URI SAN, validates the age recipient,
+and displays the identity/MAC confirmation phrase. The approval action requires
+typing that exact phrase. It then issues and enrolls the certificate and
+exports `feclora-<id>.crt`, `ca.crt`, `server.pub` and
+`age-recipients.txt` alongside the CSR. Existing bundle files are never
+overwritten.
+
+Only public enrollment material is copied to removable media. TLS and age
+private keys remain on the Client. This Cockpit step does not yet replace the
+Client-side dialog workflow for preparing the request and importing/verifying
+the returned bundle.
