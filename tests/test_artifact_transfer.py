@@ -93,6 +93,29 @@ class ImageTransferTests(unittest.TestCase):
                         fake, source, manifest_path, expected_image_id="golden", trusted_public_key="/trusted/server.pub",
                     )
 
+    def test_receiver_rejects_insufficient_staging_space_before_payload(self):
+        with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
+            manifest_path = make_image_set(source)
+            left, right = socket.socketpair()
+            def sender():
+                with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
+                    send_image_set(
+                        left, source, manifest_path, expected_image_id="golden",
+                        trusted_public_key="/trusted/server.pub",
+                    )
+                left.close()
+            thread = threading.Thread(target=sender, daemon=True)
+            thread.start()
+            with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"), \
+                 patch("feclora.deployment.artifact_transfer.shutil.disk_usage", return_value=type("Usage", (), {"free": 1})()):
+                with self.assertRaisesRegex(ImageTransferError, "insufficient staging space"):
+                    receive_image_set(
+                        right, target, expected_image_id="golden",
+                        trusted_public_key="/trusted/server.pub",
+                    )
+            right.close()
+            thread.join(5)
+
     def test_receiver_rejects_wrong_job_image_id_without_publishing(self):
         with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
             manifest_path = make_image_set(source)
