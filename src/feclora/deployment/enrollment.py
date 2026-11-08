@@ -39,19 +39,31 @@ def _secure_regular_file(path: str, label: str) -> None:
 
 def _certificate_identity(certificate_path: str) -> str:
     try:
-        decoded = ssl._ssl._test_decode_cert(certificate_path)
-    except Exception as exc:
-        raise EnrollmentError(f"cannot parse Client certificate: {exc}") from exc
-    sans = decoded.get("subjectAltName", ())
+        result = subprocess.run(
+            ["openssl", "x509", "-in", certificate_path, "-noout", "-ext", "subjectAltName"],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15, check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise EnrollmentError(f"cannot inspect Client certificate SAN: {exc}") from exc
+    if result.returncode != 0:
+        raise EnrollmentError("cannot parse Client certificate subjectAltName")
+    lines = result.stdout.splitlines()
+    if len(lines) < 2:
+        raise EnrollmentError("Client certificate has no subjectAltName extension")
     identities = []
-    prefixes = {"URI": "URI", "DNS": "DNS", "IP Address": "IP", "email": "EMAIL"}
-    for kind, value in sans:
-        if kind in prefixes and isinstance(value, str) and value:
-            identities.append(prefixes[kind] + ":" + value)
+    prefixes = {
+        "URI:": "URI:", "DNS:": "DNS:",
+        "IP Address:": "IP:", "email:": "EMAIL:",
+    }
+    for item in ",".join(lines[1:]).split(","):
+        token = item.strip()
+        for source, target in prefixes.items():
+            if token.startswith(source) and token[len(source):]:
+                identities.append(target + token[len(source):])
+                break
     if len(identities) != 1:
         raise EnrollmentError("Client certificate must contain exactly one supported SAN identity")
     return identities[0]
-
 
 def _verify_client_certificate(certificate_path: str, ca_file: str) -> str:
     _secure_regular_file(certificate_path, "Client certificate")
