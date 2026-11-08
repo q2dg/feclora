@@ -156,6 +156,46 @@ def _security_material() -> dict[str, bool]:
     return result
 
 
+def _renew_server_certificate(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"confirmation"} or params.get("confirmation") != "RENEW SERVER CERTIFICATE":
+        raise WebAPIError("explicit confirmation required: RENEW SERVER CERTIFICATE")
+    config_path = "/etc/feclora/deployment-server.json"
+    try:
+        from feclora.deployment.runtime_config import load_server_runtime_config
+        config = load_server_runtime_config(config_path)
+    except Exception as exc:
+        raise WebAPIError(f"managed Server identity is unavailable: {exc}") from exc
+    if os.path.realpath(config.certificate_file) != "/etc/feclora/pki/server.crt" or os.path.realpath(
+        config.private_key_file
+    ) != "/etc/feclora/pki/server.key" or os.path.realpath(config.ca_file) != "/etc/feclora/pki/ca.crt":
+        raise WebAPIError("Server PKI paths differ from the managed renewal locations; refusing to replace an untracked certificate")
+    try:
+        active = subprocess.run(
+            ["/usr/bin/systemctl", "list-units", "--type=service", "--state=running",
+             "--no-legend", "feclora-deployment@*.service"],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise WebAPIError(f"cannot establish whether a deployment service is active: {exc}") from exc
+    if active.returncode != 0:
+        raise WebAPIError("cannot establish whether a deployment service is active; Server certificate renewal is blocked")
+    if active.stdout.strip():
+        raise WebAPIError("stop all active deployment jobs before renewing the Server TLS certificate")
+    try:
+        from feclora.deployment.managed_pki import renew_server_certificate, certificate_expiry_days
+        renewed = renew_server_certificate("/etc/feclora/pki")
+        days = certificate_expiry_days(renewed["certificate_file"])
+    except Exception as exc:
+        raise WebAPIError(f"Server TLS certificate renewal failed: {exc}") from exc
+    return {
+        "renewed": True, "identity": config.local_identity,
+        "certificate_file": renewed["certificate_file"],
+        "ca_fingerprint": renewed["ca_fingerprint"], "expiry_days": days,
+        "message": "Server TLS certificate renewed with the existing CA and private key. The CA, Server identity, Client trust and image-signing keys were not changed.",
+    }
+
+
 def _initialize_security() -> dict[str, Any]:
     from feclora.deployment.managed_pki import initialize_server_pki
 
@@ -1773,6 +1813,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return {"interfaces": _network_interfaces()}
     if action == "bootstrap_server":
         return _bootstrap_server(params)
+    if action == "renew_server_certificate":
+        return _renew_server_certificate(params)
     if action == "prepare_client_request":
         return _prepare_client_request(params)
     if action == "complete_client_enrollment":
