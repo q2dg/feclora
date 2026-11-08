@@ -67,6 +67,15 @@ fi
 if ! grep -q '"start_pxe_services", "stop_pxe_services", "pxe_service_status"' "$ROOT_DIR/webui/src/api.js"; then
   fail "Cockpit API client does not allow PXE service lifecycle actions."
 fi
+if ! grep -q 'inspect_client_csr|approve_client_csr' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "Kickstart Cockpit API wrapper does not allow Client CSR trust actions."
+fi
+if ! grep -q '"inspect_client_csr", "approve_client_csr"' "$ROOT_DIR/webui/src/api.js"; then
+  fail "Cockpit API client does not allow Client CSR trust actions."
+fi
+if ! grep -q 'def _approve_client_csr' "$ROOT_DIR/src/feclora/webapi.py"; then
+  fail "Cockpit backend is missing Client CSR approval."
+fi
 if ! grep -q 'def _start_pxe_services' "$ROOT_DIR/src/feclora/webapi.py"; then
   fail "Cockpit backend is missing PXE service activation."
 fi
