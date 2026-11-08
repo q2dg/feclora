@@ -45,7 +45,7 @@
 - [x] Add strict restore profile schema and stable WWN/serial target matching, including signed, expiring, single-use unattended whole-disk execution and a durable replay ledger (TUI profile authoring and an optional disabled-by-default systemd unit are implemented; operator enablement and physical validation remain pending).
 - [x] Implement zstd/lz4 streaming compression and decompression through Fedora system CLI tools (unit and real-binary CI validation are included in GitHub Actions; latest run status must be checked before claiming success).
 - [ ] Complete repository-level manifest transactions.
-- [ ] Support GPT/MBR, LVM, LUKS and boot-area/bootloader workflows.
+- [ ] Support GPT/MBR, LVM (PV/VG/LV topology, activation and snapshots), LUKS and boot-area/bootloader workflows.\n- [ ] Add Stratis detection and explicit pool/filesystem-aware workflows; until then, label Stratis devices as unsupported for filesystem-aware capture/restore.
 - [ ] Complete remote repository lifecycle for SSHFS, NFS, SMB/CIFS, WebDAV and S3 (provider validation and mount argv builders exist; credential provisioning, mount lifecycle, durability checks, packaging and integration tests remain).
 - [x] Connect disk/partition capture and restore workflows to the Local rescue TUI with explicit destructive confirmation and error dialogs.
 - [x] Add optional per-capture age encryption and minisign manifest signing choices; restore requests an age identity and offers trusted-key signature verification (mocked tests; real-binary validation pending).
