@@ -6,7 +6,7 @@ The harness creates one Feclora Server VM and two PXE clients (legacy BIOS and U
 
 ## Host requirements
 
-On a Fedora test host install qemu-kvm, libvirt, virt-install, virt-viewer, edk2-ovmf and qemu-img; start the libvirt daemon and verify that KVM/OVMF are usable. Fedora documents virt-install and PXE guest boot support: https://developer.fedoraproject.org/tools/virtualization/installing-libvirt-and-virt-install-on-fedora-linux.html
+On a Fedora test host install qemu-kvm, libvirt, virt-install, virt-viewer, edk2-ovmf and qemu-img; start the libvirt daemon and verify that KVM/OVMF are usable. Fedora documents virt-install and PXE guest boot support: https://github.com/virt-manager/virt-manager/blob/main/man/virt-install.rst
 
 ## Run
 
