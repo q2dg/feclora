@@ -35,7 +35,7 @@ from feclora.network.firewall import PXEFirewallError
 from feclora.network.tls import connect_mutual_tls
 
 MAX_CONTROL_FRAME = 16 * 1024
-_CONTROL_TYPES = {"hello", "job", "ready", "start", "result", "cancel", "error", "transfer_offer", "transfer_ready"}
+_CONTROL_TYPES = {"hello", "inspect", "job", "ready", "start", "result", "cancel", "error", "transfer_offer", "transfer_ready"}
 
 
 class DeploymentControlError(RuntimeError):
