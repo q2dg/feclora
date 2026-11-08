@@ -20,7 +20,7 @@
 - [x] Add a read-only device browser using dialog.
 - [x] Add a startup mode selector for Local rescue, Server and Client; Server has an experimental PXE Live-boot path and Client deployment runtime remains incomplete.
 - [x] Add an interactive live-console keyboard layout selector, including Spanish; persistence across reboot and UI localization remain pending.
-- [ ] Evaluate a local browser UI (Cockpit integration versus a dedicated Feclora web frontend) without removing the offline console fallback.
+- [x] Select a dedicated Feclora Cockpit application (React + PatternFly) as the web UI architecture; implementation and offline-console parity remain pending.
 - [x] Stage and integrate the Python application into the Kickstart build (end-to-end validation pending).
 - [x] Add automated build-host preflight checks.
 - [ ] Validate inventory, startup menu and UI against real BIOS/UEFI virtual-machine storage.
@@ -102,3 +102,7 @@ Milestones are goals, not claims of existing functionality. Mark items complete 
 
 
 Compression: gzip/xz use the Python standard library; zstd/lz4 are delegated to Fedora's system CLI tools. The menu exposes codec-specific level ranges. Unit and real-binary integration tests are added; execution and ISO validation remain pending.
+
+## Multicast and web interface architecture
+- [x] Select a dedicated Cockpit application using React and PatternFly for the future web interface; implementation and console parity remain pending.
+- [x] Select UDPcast for multicast image distribution; integration, secure staging, signature/digest verification, network compatibility and VM testing remain pending.
