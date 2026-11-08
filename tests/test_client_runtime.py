@@ -16,10 +16,10 @@ from feclora.deployment.job import DeploymentJob
 JOB_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 
 
-def make_job(operation):
+def make_job(operation, target_type="disk"):
     return DeploymentJob.from_dict({
         "schema_version": 1, "job_id": JOB_ID, "operation": operation,
-        "image_id": "golden-image", "authorized_clients": ["52:54:00:12:34:56"],
+        "image_id": "golden-image", "target_type": target_type, "authorized_clients": ["52:54:00:12:34:56"],
         "network_interface": "enp1s0", "transport": "unicast",
         "multicast_group": None, "multicast_port": None,
         "start_policy": "manual", "expected_clients": None, "start_deadline": None,
@@ -97,6 +97,25 @@ class ClientImageRuntimeTests(unittest.TestCase):
         self.assertEqual(capture.call_args.kwargs["minisign_secret_key"], "/keys/client.key")
         send.assert_called_once()
         self.assertIn(b"transfer_ready", bytes(tls.outgoing))
+
+    def test_partition_restore_uses_partition_restore_engine(self):
+        tls = FakeTLS(control_frame({
+            "type": "transfer_offer", "job_id": JOB_ID, "image_id": "golden-image",
+        }))
+        with (
+            patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device),
+            patch("feclora.deployment.client_runtime.receive_image_set", return_value="/repo/golden-image.manifest.json"),
+            patch("feclora.deployment.client_runtime.restore_partition") as restore_partition,
+            patch("feclora.deployment.client_runtime.restore_disk") as restore_disk,
+        ):
+            result = execute_client_image_job(
+                make_job("restore", "partition"), tls, self.approval,
+                server_identity="URI:feclora-server", repository="/repo",
+                trusted_server_public_key="/trusted/server.pub",
+            )
+        self.assertTrue(result[0])
+        restore_partition.assert_called_once()
+        restore_disk.assert_not_called()
 
     def test_restore_rejects_wrong_local_confirmation_before_network_read(self):
         tls = FakeTLS()
