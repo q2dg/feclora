@@ -733,7 +733,7 @@ def _deployment_jobs() -> list[dict[str, Any]]:
             "interrupted": report["interrupted"],
             "clients": report["clients"],
             "authorized_clients": job["authorized_clients"],
-            "created_at": report["created_at"],
+            "event_count": report["event_count"],
             "last_event": report["last_event"],
         })
     return jobs
