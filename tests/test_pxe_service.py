@@ -40,7 +40,7 @@ class PxeServiceTests(unittest.TestCase):
             self.assertIn("--unit=feclora-dnsmasq", calls[0])
             self.assertIn("--unit=feclora-caddy", calls[1])
             self.assertEqual((Path(tmp) / "dnsmasq.conf").stat().st_mode & 0o777, 0o600)
-            self.assertEqual((Path(tmp) / "Caddyfile").stat().st_mode & 0o777, 0o600)
+            self.assertEqual((Path(tmp) / "Caddyfile").stat().st_mode & 0o777, 0o644)
             self.assertNotIn("enable", " ".join(calls[0]))
             self.assertEqual(firewall.opened[0][0], "enp1s0")
             manager.stop()
