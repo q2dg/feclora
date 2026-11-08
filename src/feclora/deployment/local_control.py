@@ -96,6 +96,7 @@ class LocalControlServer:
         self._listener: socket.socket | None = None
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
+        self._socket_identity: tuple[int, int] | None = None
 
     def start(self) -> None:
         if self._listener is not None:
@@ -112,18 +113,27 @@ class LocalControlServer:
         else:
             raise LocalControlError("IPC socket path already exists; refusing to replace it")
         listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        bound_identity = None
         try:
             listener.bind(self.path)
+            info = os.lstat(self.path)
+            if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.geteuid():
+                raise LocalControlError("bound IPC path is not an owned Unix socket")
+            bound_identity = (info.st_dev, info.st_ino)
             os.chmod(self.path, 0o600)
             listener.listen(8)
             listener.settimeout(0.5)
         except Exception:
             listener.close()
-            try:
-                os.unlink(self.path)
-            except OSError:
-                pass
+            if bound_identity is not None:
+                try:
+                    info = os.lstat(self.path)
+                    if stat.S_ISSOCK(info.st_mode) and (info.st_dev, info.st_ino) == bound_identity:
+                        os.unlink(self.path)
+                except OSError:
+                    pass
             raise
+        self._socket_identity = bound_identity
         self._listener = listener
         self._stop.clear()
         self._thread = threading.Thread(target=self._serve, name="feclora-local-control", daemon=True)
@@ -170,10 +180,13 @@ class LocalControlServer:
             self._thread = None
         try:
             info = os.lstat(self.path)
-            if stat.S_ISSOCK(info.st_mode) and info.st_uid == os.geteuid():
+            if (stat.S_ISSOCK(info.st_mode) and info.st_uid == os.geteuid()
+                    and self._socket_identity == (info.st_dev, info.st_ino)):
                 os.unlink(self.path)
         except FileNotFoundError:
             pass
+        finally:
+            self._socket_identity = None
 
 
 def local_control_request(
@@ -184,9 +197,14 @@ def local_control_request(
     timeout: float = 5,
 ) -> dict[str, Any]:
     """Send one allowlisted command to the root-owned local service."""
-    if action not in _ALLOWED_ACTIONS or not isinstance(params or {}, dict):
+    if not isinstance(action, str) or action not in _ALLOWED_ACTIONS or not isinstance(params or {}, dict):
         raise LocalControlError("unsupported IPC action or invalid parameters")
-    request = {"action": action, "params": params or {}}
+    normalized_params = params or {}
+    if action == "status" and normalized_params:
+        raise LocalControlError("status does not accept parameters")
+    if action in {"arm", "cancel"} and set(normalized_params) != {"job_id", "confirmation"}:
+        raise LocalControlError("arm and cancel require exactly job_id and confirmation")
+    request = {"action": action, "params": normalized_params}
     encoded = json.dumps(request, sort_keys=True, separators=(",", ":"),
                          ensure_ascii=True, allow_nan=False).encode("ascii")
     if len(encoded) > MAX_FRAME:
@@ -202,10 +220,12 @@ def local_control_request(
             response = json.loads(_recv_exact(connection, size).decode("utf-8"))
         except (UnicodeError, json.JSONDecodeError) as exc:
             raise LocalControlError(f"invalid IPC response: {exc}") from exc
-    if not isinstance(response, dict) or set(response) - {"ok", "data", "error"}:
+    if not isinstance(response, dict) or response.get("ok") not in {True, False}:
         raise LocalControlError("invalid IPC response structure")
-    if response.get("ok") is not True:
-        raise LocalControlError(str(response.get("error", "local service rejected request")))
-    if not isinstance(response.get("data"), dict):
-        raise LocalControlError("local service returned invalid data")
-    return response["data"]
+    if response["ok"] is True:
+        if set(response) != {"ok", "data"} or not isinstance(response["data"], dict):
+            raise LocalControlError("local service returned invalid data")
+        return response["data"]
+    if set(response) != {"ok", "error"} or not isinstance(response["error"], str):
+        raise LocalControlError("local service returned an invalid error response")
+    raise LocalControlError(response["error"])
