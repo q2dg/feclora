@@ -46,15 +46,25 @@ def _reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 
 def _repository(*, create: bool = False) -> Path:
+    parent = REPOSITORY.parent
     if create:
-        REPOSITORY.mkdir(mode=0o700, parents=True, exist_ok=True)
-        os.chmod(REPOSITORY, 0o700)
+        parent.mkdir(mode=0o700, parents=False, exist_ok=True)
+    try:
+        parent_info = os.lstat(parent)
+    except OSError as exc:
+        raise WebAPIError("Feclora state directory is unavailable") from exc
+    if not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode) or parent_info.st_uid != 0:
+        raise WebAPIError("Feclora state directory must be a root-owned real directory")
+    if create:
+        REPOSITORY.mkdir(mode=0o700, exist_ok=True)
     try:
         info = os.lstat(REPOSITORY)
     except FileNotFoundError:
         return REPOSITORY
     if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
         raise WebAPIError("Feclora image repository must be a root-owned real directory")
+    if create:
+        os.chmod(REPOSITORY, 0o700)
     return REPOSITORY
 
 
@@ -72,8 +82,11 @@ def _image_manifest(image_id: str) -> Path:
 
 
 def _device(value: Any, field: str) -> str:
-    if not isinstance(value, str) or not re.fullmatch(r"/dev/[A-Za-z0-9_.!/+:-]{1,120}", value):
-        raise WebAPIError(f"{field} must be a valid /dev block-device path")
+    if (not isinstance(value, str)
+            or not re.fullmatch(r"/dev/[A-Za-z0-9_.!/+:-]{1,120}", value)
+            or ".." in Path(value).parts
+            or os.path.normpath(value) != value):
+        raise WebAPIError(f"{field} must be a normalized /dev block-device path")
     return value
 
 
