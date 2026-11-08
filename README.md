@@ -31,7 +31,10 @@ See [docs/BUILD.md](docs/BUILD.md) for Fedora build-host prerequisites, installe
 Operational design notes:
 - [Whole-disk restore and larger-target GPT repair](docs/WHOLE-DISK-RESTORE.md)
 - [Mutually authenticated remote disk cloning](docs/REMOTE-DISK-CLONE.md)
+- [Authenticated Server/Client deployment control and signed unicast image transfer](docs/DEPLOYMENT-CONTROL.md)
+- [Server and Client runtime configuration](docs/DEPLOYMENT-SETUP.md)
 - [Signed, single-use unattended restore profiles](docs/RESTORE-PROFILES.md)
+- [Isolated BIOS/UEFI PXE VM lab](tests/vm/README.md)
 
 ## Repository layout
 
@@ -45,7 +48,7 @@ Operational design notes:
 
 ## Development status
 
-Early implementation. The repository contains an initial Kickstart and a QEMU-backed `livemedia-creator` build script. The Python application payload is wired into the installer/Live image pipeline. Local rescue storage inventory now reports initial LVM, Stratis and Btrfs topology, supports naming captured images, and offers a live keyboard-layout selector; the Server menu has an experimental, opt-in dnsmasq/iPXE/Caddy Live-boot setup path. The Client deployment runtime, authenticated job protocol, and storage-manager-aware restore workflows remain incomplete. Neither the ISO build nor BIOS/UEFI/PXE boot has yet been validated end to end. No functional parity claim is made yet.
+Early implementation. The repository contains an initial Kickstart and a QEMU-backed `livemedia-creator` build script. The Python application payload is wired into the installer/Live image pipeline. Local rescue storage inventory reports initial LVM, Stratis and Btrfs topology, supports named image capture and a live keyboard-layout selector. Server mode has an opt-in dnsmasq/iPXE/Caddy PXE boot path plus a TLS 1.3 mTLS one-client unicast job UI. Client mode now supports local whole-disk selection, typed confirmation, signed image receive/verify/restore and capture/sign/send over the authenticated control session. Persistent job recovery, certificate enrollment UI, real PXE VM acceptance, and multicast multi-client deployment remain pending. The ISO build and BIOS/UEFI/PXE end-to-end workflows have not yet been validated; no functional parity claim is made.
 
 ## Fedora baseline lifecycle
 
