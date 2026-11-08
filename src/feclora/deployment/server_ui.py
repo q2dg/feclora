@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import stat
 import uuid
 from pathlib import Path
@@ -13,6 +14,8 @@ from feclora.deployment.coordinator import DeploymentCoordinator
 from feclora.deployment.job import DeploymentJob
 from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
 from feclora.deployment.multicast_runtime import udpcast_config_for_job
+from feclora.deployment.bootstrap import ensure_server_deployment_config
+from feclora.deployment.managed_pki import PKIError, ca_fingerprint, inspect_client_csr, issue_client_certificate
 from feclora.deployment.enrollment import (
     enroll_client_certificate, inspect_client_certificate,
     revoke_client_certificate,
@@ -251,20 +254,78 @@ def _review_previous_journals(directory: str) -> None:
             + "\n".join(summaries),
         )
 
+def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> None:
+    csr = dialog_app._input(
+        "Client enrollment request",
+        "Path to the Client CSR exported to removable media (the private key stays on that Client):",
+    )
+    if not csr:
+        return
+    identity = inspect_client_csr(csr)
+    mac = dialog_app._input(
+        "Authorize Client",
+        "Enter the unicast MAC address assigned to this Client:",
+    )
+    if not mac:
+        return
+    output_directory = dialog_app._input(
+        "Enrollment response destination",
+        "Path to an existing removable-media directory where the signed certificate bundle will be written:",
+    )
+    if not output_directory or not os.path.isdir(output_directory) or os.path.islink(output_directory):
+        raise PKIError("enrollment response destination must be an existing real directory")
+    client_id = identity.removeprefix("URI:feclora-client-")
+    certificate = os.path.join(output_directory, f"feclora-{client_id}.crt")
+    for destination in (certificate, os.path.join(output_directory, "ca.crt"),
+                       os.path.join(output_directory, "server.pub")):
+        if os.path.lexists(destination):
+            raise PKIError("enrollment response file already exists; choose an empty destination directory")
+    confirmation = dialog_app._input(
+        "Approve Client identity",
+        f"CSR identity: {identity}\nMAC: {mac.lower()}\n\nType exactly: ISSUE {identity} {mac.lower()}",
+    )
+    if confirmation != f"ISSUE {identity} {mac.lower()}":
+        raise PKIError("Client CSR approval confirmation did not match")
+    issued = issue_client_certificate(csr, certificate)
+    shutil.copyfile(config.ca_file, os.path.join(output_directory, "ca.crt"))
+    shutil.copyfile(config.server_minisign_public_key, os.path.join(output_directory, "server.pub"))
+    os.chmod(certificate, 0o644)
+    os.chmod(os.path.join(output_directory, "ca.crt"), 0o644)
+    os.chmod(os.path.join(output_directory, "server.pub"), 0o644)
+    enroll_confirmation = dialog_app._input(
+        "Add Client to trusted inventory",
+        f"The certificate has been issued. Type exactly: ENROLL {issued} {mac.lower()}",
+    )
+    if enroll_confirmation != f"ENROLL {issued} {mac.lower()}":
+        raise PKIError("certificate issued but not added to the Server allowlist; approve/enroll it explicitly later")
+    enroll_client_certificate(
+        config_path, certificate, mac, confirmation=enroll_confirmation,
+    )
+    dialog_app._message(
+        "Client certificate issued",
+        f"Identity: {issued}\nCertificate bundle: {output_directory}\n\n"
+        "Copy this removable media to the Client and complete enrollment there. "
+        "The Client private key was generated locally and was never sent to the Server.",
+    )
+
+
 def _manage_client_enrollment(config_path: str) -> None:
-    """Offer explicit certificate enrollment, rotation and revocation before job setup."""
+    """Offer CSR issuance, external certificate import, rotation and revocation."""
     config = load_server_runtime_config(config_path)
     choice = dialog_app._menu(
-        "Client certificate trust",
-        "Manage the Server's allowlist of TLS Client certificate identities. "
-        "Private keys are never imported or generated here; provision them out of band.",
+        "Trusted Clients",
+        "Approve a Client CSR for the Feclora-managed CA, import an externally issued certificate, or revoke a Client.",
         [
             ("continue", "Continue to deployment"),
-            ("enroll", "Enroll or rotate a Client certificate"),
+            ("issue", "Approve Client CSR (recommended)"),
+            ("enroll", "Import an externally issued Client certificate"),
             ("revoke", "Revoke an enrolled Client certificate"),
         ],
     )
     if choice in (None, "continue"):
+        return
+    if choice == "issue":
+        _issue_client_from_csr(config_path, config)
         return
     if choice == "enroll":
         certificate = dialog_app._input(
@@ -335,6 +396,16 @@ def run_deployment_server_ui(
     """Load root-provisioned trust material and run one authenticated deployment job."""
     control = None
     try:
+        created = ensure_server_deployment_config(address, config_path=config_path)
+        config = load_server_runtime_config(config_path)
+        if created:
+            fingerprint = ca_fingerprint(config.ca_file)
+            dialog_app._message(
+                "Feclora deployment CA created",
+                "A local deployment CA and Server identity have been created. Record and verify this SHA-256 fingerprint before approving Clients:\n\n"
+                + fingerprint + "\n\nThe CA private key stays on this Server. Back it up encrypted and offline. "
+                "Use the Trusted Clients screen to approve each Client CSR.",
+            )
         _manage_client_enrollment(config_path)
         config = load_server_runtime_config(config_path)
         if config.bind_address != address:
