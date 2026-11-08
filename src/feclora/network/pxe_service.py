@@ -1,7 +1,7 @@
 """Explicit, transactional lifecycle for temporary PXE systemd services.
 
-No service is enabled at boot. Calling start() is an explicit privileged action;
-any partial startup is rolled back by stopping both transient units.
+Services are never enabled at boot. start() requires successful interface and
+daemon preflight plus interface-zone-scoped runtime firewall rules.
 """
 from __future__ import annotations
 
@@ -11,7 +11,8 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
-from feclora.network.pxe_config import PXENetworkConfig, render_caddy, render_dnsmasq\nfrom feclora.network.pxe_preflight import validate_pxe_configuration
+from feclora.network.pxe_config import PXENetworkConfig, render_caddy, render_dnsmasq
+from feclora.network.pxe_preflight import validate_pxe_configuration
 from feclora.network.firewall import PXEFirewall
 
 
@@ -29,6 +30,8 @@ class PXEServiceManager:
         systemctl: str = "/usr/bin/systemctl",
         dnsmasq: str = "/usr/sbin/dnsmasq",
         caddy: str = "/usr/bin/caddy",
+        preflight: Callable[[PXENetworkConfig], None] = validate_pxe_configuration,
+        firewall: PXEFirewall | None = None,
     ) -> None:
         self.runtime_dir = Path(runtime_dir)
         self.runner = runner
@@ -36,12 +39,13 @@ class PXEServiceManager:
         self.systemctl = systemctl
         self.dnsmasq = dnsmasq
         self.caddy = caddy
+        self.preflight = preflight
+        self.firewall = firewall or PXEFirewall()
+        self._active_interface: str | None = None
 
     def _run(self, argv: list[str], label: str) -> None:
         try:
-            self.runner(
-                argv, check=True, capture_output=True, text=True, timeout=30,
-            )
+            self.runner(argv, check=True, capture_output=True, text=True, timeout=30)
         except subprocess.TimeoutExpired as exc:
             raise PXEServiceError(f"{label} timed out") from exc
         except subprocess.CalledProcessError as exc:
@@ -73,11 +77,17 @@ class PXEServiceManager:
         return str(destination)
 
     def start(self, config: PXENetworkConfig) -> None:
-        """Start dnsmasq then Caddy; roll back all services on any failure."""
+        """Start dnsmasq then Caddy; roll back services and firewall on failure."""
         config.validated()
+        self.preflight(config)
         self._prepare_runtime()
         dnsmasq_config = self._write_config("dnsmasq.conf", render_dnsmasq(config))
         caddy_config = self._write_config("Caddyfile", render_caddy(config))
+        self.firewall.open(
+            config.interface,
+            ["67/udp", "69/udp", "4011/udp", f"{config.http_port}/tcp"],
+        )
+        self._active_interface = config.interface
         try:
             self._run([
                 self.systemd_run, "--unit=feclora-dnsmasq", "--collect",
@@ -94,15 +104,25 @@ class PXEServiceManager:
             raise
 
     def stop(self) -> None:
-        """Stop both transient units; tolerate units that were never started."""
+        """Stop active transient units and remove only firewall ports we added."""
         errors = []
         for unit in ("feclora-caddy.service", "feclora-dnsmasq.service"):
             try:
-                self.runner(
-                    [self.systemctl, "stop", unit], check=False,
-                    capture_output=True, text=True, timeout=20,
+                state = self.runner(
+                    [self.systemctl, "is-active", unit], check=False,
+                    capture_output=True, text=True, timeout=15,
                 )
-            except (OSError, subprocess.TimeoutExpired) as exc:
+                if state.returncode == 0:
+                    self._run([self.systemctl, "stop", unit], f"stopping {unit}")
+                elif state.returncode not in (3, 4):
+                    errors.append(f"{unit}: cannot determine service state")
+            except (OSError, subprocess.TimeoutExpired, PXEServiceError) as exc:
                 errors.append(f"{unit}: {exc}")
+        if self._active_interface is not None:
+            try:
+                self.firewall.close(self._active_interface)
+            except Exception as exc:
+                errors.append(f"firewall: {exc}")
+            self._active_interface = None
         if errors:
-            raise PXEServiceError("failed to stop PXE services: " + "; ".join(errors))
+            raise PXEServiceError("failed to stop PXE runtime cleanly: " + "; ".join(errors))
