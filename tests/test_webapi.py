@@ -202,6 +202,18 @@ class WebAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "job_id must be a UUID"):
             dispatch({"action": "create_deployment_job", "params": {"job": invalid_job}})
 
+    def test_create_deployment_job_rejects_multicast_until_client_receiver_exists(self):
+        payload = {
+            "schema_version": 1, "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+            "operation": "restore", "image_id": "lab-image", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56", "52:54:00:12:34:57"],
+            "network_interface": "enp1s0", "transport": "multicast",
+            "multicast_group": "239.10.10.10", "multicast_port": 9000,
+            "start_policy": "manual", "expected_clients": None, "start_deadline": None,
+        }
+        with self.assertRaisesRegex(WebAPIError, "Client-side multicast receiver workflow is pending"):
+            dispatch({"action": "create_deployment_job", "params": {"job": payload}})
+
     def test_create_deployment_job_persists_valid_definition_without_starting_io(self):
         import tempfile
         from pathlib import Path
