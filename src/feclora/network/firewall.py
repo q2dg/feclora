@@ -1,4 +1,4 @@
-"""Temporary, interface-exclusive firewalld zone for PXE services."""
+"""Temporary, interface-exclusive firewalld zone for Feclora network services."""
 from __future__ import annotations
 
 import re
@@ -48,7 +48,7 @@ class PXEFirewall:
             return result.stdout.strip()
         return None
 
-    def open(self, interface: str, ports: Iterable[str]) -> None:
+    def open(self, interface: str, ports: Iterable[str], *, include_tftp: bool = True) -> None:
         if not _INTERFACE_RE.fullmatch(interface):
             raise PXEFirewallError("Invalid interface name for firewall scope")
         requested = list(dict.fromkeys(ports))
@@ -77,7 +77,8 @@ class PXEFirewall:
             if self._current_zone(interface) != zone:
                 raise PXEFirewallError("firewalld did not bind the selected interface exclusively to the PXE zone")
             # The named service carries firewalld's nf_conntrack_tftp helper.
-            self._call([f"--zone={zone}", "--add-service=tftp"])
+            if include_tftp:
+                self._call([f"--zone={zone}", "--add-service=tftp"])
             for port in requested:
                 self._call([f"--zone={zone}", f"--add-port={port}"])
         except PXEFirewallError as start_error:
