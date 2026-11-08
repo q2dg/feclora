@@ -211,9 +211,12 @@ def inspect_client_request(params: dict[str, object]) -> dict[str, str]:
 
 def approve_client_csr(params: dict[str, object]) -> dict[str, object]:
     required = {"csr_path", "age_recipient_path", "mac_address", "confirmation"}
-    optional = {"minisign_public_path"}
+    optional = {"minisign_public_path", "renewal"}
     if set(params) - required - optional or not required.issubset(params):
         raise CockpitEnrollmentError("approve_client_csr requires CSR, age recipient, MAC and confirmation")
+    renewal = params.get("renewal", False)
+    if not isinstance(renewal, bool):
+        raise CockpitEnrollmentError("renewal must be boolean")
     csr = _media_file(params["csr_path"], "Client CSR")
     age_file = _media_file(params["age_recipient_path"], "Client age recipient")
     minisign_file = _media_file(params.get("minisign_public_path"), "Client minisign public key", optional=True)
@@ -231,8 +234,65 @@ def approve_client_csr(params: dict[str, object]) -> dict[str, object]:
         if not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
             raise CockpitEnrollmentError("Client age recipient file is malformed")
         config = load_server_runtime_config(CONFIG)
+        if renewal:
+            if identity not in config.client_identity_to_mac:
+                raise CockpitEnrollmentError("renewal CSR identity is not currently enrolled")
+            enrolled_mac = config.client_identity_to_mac[identity]
+            if enrolled_mac != mac.lower():
+                raise CockpitEnrollmentError("renewal MAC must exactly match the currently enrolled Client")
+            required_confirmation = f"RENEW {identity}"
+            if confirmation != required_confirmation:
+                raise CockpitEnrollmentError(f"explicit renewal confirmation required: {required_confirmation}")
+            client_id = identity.removeprefix("URI:feclora-client-")
+            mapping = Path(PKI) / "age-recipients" / f"{client_id}.txt"
+            try:
+                mapping_info = os.lstat(mapping)
+                current_recipient = mapping.read_text(encoding="ascii").strip()
+            except OSError as exc:
+                raise CockpitEnrollmentError("current Client age-recipient mapping is unavailable") from exc
+            if (not stat.S_ISREG(mapping_info.st_mode) or stat.S_ISLNK(mapping_info.st_mode)
+                    or mapping_info.st_uid != 0 or mapping_info.st_mode & 0o077):
+                raise CockpitEnrollmentError("current Client age-recipient mapping is unsafe")
+            if recipient != current_recipient:
+                raise CockpitEnrollmentError("renewal must preserve the enrolled Client age identity; use recipient rotation separately")
+            existing_signing_key = config.client_minisign_public_keys.get(mac.lower())
+            if minisign_file:
+                if not existing_signing_key or Path(minisign_file).read_bytes() != Path(existing_signing_key).read_bytes():
+                    raise CockpitEnrollmentError("renewal minisign key must match the currently enrolled public key")
+            export_dir = os.path.dirname(csr)
+            certificate = os.path.join(export_dir, f"feclora-{client_id}-renewal.crt")
+            bundle_files = (
+                certificate, os.path.join(export_dir, "ca-renewal.crt"),
+                os.path.join(export_dir, "server-renewal.pub"),
+                os.path.join(export_dir, "age-recipients-renewal.txt"),
+            )
+            if any(os.path.lexists(path) for path in bundle_files):
+                raise CockpitEnrollmentError("A renewal response bundle file already exists; refusing to overwrite removable-media contents")
+            try:
+                issue_client_certificate(csr, certificate, pki_directory=PKI)
+                for source, destination in (
+                    (config.ca_file, bundle_files[1]),
+                    (config.server_minisign_public_key, bundle_files[2]),
+                    (os.path.join(PKI, "age-recipients.txt"), bundle_files[3]),
+                ):
+                    _atomic_copy(source, destination, 0o600 if destination.endswith("age-recipients-renewal.txt") else 0o644)
+            except Exception:
+                for path in bundle_files:
+                    try:
+                        os.unlink(path)
+                    except OSError:
+                        pass
+                raise
+            return {
+                "identity": identity, "mac_address": mac.lower(),
+                "certificate_file": certificate, "bundle_directory": export_dir,
+                "ca_fingerprint": ca_fingerprint(config.ca_file),
+                "server_minisign_sha256": hashlib.sha256(Path(config.server_minisign_public_key).read_bytes()).hexdigest(),
+                "image_capture_enabled": bool(existing_signing_key), "renewal": True,
+                "message": "Renewal certificate issued. Existing MAC, age identity and image-signing trust were preserved; only the TLS certificate changes. Install the response on the same Client.",
+            }
         if identity in config.client_identity_to_mac:
-            raise CockpitEnrollmentError("Client identity is already enrolled; use the renewal/reconciliation workflow")
+            raise CockpitEnrollmentError("Client identity is already enrolled; use the renewal workflow")
         if any(existing_mac.lower() == mac.lower() for existing_mac in config.client_identity_to_mac.values()):
             raise CockpitEnrollmentError("MAC address is already assigned to another enrolled Client")
         export_dir = str(Path(csr).parent)
