@@ -1390,6 +1390,22 @@ def _server_trusted_clients() -> dict[str, Any]:
     ]}
 
 
+def _export_server_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
+    from feclora.deployment.cockpit_enrollment import export_server_age_recipients
+    try:
+        return export_server_age_recipients(params)
+    except Exception as exc:
+        raise WebAPIError(f"age recipient export failed: {exc}") from exc
+
+
+def _refresh_client_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
+    from feclora.deployment.cockpit_client import refresh_client_age_recipients
+    try:
+        return refresh_client_age_recipients(params)
+    except Exception as exc:
+        raise WebAPIError(f"Client age recipient refresh failed: {exc}") from exc
+
+
 def _revoke_server_client(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"identity", "confirmation"}:
         raise WebAPIError("Client revocation requires exactly identity and confirmation")
@@ -1433,6 +1449,10 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _server_trusted_clients()
     if action == "revoke_server_client":
         return _revoke_server_client(params)
+    if action == "export_server_age_recipients":
+        return _export_server_age_recipients(params)
+    if action == "refresh_client_age_recipients":
+        return _refresh_client_age_recipients(params)
     if action == "network_interfaces":
         if params:
             raise WebAPIError("network_interfaces does not accept parameters")
