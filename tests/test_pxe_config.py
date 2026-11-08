@@ -28,7 +28,7 @@ class PXEConfigTests(unittest.TestCase):
         rendered = render_dnsmasq(proxy())
         self.assertIn("interface=enp1s0", rendered)
         self.assertIn("listen-address=192.0.2.1", rendered)
-        self.assertIn("dhcp-range=192.0.2.0/24,proxy", rendered)
+        self.assertIn("dhcp-range=192.0.2.0,proxy", rendered)
         self.assertNotIn("dhcp-authoritative", rendered)
         self.assertNotIn("0.0.0.0", rendered)
 
@@ -72,7 +72,7 @@ class PXEConfigTests(unittest.TestCase):
     def test_caddy_is_plain_http_and_bound_to_deployment_address(self):
         rendered = render_caddy(proxy())
         self.assertIn("http://192.0.2.1:8080", rendered)
-        self.assertIn("root * "/srv/feclora/http"", rendered)
+        self.assertIn('root * "/srv/feclora/http"', rendered)
         self.assertIn("file_server", rendered)
         self.assertNotIn("https://", rendered)
         self.assertNotIn("0.0.0.0", rendered)
