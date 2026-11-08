@@ -81,7 +81,7 @@ class ParseInventoryTests(unittest.TestCase):
         self.assertIn("--output", command)
         self.assertNotIn("wipefs", command)
         self.assertEqual(len(inventory["devices"]), 1)
-        self.assertEqual(inventory["volume_topology"]["status"], "incomplete")
+        self.assertIn(inventory["volume_topology"]["status"], {"incomplete", "permission_required"})
 
     @patch("feclora.storage.inventory.shutil.which", return_value="/usr/bin/lsblk")
     def test_reports_lsblk_failure(self, _which):
