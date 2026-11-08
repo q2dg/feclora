@@ -21,6 +21,8 @@ membership, source IP or MAC address is never proof of identity.
 
 The adapter does **not** write to block devices, select a restore target,
 authenticate clients, establish TLS, or mark a deployment client successful.
+Its firewalld scope is integrated with the existing temporary PXE zone when
+both use the same firewall-manager instance.
 The caller must complete the TLS 1.3 mutual-authenticated control handshake,
 bind the peer certificate identity to an authorized job client, collect local
 target authorization/readiness, and call the coordinator before the sender
@@ -40,9 +42,11 @@ restore workflow has completed and recorded its per-client result.
   the deployment coordinator is armed. `--nokbd` is used because Feclora owns
   the explicit start gate.
 - The default bitrate is capped at 100 Mbit/s and FEC is optional.
-- Firewalld must permit the configured UDP ports on the selected deployment
-  interface only. The existing temporary PXE firewall zone is not yet wired to
-  this transport; that integration remains pending.
+- A firewalld manager is mandatory. If the PXE zone is already active in the same
+  manager, the adapter temporarily adds only these UDP ports and removes them
+  afterwards, preserving DHCP/TFTP/HTTP rules. Otherwise it creates a temporary
+  interface-exclusive zone with only the UDPcast ports and restores the prior
+  interface assignment on exit.
 
 UDPcast uses a two-port base and its multicast rendezvous/data-address options;
 see the [udp-sender manual](https://manpages.debian.org/unstable/udpcast/udp-sender.1.en.html)
