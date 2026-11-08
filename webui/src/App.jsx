@@ -939,7 +939,7 @@ export default function App() {
                   <input className="pf-v5-c-form-control" value={serverRenewConfirmation} onChange={(event) => setServerRenewConfirmation(event.target.value)} />
                 </Field>
                 <Button variant="danger" onClick={renewServerCertificate} isLoading={busy} isDisabled={busy || serverRenewConfirmation !== "RENEW SERVER CERTIFICATE"}>Renew Server certificate</Button>
-                {serverRenewResult && <Alert variant="success" title="Server certificate renewed" isInline>{serverRenewResult.message} · Expires in {serverRenewResult.expiry_days} days.</Alert>}
+                {serverRenewResult && <Alert variant="success" title="Server certificate renewed" isInline>{serverRenewResult.message} · Server certificate expires in {serverRenewResult.expiry_days} days; CA expires in {serverRenewResult.ca_expiry_days} days.</Alert>}
               </CardBody></Card></StackItem>}
               <StackItem>
                 <Title headingLevel="h2" size="xl">Trusted Clients · Approve CSR</Title>
