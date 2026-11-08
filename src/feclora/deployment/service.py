@@ -171,8 +171,19 @@ class DeploymentService:
         if not isinstance(confirmation, str) or len(confirmation) > 96:
             raise DeploymentServiceError("operator confirmation is invalid")
         if action == "arm":
-            if confirmation != "ARM " + self.job.job_id:
-                raise DeploymentServiceError("arm confirmation must match the exact job UUID")
+            required = (
+                "ARM MULTICAST " + self.job.job_id
+                if self.job.transport == "multicast"
+                else "ARM " + self.job.job_id
+            )
+            if confirmation != required:
+                raise DeploymentServiceError("arm confirmation does not match the exact job-specific phrase")
+            if self.job.transport == "multicast":
+                preflight = inspect_multicast_interface(
+                    self.job.network_interface, self.job.multicast_group, role="sender",
+                )
+                if preflight.route_interface != self.job.network_interface:
+                    raise DeploymentServiceError("multicast route does not use the selected deployment interface")
             with self._worker_lock:
                 if self._arm_requested or self.coordinator.state is not JobState.CREATED:
                     raise DeploymentServiceError("job is already armed, running or terminal")
