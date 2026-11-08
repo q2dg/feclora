@@ -39,6 +39,9 @@ export default function App() {
   const [images, setImages] = useState([]);
   const [journals, setJournals] = useState([]);
   const [inventory, setInventory] = useState(null);
+  const [security, setSecurity] = useState({});
+  const [encrypt, setEncrypt] = useState(false);
+  const [sign, setSign] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -58,7 +61,7 @@ export default function App() {
       const [s, i, j, inv] = await Promise.all([
         callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("inventory")
       ]);
-      setStatus(s); setImages(i.images || []); setJournals(j.journals || []); setInventory(inv);
+      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setInventory(inv);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   }, []);
@@ -88,8 +91,8 @@ export default function App() {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setProgress(null); setOperationResult(null);
     try {
       let params;
-      if (operation === "capture_disk") params = { source, image_id: imageId, compression };
-      else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression };
+      if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt, sign };
+      else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, sign };
       else if (isRestore) params = { image_id: imageId, target, confirmation };
       else params = { source, target, confirmation };
       const result = await callFeclora(operation, params, (eventData) => {
@@ -98,6 +101,17 @@ export default function App() {
       setOperationResult(result);
       setNotice("Operation completed successfully.");
       await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const initializeSecurity = async () => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("initialize_security");
+      setSecurity(result);
+      setEncrypt(true); setSign(true);
+      setNotice("Local encryption and signing keys are ready.");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -152,6 +166,12 @@ export default function App() {
                         <select className="pf-v5-c-form-control" value={compression} onChange={(e) => setCompression(e.target.value)}>
                           <option value="zstd">Zstandard (recommended)</option><option value="lz4">LZ4 (fast)</option><option value="gzip">Gzip</option><option value="none">None</option>
                         </select>
+                      </Field>
+                      <Field label="Image security">
+                        <label><input type="checkbox" checked={encrypt} disabled={!security.age_encryption_available} onChange={(e) => setEncrypt(e.target.checked)} /> Encrypt artifacts with age</label>
+                        <br />
+                        <label><input type="checkbox" checked={sign} disabled={!security.image_signing_available} onChange={(e) => setSign(e.target.checked)} /> Sign manifest with minisign</label>
+                        {!security.age_encryption_available || !security.image_signing_available ? <p className="pf-v5-u-color-200">Initialize local security keys from the System tab to enable these options.</p> : null}
                       </Field>
                     </>}
                     {isRestore && <>
@@ -228,6 +248,14 @@ export default function App() {
                 <Tr><Td>Server deployment configuration</Td><Td>{status?.server_configured ? "Configured" : "Not configured"}</Td></Tr>
                 <Tr><Td>Client deployment configuration</Td><Td>{status?.client_configured ? "Configured" : "Not configured"}</Td></Tr>
               </Tbody></Table></StackItem>
+              <StackItem>
+                <Title headingLevel="h2" size="lg">Local image security</Title>
+                <p>Generate a local Feclora CA, age identity and minisign keypair. Private keys remain on this machine; captured images can then be encrypted and signed by default.</p>
+                <Table aria-label="Image security material" variant="compact"><Thead><Tr><Th>Capability</Th><Th>Status</Th></Tr></Thead><Tbody>
+                  {Object.entries(security).map(([name, ready]) => <Tr key={name}><Td>{name.replaceAll("_", " ")}</Td><Td><Label color={ready ? "green" : "orange"}>{ready ? "Ready" : "Not initialized"}</Label></Td></Tr>)}
+                </Tbody></Table>
+                <Button variant="primary" onClick={initializeSecurity} isLoading={busy} isDisabled={busy}>Initialize local security keys</Button>
+              </StackItem>
               <StackItem><Alert variant="info" title="Terminal access" isInline>For system setup, network diagnostics and advanced administration, use Cockpit's Terminal page. Do not use the terminal to bypass Feclora's storage safety checks.</Alert></StackItem>
             </Stack>
           </Tab>
