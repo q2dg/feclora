@@ -4,7 +4,7 @@ title: Feclora
 description: Fedora-based disk imaging, cloning and recovery.
 ---
 
-<link rel="stylesheet" href="./assets/css/site.css">
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 
 <main class="landing">
   <header class="hero">
