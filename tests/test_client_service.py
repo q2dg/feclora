@@ -161,6 +161,73 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             self.assertEqual(status["multicast_warnings"], list(preflight.warnings))
             self.assertEqual(status["phase"], "completed")
 
+    def test_multicast_insufficient_staging_capacity_fails_before_ready(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request = root / (JOB_ID + ".request.json")
+            request.write_text(json.dumps({
+                "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
+                "device_path": DEVICE,
+                "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
+                "compression": "gzip", "network_interface": "enp1s0", "igmp_confirmed": True,
+            }), encoding="utf-8")
+            request.chmod(0o600)
+            service = ClientDeploymentService(JOB_ID)
+            service.request_path = request
+            service.status_path = root / (JOB_ID + ".status.json")
+            service.lock_path = root / (JOB_ID + ".lock")
+            config = SimpleNamespace(
+                host="192.0.2.10", port=9443, local_identity="URI:client",
+                server_identity=SERVER_IDENTITY, mac_address="52:54:00:12:34:56",
+                ca_file="/ca.crt", certificate_file="/client.crt",
+                private_key_file="/client.key", trusted_server_public_key="/server.pub",
+                local_minisign_secret_key=None, local_minisign_public_key=None,
+                age_identity_file="/age.identity", age_recipients_file="/age-recipients.txt",
+                repository="/var/lib/feclora/images",
+            )
+            block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
+            real_lstat = os.lstat
+
+            def fake_join(host, port, context, **kwargs):
+                job = self._job("multicast")
+                approval = kwargs["prepare_local_target"](job)
+                success, detail = kwargs["execute_job"](job, object(), approval)
+                return job, success, detail
+
+            preflight = SimpleNamespace(warnings=("Verify IGMP snooping and querier.",))
+            with mock.patch.object(service, "_acquire_lock"), \
+                 mock.patch("feclora.deployment.service.recover_stale_runtime_artifacts"), \
+                 mock.patch("feclora.deployment.client_service.CLIENT_JOB_DIRECTORY", root), \
+                 mock.patch("feclora.deployment.client_service._ensure_directory"), \
+                 mock.patch("feclora.deployment.client_service._write_private_json",
+                            side_effect=lambda path, value: Path(path).write_text(json.dumps(value), encoding="utf-8")), \
+                 mock.patch("feclora.deployment.client_service._read_private_json", return_value={
+                     "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
+                     "device_path": DEVICE,
+                     "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
+                     "compression": "gzip", "network_interface": "enp1s0",
+                     "igmp_confirmed": True,
+                 }), \
+                 mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
+                 mock.patch("feclora.deployment.client_service.create_mutual_tls_context", return_value=object()), \
+                 mock.patch.object(ClientDeploymentService, "_find_device", return_value={"model": "Test disk"}), \
+                 mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \
+                 mock.patch("feclora.deployment.client_service.os.lstat",
+                            side_effect=lambda path: block_info if os.fspath(path) == DEVICE else real_lstat(path)), \
+                 mock.patch("feclora.deployment.client_service.inspect_multicast_interface", return_value=preflight) as inspect, \
+                 mock.patch("feclora.deployment.client_service.shutil.disk_usage", return_value=SimpleNamespace(free=1)), \
+                 mock.patch("feclora.deployment.client_service.join_deployment", side_effect=fake_join), \
+                 mock.patch("feclora.deployment.client_service.execute_multicast_restore",
+                            return_value=(True, "multicast image restored")) as execute:
+                service.run()
+
+            status = json.loads(service.status_path.read_text(encoding="utf-8"))
+            inspect.assert_called_once_with("enp1s0", "239.10.10.10", role="receiver")
+            execute.assert_not_called()
+            self.assertEqual(status["phase"], "failed")
+            self.assertIn("insufficient Client staging capacity before READY", status["detail"])
+            self.assertNotEqual(status["phase"], "ready")
+
     def test_orderly_signal_does_not_interrupt_active_block_device_io(self):
         service = ClientDeploymentService(JOB_ID)
         service._phase = "running"
