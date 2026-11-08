@@ -214,12 +214,14 @@ def inspect_client_csr(
         raise PKIError("Client CSR exceeds 64 KiB")
     _run([openssl, "req", "-in", csr_path, "-noout", "-verify"], runner)
     result = _run([openssl, "req", "-in", csr_path, "-noout", "-ext", "subjectAltName"], runner)
-    lines = result.stdout.splitlines()
-    entries = ",".join(lines[1:]).replace(" ", "").split(",")
-    identities = [item[4:] for item in entries if item.startswith("URI:feclora-client-")]
-    if len(identities) != 1 or len(entries) != 1 or not _CLIENT_ID.fullmatch(identities[0]):
+    identities = re.findall(r"URI:(feclora-client-[a-z0-9-]{1,48})", result.stdout)
+    other_sans = re.findall(r"\\b(?:DNS|IP Address|email):", result.stdout)
+    if len(identities) != 1 or other_sans:
         raise PKIError("CSR must contain exactly one Feclora Client URI SAN")
-    return "URI:feclora-client-" + identities[0]
+    client_id = identities[0][len("feclora-client-"):]
+    if not _CLIENT_ID.fullmatch(client_id):
+        raise PKIError("CSR Client identity is malformed")
+    return "URI:" + identities[0]
 
 
 def issue_client_certificate(
@@ -291,8 +293,9 @@ def install_client_certificate(
         raise PKIError("CA fingerprint does not match the fingerprint verified from the Server")
     _run([openssl, "verify", "-purpose", "sslclient", "-CAfile", ca_path, certificate_path], runner)
     san = _run([openssl, "x509", "-in", certificate_path, "-noout", "-ext", "subjectAltName"], runner)
-    identity_entries = [item.strip() for item in ",".join(san.stdout.splitlines()[1:]).split(",") if item.strip()]
-    if identity_entries != [expected_identity] or not expected_identity.startswith("URI:feclora-client-"):
+    identity_entries = re.findall(r"URI:feclora-client-[a-z0-9-]{1,48}", san.stdout)
+    other_sans = re.findall(r"\\b(?:DNS|IP Address|email):", san.stdout)
+    if identity_entries != [expected_identity] or other_sans or not expected_identity.startswith("URI:feclora-client-"):
         raise PKIError("issued certificate identity does not match the locally prepared Client identity")
     cert_key = _run([openssl, "x509", "-in", certificate_path, "-pubkey", "-noout"], runner).stdout.strip()
     local_key = _run([openssl, "pkey", "-in", private_key_path, "-pubout"], runner).stdout.strip()
