@@ -1,5 +1,5 @@
-#version=F43
-# feclora initial rescue-live Kickstart for Fedora 43 x86_64.
+#version=F45
+# feclora initial rescue-live Kickstart for Fedora 45 x86_64.
 # This recipe is a starting point and must pass build and boot tests.
 
 text
@@ -117,7 +117,8 @@ chmod 0755 "$TARGET_ROOT/usr/local/bin/feclora-restore-profile"
 install -d "$TARGET_ROOT/usr/local/libexec" "$TARGET_ROOT/etc/systemd/system"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-restore-profile-env" "$TARGET_ROOT/usr/local/libexec/feclora-restore-profile-env"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-restore-profile.service" "$TARGET_ROOT/etc/systemd/system/feclora-restore-profile.service"
-install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"\nchown --reference="$TARGET_ROOT/home/feclora" "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
+install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
+chown --reference="$TARGET_ROOT/home/feclora" "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
 %end
 
 shutdown
