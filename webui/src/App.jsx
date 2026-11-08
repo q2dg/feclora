@@ -39,6 +39,7 @@ export default function App() {
   const [images, setImages] = useState([]);
   const [journals, setJournals] = useState([]);
   const [deploymentJobs, setDeploymentJobs] = useState([]);
+  const [reconcileConfirmations, setReconcileConfirmations] = useState({});
   const [remoteOperation, setRemoteOperation] = useState("restore");
   const [remoteImageId, setRemoteImageId] = useState("");
   const [remoteTargetType, setRemoteTargetType] = useState("disk");
@@ -292,6 +293,20 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const reconcileDeploymentJob = async (jobId) => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("reconcile_deployment_job", {
+        job_id: jobId,
+        confirmation: reconcileConfirmations[jobId] || ""
+      });
+      setNotice(result.message);
+      setReconcileConfirmations((current) => ({ ...current, [jobId]: "" }));
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
   const operationReady = isCapture
     ? Boolean(source && imageId && (operation !== "capture_partition" || partitionId || imageId))
     : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation)
@@ -466,8 +481,9 @@ export default function App() {
                 </CardBody></Card>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Persisted remote jobs</Title>
+                <p>Interrupted jobs can only be closed for audit after you have inspected every Client and destination manually. This does not resume or retry disk operations.</p>
                 <Table aria-label="Persisted remote deployment jobs" variant="compact"><Thead><Tr><Th>Job ID</Th><Th>Operation</Th><Th>Image</Th><Th>Target</Th><Th>Transport</Th><Th>State</Th><Th>Client progress</Th><Th>Recovery</Th><Th>Events</Th></Tr></Thead><Tbody>
-                  {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.image_id}</Td><Td>{job.target_type}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{Object.entries(job.clients || {}).map(([mac, client]) => mac + ": " + client.state).join(", ") || "Not connected"}</Td><Td>{job.interrupted ? <Label color="orange">Review required · no auto-resume</Label> : "—"}</Td><Td>{job.event_count}</Td></Tr>)}
+                  {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.image_id}</Td><Td>{job.target_type}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{Object.entries(job.clients || {}).map(([mac, client]) => mac + ": " + client.state).join(", ") || "Not connected"}</Td><Td>{job.interrupted ? <Stack hasGutter><StackItem><Label color="orange">Review required · no auto-resume</Label></StackItem><StackItem><input className="pf-v5-c-form-control" aria-label={`Reconciliation confirmation for ${job.job_id}`} placeholder={`RECONCILE ${job.job_id}`} value={reconcileConfirmations[job.job_id] || ""} onChange={(event) => setReconcileConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem><StackItem><Button variant="secondary" size="sm" isDisabled={busy || reconcileConfirmations[job.job_id] !== `RECONCILE ${job.job_id}`} onClick={() => reconcileDeploymentJob(job.job_id)}>Close for audit</Button></StackItem></Stack> : "—"}</Td><Td>{job.event_count}</Td></Tr>)}
                   {!deploymentJobs.length && <Tr><Td colSpan={9}>No remote job definitions recorded.</Td></Tr>}
                 </Tbody></Table>
               </StackItem>
