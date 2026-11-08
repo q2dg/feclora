@@ -91,3 +91,22 @@ complete Cockpit job orchestration and live per-client progress reporting.
 
 No ISO build, hardware restore, PXE boot or multi-machine laboratory test is
 claimed by the source-level checks.
+
+
+## PXE service lifecycle
+
+Cockpit can now activate and stop a preflighted PXE profile. Activation stages
+the boot tree, validates the selected interface and generated daemon
+configurations, creates transient dnsmasq and Caddy systemd units, and opens a
+temporary firewalld zone bound exclusively to the selected interface. The
+unit names and firewall restoration metadata are recorded in a private
+runtime-state file so a later Cockpit API process can stop the same services.
+The services are not enabled at boot.
+
+Use **Stop PXE services and restore firewall** when network boot is no longer
+needed. If shutdown reports an incomplete cleanup, inspect systemd and
+firewalld before retrying; do not manually delete the runtime-state file while
+the temporary zone or services may still exist. Isolated authoritative DHCP
+must only be activated on a dedicated VLAN where Feclora is the sole DHCP
+server. A missing DHCP server in the NetworkManager lease is not proof of
+network isolation.
