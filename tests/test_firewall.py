@@ -95,6 +95,30 @@ class FirewallTests(unittest.TestCase):
         self.assertEqual(current["enp1s0"], "public")
         self.assertEqual(zones, {"public"})
 
+
+    def test_add_and_remove_multicast_ports_preserves_existing_pxe_ports(self):
+        firewall = PXEFirewall(executable="/usr/bin/firewall-cmd")
+        firewall._opened["enp1s0"] = {
+            "zone": "feclora-pxe-test",
+            "restore_zone": "work",
+            "interface_added": True,
+            "ports": ["67/udp", "8080/tcp"],
+        }
+        calls = []
+        firewall._current_zone = lambda interface: "feclora-pxe-test"
+        def call(args, *, check=True):
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 0, "", "")
+        firewall._call = call
+        added = firewall.add_ports("enp1s0", ["9000/udp", "9001/udp"])
+        self.assertEqual(added, ("9000/udp", "9001/udp"))
+        firewall.remove_ports("enp1s0", added)
+        self.assertEqual(
+            firewall._opened["enp1s0"]["ports"], ["67/udp", "8080/tcp"],
+        )
+        self.assertTrue(any("--add-port=9000/udp" in call for call in calls))
+        self.assertTrue(any("--remove-port=9001/udp" in call for call in calls))
+
     def test_rejects_invalid_port_and_interface(self):
         firewall = PXEFirewall(executable="/usr/bin/firewall-cmd", runner=lambda *a, **k: None)
         with self.assertRaises(PXEFirewallError):
