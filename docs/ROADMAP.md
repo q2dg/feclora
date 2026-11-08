@@ -42,8 +42,10 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [x] Integrate root-only Unix IPC with the systemd service and Cockpit API; enforce peer UID, single-job ownership, exact job UUID confirmations and explicit arm/cancel semantics.
 - [x] Persistent Server control-plane lifecycle survives browser disconnect; service/process restarts never resume interrupted jobs.
 - [x] Start/connect, inspect live Client state, arm, pre-arm cancel, safe stop and audit reconciliation through Cockpit.
-- [x] Live per-client READY/running/terminal state and service errors through Cockpit.\n- [ ] Per-client byte progress and throughput telemetry.
-- [x] Local multicast interface/route preflight and explicit multicast arm confirmation.\n- [ ] Report Client staging capacity and add operator-confirmed switch IGMP snooping/querier validation.
+- [x] Live per-client READY/running/terminal state and service errors through Cockpit.
+- [ ] Per-client byte progress and throughput telemetry.
+- [x] Local multicast interface/route preflight and explicit multicast arm confirmation.
+- [ ] Report Client staging capacity and add operator-confirmed switch IGMP snooping/querier validation.
 - [ ] Remote disk-to-disk clone source/receiver workflow and status in Cockpit.
 - [ ] Remote repository lifecycle and secure credential management.
 
