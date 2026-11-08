@@ -73,6 +73,7 @@ export default function App() {
   const [clientRemoteConfirmation, setClientRemoteConfirmation] = useState("");
   const [clientRemoteCompression, setClientRemoteCompression] = useState("gzip");
   const [clientRemoteInterface, setClientRemoteInterface] = useState("");
+  const [clientRemoteIgmpConfirmed, setClientRemoteIgmpConfirmed] = useState(false);
   const [clientRemoteJobStatus, setClientRemoteJobStatus] = useState(null);
   const [csrPath, setCsrPath] = useState("");
   const [ageRecipientPath, setAgeRecipientPath] = useState("");
@@ -394,6 +395,7 @@ export default function App() {
       setClientRemoteInspection(result);
       setClientRemoteTarget("");
       setClientRemoteConfirmation("");
+      setClientRemoteIgmpConfirmed(false);
       setNotice("Authenticated job inspected. No Client registration or disk operation has started.");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -409,6 +411,7 @@ export default function App() {
         network_interface: clientRemoteJob.transport === "multicast"
           ? (networkInterfaces.find((item) => item.binding === clientRemoteInterface)?.interface || null)
           : null,
+        igmp_confirmed: clientRemoteJob.transport === "multicast" ? clientRemoteIgmpConfirmed : false,
       });
       setClientRemoteJobStatus(result);
       setNotice(result.phase === "failed"
@@ -634,8 +637,8 @@ export default function App() {
                         {serviceStatuses[job.job_id].multicast_preflight?.warnings?.length > 0 && <StackItem><Alert variant="warning" isInline title="Multicast network warnings">{serviceStatuses[job.job_id].multicast_preflight.warnings.join(" ")}</Alert></StackItem>}
                         {serviceStatuses[job.job_id].multicast_preflight?.error && <StackItem><Alert variant="danger" isInline title="Multicast preflight failed">{serviceStatuses[job.job_id].multicast_preflight.error}</Alert></StackItem>}
                         {serviceStatuses[job.job_id].job_state === "created" && <>
-                          <StackItem><input className="pf-v5-c-form-control" aria-label={"Arm confirmation for " + job.job_id} placeholder={job.transport === "multicast" ? "ARM MULTICAST " + job.job_id : "ARM " + job.job_id} value={serviceConfirmations[job.job_id] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem>
-                          <StackItem><Button size="sm" variant="primary" isDisabled={busy || serviceConfirmations[job.job_id] !== (job.transport === "multicast" ? "ARM MULTICAST " + job.job_id : "ARM " + job.job_id)} onClick={() => sendDeploymentServiceCommand(job.job_id, "arm_deployment_job", serviceConfirmations[job.job_id])}>Arm and execute</Button></StackItem>
+                          <StackItem><input className="pf-v5-c-form-control" aria-label={"Arm confirmation for " + job.job_id} placeholder={job.transport === "multicast" ? "ARM MULTICAST " + job.job_id + " IGMP-VERIFIED" : "ARM " + job.job_id} value={serviceConfirmations[job.job_id] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem>
+                          <StackItem><Button size="sm" variant="primary" isDisabled={busy || serviceConfirmations[job.job_id] !== (job.transport === "multicast" ? "ARM MULTICAST " + job.job_id + " IGMP-VERIFIED" : "ARM " + job.job_id)} onClick={() => sendDeploymentServiceCommand(job.job_id, "arm_deployment_job", serviceConfirmations[job.job_id])}>Arm and execute</Button></StackItem>
                           <StackItem><input className="pf-v5-c-form-control" aria-label={"Cancel confirmation for " + job.job_id} placeholder={"CANCEL " + job.job_id} value={serviceConfirmations[job.job_id + "-cancel"] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id + "-cancel"]: event.target.value }))} /></StackItem>
                           <StackItem><Button size="sm" variant="secondary" isDisabled={busy || serviceConfirmations[job.job_id + "-cancel"] !== "CANCEL " + job.job_id} onClick={() => sendDeploymentServiceCommand(job.job_id, "cancel_deployment_job", serviceConfirmations[job.job_id + "-cancel"])}>Cancel before arm</Button></StackItem>
                         </>}
@@ -813,6 +816,7 @@ export default function App() {
                     <p>Server identity: {clientRemoteInspection.server_identity}</p>
                     <p>Authorized Client MACs: {(clientRemoteJob.authorized_clients || []).join(", ")}</p>
                     {clientRemoteJob.transport === "multicast" && <Alert variant="warning" title="Multicast network requirements" isInline>All authorized Clients must be READY before arming. Confirm UDP multicast reachability, switch IGMP snooping and an active querier on the same VLAN. UDPcast data packets are not encrypted or authenticated; mTLS protects only the control channel.</Alert>}
+                    {clientRemoteJob.transport === "multicast" && <label><input type="checkbox" checked={clientRemoteIgmpConfirmed} onChange={(event) => setClientRemoteIgmpConfirmed(event.target.checked)} /> I verified IGMP snooping and an active querier on this VLAN, and confirmed all Clients are on the same multicast network.</label>}
                     {(clientRemoteJob.transport === "unicast" || clientRemoteJob.transport === "multicast") && <>
                       {clientRemoteJob.transport === "multicast" && <Field label="Local multicast receive interface" help="Choose the Client interface on the same L2 multicast VLAN as the Server. Interface, route and udp-receiver preflight run again before READY.">
                         <select className="pf-v5-c-form-control" value={clientRemoteInterface} onChange={(event) => setClientRemoteInterface(event.target.value)}>
@@ -835,7 +839,7 @@ export default function App() {
                       <Field label="Local target confirmation">
                         <input className="pf-v5-c-form-control" value={clientRemoteConfirmation} onChange={(event) => setClientRemoteConfirmation(event.target.value)} placeholder="Type the phrase shown above exactly" />
                       </Field>
-                      <Button variant="primary" onClick={startClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteTarget || !clientRemoteConfirmationPhrase || clientRemoteConfirmation !== clientRemoteConfirmationPhrase || (clientRemoteJob.transport === "multicast" && !clientRemoteInterface)}>Connect and wait for Server arm</Button>
+                      <Button variant="primary" onClick={startClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteTarget || !clientRemoteConfirmationPhrase || clientRemoteConfirmation !== clientRemoteConfirmationPhrase || (clientRemoteJob.transport === "multicast" && (!clientRemoteInterface || !clientRemoteIgmpConfirmed))}>Connect and wait for Server arm</Button>
                     </>}
                   </CardBody></Card>
                 </StackItem>}
