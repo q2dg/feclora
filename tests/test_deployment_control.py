@@ -210,7 +210,7 @@ class CoordinatorControlTests(unittest.TestCase):
         return coordinator, server, fake
 
     def test_restore_server_sends_job_bound_transfer_offer_before_image(self):
-        coordinator, server, fake = self._server(make_job())
+        coordinator, server, fake = self._server(make_job(image_id="golden"))
         with patch("feclora.deployment.control.send_image_set", return_value="manifest") as send:
             result = server.send_restore_image(
                 MAC, "/images", "golden.manifest.json",
@@ -223,7 +223,7 @@ class CoordinatorControlTests(unittest.TestCase):
         self.assertEqual(send.call_args.kwargs["expected_image_id"], "golden")
 
     def test_save_server_receives_job_bound_transfer_and_publishes(self):
-        coordinator, server, fake = self._server(make_job(operation="save"))
+        coordinator, server, fake = self._server(make_job(operation="save", image_id="golden"))
         fake.incoming.extend(frame({
             "type": "transfer_ready", "job_id": JOB_ID, "image_id": "golden",
         }))
