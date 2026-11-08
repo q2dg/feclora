@@ -119,7 +119,7 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
         parsed = ipaddress.ip_address(address)
     except ValueError as exc:
         raise RuntimeConfigError("bind_address must be an IPv4 or IPv6 address") from exc
-    if parsed.is_unspecified or parsed.is_multicast:
+    if parsed.version != 4 or parsed.is_unspecified or parsed.is_multicast:
         raise RuntimeConfigError("bind_address must be a concrete unicast interface address")
     identities = value["client_identity_to_mac"]
     if not isinstance(identities, dict) or not identities or len(identities) > 128:
