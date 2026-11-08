@@ -70,6 +70,16 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config.client_identity_to_mac["URI:feclora-client-01"], "52:54:00:12:34:56")
         self.assertEqual(config.client_minisign_public_keys["52:54:00:12:34:56"], "/pki/client.pub")
 
+    def test_server_config_allows_empty_allowlist_after_revoking_all_clients(self):
+        payload = self.server_config()
+        payload["client_identity_to_mac"] = {}
+        payload["client_minisign_public_keys"] = {}
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.write_config(directory, payload)
+            with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
+                config = load_server_runtime_config(path)
+        self.assertEqual(dict(config.client_identity_to_mac), {})
+
     def test_server_config_allows_restore_only_enrolled_client(self):
         payload = self.server_config()
         payload["client_minisign_public_keys"] = {}
