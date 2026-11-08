@@ -82,7 +82,11 @@ class PXEServiceManager:
         self.runtime_dir.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
         if self.runtime_dir.parent.is_symlink() or not self.runtime_dir.parent.is_dir():
             raise PXEServiceError("PXE runtime parent must be a real directory")
-        os.chmod(self.runtime_dir.parent, 0o755)
+        if self.runtime_dir.parent == Path("/run/feclora"):
+            parent_info = os.lstat(self.runtime_dir.parent)
+            if parent_info.st_uid != 0 or parent_info.st_mode & 0o022:
+                raise PXEServiceError("PXE runtime parent must be root-owned and not group/other-writable")
+            os.chmod(self.runtime_dir.parent, 0o755)
         self.runtime_dir.mkdir(mode=0o711, parents=True, exist_ok=True)
         if self.runtime_dir.is_symlink() or not self.runtime_dir.is_dir():
             raise PXEServiceError("PXE runtime path must be a real directory")
@@ -136,7 +140,7 @@ class PXEServiceManager:
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
             raise PXEServiceError("persisted PXE runtime state is unreadable") from exc
         expected = {"schema_version", "interface", "dnsmasq_unit", "caddy_unit", "firewall"}
-        if not isinstance(value, dict) or set(value) != expected or value["schema_version"] != 1:
+        if not isinstance(value, dict) or set(value) != expected or isinstance(value["schema_version"], bool) or value["schema_version"] != 1:
             raise PXEServiceError("persisted PXE runtime state has an unsupported schema")
         if not isinstance(value["interface"], str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,15}", value["interface"]):
             raise PXEServiceError("persisted PXE interface is invalid")
