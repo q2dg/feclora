@@ -106,6 +106,13 @@ class ReadyClient:
     target_description: str
 
 
+def _require_tls13_mtls(context: ssl.SSLContext) -> None:
+    if (context.verify_mode != ssl.CERT_REQUIRED
+            or context.minimum_version != ssl.TLSVersion.TLSv1_3
+            or context.maximum_version != ssl.TLSVersion.TLSv1_3):
+        raise DeploymentControlError("deployment control requires TLS 1.3 with mandatory peer certificates")
+
+
 class DeploymentControlServer:
     """Single-job listener adapter around the existing in-memory coordinator."""
 
@@ -117,6 +124,7 @@ class DeploymentControlServer:
         local_identity: str,
         client_identity_to_mac: Mapping[str, str],
     ) -> None:
+        _require_tls13_mtls(tls_context)
         self.coordinator = coordinator
         self.tls_context = tls_context
         self.local_identity = local_identity
@@ -128,10 +136,87 @@ class DeploymentControlServer:
         self._sessions: dict[str, Any] = {}
         self._identities: dict[str, str] = {}
         self._lock = threading.RLock()
+        self._stop_event = threading.Event()
+        self._listener = None
+        self._listener_thread = None
+        self.listener_errors: list[str] = []
+
+    @property
+    def bound_address(self) -> tuple[str, int] | None:
+        if self._listener is None:
+            return None
+        address = self._listener.getsockname()
+        return str(address[0]), int(address[1])
+
+    def start(self, host: str, port: int, *, backlog: int = 16) -> tuple[str, int]:
+        """Bind a control listener and accept authenticated clients in a background thread."""
+        if self._listener is not None:
+            raise DeploymentControlError("deployment control listener is already running")
+        if not isinstance(port, int) or isinstance(port, bool) or not 0 <= port <= 65535:
+            raise DeploymentControlError("deployment control port must be between 0 and 65535")
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.bind((host, port))
+            listener.listen(backlog)
+            listener.settimeout(1.0)
+        except OSError as exc:
+            listener.close()
+            raise DeploymentControlError(f"cannot bind deployment control listener: {exc}") from exc
+        self._listener = listener
+        self._stop_event.clear()
+        self._listener_thread = threading.Thread(
+            target=self._serve_listener, name="feclora-deployment-control", daemon=True,
+        )
+        self._listener_thread.start()
+        return self.bound_address  # type: ignore[return-value]
+
+    def _serve_listener(self) -> None:
+        while not self._stop_event.is_set():
+            try:
+                self.accept_ready_client(self._listener)
+            except (socket.timeout, TimeoutError):
+                continue
+            except OSError as exc:
+                if not self._stop_event.is_set():
+                    self.listener_errors.append(str(exc))
+            except Exception as exc:
+                if not self._stop_event.is_set():
+                    self.listener_errors.append(str(exc))
+
+    def stop(self) -> None:
+        """Stop accepting peers and close any remaining control sessions."""
+        self._stop_event.set()
+        if self._listener is not None:
+            try:
+                self._listener.close()
+            except OSError:
+                pass
+            self._listener = None
+        if self._listener_thread is not None:
+            self._listener_thread.join(timeout=3)
+            self._listener_thread = None
+        with self._lock:
+            sessions = tuple(self._sessions.items())
+            self._sessions.clear()
+        for mac, tls_socket in sessions:
+            try:
+                record = next((item for item in self.coordinator.clients() if item.mac_address == mac), None)
+                if record is not None and record.state not in {
+                    ClientState.SUCCEEDED, ClientState.FAILED, ClientState.DISCONNECTED,
+                }:
+                    self.coordinator.disconnect_client(mac, "Server control service stopped")
+            except CoordinatorError:
+                pass
+            try:
+                tls_socket.close()
+            except OSError:
+                pass
 
     def accept_ready_client(self, listener: Any) -> ReadyClient:
         accepted, _address = listener.accept()
         tls_socket = None
+        registered_mac = None
         try:
             accepted.settimeout(30)
             tls_socket = self.tls_context.wrap_socket(accepted, server_side=True)
@@ -147,6 +232,7 @@ class DeploymentControlServer:
             if hello["job_id"] != self.coordinator.job.job_id or hello["mac_address"] != mac:
                 raise DeploymentControlError("client hello does not match the enrolled identity and active job")
             self.coordinator.register_client(mac, authenticated=True)
+            registered_mac = mac
             send_control_message(tls_socket, {
                 "type": "job", "job": self.coordinator.job.to_dict(),
                 "server_identity": self.local_identity,
@@ -165,7 +251,12 @@ class DeploymentControlServer:
                 self._sessions[mac] = tls_socket
                 self._identities[mac] = identity
             return ReadyClient(mac, identity, description)
-        except Exception:
+        except Exception as exc:
+            if registered_mac is not None:
+                try:
+                    self.coordinator.disconnect_client(registered_mac, f"control handshake failed: {exc}")
+                except CoordinatorError:
+                    pass
             if tls_socket is not None:
                 tls_socket.close()
             else:
@@ -255,6 +346,7 @@ def join_deployment(
     timeout: float = 120,
 ) -> tuple[DeploymentJob, bool, str]:
     """Authenticate, receive a job, obtain local target approval, then execute on START."""
+    _require_tls13_mtls(tls_context)
     tls_socket = connect_mutual_tls(
         tls_context, host, port, expected_peer_identity=expected_server_identity,
         timeout=15, io_timeout=timeout,
