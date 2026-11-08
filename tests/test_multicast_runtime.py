@@ -72,7 +72,7 @@ class MulticastRuntimeTests(unittest.TestCase):
             "golden-image.raw", "disk-image", "raw", "none", 3,
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
         )
-        manifest = SimpleNamespace(image_id="golden-image", artifacts=(artifact,))
+        manifest = SimpleNamespace(image_id="golden-image", image_type="disk", artifacts=(artifact,))
         offer = {
             "type": "transfer_offer",
             "job_id": job.job_id,
