@@ -338,6 +338,16 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
 
 
 def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
+    operation_fields = {
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign"},
+        "restore_disk": {"image_id", "target", "confirmation"},
+        "restore_partition": {"image_id", "target", "confirmation"},
+        "clone_disk": {"source", "target", "confirmation"},
+        "clone_partition": {"source", "target", "confirmation"},
+    }
+    if action not in operation_fields or set(params) != operation_fields[action]:
+        raise WebAPIError("operation parameters do not match the selected operation")
     from feclora.storage.operation_log import operation_record
 
     target = params.get("target") or params.get("source") or "unspecified"
