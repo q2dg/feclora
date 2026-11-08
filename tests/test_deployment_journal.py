@@ -100,6 +100,26 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertEqual(report["job_state"], "running")
             self.assertEqual(report["clients"][MAC]["state"], "running")
             self.assertEqual(report["job"]["job_id"], JOB_ID)
+    def test_operator_reconciliation_is_durable_and_never_resumes_job(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
+            coordinator.register_client(MAC, authenticated=True)
+            coordinator.mark_ready(MAC)
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+            with self.assertRaisesRegex(DeploymentJournalError, "confirmation"):
+                journal.reconcile_after_operator_inspection("yes")
+            report = journal.reconcile_after_operator_inspection(f"RECONCILE {JOB_ID}")
+            self.assertFalse(report["interrupted"])
+            self.assertTrue(report["operator_reconciled"])
+            self.assertFalse(report["automatic_resume"])
+            self.assertEqual(report["job_state"], "failed")
+            reopened = DeploymentJournal.inspect(path).recovery_report()
+            self.assertTrue(reopened["operator_reconciled"])
+            self.assertEqual(reopened["last_event"], "operator_reconciled")
+
     def test_journal_failure_does_not_mutate_coordinator_state(self):
         def failing_sink(event):
             if event["event"] == "client_ready":
