@@ -30,6 +30,7 @@ export async function callFeclora(action, params = {}, onEvent = () => {}) {
   try {
     output = await process;
   } catch (error) {
+    if (finalResponse?.ok === false) throw new Error(finalResponse.error || error.message);
     if (pending.trim()) {
       try {
         const last = JSON.parse(pending);
