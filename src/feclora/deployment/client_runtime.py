@@ -45,7 +45,7 @@ def execute_client_image_job(
     if not isinstance(local_device_path, str) or not local_device_path.startswith("/dev/"):
         raise ClientImageRuntimeError("local device selection must be an absolute /dev path")
     try:
-        info = os.stat(local_device_path)
+        info = os.lstat(local_device_path)
     except OSError as exc:
         raise ClientImageRuntimeError(f"cannot inspect locally selected device: {exc}") from exc
     if not stat.S_ISBLK(info.st_mode):
