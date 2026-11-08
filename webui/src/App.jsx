@@ -66,6 +66,13 @@ export default function App() {
   const [clientCaFingerprint, setClientCaFingerprint] = useState("");
   const [clientServerFingerprint, setClientServerFingerprint] = useState("");
   const [clientCompleted, setClientCompleted] = useState(null);
+  const [clientRemoteHost, setClientRemoteHost] = useState("");
+  const [clientRemoteJobId, setClientRemoteJobId] = useState("");
+  const [clientRemoteInspection, setClientRemoteInspection] = useState(null);
+  const [clientRemoteTarget, setClientRemoteTarget] = useState("");
+  const [clientRemoteConfirmation, setClientRemoteConfirmation] = useState("");
+  const [clientRemoteCompression, setClientRemoteCompression] = useState("gzip");
+  const [clientRemoteJobStatus, setClientRemoteJobStatus] = useState(null);
   const [csrPath, setCsrPath] = useState("");
   const [ageRecipientPath, setAgeRecipientPath] = useState("");
   const [clientMac, setClientMac] = useState("");
@@ -121,6 +128,13 @@ export default function App() {
   }, [inventory]);
   const disks = devices.filter((d) => d.type === "disk" && d.path);
   const partitions = devices.filter((d) => d.type === "part" && d.path);
+  const clientRemoteJob = clientRemoteInspection?.job;
+  const clientRemoteDeviceOptions = clientRemoteJob?.target_type === "partition" ? partitions : disks;
+  const clientRemoteConfirmationPhrase = clientRemoteJob && clientRemoteTarget
+    ? (clientRemoteJob.operation === "restore"
+      ? `ERASE ${clientRemoteTarget} FROM ${clientRemoteInspection.server_identity}`
+      : `READ ${clientRemoteTarget} TO ${clientRemoteInspection.server_identity}`)
+    : "";
   const isCapture = operation.startsWith("capture_");
   const isRestore = operation.startsWith("restore_");
   const isDisk = operation.endsWith("_disk");
@@ -350,6 +364,47 @@ export default function App() {
       });
       setNotice(result.message);
       await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const inspectClientRemoteJob = async () => {
+    setBusy(true); setError(""); setNotice("");
+    setClientRemoteInspection(null); setClientRemoteJobStatus(null);
+    try {
+      const result = await callFeclora("inspect_remote_job", {
+        host: clientRemoteHost, job_id: clientRemoteJobId,
+      });
+      setClientRemoteInspection(result);
+      setClientRemoteTarget("");
+      setClientRemoteConfirmation("");
+      setNotice("Authenticated job inspected. No Client registration or disk operation has started.");
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const startClientRemoteJob = async () => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("start_client_job", {
+        host: clientRemoteHost, job_id: clientRemoteInspection.job.job_id,
+        device_path: clientRemoteTarget, confirmation: clientRemoteConfirmation,
+        compression: clientRemoteCompression,
+      });
+      setClientRemoteJobStatus(result);
+      setNotice("Client service started. It will report READY only after local target approval, and will write only after the Server operator arms the job.");
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const refreshClientRemoteJobStatus = async () => {
+    if (!clientRemoteInspection?.job?.job_id) return;
+    setBusy(true); setError("");
+    try {
+      const result = await callFeclora("client_job_status", {
+        job_id: clientRemoteInspection.job.job_id,
+      });
+      setClientRemoteJobStatus(result);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -697,6 +752,64 @@ export default function App() {
                   <Button variant="primary" onClick={completeClientEnrollment} isLoading={busy} isDisabled={busy || !clientId || !clientHost || !clientMacInput || !clientBundleDirectory || !clientCaFingerprint || !clientServerFingerprint}>Verify and install Client identity</Button>
                   {clientCompleted && <Alert variant="success" title="Client enrollment complete" isInline>{clientCompleted.message} Identity: {clientCompleted.identity}. Image capture: {clientCompleted.image_capture_enabled ? "authorized" : "not authorized"}.</Alert>}
                 </StackItem>
+              </>}
+            </Stack>
+          </Tab>
+          <Tab eventKey="client-jobs" title="Client jobs">
+            <Stack hasGutter className="pf-v5-u-pt-lg">
+              <StackItem><Title headingLevel="h2" size="xl">Remote job on this Client</Title>
+                <p>Inspect the Server job over enrolled mTLS, choose this machine's local target, type the exact destructive/read confirmation, then connect. The Client reports READY after approval and waits for the Server operator to arm it.</p>
+              </StackItem>
+              {!status?.client_configured && <StackItem><Alert variant="warning" title="Client enrollment required" isInline>Complete Client removable-media enrollment before inspecting or joining a remote job.</Alert></StackItem>}
+              {status?.client_configured && <>
+                <StackItem>
+                  <Field label="Server host override" help="Leave blank to use the enrolled Server host. The enrolled Server certificate identity is still verified.">
+                    <input className="pf-v5-c-form-control" value={clientRemoteHost} onChange={(event) => setClientRemoteHost(event.target.value)} placeholder="Use enrolled Server host" />
+                  </Field>
+                  <Field label="Remote job UUID">
+                    <input className="pf-v5-c-form-control" value={clientRemoteJobId} onChange={(event) => { setClientRemoteJobId(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); }} placeholder="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" />
+                  </Field>
+                  <Button variant="primary" onClick={inspectClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteJobId}>Inspect authenticated job</Button>
+                </StackItem>
+                {clientRemoteJob && <StackItem>
+                  <Card><CardBody>
+                    <Title headingLevel="h3" size="lg">Authenticated Server job</Title>
+                    <p>Operation: {clientRemoteJob.operation} · Image: {clientRemoteJob.image_id}</p>
+                    <p>Target type: {clientRemoteJob.target_type} · Transport: {clientRemoteJob.transport}</p>
+                    <p>Server identity: {clientRemoteInspection.server_identity}</p>
+                    <p>Authorized Client MACs: {(clientRemoteJob.authorized_clients || []).join(", ")}</p>
+                    {clientRemoteJob.transport === "multicast" && <Alert variant="warning" title="Multicast Client Cockpit workflow pending" isInline>This Cockpit Client service currently starts unicast jobs only. Multicast receive remains available through the existing Client runtime; it is not started from this tab.</Alert>}
+                    {clientRemoteJob.transport === "unicast" && <>
+                      <Field label={clientRemoteJob.target_type === "partition" ? "Local destination partition" : "Local destination disk"} help="The selected block device is rechecked against live inventory immediately before READY. Root, mounted or busy destinations are rejected by the storage engine.">
+                        <select className="pf-v5-c-form-control" value={clientRemoteTarget} onChange={(event) => { setClientRemoteTarget(event.target.value); setClientRemoteConfirmation(""); }}>
+                          <option value="">Select local target…</option>
+                          {clientRemoteDeviceOptions.map((device) => <option key={device.path} value={device.path}>{device.path} · {device.model || device.name || device.type} · {device.size_bytes || ""}</option>)}
+                        </select>
+                      </Field>
+                      {clientRemoteJob.operation === "save" && <Field label="Capture compression">
+                        <select className="pf-v5-c-form-control" value={clientRemoteCompression} onChange={(event) => setClientRemoteCompression(event.target.value)}>
+                          <option value="none">None</option><option value="gzip">gzip</option><option value="xz">xz</option>
+                        </select>
+                      </Field>}
+                      {clientRemoteConfirmationPhrase && <Alert variant="warning" title="Type the exact local authorization phrase" isInline>{clientRemoteConfirmationPhrase}</Alert>}
+                      <Field label="Local target confirmation">
+                        <input className="pf-v5-c-form-control" value={clientRemoteConfirmation} onChange={(event) => setClientRemoteConfirmation(event.target.value)} placeholder="Type the phrase shown above exactly" />
+                      </Field>
+                      <Button variant="primary" onClick={startClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteTarget || !clientRemoteConfirmationPhrase || clientRemoteConfirmation !== clientRemoteConfirmationPhrase}>Connect and wait for Server arm</Button>
+                    </>}
+                  </CardBody></Card>
+                </StackItem>}
+                {clientRemoteJobStatus && <StackItem>
+                  <Card><CardBody>
+                    <Title headingLevel="h3" size="lg">Client service status</Title>
+                    <Label color={clientRemoteJobStatus.phase === "completed" ? "green" : clientRemoteJobStatus.phase === "failed" || clientRemoteJobStatus.phase === "interrupted" ? "red" : "blue"}>{clientRemoteJobStatus.phase}</Label>
+                    <p>{clientRemoteJobStatus.detail}</p>
+                    {clientRemoteJobStatus.target_description && <p>Approved target: {clientRemoteJobStatus.target_description}</p>}
+                    {clientRemoteJobStatus.progress && <p>Progress: {clientRemoteJobStatus.progress.completed_bytes} / {clientRemoteJobStatus.progress.total_bytes ?? "unknown"} bytes</p>}
+                    {clientRemoteJobStatus.interrupted && <Alert variant="danger" title="Client service interrupted" isInline>No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.</Alert>}
+                    <Button variant="secondary" onClick={refreshClientRemoteJobStatus} isLoading={busy} isDisabled={busy}>Refresh Client status</Button>
+                  </CardBody></Card>
+                </StackItem>}
               </>}
             </Stack>
           </Tab>
