@@ -1,6 +1,7 @@
 """Dialog workflows for authenticated unicast and multi-client multicast deployments."""
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import shutil
@@ -286,12 +287,15 @@ def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> Non
     )
     if confirmation != f"ISSUE {identity} {mac.lower()}":
         raise PKIError("Client CSR approval confirmation did not match")
-    issued = issue_client_certificate(csr, certificate)
+    if os.path.realpath(config.ca_file) != os.path.realpath("/etc/feclora/pki/ca.crt"):
+        raise PKIError("CSR signing is enabled only for the Feclora-managed CA; use external certificate import for an organization PKI")
+    issued = issue_client_certificate(csr, certificate, pki_directory=os.path.dirname(config.ca_file))
     shutil.copyfile(config.ca_file, os.path.join(output_directory, "ca.crt"))
     shutil.copyfile(config.server_minisign_public_key, os.path.join(output_directory, "server.pub"))
     os.chmod(certificate, 0o644)
     os.chmod(os.path.join(output_directory, "ca.crt"), 0o644)
     os.chmod(os.path.join(output_directory, "server.pub"), 0o644)
+    server_key_digest = hashlib.sha256(Path(os.path.join(output_directory, "server.pub")).read_bytes()).hexdigest()
     enroll_confirmation = dialog_app._input(
         "Add Client to trusted inventory",
         f"The certificate has been issued. Type exactly: ENROLL {issued} {mac.lower()}",
