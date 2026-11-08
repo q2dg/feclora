@@ -202,6 +202,21 @@ class WebAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "job_id must be a UUID"):
             dispatch({"action": "create_deployment_job", "params": {"job": invalid_job}})
 
+    def test_start_deployment_service_rejects_legacy_multicast_journal(self):
+        import tempfile
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        journal = SimpleNamespace(recovery_report=lambda: {
+            "job_id": job_id,
+            "job": {"transport": "multicast"},
+            "job_state": "created",
+            "interrupted": False,
+        })
+        with tempfile.TemporaryDirectory() as directory, patch(
+            "feclora.webapi._deployment_journal_directory", return_value=Path(directory)
+        ), patch("feclora.deployment.journal.DeploymentJournal.inspect", return_value=journal):
+            with self.assertRaisesRegex(WebAPIError, "cannot start multicast jobs"):
+                dispatch({"action": "start_deployment_service", "params": {"job_id": job_id}})
+
     def test_create_deployment_job_rejects_multicast_until_client_receiver_exists(self):
         payload = {
             "schema_version": 1, "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
