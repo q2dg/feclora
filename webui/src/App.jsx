@@ -64,6 +64,7 @@ export default function App() {
   const [remoteInterface, setRemoteInterface] = useState("");
   const [remoteJobResult, setRemoteJobResult] = useState(null);
   const [operations, setOperations] = useState([]);
+  const [imageVerification, setImageVerification] = useState({});
   const [inventory, setInventory] = useState(null);
   const [networkInterfaces, setNetworkInterfaces] = useState([]);
   const [serverBinding, setServerBinding] = useState("");
@@ -120,6 +121,16 @@ export default function App() {
   const [confirmation, setConfirmation] = useState("");
   const [progress, setProgress] = useState(null);
   const [operationResult, setOperationResult] = useState(null);
+
+  const verifyImage = async (imageId) => {
+    setImageVerification((current) => ({ ...current, [imageId]: { loading: true } }));
+    try {
+      const report = await callFeclora("verify_image", { image_id: imageId });
+      setImageVerification((current) => ({ ...current, [imageId]: { loading: false, report } }));
+    } catch (err) {
+      setImageVerification((current) => ({ ...current, [imageId]: { loading: false, error: err?.message || String(err) } }));
+    }
+  };
 
   const refresh = useCallback(async () => {
     setBusy(true); setError("");
@@ -680,9 +691,19 @@ export default function App() {
                   </Alert>}
                 </CardBody></Card>
               </StackItem>
-              <StackItem><Table aria-label="Feclora image repository" variant="compact"><Thead><Tr><Th>Image</Th><Th>Type</Th><Th>Source size</Th><Th>Signature</Th><Th>Encryption</Th><Th>Artifacts</Th></Tr></Thead><Tbody>
-                {images.map((item) => <Tr key={item.image_id}><Td>{item.image_id}</Td><Td>{item.image_type}</Td><Td>{formatBytes(item.source_size_bytes)}</Td><Td><Label color={item.signed ? "green" : "orange"}>{item.signed ? "Signed" : "Unsigned"}</Label></Td><Td><Label color={item.encrypted ? "green" : "orange"}>{item.encrypted ? "age" : "Plain"}</Label></Td><Td>{item.artifact_count}</Td></Tr>)}
-                {!images.length && <Tr><Td colSpan={6}>No manifest-backed images found.</Td></Tr>}
+              <StackItem><Table aria-label="Feclora image repository" variant="compact"><Thead><Tr><Th>Image</Th><Th>Type</Th><Th>Source size</Th><Th>Signature</Th><Th>Encryption</Th><Th>Artifacts</Th><Th>Verification</Th></Tr></Thead><Tbody>
+                {images.map((item) => {
+                  const verification = imageVerification[item.image_id];
+                  return <Tr key={item.image_id}><Td>{item.image_id}</Td><Td>{item.image_type}</Td><Td>{formatBytes(item.source_size_bytes)}</Td><Td><Label color={item.signed ? "green" : "orange"}>{item.signed ? "Signed" : "Unsigned"}</Label></Td><Td><Label color={item.encrypted ? "green" : "orange"}>{item.encrypted ? "age" : "Plain"}</Label></Td><Td>{item.artifact_count}</Td><Td>
+                    <Button size="sm" variant="secondary" isDisabled={busy || verification?.loading} isLoading={verification?.loading} onClick={() => verifyImage(item.image_id)}>Verify</Button>
+                    {verification?.report && <div className="pf-v5-u-mt-sm">
+                      <Label color="green">Verified</Label> Manifest: {verification.report.manifest} · Signature: {verification.report.signature} · {verification.report.artifact_count} artifacts · {formatBytes(verification.report.total_decoded_bytes)}
+                      {verification.report.artifacts.map((artifact) => <p key={artifact.filename}>{artifact.filename}: stored SHA-256 {artifact.stored_digest}; age {artifact.age_authentication}; compression {artifact.decompression}; decoded {formatBytes(artifact.decoded_bytes)}</p>)}
+                    </div>}
+                    {verification?.error && <Alert variant="danger" title="Verification failed" isInline>{verification.error}</Alert>}
+                  </Td></Tr>;
+                })}
+                {!images.length && <Tr><Td colSpan={7}>No manifest-backed images found.</Td></Tr>}
               </Tbody></Table></StackItem>
             </Stack>
           </Tab>
