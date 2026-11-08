@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from feclora.deployment.cockpit_client import (
     CockpitEnrollmentError, prepare_client_request, complete_client_enrollment, refresh_client_age_recipients,
-    prepare_client_renewal,
+    prepare_client_renewal, complete_client_renewal,
 )
 
 
