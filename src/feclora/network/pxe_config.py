@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import ipaddress
+import json
 import re
-import shlex
 
 
 class PXEConfigError(ValueError):
@@ -120,7 +120,10 @@ def render_dnsmasq(config: PXENetworkConfig) -> str:
         "enable-tftp",
         "tftp-root=" + config.tftp_root,
         "tftp-secure",
-        "dhcp-match=set:ipxe,option:vendor-class, iPXE",
+        "dhcp-match=set:ipxe,option:vendor-class,iPXE",
+        "dhcp-match=set:efi64,option:client-arch,7",
+        "dhcp-match=set:efi64,option:client-arch,9",
+        "dhcp-match=set:bios,option:client-arch,0",
         "dhcp-boot=tag:!ipxe," + config.bios_boot_file,
         "dhcp-boot=tag:ipxe,http://" + config.address + ":" + str(config.http_port) + "/boot.ipxe",
         "pxe-service=tag:!ipxe,x86PC,\"feclora BIOS\"," + config.bios_boot_file,
@@ -145,7 +148,7 @@ def render_dnsmasq(config: PXENetworkConfig) -> str:
 def render_caddy(config: PXENetworkConfig) -> str:
     """Render plain HTTP bound only to the selected deployment IPv4 address."""
     config.validated()
-    root = shlex.quote(config.http_root)
+    root = json.dumps(config.http_root)
     return (
         f"http://{config.address}:{config.http_port} {{\n"
         f"    root * {root}\n"
