@@ -1,36 +1,67 @@
 ---
-layout: home
-title: Feclora documentation
+layout: default
+title: Feclora
+description: Fedora-based disk imaging, cloning and recovery.
 ---
 
-# Feclora
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 
-**Fedora-based disk imaging, cloning, recovery and deployment appliance.**
+<main class="landing">
+  <header class="hero">
+    <p class="eyebrow">FEDORA-BASED RESCUE & DEPLOYMENT</p>
+    <h1>Feclora</h1>
+    <p class="lead">Disk imaging, cloning and recovery — built around Fedora and guided by Cockpit.</p>
+    <div class="hero-actions">
+      <a class="button button-primary" href="https://github.com/q2dg/feclora">View source on GitHub</a>
+      <a class="button button-secondary" href="{{ '/COCKPIT.html' | relative_url }}">Explore the interface</a>
+    </div>
+  </header>
 
-Feclora combines a shared Python storage engine with a Cockpit web interface.
-Its goal is to provide guided local imaging and remote deployment workflows
-using Fedora-native tools.
+  <section class="section" aria-labelledby="what-title">
+    <p class="eyebrow">WHAT IT DOES</p>
+    <h2 id="what-title">One toolkit for local and network workflows.</h2>
+    <div class="feature-grid">
+      <article class="feature">
+        <span class="feature-number">01</span>
+        <h3>Capture & restore</h3>
+        <p>Create and restore whole-disk or partition images with manifests, SHA-256 verification and optional encryption.</p>
+      </article>
+      <article class="feature">
+        <span class="feature-number">02</span>
+        <h3>Clone</h3>
+        <p>Copy disks or partitions directly, with explicit target checks and destructive-operation confirmation.</p>
+      </article>
+      <article class="feature">
+        <span class="feature-number">03</span>
+        <h3>Deploy over a network</h3>
+        <p>Server/Client deployment engines, PXE/iPXE boot and multicast restore foundations for managed environments.</p>
+      </article>
+    </div>
+  </section>
 
-## Start here
+  <section class="status" aria-labelledby="status-title">
+    <div>
+      <p class="eyebrow">PROJECT STATUS</p>
+      <h2 id="status-title">Implemented in stages. Not yet lab-certified.</h2>
+      <p>The Cockpit interface currently guides local capture, restore and clone operations. Remote Server/Client setup and deployment orchestration are still being integrated into Cockpit.</p>
+    </div>
+    <a class="text-link" href="{{ '/ROADMAP.html' | relative_url }}">See what is next →</a>
+  </section>
 
-- [Project overview](https://github.com/q2dg/feclora)
-- [Build and installation](BUILD.md)
-- [Cockpit interface and first login](COCKPIT.md)
-- [Local imaging and cloning workflows](LOCAL-RESCUE-UI.md)
-- [Feature and compatibility matrix](FEATURE-MATRIX.md)
-- [Clonezilla functional comparison](CLONEZILLA-FEATURE-PARITY.md)
-- [Security and certificate management](CERTIFICATE-MANAGEMENT.md)
-- [Deployment setup](DEPLOYMENT-SETUP.md)
-- [PXE and multicast deployment](UDPCAST-MULTICAST.md)
-- [Roadmap](ROADMAP.md)
+  <section class="section links" aria-labelledby="learn-title">
+    <p class="eyebrow">LEARN MORE</p>
+    <h2 id="learn-title">Project resources</h2>
+    <ul>
+      <li><a href="{{ '/BUILD.html' | relative_url }}">Build and installation</a></li>
+      <li><a href="{{ '/FEATURE-MATRIX.html' | relative_url }}">Features and compatibility</a></li>
+      <li><a href="{{ '/CERTIFICATE-MANAGEMENT.html' | relative_url }}">Security and certificates</a></li>
+      <li><a href="{{ '/DEPLOYMENT-SETUP.html' | relative_url }}">Network deployment setup</a></li>
+      <li><a href="{{ '/CLONEZILLA-FEATURE-PARITY.html' | relative_url }}">Clonezilla feature comparison</a></li>
+    </ul>
+  </section>
 
-## Important status
-
-The Cockpit application exposes local whole-disk and partition capture,
-restore, disk cloning and partition cloning. Remote Server/Client provisioning
-and complete PXE deployment orchestration are still being integrated into
-Cockpit.
-
-ISO generation and real BIOS/UEFI, PXE and destructive laboratory validation
-are operator-owned acceptance steps. Read the [feature matrix](FEATURE-MATRIX.md)
-before treating any capability as hardware-verified.
+  <footer class="site-footer">
+    <span>Feclora · Open source project</span>
+    <a href="https://github.com/q2dg/feclora">GitHub repository ↗</a>
+  </footer>
+</main>
