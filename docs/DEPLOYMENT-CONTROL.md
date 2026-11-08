@@ -17,7 +17,7 @@ Control messages are length-prefixed JSON with a 16 KiB maximum frame, strict me
 1. Client opens mTLS and sends HELLO with job UUID, its inventory MAC and configured certificate identity.
 2. Server derives the certificate identity from the authenticated TLS peer, maps it to an enrolled MAC and checks the HELLO and job allowlist.
 3. Server sends the validated immutable job document.
-4. Client independently selects and confirms its local target. Only a human-readable target description is sent to Server; the /dev path and typed confirmation remain local.
+4. Client returns a LocalTargetApproval binding its selected /dev path to the exact typed confirmation (ERASE for restore, READ for save). Only a human-readable target description is sent to Server; the path and confirmation remain local.
 5. Server registers READY in DeploymentCoordinator. The operator explicitly arms the job; only then does Server send START.
 6. For restore, Server sends a transfer offer and signed image set. Client verifies the minisign signature and each artifact's exact size/SHA-256, stages the set privately, then invokes the protected whole-disk restore workflow with a local typed ERASE confirmation and destination read-back.
 7. For save, Client captures a locally selected read-only disk, signs its manifest, then sends the image set. Server verifies the enrolled Client minisign public key and every artifact before atomically publishing the set.
@@ -30,9 +30,9 @@ Image transfer uses the same authenticated TLS session. The receiver publishes a
 Implemented:
 - TLS 1.3 mTLS context enforcement and exact peer identity verification;
 - identity-to-MAC enrollment mapping and job allowlist enforcement;
-- managed TCP listener start/stop lifecycle, pending-handshake cleanup and listener error reporting;
+- managed TCP listener start/stop lifecycle, pending-handshake cleanup, listener error reporting and interface-scoped firewalld port lifecycle;
 - framed HELLO/JOB/READY/START/RESULT/CANCEL and transfer-offer/readiness messages;
-- coordinator registration, readiness, explicit arming, running and per-client result transitions;
+- coordinator registration, readiness, explicit arming, running and per-client result transitions, plus a single-client end-to-end unicast job orchestrator;
 - signed image-set transfer with manifest signature validation, exact artifact size/SHA-256 checks, private staging and no-overwrite publication;
 - Client whole-disk save/restore callback integration with capture_disk and restore_disk, local typed confirmations, trusted minisign keys and destination read-back;
 - tests for framing, invalid messages, image transfer integrity and a loopback TLS 1.3 client/server handshake using ephemeral test certificates.
