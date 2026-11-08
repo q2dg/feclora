@@ -6,6 +6,7 @@ The caller can disable LVM reporting when running in constrained environments.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from typing import Any, Callable
@@ -47,9 +48,17 @@ def collect_lvm_topology(
     *,
     which: Callable[[str], str | None] = shutil.which,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+    effective_uid: Callable[[], int] = os.geteuid,
+    sudo: str | None = None,
 ) -> dict[str, Any]:
     """Collect PV/VG/LV relationships through LVM's machine-readable reports."""
     result: dict[str, Any] = {"status": "available", "pvs": [], "vgs": [], "lvs": []}
+    prefix: list[str] = []
+    if effective_uid() != 0:
+        sudo_bin = sudo or shutil.which("sudo")
+        if not sudo_bin:
+            return {"status": "permission_required", "pvs": [], "vgs": [], "lvs": []}
+        prefix = [sudo_bin, "-n"]
     for command, fields in _LVM_REPORTS.items():
         executable = which(command)
         if executable is None:
@@ -57,7 +66,7 @@ def collect_lvm_topology(
             result["missing"] = sorted(set(result.get("missing", [])) | {command})
             continue
         argv = [
-            executable, "--readonly", "--reportformat", "json",
+            *prefix, executable, "--readonly", "--reportformat", "json",
             "--units", "b", "--nosuffix", "-o", fields[0],
         ]
         try:
