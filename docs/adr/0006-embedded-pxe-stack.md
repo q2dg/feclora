@@ -92,9 +92,10 @@ using dracut `root=live:http://...`.
 
 Runtime configuration generation, interface/address checks, daemon preflight,
 transient systemd lifecycle with rollback, interface-zone-scoped firewalld
-rules, and boot-tree staging exist as code. Server UI integration, the
-authenticated PXE client/job protocol, real-daemon validation, and BIOS/UEFI
-hardware testing remain.
+rules, boot-tree staging, and a basic interactive Server-mode flow for
+interface selection, DHCP profile confirmation, startup and shutdown exist as
+code. The authenticated PXE client/job protocol, real-daemon validation, and
+BIOS/UEFI hardware testing remain.
 
 ## References
 
