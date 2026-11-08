@@ -274,6 +274,8 @@ def main() -> int:
         if len(raw) > MAX_REQUEST:
             raise WebAPIError("request exceeds the size limit")
         request = json.loads(raw or "{}", object_pairs_hook=_reject_duplicates)
+        if not isinstance(request, dict) or request.get("action") != sys.argv[1]:
+            raise WebAPIError("request action does not match the authorized command")
         response = {"ok": True, "data": dispatch(request)}
     except Exception as exc:
         _emit({"ok": False, "error": str(exc)[:512]})
