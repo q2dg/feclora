@@ -31,7 +31,7 @@ See [docs/BUILD.md](docs/BUILD.md) for Fedora build-host prerequisites, installe
 Operational design notes:
 - [Whole-disk restore and larger-target GPT repair](docs/WHOLE-DISK-RESTORE.md)
 - [Mutually authenticated remote disk cloning](docs/REMOTE-DISK-CLONE.md)
-- [Authenticated Server/Client deployment control and signed unicast image transfer](docs/DEPLOYMENT-CONTROL.md)
+- [Authenticated Server/Client deployment control, signed unicast transfer and multi-client multicast restore](docs/DEPLOYMENT-CONTROL.md)
 - [Server and Client runtime configuration](docs/DEPLOYMENT-SETUP.md)
 - [Signed, single-use unattended restore profiles](docs/RESTORE-PROFILES.md)
 - [Isolated BIOS/UEFI PXE VM lab](tests/vm/README.md)
