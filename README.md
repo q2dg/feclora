@@ -34,6 +34,7 @@ Operational design notes:
 - [Authenticated Server/Client deployment control, signed unicast transfer and multi-client multicast restore](docs/DEPLOYMENT-CONTROL.md)
 - [Server and Client runtime configuration](docs/DEPLOYMENT-SETUP.md)
 - [Signed, single-use unattended restore profiles](docs/RESTORE-PROFILES.md)
+- [Certificate management policy and current limitations](docs/CERTIFICATE-MANAGEMENT.md)
 - [Isolated BIOS/UEFI PXE VM lab](tests/vm/README.md)
 
 ## Repository layout
@@ -48,7 +49,7 @@ Operational design notes:
 
 ## Development status
 
-Early implementation. The repository contains an initial Kickstart and a QEMU-backed `livemedia-creator` build script. The Python application payload is wired into the installer/Live image pipeline. Local rescue storage inventory reports initial LVM, Stratis and Btrfs topology, supports named image capture and a live keyboard-layout selector. Server mode has an opt-in dnsmasq/iPXE/Caddy PXE boot path plus a TLS 1.3 mTLS unicast save/restore and multi-client multicast restore job UI. Client mode now supports local whole-disk selection, typed confirmation, signed image receive/verify/restore and capture/sign/send over the authenticated control session. Hash-chained journal replay and operator-driven restart reconciliation are implemented without automatic destructive resume. Server UI supports CA-verified Client certificate enrollment/rotation and revocation. Server/Client now include an mTLS-coordinated UDPcast multi-client whole-disk restore path with signed-manifest delivery, private staging and per-client results; multi-VM execution and real PXE acceptance remain to be validated. The ISO build and BIOS/UEFI/PXE end-to-end workflows have not yet been validated; no functional parity claim is made.
+Early implementation. The repository contains an initial Kickstart and a QEMU-backed `livemedia-creator` build script. The Python application payload is wired into the installer/Live image pipeline. Local rescue storage inventory reports initial LVM, Stratis and Btrfs topology, supports manifest-backed whole-disk and partition capture/restore, named image sets and a live keyboard-layout selector. Server mode has an opt-in dnsmasq/iPXE/Caddy PXE boot path plus a TLS 1.3 mTLS unicast save/restore and multi-client multicast restore job UI. Client mode now supports local whole-disk selection, typed confirmation, signed image receive/verify/restore and capture/sign/send over the authenticated control session. Hash-chained journal replay and operator-driven restart reconciliation are implemented without automatic destructive resume. Server UI supports CA-verified Client certificate enrollment/rotation and revocation. Server/Client now include an mTLS-coordinated UDPcast multi-client whole-disk restore path with signed-manifest delivery, private staging and per-client results; multi-VM execution and real PXE acceptance remain to be validated. The ISO build and BIOS/UEFI/PXE end-to-end workflows have not yet been validated; no functional parity claim is made.
 
 ## Fedora baseline lifecycle
 
