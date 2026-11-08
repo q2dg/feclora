@@ -56,7 +56,7 @@ example path and identity):
 }
 ~~~
 
-The Server writes a private hash-chained job journal under /var/lib/feclora/deployments; the directory is created root-owned with mode 0700. The journal is durable audit state, not yet a restart/resume mechanism.
+The Server writes a private hash-chained job journal under /var/lib/feclora/deployments; the directory is created root-owned with mode 0700. On startup, verified journals reconstruct the last job/client states for operator review. This is audit-only recovery: live sessions are not recreated and destructive jobs are never resumed automatically.
 
 The bind address must exactly match the IPv4 address selected in Server mode.
 The Server UI creates a one-client job, selects save or restore, and displays
@@ -106,7 +106,7 @@ must independently approve the target before sending READY.
 - This first runtime supports one authenticated Client per job and unicast
   whole-disk save/restore only.
 - It does not implement partition deployment, concurrent multi-client jobs,
-  multicast, unattended target approval, job persistence/recovery, certificate
+  multicast, unattended target approval, live session restart or destructive job resume (the journal provides audit-only recovery), certificate
   enrollment/rotation UI or automatic key distribution.
 - Save sources and restore targets must pass existing block-device safety
   checks. Restore verifies the signed manifest and all artifact digests before
