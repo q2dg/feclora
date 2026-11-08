@@ -195,8 +195,7 @@ def _run_process(
 def multicast_firewall_scope(firewall: Any, interface: str, portbase: int) -> Iterator[None]:
     """Temporarily allow only UDPcast's two UDP ports on the selected interface."""
     if firewall is None:
-        yield
-        return
+        raise UDPcastError("A scoped firewalld manager is required for multicast transport")
     ports = [f"{portbase}/udp", f"{portbase + 1}/udp"]
     if firewall.is_open(interface):
         added = firewall.add_ports(interface, ports)
@@ -227,7 +226,7 @@ def send_multicast_artifact(
     minisign_executable: str | None = None,
     runner_popen: Callable[..., Any] = subprocess.Popen,
     cancel_check: Callable[[], bool] | None = None,
-    firewall: Any = None,
+    firewall: Any,
 ) -> None:
     """Send a single artifact only after the deployment coordinator is armed."""
     job = coordinator.job
