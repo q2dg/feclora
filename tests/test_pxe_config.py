@@ -16,7 +16,7 @@ def proxy(**changes):
         mode="proxy",
         tftp_root="/srv/feclora/tftp",
         bios_boot_file="undionly.kpxe",
-        uefi_boot_file="snponly.efi",
+        uefi_boot_file="ipxe-snponly-x86_64.efi",
         http_root="/srv/feclora/http",
     )
     values.update(changes)
