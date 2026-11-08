@@ -333,6 +333,37 @@ class CoordinatorControlTests(unittest.TestCase):
         firewall.remove_ports.assert_called_once_with("enp1s0", (f"{port}/tcp",))
         firewall.close.assert_not_called()
 
+    def test_single_client_restore_orchestrator_arms_then_sends_and_collects(self):
+        coordinator, server, fake = self._server_ready(make_job(image_id="golden"))
+        with patch.object(server, "send_restore_image") as send, \
+             patch.object(server, "collect_results", return_value={MAC: "succeeded"}) as collect:
+            result = server.run_one_client_job(
+                "/images", manifest_path="golden.manifest.json",
+                trusted_public_key="/trusted/server.pub",
+            )
+        self.assertEqual(result, {MAC: "succeeded"})
+        send.assert_called_once_with(
+            MAC, "/images", "golden.manifest.json",
+            trusted_public_key="/trusted/server.pub",
+        )
+        collect.assert_called_once()
+
+    def _server_ready(self, job):
+        coordinator = DeploymentCoordinator(job)
+        coordinator.register_client(MAC, authenticated=True)
+        coordinator.mark_ready(MAC)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.maximum_version = ssl.TLSVersion.TLSv1_3
+        context.verify_mode = ssl.CERT_REQUIRED
+        server = DeploymentControlServer(
+            coordinator, context, local_identity="URI:feclora-server",
+            client_identity_to_mac={"URI:feclora-client": MAC},
+        )
+        fake = FakeSocket()
+        server._sessions[MAC] = fake
+        return coordinator, server, fake
+
     def test_server_arms_and_tracks_authenticated_ready_client(self):
         coordinator = DeploymentCoordinator(make_job())
         coordinator.register_client(MAC, authenticated=True)
