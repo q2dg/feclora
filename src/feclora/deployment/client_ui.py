@@ -1,14 +1,19 @@
 """Dialog workflow for an authenticated Client save/restore job."""
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import shutil
+import stat
+import tempfile
 import socket
 import subprocess
 import sys
 from typing import Any
 
 from feclora.deployment.client_runtime import execute_client_image_job
+from feclora.deployment.managed_pki import PKIError, create_client_csr, install_client_certificate
 from feclora.deployment.multicast_runtime import execute_multicast_restore
 from feclora.deployment.control import (
     DeploymentControlError, LocalTargetApproval, join_deployment,
@@ -43,11 +48,156 @@ def _elevate() -> int:
     return result.returncode
 
 
+
+def _write_client_config(path: str, value: dict[str, Any]) -> None:
+    directory = os.path.dirname(path)
+    os.makedirs(directory, mode=0o700, exist_ok=True)
+    info = os.lstat(directory)
+    if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
+        raise PKIError("Client configuration directory must be a real root-owned directory")
+    fd, temporary = tempfile.mkstemp(prefix=".deployment-client.", dir=directory)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(value, stream, indent=2, sort_keys=True)
+            stream.write("\\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
+
+
+def _sha256_file(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _client_enrollment_wizard(config_path: str) -> bool:
+    """Bootstrap a Client from a CSR response bundle without exporting its key."""
+    choice = dialog_app._menu(
+        "Client certificate setup",
+        "The Client has no deployment identity yet. Prepare a CSR or install a Server-approved response bundle.",
+        [
+            ("prepare", "Prepare enrollment request (first step)"),
+            ("complete", "Complete enrollment from Server response"),
+            ("cancel", "Cancel"),
+        ],
+    )
+    if choice in (None, "cancel"):
+        return False
+    pki_directory = "/etc/feclora/pki"
+    if choice == "prepare":
+        client_id = dialog_app._input(
+            "Client identity",
+            "Choose a short lowercase identifier (letters, digits and hyphens):",
+        )
+        if not client_id:
+            return False
+        export_directory = dialog_app._input(
+            "Export enrollment request",
+            "Path to an existing removable-media directory. Only the CSR will be copied there; the private key stays on this Client:",
+        )
+        if not export_directory:
+            return False
+        identity, _private_key, exported_csr = create_client_csr(
+            pki_directory, export_directory, client_id,
+        )
+        dialog_app._message(
+            "Enrollment request prepared",
+            f"Identity: {identity}\\nCSR: {exported_csr}\\n\\n"
+            "Take the removable media to the Feclora Server and choose Trusted Clients → Approve Client CSR. "
+            "Do not copy or export the private key. After the Server returns the signed certificate bundle, "
+            "bring that media back and choose Complete enrollment.",
+        )
+        return False
+
+    client_id = dialog_app._input("Client identity", "Enter the same lowercase identifier used when preparing the CSR:")
+    if not client_id:
+        return False
+    host = dialog_app._input("Feclora Server address", "Enter the Server IPv4 address or hostname:")
+    if not host:
+        return False
+    mac = dialog_app._input("Client MAC address", "Enter this Client's unicast MAC address:")
+    if not mac:
+        return False
+    bundle = dialog_app._input(
+        "Server response bundle",
+        "Path to the removable-media directory containing feclora-<id>.crt, ca.crt and server.pub:",
+    )
+    if not bundle or not os.path.isdir(bundle) or os.path.islink(bundle):
+        raise PKIError("Server response bundle must be an existing real directory")
+    certificate = os.path.join(bundle, f"feclora-{client_id}.crt")
+    ca_file = os.path.join(bundle, "ca.crt")
+    server_public_key = os.path.join(bundle, "server.pub")
+    local_key = os.path.join(pki_directory, f"client-{client_id}.key")
+    if not os.path.isfile(local_key):
+        raise PKIError("locally generated Client private key is missing; prepare the CSR on this Client first")
+    ca_expected = dialog_app._input(
+        "Verify Feclora CA fingerprint",
+        "Enter the SHA-256 fingerprint displayed by the Server when its CA was created (hexadecimal, colons optional):",
+    )
+    if not ca_expected:
+        return False
+    installed = install_client_certificate(
+        certificate, ca_file, local_key, pki_directory,
+        f"URI:feclora-client-{client_id}", ca_expected,
+    )
+    if not os.path.isfile(server_public_key):
+        raise PKIError("Server response bundle is missing server.pub")
+    server_fingerprint = _sha256_file(server_public_key)
+    expected_server_key = dialog_app._input(
+        "Verify Server image-signing key",
+        "Compare this SHA-256 fingerprint with the one shown by the Server during CSR approval, then type it exactly:\\n" + server_fingerprint,
+    )
+    if expected_server_key != server_fingerprint:
+        raise PKIError("Server image-signing key fingerprint did not match")
+    installed_server_key = os.path.join(pki_directory, "server.pub")
+    shutil.copyfile(server_public_key, installed_server_key)
+    os.chmod(installed_server_key, 0o644)
+    repository = "/var/lib/feclora/images"
+    os.makedirs(repository, mode=0o700, exist_ok=True)
+    os.chmod(repository, 0o700)
+    config = {
+        "schema_version": 1,
+        "host": host,
+        "port": 9443,
+        "local_identity": f"URI:feclora-client-{client_id}",
+        "server_identity": "URI:feclora-server",
+        "mac_address": mac.lower(),
+        "ca_file": installed["ca_file"],
+        "certificate_file": installed["certificate_file"],
+        "private_key_file": installed["private_key_file"],
+        "trusted_server_public_key": installed_server_key,
+        "local_minisign_secret_key": None,
+        "local_minisign_public_key": None,
+        "age_identity_file": None,
+        "age_recipients_file": None,
+        "repository": repository,
+    }
+    _write_client_config(config_path, config)
+    dialog_app._message(
+        "Client enrollment complete",
+        f"Client identity {config['local_identity']} is installed and trusted. This Client is configured for signed restore jobs. "
+        "To enable Client-side image capture later, provision a separate minisign signing keypair and enroll its public key on the Server.",
+    )
+    return True
+
 def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
     """Join one Server job after local device selection and typed approval."""
     if os.geteuid() != 0:
         return _elevate()
     try:
+        if not os.path.exists(config_path):
+            if not _client_enrollment_wizard(config_path):
+                return 0
         config = load_client_runtime_config(config_path)
         job_id = dialog_app._input(
             "Join deployment job",
