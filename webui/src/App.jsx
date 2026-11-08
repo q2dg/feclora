@@ -392,7 +392,9 @@ export default function App() {
         compression: clientRemoteCompression,
       });
       setClientRemoteJobStatus(result);
-      setNotice("Client service started. It will report READY only after local target approval, and will write only after the Server operator arms the job.");
+      setNotice(result.phase === "failed"
+        ? "Client service started but reported a failure before completion; inspect its status detail."
+        : "Client service started. It will report READY only after local target approval, and will write only after the Server operator arms the job.");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
