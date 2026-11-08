@@ -40,6 +40,8 @@ export default function App() {
   const [journals, setJournals] = useState([]);
   const [deploymentJobs, setDeploymentJobs] = useState([]);
   const [reconcileConfirmations, setReconcileConfirmations] = useState({});
+  const [serviceStatuses, setServiceStatuses] = useState({});
+  const [serviceConfirmations, setServiceConfirmations] = useState({});
   const [remoteOperation, setRemoteOperation] = useState("restore");
   const [remoteImageId, setRemoteImageId] = useState("");
   const [remoteTargetType, setRemoteTargetType] = useState("disk");
@@ -307,6 +309,51 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const refreshDeploymentService = async (jobId) => {
+    setBusy(true); setError("");
+    try {
+      const result = await callFeclora("deployment_service_status", { job_id: jobId });
+      setServiceStatuses((current) => ({ ...current, [jobId]: result }));
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const startDeploymentService = async (jobId) => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("start_deployment_service", { job_id: jobId });
+      setServiceStatuses((current) => ({ ...current, [jobId]: result }));
+      setNotice("Persistent deployment service started. Clients may now connect; no disk operation starts until explicit arming.");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const sendDeploymentServiceCommand = async (jobId, action, phrase) => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora(action, { job_id: jobId, confirmation: phrase });
+      setNotice(result.message || "Deployment service command accepted.");
+      setServiceConfirmations((current) => ({ ...current, [jobId]: "", [jobId + "-cancel"]: "" }));
+      await refreshDeploymentService(jobId);
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const stopDeploymentService = async (jobId) => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("stop_deployment_service", { job_id: jobId });
+      setServiceStatuses((current) => {
+        const next = { ...current }; delete next[jobId]; return next;
+      });
+      setNotice(result.message);
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
   const operationReady = isCapture
     ? Boolean(source && imageId && (operation !== "capture_partition" || partitionId || imageId))
     : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation)
@@ -431,8 +478,8 @@ export default function App() {
           <Tab eventKey="remote-jobs" title="Remote jobs">
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Create a remote deployment job</Title>
-                <Alert variant="warning" title="Definition only — no Client contact or disk I/O" isInline>
-                  This step validates and journals a job definition. It does not arm the job, approve a local destination, contact Clients or start imaging. The persistent control-plane daemon and explicit target approval are still pending.
+                <Alert variant="warning" title="Definition only — service not started; no Client contact or disk I/O" isInline>
+                  This step validates and journals a job definition. Start its persistent service separately; Clients then authenticate and approve their own local target. No storage operation starts until you explicitly arm the job here.
                 </Alert>
               </StackItem>
               <StackItem>
@@ -474,7 +521,7 @@ export default function App() {
                     <Field label="UDPcast even portbase"><input className="pf-v5-c-form-control" type="number" min="1024" max="65534" step="2" value={remoteMulticastPort} onChange={(e) => setRemoteMulticastPort(e.target.value)} /></Field>
                     <Alert variant="warning" title="Multicast transport limitation" isInline>UDPcast data packets are not encrypted or authenticated. mTLS protects the control plane, not the multicast data stream. Use only on a trusted, isolated deployment network.</Alert>
                   </>}
-                  <Field label="Start policy"><input className="pf-v5-c-form-control" value="Manual — explicit arming is not yet available" readOnly /></Field>
+                  <Field label="Start policy"><input className="pf-v5-c-form-control" value="Manual — exact job-specific typed confirmation required" readOnly /></Field>
                   <Button type="submit" variant="primary" isDisabled={busy || !remoteImageId || !remoteClients.trim() || !remoteInterface}>Validate and save job definition</Button>
                 </form>
                 {remoteJobResult && <Alert variant="success" title="Job definition persisted" isInline className="pf-v5-u-mt-md">{remoteJobResult.message}<p>Job ID: {remoteJobResult.job_id}</p></Alert>}
@@ -482,9 +529,30 @@ export default function App() {
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Persisted remote jobs</Title>
                 <p>Interrupted jobs can only be closed for audit after you have inspected every Client and destination manually. This does not resume or retry disk operations.</p>
-                <Table aria-label="Persisted remote deployment jobs" variant="compact"><Thead><Tr><Th>Job ID</Th><Th>Operation</Th><Th>Image</Th><Th>Target</Th><Th>Transport</Th><Th>State</Th><Th>Client progress</Th><Th>Recovery</Th><Th>Events</Th></Tr></Thead><Tbody>
-                  {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.image_id}</Td><Td>{job.target_type}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{Object.entries(job.clients || {}).map(([mac, client]) => mac + ": " + client.state).join(", ") || "Not connected"}</Td><Td>{job.interrupted ? <Stack hasGutter><StackItem><Label color="orange">Review required · no auto-resume</Label></StackItem><StackItem><input className="pf-v5-c-form-control" aria-label={`Reconciliation confirmation for ${job.job_id}`} placeholder={`RECONCILE ${job.job_id}`} value={reconcileConfirmations[job.job_id] || ""} onChange={(event) => setReconcileConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem><StackItem><Button variant="secondary" size="sm" isDisabled={busy || reconcileConfirmations[job.job_id] !== `RECONCILE ${job.job_id}`} onClick={() => reconcileDeploymentJob(job.job_id)}>Close for audit</Button></StackItem></Stack> : "—"}</Td><Td>{job.event_count}</Td></Tr>)}
-                  {!deploymentJobs.length && <Tr><Td colSpan={9}>No remote job definitions recorded.</Td></Tr>}
+                <Table aria-label="Persisted remote deployment jobs" variant="compact"><Thead><Tr><Th>Job ID</Th><Th>Operation</Th><Th>Image</Th><Th>Target</Th><Th>Transport</Th><Th>State</Th><Th>Client progress</Th><Th>Recovery</Th><Th>Events</Th><Th>Service and execution</Th></Tr></Thead><Tbody>
+                  {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.image_id}</Td><Td>{job.target_type}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{Object.entries(job.clients || {}).map(([mac, client]) => mac + ": " + client.state).join(", ") || "Not connected"}</Td><Td>{job.interrupted ? <Stack hasGutter><StackItem><Label color="orange">Review required · no auto-resume</Label></StackItem><StackItem><input className="pf-v5-c-form-control" aria-label={`Reconciliation confirmation for ${job.job_id}`} placeholder={`RECONCILE ${job.job_id}`} value={reconcileConfirmations[job.job_id] || ""} onChange={(event) => setReconcileConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem><StackItem><Button variant="secondary" size="sm" isDisabled={busy || reconcileConfirmations[job.job_id] !== `RECONCILE ${job.job_id}`} onClick={() => reconcileDeploymentJob(job.job_id)}>Close for audit</Button></StackItem></Stack> : "—"}</Td><Td>{job.event_count}</Td><Td>
+                    <Stack hasGutter>
+                      <StackItem>
+                        <Button size="sm" variant="secondary" isDisabled={busy || job.interrupted || job.job_state !== "created"} onClick={() => startDeploymentService(job.job_id)}>Start / connect service</Button>
+                      </StackItem>
+                      {serviceStatuses[job.job_id] && <>
+                        <StackItem><Label color={serviceStatuses[job.job_id].job_state === "completed" ? "green" : serviceStatuses[job.job_id].job_state === "failed" ? "red" : "blue"}>{serviceStatuses[job.job_id].job_state}</Label></StackItem>
+                        <StackItem><Button size="sm" variant="link" isDisabled={busy} onClick={() => refreshDeploymentService(job.job_id)}>Refresh live status</Button></StackItem>
+                        <StackItem>{(serviceStatuses[job.job_id].clients || []).map((client) => <p key={client.mac_address}>{client.mac_address}: {client.state}</p>)}</StackItem>
+                        {serviceStatuses[job.job_id].multicast_preflight?.warnings?.length > 0 && <StackItem><Alert variant="warning" isInline title="Multicast network warnings">{serviceStatuses[job.job_id].multicast_preflight.warnings.join(" ")}</Alert></StackItem>}
+                        {serviceStatuses[job.job_id].multicast_preflight?.error && <StackItem><Alert variant="danger" isInline title="Multicast preflight failed">{serviceStatuses[job.job_id].multicast_preflight.error}</Alert></StackItem>}
+                        {serviceStatuses[job.job_id].job_state === "created" && <>
+                          <StackItem><input className="pf-v5-c-form-control" aria-label={"Arm confirmation for " + job.job_id} placeholder={job.transport === "multicast" ? "ARM MULTICAST " + job.job_id : "ARM " + job.job_id} value={serviceConfirmations[job.job_id] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem>
+                          <StackItem><Button size="sm" variant="primary" isDisabled={busy || serviceConfirmations[job.job_id] !== (job.transport === "multicast" ? "ARM MULTICAST " + job.job_id : "ARM " + job.job_id)} onClick={() => sendDeploymentServiceCommand(job.job_id, "arm_deployment_job", serviceConfirmations[job.job_id])}>Arm and execute</Button></StackItem>
+                          <StackItem><input className="pf-v5-c-form-control" aria-label={"Cancel confirmation for " + job.job_id} placeholder={"CANCEL " + job.job_id} value={serviceConfirmations[job.job_id + "-cancel"] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id + "-cancel"]: event.target.value }))} /></StackItem>
+                          <StackItem><Button size="sm" variant="secondary" isDisabled={busy || serviceConfirmations[job.job_id + "-cancel"] !== "CANCEL " + job.job_id} onClick={() => sendDeploymentServiceCommand(job.job_id, "cancel_deployment_job", serviceConfirmations[job.job_id + "-cancel"])}>Cancel before arm</Button></StackItem>
+                        </>}
+                        {!(serviceStatuses[job.job_id].worker_active) && !["armed", "running"].includes(serviceStatuses[job.job_id].job_state) && <StackItem><Button size="sm" variant="link" isDisabled={busy} onClick={() => stopDeploymentService(job.job_id)}>Stop service</Button></StackItem>}
+                        {serviceStatuses[job.job_id].last_error && <StackItem><Alert variant="danger" isInline title="Execution error">{serviceStatuses[job.job_id].last_error}</Alert></StackItem>}
+                      </>}
+                    </Stack>
+                  </Td></Tr>)}
+                  {!deploymentJobs.length && <Tr><Td colSpan={10}>No remote job definitions recorded.</Td></Tr>}
                 </Tbody></Table>
               </StackItem>
             </Stack>
