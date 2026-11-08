@@ -37,6 +37,7 @@ _ALLOWED_FIELDS = {
     "start_policy",
     "expected_clients",
     "start_deadline",
+    "staging_required_bytes",
 }
 
 
@@ -57,6 +58,7 @@ class DeploymentJob:
     start_deadline: str | None
     target_type: str = "disk"
     schema_version: int = 1
+    staging_required_bytes: int | None = None
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "DeploymentJob":
@@ -64,7 +66,7 @@ class DeploymentJob:
             raise JobValidationError("Job document must be a JSON object")
         unknown = set(payload) - _ALLOWED_FIELDS
         missing = _ALLOWED_FIELDS - set(payload) - {
-            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type"
+            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type", "staging_required_bytes"
         }
         if unknown:
             raise JobValidationError(f"Unknown job fields: {', '.join(sorted(unknown))}")
@@ -135,6 +137,16 @@ class DeploymentJob:
         elif group is not None or port is not None:
             raise JobValidationError("multicast_group/port are only valid for multicast transport")
 
+        staging_required_bytes = payload.get("staging_required_bytes")
+        if staging_required_bytes is not None and (
+            isinstance(staging_required_bytes, bool)
+            or not isinstance(staging_required_bytes, int)
+            or not 0 <= staging_required_bytes <= (1 << 63) - 1
+        ):
+            raise JobValidationError("staging_required_bytes must be a non-negative 63-bit integer")
+        if transport != "multicast" and staging_required_bytes is not None:
+            raise JobValidationError("staging_required_bytes is only valid for multicast restore jobs")
+
         policy = payload.get("start_policy")
         if not isinstance(policy, str) or policy not in {"manual", "expected_clients", "deadline"}:
             raise JobValidationError("start_policy must be manual, expected_clients, or deadline")
@@ -174,6 +186,7 @@ class DeploymentJob:
             expected_clients=expected,
             start_deadline=deadline,
             target_type=target_type,
+            staging_required_bytes=staging_required_bytes,
         )
 
     @classmethod
@@ -200,6 +213,7 @@ class DeploymentJob:
             "start_policy": self.start_policy,
             "expected_clients": self.expected_clients,
             "start_deadline": self.start_deadline,
+            "staging_required_bytes": self.staging_required_bytes,
         }
 
     def to_json(self) -> str:
