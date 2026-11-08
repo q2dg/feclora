@@ -22,7 +22,6 @@ kernel
 tar
 sudo
 python3
-dialog
 kbd
 psmisc
 NetworkManager
@@ -78,17 +77,20 @@ lshw
 
 %post --erroronfail
 systemctl --root=/ enable NetworkManager
-systemctl --root=/ disable cockpit.socket || true
+systemctl --root=/ enable cockpit.socket
 
 # Live rescue console: physical access to this image grants an automatic
 # feclora shell and passwordless sudo. Do not reuse this policy on an installed OS.
 useradd --create-home --groups wheel --shell /bin/bash feclora
 passwd --delete feclora
 cat > /home/feclora/.bash_profile <<'EOF'
-# Launch the mode selector automatically on the primary live console.
-if [ "$(tty 2>/dev/null)" = "/dev/tty1" ] && [ -z "${FECLORA_MENU_STARTED:-}" ]; then
-  export FECLORA_MENU_STARTED=1
-  exec /usr/local/bin/feclora-ui
+# Cockpit is the primary operator interface. Set the live user's password
+# from this console before signing in to Cockpit.
+if [ "$(tty 2>/dev/null)" = "/dev/tty1" ] && [ -z "${FECLORA_WELCOME_SHOWN:-}" ]; then
+  export FECLORA_WELCOME_SHOWN=1
+  printf '\nFeclora Cockpit: https://<this-machine-ip>:9090\n'
+  printf 'Set a login password with: sudo passwd feclora\n'
+  printf 'Then open Cockpit from a trusted management network.\n\n'
 fi
 EOF
 chown feclora:feclora /home/feclora/.bash_profile
@@ -127,17 +129,11 @@ install -d "$TARGET_ROOT/usr/share/feclora/python/feclora"
 cp -a "$APP_SOURCE/." "$TARGET_ROOT/usr/share/feclora/python/feclora/"
 install -d "$TARGET_ROOT/usr/local/bin" "$TARGET_ROOT/usr/libexec/feclora" "$TARGET_ROOT/usr/share/cockpit/feclora"
 cp -a "$WEB_SOURCE/." "$TARGET_ROOT/usr/share/cockpit/feclora/"
-cat > "$TARGET_ROOT/usr/local/bin/feclora-ui" <<'EOF'
-#!/bin/sh
-export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
-exec /usr/bin/python3 -m feclora.ui.mode_selector "$@"
-EOF
-chmod 0755 "$TARGET_ROOT/usr/local/bin/feclora-ui"
 cat > "$TARGET_ROOT/usr/libexec/feclora/cockpit-api" <<'EOF'
 #!/bin/sh
 set -eu
 case "${1:-}" in
-  status|inventory|images|journals) ;;
+  status|inventory|images|journals|capture_disk|capture_partition|restore_disk|restore_partition|clone_disk|clone_partition) ;;
   *) echo '{"ok":false,"error":"unsupported action"}' >&2; exit 2 ;;
 esac
 export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
@@ -153,8 +149,10 @@ chmod 0755 "$TARGET_ROOT/usr/local/bin/feclora-restore-profile"
 install -d "$TARGET_ROOT/usr/local/libexec" "$TARGET_ROOT/etc/systemd/system"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-restore-profile-env" "$TARGET_ROOT/usr/local/libexec/feclora-restore-profile-env"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-restore-profile.service" "$TARGET_ROOT/etc/systemd/system/feclora-restore-profile.service"
-install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
+install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs" "$TARGET_ROOT/var/lib/feclora/images"
 chown --reference="$TARGET_ROOT/home/feclora" "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
+chown root:root "$TARGET_ROOT/var/lib/feclora/images"
+chmod 0700 "$TARGET_ROOT/var/lib/feclora/images"
 %end
 
 shutdown
