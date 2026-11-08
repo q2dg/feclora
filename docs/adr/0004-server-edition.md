@@ -38,9 +38,10 @@ This is the current behavior for Server and Client mode.
 
 Storage operations use generic Linux tools (Partclone filesystem-specific
 executables, dd, sfdisk, sgdisk, parted, compression and checksum utilities).
-Network boot and transport use standard protocols and independently
-maintained tools. UDPcast is a candidate for multicast and must be evaluated
-before it is adopted.
+Network boot uses dnsmasq for DHCP/ProxyDHCP, PXE and read-only TFTP,
+Fedora's iPXE BIOS/UEFI boot images for chainloading, and nginx for HTTP boot
+assets. See [ADR 0006](0006-embedded-pxe-stack.md). UDPcast is a candidate
+for multicast and must be evaluated before it is adopted.
 
 ## Safety requirements
 
