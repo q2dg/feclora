@@ -404,11 +404,15 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 raise DeploymentControlError("selected disk has no stable device path")
             if job.operation == "restore":
                 phrase = f"ERASE {path} FROM {config.server_identity}"
-                prompt = "This operation overwrites the selected partition. Type the exact confirmation phrase:"
+                prompt = (
+                    "This operation overwrites the selected existing partition. Type the exact confirmation phrase:"
+                    if target_kind == "partition" else
+                    "This operation overwrites the selected whole disk. Type the exact confirmation phrase:"
+                )
             else:
                 phrase = f"READ {path} TO {config.server_identity}"
                 prompt = "This operation reads the selected whole disk to create a signed image. Type the exact confirmation phrase:"
-            dialog_app._message("Selected local disk", dialog_app.device_details(selected))
+            dialog_app._message("Selected local target", dialog_app.device_details(selected))
             typed = dialog_app._input("Explicit local authorization", f"{prompt}\n\n{phrase}")
             if typed != phrase:
                 raise DeploymentControlError("local typed confirmation did not match; no disk operation was started")
