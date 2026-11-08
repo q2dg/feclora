@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from feclora.deployment.managed_pki import (
-    PKIError, ca_fingerprint, create_client_csr, install_client_certificate,
+    PKIError, create_client_csr, install_client_certificate,
 )
 from feclora.deployment.cockpit_enrollment import CockpitEnrollmentError
 from feclora.deployment.runtime_config import load_client_runtime_config
