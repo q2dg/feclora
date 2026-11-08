@@ -30,7 +30,7 @@ class UDPcastError(RuntimeError):
     """UDPcast configuration, execution, or staged-artifact verification failed."""
 
 
-_BITRATE_RE = re.compile(r"^[1-9][0-9]*(?:[kKmMgG])?$")
+_BITRATE_RE = re.compile(r"^([1-9][0-9]*)([kKmMgG])?$")
 _FEC_RE = re.compile(r"^[1-9][0-9]*x[1-9][0-9]*(?:/[1-9][0-9]*)?$")
 _INTERFACE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,15}$")
 
@@ -63,10 +63,21 @@ class UDPcastConfig:
             raise UDPcastError("UDPcast portbase must be even and between 1024 and 65534")
         if isinstance(self.ttl, bool) or not isinstance(self.ttl, int) or not 1 <= self.ttl <= 32:
             raise UDPcastError("Multicast TTL must be between 1 and 32")
-        if not isinstance(self.max_bitrate, str) or not _BITRATE_RE.fullmatch(self.max_bitrate):
+        bitrate_match = _BITRATE_RE.fullmatch(self.max_bitrate) if isinstance(self.max_bitrate, str) else None
+        if not bitrate_match:
             raise UDPcastError("max_bitrate must be a positive integer with optional k, m, or g suffix")
-        if self.fec is not None and (not isinstance(self.fec, str) or not _FEC_RE.fullmatch(self.fec)):
-            raise UDPcastError("FEC must use stripesxredundancy[/stripesize] syntax")
+        bitrate = int(bitrate_match.group(1))
+        suffix = (bitrate_match.group(2) or "").lower()
+        bitrate *= {"": 1, "k": 1000, "m": 1000000, "g": 1000000000}[suffix]
+        if bitrate > 10_000_000_000:
+            raise UDPcastError("max_bitrate must not exceed 10 Gbit/s")
+        if self.fec is not None:
+            fec_match = _FEC_RE.fullmatch(self.fec) if isinstance(self.fec, str) else None
+            if not fec_match:
+                raise UDPcastError("FEC must use stripesxredundancy[/stripesize] syntax")
+            stripes, redundancy, *stripe_size = map(int, re.split(r"[x/]", self.fec))
+            if stripes > 255 or redundancy > 255 or (stripe_size and stripe_size[0] > 65535):
+                raise UDPcastError("FEC values exceed the supported safety bounds")
         if isinstance(self.min_receivers, bool) or not isinstance(self.min_receivers, int) or not 1 <= self.min_receivers <= 4096:
             raise UDPcastError("min_receivers must be between 1 and 4096")
         if isinstance(self.max_wait_seconds, bool) or not isinstance(self.max_wait_seconds, int) or not 1 <= self.max_wait_seconds <= 86400:
