@@ -53,6 +53,26 @@ def _elevate() -> int:
 
 
 
+def _generate_client_minisign_keypair(pki_directory: str, export_directory: str, client_id: str) -> tuple[str, str]:
+    secret = os.path.join(pki_directory, f"client-{client_id}.minisign.key")
+    public = os.path.join(pki_directory, f"client-{client_id}.minisign.pub")
+    exported = os.path.join(export_directory, f"feclora-{client_id}.minisign.pub")
+    if any(os.path.lexists(path) for path in (secret, public, exported)):
+        raise PKIError("Client image-signing keypair or public export already exists")
+    result = subprocess.run(
+        ["/usr/bin/minisign", "-G", "-s", secret, "-p", public, "-W"],
+        stdin=subprocess.DEVNULL, capture_output=True, text=True,
+        check=False, timeout=60,
+    )
+    if result.returncode != 0:
+        raise PKIError("could not generate Client minisign keypair: " + (result.stderr or result.stdout).strip()[:256])
+    os.chmod(secret, 0o600)
+    os.chmod(public, 0o644)
+    shutil.copyfile(public, exported)
+    os.chmod(exported, 0o644)
+    return secret, public
+
+
 def _write_client_config(path: str, value: dict[str, Any]) -> None:
     directory = os.path.dirname(path)
     os.makedirs(directory, mode=0o700, exist_ok=True)
@@ -105,6 +125,18 @@ def _client_enrollment_wizard(config_path: str) -> bool:
         )
         if not client_id:
             return False
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", client_id):
+            raise PKIError("Client identifier must contain 1-48 lowercase letters, digits or hyphens")
+        capability = dialog_app._menu(
+            "Client capability",
+            "Restore-only is recommended. Enable image capture only if this Client should send images back to the Server.",
+            [
+                ("restore", "Restore-only Client"),
+                ("save", "Allow this Client to capture and send images"),
+            ],
+        )
+        if capability is None:
+            return False
         export_directory = dialog_app._input(
             "Export enrollment request",
             "Path to an existing removable-media directory. Only the CSR will be copied there; the private key stays on this Client:",
@@ -114,6 +146,8 @@ def _client_enrollment_wizard(config_path: str) -> bool:
         identity, _private_key, exported_csr = create_client_csr(
             pki_directory, export_directory, client_id,
         )
+        if capability == "save":
+            _generate_client_minisign_keypair(pki_directory, export_directory, client_id)
         dialog_app._message(
             "Enrollment request prepared",
             f"Identity: {identity}\nCSR: {exported_csr}\n\n"
@@ -199,6 +233,17 @@ def _client_enrollment_wizard(config_path: str) -> bool:
     if not stat.S_ISDIR(repository_info.st_mode) or stat.S_ISLNK(repository_info.st_mode) or repository_info.st_uid != 0:
         raise PKIError("Client image repository must be a root-owned real directory")
     os.chmod(repository, 0o700)
+    minisign_secret = os.path.join(pki_directory, f"client-{client_id}.minisign.key")
+    minisign_public = os.path.join(pki_directory, f"client-{client_id}.minisign.pub")
+    if os.path.exists(minisign_secret) != os.path.exists(minisign_public):
+        raise PKIError("Client minisign keypair is incomplete")
+    if os.path.exists(minisign_secret):
+        for path in (minisign_secret, minisign_public):
+            info = os.lstat(path)
+            if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
+                raise PKIError("Client minisign key files must be root-owned regular files")
+        if os.stat(minisign_secret).st_mode & 0o077:
+            raise PKIError("Client minisign secret key must be private")
     config = {
         "schema_version": 1,
         "host": host,
@@ -210,8 +255,8 @@ def _client_enrollment_wizard(config_path: str) -> bool:
         "certificate_file": installed["certificate_file"],
         "private_key_file": installed["private_key_file"],
         "trusted_server_public_key": installed_server_key,
-        "local_minisign_secret_key": None,
-        "local_minisign_public_key": None,
+        "local_minisign_secret_key": minisign_secret if os.path.exists(minisign_secret) else None,
+        "local_minisign_public_key": minisign_public if os.path.exists(minisign_public) else None,
         "age_identity_file": age_identity,
         "age_recipients_file": installed_recipients,
         "repository": repository,
