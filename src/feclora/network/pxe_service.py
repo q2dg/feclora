@@ -5,7 +5,11 @@ daemon preflight plus interface-zone-scoped runtime firewall rules.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import os
+import re
+import stat
 import subprocess
 import tempfile
 import uuid
@@ -47,9 +51,9 @@ class PXEServiceManager:
         self.boot_stager = boot_stager
         self._active_interface: str | None = None
         self._started_units: set[str] = set()
-        suffix = uuid.uuid4().hex
-        self._dnsmasq_unit = f"feclora-dnsmasq-{suffix}"
-        self._caddy_unit = f"feclora-caddy-{suffix}"
+        self._dnsmasq_unit = ""
+        self._caddy_unit = ""
+        self._state_path = self.runtime_dir / "active.json"
 
     def _run(self, argv: list[str], label: str) -> None:
         try:
@@ -102,12 +106,56 @@ class PXEServiceManager:
             raise PXEServiceError(f"cannot write PXE runtime configuration {name}: {exc}") from exc
         return str(destination)
 
+    def _write_state(self, value: dict[str, Any]) -> None:
+        fd, temporary = tempfile.mkstemp(prefix=".active.", dir=self.runtime_dir)
+        try:
+            os.fchmod(fd, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                json.dump(value, stream, sort_keys=True)
+                stream.write("\\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self._state_path)
+        except Exception:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
+            raise
+
+    def _read_state(self) -> dict[str, Any] | None:
+        try:
+            info = os.lstat(self._state_path)
+        except FileNotFoundError:
+            return None
+        if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != 0 or info.st_mode & 0o077 or info.st_size > 8192):
+            raise PXEServiceError("persisted PXE runtime state is unsafe")
+        try:
+            value = json.loads(self._state_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise PXEServiceError("persisted PXE runtime state is unreadable") from exc
+        expected = {"schema_version", "interface", "dnsmasq_unit", "caddy_unit", "firewall"}
+        if not isinstance(value, dict) or set(value) != expected or value["schema_version"] != 1:
+            raise PXEServiceError("persisted PXE runtime state has an unsupported schema")
+        if not isinstance(value["interface"], str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,15}", value["interface"]):
+            raise PXEServiceError("persisted PXE interface is invalid")
+        for key in ("dnsmasq_unit", "caddy_unit"):
+            if not isinstance(value[key], str) or not re.fullmatch(r"feclora-(?:dnsmasq|caddy)-[0-9a-f]{12}", value[key]):
+                raise PXEServiceError("persisted PXE systemd unit name is invalid")
+        return value
+
     def start(self, config: PXENetworkConfig) -> None:
-        """Start dnsmasq then Caddy; roll back services and firewall on failure."""
+        """Start PXE services and persist enough state for a later API process to stop them."""
         config.validated()
         self.boot_stager(config)
         self.preflight(config)
         self._prepare_runtime()
+        if self._read_state() is not None:
+            raise PXEServiceError("PXE services already have a persisted active profile; stop it before starting another")
+        suffix = hashlib.sha256(config.interface.encode("ascii")).hexdigest()[:12]
+        self._dnsmasq_unit = f"feclora-dnsmasq-{suffix}"
+        self._caddy_unit = f"feclora-caddy-{suffix}"
         dnsmasq_config = self._write_config("dnsmasq.conf", render_dnsmasq(config))
         caddy_config = self._write_config("Caddyfile", render_caddy(config), mode=0o644)
         self._active_interface = config.interface
@@ -116,14 +164,19 @@ class PXEServiceManager:
                 config.interface,
                 ["67/udp", "4011/udp", f"{config.http_port}/tcp"],
             )
-            self._started_units.add(self._dnsmasq_unit + ".service")
+            firewall_state = self.firewall.export_state(config.interface)
+            self._write_state({
+                "schema_version": 1, "interface": config.interface,
+                "dnsmasq_unit": self._dnsmasq_unit, "caddy_unit": self._caddy_unit,
+                "firewall": firewall_state,
+            })
+            self._started_units.update({self._dnsmasq_unit + ".service", self._caddy_unit + ".service"})
             self._run([
                 self.systemd_run, f"--unit={self._dnsmasq_unit}", "--collect",
                 "--property=Restart=no", "--property=KillMode=mixed", "--",
                 self.dnsmasq, "--keep-in-foreground", f"--conf-file={dnsmasq_config}",
             ], "starting dnsmasq")
             self._assert_active(self._dnsmasq_unit + ".service")
-            self._started_units.add(self._caddy_unit + ".service")
             self._run([
                 self.systemd_run, f"--unit={self._caddy_unit}", "--collect",
                 "--property=Restart=no", "--property=KillMode=mixed", "--property=User=caddy", "--property=Group=caddy", "--",
@@ -134,24 +187,32 @@ class PXEServiceManager:
             try:
                 self.stop()
             except PXEServiceError as rollback_error:
-                raise PXEServiceError(
-                    f"{start_error}; rollback also failed: {rollback_error}"
-                ) from start_error
+                raise PXEServiceError(f"{start_error}; rollback also failed: {rollback_error}") from start_error
             if isinstance(start_error, PXEServiceError):
                 raise
             raise PXEServiceError(f"PXE startup failed: {start_error}") from start_error
 
     def stop(self) -> None:
-        """Stop active transient units and remove only firewall ports we added."""
+        """Stop persisted transient units and restore the interface's previous firewalld zone."""
+        if self._active_interface is None:
+            saved = self._read_state()
+            if saved is None:
+                return
+            self._active_interface = saved["interface"]
+            self._dnsmasq_unit = saved["dnsmasq_unit"]
+            self._caddy_unit = saved["caddy_unit"]
+            self._started_units.update({self._dnsmasq_unit + ".service", self._caddy_unit + ".service"})
+            try:
+                self.firewall.adopt(self._active_interface, saved["firewall"])
+            except Exception as exc:
+                raise PXEServiceError(f"cannot safely recover PXE firewall state: {exc}") from exc
         errors = []
         for unit in (self._caddy_unit + ".service", self._dnsmasq_unit + ".service"):
             if unit not in self._started_units:
                 continue
             try:
-                state = self.runner(
-                    [self.systemctl, "is-active", unit], check=False,
-                    capture_output=True, text=True, timeout=15,
-                )
+                state = self.runner([self.systemctl, "is-active", unit], check=False,
+                                    capture_output=True, text=True, timeout=15)
                 if state.returncode == 0:
                     self._run([self.systemctl, "stop", unit], f"stopping {unit}")
                     self._started_units.discard(unit)
@@ -161,7 +222,7 @@ class PXEServiceManager:
                     errors.append(f"{unit}: cannot determine service state")
             except (OSError, subprocess.TimeoutExpired, PXEServiceError) as exc:
                 errors.append(f"{unit}: {exc}")
-        if self._active_interface is not None:
+        if self._active_interface is not None and not self._started_units:
             try:
                 self.firewall.close(self._active_interface)
                 self._active_interface = None
@@ -169,3 +230,13 @@ class PXEServiceManager:
                 errors.append(f"firewall: {exc}")
         if errors:
             raise PXEServiceError("failed to stop PXE runtime cleanly: " + "; ".join(errors))
+        if self._active_interface is None:
+            try:
+                self._state_path.unlink()
+            except FileNotFoundError:
+                pass
+            for name in ("dnsmasq.conf", "Caddyfile"):
+                try:
+                    (self.runtime_dir / name).unlink()
+                except FileNotFoundError:
+                    pass
