@@ -325,12 +325,23 @@ class DeploymentControlServer:
             if mac is None:
                 raise DeploymentControlError("client certificate identity is not enrolled for this deployment")
             verify_peer_identity(tls_socket, identity)
-            hello = receive_control_message(tls_socket, expected_type="hello")
+            hello = receive_control_message(tls_socket)
             if set(hello) != {"type", "job_id", "mac_address", "certificate_identity"}:
                 raise DeploymentControlError("client hello contains missing or unknown fields")
             if (hello["job_id"] != self.coordinator.job.job_id or hello["mac_address"] != mac
                     or hello["certificate_identity"] != identity):
                 raise DeploymentControlError("client hello does not match the enrolled identity and active job")
+            if hello["type"] == "inspect":
+                send_control_message(tls_socket, {
+                    "type": "job", "job": self.coordinator.job.to_dict(),
+                    "server_identity": self.local_identity,
+                })
+                tls_socket.close()
+                with self._lock:
+                    self._pending_sockets.discard(tls_socket)
+                return None
+            if hello["type"] != "hello":
+                raise DeploymentControlError("client message must be hello or inspect")
             self.coordinator.register_client(mac, authenticated=True)
             registered_mac = mac
             send_control_message(tls_socket, {
@@ -650,6 +661,50 @@ class DeploymentControlServer:
                 pass
             tls_socket.close()
 
+
+
+def inspect_deployment_job(
+    host: str,
+    port: int,
+    tls_context: ssl.SSLContext,
+    *,
+    local_identity: str,
+    expected_server_identity: str,
+    mac_address: str,
+    job_id: str,
+    timeout: float = 15,
+) -> DeploymentJob:
+    """Read an authorized job offer without registering a Client or becoming READY."""
+    _require_tls13_mtls(tls_context)
+    if not isinstance(local_identity, str) or not local_identity or len(local_identity) > 256:
+        raise DeploymentControlError("local certificate identity is required")
+    if not isinstance(mac_address, str) or not mac_address or len(mac_address) > 32:
+        raise DeploymentControlError("client MAC address is required")
+    if not isinstance(job_id, str) or not job_id or len(job_id) > 64:
+        raise DeploymentControlError("deployment job UUID is required")
+    tls_socket = connect_mutual_tls(
+        tls_context, host, port, expected_peer_identity=expected_server_identity,
+        timeout=timeout, io_timeout=timeout,
+    )
+    with tls_socket:
+        send_control_message(tls_socket, {
+            "type": "inspect", "job_id": job_id, "mac_address": mac_address.lower(),
+            "certificate_identity": local_identity,
+        })
+        offer = receive_control_message(tls_socket, expected_type="job")
+        if set(offer) != {"type", "job", "server_identity"}:
+            raise DeploymentControlError("server job offer contains missing or unknown fields")
+        if offer["server_identity"] != expected_server_identity:
+            raise DeploymentControlError("job offer is not bound to the authenticated server identity")
+        try:
+            job = DeploymentJob.from_dict(offer["job"])
+        except (JobValidationError, TypeError) as exc:
+            raise DeploymentControlError(f"server supplied an invalid deployment job: {exc}") from exc
+        if job.job_id != job_id or not job.authorizes_client(mac_address):
+            raise DeploymentControlError("job does not authorize this Client identity")
+        if job.transport == "multicast" and job.operation != "restore":
+            raise DeploymentControlError("multicast Client jobs currently support restore only")
+        return job
 
 
 def join_deployment(
