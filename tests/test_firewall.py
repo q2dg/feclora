@@ -11,17 +11,17 @@ class FirewallTests(unittest.TestCase):
             calls.append(argv)
             if "--get-zone-of-interface" in argv:
                 return subprocess.CompletedProcess(argv, 0, "work\n", "")
-            if "--query-port" in argv and argv[-1] == "69/udp":
+            if any(arg == "--query-port=69/udp" for arg in argv):
                 return subprocess.CompletedProcess(argv, 0, "", "")
-            if "--query-port" in argv:
+            if any(arg.startswith("--query-port=") for arg in argv):
                 return subprocess.CompletedProcess(argv, 1, "", "")
             return subprocess.CompletedProcess(argv, 0, "", "")
         firewall = PXEFirewall(executable="/usr/bin/firewall-cmd", runner=runner)
         firewall.open("enp1s0", ["67/udp", "69/udp", "4011/udp", "8080/tcp"])
-        additions = [call for call in calls if "--add-port" in call]
+        additions = [call for call in calls if any(arg.startswith("--add-port=") for arg in call)]
         self.assertEqual([call[-1] for call in additions], ["67/udp", "4011/udp", "8080/tcp"])
         firewall.close("enp1s0")
-        removals = [call for call in calls if "--remove-port" in call]
+        removals = [call for call in calls if any(arg.startswith("--remove-port=") for arg in call)]
         self.assertEqual([call[-1] for call in removals], ["8080/tcp", "4011/udp", "67/udp"])
 
     def test_rolls_back_added_ports_after_failure(self):
@@ -32,13 +32,13 @@ class FirewallTests(unittest.TestCase):
                 return subprocess.CompletedProcess(argv, 0, "work\n", "")
             if "--query-port" in argv:
                 return subprocess.CompletedProcess(argv, 1, "", "")
-            if "--add-port" in argv and argv[-1] == "69/udp":
+            if any(arg == "--add-port=69/udp" for arg in argv):
                 return subprocess.CompletedProcess(argv, 1, "", "denied")
             return subprocess.CompletedProcess(argv, 0, "", "")
         firewall = PXEFirewall(executable="/usr/bin/firewall-cmd", runner=runner)
         with self.assertRaises(PXEFirewallError):
             firewall.open("enp1s0", ["67/udp", "69/udp"])
-        self.assertTrue(any("--remove-port" in call and call[-1] == "67/udp" for call in calls))
+        self.assertTrue(any(any(arg == "--remove-port=67/udp" for arg in call) for call in calls))
 
     def test_rejects_invalid_port_and_interface(self):
         firewall = PXEFirewall(executable="/usr/bin/firewall-cmd", runner=lambda *a, **k: None)
