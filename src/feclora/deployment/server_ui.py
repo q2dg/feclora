@@ -307,7 +307,7 @@ def run_deployment_server_ui(
     firewall: Any,
     config_path: str = CONFIG_PATH,
 ) -> int:
-    """Load root-provisioned trust material and run one authenticated unicast job."""
+    """Load root-provisioned trust material and run one authenticated deployment job."""
     control = None
     try:
         _manage_client_enrollment(config_path)
@@ -318,7 +318,7 @@ def run_deployment_server_ui(
             )
         journal_dir = _journal_directory()
         _review_previous_journals(journal_dir)
-        job, manifest_path, selected_mac = _choose_job(config, interface)
+        job, manifest_path, selected_macs = _choose_job(config, interface)
         context = create_mutual_tls_context(
             "server", ca_file=config.ca_file,
             certificate_file=config.certificate_file,
@@ -338,7 +338,7 @@ def run_deployment_server_ui(
         dialog_app._message(
             "Authenticated deployment listener",
             f"Job: {job.job_id}\nOperation: {job.operation}\nImage: {job.image_id}\n"
-            f"Authorized Client MAC: {selected_mac}\nControl endpoint: {bound_address}:{port}\nJournal: {journal_path}\n\n"
+            f"Authorized Client MACs: {\", \".join(selected_macs)}\nTransport: {job.transport}\nControl endpoint: {bound_address}:{port}\nJournal: {journal_path}\n\n"
             "The listener requires TLS 1.3 mutual authentication. The Client must use "
             "its enrolled certificate and enter this job UUID. No image write starts "
             "until the Client selects its local disk, types the exact confirmation "
@@ -355,10 +355,10 @@ def run_deployment_server_ui(
             choice = dialog_app._menu(
                 "Authenticated deployment",
                 f"Job state: {coordinator.state.value}\n{state_text}\n\n"
-                "Refresh to wait for the enrolled Client, or explicitly arm the job.",
+                f"Refresh to wait for {len(selected_macs)} enrolled Client(s), or explicitly arm the job.",
                 [
                     ("refresh", "Refresh Client readiness"),
-                    ("arm", "ARM and execute the one-client job"),
+                    ("arm", "ARM and execute the deployment job"),
                     ("stop", "Stop the control listener"),
                 ],
             )
@@ -367,22 +367,35 @@ def run_deployment_server_ui(
             if choice == "stop" or choice is None:
                 return 0
             if choice == "arm":
-                if len(ready) != 1 or len(clients) != 1:
+                expected_clients = len(job.authorized_clients)
+                if len(ready) != expected_clients or len(clients) != expected_clients:
                     dialog_app._message(
-                        "Client not ready",
-                        "Exactly one authenticated Client must be READY before arming.",
+                        "Clients not ready",
+                        f"All {expected_clients} authorized Client(s) must be authenticated and READY before arming.",
                     )
                     continue
-                trusted_key = (
-                    config.server_minisign_public_key
-                    if job.operation == "restore"
-                    else config.client_minisign_public_keys[selected_mac]
-                )
-                results = control.run_one_client_job(
-                    config.repository,
-                    trusted_public_key=trusted_key,
-                    manifest_path=manifest_path,
-                )
+                if job.transport == "multicast":
+                    udpcast_config = udpcast_config_for_job(
+                        job, min_receivers=expected_clients,
+                    )
+                    results = control.run_multicast_restore_job(
+                        config.repository,
+                        manifest_path,
+                        trusted_public_key=config.server_minisign_public_key,
+                        udpcast_config=udpcast_config,
+                    )
+                else:
+                    selected_mac = selected_macs[0]
+                    trusted_key = (
+                        config.server_minisign_public_key
+                        if job.operation == "restore"
+                        else config.client_minisign_public_keys[selected_mac]
+                    )
+                    results = control.run_one_client_job(
+                        config.repository,
+                        trusted_public_key=trusted_key,
+                        manifest_path=manifest_path,
+                    )
                 dialog_app._message(
                     "Deployment result",
                     f"Job state: {coordinator.state.value}\n"
