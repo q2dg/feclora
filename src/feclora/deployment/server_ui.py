@@ -347,6 +347,8 @@ def run_deployment_server_ui(
                 "Ensure switch IGMP snooping has a working querier, multicast is not filtered "
                 "by Wi-Fi/client isolation, and the selected interface is correct. "
                 "Cross-VLAN multicast routing is not supported by this TTL=1 profile. "
+                "UDPcast data is not encrypted or authenticated; use a trusted isolated segment "
+                "and age-encrypted artifacts when confidentiality is required. "
                 "Feclora will temporarily open only the two UDPcast ports on this interface.",
             )
             confirmation = dialog_app._input(
