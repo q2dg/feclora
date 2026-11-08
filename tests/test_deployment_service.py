@@ -58,6 +58,7 @@ def make_service(transport="unicast", clients=()):
     service.control = FakeControl(service.coordinator)
     service._worker = None
     service._worker_lock = threading.RLock()
+    service._stop_event = threading.Event()
     service._arm_requested = False
     service._last_error = None
     service._run_job = lambda: None
