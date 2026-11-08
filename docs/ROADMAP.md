@@ -80,7 +80,7 @@
 - [x] Add a private append-only SHA-256 hash-chained job journal; coordinator transitions are fsync-persisted before in-memory mutation, and persistence failures fail closed.
 - [x] Review prior hash-chained job journals in Server UI, flag incomplete jobs for manual review and refuse corrupt journals; no destructive job is automatically resumed.
 - [x] Replay hash-chained job/client events after restart and reconstruct full audit state; provide an explicit, durable operator reconciliation acknowledgement for interrupted jobs. Never recreate sessions or resume destructive I/O automatically.
-- [ ] Implement secure certificate and minisign-key enrollment, revocation and rotation UI.
+- [x] Implement Server UI for Client certificate enrollment/rotation and revocation: verify CA chain for TLS client purpose, extract stable SAN identity, bind to one MAC, optionally enroll a minisign public key, and atomically update the root-owned trust config. Private keys and CA issuance remain out-of-band; CRL/OCSP integration remains pending.
 - [x] Select and package the embedded PXE stack: dnsmasq (DHCP/ProxyDHCP/PXE/TFTP), Fedora iPXE BIOS/UEFI boot images, and Caddy for HTTP boot (ADR 0006; services remain disabled by default).
 - [x] Document the real PXE VM acceptance procedure for DHCP/ProxyDHCP, TFTP/HTTP, BIOS/UEFI chainloading, signed transfer, disposable-disk restore, read-back and firewalld rollback; actual PXE/deployment execution remains operator validation.
 - [x] Add an isolated libvirt PXE VM matrix harness for one Server and BIOS/UEFI Clients; clients remain powered off until Server PXE is ready. VM creation is scripted, but boot and end-to-end acceptance remain manual and unverified.
