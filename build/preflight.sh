@@ -22,7 +22,7 @@ Environment:
   FEDORA_INSTALL_ISO   Fedora DVD installer ISO (required).
   FECLORA_KS           Kickstart file (default: kickstart/feclora-live.ks).
   FECLORA_RESULT_DIR   Output directory (default: out/).
-  FECLORA_RELEASEVER   Fedora release version (default: 43).
+  FECLORA_RELEASEVER   Fedora release version (default: 45).
   FECLORA_MIN_FREE_GIB Minimum free space in output filesystem (default: 20 GiB).
 
 This checks host prerequisites only. It does not build or boot an ISO.
@@ -42,7 +42,7 @@ fi
   fail "Expected an x86_64 build host; detected $(uname -m)."
 grep -qx 'ID=fedora' /etc/os-release ||
   fail "The build host must be Fedora 45; detected a non-Fedora distribution."
-grep -qx 'VERSION_ID="43"' /etc/os-release ||
+grep -qx 'VERSION_ID="45"' /etc/os-release ||
   fail "The build host must be Fedora 45; check /etc/os-release."
 [[ "$RELEASEVER" == "45" ]] ||
   fail "The current Kickstart baseline is Fedora 45; FECLORA_RELEASEVER=$RELEASEVER is inconsistent."
