@@ -317,6 +317,32 @@ class WebAPITests(unittest.TestCase):
                 dispatch({"action": "stop_deployment_service", "params": {"job_id": job_id}})
         runner.assert_not_called()
 
+    def test_active_service_job_is_not_misreported_as_interrupted(self):
+        import tempfile
+        from pathlib import Path
+        from feclora.deployment.journal import DeploymentJournal
+        from feclora.deployment.coordinator import DeploymentCoordinator
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        payload = {
+            "schema_version": 1, "job_id": job_id, "operation": "save",
+            "image_id": "capture-1", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56"],
+            "network_interface": "enp1s0", "transport": "unicast",
+            "multicast_group": None, "multicast_port": None,
+            "start_policy": "manual", "expected_clients": None, "start_deadline": None,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            journal = DeploymentJournal(Path(directory) / (job_id + ".jsonl"), job_id)
+            DeploymentCoordinator(DeploymentJob.from_dict(payload), event_sink=journal)
+            journal({"timestamp": "2026-11-08T12:00:00+00:00", "job_id": job_id,
+                     "event": "service_started", "job_state": "created"})
+            with patch("feclora.webapi.os.path.lexists", return_value=True), \
+                 patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), \
+                 patch("feclora.deployment.local_control.local_control_request", return_value={"job_id": job_id}):
+                jobs = dispatch({"action": "deployment_jobs"})["jobs"]
+        self.assertFalse(jobs[0]["interrupted"])
+        self.assertTrue(jobs[0]["service_active"])
+
 
 if __name__ == "__main__":
     unittest.main()
