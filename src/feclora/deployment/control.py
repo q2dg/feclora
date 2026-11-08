@@ -125,6 +125,8 @@ class DeploymentControlServer:
         client_identity_to_mac: Mapping[str, str],
     ) -> None:
         _require_tls13_mtls(tls_context)
+        if coordinator.job.transport != "unicast":
+            raise DeploymentControlError("the authenticated control runtime currently supports unicast jobs only")
         if not isinstance(local_identity, str) or not local_identity or len(local_identity) > 256:
             raise DeploymentControlError("Server certificate identity is required")
         self.coordinator = coordinator
@@ -392,6 +394,8 @@ def join_deployment(
             job = DeploymentJob.from_dict(offer["job"])
         except (JobValidationError, TypeError) as exc:
             raise DeploymentControlError(f"server supplied an invalid deployment job: {exc}") from exc
+        if job.transport != "unicast":
+            raise DeploymentControlError("Client currently supports authenticated unicast jobs only")
         if job.job_id != job_id or not job.authorizes_client(mac_address):
             raise DeploymentControlError("job does not authorize this client identity")
         target_description = prepare_local_target(job)
