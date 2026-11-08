@@ -60,6 +60,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 return job, success, detail
 
             with mock.patch.object(service, "_acquire_lock"), \
+                 mock.patch("feclora.deployment.service.recover_stale_runtime_artifacts"), \
                  mock.patch("feclora.deployment.client_service.CLIENT_JOB_DIRECTORY", root), \
                  mock.patch("feclora.deployment.client_service._ensure_directory"), \
                  mock.patch("feclora.deployment.client_service._write_private_json",
