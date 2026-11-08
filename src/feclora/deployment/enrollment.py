@@ -69,6 +69,11 @@ def _verify_client_certificate(certificate_path: str, ca_file: str) -> str:
     return _certificate_identity(certificate_path)
 
 
+def inspect_client_certificate(certificate_path: str, ca_file: str) -> str:
+    """Return the unique SAN identity after validating the certificate for TLS client use."""
+    return _verify_client_certificate(certificate_path, ca_file)
+
+
 def _load_config(config_path: str) -> dict[str, Any]:
     load_server_runtime_config(config_path)
     with open(config_path, "r", encoding="utf-8") as stream:
