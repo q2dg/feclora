@@ -232,6 +232,12 @@ fi
 if ! grep -q 'test_multicast_arm_requires_igmp_verification_phrase' "$ROOT_DIR/tests/test_deployment_service.py"; then
   fail "Server multicast IGMP confirmation regression test is missing."
 fi
+if ! grep -q 'test_multicast_job_preflights_selected_interface_and_uses_receiver_runtime' "$ROOT_DIR/tests/test_client_service.py"; then
+  fail "Client multicast receive and IGMP acknowledgement regression test is missing."
+fi
+if ! grep -q 'test_start_client_job_preflights_and_persists_multicast_interface' "$ROOT_DIR/tests/test_webapi.py"; then
+  fail "Cockpit Client multicast API and IGMP acknowledgement regression test is missing."
+fi
 if ! grep -q 'Local multicast receive interface' "$ROOT_DIR/webui/src/App.jsx"; then
   fail "Cockpit Client jobs tab is missing multicast interface selection."
 fi
