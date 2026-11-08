@@ -20,7 +20,7 @@ Control messages are length-prefixed JSON with a 16 KiB maximum frame, strict me
 4. Client returns a LocalTargetApproval binding its selected /dev path to the exact typed confirmation (ERASE for restore, READ for save). Only a human-readable target description is sent to Server; the path and confirmation remain local.
 5. Server registers READY in DeploymentCoordinator. The operator explicitly arms the job; only then does Server send START.
 6. For restore, Server sends a transfer offer and signed image set. Client verifies the minisign signature and each artifact's exact size/SHA-256, stages the set privately, then invokes the protected whole-disk restore workflow with a local typed ERASE confirmation and destination read-back.
-7. For save, Client captures a locally selected read-only disk, signs its manifest, then sends the image set. Server verifies the enrolled Client minisign public key and every artifact before atomically publishing the set.
+7. For save, Client captures a locally selected disk without modifying it, signs its manifest, then sends the image set. Server verifies the enrolled Client minisign public key and every artifact before atomically publishing the set.
 8. Client returns a bounded per-client result. Server records the result in the coordinator.
 
 Image transfer uses the same authenticated TLS session. The receiver publishes artifacts first and the signed manifest/signature last as the image-set commit marker. No unauthenticated multicast path is involved in this unicast phase.
