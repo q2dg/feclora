@@ -441,6 +441,34 @@ def _operations() -> list[dict[str, Any]]:
     return records
 
 
+def _certificate_status() -> list[dict[str, Any]]:
+    from feclora.deployment.managed_pki import certificate_expiry_days
+    from feclora.deployment.runtime_config import (
+        load_client_runtime_config, load_server_runtime_config,
+    )
+    results = []
+    for role, path, loader in (
+        ("Server", "/etc/feclora/deployment-server.json", load_server_runtime_config),
+        ("Client", "/etc/feclora/deployment-client.json", load_client_runtime_config),
+    ):
+        if not os.path.isfile(path):
+            continue
+        try:
+            config = loader(path)
+            days = certificate_expiry_days(config.certificate_file)
+            identity = config.local_identity
+            results.append({
+                "role": role, "identity": identity, "expiry_days": days,
+                "status": "expired" if days < 0 else "expiring" if days <= 30 else "valid",
+            })
+        except Exception as exc:
+            results.append({
+                "role": role, "identity": None, "expiry_days": None,
+                "status": "error", "detail": str(exc)[:256],
+            })
+    return results
+
+
 def _service_state() -> dict[str, str]:
     services = {}
     try:
@@ -1727,6 +1755,7 @@ def dispatch(request: Any) -> dict[str, Any]:
             "client_configured": os.path.isfile("/etc/feclora/deployment-client.json"),
             "services": _service_state(),
             "security": _security_material(),
+            "certificate_status": _certificate_status(),
         }
     if action == "server_trusted_clients":
         if params:
