@@ -45,7 +45,7 @@ Operational design notes:
 
 ## Development status
 
-Early implementation. The repository contains an initial Kickstart and a QEMU-backed `livemedia-creator` build script. The Python application payload is wired into the installer/Live image pipeline, but neither the ISO build nor BIOS/UEFI boot has yet been validated end to end. No functional parity claim is made yet.
+Early implementation. The repository contains an initial Kickstart and a QEMU-backed `livemedia-creator` build script. The Python application payload is wired into the installer/Live image pipeline. Local rescue storage inventory now reports initial LVM, Stratis and Btrfs topology; the Server menu has an experimental, opt-in dnsmasq/iPXE/Caddy Live-boot setup path. The Client deployment runtime, authenticated job protocol, and storage-manager-aware restore workflows remain incomplete. Neither the ISO build nor BIOS/UEFI/PXE boot has yet been validated end to end. No functional parity claim is made yet.
 
 ## Fedora baseline lifecycle
 
