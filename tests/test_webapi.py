@@ -327,18 +327,22 @@ class WebAPITests(unittest.TestCase):
             dispatch({"action": "clone_disk", "params": {"source": "/dev/sda", "target": "/dev/sdb"}})
 
     def test_start_deployment_service_uses_validated_systemd_instance(self):
+        import tempfile
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
         journal = SimpleNamespace(recovery_report=lambda: {
             "job_id": job_id, "job_state": "created", "interrupted": False,
             "job": {"transport": "unicast"},
         })
-        with patch("feclora.deployment.journal.DeploymentJournal.inspect", return_value=journal), \
-             patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
-                 returncode=0, stdout="", stderr="",
-             )) as runner, patch("feclora.webapi._deployment_service_status", return_value={
-                 "job_id": job_id, "job_state": "created",
-             }):
-            result = dispatch({"action": "start_deployment_service", "params": {"job_id": job_id}})
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / f"{job_id}.jsonl").write_text("journal\n", encoding="utf-8")
+            with patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), \
+                 patch("feclora.deployment.journal.DeploymentJournal.inspect", return_value=journal), \
+                 patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+                     returncode=0, stdout="", stderr="",
+                 )) as runner, patch("feclora.webapi._deployment_service_status", return_value={
+                     "job_id": job_id, "job_state": "created",
+                 }):
+                result = dispatch({"action": "start_deployment_service", "params": {"job_id": job_id}})
         self.assertEqual(result["job_state"], "created")
         self.assertEqual(runner.call_args.args[0], [
             "/usr/bin/systemctl", "start", "feclora-deployment@" + job_id + ".service",
