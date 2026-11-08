@@ -129,9 +129,51 @@ def _security_material() -> dict[str, bool]:
 
 
 def _initialize_security() -> dict[str, Any]:
-    from feclora.deployment.bootstrap import ensure_server_deployment_config
-    created = ensure_server_deployment_config("127.0.0.1")
-    return {"created": created, **_security_material()}
+    from feclora.deployment.managed_pki import initialize_server_pki
+
+    pki = Path("/etc/feclora/pki")
+    initialize_server_pki(pki)
+    age_identity = pki / "server.age"
+    age_recipients = pki / "age-recipients.txt"
+    if age_identity.exists() != age_recipients.exists():
+        raise WebAPIError("partial age identity exists; refusing to regenerate trust material")
+    if not age_identity.exists():
+        generated = subprocess.run(
+            ["/usr/bin/age-keygen", "-o", str(age_identity)],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=60,
+        )
+        if generated.returncode != 0:
+            raise WebAPIError("age-keygen failed while creating the local image identity")
+        public = subprocess.run(
+            ["/usr/bin/age-keygen", "-y", str(age_identity)],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=30,
+        )
+        recipient = public.stdout.strip()
+        if public.returncode != 0 or not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
+            raise WebAPIError("age-keygen did not return a valid recipient")
+        fd = os.open(age_recipients, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="ascii") as stream:
+            stream.write(recipient + "\\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(age_identity, 0o600)
+    signing_secret = pki / "server.minisign.key"
+    signing_public = pki / "server.pub"
+    if signing_secret.exists() != signing_public.exists():
+        raise WebAPIError("partial minisign keypair exists; refusing to regenerate trust material")
+    if not signing_secret.exists():
+        generated = subprocess.run(
+            ["/usr/bin/minisign", "-G", "-s", str(signing_secret), "-p", str(signing_public), "-W"],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=60,
+        )
+        if generated.returncode != 0:
+            raise WebAPIError("minisign failed while creating the local image-signing key")
+        os.chmod(signing_secret, 0o600)
+        os.chmod(signing_public, 0o644)
+    return {"created": True, **_security_material()}
 
 
 def _images() -> list[dict[str, Any]]:
