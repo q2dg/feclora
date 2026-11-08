@@ -12,6 +12,7 @@ from feclora.network.interface_discovery import (
     InterfaceAddress,
     InterfaceDiscoveryError,
     discover_interface_addresses,
+    detect_existing_dhcp_server,
 )
 from feclora.network.pxe_config import PXENetworkConfig, PXEConfigError
 from feclora.network.pxe_service import PXEServiceError, PXEServiceManager
@@ -133,6 +134,21 @@ def run_server_ui(
     pool_start = pool_end = gateway = dns_server = None
     confirmed = False
     if mode == "isolated":
+        try:
+            observed_dhcp = detect_existing_dhcp_server(selected.interface)
+        except InterfaceDiscoveryError:
+            observed_dhcp = None
+        if observed_dhcp:
+            warning = (
+                f"NetworkManager's current lease reports DHCP server {observed_dhcp} on this interface. "
+                "This is not a complete network scan. Do not enable authoritative DHCP on a shared LAN."
+            )
+        else:
+            warning = (
+                "No DHCP server identifier was found in the current NetworkManager lease. "
+                "This does NOT prove the network is isolated. Use only a dedicated cable, VLAN or isolated switch."
+            )
+        _message("Check network isolation", warning)
         pool_start = _ask_input("Isolated DHCP pool", "First IPv4 address to lease:")
         if pool_start is None:
             return 0
