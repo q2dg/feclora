@@ -128,12 +128,19 @@ class DeploymentJournal:
                     info = os.fstat(fd)
                     if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
                         raise DeploymentJournalError("journal file permissions or ownership are unsafe")
+                    if info.st_size + len(line) > _MAX_JOURNAL_BYTES:
+                        raise DeploymentJournalError("deployment journal reached its 32 MiB safety limit")
                     written = 0
                     while written < len(line):
                         written += os.write(fd, line[written:])
                     os.fsync(fd)
                 finally:
                     os.close(fd)
+                parent_fd = os.open(os.path.dirname(self.path), os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+                try:
+                    os.fsync(parent_fd)
+                finally:
+                    os.close(parent_fd)
             except OSError as exc:
                 raise DeploymentJournalError(f"cannot persist deployment event: {exc}") from exc
             self._events.append(record)
