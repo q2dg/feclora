@@ -69,6 +69,7 @@ The Server's **Trusted Clients** screen offers:
 - **Approve Client CSR:** validate the Client-generated CSR, review the URI identity and MAC, issue a 90-day certificate, enroll the identity and add its age recipient to the Server inventory. The response bundle includes the CA certificate, Server minisign public key and current age recipients.
 - **Import external certificate:** verify an organization-issued certificate for TLS client use, then bind its identity to the approved MAC.
 - **Revoke:** remove the TLS identity/MAC authorization, optional Client minisign trust and the mapped age recipient from future image-encryption inventories.
+- **Export updated age recipient inventory:** export the current public recipient list to removable media. On existing Clients, choose **Refresh age recipient inventory** to update their local capture recipients.
 
 The Client warns within 30 days of certificate expiry and can prepare a renewal CSR using its existing TLS key. The Server must approve the renewal and the Client must install the returned bundle. CRL/OCSP checks and server-side expiry inventory are not implemented.
 
