@@ -411,6 +411,8 @@ class DeploymentService:
                 if preflight.route_interface != self.job.network_interface:
                     raise DeploymentServiceError("multicast route does not use the selected deployment interface")
             with self._worker_lock:
+                if self._stop_event.is_set():
+                    raise DeploymentServiceError("service shutdown has begun; refusing to arm a new storage operation")
                 if self._arm_requested or self.coordinator.state is not JobState.CREATED:
                     raise DeploymentServiceError("job is already armed, running or terminal")
                 clients = self.coordinator.clients()
@@ -498,6 +500,11 @@ class DeploymentService:
         finally:
             try:
                 self.ipc.stop()
+                # A service stop must never tear down an authenticated session
+                # while the worker may be writing a target disk. Let the active
+                # engine reach its own terminal state before closing TLS sessions.
+                if self._worker is not None and self._worker.is_alive():
+                    self._worker.join()
             finally:
                 try:
                     self.control.stop()
