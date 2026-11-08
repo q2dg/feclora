@@ -319,8 +319,32 @@ def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> Non
     )
     if enroll_confirmation != f"ENROLL {issued} {mac.lower()}":
         raise PKIError("certificate issued but not added to the Server allowlist; approve/enroll it explicitly later")
+    signing_candidates = [
+        os.path.join(os.path.dirname(csr), f"feclora-{client_id}.minisign.pub"),
+        os.path.join(os.path.dirname(csr), f"feclora-{client_id}-renewal.minisign.pub"),
+    ]
+    signing_export = next((path for path in signing_candidates if os.path.lexists(path)), None)
+    signing_key_path = None
+    if signing_export is not None:
+        signing_info = os.lstat(signing_export)
+        if not stat.S_ISREG(signing_info.st_mode) or stat.S_ISLNK(signing_info.st_mode):
+            raise PKIError("Client minisign public-key export must be a regular file, not a symlink")
+        clients_directory = os.path.join(pki_directory, "clients")
+        os.makedirs(clients_directory, mode=0o700, exist_ok=True)
+        clients_info = os.lstat(clients_directory)
+        if not stat.S_ISDIR(clients_info.st_mode) or stat.S_ISLNK(clients_info.st_mode) or clients_info.st_uid != 0:
+            raise PKIError("Server Client-key directory must be root-owned and real")
+        os.chmod(clients_directory, 0o700)
+        signing_key_path = os.path.join(clients_directory, client_id + ".pub")
+        temporary_key = signing_key_path + ".tmp"
+        if os.path.lexists(temporary_key):
+            raise PKIError("stale temporary Client signing-key file exists")
+        shutil.copyfile(signing_export, temporary_key)
+        os.chmod(temporary_key, 0o644)
+        os.replace(temporary_key, signing_key_path)
     enroll_client_certificate(
-        config_path, certificate, mac, confirmation=enroll_confirmation,
+        config_path, certificate, mac, minisign_public_key=signing_key_path,
+        confirmation=enroll_confirmation,
     )
     register_age_recipient(pki_directory, issued, recipient)
     recipients_path = os.path.join(pki_directory, "age-recipients.txt")
