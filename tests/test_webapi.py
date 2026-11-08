@@ -128,7 +128,9 @@ class WebAPITests(unittest.TestCase):
         )
         manifest = SimpleNamespace(
             image_id="source", image_type="disk", source_size_bytes=4096,
-            logical_sector_size=512, artifacts=[table_artifact],
+            logical_sector_size=512, artifacts=[
+                SimpleNamespace(role="disk-image", format="raw"), table_artifact,
+            ],
         )
         with patch("feclora.webapi._image_manifest", return_value=Path("/repo/source.manifest.json")), patch(
             "pathlib.Path.read_text", return_value="{}"
