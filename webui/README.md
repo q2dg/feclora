@@ -7,8 +7,11 @@ restoration, disk-to-disk cloning and partition-to-partition cloning. It
 supports device inventory, image selection, compression, local age encryption,
 minisign signatures, exact destructive confirmations and streamed progress.
 Other tabs provide storage inventory, image inventory, deployment journal
-summaries and system status. Cockpit Terminal provides system administration
-and diagnostic shell access.
+summaries, system status and an initial Server identity bootstrap wizard. The
+bootstrap wizard validates an assigned IPv4 address, warns about a detected
+DHCP server and initializes managed trust material; it does not start PXE or
+deployment services. Cockpit Terminal provides system administration and
+diagnostic shell access.
 
 Build with `npm install` followed by `npm run build`. The ISO build copies
 `dist/` into `/usr/share/cockpit/feclora`.
