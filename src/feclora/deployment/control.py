@@ -21,6 +21,7 @@ import struct
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 
 from feclora.deployment.artifact_transfer import ImageTransferError, receive_image_set, send_image_set
