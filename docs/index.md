@@ -4,7 +4,7 @@ title: Feclora
 description: Fedora-based disk imaging, cloning and recovery.
 ---
 
-<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+<link rel="stylesheet" href="./assets/css/site.css">
 
 <main class="landing">
   <header class="hero">
@@ -13,7 +13,7 @@ description: Fedora-based disk imaging, cloning and recovery.
     <p class="lead">Disk imaging, cloning and recovery — built around Fedora and guided by Cockpit.</p>
     <div class="hero-actions">
       <a class="button button-primary" href="https://github.com/q2dg/feclora">View source on GitHub</a>
-      <a class="button button-secondary" href="{{ '/COCKPIT.html' | relative_url }}">Explore the interface</a>
+      <a class="button button-secondary" href="./COCKPIT.html">Explore the interface</a>
     </div>
   </header>
 
@@ -45,22 +45,22 @@ description: Fedora-based disk imaging, cloning and recovery.
       <h2 id="status-title">Implemented in stages. Not yet lab-certified.</h2>
       <p>The Cockpit interface currently guides local capture, restore and clone operations. Remote Server/Client setup and deployment orchestration are still being integrated into Cockpit.</p>
     </div>
-    <a class="text-link" href="{{ '/ROADMAP.html' | relative_url }}">See what is next →</a>
+    <a class="text-link" href="./ROADMAP.html">See what is next →</a>
   </section>
 
   <section class="section links" aria-labelledby="learn-title">
     <p class="eyebrow">LEARN MORE</p>
     <h2 id="learn-title">Project resources</h2>
     <ul>
-      <li><a href="{{ '/BUILD.html' | relative_url }}">Build and installation</a></li>
-      <li><a href="{{ '/FEATURE-MATRIX.html' | relative_url }}">Features and compatibility</a></li>
-      <li><a href="{{ '/CERTIFICATE-MANAGEMENT.html' | relative_url }}">Security and certificates</a></li>
-      <li><a href="{{ '/DEPLOYMENT-SETUP.html' | relative_url }}">Network deployment setup</a></li>
-      <li><a href="{{ '/CLONEZILLA-FEATURE-PARITY.html' | relative_url }}">Clonezilla feature comparison</a></li>
+      <li><a href="./BUILD.html">Build and installation</a></li>
+      <li><a href="./FEATURE-MATRIX.html">Features and compatibility</a></li>
+      <li><a href="./CERTIFICATE-MANAGEMENT.html">Security and certificates</a></li>
+      <li><a href="./DEPLOYMENT-SETUP.html">Network deployment setup</a></li>
+      <li><a href="./CLONEZILLA-FEATURE-PARITY.html">Clonezilla feature comparison</a></li>
     </ul>
   </section>
 
-  <footer class="site-footer">
+  <footer class="landing-footer">
     <span>Feclora · Open source project</span>
     <a href="https://github.com/q2dg/feclora">GitHub repository ↗</a>
   </footer>
