@@ -88,6 +88,7 @@ def _stop(process: Any) -> None:
 def _read_digest(
     dd: str, target: str, expected_size: int, *,
     factory: Callable[..., Any], effective_uid: Callable[[], int] | None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> str:
     command = privileged_argv(
         [dd, f"if={target}", "bs=4M", "iflag=count_bytes",
@@ -111,6 +112,8 @@ def _read_digest(
                 break
             total += len(chunk)
             digest.update(chunk)
+            if progress_callback is not None:
+                progress_callback(total, expected_size)
         process.stdout.close()
         result = process.wait()
         if result != 0 or total != expected_size:
@@ -219,7 +222,7 @@ def clone_partition(
         while copied < source_size:
             if progress_callback is not None:
                 # Callback may raise PartitionCloneCancelled to stop the operation.
-                progress_callback(copied, source_size)
+                progress_callback(copied, source_size * 2)
             chunk = source_process.stdout.read(min(1024 * 1024, source_size - copied))
             if not chunk:
                 raise PartitionCloneError("source dd ended before the expected partition size")
@@ -240,10 +243,25 @@ def clone_partition(
         target_rc = target_process.wait()
         if source_rc != 0 or target_rc != 0:
             raise PartitionCloneError(f"dd failed (source={source_rc}, target={target_rc})")
-        if progress_callback is not None:
-            progress_callback(source_size, source_size)
+        try:
+            if not validator(source_path) or not validator(target_path):
+                raise PartitionCloneError("source or target disappeared before read-back verification")
+            if source_rdev is not None and os.stat(source_path).st_rdev != source_rdev:
+                raise PartitionCloneError("source partition identity changed before read-back")
+            if target_rdev is not None and os.stat(target_path).st_rdev != target_rdev:
+                raise PartitionCloneError("target partition identity changed before read-back")
+            safety(source_path)
+            safety(target_path)
+        except SourceSafetyError as exc:
+            raise PartitionCloneError(f"source or target became unsafe before read-back: {exc}") from exc
+        except OSError as exc:
+            raise PartitionCloneError(f"cannot revalidate devices before read-back: {exc}") from exc
         readback = _read_digest(
-            dd, target_path, source_size, factory=factory, effective_uid=effective_uid
+            dd, target_path, source_size, factory=factory, effective_uid=effective_uid,
+            progress_callback=(
+                (lambda done, total: progress_callback(source_size + done, source_size * 2))
+                if progress_callback is not None else None
+            ),
         )
         if readback != digest.hexdigest():
             raise PartitionCloneError("destination read-back SHA-256 does not match source")
