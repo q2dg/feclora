@@ -9,7 +9,7 @@ from feclora.deployment.job import DeploymentJob
 from feclora.deployment.coordinator import DeploymentCoordinator, JobState
 from feclora.network.udpcast import (
     UDPcastConfig, UDPcastError, build_receiver_argv, build_sender_argv,
-    receive_multicast_artifact_to_staging, verify_artifact_file,
+    discard_staged_multicast_artifact, multicast_firewall_scope,\n    receive_multicast_artifact_to_staging, verify_artifact_file,
 )
 from feclora.storage.image_manifest import ImageArtifact
 
@@ -89,6 +89,19 @@ class UDPcastConfigTests(unittest.TestCase):
             self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
             with open(path, "rb") as stream:
                 self.assertEqual(stream.read(), b"abc")
+
+    def test_firewall_scope_opens_exact_two_udp_ports_and_closes(self):
+        firewall = Mock()
+        with multicast_firewall_scope(firewall, "enp1s0", 9000):
+            firewall.open.assert_called_once_with("enp1s0", ["9000/udp", "9001/udp"])
+        firewall.close.assert_called_once_with("enp1s0")
+
+    def test_firewall_scope_closes_after_transfer_exception(self):
+        firewall = Mock()
+        with self.assertRaisesRegex(RuntimeError, "transfer failed"):
+            with multicast_firewall_scope(firewall, "enp1s0", 9000):
+                raise RuntimeError("transfer failed")
+        firewall.close.assert_called_once_with("enp1s0")
 
     def test_staging_rejects_short_file_and_removes_it(self):
         artifact = ImageArtifact(
