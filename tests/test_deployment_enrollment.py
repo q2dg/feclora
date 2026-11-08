@@ -73,6 +73,21 @@ class EnrollmentTests(unittest.TestCase):
             "52:54:00:12:34:56": "/pki/new.pub",
         })
 
+    def test_enrollment_rejects_multicast_mac_before_writing_config(self):
+        with (
+            patch("feclora.deployment.enrollment._load_config", return_value=config()),
+            patch("feclora.deployment.enrollment._verify_client_certificate") as verify,
+            patch("feclora.deployment.enrollment._write_config_atomically") as write,
+        ):
+            with self.assertRaisesRegex(EnrollmentError, "unicast hardware"):
+                enroll_client_certificate(
+                    "/etc/feclora/deployment-server.json", "/pki/client.crt",
+                    "01:00:5e:00:00:01",
+                    confirmation="ENROLL URI:client 01:00:5e:00:00:01",
+                )
+        verify.assert_not_called()
+        write.assert_not_called()
+
     def test_enrollment_requires_exact_confirmation(self):
         with (
             patch("feclora.deployment.enrollment._load_config", return_value=config()),
