@@ -1,5 +1,6 @@
 const ACTIONS = new Set([
   "status", "inventory", "images", "journals", "operations", "initialize_security",
+  "network_interfaces", "bootstrap_server",
   "capture_disk", "capture_partition", "restore_disk", "restore_partition",
   "clone_disk", "clone_partition"
 ]);
