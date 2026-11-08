@@ -16,7 +16,7 @@ from feclora.deployment.job import DeploymentJob
 from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
 from feclora.deployment.multicast_runtime import udpcast_config_for_job
 from feclora.deployment.bootstrap import ensure_server_deployment_config
-from feclora.deployment.managed_pki import PKIError, ca_fingerprint, inspect_client_csr, issue_client_certificate
+from feclora.deployment.managed_pki import (\n    PKIError, ca_fingerprint, inspect_client_csr, issue_client_certificate, register_age_recipient,\n)
 from feclora.deployment.enrollment import (
     enroll_client_certificate, inspect_client_certificate,
     revoke_client_certificate,
@@ -308,28 +308,6 @@ def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> Non
     recipient = Path(recipient_file).read_text(encoding="ascii").strip()
     if not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
         raise PKIError("Client age public recipient is malformed")
-    recipients_path = os.path.join(pki_directory, "age-recipients.txt")
-    existing_recipients = []
-    if os.path.exists(recipients_path):
-        existing_recipients = [
-            line.strip() for line in Path(recipients_path).read_text(encoding="ascii").splitlines()
-            if line.strip()
-        ]
-    recipients = sorted(set(existing_recipients + [recipient]))
-    temporary_recipients = recipients_path + ".tmp"
-    with open(temporary_recipients, "x", encoding="ascii") as stream:
-        stream.write("\n".join(recipients) + "\n")
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.chmod(temporary_recipients, 0o600)
-    os.replace(temporary_recipients, recipients_path)
-    shutil.copyfile(config.ca_file, os.path.join(output_directory, "ca.crt"))
-    shutil.copyfile(config.server_minisign_public_key, os.path.join(output_directory, "server.pub"))
-    shutil.copyfile(recipients_path, os.path.join(output_directory, "age-recipients.txt"))
-    os.chmod(certificate, 0o644)
-    os.chmod(os.path.join(output_directory, "ca.crt"), 0o644)
-    os.chmod(os.path.join(output_directory, "server.pub"), 0o644)
-    server_key_digest = hashlib.sha256(Path(os.path.join(output_directory, "server.pub")).read_bytes()).hexdigest()
     enroll_confirmation = dialog_app._input(
         "Add Client to trusted inventory",
         f"The certificate has been issued. Type exactly: ENROLL {issued} {mac.lower()}",
@@ -339,6 +317,16 @@ def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> Non
     enroll_client_certificate(
         config_path, certificate, mac, confirmation=enroll_confirmation,
     )
+    register_age_recipient(pki_directory, issued, recipient)
+    recipients_path = os.path.join(pki_directory, "age-recipients.txt")
+    shutil.copyfile(config.ca_file, os.path.join(output_directory, "ca.crt"))
+    shutil.copyfile(config.server_minisign_public_key, os.path.join(output_directory, "server.pub"))
+    shutil.copyfile(recipients_path, os.path.join(output_directory, "age-recipients.txt"))
+    os.chmod(certificate, 0o644)
+    os.chmod(os.path.join(output_directory, "ca.crt"), 0o644)
+    os.chmod(os.path.join(output_directory, "server.pub"), 0o644)
+    os.chmod(os.path.join(output_directory, "age-recipients.txt"), 0o644)
+    server_key_digest = hashlib.sha256(Path(os.path.join(output_directory, "server.pub")).read_bytes()).hexdigest()
     dialog_app._message(
         "Client certificate issued",
         f"Identity: {issued}\nCertificate bundle: {output_directory}\n"
