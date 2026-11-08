@@ -150,10 +150,10 @@ fi
 if ! grep -q 'feclora-deployment@.service' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Kickstart does not install the persistent deployment service unit."
 fi
-if ! grep -q 'start_deployment_service|deployment_service_status|stop_deployment_service|arm_deployment_job|cancel_deployment_job' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+if ! grep -q 'start_deployment_service|deployment_service_status|stop_deployment_service|arm_deployment_job|cancel_deployment_job|inspect_remote_job' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Kickstart Cockpit API wrapper does not allow deployment service lifecycle actions."
 fi
-if ! grep -q '"start_deployment_service", "deployment_service_status", "stop_deployment_service", "arm_deployment_job", "cancel_deployment_job"' "$ROOT_DIR/webui/src/api.js"; then
+if ! grep -q '"start_deployment_service", "deployment_service_status", "stop_deployment_service", "arm_deployment_job", "cancel_deployment_job", "inspect_remote_job"' "$ROOT_DIR/webui/src/api.js"; then
   fail "Cockpit API client does not allow persistent deployment service actions."
 fi
 if ! grep -q 'ExecStopPost=.*--recover-runtime' "$ROOT_DIR/src/feclora/data/feclora-deployment@.service"; then
