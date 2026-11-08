@@ -276,7 +276,7 @@ export default function App() {
   const createRemoteJob = async (event) => {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setRemoteJobResult(null);
     try {
-      const authorizedClients = remoteClients.split(/[\\s,;]+/).map((value) => value.trim()).filter(Boolean);
+      const authorizedClients = remoteClients.split(/[\s,;]+/).map((value) => value.trim()).filter(Boolean);
       const job = {
         schema_version: 1, job_id: crypto.randomUUID(), operation: remoteOperation,
         image_id: remoteImageId, target_type: remoteTargetType,
