@@ -1,10 +1,11 @@
+import stat
 import threading
 import unittest
 from unittest import mock
 from types import SimpleNamespace
 
 from feclora.deployment.coordinator import ClientState, JobState
-from feclora.deployment.service import DeploymentService, DeploymentServiceError
+from feclora.deployment.service import DeploymentService, DeploymentServiceError, recover_stale_ipc_socket
 
 
 class FakeCoordinator:
@@ -124,6 +125,26 @@ class DeploymentServiceCommandTests(unittest.TestCase):
                 "job_id": service.job.job_id,
                 "confirmation": "CANCEL " + service.job.job_id,
             })
+
+    def test_stale_private_root_socket_is_removed_after_lock_is_held(self):
+        info = SimpleNamespace(
+            st_mode=stat.S_IFSOCK | 0o600, st_uid=0, st_dev=12, st_ino=34,
+        )
+        with mock.patch("feclora.deployment.service.os.lstat", return_value=info), \
+             mock.patch("feclora.deployment.service.os.open", return_value=99), \
+             mock.patch("feclora.deployment.service.os.fsync"), \
+             mock.patch("feclora.deployment.service.os.close"), \
+             mock.patch("pathlib.Path.unlink") as unlink:
+            recover_stale_ipc_socket(lock_held=True)
+        unlink.assert_called_once()
+
+    def test_stale_ipc_recovery_refuses_regular_files(self):
+        info = SimpleNamespace(
+            st_mode=stat.S_IFREG | 0o600, st_uid=0, st_dev=12, st_ino=34,
+        )
+        with mock.patch("feclora.deployment.service.os.lstat", return_value=info):
+            with self.assertRaisesRegex(DeploymentServiceError, "not a private root-owned Unix socket"):
+                recover_stale_ipc_socket(lock_held=True)
 
 
 if __name__ == "__main__":
