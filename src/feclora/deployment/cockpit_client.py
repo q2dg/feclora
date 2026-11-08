@@ -102,8 +102,9 @@ def refresh_client_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
         raise CockpitEnrollmentError("this Client has no configured age identity and recipient inventory")
     try:
         info = os.lstat(config.age_identity_file)
-        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
-            raise CockpitEnrollmentError("Client age identity must be a root-owned regular file")
+        if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != 0 or info.st_mode & 0o077):
+            raise CockpitEnrollmentError("Client age identity must be a private, root-owned regular file")
         source_fd = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         try:
             source_info = os.fstat(source_fd)
@@ -131,8 +132,9 @@ def refresh_client_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
     parent = os.path.dirname(destination)
     try:
         parent_info = os.lstat(parent)
-        if not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode) or parent_info.st_uid != 0:
-            raise CockpitEnrollmentError("Client age recipient directory must be root-owned and real")
+        if (not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode)
+                or parent_info.st_uid != 0 or parent_info.st_mode & 0o077):
+            raise CockpitEnrollmentError("Client age recipient directory must be private, root-owned and real")
         if os.path.lexists(destination):
             destination_info = os.lstat(destination)
             if not stat.S_ISREG(destination_info.st_mode) or stat.S_ISLNK(destination_info.st_mode) or destination_info.st_uid != 0:
