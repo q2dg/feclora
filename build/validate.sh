@@ -153,6 +153,12 @@ fi
 if ! grep -q 'start_deployment_service|deployment_service_status|stop_deployment_service|arm_deployment_job|cancel_deployment_job' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Kickstart Cockpit API wrapper does not allow deployment service lifecycle actions."
 fi
+if ! grep -q '"start_deployment_service", "deployment_service_status", "stop_deployment_service", "arm_deployment_job", "cancel_deployment_job"' "$ROOT_DIR/webui/src/api.js"; then
+  fail "Cockpit API client does not allow persistent deployment service actions."
+fi
+if ! grep -q 'ExecStopPost=.*--recover-firewall' "$ROOT_DIR/src/feclora/data/feclora-deployment@.service"; then
+  fail "Deployment service unit does not recover stale firewall state after exit."
+fi
 
 if ! grep -q 'class LocalControlServer' "$ROOT_DIR/src/feclora/deployment/local_control.py"; then
   fail "Deployment service local IPC server primitive is missing."
