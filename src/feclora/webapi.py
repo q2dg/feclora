@@ -469,8 +469,9 @@ def _start_pxe_services(params: dict[str, Any]) -> dict[str, Any]:
         authoritative_confirmed=params["authoritative_confirmed"],
     )
     try:
-        _pxe_service_manager().start(config)
-        status = _pxe_service_manager().status()
+        manager = _pxe_service_manager()
+        manager.start(config)
+        status = manager.status()
     except Exception as exc:
         raise WebAPIError(f"PXE service activation failed: {exc}") from exc
     return {
