@@ -469,7 +469,7 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
                 coordinator, server_context, local_identity="URI:feclora-server",
                 client_identity_to_mac={"URI:feclora-client": MAC},
             )
-            host, port = server.start()
+            host, port = server.start("127.0.0.1", 0)
             accepted = []
             accept_thread = threading.Thread(
                 target=lambda: accepted.append(server.accept_ready_client(server._listener)),
