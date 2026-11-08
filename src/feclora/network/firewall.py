@@ -88,10 +88,10 @@ class PXEFirewall:
             for port in requested:
                 self._call([f"--zone={zone}", f"--add-port={port}"])
             self._notify(interface)
-        except PXEFirewallError as start_error:
+        except Exception as start_error:
             try:
                 self.close(interface)
-            except PXEFirewallError as rollback_error:
+            except Exception as rollback_error:
                 raise PXEFirewallError(
                     f"{start_error}; firewall rollback failed: {rollback_error}"
                 ) from start_error
