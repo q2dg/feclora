@@ -8,6 +8,13 @@ for file in "$ROOT_DIR/build/build-iso.sh" "$ROOT_DIR/build/preflight.sh" "$ROOT
   [[ -f "$file" ]] || fail "Required project file is missing: $file"
 done
 
+if [[ -f "$ROOT_DIR/README.md" ]]; then
+  grep -q 'Fedora Linux 45' "$ROOT_DIR/README.md" || fail "README does not identify Fedora Linux 45 as the current project baseline."
+  if grep -Eiq 'Fedora 43|F43|fc43|fedora-43' "$ROOT_DIR/README.md"; then
+    fail "README still contains a stale Fedora 43 baseline reference."
+  fi
+fi
+
 if [[ -f "$ROOT_DIR/kickstart/feclora-live.ks" ]]; then
   grep -q '^#version=F45$' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not declare Fedora 45 (#version=F45)."
   grep -q '^part / ' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not define a root partition."
