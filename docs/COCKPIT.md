@@ -48,14 +48,20 @@ The Operations wizard provides:
 - whole-disk and partition-to-partition cloning;
 - device discovery, image selection, compression selection and typed
   destructive confirmation;
-- streamed byte-progress events from the storage engine.
+- streamed byte-progress events from the storage engine;
+- local age identity and minisign key initialization, optional age encryption
+  and manifest signing on capture;
+- durable local operation history.
 
 The browser calls the same Python storage engines as the rest of Feclora.
 The root-owned `/usr/libexec/feclora/cockpit-api` wrapper accepts a fixed
 allowlist of actions. Requests are bounded JSON on stdin; device paths,
 operation parameters, image identifiers and typed confirmations are
 validated again by the backend. No shell or arbitrary command execution is
-exposed through the API.
+exposed through the API. Local image keys are generated once and kept under
+`/etc/feclora/pki`; back up private keys securely and offline. Losing the age
+identity makes encrypted local images unrecoverable, and losing the signing
+key prevents future signatures with the same identity.
 
 ## Current scope and limitations
 
