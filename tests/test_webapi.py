@@ -115,6 +115,20 @@ class WebAPITests(unittest.TestCase):
             with self.assertRaisesRegex(WebAPIError, "Client revocation failed: inventory corrupt"):
                 _revoke_server_client({"identity": identity, "confirmation": f"REVOKE {identity}"})
 
+    def test_age_recipient_export_and_refresh_actions_are_allowlisted(self):
+        with patch("feclora.deployment.cockpit_enrollment.export_server_age_recipients",
+                   return_value={"recipient_count": 2}) as export:
+            self.assertEqual(dispatch({"action": "export_server_age_recipients", "params": {
+                "export_directory": "/run/media/usb",
+            }}), {"recipient_count": 2})
+        export.assert_called_once_with({"export_directory": "/run/media/usb"})
+        with patch("feclora.deployment.cockpit_client.refresh_client_age_recipients",
+                   return_value={"recipient_count": 2}) as refresh:
+            self.assertEqual(dispatch({"action": "refresh_client_age_recipients", "params": {
+                "inventory_path": "/run/media/usb/age-recipients.txt",
+            }}), {"recipient_count": 2})
+        refresh.assert_called_once_with({"inventory_path": "/run/media/usb/age-recipients.txt"})
+
     def test_prepare_client_request_is_exposed_through_allowlisted_api(self):
         with patch("feclora.webapi._prepare_client_request", return_value={"identity": "URI:feclora-client-lab"}) as prepare:
             result = dispatch({"action": "prepare_client_request", "params": {"client_id": "lab"}})
