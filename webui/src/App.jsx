@@ -602,10 +602,10 @@ export default function App() {
       {status?.certificate_status?.length > 0 && <PageSection>
         <Stack hasGutter>
           {status.certificate_status.map((item) => <Alert key={item.role} variant={
-            item.status === "expired" || item.status === "error" ? "danger"
-              : item.status === "expiring" ? "warning" : "success"
+            item.status === "expired" || item.ca_status === "expired" || item.status === "error" ? "danger"
+              : item.status === "expiring" || item.ca_status === "expiring" ? "warning" : "success"
           } title={item.role + " TLS certificate: " + item.status} isInline>
-            {item.identity ? item.identity + " · " : ""}{item.expiry_days === null ? (item.detail || "Certificate status could not be read.") : item.expiry_days < 0 ? "Expired " + (-item.expiry_days) + " days ago." : "Expires in " + item.expiry_days + " days."}
+            {item.identity ? item.identity + " · " : ""}{item.expiry_days === null ? (item.detail || "Certificate status could not be read.") : item.expiry_days < 0 ? "Certificate expired " + (-item.expiry_days) + " days ago." : "Certificate expires in " + item.expiry_days + " days."}{item.ca_expiry_days !== undefined ? " CA: " + (item.ca_expiry_days < 0 ? "expired " + (-item.ca_expiry_days) + " days ago" : "expires in " + item.ca_expiry_days + " days") + "." : ""}
           </Alert>)}
         </Stack>
       </PageSection>}
