@@ -162,6 +162,61 @@ def copy_fd_range(
     return RangeCopyResult(copied, digest.hexdigest())
 
 
+def parse_sfdisk_dump(
+    document: str,
+    *,
+    image_size_bytes: int,
+    default_sector_size: int = 512,
+) -> Mapping[str, object]:
+    """Parse the sfdisk --dump text stored by disk_capture into range metadata."""
+    if not isinstance(document, str) or len(document) > 1024 * 1024:
+        raise PartitionRangeError("sfdisk dump must be text no larger than 1 MiB")
+    sector_size = default_sector_size
+    partitions = []
+    seen_fields: set[str] = set()
+    field_pattern = __import__("re").compile(
+        r'([A-Za-z][A-Za-z0-9_-]*)\\s*=\\s*(?:"([^"]*)"|([^,\\s]+))'
+    )
+    for raw_line in document.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("sector-size:"):
+            try:
+                sector_size = int(line.split(":", 1)[1].strip())
+            except ValueError as exc:
+                raise PartitionRangeError("invalid sector-size in sfdisk dump") from exc
+            continue
+        if not line.startswith("/dev/") or ":" not in line:
+            continue
+        node, fields_text = line.split(":", 1)
+        node = node.strip()
+        fields = {}
+        for match in field_pattern.finditer(fields_text):
+            key = match.group(1)
+            if key in fields:
+                raise PartitionRangeError(f"duplicate {key} field for {node}")
+            fields[key] = match.group(2) if match.group(2) is not None else match.group(3)
+        try:
+            start = int(fields["start"])
+            size = int(fields["size"])
+        except (KeyError, ValueError) as exc:
+            raise PartitionRangeError(f"missing or invalid start/size for {node}") from exc
+        part = {"node": node, "start": start, "size": size}
+        if "uuid" in fields:
+            part["uuid"] = fields["uuid"]
+        if "name" in fields:
+            part["name"] = fields["name"]
+        partitions.append(part)
+    if not partitions:
+        raise PartitionRangeError("sfdisk dump contains no partition entries")
+    table = {"partitiontable": {"partitions": partitions}}
+    ranges = partition_ranges(
+        table, image_size_bytes=image_size_bytes, sector_size=sector_size
+    )
+    return table
+
+
 def load_sfdisk_json(raw: str) -> Mapping[str, object]:
     """Decode sfdisk JSON while rejecting duplicate object keys."""
     def unique_pairs(pairs):
