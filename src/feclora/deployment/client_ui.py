@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 import tempfile
@@ -125,6 +126,8 @@ def _client_enrollment_wizard(config_path: str) -> bool:
     client_id = dialog_app._input("Client identity", "Enter the same lowercase identifier used when preparing the CSR:")
     if not client_id:
         return False
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", client_id):
+        raise PKIError("Client identifier must contain 1-48 lowercase letters, digits or hyphens")
     host = dialog_app._input("Feclora Server address", "Enter the Server IPv4 address or hostname:")
     if not host:
         return False
@@ -142,8 +145,12 @@ def _client_enrollment_wizard(config_path: str) -> bool:
     server_public_key = os.path.join(bundle, "server.pub")
     age_recipients_bundle = os.path.join(bundle, "age-recipients.txt")
     local_key = os.path.join(pki_directory, f"client-{client_id}.key")
-    if not os.path.isfile(local_key):
-        raise PKIError("locally generated Client private key is missing; prepare the CSR on this Client first")
+    try:
+        local_key_info = os.lstat(local_key)
+    except OSError as exc:
+        raise PKIError("locally generated Client private key is missing; prepare the CSR on this Client first") from exc
+    if not stat.S_ISREG(local_key_info.st_mode) or stat.S_ISLNK(local_key_info.st_mode) or local_key_info.st_uid != 0 or local_key_info.st_mode & 0o077:
+        raise PKIError("locally generated Client private key is not a protected root-owned regular file")
     ca_expected = dialog_app._input(
         "Verify Feclora CA fingerprint",
         "Enter the SHA-256 fingerprint displayed by the Server when its CA was created (hexadecimal, colons optional):",
@@ -154,10 +161,16 @@ def _client_enrollment_wizard(config_path: str) -> bool:
         certificate, ca_file, local_key, pki_directory,
         f"URI:feclora-client-{client_id}", ca_expected,
     )
-    if not os.path.isfile(server_public_key):
-        raise PKIError("Server response bundle is missing server.pub")
-    if not os.path.isfile(age_recipients_bundle):
-        raise PKIError("Server response bundle is missing the age recipient inventory")
+    for path, label in ((server_public_key, "server.pub"), (age_recipients_bundle, "age recipient inventory")):
+        try:
+            info = os.lstat(path)
+        except OSError as exc:
+            raise PKIError(f"Server response bundle is missing {label}: {exc}") from exc
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
+            raise PKIError(f"Server response {label} must be a regular file, not a symlink")
+    recipients = [line.strip() for line in open(age_recipients_bundle, encoding="ascii") if line.strip()]
+    if not recipients or any(not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients):
+        raise PKIError("Server age recipient inventory is empty or malformed")
     server_fingerprint = _sha256_file(server_public_key)
     expected_server_key = dialog_app._input(
         "Verify Server image-signing key",
@@ -172,11 +185,18 @@ def _client_enrollment_wizard(config_path: str) -> bool:
     shutil.copyfile(age_recipients_bundle, installed_recipients)
     os.chmod(installed_recipients, 0o600)
     age_identity = os.path.join(pki_directory, f"client-{client_id}.age")
-    if not os.path.isfile(age_identity):
-        raise PKIError("locally generated age identity is missing; prepare enrollment on this Client first")
+    try:
+        age_info = os.lstat(age_identity)
+    except OSError as exc:
+        raise PKIError("locally generated age identity is missing; prepare enrollment on this Client first") from exc
+    if not stat.S_ISREG(age_info.st_mode) or stat.S_ISLNK(age_info.st_mode) or age_info.st_uid != 0:
+        raise PKIError("locally generated age identity must be a root-owned regular file")
     os.chmod(age_identity, 0o600)
     repository = "/var/lib/feclora/images"
     os.makedirs(repository, mode=0o700, exist_ok=True)
+    repository_info = os.lstat(repository)
+    if not stat.S_ISDIR(repository_info.st_mode) or stat.S_ISLNK(repository_info.st_mode) or repository_info.st_uid != 0:
+        raise PKIError("Client image repository must be a root-owned real directory")
     os.chmod(repository, 0o700)
     config = {
         "schema_version": 1,
