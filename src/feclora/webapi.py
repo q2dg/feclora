@@ -716,6 +716,102 @@ def _deployment_journal_directory(*, create: bool = False) -> Path:
     return directory
 
 
+def _deployment_service_job_id(params: dict[str, Any]) -> str:
+    if set(params) != {"job_id"}:
+        raise WebAPIError("deployment service action requires exactly job_id")
+    job_id = params["job_id"]
+    if not isinstance(job_id, str) or not re.fullmatch(
+        r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
+        job_id,
+    ):
+        raise WebAPIError("job_id must be a canonical UUID")
+    return job_id
+
+
+def _deployment_service_unit(job_id: str) -> str:
+    return "feclora-deployment@" + job_id + ".service"
+
+
+def _deployment_service_status(job_id: str) -> dict[str, Any]:
+    from feclora.deployment.local_control import LocalControlError, local_control_request
+    try:
+        status = local_control_request("/run/feclora/deployment.sock", "status")
+    except (OSError, LocalControlError) as exc:
+        raise WebAPIError(f"deployment service IPC is unavailable: {exc}") from exc
+    if status.get("job_id") != job_id:
+        raise WebAPIError("the active deployment service belongs to a different job")
+    return status
+
+
+def _start_deployment_service(params: dict[str, Any]) -> dict[str, Any]:
+    job_id = _deployment_service_job_id(params)
+    unit = _deployment_service_unit(job_id)
+    try:
+        result = subprocess.run(
+            ["/usr/bin/systemctl", "start", unit],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise WebAPIError(f"could not start persistent deployment service: {exc}") from exc
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise WebAPIError(f"deployment service did not start: {detail or result.returncode}")
+    deadline = time.monotonic() + 10
+    last_error = None
+    while time.monotonic() < deadline:
+        try:
+            return _deployment_service_status(job_id)
+        except WebAPIError as exc:
+            last_error = exc
+            time.sleep(0.1)
+    raise WebAPIError(f"deployment service started but its local control socket did not become ready: {last_error}")
+
+
+def _stop_deployment_service(params: dict[str, Any]) -> dict[str, Any]:
+    job_id = _deployment_service_job_id(params)
+    status = _deployment_service_status(job_id)
+    if status.get("worker_active") or status.get("job_state") in {"armed", "running"}:
+        raise WebAPIError("cannot stop the service while a deployment worker may be performing storage I/O")
+    if status.get("job_state") == "created" and status.get("clients"):
+        raise WebAPIError("cancel the unarmed job before stopping its service while Clients are connected")
+    try:
+        result = subprocess.run(
+            ["/usr/bin/systemctl", "stop", _deployment_service_unit(job_id)],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise WebAPIError(f"could not stop persistent deployment service: {exc}") from exc
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise WebAPIError(f"deployment service did not stop cleanly: {detail or result.returncode}")
+    return {"job_id": job_id, "stopped": True,
+            "message": "Deployment control service stopped. No interrupted job was resumed."}
+
+
+def _deployment_service_command(action: str, params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"job_id", "confirmation"}:
+        raise WebAPIError(f"{action} requires exactly job_id and confirmation")
+    job_id = params["job_id"]
+    if not isinstance(job_id, str) or not re.fullmatch(
+        r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
+        job_id,
+    ):
+        raise WebAPIError("job_id must be a canonical UUID")
+    confirmation = params["confirmation"]
+    if not isinstance(confirmation, str) or len(confirmation) > 96:
+        raise WebAPIError("operator confirmation is invalid")
+    from feclora.deployment.local_control import LocalControlError, local_control_request
+    try:
+        return local_control_request(
+            "/run/feclora/deployment.sock", "arm" if action == "arm_deployment_job" else "cancel",
+            {"job_id": job_id, "confirmation": confirmation},
+        )
+    except (OSError, LocalControlError) as exc:
+        raise WebAPIError(f"deployment service rejected the command: {exc}") from exc
+
+
 def _deployment_jobs() -> list[dict[str, Any]]:
     from feclora.deployment.journal import DeploymentJournal
     if not os.path.lexists("/var/lib/feclora/deployments"):
@@ -938,6 +1034,14 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _create_deployment_job(params)
     if action == "reconcile_deployment_job":
         return _reconcile_deployment_job(params)
+    if action == "start_deployment_service":
+        return _start_deployment_service(params)
+    if action == "deployment_service_status":
+        return _deployment_service_status(_deployment_service_job_id(params))
+    if action == "stop_deployment_service":
+        return _stop_deployment_service(params)
+    if action in {"arm_deployment_job", "cancel_deployment_job"}:
+        return _deployment_service_command(action, params)
     if action == "journals":
         if params:
             raise WebAPIError("journals does not accept parameters")
