@@ -14,6 +14,7 @@ import re
 import socket
 import stat
 import subprocess
+import tempfile
 import sys
 import time
 from pathlib import Path
@@ -309,32 +310,65 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         expected_type = "disk" if action == "restore_disk" else "partition"
         if manifest.image_type != expected_type:
             raise WebAPIError(f"selected image is not a {expected_type} image")
+        from feclora.storage.image_security import verify_manifest_signature
         security = _security_material()
         signed = os.path.isfile(str(manifest_path) + ".minisig")
         encrypted = any(item.encryption == "age" for item in manifest.artifacts)
-        if signed and not security["image_verification_available"]:
-            raise WebAPIError("signed image requires the trusted Feclora minisign public key")
-        if encrypted and not security["age_decryption_available"]:
-            raise WebAPIError("age-encrypted image requires the local Feclora age identity")
         pki = Path("/etc/feclora/pki")
-        if action == "restore_disk":
-            from feclora.storage.disk_restore import restore_disk
-            restore_disk(
-                manifest_path, _repository(), target, confirmation=expected,
-                progress_callback=_progress,
-                age_identity_file=pki / "server.age" if encrypted else None,
-                minisign_public_key=pki / "server.pub" if signed else None,
-                require_signature=signed,
-            )
-        else:
-            from feclora.storage.partition_restore import restore_partition
-            restore_partition(
-                manifest_path, _repository(), target, confirmation=expected,
-                progress_callback=_progress,
-                age_identity_file=pki / "server.age" if encrypted else None,
-                minisign_public_key=pki / "server.pub" if signed else None,
-                require_signature=signed,
-            )
+        identity_paths: list[Path] = []
+        if security["age_decryption_available"]:
+            identity_paths.append(pki / "server.age")
+        trusted_keys: list[Path] = []
+        if security["image_verification_available"]:
+            trusted_keys.append(pki / "server.pub")
+        client_config_path = Path("/etc/feclora/deployment-client.json")
+        if client_config_path.exists():
+            from feclora.deployment.runtime_config import load_client_runtime_config
+            client_config = load_client_runtime_config(str(client_config_path))
+            if client_config.age_identity_file:
+                identity_paths.append(Path(client_config.age_identity_file))
+            trusted_keys.insert(0, Path(client_config.trusted_server_public_key))
+        if encrypted and not identity_paths:
+            raise WebAPIError("age-encrypted image requires an enrolled Client or local Feclora age identity")
+        trusted_key = None
+        if signed:
+            for candidate in dict.fromkeys(trusted_keys):
+                try:
+                    verify_manifest_signature(manifest_path, candidate)
+                    trusted_key = candidate
+                    break
+                except Exception:
+                    continue
+            if trusted_key is None:
+                raise WebAPIError("signed image does not verify against any locally trusted Feclora signing key")
+        identity_context = tempfile.TemporaryDirectory(prefix="feclora-age-identities-") if encrypted and len(identity_paths) > 1 else None
+        try:
+            if identity_context:
+                identity_file = Path(identity_context.name) / "identities.txt"
+                contents = []
+                for identity_path in identity_paths:
+                    contents.append(identity_path.read_text(encoding="ascii").strip())
+                identity_file.write_text("\n".join(contents) + "\n", encoding="ascii")
+                os.chmod(identity_file, 0o600)
+            else:
+                identity_file = identity_paths[0] if encrypted else None
+            if action == "restore_disk":
+                from feclora.storage.disk_restore import restore_disk
+                restore_disk(
+                    manifest_path, _repository(), target, confirmation=expected,
+                    progress_callback=_progress, age_identity_file=identity_file,
+                    minisign_public_key=trusted_key, require_signature=signed,
+                )
+            else:
+                from feclora.storage.partition_restore import restore_partition
+                restore_partition(
+                    manifest_path, _repository(), target, confirmation=expected,
+                    progress_callback=_progress, age_identity_file=identity_file,
+                    minisign_public_key=trusted_key, require_signature=signed,
+                )
+        finally:
+            if identity_context:
+                identity_context.cleanup()
         result = {"image_id": image_id, "target": target, "verified": True}
     elif action == "clone_disk":
         from feclora.storage.disk_clone import clone_disk
