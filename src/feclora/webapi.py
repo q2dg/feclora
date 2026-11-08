@@ -1698,14 +1698,16 @@ def _revoke_server_client(params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(confirmation, str) or confirmation != f"REVOKE {identity}":
         raise WebAPIError("revocation confirmation does not match")
     from feclora.deployment.enrollment import revoke_client_certificate
+    from feclora.deployment.cockpit_enrollment import remove_client_certificate_pin
     try:
         mac = revoke_client_certificate(
             "/etc/feclora/deployment-server.json", identity,
             confirmation=confirmation,
         )
+        pin_removed = remove_client_certificate_pin(identity)
     except Exception as exc:
         raise WebAPIError(f"Client revocation failed: {exc}") from exc
-    return {"identity": identity, "mac_address": mac, "revoked": True}
+    return {"identity": identity, "mac_address": mac, "revoked": True, "certificate_pin_removed": pin_removed}
 
 
 def dispatch(request: Any) -> dict[str, Any]:
