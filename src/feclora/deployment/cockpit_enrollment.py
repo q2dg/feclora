@@ -151,9 +151,10 @@ def export_server_age_recipients(params: dict[str, object]) -> dict[str, object]
     }
 
 
-def _client_pin_directory() -> Path:
+def _client_pin_directory(*, create: bool = False) -> Path:
     directory = Path(PKI) / "client-certificate-pins"
-    directory.mkdir(mode=0o700, exist_ok=True)
+    if create:
+        directory.mkdir(mode=0o700, exist_ok=True)
     info = os.lstat(directory)
     if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
         raise CockpitEnrollmentError("Client certificate pin directory must be root-owned and private")
@@ -182,14 +183,14 @@ def _public_key_fingerprint(path: str, *, csr: bool) -> str:
     return hashlib.sha256(der.stdout).hexdigest()
 
 
-def _client_pin_path(identity: str) -> Path:
+def _client_pin_path(identity: str, *, create_directory: bool = False) -> Path:
     prefix = "URI:feclora-client-"
     if not isinstance(identity, str) or not identity.startswith(prefix):
         raise CockpitEnrollmentError("Client certificate identity is invalid for key pinning")
     client_id = identity.removeprefix(prefix)
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", client_id):
         raise CockpitEnrollmentError("Client identifier is invalid for key pinning")
-    return _client_pin_directory() / f"{client_id}.sha256"
+    return _client_pin_directory(create=create_directory) / f"{client_id}.sha256"
 
 
 def _verify_client_csr_pin(identity: str, csr_path: str) -> str:
@@ -222,7 +223,7 @@ def remove_client_certificate_pin(identity: str) -> bool:
 
 
 def _store_client_certificate_pin(identity: str, certificate_path: str) -> Path:
-    path = _client_pin_path(identity)
+    path = _client_pin_path(identity, create_directory=True)
     if os.path.lexists(path):
         raise CockpitEnrollmentError("Client TLS public-key pin already exists; inspect enrollment state before proceeding")
     fingerprint = _public_key_fingerprint(certificate_path, csr=False)
