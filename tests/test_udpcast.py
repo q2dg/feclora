@@ -3,14 +3,16 @@ import os
 import tempfile
 import unittest
 from types import SimpleNamespace
+from contextlib import nullcontext
 from unittest.mock import Mock, patch
 
 from feclora.network.udpcast import (
     UDPcastConfig, UDPcastError, build_receiver_argv, build_sender_argv,
     discard_staged_multicast_artifact, multicast_firewall_scope,
-    receive_multicast_artifact_to_staging, verify_artifact_file,
+    receive_multicast_artifact_to_staging, send_multicast_artifact, verify_artifact_file,
 )
 from feclora.storage.image_manifest import ImageArtifact
+from feclora.deployment.coordinator import ClientState, JobState
 
 
 class UDPcastConfigTests(unittest.TestCase):
@@ -61,6 +63,42 @@ class UDPcastConfigTests(unittest.TestCase):
                 stream.write(b"x")
             with self.assertRaisesRegex(UDPcastError, "size"):
                 verify_artifact_file(path, artifact)
+
+    def test_sender_accepts_authenticated_clients_already_running(self):
+        job = SimpleNamespace(
+            transport="multicast", network_interface="enp1s0",
+            multicast_group="239.10.10.1", multicast_port=9000,
+            image_id="golden-image",
+        )
+        coordinator = Mock()
+        coordinator.job = job
+        coordinator.state = JobState.RUNNING
+        coordinator.clients.return_value = [
+            SimpleNamespace(state=ClientState.RUNNING),
+            SimpleNamespace(state=ClientState.RUNNING),
+        ]
+        manifest = SimpleNamespace(
+            image_id="golden-image",
+            artifacts=[SimpleNamespace(filename="disk.img")],
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            source = os.path.join(directory, "disk.img")
+            signature = os.path.join(directory, "image.manifest.json")
+            key = os.path.join(directory, "server.pub")
+            for path in (source, signature, key):
+                with open(path, "wb") as stream:
+                    stream.write(b"x")
+            with (
+                patch("feclora.network.udpcast._load_signed_manifest", return_value=manifest),
+                patch("feclora.network.udpcast.verify_artifact_file"),
+                patch("feclora.network.udpcast.shutil.which", return_value="/usr/bin/udp-sender"),
+                patch("feclora.network.udpcast.multicast_firewall_scope", return_value=nullcontext()),
+                patch("feclora.network.udpcast._run_process") as run,
+            ):
+                send_multicast_artifact(
+                    coordinator, source, signature, key, self.config, firewall=Mock(),
+                )
+            run.assert_called_once()
 
     def test_staging_preflight_rejects_insufficient_space(self):
         artifact = ImageArtifact(
