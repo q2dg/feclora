@@ -22,7 +22,7 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [x] Cockpit storage/image inventory, operation journal summary and local image-security setup.
 - [x] Cockpit Terminal remains available for system administration.
 - [x] Initial Cockpit Server identity bootstrap from a currently assigned IPv4 address, including DHCP-server warning and managed trust-material initialization.
-- [x] Cockpit PXE network-profile preflight for ProxyDHCP and isolated DHCP, including address-pool validation and dnsmasq/Caddy daemon checks; it does not activate services.
+- [x] Cockpit PXE network-profile preflight and explicit activation/shutdown for ProxyDHCP and isolated DHCP, with persisted transient systemd units and reversible interface-scoped firewalld state.
 
 ## Remaining implementation work
 
