@@ -6,7 +6,7 @@ feclora's whole-disk image format stores the raw disk payload and an associated 
 
 `src/feclora/storage/partition_range.py` provides:
 
-- Strict parsing of `sfdisk --json` with duplicate-key rejection.
+- Strict parsing of `sfdisk --json` with duplicate-key rejection, plus parsing of the `sfdisk --dump` text artifact currently produced by whole-disk capture.
 - Conversion of partition start/size sectors into byte offsets and lengths.
 - Bounds checks against the whole-disk image size.
 - Duplicate-node and overlapping-range rejection.
