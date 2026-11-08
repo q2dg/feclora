@@ -86,6 +86,11 @@ create_vm feclora-pxe-bios "$LAB_DIR/client-bios.qcow2" \
 create_vm feclora-pxe-uefi "$LAB_DIR/client-uefi.qcow2" \
   --pxe --boot uefi --osinfo detect=on,require=off
 
+# virt-install starts guests immediately. Keep PXE clients powered off until
+# the operator has configured and started Feclora Server DHCP/PXE services.
+virsh destroy feclora-pxe-bios >/dev/null 2>&1 || true
+virsh destroy feclora-pxe-uefi >/dev/null 2>&1 || true
+
 trap - EXIT
 cat <<EOF
 VM lab created successfully (VM creation only; no PXE boot test has run).
