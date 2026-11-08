@@ -129,7 +129,7 @@ class PXEServiceManager:
         except FileNotFoundError:
             return None
         if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
-                or info.st_uid != 0 or info.st_mode & 0o077 or info.st_size > 8192):
+                or info.st_uid != os.geteuid() or info.st_mode & 0o077 or info.st_size > 8192):
             raise PXEServiceError("persisted PXE runtime state is unsafe")
         try:
             value = json.loads(self._state_path.read_text(encoding="utf-8"))
