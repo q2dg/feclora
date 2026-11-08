@@ -40,6 +40,9 @@ export default function App() {
   const [journals, setJournals] = useState([]);
   const [operations, setOperations] = useState([]);
   const [inventory, setInventory] = useState(null);
+  const [networkInterfaces, setNetworkInterfaces] = useState([]);
+  const [serverBinding, setServerBinding] = useState("");
+  const [serverSetup, setServerSetup] = useState(null);
   const [security, setSecurity] = useState({});
   const [encrypt, setEncrypt] = useState(false);
   const [sign, setSign] = useState(false);
@@ -59,10 +62,10 @@ export default function App() {
   const refresh = useCallback(async () => {
     setBusy(true); setError("");
     try {
-      const [s, i, j, op, inv] = await Promise.all([
-        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("operations"), callFeclora("inventory")
+      const [s, i, j, op, inv, net] = await Promise.all([
+        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("operations"), callFeclora("inventory"), callFeclora("network_interfaces")
       ]);
-      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv);
+      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   }, []);
@@ -101,6 +104,23 @@ export default function App() {
       });
       setOperationResult(result);
       setNotice("Operation completed successfully.");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const bootstrapServer = async () => {
+    const selected = networkInterfaces.find((item) => item.binding === serverBinding);
+    if (!selected) return;
+    setBusy(true); setError(""); setNotice(""); setServerSetup(null);
+    try {
+      const result = await callFeclora("bootstrap_server", {
+        interface: selected.interface,
+        address: selected.address,
+        prefix_length: selected.prefix_length
+      });
+      setServerSetup(result);
+      setNotice(result.message);
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -252,6 +272,32 @@ export default function App() {
                 {operations.map((item, index) => <Tr key={item.operation_id + "-" + item.status + "-" + index}><Td>{item.timestamp || "—"}</Td><Td>{item.operation || "—"}</Td><Td>{item.target || "—"}</Td><Td>{item.image_id || "—"}</Td><Td><Label color={item.status === "completed" ? "green" : item.status === "failed" ? "red" : "orange"}>{item.status || "unknown"}</Label></Td><Td>{item.operation_id || "—"}</Td></Tr>)}
                 {!operations.length && <Tr><Td colSpan={6}>No local operations recorded.</Td></Tr>}
               </Tbody></Table></StackItem>
+            </Stack>
+          </Tab>
+          <Tab eventKey="server" title="Server setup">
+            <Stack hasGutter className="pf-v5-u-pt-lg">
+              <StackItem>
+                <Title headingLevel="h2" size="xl">Initialize deployment Server identity</Title>
+                <p>Select an IPv4 address currently assigned to the management interface. Feclora will initialize its managed CA, mTLS Server certificate, age recipient identity and minisign signing keys.</p>
+                <Alert variant="info" title="This is the identity bootstrap step only" isInline>
+                  It does not enable DHCP/ProxyDHCP, configure PXE boot services, open firewall ports, enroll Clients or start a deployment. Those guided workflows are still being integrated.
+                </Alert>
+              </StackItem>
+              <StackItem>
+                <Field label="Server network interface and address" help="Only active non-loopback IPv4 addresses assigned to this host are offered.">
+                  <select className="pf-v5-c-form-control" value={serverBinding} onChange={(e) => setServerBinding(e.target.value)}>
+                    <option value="">Select an interface/address…</option>
+                    {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
+                  </select>
+                </Field>
+                {networkInterfaces.length === 0 && <Alert variant="warning" title="No eligible IPv4 interface found" isInline>Connect and configure the intended management interface, then refresh this page.</Alert>}
+                {networkInterfaces.find((item) => item.binding === serverBinding)?.dhcp_server && <Alert variant="warning" title="Existing DHCP server detected" isInline>
+                  NetworkManager reports DHCP server {networkInterfaces.find((item) => item.binding === serverBinding).dhcp_server} on this interface. This identity-only step will not change DHCP settings; review the network topology before enabling PXE or DHCP services.
+                </Alert>}
+                <Button variant="primary" onClick={bootstrapServer} isLoading={busy} isDisabled={busy || !serverBinding || status?.server_configured}>Initialize Server identity</Button>
+              </StackItem>
+              {status?.server_configured && <StackItem><Alert variant="success" title="Server configuration exists" isInline>The existing configuration is not overwritten by this wizard. Continue with the remaining Server and PXE setup once those Cockpit workflows are available.</Alert></StackItem>}
+              {serverSetup && <StackItem><Card><CardBody><Title headingLevel="h3" size="lg">Server identity status</Title><p>{serverSetup.message}</p><p>Bind address: {serverSetup.bind_address}:{serverSetup.port}</p><p>Certificate identity: {serverSetup.server_identity}</p><p>Enrolled Clients: {serverSetup.enrolled_clients}</p></CardBody></Card></StackItem>}
             </Stack>
           </Tab>
           <Tab eventKey="system" title="System">
