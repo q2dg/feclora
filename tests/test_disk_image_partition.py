@@ -61,6 +61,22 @@ class DiskImagePartitionTests(unittest.TestCase):
         self.assertTrue(progress)
         self.assertEqual(progress[-1], (2048, 2048))
 
+    def test_signs_extracted_manifest_before_atomic_publication(self):
+        def sign(path, secret_key, **kwargs):
+            with open(path + ".minisig", "wb") as stream:
+                stream.write(b"signature")
+        with unittest.mock.patch("feclora.storage.disk_image_partition.sign_manifest", side_effect=sign) as signer:
+            _manifest, filename = extract_partition_image(
+                self.manifest, self.temp.name, "aaaa-bbbb",
+                minisign_secret_key="/secure/server.minisign.key",
+            )
+        signer.assert_called_once()
+        self.assertTrue(os.path.isfile(os.path.join(self.temp.name, filename + ".minisig")))
+        self.assertEqual(
+            open(os.path.join(self.temp.name, filename + ".minisig"), "rb").read(),
+            b"signature",
+        )
+
     def test_selects_partition_by_name(self):
         extracted, _ = extract_partition_image(
             self.manifest, self.temp.name, "root fs"
