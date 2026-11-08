@@ -197,9 +197,18 @@ def multicast_firewall_scope(firewall: Any, interface: str, portbase: int) -> It
     if firewall is None:
         yield
         return
+    ports = [f"{portbase}/udp", f"{portbase + 1}/udp"]
+    if firewall.is_open(interface):
+        added = firewall.add_ports(interface, ports)
+        try:
+            yield
+        finally:
+            if added:
+                firewall.remove_ports(interface, added)
+        return
     opened = False
     try:
-        firewall.open(interface, [f"{portbase}/udp", f"{portbase + 1}/udp"], include_tftp=False)
+        firewall.open(interface, ports, include_tftp=False)
         opened = True
         yield
     finally:
