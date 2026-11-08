@@ -133,11 +133,16 @@ def run_server_ui(
     mode = mode_result.stdout.strip()
     pool_start = pool_end = gateway = dns_server = None
     confirmed = False
+    try:
+        observed_dhcp = detect_existing_dhcp_server(selected.interface)
+    except InterfaceDiscoveryError:
+        observed_dhcp = None
+    if mode == "proxy":
+        if observed_dhcp:
+            _message("ProxyDHCP network check", f"NetworkManager reports DHCP server {observed_dhcp} on this interface. Feclora will only supply PXE boot options; that server must continue assigning client IP addresses.")
+        else:
+            _message("ProxyDHCP network check", "No DHCP server identifier was found in the current NetworkManager lease. ProxyDHCP does not assign client IP addresses; verify that another DHCP server or relay is active on this network.")
     if mode == "isolated":
-        try:
-            observed_dhcp = detect_existing_dhcp_server(selected.interface)
-        except InterfaceDiscoveryError:
-            observed_dhcp = None
         if observed_dhcp:
             warning = (
                 f"NetworkManager's current lease reports DHCP server {observed_dhcp} on this interface. "
