@@ -211,7 +211,7 @@ def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
         trusted_server_public_key=_secure_file(value["trusted_server_public_key"], "trusted Server minisign public key"),
         local_minisign_secret_key=checked_minisign_secret,
         local_minisign_public_key=checked_minisign_public,
-        age_identity_file=_secure_file(age_identity, "age identity file", private=True) if age_identity else None,
-        age_recipients_file=_secure_file(age_recipients, "age recipients file") if age_recipients else None,
+        age_identity_file=_secure_file(age_identity, "age identity file", private=True) if age_identity is not None else None,
+        age_recipients_file=_secure_file(age_recipients, "age recipients file") if age_recipients is not None else None,
         repository=_repository(value["repository"]),
     )
