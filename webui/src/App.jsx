@@ -38,6 +38,16 @@ export default function App() {
   const [status, setStatus] = useState(null);
   const [images, setImages] = useState([]);
   const [journals, setJournals] = useState([]);
+  const [deploymentJobs, setDeploymentJobs] = useState([]);
+  const [remoteOperation, setRemoteOperation] = useState("restore");
+  const [remoteImageId, setRemoteImageId] = useState("");
+  const [remoteTargetType, setRemoteTargetType] = useState("disk");
+  const [remoteClients, setRemoteClients] = useState("");
+  const [remoteTransport, setRemoteTransport] = useState("unicast");
+  const [remoteMulticastGroup, setRemoteMulticastGroup] = useState("239.10.10.10");
+  const [remoteMulticastPort, setRemoteMulticastPort] = useState("9000");
+  const [remoteInterface, setRemoteInterface] = useState("");
+  const [remoteJobResult, setRemoteJobResult] = useState(null);
   const [operations, setOperations] = useState([]);
   const [inventory, setInventory] = useState(null);
   const [networkInterfaces, setNetworkInterfaces] = useState([]);
@@ -90,10 +100,10 @@ export default function App() {
   const refresh = useCallback(async () => {
     setBusy(true); setError("");
     try {
-      const [s, i, j, op, inv, net, pxe] = await Promise.all([
-        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("pxe_service_status")
+      const [s, i, j, op, inv, net, pxe, remote] = await Promise.all([
+        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs")
       ]);
-      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setPxeStatus(pxe);
+      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   }, []);
@@ -263,6 +273,25 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const createRemoteJob = async (event) => {
+    event.preventDefault(); setBusy(true); setError(""); setNotice(""); setRemoteJobResult(null);
+    try {
+      const authorizedClients = remoteClients.split(/[\\s,;]+/).map((value) => value.trim()).filter(Boolean);
+      const job = {
+        schema_version: 1, job_id: crypto.randomUUID(), operation: remoteOperation,
+        image_id: remoteImageId, target_type: remoteTargetType,
+        authorized_clients: authorizedClients, network_interface: remoteInterface,
+        transport: remoteTransport,
+        multicast_group: remoteTransport === "multicast" ? remoteMulticastGroup : null,
+        multicast_port: remoteTransport === "multicast" ? Number(remoteMulticastPort) : null,
+        start_policy: "manual", expected_clients: null, start_deadline: null
+      };
+      const result = await callFeclora("create_deployment_job", { job });
+      setRemoteJobResult(result); setNotice(result.message); await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
   const operationReady = isCapture
     ? Boolean(source && imageId && (operation !== "capture_partition" || partitionId || imageId))
     : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation)
@@ -382,6 +411,66 @@ export default function App() {
                 {images.map((item) => <Tr key={item.image_id}><Td>{item.image_id}</Td><Td>{item.image_type}</Td><Td>{formatBytes(item.source_size_bytes)}</Td><Td><Label color={item.signed ? "green" : "orange"}>{item.signed ? "Signed" : "Unsigned"}</Label></Td><Td><Label color={item.encrypted ? "green" : "orange"}>{item.encrypted ? "age" : "Plain"}</Label></Td><Td>{item.artifact_count}</Td></Tr>)}
                 {!images.length && <Tr><Td colSpan={6}>No manifest-backed images found.</Td></Tr>}
               </Tbody></Table></StackItem>
+            </Stack>
+          </Tab>
+          <Tab eventKey="remote-jobs" title="Remote jobs">
+            <Stack hasGutter className="pf-v5-u-pt-lg">
+              <StackItem><Title headingLevel="h2" size="xl">Create a remote deployment job</Title>
+                <Alert variant="warning" title="Definition only — no Client contact or disk I/O" isInline>
+                  This step validates and journals a job definition. It does not arm the job, approve a local destination, contact Clients or start imaging. The persistent control-plane daemon and explicit target approval are still pending.
+                </Alert>
+              </StackItem>
+              <StackItem>
+                <Card><CardBody><form onSubmit={createRemoteJob}>
+                  <Field label="Operation">
+                    <select className="pf-v5-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); if (e.target.value === "save") setRemoteTransport("unicast"); }}>
+                      <option value="restore">Restore a signed Server image to Clients</option>
+                      <option value="save">Capture whole disks from Clients to Server</option>
+                    </select>
+                  </Field>
+                  <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing signed image." : "New identifier for the image captured from Clients."}>
+                    {remoteOperation === "restore" ? <select className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)}>
+                      <option value="">Select signed image…</option>
+                      {images.filter((item) => item.image_type === remoteTargetType && item.signed).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}</option>)}
+                    </select> : <input className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)} maxLength={128} required />}
+                  </Field>
+                  {remoteOperation === "restore" && <Field label="Target type">
+                    <select className="pf-v5-c-form-control" value={remoteTargetType} onChange={(e) => { setRemoteTargetType(e.target.value); setRemoteImageId(""); }}>
+                      <option value="disk">Whole disk</option><option value="partition">Partition</option>
+                    </select>
+                  </Field>}
+                  <Field label="Enrolled Client MAC addresses" help="Separate multiple unicast MAC addresses with spaces, commas or semicolons. Server verifies each is enrolled.">
+                    <textarea className="pf-v5-c-form-control" rows={3} value={remoteClients} onChange={(e) => setRemoteClients(e.target.value)} required placeholder="52:54:00:12:34:56" />
+                  </Field>
+                  <Field label="Server network interface">
+                    <select className="pf-v5-c-form-control" value={remoteInterface} onChange={(e) => setRemoteInterface(e.target.value)} required>
+                      <option value="">Select interface…</option>
+                      {networkInterfaces.map((item) => <option key={item.interface} value={item.interface}>{item.interface} · {item.address}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Transport">
+                    <select className="pf-v5-c-form-control" value={remoteTransport} onChange={(e) => setRemoteTransport(e.target.value)}>
+                      <option value="unicast">Authenticated unicast</option>
+                      <option value="multicast" disabled={remoteOperation === "save"}>UDPcast multicast restore</option>
+                    </select>
+                  </Field>
+                  {remoteTransport === "multicast" && <>
+                    <Field label="Administratively scoped multicast group"><input className="pf-v5-c-form-control" value={remoteMulticastGroup} onChange={(e) => setRemoteMulticastGroup(e.target.value)} /></Field>
+                    <Field label="UDPcast even portbase"><input className="pf-v5-c-form-control" type="number" min="1024" max="65534" step="2" value={remoteMulticastPort} onChange={(e) => setRemoteMulticastPort(e.target.value)} /></Field>
+                    <Alert variant="warning" title="Multicast transport limitation" isInline>UDPcast data packets are not encrypted or authenticated. mTLS protects the control plane, not the multicast data stream. Use only on a trusted, isolated deployment network.</Alert>
+                  </>}
+                  <Field label="Start policy"><input className="pf-v5-c-form-control" value="Manual — explicit arming is not yet available" readOnly /></Field>
+                  <Button type="submit" variant="primary" isDisabled={busy || !remoteImageId || !remoteClients.trim() || !remoteInterface}>Validate and save job definition</Button>
+                </form>
+                {remoteJobResult && <Alert variant="success" title="Job definition persisted" isInline className="pf-v5-u-mt-md">{remoteJobResult.message}<p>Job ID: {remoteJobResult.job_id}</p></Alert>}
+                </CardBody></Card>
+              </StackItem>
+              <StackItem><Title headingLevel="h2" size="lg">Persisted remote jobs</Title>
+                <Table aria-label="Persisted remote deployment jobs" variant="compact"><Thead><Tr><Th>Job ID</Th><Th>Operation</Th><Th>Image</Th><Th>Transport</Th><Th>State</Th><Th>Clients</Th></Tr></Thead><Tbody>
+                  {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.image_id}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{job.authorized_clients.join(", ")}</Td></Tr>)}
+                  {!deploymentJobs.length && <Tr><Td colSpan={6}>No remote job definitions recorded.</Td></Tr>}
+                </Tbody></Table>
+              </StackItem>
             </Stack>
           </Tab>
           <Tab eventKey="deployments" title="Deployment history">
