@@ -167,7 +167,7 @@ def renew_server_certificate(
     runner: Callable[..., Any] | None = None,
     openssl: str = "/usr/bin/openssl",
     validity_days: int = 825,
-) -> dict[str, str]:
+) -> dict[str, Any]:
     """Renew the Server TLS certificate using the existing CA and private key."""
     if isinstance(validity_days, bool) or not isinstance(validity_days, int) or not 1 <= validity_days <= 825:
         raise PKIError("Server certificate validity must be between 1 and 825 days")
