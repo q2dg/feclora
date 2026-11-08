@@ -83,10 +83,15 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             if job.operation == "save" and not config.local_minisign_secret_key:
                 raise DeploymentControlError("this Client has no enrolled minisign signing key and cannot create images")
             inventory = collect_inventory()
-            selected = dialog_app._select_device(
-                inventory, "disk", "Local deployment disk",
-                "Select the whole disk for this job. Root, mounted or busy disks will be rejected before any write.",
+            target_kind = "partition" if job.target_type == "partition" else "disk"
+            target_label = "Local deployment partition" if target_kind == "partition" else "Local deployment disk"
+            target_help = (
+                "Select the existing destination partition. It must be at least as large as the source image; "
+                "Feclora will not create or resize partitions."
+                if target_kind == "partition" else
+                "Select the whole disk for this job. Root, mounted or busy disks will be rejected before any write."
             )
+            selected = dialog_app._select_device(inventory, target_kind, target_label, target_help)
             if selected is None:
                 raise DeploymentControlError("local disk selection cancelled")
             path = selected.get("path")
@@ -94,7 +99,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 raise DeploymentControlError("selected disk has no stable device path")
             if job.operation == "restore":
                 phrase = f"ERASE {path} FROM {config.server_identity}"
-                prompt = "This operation overwrites the selected whole disk. Type the exact confirmation phrase:"
+                prompt = "This operation overwrites the selected partition. Type the exact confirmation phrase:"
             else:
                 phrase = f"READ {path} TO {config.server_identity}"
                 prompt = "This operation reads the selected whole disk to create a signed image. Type the exact confirmation phrase:"
@@ -132,8 +137,8 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                     progress_callback=progress,
                 )
                 return dialog_app._run_restore_gauge(
-                    "Multicast disk restore",
-                    "Receiving signed image artifacts into private staging, verifying them, then restoring the selected disk.",
+                    "Multicast image restore",
+                    "Receiving signed image artifacts into private staging, verifying them, then restoring the locally approved target.",
                     operation,
                 )
             compression = state.get("compression", "gzip")
@@ -158,7 +163,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             )
             if job.operation == "restore":
                 return dialog_app._run_restore_gauge(
-                    "Network disk restore", "Receiving and verifying the signed image, then restoring the selected disk.",
+                    "Network image restore", "Receiving and verifying the signed image, then restoring the selected target.",
                     operation,
                 )
             return dialog_app._run_capture_gauge(
