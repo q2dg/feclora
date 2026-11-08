@@ -14,7 +14,7 @@ class BootAssetTests(unittest.TestCase):
             source.mkdir()
             (source / "undionly.kpxe").write_bytes(b"bios")
             (source / "snponly.efi").write_bytes(b"uefi")
-            listing = "\\n".join(str(p) for p in source.iterdir()) + "\\n"
+            listing = "\n".join(str(p) for p in source.iterdir()) + "\n"
             def runner(argv, **kwargs):
                 self.assertEqual(argv, ["/usr/bin/rpm", "-ql", "ipxe-bootimgs-x86"])
                 return subprocess.CompletedProcess(argv, 0, listing, "")
@@ -28,7 +28,7 @@ class BootAssetTests(unittest.TestCase):
 
     def test_rejects_missing_or_ambiguous_firmware(self):
         def runner(argv, **kwargs):
-            return subprocess.CompletedProcess(argv, 0, "/usr/share/ipxe/undionly.kpxe\\n", "")
+            return subprocess.CompletedProcess(argv, 0, "/usr/share/ipxe/undionly.kpxe\n", "")
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(BootAssetError):
                 stage_ipxe_assets(tmp, rpm="/usr/bin/rpm", runner=runner)
@@ -43,7 +43,7 @@ class BootAssetTests(unittest.TestCase):
             target = root / "target"
             target.mkdir()
             (target / "undionly.kpxe").write_bytes(b"old")
-            listing = "\\n".join(str(p) for p in src.iterdir())
+            listing = "\n".join(str(p) for p in src.iterdir())
             def runner(argv, **kwargs):
                 return subprocess.CompletedProcess(argv, 0, listing, "")
             with self.assertRaises(BootAssetError):
