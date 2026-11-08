@@ -326,6 +326,22 @@ class DeploymentControlServer:
             raise DeploymentControlError("client has no active authenticated control session")
         return tls_socket
 
+    def _record_transfer_failure(self, mac_address: str, detail: str) -> None:
+        try:
+            self.coordinator.report_result(mac_address, success=False, detail=detail[:512])
+        except CoordinatorError:
+            try:
+                self.coordinator.disconnect_client(mac_address, detail[:512])
+            except CoordinatorError:
+                pass
+        with self._lock:
+            tls_socket = self._sessions.get(mac_address.lower())
+        if tls_socket is not None:
+            try:
+                tls_socket.close()
+            except OSError:
+                pass
+
     def send_restore_image(
         self,
         mac_address: str,
@@ -347,9 +363,10 @@ class DeploymentControlServer:
                 expected_image_id=self.coordinator.job.image_id,
                 trusted_public_key=trusted_public_key,
             )
-        except ImageTransferError:
-            raise
-        except OSError as exc:
+        except (ImageTransferError, OSError, DeploymentControlError) as exc:
+            self._record_transfer_failure(mac_address, f"restore image transfer failed: {exc}")
+            if isinstance(exc, DeploymentControlError):
+                raise
             raise DeploymentControlError(f"restore image transfer failed: {exc}") from exc
 
     def receive_saved_image(
@@ -367,7 +384,7 @@ class DeploymentControlServer:
             if transfer.get("type") == "result":
                 if (set(transfer) != {"type", "job_id", "success", "detail"}
                         or transfer.get("job_id") != self.coordinator.job.job_id
-                        or not isinstance(transfer.get("success"), bool)
+                        or transfer.get("success") is not False
                         or not isinstance(transfer.get("detail"), str)
                         or len(transfer["detail"]) > 512):
                     raise DeploymentControlError("client failure result is invalid")
@@ -385,9 +402,10 @@ class DeploymentControlServer:
                 expected_image_id=self.coordinator.job.image_id,
                 trusted_public_key=trusted_public_key,
             )
-        except ImageTransferError:
-            raise
-        except OSError as exc:
+        except (ImageTransferError, OSError, DeploymentControlError) as exc:
+            self._record_transfer_failure(mac_address, f"saved image transfer failed: {exc}")
+            if isinstance(exc, DeploymentControlError):
+                raise
             raise DeploymentControlError(f"saved image transfer failed: {exc}") from exc
 
     def collect_results(self, *, timeout: float = 3600) -> dict[str, str]:
