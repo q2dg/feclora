@@ -1,0 +1,13 @@
+{
+  "version": 0,
+  "name": "Feclora",
+  "requires": {
+    "cockpit": "*"
+  },
+  "menu": [
+    {
+      "label": "Feclora",
+      "path": "index.html"
+    }
+  ]
+}
