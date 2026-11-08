@@ -1,6 +1,7 @@
 import json
 import subprocess
 import unittest
+from unittest.mock import patch
 
 from feclora.storage.volume_topology import (
     VolumeTopologyError,
@@ -44,7 +45,8 @@ class LvmTopologyTests(unittest.TestCase):
         self.assertTrue(all("--readonly" in argv for argv in calls))
         self.assertTrue(all("--reportformat" in argv for argv in calls))
 
-    def test_unprivileged_collection_requires_noninteractive_sudo(self):
+    @patch("feclora.storage.volume_topology.shutil.which", return_value=None)
+    def test_unprivileged_collection_requires_noninteractive_sudo(self, _which):
         topology = collect_lvm_topology(
             which=lambda name: "/usr/sbin/" + name,
             sudo=None,
