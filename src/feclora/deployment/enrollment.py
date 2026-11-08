@@ -13,11 +13,10 @@ import ssl
 import stat
 import subprocess
 import tempfile
-from pathlib import Path
 from typing import Any
 
 from feclora.deployment.runtime_config import (
-    RuntimeConfigError, load_server_runtime_config,
+    load_server_runtime_config,
 )
 
 
@@ -95,6 +94,13 @@ def _load_config(config_path: str) -> dict[str, Any]:
 
 def _write_config_atomically(config_path: str, value: dict[str, Any]) -> None:
     directory = os.path.dirname(os.path.abspath(config_path))
+    try:
+        directory_info = os.lstat(directory)
+    except OSError as exc:
+        raise EnrollmentError(f"deployment configuration directory is unavailable: {exc}") from exc
+    if (os.geteuid() != 0 or not stat.S_ISDIR(directory_info.st_mode)
+            or directory_info.st_uid != 0 or directory_info.st_mode & 0o022):
+        raise EnrollmentError("enrollment requires a root-owned, non-writable /etc/feclora directory")
     payload = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
     fd, temporary = tempfile.mkstemp(prefix=".deployment-server.", dir=directory)
     try:
