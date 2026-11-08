@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import ipaddress
 import json
+import posixpath
 import socket
 import ssl
 import struct
@@ -114,6 +115,14 @@ def _require_tls13_mtls(context: ssl.SSLContext) -> None:
             or context.minimum_version != ssl.TLSVersion.TLSv1_3
             or context.maximum_version != ssl.TLSVersion.TLSv1_3):
         raise DeploymentControlError("deployment control requires TLS 1.3 with mandatory peer certificates")
+
+
+@dataclass(frozen=True)
+class LocalTargetApproval:
+    """Client-local target choice and typed confirmation; never serialized to Server."""
+    device_path: str
+    description: str
+    confirmation: str
 
 
 class DeploymentControlServer:
@@ -511,8 +520,8 @@ def join_deployment(
     expected_server_identity: str,
     mac_address: str,
     job_id: str,
-    prepare_local_target: Callable[[DeploymentJob], str],
-    execute_job: Callable[[DeploymentJob, Any], tuple[bool, str]],
+    prepare_local_target: Callable[[DeploymentJob], LocalTargetApproval],
+    execute_job: Callable[[DeploymentJob, Any, LocalTargetApproval], tuple[bool, str]],
     timeout: float = 120,
 ) -> tuple[DeploymentJob, bool, str]:
     """Authenticate, receive a job, obtain local target approval, then execute on START."""
@@ -545,13 +554,29 @@ def join_deployment(
             raise DeploymentControlError("Client currently supports authenticated unicast jobs only")
         if job.job_id != job_id or not job.authorizes_client(mac_address):
             raise DeploymentControlError("job does not authorize this client identity")
-        target_description = prepare_local_target(job)
-        if (not isinstance(target_description, str) or not target_description
-                or len(target_description) > 256 or "/dev/" in target_description or any(ord(c) < 32 for c in target_description)):
-            raise DeploymentControlError("local target approval callback returned an invalid description")
+        approval = prepare_local_target(job)
+        if not isinstance(approval, LocalTargetApproval):
+            raise DeploymentControlError("local target callback must return a LocalTargetApproval")
+        device_path = approval.device_path
+        if (not isinstance(device_path, str) or not device_path.startswith("/dev/")
+                or len(device_path) > 256 or posixpath.normpath(device_path) != device_path
+                or "//" in device_path or any(ord(c) < 32 for c in device_path)):
+            raise DeploymentControlError("local target approval contains an invalid device path")
+        description = approval.description
+        if (not isinstance(description, str) or not description
+                or len(description) > 256 or "/dev/" in description
+                or any(ord(c) < 32 for c in description)):
+            raise DeploymentControlError("local target approval contains an invalid description")
+        required_confirmation = (
+            f"ERASE {device_path} FROM {expected_server_identity}"
+            if job.operation == "restore"
+            else f"READ {device_path} TO {expected_server_identity}"
+        )
+        if approval.confirmation != required_confirmation:
+            raise DeploymentControlError("local typed target confirmation does not match the selected device and Server")
         send_control_message(tls_socket, {
             "type": "ready", "job_id": job.job_id,
-            "target_description": target_description, "locally_authorized": True,
+            "target_description": description, "locally_authorized": True,
         })
         start = receive_control_message(tls_socket)
         if start.get("type") == "cancel":
@@ -565,7 +590,7 @@ def join_deployment(
         if start.get("operation") != job.operation or start.get("image_id") != job.image_id:
             raise DeploymentControlError("server start command does not match the authorized job")
         try:
-            success, detail = execute_job(job, tls_socket)
+            success, detail = execute_job(job, tls_socket, approval)
         except Exception as exc:
             success, detail = False, str(exc)
         if not isinstance(success, bool) or not isinstance(detail, str):
