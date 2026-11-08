@@ -120,8 +120,8 @@ class WebAPITests(unittest.TestCase):
         from contextlib import nullcontext
         from pathlib import Path
         table = (
-            "label: gpt\\nsector-size: 512\\n"
-            '/dev/sda1 : start=1, size=2, uuid="root-uuid", name="root"\\n'
+            "label: gpt\nsector-size: 512\n"
+            '/dev/sda1 : start=1, size=2, uuid="root-uuid", name="root"\n'
         ).encode("utf-8")
         table_artifact = SimpleNamespace(
             role="partition-table", format="raw", encryption="none", compression="none",
