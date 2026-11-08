@@ -415,18 +415,14 @@ class DeploymentService:
             if confirmation != required:
                 raise DeploymentServiceError("arm confirmation does not match the exact job-specific phrase")
             if self.job.transport == "multicast":
-                preflight = inspect_multicast_interface(
-                    self.job.network_interface, self.job.multicast_group, role="sender",
-                )
-                if preflight.route_interface != self.job.network_interface:
-                    raise DeploymentServiceError("multicast route does not use the selected deployment interface")
-            if self.job.transport == "multicast":
                 try:
-                    inspect_multicast_interface(
+                    preflight = inspect_multicast_interface(
                         self.job.network_interface, self.job.multicast_group, role="sender",
                     )
                 except Exception as exc:
                     raise DeploymentServiceError(f"multicast Server interface preflight failed: {exc}") from exc
+                if preflight.route_interface != self.job.network_interface:
+                    raise DeploymentServiceError("multicast route does not use the selected deployment interface")
             with self._worker_lock:
                 if self._stop_event.is_set():
                     raise DeploymentServiceError("service shutdown has begun; refusing to arm a new storage operation")
