@@ -32,6 +32,12 @@ The remaining caller responsibilities are:
 
 Partition-to-partition cloning can reuse the same bounded copier with source offset zero and the source partition's exact byte length. Whole-disk-image-to-partition restore uses the selected partition's offset and length from the validated partition table. The code must never infer a destination from a remote image or remote host.
 
+## Direct partition cloning
+
+`src/feclora/storage/partition_clone.py` implements offline partition-to-partition cloning. It independently inspects both partition geometries, requires equal logical sector sizes and a destination at least as large as the source, rejects partitions sharing a physical backing disk, applies the existing fail-closed mounted/root/busy-device checks, streams the exact source partition byte count through bounded `dd` pipes, and reads the destination range back for SHA-256 comparison. The Local rescue menu exposes independent source and target selection with an exact `ERASE target FROM source` confirmation, progress and cancellation. The source is not modified; bytes beyond the source length on a larger destination partition are left unchanged.
+
+The tests are added but have not yet been executed in CI or against disposable physical devices.
+
 ## Resizing policy
 
 Raw partition-range copying does not resize filesystems. Disk layout planning must be a separate operation. Preserve-layout mode retains partition starts and sizes; proportional growth and selected-partition growth require a previewed, validated sector layout, followed by filesystem-specific growth tools and a final consistency check. EFI, BIOS boot, recovery, swap, LVM and LUKS partitions need explicit policies rather than blind proportional scaling.
