@@ -40,7 +40,7 @@ Implemented:
 - tests for framing, invalid messages, image transfer integrity, Client save/restore callbacks, scoped firewall lifecycle and a loopback TLS 1.3 client/server handshake using ephemeral test certificates.
 
 Still required:
-- replaying journals into a restart/recovery UI, safe interrupted-transfer reconciliation and explicit operator decisions for jobs found in an incomplete state;
+- reconstructing complete per-client state from journals, reconciling interrupted transfers and providing explicit operator recovery actions. The Server UI currently reviews prior journal summaries and refuses corrupt journals; it never auto-resumes a destructive job;
 - secure certificate and minisign-key enrollment, revocation and rotation UI;
 - automated integration tests that execute real capture/restore against disposable block devices over mTLS;
 - automated PXE BIOS/UEFI VM boot, Server/Client orchestration and full end-to-end acceptance. The libvirt harness creates guests; it does not execute the tests automatically or imply they passed.
