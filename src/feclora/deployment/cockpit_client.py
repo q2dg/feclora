@@ -100,24 +100,39 @@ def prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
     if os.path.lexists(CONFIG):
         raise CockpitEnrollmentError("Client is already configured; use the renewal workflow")
     export = _mounted_media_directory(params["export_directory"])
+    secret = os.path.join(PKI, f"client-{client_id}.minisign.key")
+    public = os.path.join(PKI, f"client-{client_id}.minisign.pub")
+    public_export = os.path.join(export, f"feclora-{client_id}.minisign.pub")
+    targets = (
+        os.path.join(PKI, f"client-{client_id}.key"),
+        os.path.join(PKI, f"client-{client_id}.csr"),
+        os.path.join(PKI, f"client-{client_id}.age"),
+        os.path.join(export, f"feclora-{client_id}.csr"),
+        os.path.join(export, f"feclora-{client_id}.age-recipient"),
+        secret, public, public_export,
+    )
+    if any(os.path.lexists(item) for item in targets):
+        raise CockpitEnrollmentError("Client identity material or removable-media export already exists")
     identity, private_key, exported_csr = create_client_csr(PKI, export, client_id)
-    public_export = None
-    if params["image_capture"]:
-        secret = os.path.join(PKI, f"client-{client_id}.minisign.key")
-        public = os.path.join(PKI, f"client-{client_id}.minisign.pub")
-        public_export = os.path.join(export, f"feclora-{client_id}.minisign.pub")
-        if any(os.path.lexists(item) for item in (secret, public, public_export)):
-            raise CockpitEnrollmentError("Client minisign key or export already exists")
-        result = subprocess.run(
-            ["/usr/bin/minisign", "-G", "-s", secret, "-p", public, "-W"],
-            stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=60,
-        )
-        if result.returncode != 0:
-            raise CockpitEnrollmentError("Could not generate Client minisign keypair")
-        os.chmod(secret, 0o600)
-        os.chmod(public, 0o644)
-        shutil.copyfile(public, public_export)
-        os.chmod(public_export, 0o644)
+    try:
+        if params["image_capture"]:
+            result = subprocess.run(
+                ["/usr/bin/minisign", "-G", "-s", secret, "-p", public, "-W"],
+                stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=60,
+            )
+            if result.returncode != 0:
+                raise CockpitEnrollmentError("Could not generate Client minisign keypair")
+            os.chmod(secret, 0o600)
+            os.chmod(public, 0o644)
+            shutil.copyfile(public, public_export)
+            os.chmod(public_export, 0o644)
+    except Exception:
+        for item in targets:
+            try:
+                os.unlink(item)
+            except OSError:
+                pass
+        raise
     return {
         "identity": identity, "csr_file": exported_csr,
         "age_recipient_file": os.path.join(export, f"feclora-{client_id}.age-recipient"),
