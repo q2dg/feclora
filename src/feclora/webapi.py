@@ -821,7 +821,11 @@ def _write_client_job_request(path: Path, value: dict[str, Any]) -> None:
             stream.write("\n")
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        try:
+            os.link(temporary, path, follow_symlinks=False)
+        except FileExistsError as exc:
+            raise WebAPIError("a Client job request already exists for this UUID") from exc
+        os.unlink(temporary)
         directory_fd = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
             os.fsync(directory_fd)
