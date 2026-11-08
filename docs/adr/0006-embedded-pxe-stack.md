@@ -20,7 +20,7 @@ Use the following Fedora-native components:
   proxy mode, and can classify clients and provide architecture-specific boot
   choices.
 - **iPXE boot images** from the Fedora `ipxe-bootimgs-x86` package:
-  `undionly.kpxe` for legacy BIOS and `snponly.efi` for UEFI x86_64.
+  `undionly.kpxe` for legacy BIOS and `ipxe-snponly-x86_64.efi` for UEFI x86_64.
   Chainload iPXE, then use an HTTP-delivered iPXE script and kernel/initramfs
   payloads for the feclora client environment.
 - **Caddy** for HTTP delivery of iPXE scripts, kernel/initramfs, signed job
