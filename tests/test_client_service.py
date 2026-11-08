@@ -90,6 +90,19 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             self.assertFalse(request.exists())
             execute.assert_called_once()
 
+    def test_orderly_signal_does_not_interrupt_active_block_device_io(self):
+        service = ClientDeploymentService(JOB_ID)
+        service._phase = "running"
+        service._handle_signal(15, None)
+        service._phase = "ready"
+        with self.assertRaises(SystemExit):
+            service._handle_signal(15, None)
+
+    def test_client_services_share_one_host_wide_execution_lock(self):
+        from feclora.deployment.client_service import _job_paths
+        other = "d47ac10b-58cc-4372-a567-0e02b2c3d480"
+        self.assertEqual(_job_paths(JOB_ID)[2], _job_paths(other)[2])
+
     def test_job_paths_reject_noncanonical_uuid(self):
         from feclora.deployment.client_service import ClientJobServiceError, _job_paths
         with self.assertRaisesRegex(ClientJobServiceError, "canonical UUID"):
