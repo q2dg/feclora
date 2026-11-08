@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from feclora.deployment.client_runtime import execute_client_image_job
+from feclora.deployment.multicast_runtime import execute_multicast_restore
 from feclora.deployment.control import (
     DeploymentControlError, LocalTargetApproval, join_deployment,
 )
@@ -11,6 +12,7 @@ from feclora.deployment.runtime_config import (
     ClientRuntimeConfig, RuntimeConfigError, load_client_runtime_config,
 )
 from feclora.network.remote_clone_protocol import create_mutual_tls_context
+from feclora.network.firewall import PXEFirewall
 from feclora.storage.inventory import InventoryError, collect_inventory
 from feclora.ui import dialog_app
 
@@ -76,6 +78,21 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             return LocalTargetApproval(path, description, phrase)
 
         def execute_job(job, tls_socket, approval):
+            if job.transport == "multicast":
+                operation = lambda progress: execute_multicast_restore(
+                    job, tls_socket, approval,
+                    server_identity=config.server_identity,
+                    repository=config.repository,
+                    trusted_server_public_key=config.trusted_server_public_key,
+                    firewall=PXEFirewall(),
+                    age_identity_file=config.age_identity_file,
+                    progress_callback=progress,
+                )
+                return dialog_app._run_restore_gauge(
+                    "Multicast disk restore",
+                    "Receiving signed image artifacts into private staging, verifying them, then restoring the selected disk.",
+                    operation,
+                )
             compression = state.get("compression", "gzip")
             if compression == "none":
                 level = None
