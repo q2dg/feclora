@@ -151,18 +151,18 @@ class FirewallTests(unittest.TestCase):
     def test_export_and_adopt_preserves_multicast_protocol_state(self):
         firewall = PXEFirewall(executable="/usr/bin/firewall-cmd")
         firewall._opened["enp1s0"] = {
-            "zone": "feclora-pxe-test",
+            "zone": "feclora-pxe-1234abcd",
             "restore_zone": "work",
             "interface_added": True,
             "ports": ["9443/tcp", "9000/udp"],
             "protocols": ["igmp"],
         }
-        firewall._current_zone = lambda interface: "feclora-pxe-test"
+        firewall._current_zone = lambda interface: "feclora-pxe-1234abcd"
         state = firewall.export_state("enp1s0")
         self.assertEqual(state["protocols"], ["igmp"])
 
         recovered = PXEFirewall(executable="/usr/bin/firewall-cmd")
-        recovered._current_zone = lambda interface: "feclora-pxe-test"
+        recovered._current_zone = lambda interface: "feclora-pxe-1234abcd"
         recovered.adopt("enp1s0", state)
         self.assertEqual(recovered.export_state("enp1s0"), state)
 
