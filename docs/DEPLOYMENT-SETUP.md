@@ -59,6 +59,13 @@ example path and identity):
 
 The Server writes a private hash-chained job journal under /var/lib/feclora/deployments; the directory is created root-owned with mode 0700. On startup, verified journals reconstruct the last job/client states for operator review. This is audit-only recovery: live sessions are not recreated and destructive jobs are never resumed automatically.
 
+The Server now offers a **Client certificate trust** screen before creating a job:
+- **Enroll/rotate:** provide a root-owned PEM Client certificate, its authorized unicast MAC, and optionally a root-owned minisign public key. Feclora verifies the certificate chain with `openssl verify -purpose sslclient`, extracts its single SAN identity, and requires the exact `ENROLL <identity> <mac>` confirmation. Re-enrolling the same MAC rotates the certificate identity.
+- **Revoke:** select an enrolled identity and type `REVOKE <identity>`. The identity-to-MAC mapping and its associated Client minisign public key are removed atomically.
+- **Restore-only Client:** leave the minisign public-key path blank. A Client authorized to save must be enrolled with its public key.
+
+The UI never generates, imports, exports, or transmits private keys and does not issue certificates. A trusted CA must issue Client certificates out of band; the Client's matching private key must be provisioned securely on that Client. Certificate expiry/renewal and CA revocation-list/OCSP policy remain responsibilities of the external PKI. Rotation takes effect for new TLS handshakes; an already established session must be stopped.
+
 The bind address must exactly match the IPv4 address selected in Server mode.
 The Server UI creates a one-client job, selects save or restore, and displays
 the job UUID. The Client operator enters that UUID. The Server listener opens
