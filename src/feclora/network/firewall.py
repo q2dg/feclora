@@ -57,15 +57,14 @@ class PXEFirewall:
             zone = self._call(["--get-default-zone"]).stdout.strip()
         if not zone or any(ch.isspace() for ch in zone):
             raise PXEFirewallError("Could not determine the selected interface firewalld zone")
-        added_ports: list[str] = []
-        added_services: list[str] = []
+        self._opened[interface] = (zone, [], [])
         try:
             # firewalld's named TFTP service also enables nf_conntrack_tftp,
             # required for the server's dynamically negotiated data channel.
             tftp = self._call([f"--zone={zone}", "--query-service=tftp"], check=False)
             if tftp.returncode == 1:
                 self._call([f"--zone={zone}", "--add-service=tftp"])
-                added_services.append("tftp")
+                self._opened[interface] = (zone, [], ["tftp"])
             elif tftp.returncode != 0:
                 raise PXEFirewallError("cannot query existing TFTP firewall service")
             for port in requested:
@@ -75,14 +74,18 @@ class PXEFirewall:
                 if query.returncode != 1:
                     raise PXEFirewallError(f"cannot query existing firewall rule {port}")
                 self._call([f"--zone={zone}", f"--add-port={port}"])
-                added_ports.append(port)
-        except PXEFirewallError:
-            for port in reversed(added_ports):
-                self._call([f"--zone={zone}", f"--remove-port={port}"], check=False)
-            for service in reversed(added_services):
-                self._call([f"--zone={zone}", f"--remove-service={service}"], check=False)
+                current_zone, added_ports, added_services = self._opened[interface]
+                self._opened[interface] = (
+                    current_zone, [*added_ports, port], added_services
+                )
+        except PXEFirewallError as start_error:
+            try:
+                self.close(interface)
+            except PXEFirewallError as rollback_error:
+                raise PXEFirewallError(
+                    f"{start_error}; firewall rollback failed: {rollback_error}"
+                ) from start_error
             raise
-        self._opened[interface] = (zone, added_ports, added_services)
 
     def close(self, interface: str) -> None:
         state = self._opened.get(interface)
