@@ -10,6 +10,7 @@ psmisc
 NetworkManager
 iproute
 firewalld
+openssl
 
 # Embedded Server-mode PXE stack (installed, never enabled by default)
 dnsmasq
