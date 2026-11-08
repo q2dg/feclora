@@ -69,6 +69,8 @@ export default function App() {
   const [networkInterfaces, setNetworkInterfaces] = useState([]);
   const [serverBinding, setServerBinding] = useState("");
   const [serverSetup, setServerSetup] = useState(null);
+  const [serverRenewConfirmation, setServerRenewConfirmation] = useState("");
+  const [serverRenewResult, setServerRenewResult] = useState(null);
   const [clientId, setClientId] = useState("");
   const [clientExportDirectory, setClientExportDirectory] = useState("");
   const [clientImageCapture, setClientImageCapture] = useState(false);
@@ -265,6 +267,20 @@ export default function App() {
         inventory_path: clientAgeInventoryPath
       });
       setClientAgeInventoryResult(result); setNotice(result.message);
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const renewServerCertificate = async () => {
+    if (serverRenewConfirmation !== "RENEW SERVER CERTIFICATE") return;
+    setBusy(true); setError(""); setNotice(""); setServerRenewResult(null);
+    try {
+      const result = await callFeclora("renew_server_certificate", {
+        confirmation: serverRenewConfirmation
+      });
+      setServerRenewResult(result); setNotice(result.message);
+      setServerRenewConfirmation("");
+      await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
