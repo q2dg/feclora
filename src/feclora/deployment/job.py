@@ -122,8 +122,9 @@ class DeploymentJob:
                 raise JobValidationError("multicast_group must be an IPv4 multicast address") from exc
             if address.version != 4 or not address.is_multicast:
                 raise JobValidationError("multicast_group must be an IPv4 multicast address")
-            if isinstance(port, bool) or not isinstance(port, int) or not 1024 <= port <= 65535:
-                raise JobValidationError("multicast_port must be an integer between 1024 and 65535")
+            if (isinstance(port, bool) or not isinstance(port, int)
+                    or not 1024 <= port <= 65534 or port % 2):
+                raise JobValidationError("multicast_port must be an even UDPcast portbase between 1024 and 65534")
         elif group is not None or port is not None:
             raise JobValidationError("multicast_group/port are only valid for multicast transport")
 
