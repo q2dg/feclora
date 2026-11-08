@@ -115,6 +115,32 @@ class WebAPITests(unittest.TestCase):
             with self.assertRaisesRegex(WebAPIError, "Client revocation failed: inventory corrupt"):
                 _revoke_server_client({"identity": identity, "confirmation": f"REVOKE {identity}"})
 
+    def test_partition_extraction_verifies_disk_type_and_publishes_new_manifest(self):
+        from pathlib import Path
+        manifest = SimpleNamespace(
+            image_type="disk",
+            artifacts=[SimpleNamespace(encryption="none")],
+        )
+        extracted = SimpleNamespace(image_id="source-part-abc123", image_type="partition")
+        with patch("feclora.webapi._image_manifest", return_value=Path("/repo/source.manifest.json")), patch(
+            "feclora.webapi.ImageManifest.from_json", return_value=manifest
+        ), patch("feclora.webapi.os.path.isfile", return_value=False), patch(
+            "feclora.webapi._security_material",
+            return_value={"age_decryption_available": False, "image_verification_available": False},
+        ), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
+            "feclora.webapi._capture_material", return_value=(None, None)
+        ), patch("feclora.webapi._repository", return_value=Path("/repo")), patch(
+            "feclora.storage.disk_image_partition.extract_partition_image",
+            return_value=(extracted, "source-part-abc123.manifest.json"),
+        ) as extract:
+            result = __import__("feclora.webapi", fromlist=["_execute_operation"])._execute_operation(
+                "extract_partition_image", {"image_id": "source", "selector": "PARTUUID=abc"}, "operation-1"
+            )
+        self.assertEqual(result["image_id"], "source-part-abc123")
+        self.assertFalse(result["signed"])
+        self.assertEqual(result["source_image_id"], "source")
+        extract.assert_called_once()
+
     def test_partition_extraction_is_exposed_as_a_storage_operation(self):
         params = {"image_id": "whole-disk", "selector": "PARTUUID=abc"}
         with patch("feclora.webapi._run_operation", return_value={"image_id": "whole-disk-part-123"}) as run:
