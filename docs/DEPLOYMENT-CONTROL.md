@@ -4,13 +4,13 @@ The Server/Client control-plane implementation is in `feclora.deployment.control
 
 ## Trust and enrollment
 
-The operator-facing target for certificate issuance and lifecycle is documented in [Certificate management](CERTIFICATE-MANAGEMENT.md) and [ADR 0009](adr/0009-managed-deployment-certificates.md). The current implementation still relies on an external CA and endpoint provisioning; its allowlist revocation is not CRL/OCSP revocation.
+The managed local CA and Server identity bootstrap are documented in [Certificate management](CERTIFICATE-MANAGEMENT.md) and [ADR 0009](adr/0009-managed-deployment-certificates.md). Client CSR approval and certificate issuance/import primitives exist, but their complete operator workflow is not yet exposed in Cockpit. The current allowlist revocation is not CRL/OCSP revocation.
 
 - TLS is restricted to TLS 1.3 and requires a certificate from the configured CA on both endpoints.
 - The Server maps an exact client certificate SAN identity (URI, DNS, IP or EMAIL) or SHA-256 certificate fingerprint to one enrolled Client MAC.
 - The MAC is checked against the job allowlist only after certificate authentication. A MAC address, DHCP lease, PXE UUID or source IP is never an authentication factor.
 - The Client pins the expected Server SAN identity or SHA-256 certificate fingerprint after CA validation.
-- Server UI supports CA-verified Client certificate enrollment/rotation and revocation, including an optional Client minisign public key. CA issuance, private-key generation/distribution, CRL/OCSP and Client-side private-key provisioning remain out of band. Protect CA private keys and endpoint private keys outside the repository; never place them in PXE/TFTP/HTTP boot assets.
+- Server-side primitives support CA-verified Client CSR inspection, certificate issuance/import, rotation and allowlist revocation, including an optional Client minisign public key. The Cockpit CSR approval/import workflow and Client-side certificate/key installation remain outstanding. Protect CA private keys and endpoint private keys outside the repository; never place them in PXE/TFTP/HTTP boot assets.
 
 ## Framing and lifecycle
 
