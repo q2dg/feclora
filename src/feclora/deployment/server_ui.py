@@ -339,7 +339,7 @@ def run_deployment_server_ui(
         dialog_app._message(
             "Authenticated deployment listener",
             f"Job: {job.job_id}\nOperation: {job.operation}\nImage: {job.image_id}\n"
-            f"Authorized Client MACs: {\", \".join(selected_macs)}\nTransport: {job.transport}\nControl endpoint: {bound_address}:{port}\nJournal: {journal_path}\n\n"
+            f"Authorized Client MACs: {selected_mac_text}\nTransport: {job.transport}\nControl endpoint: {bound_address}:{port}\nJournal: {journal_path}\n\n"
             "The listener requires TLS 1.3 mutual authentication. The Client must use "
             "its enrolled certificate and enter this job UUID. No image write starts "
             "until the Client selects its local disk, types the exact confirmation "
