@@ -50,7 +50,7 @@ class ProfileConsumptionLedgerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory) / "audit").mkdir()
             with patch("feclora.storage.profile_executor.shutil.which", return_value="/usr/bin/findmnt"):
-                for output in ("overlay /run/initramfs/live\\n", "ext4 /\\n"):
+                for output in ("overlay /run/initramfs/live\n", "ext4 /\n"):
                     with self.assertRaisesRegex(RestoreProfileError, "dedicated persistent"):
                         _require_persistent_ledger(
                             Path(directory) / "audit" / "consumed.jsonl",
