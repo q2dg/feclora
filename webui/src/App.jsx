@@ -72,6 +72,7 @@ export default function App() {
   const [clientRemoteTarget, setClientRemoteTarget] = useState("");
   const [clientRemoteConfirmation, setClientRemoteConfirmation] = useState("");
   const [clientRemoteCompression, setClientRemoteCompression] = useState("gzip");
+  const [clientRemoteInterface, setClientRemoteInterface] = useState("");
   const [clientRemoteJobStatus, setClientRemoteJobStatus] = useState(null);
   const [csrPath, setCsrPath] = useState("");
   const [ageRecipientPath, setAgeRecipientPath] = useState("");
@@ -405,6 +406,9 @@ export default function App() {
         host: clientRemoteHost, job_id: clientRemoteInspection.job.job_id,
         device_path: clientRemoteTarget, confirmation: clientRemoteConfirmation,
         compression: clientRemoteCompression,
+        network_interface: clientRemoteJob.transport === "multicast"
+          ? (networkInterfaces.find((item) => item.binding === clientRemoteInterface)?.interface || null)
+          : null,
       });
       setClientRemoteJobStatus(result);
       setNotice(result.phase === "failed"
@@ -585,7 +589,7 @@ export default function App() {
                   <Field label="Transport">
                     <select className="pf-v5-c-form-control" value={remoteTransport} onChange={(e) => setRemoteTransport(e.target.value)}>
                       <option value="unicast">Authenticated unicast</option>
-                      <option value="multicast" disabled>UDPcast multicast restore — Client workflow pending</option>
+                      <option value="multicast" disabled={remoteOperation === "save"}>UDPcast multicast restore</option>
                     </select>
                   </Field>
                   {remoteTransport === "multicast" && <>
@@ -808,8 +812,14 @@ export default function App() {
                     <p>Target type: {clientRemoteJob.target_type} · Transport: {clientRemoteJob.transport}</p>
                     <p>Server identity: {clientRemoteInspection.server_identity}</p>
                     <p>Authorized Client MACs: {(clientRemoteJob.authorized_clients || []).join(", ")}</p>
-                    {clientRemoteJob.transport === "multicast" && <Alert variant="warning" title="Multicast Client Cockpit workflow pending" isInline>This Cockpit Client service currently starts unicast jobs only. Multicast receive remains available through the existing Client runtime; it is not started from this tab.</Alert>}
-                    {clientRemoteJob.transport === "unicast" && <>
+                    {clientRemoteJob.transport === "multicast" && <Alert variant="warning" title="Multicast network requirements" isInline>All authorized Clients must be READY before arming. Confirm UDP multicast reachability, switch IGMP snooping and an active querier on the same VLAN. UDPcast data packets are not encrypted or authenticated; mTLS protects only the control channel.</Alert>}
+                    {(clientRemoteJob.transport === "unicast" || clientRemoteJob.transport === "multicast") && <>
+                      {clientRemoteJob.transport === "multicast" && <Field label="Local multicast receive interface" help="Choose the Client interface on the same L2 multicast VLAN as the Server. Interface, route and udp-receiver preflight run again before READY.">
+                        <select className="pf-v5-c-form-control" value={clientRemoteInterface} onChange={(event) => setClientRemoteInterface(event.target.value)}>
+                          <option value="">Select receive interface…</option>
+                          {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
+                        </select>
+                      </Field>}
                       <Field label={clientRemoteJob.target_type === "partition" ? "Local destination partition" : "Local destination disk"} help="The selected block device is rechecked against live inventory immediately before READY. Root, mounted or busy destinations are rejected by the storage engine.">
                         <select className="pf-v5-c-form-control" value={clientRemoteTarget} onChange={(event) => { setClientRemoteTarget(event.target.value); setClientRemoteConfirmation(""); }}>
                           <option value="">Select local target…</option>
@@ -825,7 +835,7 @@ export default function App() {
                       <Field label="Local target confirmation">
                         <input className="pf-v5-c-form-control" value={clientRemoteConfirmation} onChange={(event) => setClientRemoteConfirmation(event.target.value)} placeholder="Type the phrase shown above exactly" />
                       </Field>
-                      <Button variant="primary" onClick={startClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteTarget || !clientRemoteConfirmationPhrase || clientRemoteConfirmation !== clientRemoteConfirmationPhrase}>Connect and wait for Server arm</Button>
+                      <Button variant="primary" onClick={startClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteTarget || !clientRemoteConfirmationPhrase || clientRemoteConfirmation !== clientRemoteConfirmationPhrase || (clientRemoteJob.transport === "multicast" && !clientRemoteInterface)}>Connect and wait for Server arm</Button>
                     </>}
                   </CardBody></Card>
                 </StackItem>}
@@ -836,6 +846,8 @@ export default function App() {
                     <p>{clientRemoteJobStatus.detail}</p>
                     {clientRemoteJobStatus.target_description && <p>Approved target: {clientRemoteJobStatus.target_description}</p>}
                     {clientRemoteJobStatus.progress && <p>Progress: {clientRemoteJobStatus.progress.completed_bytes} / {clientRemoteJobStatus.progress.total_bytes ?? "unknown"} bytes</p>}
+                    {clientRemoteJobStatus.multicast_preflight?.warnings?.length > 0 && <Alert variant="warning" title="Multicast switch checks" isInline>{clientRemoteJobStatus.multicast_preflight.warnings.join(" ")}</Alert>}
+                    {clientRemoteJobStatus.multicast_warnings?.length > 0 && <Alert variant="warning" title="Multicast switch checks" isInline>{clientRemoteJobStatus.multicast_warnings.join(" ")}</Alert>}
                     {clientRemoteJobStatus.interrupted && <Alert variant="danger" title="Client service interrupted" isInline>No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.</Alert>}
                     <Button variant="secondary" onClick={refreshClientRemoteJobStatus} isLoading={busy} isDisabled={busy}>Refresh Client status</Button>
                   </CardBody></Card>
