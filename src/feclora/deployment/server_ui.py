@@ -106,7 +106,9 @@ def _choose_job(
             raise DeploymentControlError("Client selection cancelled")
         selected_macs = [config.client_identity_to_mac[identity]]
     else:
-        args = ["--title", "Enrolled Clients", "--checklist", 
+        if len(enrolled) < 2:
+            raise DeploymentControlError("multicast restore requires at least two enrolled Clients")
+        args = ["--title", "Enrolled Clients", "--checklist",
                 "Select at least two authenticated Clients for this multicast job.",
                 "22", "92", "12", "--separate-output"]
         for identity, label in enrolled:
