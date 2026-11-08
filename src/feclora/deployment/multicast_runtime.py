@@ -137,6 +137,10 @@ def execute_multicast_restore(
             raise MulticastDeploymentError("signed image manifest does not match the job image identifier")
         if manifest.image_type != job.target_type:
             raise MulticastDeploymentError("signed image type does not match the locally approved deployment target type")
+        if not manifest.artifacts or any(artifact.encryption != "age" for artifact in manifest.artifacts):
+            raise MulticastDeploymentError("multicast restore requires every artifact to be age-encrypted")
+        if not age_identity_file:
+            raise MulticastDeploymentError("multicast restore requires this Client age identity")
         required_bytes = sum(item.size_bytes for item in manifest.artifacts)
         if shutil.disk_usage(workdir).free < required_bytes:
             raise MulticastDeploymentError("insufficient Client staging space for the complete signed image set")
