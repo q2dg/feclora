@@ -92,12 +92,13 @@ the local IPC socket accepts root peers only and validates the exact job UUID
 and typed confirmation.
 
 Unicast whole-disk capture and disk/partition restore are supported by the
-Cockpit Server/Client services. Multicast restore is also wired into the
-persistent Server service, with interface/route preflight and a separate
-`ARM MULTICAST <UUID>` confirmation. UDPcast data packets themselves are
-not encrypted or authenticated; mTLS protects the control channel, not the
-multicast payload. Multicast capture and concurrent unicast deployments
-remain out of scope.
+Cockpit Server/Client services. The existing Server engine contains a
+multicast-restore path and interface/route preflight, but Cockpit deliberately
+rejects multicast job creation until the Client-side multicast receiver,
+local target approval and receive-service lifecycle are integrated. UDPcast
+data packets themselves are not encrypted or authenticated; mTLS protects
+the control channel, not the multicast payload. Multicast capture and
+concurrent unicast deployments remain out of scope.
 
 The Server service is never enabled at boot and never resumes an interrupted
 job. A stop request closes the local IPC listener first, refuses new arm
