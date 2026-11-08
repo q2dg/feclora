@@ -43,6 +43,9 @@ export default function App() {
   const [ageRecipientExport, setAgeRecipientExport] = useState(null);
   const [clientAgeInventoryPath, setClientAgeInventoryPath] = useState("");
   const [clientAgeInventoryResult, setClientAgeInventoryResult] = useState(null);
+  const [extractImageId, setExtractImageId] = useState("");
+  const [extractPartitionSelector, setExtractPartitionSelector] = useState("");
+  const [extractPartitionResult, setExtractPartitionResult] = useState(null);
   const [images, setImages] = useState([]);
   const [journals, setJournals] = useState([]);
   const [deploymentJobs, setDeploymentJobs] = useState([]);
@@ -185,6 +188,21 @@ export default function App() {
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
+  };
+
+  const extractPartitionFromImage = async () => {
+    setBusy(true); setError(""); setNotice(""); setProgress(null); setExtractPartitionResult(null);
+    try {
+      const result = await callFeclora("extract_partition_image", {
+        image_id: extractImageId, selector: extractPartitionSelector
+      }, (eventData) => {
+        if (eventData.event === "progress") setProgress(eventData);
+      });
+      setExtractPartitionResult(result);
+      setNotice("Partition image extracted and published.");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); setProgress(null); }
   };
 
   const exportServerAgeRecipients = async () => {
@@ -591,6 +609,26 @@ export default function App() {
           </Tab>
           <Tab eventKey="images" title="Image repository">
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Available images</Title></StackItem>
+              <StackItem>
+                <Card><CardBody>
+                  <Title headingLevel="h3" size="lg">Extract a partition from a whole-disk image</Title>
+                  <p>Select a verified whole-disk image and identify one partition by PARTUUID, PARTLABEL or partition node recorded in its partition table. Feclora reads and verifies the source image and publishes a separate partition image; the source image is not modified.</p>
+                  <Field label="Whole-disk source image">
+                    <select className="pf-v5-c-form-control" value={extractImageId} onChange={(event) => { setExtractImageId(event.target.value); setExtractPartitionResult(null); }}>
+                      <option value="">Select whole-disk image…</option>
+                      {images.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}{item.signed ? " · signed" : " · unsigned"}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Partition selector" help="Use a PARTUUID, PARTLABEL, or a partition node such as /dev/sda2 from the captured partition table.">
+                    <input className="pf-v5-c-form-control" value={extractPartitionSelector} onChange={(event) => { setExtractPartitionSelector(event.target.value); setExtractPartitionResult(null); }} placeholder="PARTUUID=… or PARTLABEL=…" />
+                  </Field>
+                  <Button variant="primary" onClick={extractPartitionFromImage} isLoading={busy} isDisabled={busy || !extractImageId || !extractPartitionSelector.trim()}>Extract partition image</Button>
+                  {busy && progress && <Progress value={progress.bytes_total ? Math.min(100, progress.bytes_done / progress.bytes_total * 100) : 0} title="Partition extraction progress" measureLocation="outside" label={formatBytes(progress.bytes_done) + " / " + formatBytes(progress.bytes_total)} />}
+                  {extractPartitionResult && <Alert variant="success" title="Partition image published" isInline>
+                    Source: {extractPartitionResult.source_image_id} · New image: {extractPartitionResult.image_id} · {extractPartitionResult.signed ? "Signed" : "Unsigned"}
+                  </Alert>}
+                </CardBody></Card>
+              </StackItem>
               <StackItem><Table aria-label="Feclora image repository" variant="compact"><Thead><Tr><Th>Image</Th><Th>Type</Th><Th>Source size</Th><Th>Signature</Th><Th>Encryption</Th><Th>Artifacts</Th></Tr></Thead><Tbody>
                 {images.map((item) => <Tr key={item.image_id}><Td>{item.image_id}</Td><Td>{item.image_type}</Td><Td>{formatBytes(item.source_size_bytes)}</Td><Td><Label color={item.signed ? "green" : "orange"}>{item.signed ? "Signed" : "Unsigned"}</Label></Td><Td><Label color={item.encrypted ? "green" : "orange"}>{item.encrypted ? "age" : "Plain"}</Label></Td><Td>{item.artifact_count}</Td></Tr>)}
                 {!images.length && <Tr><Td colSpan={6}>No manifest-backed images found.</Td></Tr>}
