@@ -88,6 +88,43 @@ def _choose_job(config: ServerRuntimeConfig, interface: str) -> tuple[Deployment
     return job, manifest_path, mac
 
 
+def _journal_directory() -> str:
+    path = "/var/lib/feclora/deployments"
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    info = os.lstat(path)
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+        raise RuntimeConfigError("deployment journal directory must be root-owned with mode 0700")
+    return path
+
+
+def _review_previous_journals(directory: str) -> None:
+    summaries = []
+    for path in sorted(Path(directory).glob("*.jsonl"))[-20:]:
+        try:
+            journal = DeploymentJournal.inspect(path)
+            latest = journal.latest_state()
+            if latest is None:
+                continue
+            state = str(latest.get("job_state", "unknown"))
+            status = "INTERRUPTED — manual review required; never auto-resumed" if state in {
+                "created", "armed", "running",
+            } else state.upper()
+            summaries.append(
+                f"{journal.job_id}: {status} (events: {len(journal.events)})"
+            )
+        except Exception as exc:
+            raise RuntimeConfigError(
+                f"deployment journal {path.name} is corrupt or unsafe; refusing new jobs: {exc}"
+            ) from exc
+    if summaries:
+        dialog_app._message(
+            "Previous deployment journal review",
+            "Previous jobs are audit records only. Interrupted jobs are not resumed "
+            "automatically; reconcile any partially written target before starting "
+            "another job.\n\n" + "\n".join(summaries),
+        )
+
+
 def run_deployment_server_ui(
     interface: str,
     address: str,
@@ -103,18 +140,14 @@ def run_deployment_server_ui(
             raise RuntimeConfigError(
                 "deployment control bind_address must equal the selected PXE interface address"
             )
+        journal_dir = _journal_directory()
+        _review_previous_journals(journal_dir)
         job, manifest_path, selected_mac = _choose_job(config, interface)
         context = create_mutual_tls_context(
             "server", ca_file=config.ca_file,
             certificate_file=config.certificate_file,
             private_key_file=config.private_key_file,
         )
-        journal_dir = "/var/lib/feclora/deployments"
-        os.makedirs(journal_dir, mode=0o700, exist_ok=True)
-        journal_info = os.lstat(journal_dir)
-        if (not stat.S_ISDIR(journal_info.st_mode) or journal_info.st_uid != 0
-                or journal_info.st_mode & 0o077):
-            raise RuntimeConfigError("deployment journal directory must be root-owned with mode 0700")
         journal_path = os.path.join(journal_dir, job.job_id + ".jsonl")
         journal = DeploymentJournal(journal_path, job.job_id)
         coordinator = DeploymentCoordinator(job, event_sink=journal)
