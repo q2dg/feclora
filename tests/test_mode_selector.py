@@ -16,19 +16,16 @@ class ModeSelectorTests(unittest.TestCase):
         run_live.assert_called_once_with()
 
     @patch("feclora.ui.mode_selector.shutil.which", return_value="/usr/bin/dialog")
+    @patch("feclora.ui.mode_selector.run_server_ui")
     @patch("feclora.ui.mode_selector._dialog")
-    def test_server_mode_reports_unavailable_and_returns_to_menu(self, dialog, _which):
+    def test_server_mode_dispatches_to_server_ui(self, dialog, run_server, _which):
         from subprocess import CompletedProcess
         dialog.side_effect = [
             CompletedProcess([], 0, "server\n", ""),
-            CompletedProcess([], 0, "", ""),
             CompletedProcess([], 1, "", ""),
         ]
-
         self.assertEqual(mode_selector.main(), 0)
-        self.assertEqual(dialog.call_count, 3)
-        self.assertTrue(any("Server mode not yet implemented" in call.args[0] for call in dialog.call_args_list))
-
+        run_server.assert_called_once_with()
     @patch("feclora.ui.mode_selector.shutil.which", return_value="/usr/bin/loadkeys")
     @patch("feclora.ui.mode_selector.subprocess.run")
     @patch("feclora.ui.mode_selector._dialog")
