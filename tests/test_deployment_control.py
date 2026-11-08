@@ -410,6 +410,117 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
         ], check=True, capture_output=True)
         return cert, key
 
+    def test_mtls_session_transfers_signed_image_set_before_client_result(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ca_key, ca_cert = self._certificate(directory, "ca", "URI:feclora-test-ca", ca=True)
+            server_key, server_cert = self._certificate(
+                directory, "server", "URI:feclora-server", ca_cert=ca_cert, ca_key=ca_key,
+            )
+            client_key, client_cert = self._certificate(
+                directory, "client", "URI:feclora-client", ca_cert=ca_cert, ca_key=ca_key,
+            )
+            server_context = create_mutual_tls_context(
+                "server", ca_file=ca_cert, certificate_file=server_cert,
+                private_key_file=server_key,
+            )
+            client_context = create_mutual_tls_context(
+                "client", ca_file=ca_cert, certificate_file=client_cert,
+                private_key_file=client_key,
+            )
+            source = os.path.join(directory, "source")
+            destination = os.path.join(directory, "destination")
+            os.mkdir(source)
+            os.mkdir(destination)
+            disk = b"disk"
+            table = b"table"
+            with open(os.path.join(source, "disk.raw"), "wb") as stream:
+                stream.write(disk)
+            with open(os.path.join(source, "table.txt"), "wb") as stream:
+                stream.write(table)
+            manifest = {
+                "schema_version": 1, "image_id": "golden-image",
+                "image_type": "disk", "source_size_bytes": len(disk),
+                "logical_sector_size": 512, "partition_table": "none",
+                "artifacts": [
+                    {"filename": "disk.raw", "role": "disk-image", "format": "raw",
+                     "compression": "none", "size_bytes": len(disk),
+                     "sha256": hashlib.sha256(disk).hexdigest()},
+                    {"filename": "table.txt", "role": "partition-table", "format": "raw",
+                     "compression": "none", "size_bytes": len(table),
+                     "sha256": hashlib.sha256(table).hexdigest()},
+                ],
+            }
+            manifest_path = os.path.join(source, "golden-image.manifest.json")
+            with open(manifest_path, "w", encoding="utf-8") as stream:
+                json.dump(manifest, stream)
+            with open(manifest_path + ".minisig", "wb") as stream:
+                stream.write(b"test signature")
+
+            job = make_job()
+            coordinator = DeploymentCoordinator(job)
+            server = DeploymentControlServer(
+                coordinator, server_context, local_identity="URI:feclora-server",
+                client_identity_to_mac={"URI:feclora-client": MAC},
+            )
+            host, port = server.start()
+            accepted = []
+            accept_thread = threading.Thread(
+                target=lambda: accepted.append(server.accept_ready_client(server._listener)),
+                daemon=True,
+            )
+            client_result = []
+            approval = LocalTargetApproval(
+                "/dev/vda", "Disposable VM disk",
+                "ERASE /dev/vda FROM URI:feclora-server",
+            )
+            def client():
+                client_result.append(join_deployment(
+                    host, port, client_context,
+                    local_identity="URI:feclora-client",
+                    expected_server_identity="URI:feclora-server",
+                    mac_address=MAC, job_id=JOB_ID,
+                    prepare_local_target=lambda offered: approval,
+                    execute_job=lambda offered, tls, local: self._receive_test_image(
+                        tls, destination, offered,
+                    ),
+                ))
+            client_thread = threading.Thread(target=client, daemon=True)
+            try:
+                with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
+                    accept_thread.start()
+                    client_thread.start()
+                    accept_thread.join(5)
+                    self.assertFalse(accept_thread.is_alive())
+                    server.arm_and_start()
+                    server.send_restore_image(
+                        MAC, source, manifest_path,
+                        trusted_public_key="/trusted/server.pub",
+                    )
+                    client_thread.join(5)
+                    self.assertFalse(client_thread.is_alive())
+                    results = server.collect_results(timeout=5)
+                self.assertEqual(results, {MAC: "succeeded"})
+                self.assertTrue(client_result[0][1])
+                with open(os.path.join(destination, "disk.raw"), "rb") as stream:
+                    self.assertEqual(stream.read(), disk)
+                with open(os.path.join(destination, "table.txt"), "rb") as stream:
+                    self.assertEqual(stream.read(), table)
+                self.assertEqual(coordinator.state, JobState.COMPLETED)
+            finally:
+                server.stop()
+
+    @staticmethod
+    def _receive_test_image(tls, destination, job):
+        from feclora.deployment.artifact_transfer import receive_image_set
+        offer = receive_control_message(tls, expected_type="transfer_offer")
+        if offer.get("job_id") != job.job_id or offer.get("image_id") != job.image_id:
+            raise DeploymentControlError("transfer offer mismatch")
+        receive_image_set(
+            tls, destination, expected_image_id=job.image_id,
+            trusted_public_key="/trusted/server.pub",
+        )
+        return True, "signed image received and verified"
+
     def test_tls13_client_server_job_ready_arm_and_result(self):
         with tempfile.TemporaryDirectory() as directory:
             ca_key = os.path.join(directory, "ca.key")
