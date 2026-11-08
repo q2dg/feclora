@@ -101,6 +101,29 @@ class ClientProgressTests(unittest.TestCase):
         self.assertEqual(progress["bytes_per_second"], 512.0)
         self.assertNotIn("monotonic", progress)
 
+    def test_transfer_progress_is_a_distinct_phase_with_independent_throughput(self):
+        server = object.__new__(DeploymentControlServer)
+        server.coordinator = DeploymentCoordinator(make_job())
+        server.coordinator.register_client(MAC, authenticated=True)
+        server.coordinator.mark_ready(MAC)
+        server.coordinator.arm()
+        server.coordinator.mark_running(MAC)
+        server._lock = threading.RLock()
+        server._progress = {}
+        restore = {
+            "type": "progress", "job_id": JOB_ID, "phase": "restore",
+            "completed_bytes": 5000, "total_bytes": 10000,
+        }
+        transfer = {**restore, "phase": "transfer", "completed_bytes": 100, "total_bytes": 1000}
+        with patch("feclora.deployment.control.time.monotonic", side_effect=[10.0, 11.0, 13.0]):
+            server._record_client_progress(MAC, restore)
+            server._record_client_progress(MAC, transfer)
+            server._record_client_progress(MAC, {**transfer, "completed_bytes": 200})
+        progress = server.client_progress()[MAC]
+        self.assertEqual(progress["phase"], "transfer")
+        self.assertEqual(progress["completed_bytes"], 200)
+        self.assertEqual(progress["bytes_per_second"], 50.0)
+
     def test_progress_rejects_wrong_job_and_invalid_counters(self):
         server = object.__new__(DeploymentControlServer)
         server.coordinator = DeploymentCoordinator(make_job())
