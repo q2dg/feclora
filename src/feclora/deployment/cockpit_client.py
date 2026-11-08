@@ -114,8 +114,8 @@ def prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
     )
     if any(os.path.lexists(item) for item in targets):
         raise CockpitEnrollmentError("Client identity material or removable-media export already exists")
-    identity, private_key, exported_csr = create_client_csr(PKI, export, client_id)
     try:
+        identity, private_key, exported_csr = create_client_csr(PKI, export, client_id)
         if params["image_capture"]:
             result = subprocess.run(
                 ["/usr/bin/minisign", "-G", "-s", secret, "-p", public, "-W"],
@@ -195,11 +195,16 @@ def complete_client_enrollment(params: dict[str, Any]) -> dict[str, Any]:
         os.path.join(PKI, "ca.crt"), installed_server_key, installed_recipients,
     )):
         raise CockpitEnrollmentError("Partial Client enrollment files already exist; inspect them before retrying")
-    installed = install_client_certificate(
-        certificate, ca_file, local_key, PKI,
-        f"URI:feclora-client-{client_id}", expected_ca,
-    )
+    installed = {
+        "certificate_file": os.path.join(PKI, "client.crt"),
+        "ca_file": os.path.join(PKI, "ca.crt"),
+        "private_key_file": os.path.join(PKI, "client.key"),
+    }
     try:
+        installed = install_client_certificate(
+            certificate, ca_file, local_key, PKI,
+            f"URI:feclora-client-{client_id}", expected_ca,
+        )
         shutil.copyfile(server_public, installed_server_key)
         os.chmod(installed_server_key, 0o644)
         shutil.copyfile(recipients_file, installed_recipients)
