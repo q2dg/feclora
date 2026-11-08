@@ -702,6 +702,127 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
         return _execute_operation(action, params, operation_id)
 
 
+def _deployment_journal_directory(*, create: bool = False) -> Path:
+    directory = Path("/var/lib/feclora/deployments")
+    if create:
+        directory.mkdir(mode=0o700, parents=False, exist_ok=True)
+    try:
+        info = os.lstat(directory)
+    except OSError as exc:
+        raise WebAPIError("deployment journal directory is unavailable") from exc
+    if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
+            or info.st_uid != 0 or info.st_mode & 0o077):
+        raise WebAPIError("deployment journal directory must be a private root-owned real directory")
+    return directory
+
+
+def _deployment_jobs() -> list[dict[str, Any]]:
+    from feclora.deployment.journal import DeploymentJournal
+    directory = _deployment_journal_directory()
+    jobs = []
+    for path in sorted(directory.glob("*.jsonl")):
+        report = DeploymentJournal.inspect(path).recovery_report()
+        job = report["job"]
+        jobs.append({
+            "job_id": report["job_id"],
+            "operation": job["operation"],
+            "image_id": job["image_id"],
+            "target_type": job.get("target_type", "disk"),
+            "transport": job["transport"],
+            "job_state": report["job_state"],
+            "interrupted": report["interrupted"],
+            "clients": report["clients"],
+            "authorized_clients": job["authorized_clients"],
+            "created_at": report["created_at"],
+            "last_event": report["last_event"],
+        })
+    return jobs
+
+
+def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"job"} or not isinstance(params["job"], dict):
+        raise WebAPIError("create_deployment_job requires exactly one job object")
+    from uuid import UUID
+    from feclora.deployment.job import DeploymentJob, JobValidationError
+    from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
+    from feclora.deployment.runtime_config import load_server_runtime_config, RuntimeConfigError
+
+    try:
+        job = DeploymentJob.from_dict(params["job"])
+    except JobValidationError as exc:
+        raise WebAPIError(str(exc)) from exc
+    config_path = "/etc/feclora/deployment-server.json"
+    try:
+        config = load_server_runtime_config(config_path)
+    except RuntimeConfigError as exc:
+        raise WebAPIError(f"configure the Feclora Server before creating jobs: {exc}") from exc
+    if not set(job.authorized_clients).issubset(set(config.client_identity_to_mac.values())):
+        raise WebAPIError("every job Client must already be enrolled on this Server")
+    if job.network_interface not in {name for _, name in socket.if_nameindex()}:
+        raise WebAPIError("selected network interface does not exist")
+    if job.transport == "multicast" and job.operation != "restore":
+        raise WebAPIError("network capture currently supports unicast only")
+    if job.operation == "save":
+        if job.image_id in {item["image_id"] for item in _images()}:
+            raise WebAPIError("capture image identifier already exists")
+        missing_keys = set(job.authorized_clients) - set(config.client_minisign_public_keys)
+        if missing_keys:
+            raise WebAPIError("every Client in a capture job must have an enrolled minisign public key")
+    else:
+        manifest_path = _image_manifest(job.image_id)
+        try:
+            manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+            expected_type = "disk" if job.target_type == "disk" else "partition"
+            if manifest.image_type != expected_type:
+                raise WebAPIError(f"selected image is not a {expected_type} image")
+            from feclora.storage.image_security import verify_manifest_signature
+            verify_manifest_signature(manifest_path, config.server_minisign_public_key)
+        except WebAPIError:
+            raise
+        except Exception as exc:
+            raise WebAPIError(f"restore image must have a valid Server signature: {exc}") from exc
+        if any(item.encryption == "age" for item in manifest.artifacts):
+            pki = Path("/etc/feclora/pki/age-recipients")
+            for mac in job.authorized_clients:
+                identity = next(
+                    identity for identity, enrolled_mac in config.client_identity_to_mac.items()
+                    if enrolled_mac == mac
+                )
+                client_id = identity.removeprefix("URI:feclora-client-")
+                mapping = pki / f"{client_id}.txt"
+                try:
+                    info = os.lstat(mapping)
+                    recipient = mapping.read_text(encoding="ascii").strip()
+                except OSError as exc:
+                    raise WebAPIError(f"Client {mac} has no registered age recipient") from exc
+                if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
+                        or info.st_mode & 0o077 or not re.fullmatch(r"age1[0-9a-z]{20,}", recipient)):
+                    raise WebAPIError(f"Client {mac} age recipient mapping is unsafe")
+    directory = _deployment_journal_directory(create=True)
+    journal_path = directory / f"{job.job_id}.jsonl"
+    if os.path.lexists(journal_path):
+        raise WebAPIError("deployment job UUID already exists")
+    try:
+        journal = DeploymentJournal(journal_path, job.job_id)
+        from feclora.deployment.coordinator import DeploymentCoordinator
+        coordinator = DeploymentCoordinator(job, event_sink=journal)
+    except (DeploymentJournalError, Exception) as exc:
+        try:
+            if journal_path.exists() and journal_path.stat().st_size == 0:
+                journal_path.unlink()
+        except OSError:
+            pass
+        raise WebAPIError(f"could not persist deployment job: {exc}") from exc
+    return {
+        "job_id": job.job_id,
+        "job_state": coordinator.state.value,
+        "authorized_clients": list(job.authorized_clients),
+        "journal": str(journal_path),
+        "started": False,
+        "message": "Job definition persisted. No Client was contacted and no storage operation was started.",
+    }
+
+
 def dispatch(request: Any) -> dict[str, Any]:
     if not isinstance(request, dict) or set(request) - {"action", "params"} or "action" not in request:
         raise WebAPIError("request must contain an action and optional params object")
@@ -762,6 +883,12 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise WebAPIError("initialize_security does not accept parameters")
         return _initialize_security()
+    if action == "deployment_jobs":
+        if params:
+            raise WebAPIError("deployment_jobs does not accept parameters")
+        return {"jobs": _deployment_jobs()}
+    if action == "create_deployment_job":
+        return _create_deployment_job(params)
     if action == "journals":
         if params:
             raise WebAPIError("journals does not accept parameters")
