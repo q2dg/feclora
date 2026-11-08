@@ -385,3 +385,86 @@ def certificate_expiry_days(
     if current.tzinfo is None:
         raise PKIError("current time must be timezone-aware")
     return int((expiry - current.astimezone(timezone.utc)).total_seconds() // 86400)
+
+
+
+def _atomic_text(path: str, content: str, mode: int = 0o600) -> None:
+    directory = os.path.dirname(path)
+    fd, temporary = tempfile.mkstemp(prefix=".feclora-pki-state-", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="ascii") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, mode)
+        os.replace(temporary, path)
+        dirfd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(dirfd)
+        finally:
+            os.close(dirfd)
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
+
+
+def register_age_recipient(
+    pki_directory: str | os.PathLike[str],
+    identity: str,
+    recipient: str,
+) -> None:
+    """Register a Client age recipient for future captures and retain identity mapping."""
+    if os.geteuid() != 0:
+        raise PKIError("age recipient inventory updates require root")
+    prefix = "URI:feclora-client-"
+    if not isinstance(identity, str) or not identity.startswith(prefix):
+        raise PKIError("age recipient must be associated with a Feclora Client URI identity")
+    client_id = identity[len(prefix):]
+    if not _CLIENT_ID.fullmatch(client_id) or not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
+        raise PKIError("Client age recipient mapping is malformed")
+    root = _root_only_directory(pki_directory)
+    recipients_file = os.path.join(root, "age-recipients.txt")
+    _regular_file(recipients_file, "Server age recipient inventory", root_owned=True)
+    inventory = [
+        line.strip() for line in Path(recipients_file).read_text(encoding="ascii").splitlines()
+        if line.strip()
+    ]
+    if any(not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in inventory):
+        raise PKIError("Server age recipient inventory contains an invalid entry")
+    directory = _root_only_directory(os.path.join(root, "age-recipients"))
+    _atomic_text(recipients_file, "\n".join(sorted(set(inventory + [recipient]))) + "\n")
+    _atomic_text(os.path.join(directory, client_id + ".txt"), recipient + "\n")
+
+
+def remove_age_recipient(
+    pki_directory: str | os.PathLike[str],
+    identity: str,
+) -> bool:
+    """Remove a revoked/rotated Client from future image encryption recipient lists."""
+    prefix = "URI:feclora-client-"
+    if not isinstance(identity, str) or not identity.startswith(prefix):
+        return False
+    client_id = identity[len(prefix):]
+    if not _CLIENT_ID.fullmatch(client_id):
+        return False
+    root = os.path.abspath(os.fspath(pki_directory))
+    mapping = os.path.join(root, "age-recipients", client_id + ".txt")
+    if not os.path.exists(mapping):
+        return False
+    if os.geteuid() != 0:
+        raise PKIError("age recipient revocation requires root")
+    _root_only_directory(root)
+    _regular_file(mapping, "Client age recipient mapping", root_owned=True)
+    recipient = Path(mapping).read_text(encoding="ascii").strip()
+    recipients_file = os.path.join(root, "age-recipients.txt")
+    _regular_file(recipients_file, "Server age recipient inventory", root_owned=True)
+    remaining = [
+        line.strip() for line in Path(recipients_file).read_text(encoding="ascii").splitlines()
+        if line.strip() and line.strip() != recipient
+    ]
+    _atomic_text(recipients_file, ("\n".join(sorted(set(remaining))) + "\n") if remaining else "")
+    os.unlink(mapping)
+    return True
