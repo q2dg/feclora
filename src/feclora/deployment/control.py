@@ -227,9 +227,9 @@ class DeploymentControlServer:
                 raise DeploymentControlError("client certificate identity is not enrolled for this deployment")
             verify_peer_identity(tls_socket, identity)
             hello = receive_control_message(tls_socket, expected_type="hello")
-            if set(hello) != {"type", "job_id", "mac_address"}:
+            if set(hello) != {"type", "job_id", "mac_address", "certificate_identity"}:
                 raise DeploymentControlError("client hello contains missing or unknown fields")
-            if hello["job_id"] != self.coordinator.job.job_id or hello["mac_address"] != mac:
+            if (hello["job_id"] != self.coordinator.job.job_id or hello["mac_address"] != mac\n                    or hello["certificate_identity"] != identity):
                 raise DeploymentControlError("client hello does not match the enrolled identity and active job")
             self.coordinator.register_client(mac, authenticated=True)
             registered_mac = mac
@@ -353,7 +353,7 @@ def join_deployment(
     )
     with tls_socket:
         send_control_message(tls_socket, {
-            "type": "hello", "job_id": job_id, "mac_address": mac_address.lower(),
+            "type": "hello", "job_id": job_id, "mac_address": mac_address.lower(),\n            "certificate_identity": local_identity,
         })
         offer = receive_control_message(tls_socket, expected_type="job")
         if set(offer) != {"type", "job", "server_identity"}:
