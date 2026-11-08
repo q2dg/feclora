@@ -21,7 +21,9 @@ In the Server guest:
 2. Choose isolated DHCP and a small pool such as 192.0.2.100-192.0.2.150.
 3. Type the exact authoritative-DHCP confirmation shown by Feclora.
 4. Start PXE services; confirm dnsmasq, Caddy and firewalld are active.
-5. Boot both client VMs from the network. Confirm BIOS loads undionly.kpxe and UEFI loads ipxe-snponly-x86_64.efi, then iPXE fetches the Feclora kernel, initramfs and squashfs over HTTP.\n6. Provision the root-owned Server/Client config files and test certificates described in docs/DEPLOYMENT-SETUP.md.\n7. Create a signed whole-disk image, run one authenticated unicast restore to a disposable client disk, and verify the journal, destination read-back and result.
+5. Boot both client VMs from the network. Confirm BIOS loads undionly.kpxe and UEFI loads ipxe-snponly-x86_64.efi, then iPXE fetches the Feclora kernel, initramfs and squashfs over HTTP.
+6. Provision the root-owned Server/Client config files and test certificates described in docs/DEPLOYMENT-SETUP.md.
+7. Create a signed whole-disk image, run one authenticated unicast restore to a disposable client disk, and verify the journal, destination read-back and result.
 
 ## Acceptance checklist
 
