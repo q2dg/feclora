@@ -140,7 +140,7 @@ class WebAPITests(unittest.TestCase):
             result = __import__("feclora.webapi", fromlist=["_inspect_image_layout"])._inspect_image_layout(
                 {"image_id": "source"}
             )
-        self.assertEqual(result["partitions"][0]["selector"], "root-uuid")
+        self.assertEqual(result["partitions"][0]["selector"], "/dev/sda1")
         self.assertEqual(result["partitions"][0]["size_bytes"], 1024)
         self.assertIn("full disk data artifact", result["message"])
 
