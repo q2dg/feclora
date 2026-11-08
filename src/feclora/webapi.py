@@ -367,6 +367,88 @@ def _bootstrap_server(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _validate_pxe_profile(params: dict[str, Any]) -> dict[str, Any]:
+    required = {
+        "interface", "address", "prefix_length", "mode", "pool_start",
+        "pool_end", "lease_time", "gateway", "dns_server", "http_port",
+        "authoritative_confirmed",
+    }
+    if set(params) != required:
+        raise WebAPIError("validate_pxe_profile requires the complete PXE profile field set")
+    interface = _text(params, "interface", pattern=r"[A-Za-z0-9_.:-]{1,15}", maximum=15)
+    address = _text(params, "address", maximum=45)
+    mode = _text(params, "mode", pattern=r"(?:proxy|isolated)", maximum=16)
+    prefix = params["prefix_length"]
+    port = params["http_port"]
+    authoritative = params["authoritative_confirmed"]
+    if isinstance(prefix, bool) or not isinstance(prefix, int) or not 1 <= prefix <= 30:
+        raise WebAPIError("prefix_length must be an integer between 1 and 30")
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        raise WebAPIError("http_port must be an integer between 1 and 65535")
+    if not isinstance(authoritative, bool):
+        raise WebAPIError("authoritative_confirmed must be boolean")
+    optional = {}
+    for key in ("pool_start", "pool_end", "gateway", "dns_server"):
+        value = params[key]
+        if value is not None and (not isinstance(value, str) or not value or len(value) > 45):
+            raise WebAPIError(f"{key} must be an IPv4 address or null")
+        optional[key] = value
+    lease = _text(params, "lease_time", pattern=r"[1-9][0-9]*(?:s|m|h|d|w)", maximum=16)
+
+    from feclora.network.pxe_config import PXENetworkConfig
+    from feclora.network.pxe_preflight import validate_pxe_configuration
+    from feclora.network.interface_discovery import detect_existing_dhcp_server
+
+    config = PXENetworkConfig(
+        interface=interface, address=address, prefix_length=prefix, mode=mode,
+        tftp_root="/var/lib/feclora/pxe/tftp",
+        bios_boot_file="undionly.kpxe",
+        uefi_boot_file="ipxe-snponly-x86_64.efi",
+        http_root="/var/lib/feclora/pxe/http",
+        http_port=port, pool_start=optional["pool_start"],
+        pool_end=optional["pool_end"], lease_time=lease,
+        gateway=optional["gateway"], dns_server=optional["dns_server"],
+        authoritative_confirmed=authoritative,
+    )
+    try:
+        config.validated()
+        validate_pxe_configuration(config)
+        dhcp_server = detect_existing_dhcp_server(interface)
+    except Exception as exc:
+        raise WebAPIError(f"PXE preflight failed: {exc}") from exc
+    warnings = []
+    if dhcp_server:
+        warnings.append(
+            f"NetworkManager reports DHCP server {dhcp_server} on this interface. "
+            "Use ProxyDHCP unless the network is a deliberately isolated Feclora DHCP segment."
+        )
+        if mode == "isolated":
+            raise WebAPIError(
+                "An existing DHCP server is reported on this interface; isolated authoritative DHCP is blocked. "
+                "Use ProxyDHCP or move Feclora to a verified isolated network."
+            )
+    elif mode == "isolated":
+        warnings.append(
+            "No DHCP server was reported by the current NetworkManager lease. "
+            "This does not prove the segment is isolated; verify the VLAN and DHCP topology before activation."
+        )
+    return {
+        "valid": True,
+        "interface": interface,
+        "address": address,
+        "prefix_length": prefix,
+        "subnet": str(config.network),
+        "mode": mode,
+        "pool_start": config.pool_start,
+        "pool_end": config.pool_end,
+        "http_url": f"http://{address}:{port}/boot.ipxe",
+        "dhcp_server": dhcp_server,
+        "warnings": warnings,
+        "services_started": False,
+        "message": "PXE configuration passed static and daemon preflight. No network services or firewall rules were changed.",
+    }
+
+
 def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "sign"},
@@ -561,6 +643,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return {"interfaces": _network_interfaces()}
     if action == "bootstrap_server":
         return _bootstrap_server(params)
+    if action == "validate_pxe_profile":
+        return _validate_pxe_profile(params)
     if action == "inventory":
         if params:
             raise WebAPIError("inventory does not accept parameters")
