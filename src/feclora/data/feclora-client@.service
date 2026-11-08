@@ -1,0 +1,28 @@
+[Unit]
+Description=Feclora authenticated Client deployment job %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStartPre=/usr/bin/install -d -o root -g root -m 0700 /var/lib/feclora/client-jobs
+ExecStart=/usr/bin/python3 -m feclora.deployment.client_service --job-id %i
+ExecStopPost=/usr/bin/python3 -m feclora.deployment.client_service --job-id %i --mark-interrupted
+Restart=no
+TimeoutStopSec=30
+KillMode=mixed
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/feclora /etc/feclora /run/feclora
+
+[Install]
+# Intentionally not enabled at boot; Cockpit starts an explicitly approved Client job.
