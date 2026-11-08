@@ -648,6 +648,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             if trusted_key is None:
                 raise WebAPIError("signed disk image does not verify against any locally trusted Feclora signing key")
         _recipients_file, signing_key = _capture_material()
+        if not security["image_signing_available"]:
+            signing_key = None
         if signed and signing_key is None:
             raise WebAPIError("extracting a signed disk image requires a local signing key to sign the resulting partition image")
         identity_context = tempfile.TemporaryDirectory(prefix="feclora-age-identities-") if encrypted and len(identity_paths) > 1 else None
