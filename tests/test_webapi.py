@@ -40,6 +40,35 @@ class WebAPITests(unittest.TestCase):
         with patch("feclora.webapi._network_interfaces", return_value=expected):
             self.assertEqual(dispatch({"action": "network_interfaces"}), {"interfaces": expected})
 
+    def test_server_trusted_clients_action_returns_public_inventory(self):
+        expected = {"clients": [{
+            "identity": "URI:feclora-client-lab",
+            "mac_address": "52:54:00:12:34:56",
+            "image_capture": True,
+        }]}
+        with patch("feclora.webapi._server_trusted_clients", return_value=expected) as inventory:
+            self.assertEqual(dispatch({"action": "server_trusted_clients"}), expected)
+        inventory.assert_called_once_with()
+        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
+            dispatch({"action": "server_trusted_clients", "params": {"private_key": "no"}})
+
+    def test_revoke_server_client_requires_exact_confirmation_and_is_allowlisted(self):
+        identity = "URI:feclora-client-lab"
+        with self.assertRaisesRegex(WebAPIError, "confirmation does not match"):
+            dispatch({"action": "revoke_server_client", "params": {
+                "identity": identity, "confirmation": "REVOKE someone-else",
+            }})
+        with patch("feclora.webapi._revoke_server_client", return_value={
+            "identity": identity, "mac_address": "52:54:00:12:34:56", "revoked": True,
+        }) as revoke:
+            result = dispatch({"action": "revoke_server_client", "params": {
+                "identity": identity, "confirmation": f"REVOKE {identity}",
+            }})
+        revoke.assert_called_once_with({
+            "identity": identity, "confirmation": f"REVOKE {identity}",
+        })
+        self.assertTrue(result["revoked"])
+
     def test_prepare_client_request_is_exposed_through_allowlisted_api(self):
         with patch("feclora.webapi._prepare_client_request", return_value={"identity": "URI:feclora-client-lab"}) as prepare:
             result = dispatch({"action": "prepare_client_request", "params": {"client_id": "lab"}})
