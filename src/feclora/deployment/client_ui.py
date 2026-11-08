@@ -24,6 +24,7 @@ from feclora.deployment.runtime_config import (
     ClientRuntimeConfig, RuntimeConfigError, load_client_runtime_config,
 )
 from feclora.network.remote_clone_protocol import create_mutual_tls_context
+from feclora.network.multicast_preflight import inspect_multicast_interface
 from feclora.network.firewall import PXEFirewall
 from feclora.storage.inventory import InventoryError, collect_inventory
 from feclora.ui import dialog_app
@@ -285,6 +286,14 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 )
                 if selected_interface is None:
                     raise DeploymentControlError("local multicast interface selection cancelled")
+                preflight = inspect_multicast_interface(
+                    selected_interface, job.multicast_group, role="receiver",
+                )
+                dialog_app._message(
+                    "Client multicast preflight",
+                    f"Interface: {preflight.interface} ({preflight.ipv4_address})\\nKernel route: {preflight.route_interface}\\n\\n"
+                    + "\\n".join(preflight.warnings),
+                )
                 state["multicast_interface"] = selected_interface
             if job.operation == "save" and not config.local_minisign_secret_key:
                 raise DeploymentControlError("this Client has no enrolled minisign signing key and cannot create images")
