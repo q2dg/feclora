@@ -74,14 +74,16 @@ class PXEFirewall:
         self._opened[interface] = (zone, added)
 
     def close(self, interface: str) -> None:
-        state = self._opened.pop(interface, None)
+        state = self._opened.get(interface)
         if state is None:
             return
         zone, ports = state
-        errors = []
+        remaining = []
         for port in reversed(ports):
             result = self._call([f"--zone={zone}", f"--remove-port={port}"], check=False)
             if result.returncode != 0:
-                errors.append(port)
-        if errors:
-            raise PXEFirewallError("could not remove runtime firewall ports: " + ", ".join(errors))
+                remaining.append(port)
+        if remaining:
+            self._opened[interface] = (zone, list(reversed(remaining)))
+            raise PXEFirewallError("could not remove runtime firewall ports: " + ", ".join(remaining))
+        del self._opened[interface]
