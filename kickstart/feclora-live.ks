@@ -30,6 +30,11 @@ iproute
 firewalld
 openssl
 
+# Cockpit web interface; socket remains disabled by default
+cockpit
+cockpit-system
+cockpit-storaged
+
 # Embedded Server-mode PXE stack; services remain disabled until explicitly selected
 # dnsmasq provides DHCP/ProxyDHCP, PXE and read-only TFTP; Caddy serves HTTP boot assets
 dnsmasq
@@ -73,6 +78,7 @@ lshw
 
 %post --erroronfail
 systemctl --root=/ enable NetworkManager
+systemctl --root=/ disable cockpit.socket || true
 
 # Live rescue console: physical access to this image grants an automatic
 # feclora shell and passwordless sudo. Do not reuse this policy on an installed OS.
@@ -105,22 +111,39 @@ restorecon -RF /home/feclora /etc/sudoers.d /etc/systemd/system/getty@tty1.servi
 %post --nochroot --erroronfail
 set -eu
 APP_SOURCE=/run/install/repo/feclora-app/src/feclora
+WEB_SOURCE=/run/install/repo/feclora-app/webui/dist
 TARGET_ROOT=/mnt/sysroot
 
 if [ ! -d "$APP_SOURCE" ]; then
   echo "feclora application payload not found: $APP_SOURCE" >&2
   exit 1
 fi
+if [ ! -s "$WEB_SOURCE/index.html" ] || [ ! -s "$WEB_SOURCE/manifest.json" ]; then
+  echo "Feclora Cockpit frontend payload is missing or incomplete: $WEB_SOURCE" >&2
+  exit 1
+fi
 
 install -d "$TARGET_ROOT/usr/share/feclora/python/feclora"
 cp -a "$APP_SOURCE/." "$TARGET_ROOT/usr/share/feclora/python/feclora/"
-install -d "$TARGET_ROOT/usr/local/bin"
+install -d "$TARGET_ROOT/usr/local/bin" "$TARGET_ROOT/usr/libexec/feclora" "$TARGET_ROOT/usr/share/cockpit/feclora"
+cp -a "$WEB_SOURCE/." "$TARGET_ROOT/usr/share/cockpit/feclora/"
 cat > "$TARGET_ROOT/usr/local/bin/feclora-ui" <<'EOF'
 #!/bin/sh
 export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
 exec /usr/bin/python3 -m feclora.ui.mode_selector "$@"
 EOF
 chmod 0755 "$TARGET_ROOT/usr/local/bin/feclora-ui"
+cat > "$TARGET_ROOT/usr/libexec/feclora/cockpit-api" <<'EOF'
+#!/bin/sh
+set -eu
+case "${1:-}" in
+  status|inventory|images|journals) ;;
+  *) echo '{"ok":false,"error":"unsupported action"}' >&2; exit 2 ;;
+esac
+export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
+exec /usr/bin/python3 -m feclora.webapi "$1"
+EOF
+chmod 0755 "$TARGET_ROOT/usr/libexec/feclora/cockpit-api"
 cat > "$TARGET_ROOT/usr/local/bin/feclora-restore-profile" <<'EOF'
 #!/bin/sh
 export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
