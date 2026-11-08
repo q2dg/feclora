@@ -153,6 +153,18 @@ fi
 if ! grep -q 'ExecStopPost=.*--recover-runtime' "$ROOT_DIR/src/feclora/data/feclora-deployment@.service"; then
   fail "Deployment service unit does not recover stale runtime socket and firewall state after exit."
 fi
+if ! grep -q 'TimeoutStopSec=infinity' "$ROOT_DIR/src/feclora/data/feclora-deployment@.service"; then
+  fail "Deployment service must not time out and kill a worker during storage I/O."
+fi
+if ! grep -q 'self._worker.join()' "$ROOT_DIR/src/feclora/deployment/service.py"; then
+  fail "Deployment service shutdown must wait for an active storage worker before closing Client sessions."
+fi
+if ! grep -q 'service shutdown has begun' "$ROOT_DIR/src/feclora/deployment/service.py"; then
+  fail "Deployment service must reject new arm requests after shutdown begins."
+fi
+if ! grep -q 'test_arm_is_rejected_after_shutdown_begins' "$ROOT_DIR/tests/test_deployment_service.py"; then
+  fail "Deployment service shutdown race regression test is missing."
+fi
 if ! grep -q 'feclora-client@.service' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Kickstart does not install the persistent Client service unit."
 fi
