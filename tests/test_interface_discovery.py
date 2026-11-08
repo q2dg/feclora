@@ -41,7 +41,7 @@ class InterfaceDiscoveryTests(unittest.TestCase):
     def test_detects_dhcp_server_from_existing_nm_lease(self):
         def runner(argv, **kwargs):
             return subprocess.CompletedProcess(
-                argv, 0, "dhcp_lease_time = 3600\\ndhcp_server_identifier = 192.0.2.254\\n", ""
+                argv, 0, "dhcp_lease_time = 3600\ndhcp_server_identifier = 192.0.2.254\n", ""
             )
         self.assertEqual(
             detect_existing_dhcp_server("enp1s0", nmcli="/usr/bin/nmcli", runner=runner),
