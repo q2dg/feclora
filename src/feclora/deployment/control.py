@@ -466,7 +466,7 @@ class DeploymentControlServer:
         *,
         trusted_public_key: str,
         manifest_path: str | None = None,
-        result_timeout: float = 3600,
+        result_timeout: float = 86400,
     ) -> dict[str, str]:
         """Arm and run one authenticated unicast save/restore job end to end."""
         clients = self.coordinator.clients()
@@ -494,7 +494,7 @@ class DeploymentControlServer:
             pass
         return self.collect_results(timeout=result_timeout)
 
-    def collect_results(self, *, timeout: float = 3600) -> dict[str, str]:
+    def collect_results(self, *, timeout: float = 86400) -> dict[str, str]:
         results: dict[str, str] = {}
         with self._lock:
             sessions = tuple(self._sessions.items())
