@@ -247,6 +247,10 @@ class WebAPITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             journal = DeploymentJournal(Path(directory) / f"{job_id}.jsonl", job_id)
             DeploymentCoordinator(DeploymentJob.from_dict(job), event_sink=journal)
+            journal({
+                "timestamp": "2026-11-08T12:00:00+00:00", "job_id": job_id,
+                "event": "service_started", "job_state": "created",
+            })
             with patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)):
                 with self.assertRaisesRegex(WebAPIError, "confirmation does not match"):
                     dispatch({"action": "reconcile_deployment_job", "params": {
