@@ -19,6 +19,7 @@ import socket
 import ssl
 import struct
 import threading
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
@@ -35,7 +36,7 @@ from feclora.network.firewall import PXEFirewallError
 from feclora.network.tls import connect_mutual_tls
 
 MAX_CONTROL_FRAME = 16 * 1024
-_CONTROL_TYPES = {"hello", "inspect", "job", "ready", "start", "result", "cancel", "error", "transfer_offer", "transfer_ready"}
+_CONTROL_TYPES = {"hello", "inspect", "job", "ready", "start", "result", "cancel", "error", "transfer_offer", "transfer_ready", "progress"}
 
 
 class DeploymentControlError(RuntimeError):
@@ -165,6 +166,7 @@ class DeploymentControlServer:
             raise DeploymentControlError("at least one certificate-identity-to-MAC mapping is required")
         self._sessions: dict[str, Any] = {}
         self._identities: dict[str, str] = {}
+        self._progress: dict[str, dict[str, Any]] = {}
         self._pending_sockets: set[Any] = set()
         self._lock = threading.RLock()
         self._stop_event = threading.Event()
@@ -421,6 +423,49 @@ class DeploymentControlServer:
             raise DeploymentControlError("client has no active authenticated control session")
         return tls_socket
 
+    def _record_client_progress(self, mac_address: str, message: dict[str, Any]) -> None:
+        """Validate and retain a progress frame received on the authenticated TLS session."""
+        expected = {"type", "job_id", "phase", "completed_bytes", "total_bytes"}
+        if set(message) != expected or message.get("type") != "progress":
+            raise DeploymentControlError("client progress frame has missing or unknown fields")
+        if message.get("job_id") != self.coordinator.job.job_id:
+            raise DeploymentControlError("client progress belongs to another deployment job")
+        if message.get("phase") not in {"save", "restore"}:
+            raise DeploymentControlError("client progress phase is invalid")
+        if message["phase"] != self.coordinator.job.operation:
+            raise DeploymentControlError("client progress phase does not match the deployment operation")
+        completed = message.get("completed_bytes")
+        total = message.get("total_bytes")
+        if (isinstance(completed, bool) or not isinstance(completed, int) or completed < 0
+                or (total is not None and (
+                    isinstance(total, bool) or not isinstance(total, int)
+                    or total < 0 or completed > total
+                ))):
+            raise DeploymentControlError("client progress byte counters are invalid")
+        mac = mac_address.lower()
+        record = next((item for item in self.coordinator.clients() if item.mac_address == mac), None)
+        if record is None or record.state is not ClientState.RUNNING:
+            raise DeploymentControlError("progress is accepted only from a running authenticated Client")
+        now = time.monotonic()
+        with self._lock:
+            previous = self._progress.get(mac)
+            rate = 0.0
+            if previous is not None and now > previous["monotonic"]:
+                rate = max(0.0, (completed - previous["completed_bytes"]) / (now - previous["monotonic"]))
+            self._progress[mac] = {
+                "phase": message["phase"], "completed_bytes": completed,
+                "total_bytes": total, "bytes_per_second": round(rate, 1),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "monotonic": now,
+            }
+
+    def client_progress(self) -> dict[str, dict[str, Any]]:
+        with self._lock:
+            return {
+                mac: {key: value for key, value in item.items() if key != "monotonic"}
+                for mac, item in self._progress.items()
+            }
+
     def _record_transfer_failure(self, mac_address: str, detail: str) -> None:
         try:
             self.coordinator.report_result(mac_address, success=False, detail=detail[:512])
@@ -476,6 +521,9 @@ class DeploymentControlServer:
         try:
             tls_socket.settimeout(86400)
             transfer = receive_control_message(tls_socket)
+            while transfer.get("type") == "progress":
+                self._record_client_progress(mac_address, transfer)
+                transfer = receive_control_message(tls_socket)
             if transfer.get("type") == "result":
                 if (set(transfer) != {"type", "job_id", "success", "detail"}
                         or transfer.get("job_id") != self.coordinator.job.job_id
@@ -629,7 +677,12 @@ class DeploymentControlServer:
                 continue
             try:
                 tls_socket.settimeout(timeout)
-                message = receive_control_message(tls_socket, expected_type="result")
+                message = receive_control_message(tls_socket)
+                while message.get("type") == "progress":
+                    self._record_client_progress(mac, message)
+                    message = receive_control_message(tls_socket)
+                if message.get("type") != "result":
+                    raise DeploymentControlError("client did not send a terminal result")
                 if set(message) != {"type", "job_id", "success", "detail"}:
                     raise DeploymentControlError("client result contains missing or unknown fields")
                 if message["job_id"] != self.coordinator.job.job_id:
