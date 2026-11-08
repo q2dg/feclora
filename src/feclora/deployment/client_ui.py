@@ -36,6 +36,8 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
         state: dict[str, Any] = {}
 
         def prepare_local_target(job):
+            if job.operation == "save" and not config.local_minisign_secret_key:
+                raise DeploymentControlError("this Client has no enrolled minisign signing key and cannot create images")
             inventory = collect_inventory()
             selected = dialog_app._select_device(
                 inventory, "disk", "Local deployment disk",
