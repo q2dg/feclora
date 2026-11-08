@@ -50,7 +50,6 @@ def device_details(device: dict[str, Any]) -> str:
     append_children(device.get("children") or [])
     return "\n".join(lines)
 
-def _dialog(args: list[str]) -> subprocess.CompletedProcess[str]:
 def volume_topology_details(inventory: dict[str, Any]) -> str:
     """Format read-only LVM, Stratis and Btrfs topology for the rescue UI."""
     lines: list[str] = []
@@ -85,6 +84,7 @@ def volume_topology_details(inventory: dict[str, Any]) -> str:
         lines.append("  Error: " + str(btrfs["error"]))
     return "\n".join(lines)
 
+def _dialog(args: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["dialog", "--stdout", *args], check=False, capture_output=True, text=True)
 
 def _message(title: str, message: str) -> None:
