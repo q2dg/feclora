@@ -43,6 +43,15 @@ export default function App() {
   const [networkInterfaces, setNetworkInterfaces] = useState([]);
   const [serverBinding, setServerBinding] = useState("");
   const [serverSetup, setServerSetup] = useState(null);
+  const [pxeMode, setPxeMode] = useState("proxy");
+  const [pxePoolStart, setPxePoolStart] = useState("");
+  const [pxePoolEnd, setPxePoolEnd] = useState("");
+  const [pxeLease, setPxeLease] = useState("1h");
+  const [pxeGateway, setPxeGateway] = useState("");
+  const [pxeDns, setPxeDns] = useState("");
+  const [pxePort, setPxePort] = useState("8080");
+  const [pxeAuthoritative, setPxeAuthoritative] = useState(false);
+  const [pxePreflight, setPxePreflight] = useState(null);
   const [security, setSecurity] = useState({});
   const [encrypt, setEncrypt] = useState(false);
   const [sign, setSign] = useState(false);
@@ -122,6 +131,30 @@ export default function App() {
       setServerSetup(result);
       setNotice(result.message);
       await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const validatePXEProfile = async () => {
+    const selected = networkInterfaces.find((item) => item.binding === serverBinding);
+    if (!selected) return;
+    setBusy(true); setError(""); setNotice(""); setPxePreflight(null);
+    try {
+      const result = await callFeclora("validate_pxe_profile", {
+        interface: selected.interface,
+        address: selected.address,
+        prefix_length: selected.prefix_length,
+        mode: pxeMode,
+        pool_start: pxeMode === "isolated" ? pxePoolStart : null,
+        pool_end: pxeMode === "isolated" ? pxePoolEnd : null,
+        lease_time: pxeLease,
+        gateway: pxeMode === "isolated" && pxeGateway ? pxeGateway : null,
+        dns_server: pxeMode === "isolated" && pxeDns ? pxeDns : null,
+        http_port: Number(pxePort),
+        authoritative_confirmed: pxeMode === "isolated" && pxeAuthoritative
+      });
+      setPxePreflight(result);
+      setNotice(result.message);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -298,6 +331,35 @@ export default function App() {
               </StackItem>
               {status?.server_configured && <StackItem><Alert variant="success" title="Server configuration exists" isInline>The existing configuration is not overwritten by this wizard. Continue with the remaining Server and PXE setup once those Cockpit workflows are available.</Alert></StackItem>}
               {serverSetup && <StackItem><Card><CardBody><Title headingLevel="h3" size="lg">Server identity status</Title><p>{serverSetup.message}</p><p>Bind address: {serverSetup.bind_address}:{serverSetup.port}</p><p>Certificate identity: {serverSetup.server_identity}</p><p>Enrolled Clients: {serverSetup.enrolled_clients}</p></CardBody></Card></StackItem>}
+              <StackItem>
+                <Title headingLevel="h2" size="xl">PXE network profile preflight</Title>
+                <p>Validate a proposed PXE network configuration before any service is started. Select the same management interface above.</p>
+                <Field label="DHCP mode">
+                  <select className="pf-v5-c-form-control" value={pxeMode} onChange={(e) => { setPxeMode(e.target.value); setPxePreflight(null); }}>
+                    <option value="proxy">ProxyDHCP (existing DHCP server assigns addresses)</option>
+                    <option value="isolated">Isolated authoritative DHCP (dedicated VLAN only)</option>
+                  </select>
+                </Field>
+                {pxeMode === "isolated" && <>
+                  <Alert variant="warning" title="Authoritative DHCP can disrupt an existing network" isInline>Only use isolated mode on a dedicated, verified network segment where Feclora is the sole DHCP authority. Never enable it on a shared LAN.</Alert>
+                  <Field label="DHCP pool start"><input className="pf-v5-c-form-control" value={pxePoolStart} onChange={(e) => setPxePoolStart(e.target.value)} placeholder="192.0.2.100" /></Field>
+                  <Field label="DHCP pool end"><input className="pf-v5-c-form-control" value={pxePoolEnd} onChange={(e) => setPxePoolEnd(e.target.value)} placeholder="192.0.2.180" /></Field>
+                  <Field label="Lease duration"><input className="pf-v5-c-form-control" value={pxeLease} onChange={(e) => setPxeLease(e.target.value)} placeholder="1h" /></Field>
+                  <Field label="Gateway (optional)"><input className="pf-v5-c-form-control" value={pxeGateway} onChange={(e) => setPxeGateway(e.target.value)} placeholder="192.0.2.254" /></Field>
+                  <Field label="DNS server (optional)"><input className="pf-v5-c-form-control" value={pxeDns} onChange={(e) => setPxeDns(e.target.value)} placeholder="192.0.2.254" /></Field>
+                  <label><input type="checkbox" checked={pxeAuthoritative} onChange={(e) => setPxeAuthoritative(e.target.checked)} /> I confirm this is an isolated VLAN and Feclora is its only DHCP server.</label>
+                </>}
+                <Field label="HTTP boot asset port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={pxePort} onChange={(e) => setPxePort(e.target.value)} /></Field>
+                <Button variant="primary" onClick={validatePXEProfile} isLoading={busy} isDisabled={busy || !serverBinding || (pxeMode === "isolated" && (!pxePoolStart || !pxePoolEnd || !pxeAuthoritative))}>Run PXE preflight</Button>
+              </StackItem>
+              {pxePreflight && <StackItem><Card><CardBody>
+                <Alert variant="success" title="PXE preflight passed" isInline>{pxePreflight.message}</Alert>
+                <p>Interface: {pxePreflight.interface} · {pxePreflight.address}/{pxePreflight.prefix_length}</p>
+                <p>Subnet: {pxePreflight.subnet} · Mode: {pxePreflight.mode}</p>
+                <p>iPXE URL: {pxePreflight.http_url}</p>
+                {pxePreflight.warnings.map((warning, index) => <Alert key={index} variant="warning" title="Network topology warning" isInline>{warning}</Alert>)}
+                <Alert variant="info" title="No services started" isInline>This validates the selected profile and daemon configuration only. DHCP/PXE services and firewall rules remain unchanged.</Alert>
+              </CardBody></Card></StackItem>}
             </Stack>
           </Tab>
           <Tab eventKey="system" title="System">
