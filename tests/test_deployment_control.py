@@ -27,14 +27,16 @@ JOB_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 MAC = "52:54:00:12:34:56"
 
 
-def make_job():
-    return DeploymentJob.from_dict({
+def make_job(**changes):
+    payload = {
         "schema_version": 1, "job_id": JOB_ID, "operation": "restore",
         "image_id": "golden-image", "authorized_clients": [MAC],
         "network_interface": "enp1s0", "transport": "unicast",
         "multicast_group": None, "multicast_port": None,
         "start_policy": "manual", "expected_clients": None, "start_deadline": None,
-    })
+    }
+    payload.update(changes)
+    return DeploymentJob.from_dict(payload)
 
 
 def frame(message):
@@ -189,6 +191,62 @@ class ClientJoinTests(unittest.TestCase):
 
 
 class CoordinatorControlTests(unittest.TestCase):
+    def _server(self, job):
+        coordinator = DeploymentCoordinator(job)
+        coordinator.register_client(MAC, authenticated=True)
+        coordinator.mark_ready(MAC)
+        coordinator.arm()
+        coordinator.mark_running(MAC)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.maximum_version = ssl.TLSVersion.TLSv1_3
+        context.verify_mode = ssl.CERT_REQUIRED
+        server = DeploymentControlServer(
+            coordinator, context, local_identity="URI:feclora-server",
+            client_identity_to_mac={"URI:feclora-client": MAC},
+        )
+        fake = FakeSocket()
+        server._sessions[MAC] = fake
+        return coordinator, server, fake
+
+    def test_restore_server_sends_job_bound_transfer_offer_before_image(self):
+        coordinator, server, fake = self._server(make_job())
+        with patch("feclora.deployment.control.send_image_set", return_value="manifest") as send:
+            result = server.send_restore_image(
+                MAC, "/images", "golden.manifest.json",
+                trusted_public_key="/trusted/server.pub",
+            )
+        self.assertEqual(result, "manifest")
+        offer = receive_control_message(FakeSocket(bytes(fake.outgoing)), expected_type="transfer_offer")
+        self.assertEqual(offer["job_id"], JOB_ID)
+        self.assertEqual(offer["image_id"], "golden")
+        self.assertEqual(send.call_args.kwargs["expected_image_id"], "golden")
+
+    def test_save_server_receives_job_bound_transfer_and_publishes(self):
+        coordinator, server, fake = self._server(make_job(operation="save"))
+        fake.incoming.extend(frame({
+            "type": "transfer_ready", "job_id": JOB_ID, "image_id": "golden",
+        }))
+        with patch("feclora.deployment.control.receive_image_set", return_value="/repo/golden.manifest.json") as receive:
+            path = server.receive_saved_image(
+                MAC, "/repo", trusted_public_key="/trusted/client.pub",
+            )
+        self.assertEqual(path, "/repo/golden.manifest.json")
+        self.assertEqual(receive.call_args.kwargs["expected_image_id"], "golden")
+
+    def test_save_server_records_client_failure_before_transfer(self):
+        coordinator, server, fake = self._server(make_job(operation="save"))
+        fake.incoming.extend(frame({
+            "type": "result", "job_id": JOB_ID, "success": False,
+            "detail": "capture rejected locally",
+        }))
+        self.assertEqual(
+            server.receive_saved_image(MAC, "/repo", trusted_public_key="/trusted/client.pub"),
+            "",
+        )
+        self.assertEqual(coordinator.state, JobState.FAILED)
+        self.assertEqual(server.collect_results(), {MAC: "failed"})
+
     def test_server_arms_and_tracks_authenticated_ready_client(self):
         coordinator = DeploymentCoordinator(make_job())
         coordinator.register_client(MAC, authenticated=True)
