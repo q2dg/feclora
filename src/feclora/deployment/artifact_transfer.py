@@ -85,6 +85,7 @@ def send_image_set(
     *,
     expected_image_id: str,
     trusted_public_key: str | os.PathLike[str],
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> ImageManifest:
     """Verify and send one complete signed image set to an authenticated peer."""
     repo = os.path.abspath(os.fspath(repository))
@@ -157,6 +158,9 @@ def send_image_set(
 
         tls_socket.sendall(_MAGIC + struct.pack("!I", len(manifest_bytes)) + manifest_bytes
                            + struct.pack("!I", len(signature)) + signature)
+        if progress_callback is not None:
+            progress_callback(0, total_bytes)
+        transferred = 0
         for artifact, fd in artifact_fds:
             remaining = artifact.size_bytes
             while remaining:
@@ -165,6 +169,9 @@ def send_image_set(
                     raise ImageTransferError(f"artifact truncated during transfer: {artifact.filename}")
                 tls_socket.sendall(chunk)
                 remaining -= len(chunk)
+                transferred += len(chunk)
+                if progress_callback is not None:
+                    progress_callback(transferred, total_bytes)
         return manifest
     except OSError as exc:
         raise ImageTransferError(f"image-set transfer failed: {exc}") from exc
@@ -182,6 +189,7 @@ def receive_image_set(
     *,
     expected_image_id: str,
     trusted_public_key: str | os.PathLike[str],
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> str:
     """Receive, verify and atomically publish an image set; returns manifest path."""
     repo = os.path.abspath(os.fspath(repository))
@@ -247,6 +255,9 @@ def receive_image_set(
             raise ImageTransferError(
                 f"insufficient staging space: need {required_bytes} bytes, have {free_bytes}"
             )
+        if progress_callback is not None:
+            progress_callback(0, total_bytes)
+        transferred = 0
         for artifact in manifest.artifacts:
             path = os.path.join(stage, artifact.filename)
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
@@ -259,6 +270,9 @@ def receive_image_set(
                         stream.write(chunk)
                         digest.update(chunk)
                         remaining -= len(chunk)
+                        transferred += len(chunk)
+                        if progress_callback is not None:
+                            progress_callback(transferred, total_bytes)
                     stream.flush()
                     os.fsync(stream.fileno())
             except Exception:
