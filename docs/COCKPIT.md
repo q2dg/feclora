@@ -100,6 +100,13 @@ the Cockpit Server/Client services. Cockpit multicast restore now uses the
 persistent Client service: each Client selects its own receive interface and
 local destination, passes interface/route/udp-receiver preflight, approves
 the exact destructive target, and reports READY only after those checks.
+The Server derives the total staging requirement from the verified signed
+manifest and includes it in the authenticated job offer. Before reporting READY,
+each Client compares that requirement with free space in its configured image
+repository and requires an additional 64 MiB safety reserve. A failed or
+unavailable capacity check prevents READY; the runtime repeats a capacity check
+before receiving artifacts. This is a point-in-time preflight, so operators must
+avoid concurrent use of the staging filesystem during deployment.
 The Server arms only when every authorized Client is READY; each Client stages
 and verifies every age-encrypted artifact before writing its local disk.
 Confirm switch IGMP snooping and an active querier on the same VLAN before
