@@ -252,16 +252,29 @@ def _operations() -> list[dict[str, Any]]:
 
 def _service_state() -> dict[str, str]:
     services = {}
-    for service in ("cockpit.socket", "feclora-dnsmasq.service", "feclora-caddy.service"):
+    try:
+        result = subprocess.run(
+            ["/usr/bin/systemctl", "is-active", "cockpit.socket"],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=3,
+        )
+        services["cockpit.socket"] = result.stdout.strip() or "inactive"
+    except (OSError, subprocess.SubprocessError):
+        services["cockpit.socket"] = "unknown"
+    for label, pattern in (
+        ("PXE dnsmasq", "feclora-dnsmasq-*.service"),
+        ("PXE Caddy", "feclora-caddy-*.service"),
+    ):
         try:
             result = subprocess.run(
-                ["/usr/bin/systemctl", "is-active", service],
+                ["/usr/bin/systemctl", "list-units", "--type=service", "--state=running",
+                 "--no-legend", pattern],
                 stdin=subprocess.DEVNULL, capture_output=True, text=True,
                 check=False, timeout=3,
             )
-            services[service] = result.stdout.strip() or "inactive"
+            services[label] = "active" if result.returncode == 0 and result.stdout.strip() else "inactive"
         except (OSError, subprocess.SubprocessError):
-            services[service] = "unknown"
+            services[label] = "unknown"
     return services
 
 
