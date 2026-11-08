@@ -368,7 +368,7 @@ def _manage_client_enrollment(config_path: str) -> None:
             server_digest = hashlib.sha256(stream.read()).hexdigest()
         dialog_app._message(
             "Feclora trust fingerprints",
-            f"CA SHA-256: {ca_digest}\\nServer minisign public key SHA-256: {server_digest}",
+            f"CA SHA-256: {ca_digest}\nServer minisign public key SHA-256: {server_digest}",
         )
         return
     if choice == "export-age":
