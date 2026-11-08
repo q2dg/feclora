@@ -40,6 +40,17 @@ class WebAPITests(unittest.TestCase):
         with patch("feclora.webapi._network_interfaces", return_value=expected):
             self.assertEqual(dispatch({"action": "network_interfaces"}), {"interfaces": expected})
 
+    def test_client_renewal_actions_are_exposed_through_allowlisted_dispatch(self):
+        prepared = {"identity": "URI:feclora-client-lab-01"}
+        installed = {"renewed": True}
+        with patch("feclora.webapi._prepare_client_renewal", return_value=prepared) as prepare, patch(
+            "feclora.webapi._complete_client_renewal", return_value=installed
+        ) as complete:
+            self.assertEqual(dispatch({"action": "prepare_client_renewal", "params": {"export_directory": "/run/media/usb"}}), prepared)
+            self.assertEqual(dispatch({"action": "complete_client_renewal", "params": {"bundle_directory": "/run/media/usb", "ca_fingerprint": "a" * 64, "server_minisign_sha256": "b" * 64}}), installed)
+        prepare.assert_called_once_with({"export_directory": "/run/media/usb"})
+        complete.assert_called_once()
+
     def test_server_trusted_clients_action_returns_public_inventory(self):
         expected = {"clients": [{
             "identity": "URI:feclora-client-lab",
