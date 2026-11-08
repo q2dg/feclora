@@ -96,6 +96,8 @@ def execute_multicast_restore(
     """Receive all signed artifacts privately, verify them, then restore one local disk."""
     if job.transport != "multicast" or job.operation != "restore":
         raise MulticastDeploymentError("multicast runtime currently supports restore jobs only")
+    if not network_interface:
+        raise MulticastDeploymentError("Client must select its own local multicast receive interface")
     required = f"ERASE {approval.device_path} FROM {server_identity}"
     if approval.confirmation != required:
         raise MulticastDeploymentError("local typed restore confirmation does not match")
