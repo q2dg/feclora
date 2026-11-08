@@ -58,7 +58,8 @@ the old local `dialog` menu is no longer installed in the Live package.
 ### Local storage workflow enhancements
 
 - [x] Expose partition extraction from a verified whole-disk image in Cockpit, including age decrypt/re-encryption when the source is encrypted, source-signature verification and transactional publication of a newly signed partition image when a local signing key is available.
-- [ ] Expose restore layout preview and explicit partition growth profiles where supported.
+- [x] Cockpit read-only whole-disk restore layout preview with verified partition-table metadata and destination-capacity comparison; restore preserves the captured layout and leaves extra capacity unused.
+- [ ] Expose explicit partition/filesystem growth profiles where supported; never resize automatically.
 - [ ] Expand filesystem/volume-aware backup and restore for LVM, LUKS, multi-device Btrfs and Stratis; do not claim support from inventory alone.
 - [ ] Add cancellable background operation lifecycle and durable progress/status after browser disconnect.
 - [ ] Expose detailed operation logs and verification reports in Cockpit.
