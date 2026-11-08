@@ -52,26 +52,30 @@ UDPcast uses a two-port base and its multicast rendezvous/data-address options;
 see the [udp-sender manual](https://manpages.debian.org/unstable/udpcast/udp-sender.1.en.html)
 and [upstream command-line documentation](https://www.udpcast.linux.lu/cmd.html).
 
-## Remaining integration and acceptance work
+## Integrated behavior and remaining acceptance work
 
-The authenticated control service, persistent job journal, Client-side whole-disk
-restore runtime, signed-manifest delivery, private staging, and per-client
-terminal results are integrated in the current application. The following
-work remains:
+The authenticated control service, persistent job journal, Client-side
+whole-disk and partition restore dispatch, signed-manifest delivery, private
+staging, age-encrypted artifacts and per-client terminal results are
+integrated.
 
-1. Extend the authenticated deployment protocol and Client UI to support
-   manifest-backed **partition-image** multicast restore to an already existing
-   target partition. Keep whole-disk restore as the only multicast mode until
-   this path has its own target-approval and geometry checks.
-2. Add automated multicast interface/subnet capability preflight, including
-   local route/interface checks and clear diagnostics for IGMP snooping and
-   querier requirements. Retain an explicit operator fallback to one-to-one
-   unicast; do not silently change transport mid-job.
-3. Add per-client live byte progress and streaming logs without weakening the
-   explicit start/cancel gates.
-4. Execute the sender and multiple receivers in isolated BIOS/UEFI VMs and on
-   networks with IGMP snooping/querier. Test packet loss, insufficient space,
-   wrong signatures, wrong hashes, receiver loss, cancellation and recovery.
-
-This document describes the adapter and remaining work; it is not evidence
-that end-to-end multicast or VM acceptance has passed.
+- The deployment job binds `target_type` to the signed manifest's
+  `image_type`. A disk job cannot be paired with a partition manifest or vice
+  versa.
+- Partition restore targets an already existing local partition. The Client
+  selects it locally, verifies capacity and safety constraints, and requires
+  explicit typed authorization. Feclora does not create, resize or repartition
+  targets.
+- Every multicast artifact must be age-encrypted for the authorized recipient
+  inventory. The signed manifest authenticates the exact ciphertext; age
+  authenticates ciphertext integrity during decryption. This does not add
+  per-datagram authentication to UDPcast and cannot prevent denial of service.
+- Sender and receiver check local interface UP/MULTICAST flags, IPv4 address,
+  kernel route to the multicast group and required UDPcast executable. Switch
+  IGMP snooping and querier state cannot be proven from an endpoint and remains
+  an operator check.
+- Per-client live byte progress and streamed UDPcast metrics remain pending.
+  Terminal per-client results, cancellation and cleanup are implemented.
+- Sender/receiver behavior still needs automated integration execution and
+  real BIOS/UEFI multi-VM acceptance. This document is not evidence that those
+  tests passed.
