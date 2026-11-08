@@ -43,6 +43,11 @@ if ! grep -qx 'dialog' "$ROOT_DIR/packages/base.txt"; then
   fail "Runtime package list does not include dialog."
 fi
 
+for package in dnsmasq ipxe-bootimgs-x86 nginx; do
+  grep -qx "$package" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $package."
+  grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."
+done
+
 for codec in zstd lz4; do
   grep -qx "$codec" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $codec."
   grep -qx "$codec" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $codec."
