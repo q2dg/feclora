@@ -61,6 +61,12 @@ class ClientDeploymentServiceTests(unittest.TestCase):
 
             with mock.patch.object(service, "_acquire_lock"), \
                  mock.patch("feclora.deployment.client_service._ensure_directory"), \
+                 mock.patch("feclora.deployment.client_service._read_private_json", return_value={
+                     "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
+                     "device_path": DEVICE,
+                     "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
+                     "compression": "gzip",
+                 }), \
                  mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
                  mock.patch("feclora.deployment.client_service.create_mutual_tls_context", return_value=object()), \
                  mock.patch.object(ClientDeploymentService, "_find_device", return_value={
