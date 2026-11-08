@@ -20,6 +20,7 @@ from feclora.deployment.control import (
 from feclora.deployment.runtime_config import load_client_runtime_config
 from feclora.network.remote_clone_protocol import create_mutual_tls_context
 from feclora.storage.inventory import collect_inventory
+from feclora.storage.source_safety import SourceSafetyError, check_capture_source_safe
 
 
 CLIENT_JOB_DIRECTORY = Path("/var/lib/feclora/client-jobs")
@@ -255,6 +256,10 @@ class ClientDeploymentService:
                     raise DeploymentControlError(f"cannot inspect selected local target: {exc}") from exc
                 if not stat.S_ISBLK(info.st_mode):
                     raise DeploymentControlError("selected local target is no longer a block device")
+                try:
+                    check_capture_source_safe(device_path)
+                except SourceSafetyError as exc:
+                    raise DeploymentControlError(f"selected local target is unsafe or in use: {exc}") from exc
                 required = (
                     f"ERASE {device_path} FROM {config.server_identity}"
                     if job.operation == "restore"
