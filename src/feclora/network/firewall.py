@@ -117,6 +117,46 @@ class PXEFirewall:
             raise
         return tuple(added)
 
+    def add_protocols(self, interface: str, protocols: Iterable[str]) -> tuple[str, ...]:
+        """Add temporary IP protocols to an active interface-exclusive zone."""
+        state = self._opened.get(interface)
+        if state is None or self._current_zone(interface) != state["zone"]:
+            raise PXEFirewallError("No active Feclora temporary firewall zone for interface")
+        requested = list(dict.fromkeys(protocols))
+        if any(not re.fullmatch(r"[a-z0-9-]{1,32}", protocol) for protocol in requested):
+            raise PXEFirewallError("Invalid temporary firewall protocol list")
+        state.setdefault("protocols", [])
+        added = []
+        try:
+            for protocol in requested:
+                if protocol not in state["protocols"]:
+                    self._call([f"--zone={state['zone']}", f"--add-protocol={protocol}"])
+                    state["protocols"].append(protocol)
+                    added.append(protocol)
+        except PXEFirewallError:
+            for protocol in reversed(added):
+                self._call([f"--zone={state['zone']}", f"--remove-protocol={protocol}"], check=False)
+                state["protocols"].remove(protocol)
+            raise
+        return tuple(added)
+
+    def remove_protocols(self, interface: str, protocols: Iterable[str]) -> None:
+        """Remove only temporary IP protocols added for a transfer."""
+        state = self._opened.get(interface)
+        if state is None:
+            raise PXEFirewallError("No active Feclora temporary firewall zone for interface")
+        errors = []
+        for protocol in dict.fromkeys(protocols):
+            if protocol not in state.get("protocols", []):
+                continue
+            result = self._call([f"--zone={state['zone']}", f"--remove-protocol={protocol}"], check=False)
+            if result.returncode != 0:
+                errors.append(protocol)
+            else:
+                state["protocols"].remove(protocol)
+        if errors:
+            raise PXEFirewallError("Could not remove temporary firewall protocols: " + ", ".join(errors))
+
     def remove_ports(self, interface: str, ports: Iterable[str]) -> None:
         """Remove only the temporary ports added for a transfer."""
         state = self._opened.get(interface)
