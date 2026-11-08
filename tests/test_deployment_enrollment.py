@@ -30,7 +30,7 @@ def config():
 class EnrollmentTests(unittest.TestCase):
     def test_certificate_san_extracts_one_stable_uri_identity(self):
         result = CompletedProcess(
-            args=[], returncode=0, stdout="X509v3 Subject Alternative Name:\\n    URI:feclora-client-02\\n",
+            args=[], returncode=0, stdout="X509v3 Subject Alternative Name:\n    URI:feclora-client-02\n",
             stderr="",
         )
         with patch("feclora.deployment.enrollment.subprocess.run", return_value=result):
@@ -42,7 +42,7 @@ class EnrollmentTests(unittest.TestCase):
     def test_certificate_san_rejects_ambiguous_multiple_identities(self):
         result = CompletedProcess(
             args=[], returncode=0,
-            stdout="X509v3 Subject Alternative Name:\\n    URI:feclora-client-02, DNS:client.example\\n",
+            stdout="X509v3 Subject Alternative Name:\n    URI:feclora-client-02, DNS:client.example\n",
             stderr="",
         )
         with patch("feclora.deployment.enrollment.subprocess.run", return_value=result):
