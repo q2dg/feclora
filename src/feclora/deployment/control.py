@@ -537,6 +537,8 @@ class DeploymentControlServer:
             manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
             if manifest.image_id != job.image_id:
                 raise DeploymentControlError("signed manifest image identifier does not match the multicast job")
+            if manifest.image_type != job.target_type:
+                raise DeploymentControlError("signed manifest image type does not match the multicast job target type")
             for artifact in manifest.artifacts:
                 verify_artifact_file(os.path.join(repository, artifact.filename), artifact)
         except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError, UDPcastError) as exc:
