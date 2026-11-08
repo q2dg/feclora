@@ -26,6 +26,7 @@ def proxy(**changes):
 class PXEConfigTests(unittest.TestCase):
     def test_proxy_profile_has_no_lease_pool_and_binds_selected_address(self):
         rendered = render_dnsmasq(proxy())
+        self.assertIn("user=dnsmasq", rendered)
         self.assertIn("interface=enp1s0", rendered)
         self.assertIn("listen-address=192.0.2.1", rendered)
         self.assertIn("dhcp-range=192.0.2.0,proxy", rendered)
