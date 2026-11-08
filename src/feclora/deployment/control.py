@@ -29,6 +29,7 @@ from feclora.storage.image_manifest import ImageManifest, ManifestValidationErro
 from feclora.storage.image_security import ImageSecurityError, verify_manifest_signature
 from feclora.network.udpcast import UDPcastConfig, UDPcastError, send_multicast_artifact, verify_artifact_file
 from feclora.network.remote_clone_protocol import verify_peer_identity
+from feclora.network.firewall import PXEFirewallError
 from feclora.network.tls import connect_mutual_tls
 
 MAX_CONTROL_FRAME = 16 * 1024
@@ -562,7 +563,7 @@ class DeploymentControlServer:
                     self.coordinator, source_path, manifest_path,
                     trusted_public_key, udpcast_config, firewall=self.firewall,
                 )
-        except (OSError, DeploymentControlError, UDPcastError, ImageSecurityError) as exc:
+        except (OSError, DeploymentControlError, UDPcastError, ImageSecurityError, PXEFirewallError) as exc:
             for mac, _tls_socket in sessions:
                 self._record_transfer_failure(mac, f"multicast restore failed: {exc}")
             raise DeploymentControlError(f"multicast restore transfer failed: {exc}") from exc
