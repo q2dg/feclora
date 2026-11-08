@@ -21,6 +21,7 @@ Status meanings:
 | Compression | none, gzip, zstd, lz4 | Implemented | Cockpit basic choices | Automated tests/CI |
 | Filesystems | Partclone-supported filesystems | Implemented with raw fallback | Cockpit | Automated tests; operator validation |
 | Storage layers | LVM, LUKS, Btrfs, Stratis | Inventory/safety support varies; full-aware imaging incomplete | Inventory only | Automated tests; operator validation |
+| Deployment identity | Managed CA and Server mTLS identity bootstrap | Implemented | Cockpit initial bootstrap | Automated tests; operator validation |
 | Network boot | dnsmasq/iPXE/TFTP/Caddy | Implemented | Not yet complete | Operator validation |
 | Remote deployment | mTLS unicast save/restore | Engine implemented | Not yet complete | Automated tests; operator validation |
 | Remote deployment | UDPcast multicast restore | Engine implemented for disk/partition | Not yet complete | Automated tests; operator validation |
