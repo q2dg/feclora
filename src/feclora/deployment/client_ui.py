@@ -13,7 +13,7 @@ import sys
 from typing import Any
 
 from feclora.deployment.client_runtime import execute_client_image_job
-from feclora.deployment.managed_pki import PKIError, create_client_csr, install_client_certificate
+from feclora.deployment.managed_pki import (\n    PKIError, certificate_expiry_days, create_client_csr, install_client_certificate,\n)
 from feclora.deployment.multicast_runtime import execute_multicast_restore
 from feclora.deployment.control import (
     DeploymentControlError, LocalTargetApproval, join_deployment,
@@ -200,6 +200,27 @@ def _client_enrollment_wizard(config_path: str) -> bool:
     )
     return True
 
+def _prepare_client_renewal(config: ClientRuntimeConfig) -> None:
+    prefix = "URI:feclora-client-"
+    if not config.local_identity.startswith(prefix):
+        raise PKIError("this Client identity cannot use Feclora-managed renewal")
+    client_id = config.local_identity[len(prefix):]
+    export_directory = dialog_app._input(
+        "Export renewal request",
+        "Path to an existing removable-media directory. The current Client private key will be reused and will not leave this machine:",
+    )
+    if not export_directory:
+        return
+    identity, _key, exported = create_client_csr(
+        "/etc/feclora/pki", export_directory, client_id, reuse_existing_key=True,
+    )
+    dialog_app._message(
+        "Renewal request prepared",
+        f"Identity: {identity}\\nCSR: {exported}\\n\\n"
+        "Take the CSR and age-recipient file to the Server. Approve the CSR there, then return the signed response bundle and choose Install renewed certificate.",
+    )
+
+
 def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
     """Join one Server job after local device selection and typed approval."""
     if os.geteuid() != 0:
@@ -209,6 +230,29 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             if not _client_enrollment_wizard(config_path):
                 return 0
         config = load_client_runtime_config(config_path)
+        expiry_days = certificate_expiry_days(config.certificate_file)
+        expiry_label = (
+            f"expires in {expiry_days} days" if expiry_days >= 0
+            else f"expired {-expiry_days} days ago"
+        )
+        identity_action = dialog_app._menu(
+            "Client identity",
+            f"TLS certificate {expiry_label}. Renew it before expiry; private keys remain local.",
+            [
+                ("join", "Join deployment job"),
+                ("renew", "Prepare certificate renewal request"),
+                ("install", "Install Server-approved certificate response"),
+                ("cancel", "Cancel"),
+            ],
+        )
+        if identity_action in (None, "cancel"):
+            return 0
+        if identity_action == "renew":
+            _prepare_client_renewal(config)
+            return 0
+        if identity_action == "install":
+            _client_enrollment_wizard(config_path)
+            return 0
         job_id = dialog_app._input(
             "Join deployment job",
             "Enter the job UUID shown by the Feclora Server operator:",
