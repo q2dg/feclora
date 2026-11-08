@@ -137,8 +137,8 @@ class PXEServiceManager:
         if self._active_interface is not None:
             try:
                 self.firewall.close(self._active_interface)
+                self._active_interface = None
             except Exception as exc:
                 errors.append(f"firewall: {exc}")
-            self._active_interface = None
         if errors:
             raise PXEServiceError("failed to stop PXE runtime cleanly: " + "; ".join(errors))
