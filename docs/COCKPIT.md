@@ -133,3 +133,21 @@ Only public enrollment material is copied to removable media. TLS and age
 private keys remain on the Client. This Cockpit step does not yet replace the
 Client-side dialog workflow for preparing the request and importing/verifying
 the returned bundle.
+
+
+## Client enrollment
+
+The **Client enrollment** tab provides both stages of the removable-media
+ceremony. On a not-yet-enrolled Client, prepare a request by choosing a stable
+Client ID and a mounted media directory. The Client creates its TLS private key
+and age identity locally; only the CSR and public age recipient are exported.
+Optionally enable image capture to create a separate local minisign keypair
+and export only its public key.
+
+After the Server approves the CSR, return the media and provide the Server
+address, Client unicast MAC, response bundle directory, CA SHA-256 fingerprint
+and Server minisign public-key SHA-256 fingerprint. Cockpit verifies both
+fingerprints, the CA chain, the certificate SAN and private-key match, then
+installs the identity and writes the Client runtime configuration. Existing
+Client configuration or partial identity files are not overwritten. This
+wizard does not initiate a remote deployment job.
