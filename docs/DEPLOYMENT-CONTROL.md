@@ -53,10 +53,15 @@ service only when no Client is actively writing. Unicast save/restore and
 multicast restore use the existing control-plane execution methods; the daemon
 does not duplicate the storage engines. The service is not enabled at boot,
 supports one job per Server, and refuses to start from an interrupted journal.
-No TLS session or storage operation is resumed after a process crash. If the
-service exits during an armed/running job, manual disk inspection and audit
-reconciliation are required. Automated unit/CI checks do not establish
-real-network, VM or destructive storage acceptance.
+A fresh definition is not considered interrupted until a service session has
+started; a clean unarmed stop is restartable only when no Client session was
+recorded. The listener's temporary firewall ownership is persisted, and
+systemd's `ExecStopPost` attempts safe recovery after abnormal exit while
+holding the single-service lock. No TLS session or storage operation is
+resumed after a process crash. If the service exits during an armed/running
+job, manual disk inspection and audit reconciliation are required. Automated
+unit/CI checks do not establish real-network, VM or destructive storage
+acceptance.
 
 ## Implemented and remaining
 
