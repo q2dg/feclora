@@ -23,7 +23,7 @@ Use the following Fedora-native components:
   `undionly.kpxe` for legacy BIOS and `snponly.efi` for UEFI x86_64.
   Chainload iPXE, then use an HTTP-delivered iPXE script and kernel/initramfs
   payloads for the feclora client environment.
-- **nginx** for HTTP delivery of iPXE scripts, kernel/initramfs, signed job
+- **Caddy** for HTTP delivery of iPXE scripts, kernel/initramfs, signed job
   descriptors and deployment metadata. Do not use TFTP for large payloads.
 
 Do not add ISC DHCP (`dhcpd`): ISC DHCP is end-of-life and Fedora labels its
@@ -84,7 +84,7 @@ local subnets, and any configuration that would bind wildcard DHCP sockets.
 
 ## Consequences
 
-The Fedora 45 image includes dnsmasq, iPXE x86 boot images and nginx so all
+The Fedora 45 image includes dnsmasq, iPXE x86 boot images and Caddy so all
 three roles can run from the same ISO. Installing packages does not activate
 network services. The runtime configuration generator, interface/network
 validation, systemd lifecycle, firewall integration, BIOS/UEFI chainloading,
@@ -97,4 +97,4 @@ implementation and test work.
 - iPXE ProxyDHCP notes: https://ipxe.org/appnote/proxydhcp
 - Fedora dnsmasq package: https://packages.fedoraproject.org/pkgs/dnsmasq/dnsmasq/
 - Fedora iPXE x86 boot images: https://packages.fedoraproject.org/pkgs/ipxe/ipxe-bootimgs-x86/
-- Fedora nginx package: https://packages.fedoraproject.org/pkgs/nginx/nginx/
+- Fedora Caddy package: https://packages.fedoraproject.org/pkgs/caddy/caddy/
