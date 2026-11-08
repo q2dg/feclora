@@ -787,6 +787,189 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _client_job_directory() -> Path:
+    directory = Path("/var/lib/feclora/client-jobs")
+    try:
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        info = os.lstat(directory)
+    except OSError as exc:
+        raise WebAPIError(f"cannot prepare private Client job directory: {exc}") from exc
+    if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
+            or info.st_uid != 0 or info.st_mode & 0o077):
+        raise WebAPIError("Client job directory must be a private root-owned real directory")
+    return directory
+
+
+def _client_job_paths(job_id: str) -> tuple[Path, Path]:
+    if not isinstance(job_id, str) or not re.fullmatch(
+        r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
+        job_id,
+    ):
+        raise WebAPIError("job_id must be a canonical UUID")
+    directory = _client_job_directory()
+    return directory / f"{job_id}.request.json", directory / f"{job_id}.status.json"
+
+
+def _write_client_job_request(path: Path, value: dict[str, Any]) -> None:
+    if os.path.lexists(path):
+        raise WebAPIError("a Client job request already exists for this UUID")
+    fd, temporary = tempfile.mkstemp(prefix=".client-request-", dir=path.parent)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(value, stream, sort_keys=True, separators=(",", ":"))
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
+
+
+def _read_client_job_status(job_id: str) -> dict[str, Any]:
+    _request_path, status_path = _client_job_paths(job_id)
+    try:
+        info = os.lstat(status_path)
+    except FileNotFoundError as exc:
+        raise WebAPIError("Client job service has not published a status record yet") from exc
+    if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+            or info.st_uid != 0 or info.st_mode & 0o077 or info.st_size > 16384):
+        raise WebAPIError("Client job status file is unsafe")
+    try:
+        fd = os.open(status_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            opened = os.fstat(fd)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_uid != 0
+                    or opened.st_mode & 0o077
+                    or (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino)):
+                raise WebAPIError("Client job status file changed during inspection")
+            value = json.loads(os.read(fd, 16385).decode("utf-8"))
+        finally:
+            os.close(fd)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise WebAPIError(f"cannot read Client job status: {exc}") from exc
+    if not isinstance(value, dict) or value.get("job_id") != job_id:
+        raise WebAPIError("Client job status does not match the requested UUID")
+    return value
+
+
+def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
+    required = {"host", "job_id", "device_path", "confirmation", "compression"}
+    if set(params) != required:
+        raise WebAPIError("start_client_job requires exactly host, job_id, device_path, confirmation and compression")
+    inspection = _inspect_remote_job({"host": params["host"], "job_id": params["job_id"]})
+    job = inspection["job"]
+    if job["transport"] != "unicast":
+        raise WebAPIError("Cockpit Client execution currently supports unicast jobs; multicast Client UI integration remains pending")
+    device_path = params["device_path"]
+    confirmation = params["confirmation"]
+    compression = params["compression"]
+    if (not isinstance(device_path, str) or not device_path.startswith("/dev/")
+            or len(device_path) > 256 or os.path.normpath(device_path) != device_path):
+        raise WebAPIError("selected local target path is invalid")
+    if not isinstance(confirmation, str) or len(confirmation) > 512:
+        raise WebAPIError("local target confirmation is invalid")
+    if not isinstance(compression, str) or compression not in {"none", "gzip", "xz"}:
+        raise WebAPIError("compression must be none, gzip or xz")
+    expected_confirmation = (
+        f"ERASE {device_path} FROM {inspection['server_identity']}"
+        if job["operation"] == "restore"
+        else f"READ {device_path} TO {inspection['server_identity']}"
+    )
+    if confirmation != expected_confirmation:
+        raise WebAPIError("local typed confirmation does not match the selected device and authenticated Server")
+    from feclora.storage.inventory import collect_inventory
+    inventory = collect_inventory()
+    expected_type = "disk" if job["target_type"] == "disk" else "part"
+    matches = []
+
+    def visit(items: list[dict[str, Any]]) -> None:
+        for item in items:
+            if item.get("path") == device_path and item.get("type") == expected_type:
+                matches.append(item)
+            children = item.get("children")
+            if isinstance(children, list):
+                visit(children)
+
+    visit(inventory.get("devices", []))
+    if len(matches) != 1:
+        raise WebAPIError("selected target is not uniquely present in the current local block-device inventory")
+    try:
+        device_info = os.lstat(device_path)
+    except OSError as exc:
+        raise WebAPIError(f"cannot inspect selected local target: {exc}") from exc
+    if not stat.S_ISBLK(device_info.st_mode):
+        raise WebAPIError("selected local target is no longer a block device")
+    if job["operation"] == "save" and job["target_type"] != "disk":
+        raise WebAPIError("Client capture currently supports whole-disk jobs only")
+    request_path, status_path = _client_job_paths(params["job_id"])
+    if os.path.lexists(status_path):
+        raise WebAPIError("a status record already exists for this job; interrupted Client jobs are never restarted")
+    _write_client_job_request(request_path, {
+        "schema_version": 1, "job_id": params["job_id"], "host": inspection["host"],
+        "device_path": device_path, "confirmation": confirmation,
+        "compression": compression,
+    })
+    unit = "feclora-client@" + params["job_id"] + ".service"
+    try:
+        result = subprocess.run(
+            ["/usr/bin/systemctl", "start", unit],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        try:
+            request_path.unlink()
+        except OSError:
+            pass
+        raise WebAPIError(f"could not start persistent Client service: {exc}") from exc
+    if result.returncode != 0:
+        try:
+            request_path.unlink()
+        except OSError:
+            pass
+        detail = (result.stderr or result.stdout or "").strip()
+        raise WebAPIError(f"Client service did not start: {detail or result.returncode}")
+    deadline = time.monotonic() + 10
+    last_error = None
+    while time.monotonic() < deadline:
+        try:
+            return _client_job_status({"job_id": params["job_id"]})
+        except WebAPIError as exc:
+            last_error = exc
+            time.sleep(0.1)
+    raise WebAPIError(f"Client service started but did not publish status: {last_error}")
+
+
+def _client_job_status(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"job_id"}:
+        raise WebAPIError("client_job_status requires exactly job_id")
+    job_id = params["job_id"]
+    _request_path, _status_path = _client_job_paths(job_id)
+    status = _read_client_job_status(job_id)
+    try:
+        result = subprocess.run(
+            ["/usr/bin/systemctl", "is-active", "--quiet", "feclora-client@" + job_id + ".service"],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=5,
+        )
+        active = result.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        active = False
+    status["unit_active"] = active
+    status["interrupted"] = not active and status.get("phase") not in {"completed", "failed", "cancelled", "interrupted"}
+    return status
+
+
 def _deployment_service_job_id(params: dict[str, Any]) -> str:
     if set(params) != {"job_id"}:
         raise WebAPIError("deployment service action requires exactly job_id")
@@ -1127,6 +1310,10 @@ def dispatch(request: Any) -> dict[str, Any]:
         return {"jobs": _deployment_jobs()}
     if action == "inspect_remote_job":
         return _inspect_remote_job(params)
+    if action == "start_client_job":
+        return _start_client_job(params)
+    if action == "client_job_status":
+        return _client_job_status(params)
     if action == "create_deployment_job":
         return _create_deployment_job(params)
     if action == "reconcile_deployment_job":
