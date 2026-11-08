@@ -466,9 +466,9 @@ export default function App() {
                 </CardBody></Card>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Persisted remote jobs</Title>
-                <Table aria-label="Persisted remote deployment jobs" variant="compact"><Thead><Tr><Th>Job ID</Th><Th>Operation</Th><Th>Image</Th><Th>Transport</Th><Th>State</Th><Th>Clients</Th></Tr></Thead><Tbody>
-                  {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.image_id}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{job.authorized_clients.join(", ")}</Td></Tr>)}
-                  {!deploymentJobs.length && <Tr><Td colSpan={6}>No remote job definitions recorded.</Td></Tr>}
+                <Table aria-label="Persisted remote deployment jobs" variant="compact"><Thead><Tr><Th>Job ID</Th><Th>Operation</Th><Th>Image</Th><Th>Target</Th><Th>Transport</Th><Th>State</Th><Th>Client progress</Th><Th>Recovery</Th><Th>Events</Th></Tr></Thead><Tbody>
+                  {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.image_id}</Td><Td>{job.target_type}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{Object.entries(job.clients || {}).map(([mac, client]) => mac + ": " + client.state).join(", ") || "Not connected"}</Td><Td>{job.interrupted ? <Label color="orange">Review required · no auto-resume</Label> : "—"}</Td><Td>{job.event_count}</Td></Tr>)}
+                  {!deploymentJobs.length && <Tr><Td colSpan={9}>No remote job definitions recorded.</Td></Tr>}
                 </Tbody></Table>
               </StackItem>
             </Stack>
