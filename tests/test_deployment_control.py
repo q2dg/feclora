@@ -470,11 +470,6 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
                 client_identity_to_mac={"URI:feclora-client": MAC},
             )
             host, port = server.start("127.0.0.1", 0)
-            accepted = []
-            accept_thread = threading.Thread(
-                target=lambda: accepted.append(server.accept_ready_client(server._listener)),
-                daemon=True,
-            )
             client_result = []
             approval = LocalTargetApproval(
                 "/dev/vda", "Disposable VM disk",
@@ -494,10 +489,14 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
             client_thread = threading.Thread(target=client, daemon=True)
             try:
                 with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
-                    accept_thread.start()
                     client_thread.start()
-                    accept_thread.join(5)
-                    self.assertFalse(accept_thread.is_alive())
+                    deadline = time.monotonic() + 5
+                    while time.monotonic() < deadline:
+                        records = coordinator.clients()
+                        if records and records[0].state.value == "ready":
+                            break
+                        time.sleep(0.01)
+                    self.assertEqual(coordinator.clients()[0].state.value, "ready")
                     server.arm_and_start()
                     server.send_restore_image(
                         MAC, source, manifest_path,
