@@ -16,7 +16,7 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [x] Local managed CA/TLS identity bootstrap and Client CSR enrollment primitives.
 - [x] Authenticated unicast deployment engine and UDPcast multicast restore engine.
 - [x] PXE/iPXE boot-tree staging and transient dnsmasq/Caddy/firewalld service lifecycle.
-- [x] Durable deployment journals and explicit interrupted-job reconciliation.
+- [x] Durable deployment journals, audit-state reconstruction from verified journals, and explicit interrupted-job reconciliation (reconstruction does not restore sessions or resume work).
 - [x] Cockpit React/PatternFly package and privileged allowlisted backend.
 - [x] Cockpit local operations wizard: disk/partition capture, restore and clone.
 - [x] Cockpit storage/image inventory, operation journal summary and local image-security setup.
