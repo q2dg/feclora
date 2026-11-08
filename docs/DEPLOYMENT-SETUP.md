@@ -113,10 +113,11 @@ must independently approve the target before sending READY.
 
 ## Scope and safety limits
 
-- This first runtime supports one authenticated Client per job and unicast
-  whole-disk save/restore only.
-- It does not implement partition deployment, concurrent multi-client jobs,
-  multicast, unattended target approval, live session restart or destructive job resume (the journal provides audit-only recovery), or automatic key distribution.
+- Unicast supports one authenticated Client per job for whole-disk save/restore.
+- Multicast supports one-to-many whole-disk **restore** to multiple authenticated Clients. The mTLS control plane authenticates every Client, obtains local target approval, distributes the signed manifest and records per-client results. UDPcast sends artifact bytes to each Client's private staging area; each Client verifies the signed manifest, exact artifact size and SHA-256 before invoking the normal protected restore/read-back path.
+- Multicast uses an administratively scoped 239.0.0.0/8 data group, a derived separate rendezvous group, an even UDPcast port base (the base and base+1 are opened temporarily), TTL 1 and a 100 Mbit/s default sender limit. Each Client selects its own local receive interface; it need not have the same interface name as the Server.
+- Multicast requires all selected Clients on the same multicast-enabled L2/VLAN segment, with switch IGMP snooping and a functioning querier. The current TTL=1 profile does not support routed cross-VLAN multicast. Use unicast when the network cannot meet these conditions.
+- Multicast save, multi-client unicast, partition deployment, unattended target approval, automatic restart/resume of destructive writes, automatic key distribution, per-client live progress, Wake-on-LAN and post-job power policies are not implemented.
 - Save sources and restore targets must pass existing block-device safety
   checks. Restore verifies the signed manifest and all artifact digests before
   writing, then reads the destination back and verifies SHA-256.
