@@ -233,6 +233,9 @@ fi
 if ! grep -q 'test_progress_frame_is_validated_and_exposed_with_throughput' "$ROOT_DIR/tests/test_deployment_control.py"; then
   fail "Authenticated Client progress regression tests are missing."
 fi
+if ! grep -q 'test_status_includes_per_client_progress' "$ROOT_DIR/tests/test_deployment_service.py"; then
+  fail "Cockpit Server progress status regression test is missing."
+fi
 if ! grep -q 'MiB/s' "$ROOT_DIR/webui/src/App.jsx"; then
   fail "Cockpit does not display per-Client transfer throughput."
 fi
