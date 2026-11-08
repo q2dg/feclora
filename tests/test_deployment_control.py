@@ -17,6 +17,7 @@ from feclora.deployment.control import (
     DeploymentControlError,
     DeploymentControlServer,
     LocalTargetApproval,
+    inspect_deployment_job,
     join_deployment,
     receive_control_message,
     send_control_message,
@@ -156,6 +157,55 @@ class ControlFramingTests(unittest.TestCase):
         fake = FakeSocket(struct.pack("!I", len(payload)) + payload)
         with self.assertRaisesRegex(DeploymentControlError, "duplicate"):
             receive_control_message(fake)
+
+    def test_inspect_deployment_job_does_not_send_client_ready(self):
+        job = make_job()
+        fake = FakeSocket(frame({
+            "type": "job", "job": job.to_dict(),
+            "server_identity": "URI:feclora-server",
+        }))
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.maximum_version = ssl.TLSVersion.TLSv1_3
+        context.verify_mode = ssl.CERT_REQUIRED
+        with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
+            inspected = inspect_deployment_job(
+                "192.0.2.10", 9443, context,
+                local_identity="URI:feclora-client",
+                expected_server_identity="URI:feclora-server",
+                mac_address=MAC, job_id=JOB_ID,
+            )
+        self.assertEqual(inspected.job_id, JOB_ID)
+        outgoing = FakeSocket(fake.outgoing)
+        request = receive_control_message(outgoing)
+        self.assertEqual(request["type"], "inspect")
+        self.assertEqual(request["job_id"], JOB_ID)
+
+    def test_server_inspection_does_not_register_or_mark_client_ready(self):
+        job = make_job()
+        coordinator = DeploymentCoordinator(job)
+        fake = FakeSocket()
+        listener = SimpleNamespace(accept=lambda: (fake, ("192.0.2.20", 40000)))
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.tls_context = SimpleNamespace(wrap_socket=lambda accepted, server_side: accepted)
+        server._lock = threading.RLock()
+        server._pending_sockets = set()
+        server._sessions = {}
+        server._identities = {}
+        server.client_identity_to_mac = {"URI:feclora-client": MAC}
+        server.local_identity = "URI:feclora-server"
+        server.coordinator = coordinator
+        with patch("feclora.deployment.control._certificate_identity", return_value="URI:feclora-client"), \
+             patch("feclora.deployment.control.verify_peer_identity"), \
+             patch("feclora.deployment.control.receive_control_message", return_value={
+                 "type": "inspect", "job_id": JOB_ID, "mac_address": MAC,
+                 "certificate_identity": "URI:feclora-client",
+             }), patch("feclora.deployment.control.send_control_message") as send:
+            result = server.accept_ready_client(listener)
+        self.assertIsNone(result)
+        self.assertEqual(coordinator.clients(), ())
+        self.assertTrue(fake.closed)
+        send.assert_called_once()
 
 
 class ClientJoinTests(unittest.TestCase):
