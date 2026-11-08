@@ -25,6 +25,9 @@ class BootAssetTests(unittest.TestCase):
             self.assertEqual(Path(result["undionly.kpxe"]).read_bytes(), b"bios")
             self.assertEqual(Path(result["ipxe-snponly-x86_64.efi"]).read_bytes(), b"uefi")
             self.assertEqual((target / "undionly.kpxe").stat().st_mode & 0o777, 0o444)
+            # Re-staging the exact same RPM payload is safe and idempotent.
+            again = stage_ipxe_assets(str(target), rpm="/usr/bin/rpm", runner=runner)
+            self.assertEqual(again, result)
 
     def test_rejects_missing_or_ambiguous_firmware(self):
         def runner(argv, **kwargs):
