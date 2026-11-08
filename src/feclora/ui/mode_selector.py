@@ -1,8 +1,7 @@
 """Startup mode selector for the single feclora Live ISO.
 
-Only the local inventory mode is currently implemented. Server and client
-choices are deliberately visible but fail closed until their services and
-deployment runtime are implemented.
+Local rescue and the first opt-in PXE Server boot path are available. The
+Client deployment runtime and authenticated job protocol remain incomplete.
 """
 
 from __future__ import annotations
@@ -12,6 +11,7 @@ import subprocess
 import sys
 
 from feclora.ui.dialog_app import main as run_live
+from feclora.network.server_mode import run_server_ui
 
 
 def _dialog(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -49,12 +49,7 @@ def main() -> int:
         if choice == "live":
             return run_live()
         if choice == "server":
-            _dialog([
-                "--title", "Server mode not yet implemented",
-                "--msgbox",
-                "Server mode is part of this single ISO target, but its control plane, PXE services and deployment transport are not implemented yet. No network service has been started.",
-                "10", "76",
-            ])
+            run_server_ui()
         elif choice == "client":
             _dialog([
                 "--title", "Client mode not yet implemented",
