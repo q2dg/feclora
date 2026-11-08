@@ -102,7 +102,9 @@ class WebAPITests(unittest.TestCase):
 
     def test_revoke_server_client_invokes_managed_revocation_with_exact_phrase(self):
         identity = "URI:feclora-client-lab"
-        with patch("feclora.deployment.enrollment.revoke_client_certificate", return_value="52:54:00:12:34:56") as revoke:
+        with patch("feclora.deployment.enrollment.revoke_client_certificate", return_value="52:54:00:12:34:56") as revoke, patch(
+            "feclora.deployment.cockpit_enrollment.remove_client_certificate_pin", return_value=True
+        ) as remove_pin:
             result = _revoke_server_client({
                 "identity": identity, "confirmation": f"REVOKE {identity}",
             })
@@ -110,8 +112,10 @@ class WebAPITests(unittest.TestCase):
             "/etc/feclora/deployment-server.json", identity,
             confirmation=f"REVOKE {identity}",
         )
+        remove_pin.assert_called_once_with(identity)
         self.assertEqual(result, {
-            "identity": identity, "mac_address": "52:54:00:12:34:56", "revoked": True,
+            "identity": identity, "mac_address": "52:54:00:12:34:56",
+            "revoked": True, "certificate_pin_removed": True,
         })
 
     def test_revoke_server_client_rejects_extra_fields_and_invalid_identity(self):
