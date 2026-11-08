@@ -107,6 +107,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                     repository=repository,
                     trusted_server_public_key="/pki/server.pub",
                     firewall=Mock(),
+                    network_interface="enp1s0",
                 )
             self.assertTrue(result[0])
             restore.assert_called_once()
@@ -129,6 +130,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                         repository=repository,
                         trusted_server_public_key="/pki/server.pub",
                         firewall=Mock(),
+                        network_interface="enp1s0",
                     )
 
 
