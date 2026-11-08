@@ -29,6 +29,7 @@ the old local `dialog` menu is no longer installed in the Live package.
 ### Cockpit remote deployment
 
 - [x] Cockpit PXE activation/shutdown: persist transient dnsmasq/Caddy unit and interface-scoped firewalld state across API calls; stop restores the previous interface zone. Services are not enabled at boot.
+- [x] Cockpit Server-side CSR inspection, explicit approval, certificate issuance, Client allowlist/age-recipient registration and public response-bundle export.
 - [ ] Complete Server setup wizard: manage persistent network configuration and expose richer PXE service diagnostics.
 - [ ] Full managed deployment CA and Server identity administration from Cockpit (the initial identity bootstrap step is implemented).
 - [ ] Client CSR import/approval, certificate issue/rotation/revocation and age-recipient management from Cockpit.
