@@ -374,7 +374,9 @@ export default function App() {
     const timer = setInterval(() => {
       for (const jobId of Object.keys(serviceStatusesRef.current)) {
         callFeclora("deployment_service_status", { job_id: jobId })
-          .then((result) => setServiceStatuses((current) => ({ ...current, [jobId]: result })))
+          .then((result) => setServiceStatuses((current) => (
+            current[jobId] ? { ...current, [jobId]: result } : current
+          )))
           .catch(() => {});
       }
     }, 2000);
