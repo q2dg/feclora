@@ -398,7 +398,7 @@ export default function App() {
   };
 
   const refreshClientRemoteJobStatus = async () => {
-    if (!clientRemoteInspection?.job?.job_id) return;
+    if (!clientRemoteJobId) return;
     setBusy(true); setError("");
     try {
       const result = await callFeclora("client_job_status", {
@@ -770,6 +770,7 @@ export default function App() {
                     <input className="pf-v5-c-form-control" value={clientRemoteJobId} onChange={(event) => { setClientRemoteJobId(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); }} placeholder="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" />
                   </Field>
                   <Button variant="primary" onClick={inspectClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteJobId}>Inspect authenticated job</Button>
+                  <Button variant="link" onClick={refreshClientRemoteJobStatus} isLoading={busy} isDisabled={busy || !clientRemoteJobId}>Check existing Client job status</Button>
                 </StackItem>
                 {clientRemoteJob && <StackItem>
                   <Card><CardBody>
