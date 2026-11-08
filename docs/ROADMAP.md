@@ -54,7 +54,7 @@ the old local `dialog` menu is no longer installed in the Live package.
 
 - [ ] Select and document the project license and contribution policy.
 - [ ] Add reproducible dependency lockfiles for the web frontend.
-- [ ] Confirm GitHub Pages publication and canonical hostname. The minimalist landing page, responsive styling and deployment workflow are in source; the current repository owner namespace cannot publish `feclora.github.io` directly.
+- [ ] Confirm GitHub Pages publication and canonical hostname. The minimalist landing page and deployment workflow are in source. The selected project URL is `https://q2dg.github.io/feclora/`; a repository owner must select GitHub Actions under Settings → Pages before the workflow can publish.
 
 ## Explicitly out of scope unless requested
 
