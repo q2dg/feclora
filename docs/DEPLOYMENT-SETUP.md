@@ -25,7 +25,8 @@ SAN identity, for example URI:feclora-server or URI:feclora-client-01.
 Every endpoint validates the CA chain and then pins the exact expected SAN
 identity. The Server additionally maps each Client certificate identity to
 one enrolled unicast MAC address. MAC is an allowlist/inventory key, not
-authentication.
+authentication. A Client that is restore-only does not need a minisign keypair;
+its MAC is simply omitted from client_minisign_public_keys on the Server.
 
 Generate a minisign key pair for the Server and one for each Client that may
 save images. Distribute only the relevant public keys to the opposite
