@@ -102,7 +102,7 @@ class PXEServiceManager:
             self._started_units.add("feclora-dnsmasq.service")
             self._run([
                 self.systemd_run, "--unit=feclora-caddy", "--collect",
-                "--property=Restart=no", "--property=KillMode=mixed", "--",
+                "--property=Restart=no", "--property=KillMode=mixed", "--property=User=caddy", "--property=Group=caddy", "--",
                 self.caddy, "run", "--config", caddy_config, "--adapter", "caddyfile",
             ], "starting Caddy")
             self._started_units.add("feclora-caddy.service")
