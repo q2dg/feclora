@@ -133,8 +133,7 @@ def mark_client_job_interrupted(job_id: str) -> None:
     _ensure_directory()
     _ensure_runtime_directory()
     _request_path, status_path, lock_path = _job_paths(job_id)
-    if not status_path.exists():
-        return
+    status_exists = status_path.exists()
     fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
     try:
         info = os.fstat(fd)
@@ -144,15 +143,16 @@ def mark_client_job_interrupted(job_id: str) -> None:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
             raise ClientJobServiceError("Client job is still active; refusing interrupted-state update") from exc
-        status = _read_private_json(status_path, limit=16384)
-        if status.get("phase") not in TERMINAL_PHASES:
-            status.update({
-                "phase": "interrupted",
-                "success": False,
-                "detail": "Client service exited before a terminal result. No automatic reconnect or storage resume was attempted.",
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            })
-            _write_private_json(status_path, status)
+        if status_exists:
+            status = _read_private_json(status_path, limit=16384)
+            if status.get("phase") not in TERMINAL_PHASES:
+                status.update({
+                    "phase": "interrupted",
+                    "success": False,
+                    "detail": "Client service exited before a terminal result. No automatic reconnect or storage resume was attempted.",
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                })
+                _write_private_json(status_path, status)
         from feclora.deployment.service import recover_stale_runtime_artifacts
         recover_stale_runtime_artifacts(lock_held=True)
     finally:
