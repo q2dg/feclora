@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from feclora.deployment.managed_pki import (
-    PKIError, create_client_csr, install_client_certificate,
+    PKIError, create_client_csr, install_client_certificate, _atomic_copy,
 )
 from feclora.deployment.cockpit_enrollment import CockpitEnrollmentError
 from feclora.deployment.runtime_config import load_client_runtime_config
@@ -219,6 +219,139 @@ def prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
         "minisign_public_file": public_export,
         "private_key_stays_local": private_key,
         "message": "Enrollment request prepared. Only the CSR and public age/minisign material were exported.",
+    }
+
+
+def prepare_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"export_directory"}:
+        raise CockpitEnrollmentError("prepare_client_renewal requires exactly export_directory")
+    config = load_client_runtime_config(CONFIG)
+    prefix = "URI:feclora-client-"
+    if not config.local_identity.startswith(prefix):
+        raise CockpitEnrollmentError("Client identity is not eligible for managed certificate renewal")
+    client_id = config.local_identity.removeprefix(prefix)
+    if not _CLIENT_ID.fullmatch(client_id):
+        raise CockpitEnrollmentError("configured Client identity is malformed")
+    export = _mounted_media_directory(params["export_directory"])
+    retained_key = os.path.join(PKI, f"client-{client_id}.key")
+    for path, label in ((retained_key, "retained Client private key"), (config.private_key_file, "active Client private key")):
+        info = os.lstat(path)
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+            raise CockpitEnrollmentError(f"{label} is not a protected root-owned regular file")
+    def public_key(path: str) -> bytes:
+        result = subprocess.run(
+            ["/usr/bin/openssl", "pkey", "-in", path, "-pubout", "-outform", "DER"],
+            stdin=subprocess.DEVNULL, capture_output=True, check=False, timeout=15,
+        )
+        if result.returncode != 0 or not result.stdout:
+            raise CockpitEnrollmentError("could not validate the existing Client private key")
+        return result.stdout
+    if public_key(retained_key) != public_key(config.private_key_file):
+        raise CockpitEnrollmentError("retained renewal key does not match the active Client TLS identity")
+    if os.path.lexists(os.path.join(PKI, f"client-{client_id}.age")) is False:
+        raise CockpitEnrollmentError("Client age identity is missing; renewal cannot preserve the current recipient")
+    identity, _key, exported_csr = create_client_csr(
+        PKI, export, client_id, reuse_existing_key=True,
+    )
+    recipient_file = os.path.join(export, f"feclora-{client_id}-renewal.age-recipient")
+    exported_minisign = None
+    if config.local_minisign_public_key:
+        exported_minisign = os.path.join(export, f"feclora-{client_id}-renewal.minisign.pub")
+        if os.path.lexists(exported_minisign):
+            raise CockpitEnrollmentError("Client minisign renewal export already exists")
+        _atomic_copy(config.local_minisign_public_key, exported_minisign, 0o644)
+    return {
+        "identity": identity, "csr_file": exported_csr,
+        "age_recipient_file": recipient_file,
+        "minisign_public_file": exported_minisign,
+        "message": "Renewal CSR prepared using the existing TLS private key. The private key, age identity and image-signing key remain local; only public request material was exported.",
+    }
+
+
+def complete_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
+    required = {"bundle_directory", "ca_fingerprint", "server_minisign_sha256"}
+    if set(params) != required:
+        raise CockpitEnrollmentError("complete_client_renewal requires bundle_directory and both verified fingerprints")
+    config = load_client_runtime_config(CONFIG)
+    prefix = "URI:feclora-client-"
+    if not config.local_identity.startswith(prefix):
+        raise CockpitEnrollmentError("Client identity is not eligible for managed certificate renewal")
+    client_id = config.local_identity.removeprefix(prefix)
+    if not _CLIENT_ID.fullmatch(client_id):
+        raise CockpitEnrollmentError("configured Client identity is malformed")
+    bundle = _mounted_media_directory(params["bundle_directory"])
+    certificate = _bundle_file(bundle, f"feclora-{client_id}-renewal.crt")
+    ca_file = _bundle_file(bundle, "ca-renewal.crt")
+    server_public = _bundle_file(bundle, "server-renewal.pub")
+    recipients_file = _bundle_file(bundle, "age-recipients-renewal.txt")
+    expected_ca = params["ca_fingerprint"]
+    expected_server = params["server_minisign_sha256"]
+    if not isinstance(expected_ca, str) or not re.fullmatch(r"(?:[0-9a-fA-F]{2}:?){32}", expected_ca):
+        raise CockpitEnrollmentError("CA fingerprint must be a 64-digit SHA-256 hexadecimal value")
+    if not isinstance(expected_server, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected_server):
+        raise CockpitEnrollmentError("Server minisign fingerprint must be a 64-digit SHA-256 hexadecimal value")
+    if hashlib.sha256(Path(server_public).read_bytes()).hexdigest() != expected_server.lower():
+        raise CockpitEnrollmentError("Server minisign public-key fingerprint does not match the value verified from the Server")
+    recipients = [line.strip() for line in Path(recipients_file).read_text(encoding="ascii").splitlines() if line.strip()]
+    if not recipients or any(not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients):
+        raise CockpitEnrollmentError("Server age recipient inventory is empty or malformed")
+    age_identity = config.age_identity_file
+    age_result = subprocess.run(
+        ["/usr/bin/age-keygen", "-y", age_identity],
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=15,
+    )
+    own_recipient = age_result.stdout.strip()
+    if age_result.returncode != 0 or own_recipient not in recipients:
+        raise CockpitEnrollmentError("renewal response does not retain this Client's current age recipient")
+    installed_server_key = os.path.join(PKI, "server.pub")
+    installed_recipients = os.path.join(PKI, "age-recipients.txt")
+    backups: dict[str, bytes | None] = {}
+    destinations = (
+        os.path.join(PKI, "client.crt"), os.path.join(PKI, "ca.crt"),
+        config.private_key_file, installed_server_key, installed_recipients,
+    )
+    for path in destinations:
+        try:
+            info = os.lstat(path)
+            if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
+                raise CockpitEnrollmentError("existing Client trust file is not a root-owned regular file")
+            backups[path] = Path(path).read_bytes()
+        except FileNotFoundError:
+            backups[path] = None
+    try:
+        installed = install_client_certificate(
+            certificate, ca_file, config.private_key_file, PKI,
+            config.local_identity, expected_ca,
+        )
+        _atomic_copy(server_public, installed_server_key, 0o644)
+        _atomic_copy(recipients_file, installed_recipients, 0o600)
+        updated = load_client_runtime_config(CONFIG)
+    except Exception:
+        for path, content in backups.items():
+            if content is None:
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
+            else:
+                fd, temporary = tempfile.mkstemp(prefix=".feclora-renewal-rollback-", dir=os.path.dirname(path))
+                try:
+                    with os.fdopen(fd, "wb") as stream:
+                        stream.write(content)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    os.chmod(temporary, 0o600 if path in {config.private_key_file, installed_recipients} else 0o644)
+                    os.replace(temporary, path)
+                except Exception:
+                    try:
+                        os.unlink(temporary)
+                    except OSError:
+                        pass
+        raise
+    return {
+        "identity": updated.local_identity, "certificate_file": installed["certificate_file"],
+        "image_capture_enabled": bool(updated.local_minisign_secret_key),
+        "message": "Renewed TLS certificate installed and validated. Existing Client TLS key, age identity, MAC authorization and image-signing key were preserved.",
     }
 
 
