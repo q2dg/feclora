@@ -162,8 +162,8 @@ class ClientRuntimeConfig:
     certificate_file: str
     private_key_file: str
     trusted_server_public_key: str
-    local_minisign_secret_key: str
-    local_minisign_public_key: str
+    local_minisign_secret_key: str | None
+    local_minisign_public_key: str | None
     age_identity_file: str | None
     age_recipients_file: str | None
     repository: str
@@ -182,6 +182,18 @@ def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
         raise RuntimeConfigError("Server host must be a valid hostname or address")
     age_identity = value["age_identity_file"]
     age_recipients = value["age_recipients_file"]
+    minisign_secret = value["local_minisign_secret_key"]
+    minisign_public = value["local_minisign_public_key"]
+    if bool(minisign_secret) != bool(minisign_public):
+        raise RuntimeConfigError("Client minisign secret and public keys must either both be configured or both be null")
+    checked_minisign_secret = (
+        _secure_file(minisign_secret, "Client minisign secret key", private=True)
+        if minisign_secret else None
+    )
+    checked_minisign_public = (
+        _secure_file(minisign_public, "Client minisign public key")
+        if minisign_public else None
+    )
     return ClientRuntimeConfig(
         host=host,
         port=_port(value["port"]),
@@ -192,8 +204,8 @@ def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
         certificate_file=_secure_file(value["certificate_file"], "Client certificate"),
         private_key_file=_secure_file(value["private_key_file"], "Client private key", private=True),
         trusted_server_public_key=_secure_file(value["trusted_server_public_key"], "trusted Server minisign public key"),
-        local_minisign_secret_key=_secure_file(value["local_minisign_secret_key"], "Client minisign secret key", private=True),
-        local_minisign_public_key=_secure_file(value["local_minisign_public_key"], "Client minisign public key"),
+        local_minisign_secret_key=checked_minisign_secret,
+        local_minisign_public_key=checked_minisign_public,
         age_identity_file=_secure_file(age_identity, "age identity file", private=True) if age_identity else None,
         age_recipients_file=_secure_file(age_recipients, "age recipients file") if age_recipients else None,
         repository=_repository(value["repository"]),
