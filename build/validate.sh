@@ -143,3 +143,13 @@ if (( errors > 0 )); then
   exit 1
 fi
 printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
+
+if ! grep -q 'class LocalControlServer' "$ROOT_DIR/src/feclora/deployment/local_control.py"; then
+  fail "Deployment service local IPC server primitive is missing."
+fi
+if ! grep -q 'SO_PEERCRED' "$ROOT_DIR/src/feclora/deployment/local_control.py"; then
+  fail "Deployment service IPC does not authenticate local peer credentials."
+fi
+if ! grep -q 'test_rejects_duplicate_fields' "$ROOT_DIR/tests/test_local_control.py"; then
+  fail "Deployment service IPC protocol tests are missing."
+fi
