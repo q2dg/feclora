@@ -42,6 +42,7 @@ class PXEServiceManager:
         self.preflight = preflight
         self.firewall = firewall or PXEFirewall()
         self._active_interface: str | None = None
+        self._started_units: set[str] = set()
 
     def _run(self, argv: list[str], label: str) -> None:
         try:
@@ -94,11 +95,13 @@ class PXEServiceManager:
                 "--property=Restart=no", "--property=KillMode=mixed", "--",
                 self.dnsmasq, "--keep-in-foreground", f"--conf-file={dnsmasq_config}",
             ], "starting dnsmasq")
+            self._started_units.add("feclora-dnsmasq.service")
             self._run([
                 self.systemd_run, "--unit=feclora-caddy", "--collect",
                 "--property=Restart=no", "--property=KillMode=mixed", "--",
                 self.caddy, "run", "--config", caddy_config, "--adapter", "caddyfile",
             ], "starting Caddy")
+            self._started_units.add("feclora-caddy.service")
         except PXEServiceError:
             self.stop()
             raise
@@ -107,6 +110,8 @@ class PXEServiceManager:
         """Stop active transient units and remove only firewall ports we added."""
         errors = []
         for unit in ("feclora-caddy.service", "feclora-dnsmasq.service"):
+            if unit not in self._started_units:
+                continue
             try:
                 state = self.runner(
                     [self.systemctl, "is-active", unit], check=False,
@@ -114,7 +119,10 @@ class PXEServiceManager:
                 )
                 if state.returncode == 0:
                     self._run([self.systemctl, "stop", unit], f"stopping {unit}")
-                elif state.returncode not in (3, 4):
+                    self._started_units.discard(unit)
+                elif state.returncode in (3, 4):
+                    self._started_units.discard(unit)
+                else:
                     errors.append(f"{unit}: cannot determine service state")
             except (OSError, subprocess.TimeoutExpired, PXEServiceError) as exc:
                 errors.append(f"{unit}: {exc}")
