@@ -96,6 +96,26 @@ No ISO build, hardware restore, PXE boot or multi-machine laboratory test is
 claimed by the source-level checks.
 
 
+## Client remote jobs
+
+On an enrolled Client, the **Client jobs** tab can inspect a Server job over
+mTLS without registering the Client or changing the Server journal. It then
+lists local disks/partitions, displays the exact Server-bound authorization
+phrase, and starts a non-boot-enabled `feclora-client@<UUID>.service`.
+The Client repeats the authenticated job handshake, rechecks the selected
+block device against live inventory and mounted/root-device safety, and only
+then reports READY. It waits for the Server's explicit ARM command before
+starting disk I/O. Cockpit can inspect the Client's phase, target description,
+byte progress and terminal result after the browser disconnects.
+
+The Cockpit Client service currently supports unicast disk capture, whole-disk
+restore and partition restore. A host runs only one Client job at a time.
+Interrupted Client services are marked for inspection and are never
+automatically reconnected or resumed. To cancel a Client that is waiting for
+ARM, cancel the unarmed job from the Server Cockpit. The Client-side multicast
+receive workflow is not yet exposed in Cockpit; use the existing Client
+runtime for multicast restore. No automatic poweroff/reboot is performed.
+
 ## PXE service lifecycle
 
 Cockpit can now activate and stop a preflighted PXE profile. Activation stages
