@@ -375,7 +375,8 @@ class ClientDeploymentService:
                     })
                     now = time.monotonic()
                     if (now - last_reported_at >= 1.0
-                            or completed - last_reported_bytes >= 16 * 1024 * 1024):
+                            or completed - last_reported_bytes >= 16 * 1024 * 1024
+                            or (total_bytes is not None and completed >= total_bytes)):
                         try:
                             send_control_message(tls_socket, {
                                 "type": "progress", "job_id": job.job_id,
