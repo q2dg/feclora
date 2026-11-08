@@ -43,6 +43,12 @@ export default function App() {
   const [networkInterfaces, setNetworkInterfaces] = useState([]);
   const [serverBinding, setServerBinding] = useState("");
   const [serverSetup, setServerSetup] = useState(null);
+  const [csrPath, setCsrPath] = useState("");
+  const [ageRecipientPath, setAgeRecipientPath] = useState("");
+  const [clientMac, setClientMac] = useState("");
+  const [clientMinisignPath, setClientMinisignPath] = useState("");
+  const [csrReview, setCsrReview] = useState(null);
+  const [csrConfirmation, setCsrConfirmation] = useState("");
   const [pxeMode, setPxeMode] = useState("proxy");
   const [pxePoolStart, setPxePoolStart] = useState("");
   const [pxePoolEnd, setPxePoolEnd] = useState("");
@@ -137,6 +143,33 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const inspectClientCSR = async () => {
+    setBusy(true); setError(""); setNotice(""); setCsrReview(null); setCsrConfirmation("");
+    try {
+      const result = await callFeclora("inspect_client_csr", {
+        csr_path: csrPath, age_recipient_path: ageRecipientPath, mac_address: clientMac,
+        minisign_public_path: clientMinisignPath || null
+      });
+      setCsrReview(result);
+      setNotice("CSR signature, Client identity and age recipient inspected. No trust changes have been made.");
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const approveClientCSR = async () => {
+    if (!csrReview || csrConfirmation !== csrReview.confirmation_phrase) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("approve_client_csr", {
+        csr_path: csrPath, age_recipient_path: ageRecipientPath, mac_address: clientMac,
+        minisign_public_path: clientMinisignPath || null, confirmation: csrConfirmation
+      });
+      setNotice(result.message + " Bundle: " + result.bundle_directory);
+      setCsrReview(null); setCsrConfirmation("");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
   const validatePXEProfile = async () => {
     const selected = networkInterfaces.find((item) => item.binding === serverBinding);
     if (!selected) return;
@@ -338,7 +371,7 @@ export default function App() {
                 <Title headingLevel="h2" size="xl">Initialize deployment Server identity</Title>
                 <p>Select an IPv4 address currently assigned to the management interface. Feclora will initialize its managed CA, mTLS Server certificate, age recipient identity and minisign signing keys.</p>
                 <Alert variant="info" title="This is the identity bootstrap step only" isInline>
-                  It does not enable DHCP/ProxyDHCP, configure PXE boot services, open firewall ports, enroll Clients or start a deployment. Those guided workflows are still being integrated.
+                  It does not enable DHCP/ProxyDHCP, configure PXE boot services, open firewall ports or start a deployment. Client enrollment is a separate, explicit removable-media trust ceremony below.
                 </Alert>
               </StackItem>
               <StackItem>
@@ -356,6 +389,31 @@ export default function App() {
               </StackItem>
               {status?.server_configured && <StackItem><Alert variant="success" title="Server configuration exists" isInline>The existing configuration is not overwritten by this wizard. Continue with the remaining Server and PXE setup once those Cockpit workflows are available.</Alert></StackItem>}
               {serverSetup && <StackItem><Card><CardBody><Title headingLevel="h3" size="lg">Server identity status</Title><p>{serverSetup.message}</p><p>Bind address: {serverSetup.bind_address}:{serverSetup.port}</p><p>Certificate identity: {serverSetup.server_identity}</p><p>Enrolled Clients: {serverSetup.enrolled_clients}</p></CardBody></Card></StackItem>}
+              <StackItem>
+                <Title headingLevel="h2" size="xl">Trusted Clients · Approve CSR</Title>
+                <p>Prepare an enrollment request on the Client and inspect it here from removable media. The Client private TLS and age keys never leave the Client.</p>
+                <Field label="Client CSR file" help="Absolute path under /run/media, /media or /mnt.">
+                  <input className="pf-v5-c-form-control" value={csrPath} onChange={(e) => { setCsrPath(e.target.value); setCsrReview(null); }} />
+                </Field>
+                <Field label="Client age recipient file">
+                  <input className="pf-v5-c-form-control" value={ageRecipientPath} onChange={(e) => { setAgeRecipientPath(e.target.value); setCsrReview(null); }} placeholder="/run/media/.../feclora-client.age-recipient" />
+                </Field>
+                <Field label="Client unicast MAC address">
+                  <input className="pf-v5-c-form-control" value={clientMac} onChange={(e) => { setClientMac(e.target.value); setCsrReview(null); }} placeholder="00:11:22:33:44:55" />
+                </Field>
+                <Field label="Client minisign public key (optional)" help="Provide only if this Client may capture images for the Server.">
+                  <input className="pf-v5-c-form-control" value={clientMinisignPath} onChange={(e) => { setClientMinisignPath(e.target.value); setCsrReview(null); }} placeholder="/run/media/.../client.minisign.pub" />
+                </Field>
+                <Button variant="secondary" onClick={inspectClientCSR} isLoading={busy} isDisabled={busy || !csrPath || !ageRecipientPath || !clientMac}>Inspect enrollment request</Button>
+                {csrReview && <Card className="pf-v5-u-mt-md"><CardBody>
+                  <Alert variant="warning" title="Review this identity before enrollment" isInline>Identity: {csrReview.identity} · MAC: {csrReview.mac_address}. Image capture permission: {csrReview.image_capture_enabled === "true" ? "enabled" : "not granted"}. No enrollment has occurred yet.</Alert>
+                  <p>To approve, type this exact phrase:</p><code>{csrReview.confirmation_phrase}</code>
+                  <Field label="Explicit enrollment confirmation">
+                    <input className="pf-v5-c-form-control" value={csrConfirmation} onChange={(e) => setCsrConfirmation(e.target.value)} />
+                  </Field>
+                  <Button variant="danger" onClick={approveClientCSR} isLoading={busy} isDisabled={busy || csrConfirmation !== csrReview.confirmation_phrase}>Approve CSR, enroll Client and export response bundle</Button>
+                </CardBody></Card>}
+              </StackItem>
               <StackItem>
                 <Title headingLevel="h2" size="xl">PXE network profile preflight</Title>
                 <p>Validate a proposed PXE network configuration before any service is started. Select the same management interface above.</p>
