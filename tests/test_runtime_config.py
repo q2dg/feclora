@@ -104,7 +104,7 @@ class RuntimeConfigTests(unittest.TestCase):
             def unsafe_lstat(_path):
                 return SimpleNamespace(st_mode=stat.S_IFREG | 0o644, st_uid=0)
             with patch("feclora.deployment.runtime_config.os.lstat", side_effect=unsafe_lstat):
-                with self.assertRaisesRegex(RuntimeConfigError, "mode 0600"):
+                with self.assertRaisesRegex(RuntimeConfigError, "group or other users"):
                     load_client_runtime_config(path)
 
 
