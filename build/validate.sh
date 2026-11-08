@@ -205,6 +205,28 @@ if ! grep -q '"inspect_remote_job", "start_client_job", "client_job_status"' "$R
   fail "Cockpit API client does not allow Client job lifecycle actions."
 fi
 
+if ! grep -q 'execute_multicast_restore' "$ROOT_DIR/src/feclora/deployment/client_service.py"; then
+  fail "Persistent Client service does not invoke the multicast restore receiver."
+fi
+if ! grep -q 'inspect_multicast_interface' "$ROOT_DIR/src/feclora/deployment/client_service.py"; then
+  fail "Persistent Client service does not preflight its selected multicast interface."
+fi
+if ! grep -q 'network_interface' "$ROOT_DIR/src/feclora/deployment/client_service.py"; then
+  fail "Persistent Client request schema is missing the selected multicast interface."
+fi
+if ! grep -q 'test_multicast_job_preflights_selected_interface_and_uses_receiver_runtime' "$ROOT_DIR/tests/test_client_service.py"; then
+  fail "Persistent Client multicast receiver regression test is missing."
+fi
+if ! grep -q 'test_start_client_job_preflights_and_persists_multicast_interface' "$ROOT_DIR/tests/test_webapi.py"; then
+  fail "Cockpit Client multicast API preflight regression test is missing."
+fi
+if ! grep -q 'Local multicast receive interface' "$ROOT_DIR/webui/src/App.jsx"; then
+  fail "Cockpit Client jobs tab is missing multicast interface selection."
+fi
+if ! grep -q 'Client selects its own receive interface' "$ROOT_DIR/docs/COCKPIT.md"; then
+  fail "Cockpit documentation does not describe Client multicast interface selection."
+fi
+
 if ! grep -q 'class LocalControlServer' "$ROOT_DIR/src/feclora/deployment/local_control.py"; then
   fail "Deployment service local IPC server primitive is missing."
 fi
