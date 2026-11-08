@@ -14,6 +14,7 @@ import stat
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -255,7 +256,16 @@ class DeploymentService:
 
     def run(self) -> None:
         self._acquire_instance_lock()
+        service_start_recorded = False
         try:
+            self.journal({
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "job_id": self.job.job_id,
+                "event": "service_started",
+                "job_state": self.coordinator.state.value,
+                "detail": "Persistent Server control service started; no storage operation armed.",
+            })
+            service_start_recorded = True
             self.control.start(self.config.bind_address, self.config.port)
             self.ipc.start()
             while not self._stop_event.wait(0.5):
@@ -266,6 +276,15 @@ class DeploymentService:
             finally:
                 try:
                     self.control.stop()
+                    if (service_start_recorded and self.coordinator.state is JobState.CREATED
+                            and not self.coordinator.clients()):
+                        self.journal({
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "job_id": self.job.job_id,
+                            "event": "service_stopped",
+                            "job_state": JobState.CREATED.value,
+                            "detail": "Service stopped cleanly before any Client session or storage operation.",
+                        })
                 finally:
                     if self._lock_fd is not None:
                         os.close(self._lock_fd)
