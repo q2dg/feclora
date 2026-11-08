@@ -102,14 +102,15 @@ def prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
     export = _mounted_media_directory(params["export_directory"])
     secret = os.path.join(PKI, f"client-{client_id}.minisign.key")
     public = os.path.join(PKI, f"client-{client_id}.minisign.pub")
-    public_export = os.path.join(export, f"feclora-{client_id}.minisign.pub")
+    public_export_path = os.path.join(export, f"feclora-{client_id}.minisign.pub")
+    public_export = None
     targets = (
         os.path.join(PKI, f"client-{client_id}.key"),
         os.path.join(PKI, f"client-{client_id}.csr"),
         os.path.join(PKI, f"client-{client_id}.age"),
         os.path.join(export, f"feclora-{client_id}.csr"),
         os.path.join(export, f"feclora-{client_id}.age-recipient"),
-        secret, public, public_export,
+        secret, public, public_export_path,
     )
     if any(os.path.lexists(item) for item in targets):
         raise CockpitEnrollmentError("Client identity material or removable-media export already exists")
@@ -124,8 +125,9 @@ def prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
                 raise CockpitEnrollmentError("Could not generate Client minisign keypair")
             os.chmod(secret, 0o600)
             os.chmod(public, 0o644)
-            shutil.copyfile(public, public_export)
-            os.chmod(public_export, 0o644)
+            shutil.copyfile(public, public_export_path)
+            os.chmod(public_export_path, 0o644)
+            public_export = public_export_path
     except Exception:
         for item in targets:
             try:
@@ -172,7 +174,7 @@ def complete_client_enrollment(params: dict[str, Any]) -> dict[str, Any]:
             raise CockpitEnrollmentError(f"{label} is not a protected root-owned file")
     expected_ca = params["ca_fingerprint"]
     expected_server = params["server_minisign_sha256"]
-    if not isinstance(expected_ca, str) or not re.fullmatch(r"(?:[0-9a-fA-F]{2}:?){64}", expected_ca):
+    if not isinstance(expected_ca, str) or not re.fullmatch(r"(?:[0-9a-fA-F]{2}:?){32}", expected_ca):
         raise CockpitEnrollmentError("CA fingerprint must be a 64-digit SHA-256 hexadecimal value")
     if not isinstance(expected_server, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected_server):
         raise CockpitEnrollmentError("Server minisign fingerprint must be a 64-digit SHA-256 hexadecimal value")
