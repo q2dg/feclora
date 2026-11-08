@@ -220,6 +220,18 @@ fi
 if ! grep -q 'test_start_client_job_preflights_and_persists_multicast_interface' "$ROOT_DIR/tests/test_webapi.py"; then
   fail "Cockpit Client multicast API preflight regression test is missing."
 fi
+if ! grep -q 'IGMP-VERIFIED' "$ROOT_DIR/src/feclora/deployment/service.py"; then
+  fail "Server multicast arm must require explicit IGMP verification."
+fi
+if ! grep -q 'igmp_confirmed is not True' "$ROOT_DIR/src/feclora/deployment/client_service.py"; then
+  fail "Client multicast READY must require explicit IGMP acknowledgement."
+fi
+if ! grep -q 'clientRemoteIgmpConfirmed' "$ROOT_DIR/webui/src/App.jsx"; then
+  fail "Cockpit Client multicast flow is missing the IGMP verification checkbox."
+fi
+if ! grep -q 'test_multicast_arm_requires_igmp_verification_phrase' "$ROOT_DIR/tests/test_deployment_service.py"; then
+  fail "Server multicast IGMP confirmation regression test is missing."
+fi
 if ! grep -q 'Local multicast receive interface' "$ROOT_DIR/webui/src/App.jsx"; then
   fail "Cockpit Client jobs tab is missing multicast interface selection."
 fi
