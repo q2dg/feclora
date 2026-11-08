@@ -114,16 +114,22 @@ def _load_signed_manifest(
 
 def verify_artifact_file(path: str, artifact: ImageArtifact) -> None:
     """Check the exact stored bytes described by a signed manifest artifact."""
-    info = _regular_file(path, "Image artifact")
-    if info.st_size != artifact.size_bytes:
-        raise UDPcastError("Image artifact size does not match the signed manifest")
+    _regular_file(path, "Image artifact")
     digest = hashlib.sha256()
     try:
-        with open(path, "rb") as stream:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        with os.fdopen(fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode):
+                raise UDPcastError("Image artifact changed type while opening")
+            if info.st_size != artifact.size_bytes:
+                raise UDPcastError("Image artifact size does not match the signed manifest")
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(chunk)
+    except UDPcastError:
+        raise
     except OSError as exc:
-        raise UDPcastError(f"Cannot read image artifact: {exc}") from exc
+        raise UDPcastError(f"Cannot safely read image artifact: {exc}") from exc
     if digest.hexdigest() != artifact.sha256:
         raise UDPcastError("Image artifact SHA-256 does not match the signed manifest")
 
