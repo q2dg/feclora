@@ -46,6 +46,12 @@ class MulticastRuntimeTests(unittest.TestCase):
         self.assertEqual(config.rendezvous_group, "239.10.10.2")
         self.assertEqual(config.min_receivers, 2)
 
+    def test_client_can_override_server_interface_with_its_local_interface(self):
+        config = udpcast_config_for_job(
+            multicast_job(), min_receivers=2, network_interface="ens192",
+        )
+        self.assertEqual(config.interface, "ens192")
+
     def test_udpcast_config_rejects_unicast_job(self):
         payload = multicast_job().to_dict()
         payload["transport"] = "unicast"
