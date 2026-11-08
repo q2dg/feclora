@@ -36,8 +36,9 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [ ] Client certificate renewal/revocation and age-recipient management from Cockpit.
 - [x] Client enrollment preparation and completion from Cockpit, including local key generation and removable-media exchange.
 - [x] Read-only mTLS Client job inspection from Cockpit API without Client registration or READY transition.
-- [ ] Persistent Client execution service and Cockpit Client job lifecycle (connect, target approval, live state and safe stop).
-- [ ] Local destructive-target approval for remote jobs from Cockpit.
+- [x] Persistent non-boot-enabled Client service for unicast disk capture and disk/partition restore; READY/ARM gating, byte progress, terminal/interrupted state and no automatic reconnect/resume.
+- [ ] Cockpit Client multicast receive workflow and Client-side multicast firewall lifecycle.
+- [x] Cockpit local target selection, exact typed authorization and root/mount safety preflight before Client READY for unicast jobs.
 - [x] Cockpit remote-job definition wizard: validate enrolled Clients, image/signature, interface and transport, then persist a hash-chained job journal (definition only; no start).
 - [x] Cockpit audit-only reconciliation of interrupted job journals, requiring inspection and exact typed confirmation; no storage operation is resumed.
 - [x] Persistent single-job execution service: systemd template, mTLS listener, durable journal ownership and browser-disconnect independence (never boot-enabled).
