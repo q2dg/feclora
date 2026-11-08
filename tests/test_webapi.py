@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from feclora.webapi import WebAPIError, dispatch, _device
+from feclora.deployment.job import DeploymentJob
 
 
 class WebAPITests(unittest.TestCase):
@@ -208,7 +209,7 @@ class WebAPITests(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as directory:
             journal = DeploymentJournal(Path(directory) / f"{job_id}.jsonl", job_id)
-            DeploymentCoordinator(__import__("feclora.deployment.job", fromlist=["DeploymentJob"]).DeploymentJob.from_dict(job), event_sink=journal)
+            DeploymentCoordinator(DeploymentJob.from_dict(job), event_sink=journal)
             with patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)):
                 with self.assertRaisesRegex(WebAPIError, "confirmation does not match"):
                     dispatch({"action": "reconcile_deployment_job", "params": {
