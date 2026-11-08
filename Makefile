@@ -15,7 +15,7 @@ deps:
 	bash build/install-host-deps.sh
 
 preflight:
-	@test -n "$(FEDORA_INSTALL_ISO)" || (echo 'Set FEDORA_INSTALL_ISO=/path/to/Fedora-43-x86_64-DVD.iso' >&2; exit 2)
+	@test -n "$(FEDORA_INSTALL_ISO)" || (echo 'Set FEDORA_INSTALL_ISO=/path/to/Fedora-45-x86_64-DVD.iso' >&2; exit 2)
 	sudo -E env FEDORA_INSTALL_ISO="$(FEDORA_INSTALL_ISO)" bash build/preflight.sh
 
 validate:
@@ -28,7 +28,7 @@ ui:
 	./scripts/feclora-ui.sh
 
 build:
-	@test -n "$(FEDORA_INSTALL_ISO)" || (echo 'Set FEDORA_INSTALL_ISO=/path/to/Fedora-43-x86_64-DVD.iso' >&2; exit 2)
+	@test -n "$(FEDORA_INSTALL_ISO)" || (echo 'Set FEDORA_INSTALL_ISO=/path/to/Fedora-45-x86_64-DVD.iso' >&2; exit 2)
 	sudo -E env FEDORA_INSTALL_ISO="$(FEDORA_INSTALL_ISO)" bash build/build-iso.sh
 
 clean:
