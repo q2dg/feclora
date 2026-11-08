@@ -426,6 +426,46 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(inspect.call_args.args[0], "192.0.2.10")
         self.assertEqual(inspect.call_args.kwargs["mac_address"], config.mac_address)
 
+    def test_start_client_job_persists_private_request_and_starts_systemd_unit(self):
+        import stat
+        import tempfile
+        from pathlib import Path
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
+            with patch("feclora.webapi._inspect_remote_job", return_value={
+                "host": "192.0.2.10", "server_identity": "URI:server",
+                "job": {"job_id": job_id, "operation": "restore", "target_type": "disk", "transport": "unicast"},
+            }), patch("feclora.webapi._client_job_directory", return_value=root), \
+                 patch("feclora.storage.inventory.collect_inventory", return_value={
+                     "devices": [{"type": "disk", "path": "/dev/sda", "children": []}],
+                 }), patch("feclora.webapi.os.lstat", return_value=block_info), \
+                 patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+                     returncode=0, stdout="", stderr="",
+                 )) as runner, patch("feclora.webapi._client_job_status", return_value={
+                     "job_id": job_id, "phase": "connecting",
+                 }):
+                result = dispatch({"action": "start_client_job", "params": {
+                    "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
+                    "confirmation": "ERASE /dev/sda FROM URI:server", "compression": "gzip",
+                }})
+            request = json.loads((root / (job_id + ".request.json")).read_text(encoding="utf-8"))
+        self.assertEqual(result["phase"], "connecting")
+        self.assertEqual(request["device_path"], "/dev/sda")
+        self.assertEqual(runner.call_args.args[0], [
+            "/usr/bin/systemctl", "start", "feclora-client@" + job_id + ".service",
+        ])
+
+    def test_client_job_status_marks_nonterminal_inactive_service_interrupted(self):
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        with patch("feclora.webapi._read_client_job_status", return_value={
+            "job_id": job_id, "phase": "running",
+        }), patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=3)):
+            result = dispatch({"action": "client_job_status", "params": {"job_id": job_id}})
+        self.assertFalse(result["unit_active"])
+        self.assertTrue(result["interrupted"])
+
 
 if __name__ == "__main__":
     unittest.main()
