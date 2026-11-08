@@ -77,7 +77,7 @@ def _port(value: Any) -> int:
 def _identity(value: Any, label: str) -> str:
     if not isinstance(value, str) or not _IDENTITY.fullmatch(value) or len(value) > 256:
         raise RuntimeConfigError(f"{label} must be a SAN identity or SHA-256 certificate pin")
-    return value
+    return value.lower() if value.startswith("sha256:") else value
 
 
 def _mac(value: Any) -> str:
