@@ -39,6 +39,27 @@ class PartitionImageCaptureTests(unittest.TestCase):
                 {"backup-part_fake1.img", "backup-part.manifest.json"},
             )
 
+    def test_rejects_multi_device_btrfs_capture_before_writing(self):
+        payload = """Label: array uuid: 01234567-89ab-cdef-0123-456789abcdef
+        Total devices 2 FS bytes used 123456
+        devid    1 size 1000000 path /dev/fake1
+        devid    2 size 2000000 path /dev/fake2
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            def runner(command, **kwargs):
+                if command[0] == "lsblk":
+                    return SimpleNamespace(stdout="4096 512 part btrfs\\n")
+                return SimpleNamespace(stdout=payload, returncode=0)
+            with self.assertRaisesRegex(PartitionImageCaptureError, "multi-device Btrfs"):
+                capture_partition_image(
+                    "/dev/fake1", "btrfs-backup", "fake1", directory,
+                    executables={"lsblk": "lsblk", "btrfs": "btrfs", "dd": "dd"},
+                    runner=runner, device_validator=lambda _path: True,
+                    source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                    popen_factory=lambda *a, **k: FakeProcess(b"unused"),
+                )
+            self.assertEqual(os.listdir(directory), [])
+
     def test_raw_short_read_does_not_publish_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
             def runner(command, **kwargs):
