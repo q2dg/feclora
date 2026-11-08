@@ -520,6 +520,47 @@ class WebAPITests(unittest.TestCase):
             "/usr/bin/systemctl", "start", "feclora-client@" + job_id + ".service",
         ])
 
+    def test_start_client_job_preflights_and_persists_multicast_interface(self):
+        import stat
+        import tempfile
+        from pathlib import Path
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
+            real_lstat = os.lstat
+            preflight = SimpleNamespace(
+                interface="enp1s0", ipv4_address="192.0.2.20",
+                warnings=("Verify IGMP snooping and querier.",),
+            )
+            with patch("feclora.webapi._inspect_remote_job", return_value={
+                "host": "192.0.2.10", "server_identity": "URI:server",
+                "job": {
+                    "job_id": job_id, "operation": "restore", "target_type": "disk",
+                    "transport": "multicast", "multicast_group": "239.10.10.10",
+                },
+            }), patch("feclora.webapi.socket.if_nameindex", return_value=[(2, "enp1s0")]), \
+                 patch("feclora.network.multicast_preflight.inspect_multicast_interface", return_value=preflight) as inspect, \
+                 patch("feclora.webapi._client_job_directory", return_value=root), \
+                 patch("feclora.storage.inventory.collect_inventory", return_value={
+                     "devices": [{"type": "disk", "path": "/dev/sda", "children": []}],
+                 }), patch("feclora.webapi.os.lstat",
+                           side_effect=lambda path: block_info if os.fspath(path) == "/dev/sda" else real_lstat(path)), \
+                 patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+                     returncode=0, stdout="", stderr="",
+                 )), patch("feclora.webapi._client_job_status", return_value={
+                     "job_id": job_id, "phase": "connecting",
+                 }):
+                result = dispatch({"action": "start_client_job", "params": {
+                    "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
+                    "confirmation": "ERASE /dev/sda FROM URI:server", "compression": "gzip",
+                    "network_interface": "enp1s0",
+                }})
+            request = json.loads((root / (job_id + ".request.json")).read_text(encoding="utf-8"))
+        inspect.assert_called_once_with("enp1s0", "239.10.10.10", role="receiver")
+        self.assertEqual(request["network_interface"], "enp1s0")
+        self.assertEqual(result["multicast_preflight"]["warnings"], list(preflight.warnings))
+
     def test_client_job_status_marks_nonterminal_inactive_service_interrupted(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
         with patch("feclora.webapi._client_job_paths", return_value=(Path("/tmp/request"), Path("/tmp/status"))), \
