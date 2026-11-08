@@ -304,7 +304,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         def run(command, **kwargs):
             commands.append(command)
             if command[0] == "/usr/bin/blkid":
-                return type("Result", (), {"stdout": "gpt\\n", "returncode": 0})()
+                return type("Result", (), {"stdout": "gpt\n", "returncode": 0})()
             return type("Result", (), {"stdout": "", "returncode": 0})()
 
         with patch("feclora.network.remote_clone._geometry",
