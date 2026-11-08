@@ -335,6 +335,7 @@ def run_deployment_server_ui(
             interface=interface,
         )
         bound_address, port = control.start(config.bind_address, config.port)
+        selected_mac_text = ", ".join(selected_macs)
         dialog_app._message(
             "Authenticated deployment listener",
             f"Job: {job.job_id}\nOperation: {job.operation}\nImage: {job.image_id}\n"
