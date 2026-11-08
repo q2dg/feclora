@@ -248,18 +248,29 @@ def prepare_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
         return result.stdout
     if public_key(retained_key) != public_key(config.private_key_file):
         raise CockpitEnrollmentError("retained renewal key does not match the active Client TLS identity")
-    if os.path.lexists(os.path.join(PKI, f"client-{client_id}.age")) is False:
+    retained_age_identity = os.path.join(PKI, f"client-{client_id}.age")
+    if os.path.realpath(config.age_identity_file) != os.path.realpath(retained_age_identity):
+        raise CockpitEnrollmentError("configured age identity does not match the managed Client identity; refusing renewal")
+    if not os.path.lexists(retained_age_identity):
         raise CockpitEnrollmentError("Client age identity is missing; renewal cannot preserve the current recipient")
     identity, _key, exported_csr = create_client_csr(
         PKI, export, client_id, reuse_existing_key=True,
     )
     recipient_file = os.path.join(export, f"feclora-{client_id}-renewal.age-recipient")
     exported_minisign = None
-    if config.local_minisign_public_key:
-        exported_minisign = os.path.join(export, f"feclora-{client_id}-renewal.minisign.pub")
-        if os.path.lexists(exported_minisign):
-            raise CockpitEnrollmentError("Client minisign renewal export already exists")
-        _atomic_copy(config.local_minisign_public_key, exported_minisign, 0o644)
+    try:
+        if config.local_minisign_public_key:
+            exported_minisign = os.path.join(export, f"feclora-{client_id}-renewal.minisign.pub")
+            if os.path.lexists(exported_minisign):
+                raise CockpitEnrollmentError("Client minisign renewal export already exists")
+            _atomic_copy(config.local_minisign_public_key, exported_minisign, 0o644)
+    except Exception:
+        for path in (exported_csr, recipient_file):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+        raise
     return {
         "identity": identity, "csr_file": exported_csr,
         "age_recipient_file": recipient_file,
