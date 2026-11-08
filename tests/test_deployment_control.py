@@ -216,7 +216,7 @@ class ClientJoinTests(unittest.TestCase):
         fake = FakeSocket(frame({
             "type": "job", "job": job.to_dict(),
             "server_identity": "URI:feclora-server",
-        }) + frame({"type": "start", "job_id": "wrong"}))
+        }) + frame({\n            "type": "start", "job_id": "wrong",\n            "operation": "restore", "image_id": "golden-image",\n        }))
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         context.minimum_version = ssl.TLSVersion.TLSv1_3
         context.maximum_version = ssl.TLSVersion.TLSv1_3
