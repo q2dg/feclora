@@ -73,6 +73,12 @@ def _choose_job(
     manifest_path = None
     if operation == "restore":
         images = _available_images(config.repository)
+        if transport == "multicast":
+            images = [
+                entry for entry in images
+                if entry[1].image_type in {"disk", "partition"}
+                and all(artifact.encryption == "age" for artifact in entry[1].artifacts)
+            ]
         choices = [
             (manifest.image_id, f"{manifest.image_id} | {manifest.image_type} | {manifest.source_size_bytes:,} bytes")
             for _filename, manifest in images
@@ -435,8 +441,7 @@ def run_deployment_server_ui(
                 "Ensure switch IGMP snooping has a working querier, multicast is not filtered "
                 "by Wi-Fi/client isolation, and the selected interface is correct. "
                 "Cross-VLAN multicast routing is not supported by this TTL=1 profile. "
-                "UDPcast data is not encrypted or authenticated; use a trusted isolated segment "
-                "and age-encrypted artifacts when confidentiality is required. "
+                "Multicast is restricted to age-encrypted artifacts. The signed manifest authenticates the exact ciphertext and age verifies ciphertext integrity on decryption; this is artifact-level protection, not per-datagram authentication. UDPcast still exposes transfer metadata and an on-path attacker can cause denial of service. "
                 "Feclora will temporarily open only the two UDPcast ports and IGMP on this interface.",
             )
             confirmation = dialog_app._input(
