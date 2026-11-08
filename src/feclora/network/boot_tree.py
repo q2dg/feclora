@@ -92,6 +92,10 @@ def stage_live_boot_assets(
     if source_root.is_symlink() or not source_root.is_dir():
         raise LiveBootAssetError("Live media root must be a real mounted directory")
     target_root = Path(http_root)
+    target_root.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+    if target_root.parent.is_symlink() or not target_root.parent.is_dir():
+        raise LiveBootAssetError("HTTP parent root must be a real directory")
+    os.chmod(target_root.parent, 0o755)
     target_root.mkdir(mode=0o755, parents=True, exist_ok=True)
     if target_root.is_symlink() or not target_root.is_dir():
         raise LiveBootAssetError("HTTP root must be a real directory")
