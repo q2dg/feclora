@@ -48,7 +48,7 @@ def stage_ipxe_assets(
     destination: str,
     *,
     bios_filename: str = "undionly.kpxe",
-    uefi_filename: str = "snponly.efi",
+    uefi_filename: str = "ipxe-snponly-x86_64.efi",
     package: str = "ipxe-bootimgs-x86",
     rpm: str | None = None,
     runner: Callable[..., Any] = subprocess.run,
