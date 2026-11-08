@@ -134,7 +134,7 @@ def _service_state() -> dict[str, str]:
     return services
 
 
-def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
+def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
         "capture_disk": {"source", "image_id", "compression"},
         "capture_partition": {"source", "image_id", "partition_id", "compression"},
@@ -145,10 +145,7 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
     }
     if action not in allowed or set(params) != allowed[action]:
         raise WebAPIError("operation parameters do not match the selected operation")
-    from feclora.storage.operation_log import operation_record
-
     started = time.monotonic()
-    operation_id = str(uuid.uuid4())
     _emit({"event": "started", "operation_id": operation_id, "operation": action})
     if action == "capture_disk":
         from feclora.storage.disk_capture import capture_disk
@@ -207,12 +204,20 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
             raise WebAPIError(f"explicit confirmation required: {expected}")
         copied = clone_partition(source, target, confirmation=expected, progress_callback=_progress)
         result = {"source": source, "target": target, "bytes_copied": copied}
-    try:
-        operation_record(action, "success", {"operation_id": operation_id, **result})
-    except Exception:
-        pass
     return {"operation_id": operation_id, "elapsed_seconds": round(time.monotonic() - started, 2),
             **result}
+
+
+def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
+    from feclora.storage.operation_log import operation_record
+
+    target = params.get("target") or params.get("source") or "unspecified"
+    image_id = params.get("image_id")
+    with operation_record(
+        action, str(target), image_id=image_id,
+        log_path="/var/lib/feclora/operations.jsonl",
+    ) as operation_id:
+        return _execute_operation(action, params, operation_id)
 
 
 def dispatch(request: Any) -> dict[str, Any]:
