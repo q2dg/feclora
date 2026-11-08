@@ -649,7 +649,9 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                     continue
             if trusted_key is None:
                 raise WebAPIError("signed disk image does not verify against any locally trusted Feclora signing key")
-        _recipients_file, signing_key = _capture_material()
+        recipients_file, signing_key = _capture_material()
+        if encrypted and not security["age_encryption_available"]:
+            raise WebAPIError("extracting an age-encrypted disk image requires an available age recipient inventory for the new partition image")
         if not security["image_signing_available"]:
             signing_key = None
         if signed and signing_key is None:
@@ -671,6 +673,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 minisign_public_key=trusted_key,
                 require_signature=signed,
                 minisign_secret_key=signing_key,
+                age_recipients_file=recipients_file if encrypted else None,
                 progress_callback=_progress,
             )
         except Exception as exc:
@@ -682,6 +685,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             "source_image_id": image_id, "image_id": extracted.image_id,
             "image_type": extracted.image_type, "manifest": extracted_manifest,
             "signed": signing_key is not None,
+            "encrypted": any(item.encryption == "age" for item in extracted.artifacts),
         }
     elif action in {"restore_disk", "restore_partition"}:
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
