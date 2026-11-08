@@ -57,12 +57,16 @@ class PXEServiceManager:
             raise PXEServiceError(f"{label} failed: {detail or exc}") from exc
 
     def _prepare_runtime(self) -> None:
-        self.runtime_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        self.runtime_dir.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+        if self.runtime_dir.parent.is_symlink() or not self.runtime_dir.parent.is_dir():
+            raise PXEServiceError("PXE runtime parent must be a real directory")
+        os.chmod(self.runtime_dir.parent, 0o755)
+        self.runtime_dir.mkdir(mode=0o711, parents=True, exist_ok=True)
         if self.runtime_dir.is_symlink() or not self.runtime_dir.is_dir():
             raise PXEServiceError("PXE runtime path must be a real directory")
-        os.chmod(self.runtime_dir, 0o700)
+        os.chmod(self.runtime_dir, 0o711)
 
-    def _write_config(self, name: str, content: str) -> str:
+    def _write_config(self, name: str, content: str, mode: int = 0o600) -> str:
         destination = self.runtime_dir / name
         fd, temporary = tempfile.mkstemp(prefix=f".{name}.", dir=self.runtime_dir)
         try:
@@ -70,7 +74,7 @@ class PXEServiceManager:
                 output.write(content)
                 output.flush()
                 os.fsync(output.fileno())
-            os.chmod(temporary, 0o600)
+            os.chmod(temporary, mode)
             os.replace(temporary, destination)
         except OSError as exc:
             try:
@@ -87,7 +91,7 @@ class PXEServiceManager:
         self.preflight(config)
         self._prepare_runtime()
         dnsmasq_config = self._write_config("dnsmasq.conf", render_dnsmasq(config))
-        caddy_config = self._write_config("Caddyfile", render_caddy(config))
+        caddy_config = self._write_config("Caddyfile", render_caddy(config), mode=0o644)
         self.firewall.open(
             config.interface,
             ["67/udp", "69/udp", "4011/udp", f"{config.http_port}/tcp"],
