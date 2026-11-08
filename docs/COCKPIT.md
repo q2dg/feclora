@@ -284,3 +284,8 @@ enabled at boot. Multicast preflight reports local interface/route warnings,
 but switch IGMP snooping/querier and VLAN isolation still require operator
 validation. UDPcast multicast data is not encrypted or authenticated; only
 the control plane uses mTLS.
+
+
+## Age recipient inventory refresh
+
+The Server trust panel exports the current public `age-recipients.txt` to a mounted removable-media directory without overwriting an existing file. On each remaining Client, the Cockpit Client enrollment panel verifies that the inventory includes its own age identity before atomically refreshing the local recipient list. Private age identities remain local. Existing encrypted images are unchanged.
