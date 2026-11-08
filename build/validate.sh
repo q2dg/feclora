@@ -123,6 +123,12 @@ fi
 if ! grep -q 'test_create_deployment_job_rejects_multicast_until_client_receiver_exists' "$ROOT_DIR/tests/test_webapi.py"; then
   fail "Cockpit multicast safety regression test is missing."
 fi
+if ! grep -q 'cannot start multicast jobs until the Client-side multicast receiver workflow is integrated' "$ROOT_DIR/src/feclora/webapi.py"; then
+  fail "Cockpit must refuse to start legacy multicast journals without Client receiver integration."
+fi
+if ! grep -q 'test_start_deployment_service_rejects_legacy_multicast_journal' "$ROOT_DIR/tests/test_webapi.py"; then
+  fail "Legacy multicast service-start regression test is missing."
+fi
 
 if grep -qx 'dialog' "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "The legacy dialog package must not be included in the Cockpit-first Live image."
