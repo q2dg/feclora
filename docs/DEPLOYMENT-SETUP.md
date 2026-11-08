@@ -56,7 +56,9 @@ example path and identity):
 }
 ~~~
 
-The Server writes a private hash-chained job journal under /var/lib/feclora/deployments; the directory is created root-owned with mode 0700. The journal is durable audit state, not yet a restart/resume mechanism.\n\nThe bind address must exactly match the IPv4 address selected in Server mode.
+The Server writes a private hash-chained job journal under /var/lib/feclora/deployments; the directory is created root-owned with mode 0700. The journal is durable audit state, not yet a restart/resume mechanism.
+
+The bind address must exactly match the IPv4 address selected in Server mode.
 The Server UI creates a one-client job, selects save or restore, and displays
 the job UUID. The Client operator enters that UUID. The Server listener opens
 TCP/9443 only on the selected interface in Feclora's temporary firewalld zone.
