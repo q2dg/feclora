@@ -141,7 +141,7 @@ def enroll_client_certificate(
     if first_octet & 1 or mac == "00:00:00:00:00:00":
         raise EnrollmentError("Client MAC must be a unicast hardware address")
     identity = _verify_client_certificate(certificate_path, config["ca_file"])
-    if (len(identity) > 256 or not re.fullmatch(r"(?:DNS|IP|URI|EMAIL):[^\\x00-\\x20]+", identity)):
+    if (len(identity) > 256 or not re.fullmatch(r"(?:DNS|IP|URI|EMAIL):[^\x00-\x20]+", identity)):
         raise EnrollmentError("Client certificate SAN identity is not supported by the deployment configuration")
     if confirmation != f"ENROLL {identity} {mac}":
         raise EnrollmentError("enrollment confirmation does not match")
