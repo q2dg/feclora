@@ -191,6 +191,47 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(report["job"]["image_id"], "lab-capture")
         self.assertEqual(report["job_state"], "created")
 
+    def test_reconcile_deployment_job_requires_exact_operator_confirmation(self):
+        import tempfile
+        from pathlib import Path
+        from feclora.deployment.coordinator import DeploymentCoordinator
+        from feclora.deployment.journal import DeploymentJournal
+
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        job = {
+            "schema_version": 1, "job_id": job_id, "operation": "save",
+            "image_id": "lab-capture", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56"],
+            "network_interface": "enp1s0", "transport": "unicast",
+            "multicast_group": None, "multicast_port": None,
+            "start_policy": "manual", "expected_clients": None, "start_deadline": None,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            journal = DeploymentJournal(Path(directory) / f"{job_id}.jsonl", job_id)
+            DeploymentCoordinator(__import__("feclora.deployment.job", fromlist=["DeploymentJob"]).DeploymentJob.from_dict(job), event_sink=journal)
+            with patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)):
+                with self.assertRaisesRegex(WebAPIError, "confirmation does not match"):
+                    dispatch({"action": "reconcile_deployment_job", "params": {
+                        "job_id": job_id, "confirmation": "RECONCILE wrong",
+                    }})
+                result = dispatch({"action": "reconcile_deployment_job", "params": {
+                    "job_id": job_id, "confirmation": f"RECONCILE {job_id}",
+                }})
+                report = DeploymentJournal.inspect(Path(directory) / f"{job_id}.jsonl").recovery_report()
+        self.assertEqual(result["job_state"], "failed")
+        self.assertFalse(result["interrupted"])
+        self.assertTrue(result["operator_reconciled"])
+        self.assertEqual(report["last_event"], "operator_reconciled")
+        self.assertFalse(report["automatic_resume"])
+
+    def test_reconcile_deployment_job_rejects_extra_parameters(self):
+        with self.assertRaisesRegex(WebAPIError, "exactly job_id and confirmation"):
+            dispatch({"action": "reconcile_deployment_job", "params": {
+                "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                "confirmation": "RECONCILE f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                "force": True,
+            }})
+
     def test_device_paths_are_restricted_to_dev_nodes(self):
         self.assertEqual(_device("/dev/nvme0n1p2", "target"), "/dev/nvme0n1p2")
         for invalid in ("/etc/passwd", "/dev/../etc/shadow", "sda", "/dev/sda;id"):
