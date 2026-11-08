@@ -819,11 +819,18 @@ def _deployment_jobs() -> list[dict[str, Any]]:
     from feclora.deployment.journal import DeploymentJournal
     if not os.path.lexists("/var/lib/feclora/deployments"):
         return []
+    active_service = None
+    try:
+        from feclora.deployment.local_control import LocalControlError, local_control_request
+        active_service = local_control_request("/run/feclora/deployment.sock", "status")
+    except (OSError, LocalControlError):
+        active_service = None
     directory = _deployment_journal_directory()
     jobs = []
     for path in sorted(directory.glob("*.jsonl")):
         report = DeploymentJournal.inspect(path).recovery_report()
         job = report["job"]
+        service_active = bool(active_service and active_service.get("job_id") == report["job_id"])
         jobs.append({
             "job_id": report["job_id"],
             "operation": job["operation"],
@@ -831,7 +838,8 @@ def _deployment_jobs() -> list[dict[str, Any]]:
             "target_type": job.get("target_type", "disk"),
             "transport": job["transport"],
             "job_state": report["job_state"],
-            "interrupted": report["interrupted"],
+            "interrupted": report["interrupted"] and not service_active,
+            "service_active": service_active,
             "clients": report["clients"],
             "authorized_clients": job["authorized_clients"],
             "event_count": report["event_count"],
