@@ -112,7 +112,7 @@ def _client_enrollment_wizard(config_path: str) -> bool:
         )
         dialog_app._message(
             "Enrollment request prepared",
-            f"Identity: {identity}\\nCSR: {exported_csr}\\n\\n"
+            f"Identity: {identity}\nCSR: {exported_csr}\n\n"
             "Take the removable media to the Feclora Server and choose Trusted Clients → Approve Client CSR. "
             "Do not copy or export the private key. After the Server returns the signed certificate bundle, "
             "bring that media back and choose Complete enrollment.",
@@ -137,6 +137,7 @@ def _client_enrollment_wizard(config_path: str) -> bool:
     certificate = os.path.join(bundle, f"feclora-{client_id}.crt")
     ca_file = os.path.join(bundle, "ca.crt")
     server_public_key = os.path.join(bundle, "server.pub")
+    age_recipients_bundle = os.path.join(bundle, "age-recipients.txt")
     local_key = os.path.join(pki_directory, f"client-{client_id}.key")
     if not os.path.isfile(local_key):
         raise PKIError("locally generated Client private key is missing; prepare the CSR on this Client first")
@@ -152,6 +153,8 @@ def _client_enrollment_wizard(config_path: str) -> bool:
     )
     if not os.path.isfile(server_public_key):
         raise PKIError("Server response bundle is missing server.pub")
+    if not os.path.isfile(age_recipients_bundle):
+        raise PKIError("Server response bundle is missing the age recipient inventory")
     server_fingerprint = _sha256_file(server_public_key)
     expected_server_key = dialog_app._input(
         "Verify Server image-signing key",
@@ -162,6 +165,13 @@ def _client_enrollment_wizard(config_path: str) -> bool:
     installed_server_key = os.path.join(pki_directory, "server.pub")
     shutil.copyfile(server_public_key, installed_server_key)
     os.chmod(installed_server_key, 0o644)
+    installed_recipients = os.path.join(pki_directory, "age-recipients.txt")
+    shutil.copyfile(age_recipients_bundle, installed_recipients)
+    os.chmod(installed_recipients, 0o600)
+    age_identity = os.path.join(pki_directory, f"client-{client_id}.age")
+    if not os.path.isfile(age_identity):
+        raise PKIError("locally generated age identity is missing; prepare enrollment on this Client first")
+    os.chmod(age_identity, 0o600)
     repository = "/var/lib/feclora/images"
     os.makedirs(repository, mode=0o700, exist_ok=True)
     os.chmod(repository, 0o700)
@@ -178,8 +188,8 @@ def _client_enrollment_wizard(config_path: str) -> bool:
         "trusted_server_public_key": installed_server_key,
         "local_minisign_secret_key": None,
         "local_minisign_public_key": None,
-        "age_identity_file": None,
-        "age_recipients_file": None,
+        "age_identity_file": age_identity,
+        "age_recipients_file": installed_recipients,
         "repository": repository,
     }
     _write_client_config(config_path, config)
