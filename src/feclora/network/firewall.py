@@ -26,6 +26,11 @@ class PXEFirewall:
         self.executable = executable or shutil.which("firewall-cmd")
         self.runner = runner
         self._opened: dict[str, dict[str, Any]] = {}
+        self.on_change: Callable[[str], None] | None = None
+
+    def _notify(self, interface: str) -> None:
+        if self.on_change is not None:
+            self.on_change(interface)
 
     def _call(self, args: list[str], *, check: bool = True) -> Any:
         if not self.executable:
@@ -98,11 +103,14 @@ class PXEFirewall:
             raise PXEFirewallError("No active Feclora temporary firewall zone for interface")
         if self._current_zone(interface) != state["zone"]:
             raise PXEFirewallError("Selected interface is no longer attached to the Feclora PXE zone")
-        return {
+        result = {
             "zone": state["zone"],
             "restore_zone": state["restore_zone"],
             "ports": list(state["ports"]),
         }
+        if "protocols" in state:
+            result["protocols"] = list(state["protocols"])
+        return result
 
     def adopt(self, interface: str, state: dict[str, Any]) -> None:
         """Reattach this manager to a previously persisted Feclora runtime zone."""
