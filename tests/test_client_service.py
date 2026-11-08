@@ -36,7 +36,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
                 "device_path": DEVICE,
                 "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
-                "compression": "gzip", "network_interface": None,
+                "compression": "gzip", "network_interface": None, "igmp_confirmed": False,
             }), encoding="utf-8")
             request.chmod(0o600)
             service = ClientDeploymentService(JOB_ID)
@@ -100,7 +100,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
                 "device_path": DEVICE,
                 "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
-                "compression": "gzip", "network_interface": "enp1s0",
+                "compression": "gzip", "network_interface": "enp1s0", "igmp_confirmed": True,
             }), encoding="utf-8")
             request.chmod(0o600)
             service = ClientDeploymentService(JOB_ID)
