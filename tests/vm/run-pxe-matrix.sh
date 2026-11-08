@@ -80,7 +80,7 @@ create_vm feclora-pxe-bios "$LAB_DIR/client-bios.qcow2" \
   --pxe --osinfo detect=on,require=off
 
 create_vm feclora-pxe-uefi "$LAB_DIR/client-uefi.qcow2" \
-  --boot uefi,network --osinfo detect=on,require=off
+  --pxe --boot uefi --osinfo detect=on,require=off
 
 trap - EXIT
 cat <<EOF
