@@ -50,7 +50,7 @@ Clonezilla Live and Clonezilla Server Edition define the user-visible feature ta
 | Progress and per-client results | Server job state, client status channel, structured logs | Not implemented |
 | Concurrency and resource limits | Server-side scheduler, network/storage capacity controls | Not implemented |
 | Secure client authorization | Per-job tokens/keys, allowlisted identities, authenticated control channel | Not implemented |
-| Safe network isolation | Interface-bound dnsmasq, ProxyDHCP/authoritative DHCP profiles, interface-zone firewalld rules | Interface/address revalidation, explicit isolated-DHCP typed confirmation and current NetworkManager lease warning implemented; physical VLAN/isolation validation pending |
+| Safe network isolation | Interface-bound dnsmasq, ProxyDHCP/authoritative DHCP profiles, temporary interface-exclusive firewalld zone | Interface/address revalidation, explicit isolated-DHCP typed confirmation and current NetworkManager lease warning implemented; physical VLAN/isolation validation pending |
 | Reboot/poweroff after deployment | Client-side systemd/runtime action under job policy | Not implemented |
 
 ## Single-ISO mode architecture
