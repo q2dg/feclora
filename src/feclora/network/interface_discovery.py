@@ -143,8 +143,8 @@ def detect_existing_dhcp_server(
             [executable, "-g", "DHCP4.OPTION", "device", "show", interface],
             check=False, capture_output=True, text=True, timeout=10,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise InterfaceDiscoveryError(f"cannot inspect current DHCP lease: {exc}") from exc
+    except (OSError, subprocess.TimeoutExpired):
+        return None
     if completed.returncode != 0:
         return None
     for line in completed.stdout.splitlines():
