@@ -90,7 +90,7 @@ class ImageTransferTests(unittest.TestCase):
             with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
                 with self.assertRaisesRegex(ImageTransferError, "SHA-256"):
                     send_image_set(
-                        fake, source, manifest_path, trusted_public_key="/trusted/server.pub",
+                        fake, source, manifest_path, expected_image_id="golden", trusted_public_key="/trusted/server.pub",
                     )
 
     def test_receiver_rejects_wrong_job_image_id_without_publishing(self):
@@ -102,7 +102,7 @@ class ImageTransferTests(unittest.TestCase):
                 try:
                     with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
                         send_image_set(
-                            left, source, manifest_path, trusted_public_key="/trusted/server.pub",
+                            left, source, manifest_path, expected_image_id="golden", trusted_public_key="/trusted/server.pub",
                         )
                 except Exception as exc:
                     errors.append(exc)
