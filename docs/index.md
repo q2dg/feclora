@@ -43,7 +43,7 @@ description: Fedora-based disk imaging, cloning and recovery.
     <div>
       <p class="eyebrow">PROJECT STATUS</p>
       <h2 id="status-title">Implemented in stages. Not yet lab-certified.</h2>
-      <p>The Cockpit interface currently guides local capture, restore and clone operations. Remote Server/Client setup and deployment orchestration are still being integrated into Cockpit.</p>
+      <p>Cockpit currently guides local capture, restore and clone operations, PXE service lifecycle, and the removable-media Server/Client certificate-enrollment ceremony. Remote deployment job orchestration, per-Client progress and remote cloning are still being integrated.</p>
     </div>
     <a class="text-link" href="./ROADMAP.html">See what is next →</a>
   </section>
