@@ -460,9 +460,10 @@ class WebAPITests(unittest.TestCase):
 
     def test_client_job_status_marks_nonterminal_inactive_service_interrupted(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-        with patch("feclora.webapi._read_client_job_status", return_value={
-            "job_id": job_id, "phase": "running",
-        }), patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=3)):
+        with patch("feclora.webapi._client_job_paths", return_value=(Path("/tmp/request"), Path("/tmp/status"))), \
+             patch("feclora.webapi._read_client_job_status", return_value={
+                 "job_id": job_id, "phase": "running",
+             }), patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=3)):
             result = dispatch({"action": "client_job_status", "params": {"job_id": job_id}})
         self.assertFalse(result["unit_active"])
         self.assertTrue(result["interrupted"])
