@@ -91,6 +91,7 @@
 - [x] Select UDPcast as the initial multicast transport (ADR 0008; package included in the Live image).
 - [x] Implement a fail-closed UDPcast transport adapter and integrate it with authenticated multi-client whole-disk restore: explicit armed/running-job sender gate, all-client readiness threshold, signed-manifest/source digest verification, private receiver staging, exact size/hash verification, cancellable subprocesses, and scoped firewalld UDP ports (unit tests added; execution and live networking validation pending).
 - [x] Integrate UDPcast restore with the mTLS control service, persistent job/client lifecycle, Client-mode local target authorization, private per-client staging, signed-manifest/artifact verification and per-client terminal results. The operator confirms the TTL=1/IGMP/L2 network preflight; automated network capability detection remains pending.
+- [ ] Extend the same authenticated multicast restore path to manifest-backed partition images and existing target partitions, with partition-specific local approval, geometry checks and post-write verification.
 - [x] Require every selected Client to authenticate and become READY before the explicit manual multicast start; expected-client/deadline policies are present in the coordinator schema but are not yet exposed in the Server UI.
 - [x] Persist and display per-client terminal completion/failure results for multicast jobs; live byte-progress and streaming log display remain pending.
 - [ ] Add Wake-on-LAN and post-job reboot/poweroff policies.
