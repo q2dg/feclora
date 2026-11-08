@@ -48,7 +48,7 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [x] Live per-client READY/running/terminal state and service errors through Cockpit.
 - [x] Per-client disk-operation byte progress and sampled throughput over the authenticated TLS control channel; transfer-stage progress is not yet separately reported.
 - [x] Server-side multicast restore engine, interface/route preflight, explicit arm confirmation and integrated Cockpit Server/Client receiver lifecycle.
-- [ ] Report Client staging capacity before the Client reports READY.
+- [x] Derive multicast staging bytes from the verified signed manifest and require each Client to pass a pre-READY free-space check with a 64 MiB safety reserve; runtime checks capacity again before receiving artifacts.
 - [x] Require explicit Client and Server operator acknowledgement of switch IGMP snooping and an active querier before multicast restore is armed.
 - [ ] Remote disk-to-disk clone source/receiver workflow and status in Cockpit.
 - [ ] Remote repository lifecycle and secure credential management.
