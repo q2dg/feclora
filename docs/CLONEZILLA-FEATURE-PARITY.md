@@ -25,7 +25,7 @@ Clonezilla Live and Clonezilla Server Edition define the user-visible feature ta
 | Raw imaging for unsupported filesystems | dd | Not implemented |
 | Compression and integrity verification | gzip, pigz, zstd, xz, sha256sum | Discovery only |
 | GPT/MBR partition-table handling | sfdisk, sgdisk, parted | Discovery only |
-| LVM and encrypted volumes | lvm2, cryptsetup | Packages/discovery; workflows not implemented |
+| LVM logical volumes and encrypted volumes | lvm2, cryptsetup, dmsetup | Executable discovery only; PV/VG/LV topology, activation, snapshots and restore workflows not implemented |\n| Stratis pools and filesystems | stratis-cli, stratisd, device-mapper | No Stratis-specific inventory, pool/filesystem management or image/restore workflow implemented |
 | Remote image repositories | SSH/SFTP, NFS, SMB/CIFS, WebDAV | Not implemented |
 | Bootloader/boot-area preservation | dd, partition-table and bootloader utilities | Not implemented |
 | Interactive rescue UI | dialog initially | Capture, restore and direct local disk clone actions connected; progress/cancellation and runtime validation pending |
