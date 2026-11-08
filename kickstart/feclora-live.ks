@@ -29,7 +29,7 @@ iproute
 firewalld
 openssl
 
-# Cockpit web interface; socket remains disabled by default
+# Cockpit web interface; primary operator entry point
 cockpit
 cockpit-system
 cockpit-storaged
