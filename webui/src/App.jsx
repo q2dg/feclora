@@ -39,6 +39,10 @@ export default function App() {
   const [trustedClients, setTrustedClients] = useState([]);
   const [revokeIdentity, setRevokeIdentity] = useState("");
   const [revokeConfirmation, setRevokeConfirmation] = useState("");
+  const [ageRecipientExportDirectory, setAgeRecipientExportDirectory] = useState("");
+  const [ageRecipientExport, setAgeRecipientExport] = useState(null);
+  const [clientAgeInventoryPath, setClientAgeInventoryPath] = useState("");
+  const [clientAgeInventoryResult, setClientAgeInventoryResult] = useState(null);
   const [images, setImages] = useState([]);
   const [journals, setJournals] = useState([]);
   const [deploymentJobs, setDeploymentJobs] = useState([]);
@@ -179,6 +183,28 @@ export default function App() {
       setNotice(`Revoked ${result.identity}; future image encryption will exclude this Client.`);
       setRevokeIdentity(""); setRevokeConfirmation("");
       await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const exportServerAgeRecipients = async () => {
+    setBusy(true); setError(""); setNotice(""); setAgeRecipientExport(null);
+    try {
+      const result = await callFeclora("export_server_age_recipients", {
+        export_directory: ageRecipientExportDirectory
+      });
+      setAgeRecipientExport(result); setNotice(result.message);
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const refreshClientAgeRecipients = async () => {
+    setBusy(true); setError(""); setNotice(""); setClientAgeInventoryResult(null);
+    try {
+      const result = await callFeclora("refresh_client_age_recipients", {
+        inventory_path: clientAgeInventoryPath
+      });
+      setClientAgeInventoryResult(result); setNotice(result.message);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -719,6 +745,11 @@ export default function App() {
                   </Tbody>
                 </Table>
                 {trustedClients.length > 0 && <>
+                <Field label="Export updated age recipient inventory to mounted USB directory">
+                  <input className="pf-v5-c-form-control" value={ageRecipientExportDirectory} onChange={(event) => { setAgeRecipientExportDirectory(event.target.value); setAgeRecipientExport(null); }} placeholder="/run/media/liveuser/USB" />
+                </Field>
+                <Button variant="secondary" onClick={exportServerAgeRecipients} isLoading={busy} isDisabled={busy || !ageRecipientExportDirectory}>Export age-recipients.txt</Button>
+                {ageRecipientExport && <Alert variant="success" title="Recipient inventory exported" isInline>{ageRecipientExport.path} · {ageRecipientExport.recipient_count} recipients · SHA-256 {ageRecipientExport.sha256}</Alert>}
                   <Field label="Client identity to revoke">
                     <select className="pf-v5-c-form-control" value={revokeIdentity} onChange={(event) => { setRevokeIdentity(event.target.value); setRevokeConfirmation(""); }}>
                       <option value="">Select an enrolled Client…</option>
@@ -803,6 +834,15 @@ export default function App() {
           <Tab eventKey="client" title="Client enrollment">
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Client removable-media enrollment</Title><p>Prepare endpoint-local TLS and age keys, transfer only public request material to the Server, then verify and install the signed response bundle.</p></StackItem>
+              {status?.client_configured && <StackItem>
+                <Title headingLevel="h3" size="lg">Refresh Server age recipient inventory</Title>
+                <p>After a Client is revoked or enrolled, export the current inventory from the Server to removable media, then install it here. The file must contain this Client's own age public recipient; private keys remain local.</p>
+                <Field label="Mounted removable-media age-recipients.txt path">
+                  <input className="pf-v5-c-form-control" value={clientAgeInventoryPath} onChange={(event) => { setClientAgeInventoryPath(event.target.value); setClientAgeInventoryResult(null); }} placeholder="/run/media/liveuser/USB/age-recipients.txt" />
+                </Field>
+                <Button variant="primary" onClick={refreshClientAgeRecipients} isLoading={busy} isDisabled={busy || !clientAgeInventoryPath}>Verify and refresh inventory</Button>
+                {clientAgeInventoryResult && <Alert variant="success" title="Age recipient inventory refreshed" isInline>{clientAgeInventoryResult.message} · {clientAgeInventoryResult.recipient_count} recipients · SHA-256 {clientAgeInventoryResult.sha256}</Alert>}
+              </StackItem>}
               {status?.client_configured ? <StackItem><Alert variant="success" title="Client already configured" isInline>This endpoint has a deployment Client configuration. Use the renewal workflow for certificate rotation; this wizard will not overwrite the existing identity.</Alert></StackItem> : <>
                 <StackItem>
                   <Title headingLevel="h3" size="lg">1. Prepare enrollment request</Title>
