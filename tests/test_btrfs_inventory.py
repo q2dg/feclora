@@ -30,6 +30,14 @@ class BtrfsInventoryTests(unittest.TestCase):
         with self.assertRaises(BtrfsInventoryError):
             parse_filesystem_show("Label: none uuid: 01234567-89ab-cdef-0123-456789abcdef\n")
 
+    def test_rejects_incomplete_multi_device_listing(self):
+        payload = """Label: array uuid: 01234567-89ab-cdef-0123-456789abcdef
+        Total devices 2 FS bytes used 123456
+        devid    1 size 1000000 path /dev/sda1
+"""
+        with self.assertRaises(BtrfsInventoryError):
+            parse_filesystem_show(payload)
+
     def test_collection_invokes_read_only_show(self):
         calls = []
         def runner(argv, **kwargs):
