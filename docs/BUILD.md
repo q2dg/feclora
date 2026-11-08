@@ -186,8 +186,7 @@ test -x /usr/local/bin/feclora-ui
 /usr/local/bin/feclora-ui
 ```
 
-A successful launcher invocation should display the read-only `dialog`
-storage browser. At this stage no imaging, formatting, partition editing,
+A successful launcher invocation should display the `dialog` storage browser. The startup menu also offers a live-session keyboard-layout selector (including Spanish); it changes the active console keymap using `loadkeys` and does not alter the image language or persist across reboots. Whole-disk and partition capture prompts already accept a user-defined image identifier. At this stage no imaging, formatting, partition editing,
 mounting, or restoration operation is expected to be available.
 
 ## 8. Record results
