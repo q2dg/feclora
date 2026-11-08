@@ -43,6 +43,16 @@ export default function App() {
   const [networkInterfaces, setNetworkInterfaces] = useState([]);
   const [serverBinding, setServerBinding] = useState("");
   const [serverSetup, setServerSetup] = useState(null);
+  const [clientId, setClientId] = useState("");
+  const [clientExportDirectory, setClientExportDirectory] = useState("");
+  const [clientImageCapture, setClientImageCapture] = useState(false);
+  const [clientPrepared, setClientPrepared] = useState(null);
+  const [clientHost, setClientHost] = useState("");
+  const [clientMacInput, setClientMacInput] = useState("");
+  const [clientBundleDirectory, setClientBundleDirectory] = useState("");
+  const [clientCaFingerprint, setClientCaFingerprint] = useState("");
+  const [clientServerFingerprint, setClientServerFingerprint] = useState("");
+  const [clientCompleted, setClientCompleted] = useState(null);
   const [csrPath, setCsrPath] = useState("");
   const [ageRecipientPath, setAgeRecipientPath] = useState("");
   const [clientMac, setClientMac] = useState("");
@@ -144,6 +154,30 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const prepareClientRequest = async () => {
+    setBusy(true); setError(""); setNotice(""); setClientPrepared(null);
+    try {
+      const result = await callFeclora("prepare_client_request", {
+        client_id: clientId, export_directory: clientExportDirectory, image_capture: clientImageCapture
+      });
+      setClientPrepared(result); setNotice(result.message);
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const completeClientEnrollment = async () => {
+    setBusy(true); setError(""); setNotice(""); setClientCompleted(null);
+    try {
+      const result = await callFeclora("complete_client_enrollment", {
+        client_id: clientId, host: clientHost, mac_address: clientMacInput,
+        bundle_directory: clientBundleDirectory, ca_fingerprint: clientCaFingerprint,
+        server_minisign_sha256: clientServerFingerprint
+      });
+      setClientCompleted(result); setNotice(result.message);
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
   const inspectClientCSR = async () => {
     setBusy(true); setError(""); setNotice(""); setCsrReview(null); setCsrConfirmation("");
     try {
@@ -453,6 +487,40 @@ export default function App() {
                 {pxePreflight.warnings.map((warning, index) => <Alert key={index} variant="warning" title="Network topology warning" isInline>{warning}</Alert>)}
                 {pxeStatus.active ? <Alert variant="success" title="PXE services active" isInline>Interface {pxeStatus.interface}; dnsmasq and Caddy are managed as temporary services.</Alert> : pxeStatus.configured ? <Alert variant="warning" title="PXE runtime needs inspection" isInline>The profile is recorded but one or more services are not active. Stop the profile to restore firewall state before trying again.</Alert> : <Alert variant="info" title="Preflight only" isInline>No services have been started yet. Activation opens a temporary firewalld zone bound only to the selected interface; it is not enabled at boot.</Alert>}{!pxeStatus.configured && <Button variant="primary" onClick={activatePXE} isLoading={busy} isDisabled={busy || !pxeProfile}>Activate PXE services</Button>}
               </CardBody></Card></StackItem>}
+            </Stack>
+          </Tab>
+          <Tab eventKey="client" title="Client enrollment">
+            <Stack hasGutter className="pf-v5-u-pt-lg">
+              <StackItem><Title headingLevel="h2" size="xl">Client removable-media enrollment</Title><p>Prepare endpoint-local TLS and age keys, transfer only public request material to the Server, then verify and install the signed response bundle.</p></StackItem>
+              {status?.client_configured ? <StackItem><Alert variant="success" title="Client already configured" isInline>This endpoint has a deployment Client configuration. Use the renewal workflow for certificate rotation; this wizard will not overwrite the existing identity.</Alert></StackItem> : <>
+                <StackItem>
+                  <Title headingLevel="h3" size="lg">1. Prepare enrollment request</Title>
+                  <Field label="Client identifier"><input className="pf-v5-c-form-control" value={clientId} onChange={(e) => { setClientId(e.target.value); setClientPrepared(null); }} placeholder="lab-01" /></Field>
+                  <Field label="Mounted removable-media directory" help="For example /run/media/liveuser/USB. The directory must be an actual mounted filesystem.">
+                    <input className="pf-v5-c-form-control" value={clientExportDirectory} onChange={(e) => setClientExportDirectory(e.target.value)} placeholder="/run/media/liveuser/USB" />
+                  </Field>
+                  <label><input type="checkbox" checked={clientImageCapture} onChange={(e) => setClientImageCapture(e.target.checked)} /> Authorize this Client to capture images and send them to the Server (generates a local minisign keypair)</label>
+                  <Button variant="primary" onClick={prepareClientRequest} isLoading={busy} isDisabled={busy || !clientId || !clientExportDirectory}>Prepare request</Button>
+                  {clientPrepared && <Card className="pf-v5-u-mt-md"><CardBody>
+                    <Alert variant="success" title="Enrollment request prepared" isInline>{clientPrepared.message}</Alert>
+                    <p>Identity: {clientPrepared.identity}</p><p>CSR: {clientPrepared.csr_file}</p>
+                    <p>Public age recipient: {clientPrepared.age_recipient_file}</p>
+                    {clientPrepared.minisign_public_file && <p>Public minisign key: {clientPrepared.minisign_public_file}</p>}
+                    <p>Private TLS key remains at {clientPrepared.private_key_stays_local}; it was not exported.</p>
+                  </CardBody></Card>}
+                </StackItem>
+                <StackItem>
+                  <Title headingLevel="h3" size="lg">2. Complete enrollment from Server response</Title>
+                  <Field label="Client identifier (same as preparation)"><input className="pf-v5-c-form-control" value={clientId} onChange={(e) => setClientId(e.target.value)} /></Field>
+                  <Field label="Feclora Server address"><input className="pf-v5-c-form-control" value={clientHost} onChange={(e) => setClientHost(e.target.value)} placeholder="192.0.2.1 or hostname" /></Field>
+                  <Field label="This Client unicast MAC address"><input className="pf-v5-c-form-control" value={clientMacInput} onChange={(e) => setClientMacInput(e.target.value)} placeholder="02:11:22:33:44:55" /></Field>
+                  <Field label="Mounted Server response bundle directory"><input className="pf-v5-c-form-control" value={clientBundleDirectory} onChange={(e) => setClientBundleDirectory(e.target.value)} placeholder="/run/media/liveuser/USB" /></Field>
+                  <Field label="Feclora CA SHA-256 fingerprint" help="Copy the fingerprint displayed in the Server approval result."><input className="pf-v5-c-form-control" value={clientCaFingerprint} onChange={(e) => setClientCaFingerprint(e.target.value)} /></Field>
+                  <Field label="Server minisign public-key SHA-256 fingerprint" help="Copy the fingerprint displayed in the Server approval result."><input className="pf-v5-c-form-control" value={clientServerFingerprint} onChange={(e) => setClientServerFingerprint(e.target.value)} /></Field>
+                  <Button variant="primary" onClick={completeClientEnrollment} isLoading={busy} isDisabled={busy || !clientId || !clientHost || !clientMacInput || !clientBundleDirectory || !clientCaFingerprint || !clientServerFingerprint}>Verify and install Client identity</Button>
+                  {clientCompleted && <Alert variant="success" title="Client enrollment complete" isInline>{clientCompleted.message} Identity: {clientCompleted.identity}. Image capture: {clientCompleted.image_capture_enabled ? "authorized" : "not authorized"}.</Alert>}
+                </StackItem>
+              </>}
             </Stack>
           </Tab>
           <Tab eventKey="system" title="System">
