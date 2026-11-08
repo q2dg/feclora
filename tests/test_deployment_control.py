@@ -11,6 +11,7 @@ import threading
 import time
 import unittest
 from unittest.mock import Mock, patch
+from types import SimpleNamespace
 
 from feclora.deployment.control import (
     DeploymentControlError,
@@ -23,6 +24,8 @@ from feclora.deployment.control import (
 from feclora.deployment.coordinator import DeploymentCoordinator, JobState
 from feclora.deployment.job import DeploymentJob
 from feclora.network.remote_clone_protocol import create_mutual_tls_context
+from feclora.network.udpcast import UDPcastConfig
+from feclora.deployment.coordinator import ClientState
 
 
 JOB_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
@@ -716,6 +719,92 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
                 self.assertTrue(os.path.isfile(os.path.join(destination, "golden-image.manifest.json.minisig")))
             finally:
                 server.stop()
+
+
+class MulticastControlTests(unittest.TestCase):
+    def test_server_arms_all_ready_clients_and_multicasts_each_signed_artifact(self):
+        mac2 = "52:54:00:12:34:57"
+        job = make_job(
+            transport="multicast",
+            authorized_clients=[MAC, mac2],
+            multicast_group="239.10.10.1",
+            multicast_port=9000,
+        )
+        coordinator = Mock()
+        coordinator.job = job
+        coordinator.clients.return_value = [
+            SimpleNamespace(mac_address=MAC, state=ClientState.READY),
+            SimpleNamespace(mac_address=mac2, state=ClientState.READY),
+        ]
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server._lock = threading.RLock()
+        server._sessions = {MAC: Mock(), mac2: Mock()}
+        server.firewall = Mock()
+        config = UDPcastConfig(
+            "enp1s0", "239.10.10.1", "239.10.10.2",
+            portbase=9000, min_receivers=2,
+        )
+        manifest = SimpleNamespace(
+            image_id="golden-image",
+            artifacts=(SimpleNamespace(filename="image.raw"),),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            manifest_path = os.path.join(directory, "golden-image.manifest.json")
+            with open(manifest_path, "wb") as stream:
+                stream.write(b"{}")
+            with open(manifest_path + ".minisig", "wb") as stream:
+                stream.write(b"signature")
+            with open(os.path.join(directory, "image.raw"), "wb") as stream:
+                stream.write(b"payload")
+            with (
+                patch("feclora.deployment.control.verify_manifest_signature"),
+                patch("feclora.deployment.control.ImageManifest.from_json", return_value=manifest),
+                patch("feclora.deployment.control.verify_artifact_file"),
+                patch("feclora.deployment.control.send_control_message") as send,
+                patch("feclora.deployment.control.send_multicast_artifact") as multicast_send,
+                patch.object(server, "arm_and_start", return_value=(MAC, mac2)),
+                patch.object(server, "collect_results", return_value={MAC: "succeeded", mac2: "succeeded"}),
+            ):
+                results = server.run_multicast_restore_job(
+                    directory, manifest_path,
+                    trusted_public_key="/pki/server.pub",
+                    udpcast_config=config,
+                )
+        self.assertEqual(results, {MAC: "succeeded", mac2: "succeeded"})
+        self.assertEqual(send.call_count, 2)
+        multicast_send.assert_called_once()
+        self.assertEqual(multicast_send.call_args.args[0], coordinator)
+        self.assertEqual(multicast_send.call_args.kwargs["firewall"], server.firewall)
+
+    def test_server_rejects_multicast_job_until_every_authorized_client_is_ready(self):
+        mac2 = "52:54:00:12:34:57"
+        job = make_job(
+            transport="multicast",
+            authorized_clients=[MAC, mac2],
+            multicast_group="239.10.10.1",
+            multicast_port=9000,
+        )
+        coordinator = Mock()
+        coordinator.job = job
+        coordinator.clients.return_value = [
+            SimpleNamespace(mac_address=MAC, state=ClientState.READY),
+        ]
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server._lock = threading.RLock()
+        server._sessions = {MAC: Mock()}
+        server.firewall = Mock()
+        config = UDPcastConfig(
+            "enp1s0", "239.10.10.1", "239.10.10.2",
+            portbase=9000, min_receivers=2,
+        )
+        with self.assertRaisesRegex(DeploymentControlError, "every authorized Client"):
+            server.run_multicast_restore_job(
+                "/repo", "/repo/image.manifest.json",
+                trusted_public_key="/pki/server.pub",
+                udpcast_config=config,
+            )
 
 
 if __name__ == "__main__":
