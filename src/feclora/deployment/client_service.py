@@ -130,31 +130,21 @@ def _write_private_json(path: Path, value: dict[str, Any]) -> None:
 
 
 def mark_client_job_interrupted(job_id: str) -> None:
+    """Mark a nonterminal Client record after its systemd process has exited."""
     _ensure_directory()
-    _ensure_runtime_directory()
-    _request_path, status_path, lock_path = _job_paths(job_id)
-    status_exists = status_path.exists()
-    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
-    try:
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
-            raise ClientJobServiceError("Client job lock file is unsafe")
-        try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as exc:
-            raise ClientJobServiceError("Client job is still active; refusing interrupted-state update") from exc
-        if status_exists:
-            status = _read_private_json(status_path, limit=16384)
-            if status.get("phase") not in TERMINAL_PHASES:
-                status.update({
-                    "phase": "interrupted",
-                    "success": False,
-                    "detail": "Client service exited before a terminal result. No automatic reconnect or storage resume was attempted.",
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                })
-                _write_private_json(status_path, status)
-    finally:
-        os.close(fd)
+    _request_path, status_path, _lock_path = _job_paths(job_id)
+    if not os.path.lexists(status_path):
+        return
+    status = _read_private_json(status_path, limit=16384)
+    if status.get("phase") not in TERMINAL_PHASES:
+        status.update({
+            "phase": "interrupted",
+            "success": False,
+            "detail": "Client service exited before a terminal result. No automatic reconnect or storage resume was attempted.",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
+        _write_private_json(status_path, status)
+
 
 
 class ClientDeploymentService:
