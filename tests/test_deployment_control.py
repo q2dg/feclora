@@ -78,6 +78,47 @@ class FakeSocket:
         self.close()
 
 
+class ClientProgressTests(unittest.TestCase):
+    def test_progress_frame_is_validated_and_exposed_with_throughput(self):
+        server = object.__new__(DeploymentControlServer)
+        server.coordinator = DeploymentCoordinator(make_job())
+        server.coordinator.register_client(MAC, authenticated=True)
+        server.coordinator.mark_ready(MAC)
+        server.coordinator.arm()
+        server.coordinator.mark_running(MAC)
+        server._lock = threading.RLock()
+        server._progress = {}
+        first = {
+            "type": "progress", "job_id": JOB_ID, "phase": "restore",
+            "completed_bytes": 1024, "total_bytes": 4096,
+        }
+        with patch("feclora.deployment.control.time.monotonic", side_effect=[10.0, 12.0]):
+            server._record_client_progress(MAC, first)
+            server._record_client_progress(MAC, {**first, "completed_bytes": 2048})
+        progress = server.client_progress()[MAC]
+        self.assertEqual(progress["completed_bytes"], 2048)
+        self.assertEqual(progress["total_bytes"], 4096)
+        self.assertEqual(progress["bytes_per_second"], 512.0)
+        self.assertNotIn("monotonic", progress)
+
+    def test_progress_rejects_wrong_job_and_invalid_counters(self):
+        server = object.__new__(DeploymentControlServer)
+        server.coordinator = DeploymentCoordinator(make_job())
+        server.coordinator.register_client(MAC, authenticated=True)
+        server.coordinator.mark_ready(MAC)
+        server.coordinator.arm()
+        server.coordinator.mark_running(MAC)
+        server._lock = threading.RLock()
+        server._progress = {}
+        valid = {
+            "type": "progress", "job_id": JOB_ID, "phase": "restore",
+            "completed_bytes": 1024, "total_bytes": 4096,
+        }
+        with self.assertRaisesRegex(DeploymentControlError, "another deployment job"):
+            server._record_client_progress(MAC, {**valid, "job_id": "00000000-0000-4000-8000-000000000000"})
+        with self.assertRaisesRegex(DeploymentControlError, "byte counters"):
+            server._record_client_progress(MAC, {**valid, "completed_bytes": True})
+
 class TLSContextTests(unittest.TestCase):
     def test_server_rejects_context_without_mandatory_peer_certificates(self):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
