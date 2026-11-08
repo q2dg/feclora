@@ -38,8 +38,8 @@ def _repository(path: Any) -> str:
         info = os.lstat(path)
     except OSError as exc:
         raise RuntimeConfigError(f"image repository is unavailable: {exc}") from exc
-    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o002:
-        raise RuntimeConfigError("image repository must be a root-owned real directory and not world-writable")
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+        raise RuntimeConfigError("image repository must be a root-owned real directory and not group/other-writable")
     return path
 
 
