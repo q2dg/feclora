@@ -229,7 +229,8 @@ class DeploymentControlServer:
             hello = receive_control_message(tls_socket, expected_type="hello")
             if set(hello) != {"type", "job_id", "mac_address", "certificate_identity"}:
                 raise DeploymentControlError("client hello contains missing or unknown fields")
-            if (hello["job_id"] != self.coordinator.job.job_id or hello["mac_address"] != mac\n                    or hello["certificate_identity"] != identity):
+            if (hello["job_id"] != self.coordinator.job.job_id or hello["mac_address"] != mac
+                    or hello["certificate_identity"] != identity):
                 raise DeploymentControlError("client hello does not match the enrolled identity and active job")
             self.coordinator.register_client(mac, authenticated=True)
             registered_mac = mac
@@ -347,13 +348,16 @@ def join_deployment(
 ) -> tuple[DeploymentJob, bool, str]:
     """Authenticate, receive a job, obtain local target approval, then execute on START."""
     _require_tls13_mtls(tls_context)
+    if not isinstance(local_identity, str) or not local_identity or len(local_identity) > 256:
+        raise DeploymentControlError("local certificate identity is required")
     tls_socket = connect_mutual_tls(
         tls_context, host, port, expected_peer_identity=expected_server_identity,
         timeout=15, io_timeout=timeout,
     )
     with tls_socket:
         send_control_message(tls_socket, {
-            "type": "hello", "job_id": job_id, "mac_address": mac_address.lower(),\n            "certificate_identity": local_identity,
+            "type": "hello", "job_id": job_id, "mac_address": mac_address.lower(),
+            "certificate_identity": local_identity,
         })
         offer = receive_control_message(tls_socket, expected_type="job")
         if set(offer) != {"type", "job", "server_identity"}:
