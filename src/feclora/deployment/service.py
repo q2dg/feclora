@@ -315,6 +315,7 @@ class DeploymentService:
             "operation": self.job.operation,
             "image_id": self.job.image_id,
             "transport": self.job.transport,
+            "network_interface": self.job.network_interface,
             "clients": [
                 {"mac_address": item.mac_address, "state": item.state.value}
                 for item in clients[:128]
