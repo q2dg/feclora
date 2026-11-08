@@ -11,7 +11,7 @@ def config():
     return PXENetworkConfig(
         interface="enp1s0", address="192.0.2.10", prefix_length=24,
         mode="proxy", tftp_root="/srv/feclora/tftp",
-        bios_boot_file="undionly.kpxe", uefi_boot_file="snponly.efi",
+        bios_boot_file="undionly.kpxe", uefi_boot_file="ipxe-snponly-x86_64.efi",
         http_root="/srv/feclora/http",
     )
 
