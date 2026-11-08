@@ -1,5 +1,6 @@
 import threading
 import unittest
+from unittest import mock
 from types import SimpleNamespace
 
 from feclora.deployment.coordinator import ClientState, JobState
@@ -19,11 +20,13 @@ class FakeControl:
     bound_address = ("192.0.2.10", 9443)
     listener_errors = []
 
-    def __init__(self):
+    def __init__(self, coordinator):
         self.cancelled = False
+        self.coordinator = coordinator
 
     def cancel(self):
         self.cancelled = True
+        self.coordinator.state = JobState.CANCELLED
 
 
 class FakeThread:
@@ -51,7 +54,7 @@ def make_service(transport="unicast", clients=()):
         authorized_clients=tuple(item.mac_address for item in clients),
     )
     service.coordinator = FakeCoordinator(clients=clients)
-    service.control = FakeControl()
+    service.control = FakeControl(service.coordinator)
     service._worker = None
     service._worker_lock = threading.RLock()
     service._arm_requested = False
@@ -67,7 +70,7 @@ class DeploymentServiceCommandTests(unittest.TestCase):
     def test_arm_requires_exact_job_specific_confirmation(self):
         client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
         service = make_service(clients=(client,))
-        with unittest.mock.patch("feclora.deployment.service.threading.Thread", FakeThread):
+        with mock.patch("feclora.deployment.service.threading.Thread", FakeThread):
             with self.assertRaisesRegex(DeploymentServiceError, "exact job-specific"):
                 service._handle_ipc("arm", {
                     "job_id": service.job.job_id, "confirmation": "ARM wrong",
@@ -111,7 +114,7 @@ class DeploymentServiceCommandTests(unittest.TestCase):
             "confirmation": "CANCEL " + service.job.job_id,
         })
         self.assertTrue(service.control.cancelled)
-        self.assertEqual(result["job_state"], "created")
+        self.assertEqual(result["job_state"], "cancelled")
 
     def test_cancel_rejects_running_job(self):
         service = make_service()
