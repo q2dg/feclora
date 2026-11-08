@@ -134,7 +134,7 @@ export default function App() {
       <PageSection>
         {status ? <Flex flexWrap={{ default: "wrap" }} gap={{ default: "gapMd" }}>
           <FlexItem flex={{ default: "1" }}><StatusCard title="Host" value={status.hostname} icon={<ServerIcon />} description={status.platform} /></FlexItem>
-          <FlexItem flex={{ default: "1" }}><StatusCard title="Images" value={String(images.length)} icon={<DatabaseIcon />} description="Verified manifest-backed local images" /></FlexItem>
+          <FlexItem flex={{ default: "1" }}><StatusCard title="Images" value={String(images.length)} icon={<DatabaseIcon />} description="Manifest-backed local images" /></FlexItem>
           <FlexItem flex={{ default: "1" }}><StatusCard title="Deployment jobs" value={String(journals.length)} icon={<ExclamationTriangleIcon />} description="Recorded jobs and recovery state" /></FlexItem>
         </Flex> : <Spinner aria-label="Loading Feclora" />}
       </PageSection>
@@ -208,7 +208,11 @@ export default function App() {
                     {expectedConfirmation && <Field label="Typed confirmation">
                       <input className="pf-v5-c-form-control" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} autoComplete="off" />
                     </Field>}
-                    {busy && progress && <div className="pf-v5-u-mb-md"><Progress value={progress.bytes_total ? Math.min(100, progress.bytes_done / progress.bytes_total * 100) : 0} title="Operation progress" measureLocation="outside" label={formatBytes(progress.bytes_done) + (progress.bytes_total ? " / " + formatBytes(progress.bytes_total) : " processed")} /></div>}
+                    {busy && progress && <div className="pf-v5-u-mb-md">
+                      {progress.bytes_total
+                        ? <Progress value={Math.min(100, progress.bytes_done / progress.bytes_total * 100)} title="Operation progress" measureLocation="outside" label={formatBytes(progress.bytes_done) + " / " + formatBytes(progress.bytes_total)} />
+                        : <Alert variant="info" isInline title="Operation in progress">{formatBytes(progress.bytes_done)} processed</Alert>}
+                    </div>}
                     <Button type="submit" variant="primary" isDisabled={!operationReady || busy}>{busy ? <><Spinner size="sm" /> Working…</> : "Start operation"}</Button>
                   </form>
                   {operationResult && <Alert variant="success" title="Operation completed" isInline className="pf-v5-u-mt-md"><pre>{JSON.stringify(operationResult, null, 2)}</pre></Alert>}
