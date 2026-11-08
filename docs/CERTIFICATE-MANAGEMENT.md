@@ -88,9 +88,8 @@ revocation, and per-Client age recipient registration/removal.
 
 Not yet implemented: a Cockpit-based trust-management screen (the current
 enrollment workflow is in the dialog UI), CRL/OCSP validation, server-side
-certificate expiry/last-seen inventory, automatic refresh of age recipient
-snapshots on already-enrolled Clients, and automated Server certificate
-renewal.
+certificate expiry/last-seen inventory, automatic push refresh of age recipient snapshots on already-enrolled
+Clients, and automated Server certificate renewal.
 
 ## Explicit non-goals
 
