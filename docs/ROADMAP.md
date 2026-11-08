@@ -21,13 +21,14 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [x] Cockpit local operations wizard: disk/partition capture, restore and clone.
 - [x] Cockpit storage/image inventory, operation journal summary and local image-security setup.
 - [x] Cockpit Terminal remains available for system administration.
+- [x] Initial Cockpit Server identity bootstrap from a currently assigned IPv4 address, including DHCP-server warning and managed trust-material initialization.
 
 ## Remaining implementation work
 
 ### Cockpit remote deployment
 
 - [ ] Server setup wizard: select and validate network interface, ProxyDHCP vs isolated DHCP, address pools, PXE services and firewall scope.
-- [ ] Managed deployment CA and Server identity administration from Cockpit.
+- [ ] Full managed deployment CA and Server identity administration from Cockpit (the initial identity bootstrap step is implemented).
 - [ ] Client CSR import/approval, certificate issue/rotation/revocation and age-recipient management from Cockpit.
 - [ ] Client enrollment workflow and local target approval from Cockpit.
 - [ ] Deployment job wizard: signed image, operation, enrolled clients, unicast/multicast transport, multicast group/port and start policy.
