@@ -21,7 +21,7 @@ from .disk_restore import (
     _verify_stored_artifact,
 )
 from .image_manifest import ImageManifest, ManifestValidationError
-from .image_security import ImageSecurityError, verify_manifest_signature
+from .image_security import ImageSecurityError, sign_manifest, verify_manifest_signature
 from .partition_range import PartitionRangeError, parse_sfdisk_dump, select_partition_range
 
 
@@ -53,6 +53,7 @@ def extract_partition_image(
     age_identity_file: str | os.PathLike[str] | None = None,
     minisign_public_key: str | os.PathLike[str] | None = None,
     require_signature: bool = False,
+    minisign_secret_key: str | os.PathLike[str] | None = None,
     executables: dict[str, str | None] | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
 ) -> tuple[ImageManifest, str]:
@@ -186,10 +187,15 @@ def extract_partition_image(
             stream.write(extracted_manifest.to_json())
             stream.flush()
             os.fsync(stream.fileno())
+        if minisign_secret_key is not None:
+            sign_manifest(staged_manifest, minisign_secret_key, minisign_executable=(executables or {}).get("minisign"))
         directory_fd = os.open(
             repo, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
         )
-        for name in (artifact_name, manifest_name):
+        publish_names = [artifact_name, manifest_name]
+        if minisign_secret_key is not None:
+            publish_names.append(manifest_name + ".minisig")
+        for name in publish_names:
             os.link(os.path.join(stage, name), name, dst_dir_fd=directory_fd, follow_symlinks=False)
             published.append(name)
         os.fsync(directory_fd)
