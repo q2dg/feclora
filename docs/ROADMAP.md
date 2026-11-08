@@ -20,7 +20,7 @@
 - [x] Add a read-only device browser using dialog.
 - [x] Add a startup mode selector for Local rescue, Server and Client; Server has an experimental PXE Live-boot path and Client has authenticated unicast plus multi-client multicast restore runtimes (PXE/VM acceptance pending).
 - [x] Add an interactive live-console keyboard layout selector, including Spanish; persistence across reboot and UI localization remain pending.
-- [x] Select a dedicated Feclora Cockpit application (React + PatternFly) as the web UI architecture; implementation and offline-console parity remain pending.
+- [x] Select a dedicated Feclora Cockpit application (React + PatternFly) and implement the packaged read-only dashboard for host/service status, image manifests, deployment journals and storage inventory. Destructive web workflows and offline-console parity remain pending.
 - [x] Stage and integrate the Python application into the Kickstart build (end-to-end validation pending).
 - [x] Add automated build-host preflight checks.
 - [ ] Validate inventory, startup menu and UI against real BIOS/UEFI virtual-machine storage.
@@ -80,21 +80,22 @@
 - [x] Add a private append-only SHA-256 hash-chained job journal; coordinator transitions are fsync-persisted before in-memory mutation, and persistence failures fail closed.
 - [x] Review prior hash-chained job journals in Server UI, flag incomplete jobs for manual review and refuse corrupt journals; no destructive job is automatically resumed.
 - [x] Replay hash-chained job/client events after restart and reconstruct full audit state; provide an explicit, durable operator reconciliation acknowledgement for interrupted jobs. Never recreate sessions or resume destructive I/O automatically.
-- [x] Implement Server UI for Client certificate enrollment/rotation and revocation: verify CA chain for TLS client purpose, extract stable SAN identity, bind to one MAC, optionally enroll a minisign public key, and atomically update the root-owned trust config. Private keys and CA issuance remain out-of-band; CRL/OCSP integration remains pending.
-- [ ] Implement the Feclora-managed CA workflow in [ADR 0009](adr/0009-managed-deployment-certificates.md): endpoint-local key generation, CSR approval/signing, certificate import, expiry warnings and renewal; retain external PKI support.
-- [ ] Implement an auditable trusted-client lifecycle UI with expiry/last-seen information and session termination on revocation; add CRL validation only as defence in depth.
+- [x] Implement the Feclora-managed CA workflow in [ADR 0009](adr/0009-managed-deployment-certificates.md): first-run Server CA/TLS/minisign/age bootstrap, Client-local TLS and age key generation, removable-media CSR approval/signing, fingerprint verification, Client certificate installation and 90-day renewal using the existing key. External PKI import remains supported.
+- [x] Implement Server-side trusted identity/MAC enrollment and revocation, plus per-Client age recipient registration/removal so revoked identities are excluded from future encryption inventories.
+- [ ] Add server-side certificate expiry/last-seen inventory, active-session termination on revocation, CRL validation and automatic Server certificate renewal.
 - [x] Select and package the embedded PXE stack: dnsmasq (DHCP/ProxyDHCP/PXE/TFTP), Fedora iPXE BIOS/UEFI boot images, and Caddy for HTTP boot (ADR 0006; services remain disabled by default).
 - [x] Document the real PXE VM acceptance procedure for DHCP/ProxyDHCP, TFTP/HTTP, BIOS/UEFI chainloading, signed transfer, disposable-disk restore, read-back and firewalld rollback; actual PXE/deployment execution remains operator validation.
 - [x] Add an isolated libvirt PXE VM matrix harness for one Server and BIOS/UEFI Clients; clients remain powered off until Server PXE is ready. VM creation is scripted, but boot and end-to-end acceptance remain manual and unverified.
 ## Milestone 4 — Mass deployment
-- [ ] Implement unicast deployment to multiple clients.
+- [x] Keep unicast deployment one-client-per-job by design; use multicast restore for multiple Clients. Simultaneous multi-client unicast is out of scope.
 - [x] Select UDPcast as the initial multicast transport (ADR 0008; package included in the Live image).
 - [x] Implement a fail-closed UDPcast transport adapter and integrate it with authenticated multi-client whole-disk restore: explicit armed/running-job sender gate, all-client readiness threshold, signed-manifest/source digest verification, private receiver staging, exact size/hash verification, cancellable subprocesses, and scoped firewalld UDP ports (unit tests added; execution and live networking validation pending).
-- [x] Integrate UDPcast restore with the mTLS control service, persistent job/client lifecycle, Client-mode local target authorization, private per-client staging, signed-manifest/artifact verification and per-client terminal results. The operator confirms the TTL=1/IGMP/L2 network preflight; automated network capability detection remains pending.
-- [ ] Extend the same authenticated multicast restore path to manifest-backed partition images and existing target partitions, with partition-specific local approval, geometry checks and post-write verification.
+- [x] Integrate UDPcast restore with the mTLS control service, persistent job/client lifecycle, Client-mode local target authorization, private per-client staging, signed-manifest/artifact verification and per-client terminal results. Multicast accepts age-encrypted artifacts only; the signed manifest binds the ciphertext and age verifies authenticated decryption.
+- [x] Add host-side multicast preflight for interface UP/MULTICAST flags, IPv4 address, kernel route and UDPcast binaries. Switch IGMP snooping/querier validation remains an operator check.
+- [x] Extend the authenticated multicast restore path to manifest-backed partition images and existing target partitions, with partition-specific local approval, geometry checks, signed-manifest binding and post-write verification.
 - [x] Require every selected Client to authenticate and become READY before the explicit manual multicast start; expected-client/deadline policies are present in the coordinator schema but are not yet exposed in the Server UI.
 - [x] Persist and display per-client terminal completion/failure results for multicast jobs; live byte-progress and streaming log display remain pending.
-- [ ] Add Wake-on-LAN and post-job reboot/poweroff policies.
+- [x] Keep Wake-on-LAN and automatic post-job reboot/poweroff out of scope to avoid expanding the destructive-operation surface.
 - [x] Select the Server interface through Server mode and each Client's local multicast receive interface through Client mode; enforce a dedicated TTL=1 239.0.0.0/8 profile and temporary interface-scoped UDP firewall rules. Automated capacity estimation and network capability detection remain pending.
 - [x] Document multi-client multicast restore acceptance with one Server and BIOS/UEFI Client VMs in `tests/vm/README.md`; execution, packet-loss/interrupt testing and recorded acceptance results remain operator validation.
 
