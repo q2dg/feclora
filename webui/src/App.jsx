@@ -522,7 +522,7 @@ export default function App() {
 
   const operationReady = isCapture
     ? Boolean(source && imageId && (operation !== "capture_partition" || partitionId || imageId))
-    : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation)
+    : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation && (!isDisk || !restoreLayoutPreview || !restoreTargetDevice || restoreTargetDevice.size_bytes >= restoreLayoutPreview.source_size_bytes))
       : Boolean(source && target && source !== target && confirmation === expectedConfirmation);
 
   return (
