@@ -18,7 +18,7 @@
 - [ ] Provide predictable live-session startup and logging.
 - [x] Implement read-only block-device/filesystem inventory with mocked tests.
 - [x] Add a read-only device browser using dialog.
-- [x] Add a startup mode selector for Local rescue, Server and Client; Server has an experimental PXE Live-boot path and Client deployment runtime remains incomplete.
+- [x] Add a startup mode selector for Local rescue, Server and Client; Server has an experimental PXE Live-boot path and Client has authenticated unicast plus multi-client multicast restore runtimes (PXE/VM acceptance pending).
 - [x] Add an interactive live-console keyboard layout selector, including Spanish; persistence across reboot and UI localization remain pending.
 - [x] Select a dedicated Feclora Cockpit application (React + PatternFly) as the web UI architecture; implementation and offline-console parity remain pending.
 - [x] Stage and integrate the Python application into the Kickstart build (end-to-end validation pending).
