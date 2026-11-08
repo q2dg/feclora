@@ -598,7 +598,19 @@ export default function App() {
                         <StackItem>Execution worker: {serviceStatuses[job.job_id].worker_active ? "active" : "idle"}</StackItem>
                         <StackItem><Button size="sm" variant="link" isDisabled={busy} onClick={() => refreshDeploymentService(job.job_id)}>Refresh live status</Button></StackItem>
                         <StackItem>Connected Clients: {serviceStatuses[job.job_id].client_count ?? (serviceStatuses[job.job_id].clients || []).length}</StackItem>
-                        <StackItem>{(serviceStatuses[job.job_id].clients || []).map((client) => <p key={client.mac_address}>{client.mac_address}: {client.state}</p>)}</StackItem>
+                        <StackItem>{(serviceStatuses[job.job_id].clients || []).map((client) => {
+                          const progress = client.progress;
+                          const mib = (bytes) => (bytes / (1024 * 1024)).toFixed(1);
+                          return <div key={client.mac_address}>
+                            <p>{client.mac_address}: {client.state}</p>
+                            {progress && <p>
+                              {progress.phase}: {mib(progress.completed_bytes)} MiB
+                              {progress.total_bytes !== null ? " / " + mib(progress.total_bytes) + " MiB" : ""}
+                              {" · " + mib(progress.bytes_per_second || 0) + " MiB/s"}
+                              {progress.total_bytes > 0 ? " · " + Math.min(100, Math.round(progress.completed_bytes * 100 / progress.total_bytes)) + "%" : ""}
+                            </p>}
+                          </div>;
+                        })}</StackItem>
                         {serviceStatuses[job.job_id].clients_truncated && <StackItem><Alert variant="warning" isInline title="Client list truncated">The local service status response is capped at 128 Client records.</Alert></StackItem>}
                         {serviceStatuses[job.job_id].multicast_preflight?.warnings?.length > 0 && <StackItem><Alert variant="warning" isInline title="Multicast network warnings">{serviceStatuses[job.job_id].multicast_preflight.warnings.join(" ")}</Alert></StackItem>}
                         {serviceStatuses[job.job_id].multicast_preflight?.error && <StackItem><Alert variant="danger" isInline title="Multicast preflight failed">{serviceStatuses[job.job_id].multicast_preflight.error}</Alert></StackItem>}
