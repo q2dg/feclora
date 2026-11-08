@@ -184,7 +184,7 @@ def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
     age_recipients = value["age_recipients_file"]
     signing_secret = value["local_minisign_secret_key"]
     signing_public = value["local_minisign_public_key"]
-    if bool(signing_secret) != bool(signing_public):
+    if (signing_secret is None) != (signing_public is None):
         raise RuntimeConfigError("Client minisign secret and public keys must be configured together")
     minisign_secret = value["local_minisign_secret_key"]
     minisign_public = value["local_minisign_public_key"]
