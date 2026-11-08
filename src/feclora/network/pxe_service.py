@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any, Callable
 
@@ -46,6 +47,9 @@ class PXEServiceManager:
         self.boot_stager = boot_stager
         self._active_interface: str | None = None
         self._started_units: set[str] = set()
+        suffix = uuid.uuid4().hex
+        self._dnsmasq_unit = f"feclora-dnsmasq-{suffix}"
+        self._caddy_unit = f"feclora-caddy-{suffix}"
 
     def _run(self, argv: list[str], label: str) -> None:
         try:
@@ -98,18 +102,20 @@ class PXEServiceManager:
         )
         self._active_interface = config.interface
         try:
+            self._started_units.add(self._dnsmasq_unit + ".service")
             self._run([
-                self.systemd_run, "--unit=feclora-dnsmasq", "--collect",
+                self.systemd_run, f"--unit={self._dnsmasq_unit}", "--collect",
                 "--property=Restart=no", "--property=KillMode=mixed", "--",
                 self.dnsmasq, "--keep-in-foreground", f"--conf-file={dnsmasq_config}",
             ], "starting dnsmasq")
-            self._started_units.add("feclora-dnsmasq.service")
+            self._started_units.add(self._dnsmasq_unit + ".service")
+            self._started_units.add(self._caddy_unit + ".service")
             self._run([
-                self.systemd_run, "--unit=feclora-caddy", "--collect",
+                self.systemd_run, f"--unit={self._caddy_unit}", "--collect",
                 "--property=Restart=no", "--property=KillMode=mixed", "--property=User=caddy", "--property=Group=caddy", "--",
                 self.caddy, "run", "--config", caddy_config, "--adapter", "caddyfile",
             ], "starting Caddy")
-            self._started_units.add("feclora-caddy.service")
+            self._started_units.add(self._caddy_unit + ".service")
         except PXEServiceError as start_error:
             try:
                 self.stop()
