@@ -570,7 +570,7 @@ export default function App() {
                   <Field label="Transport">
                     <select className="pf-v5-c-form-control" value={remoteTransport} onChange={(e) => setRemoteTransport(e.target.value)}>
                       <option value="unicast">Authenticated unicast</option>
-                      <option value="multicast" disabled={remoteOperation === "save"}>UDPcast multicast restore</option>
+                      <option value="multicast" disabled>UDPcast multicast restore — Client workflow pending</option>
                     </select>
                   </Field>
                   {remoteTransport === "multicast" && <>
