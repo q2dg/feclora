@@ -15,6 +15,7 @@ firewalld
 dnsmasq
 ipxe-bootimgs-x86
 caddy
+udpcast
 
 # Live-media boot support
 dracut-config-generic
