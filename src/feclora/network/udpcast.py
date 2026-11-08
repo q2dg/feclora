@@ -269,7 +269,7 @@ def receive_multicast_artifact_to_staging(
     runner_popen: Callable[..., Any] = subprocess.Popen,
     cancel_check: Callable[[], bool] | None = None,
     timeout_seconds: int = 86400,
-    firewall: Any = None,
+    firewall: Any,
 ) -> str:
     """Receive into a 0600 temporary file; caller must verify signed manifest before restore."""
     directory = os.path.abspath(staging_directory)
