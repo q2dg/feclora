@@ -9,7 +9,7 @@ for file in "$ROOT_DIR/build/build-iso.sh" "$ROOT_DIR/build/preflight.sh" "$ROOT
 done
 
 if [[ -f "$ROOT_DIR/kickstart/feclora-live.ks" ]]; then
-  grep -q '^#version=F43$' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not declare Fedora 43 (#version=F43)."
+  grep -q '^#version=F45$' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not declare Fedora 45 (#version=F45)."
   grep -q '^part / ' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not define a root partition."
   grep -qx 'dialog' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include dialog."
   grep -q '^%post --nochroot --erroronfail$' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not copy the app payload outside the chroot."
