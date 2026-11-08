@@ -13,7 +13,7 @@ Environment=PYTHONPATH=/usr/share/feclora/python
 ExecStart=/usr/bin/python3 -m feclora.deployment.service --job-id %i
 ExecStopPost=/usr/bin/python3 -m feclora.deployment.service --recover-runtime
 Restart=no
-TimeoutStopSec=30
+TimeoutStopSec=infinity
 KillMode=mixed
 UMask=0077
 NoNewPrivileges=true
