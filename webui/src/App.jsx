@@ -79,6 +79,10 @@ export default function App() {
   const [clientCaFingerprint, setClientCaFingerprint] = useState("");
   const [clientServerFingerprint, setClientServerFingerprint] = useState("");
   const [clientCompleted, setClientCompleted] = useState(null);
+  const [clientRenewalPrepared, setClientRenewalPrepared] = useState(null);
+  const [clientRenewalCompleted, setClientRenewalCompleted] = useState(null);
+  const [clientRenewalExportDirectory, setClientRenewalExportDirectory] = useState("");
+  const [clientRenewalBundleDirectory, setClientRenewalBundleDirectory] = useState("");
   const [clientRemoteHost, setClientRemoteHost] = useState("");
   const [clientRemoteJobId, setClientRemoteJobId] = useState("");
   const [clientRemoteInspection, setClientRemoteInspection] = useState(null);
@@ -95,6 +99,7 @@ export default function App() {
   const [csrReview, setCsrReview] = useState(null);
   const [csrConfirmation, setCsrConfirmation] = useState("");
   const [csrApprovalResult, setCsrApprovalResult] = useState(null);
+  const [csrRenewal, setCsrRenewal] = useState(false);
   const [pxeMode, setPxeMode] = useState("proxy");
   const [pxePoolStart, setPxePoolStart] = useState("");
   const [pxePoolEnd, setPxePoolEnd] = useState("");
@@ -305,12 +310,37 @@ export default function App() {
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
+  const prepareClientRenewal = async () => {
+    setBusy(true); setError(""); setNotice(""); setClientRenewalPrepared(null);
+    try {
+      const result = await callFeclora("prepare_client_renewal", {
+        export_directory: clientRenewalExportDirectory
+      });
+      setClientRenewalPrepared(result); setNotice(result.message);
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const completeClientRenewal = async () => {
+    setBusy(true); setError(""); setNotice(""); setClientRenewalCompleted(null);
+    try {
+      const result = await callFeclora("complete_client_renewal", {
+        bundle_directory: clientRenewalBundleDirectory,
+        ca_fingerprint: clientCaFingerprint,
+        server_minisign_sha256: clientServerFingerprint
+      });
+      setClientRenewalCompleted(result); setNotice(result.message);
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
   const inspectClientCSR = async () => {
     setBusy(true); setError(""); setNotice(""); setCsrReview(null); setCsrConfirmation("");
     try {
       const result = await callFeclora("inspect_client_csr", {
         csr_path: csrPath, age_recipient_path: ageRecipientPath, mac_address: clientMac,
-        minisign_public_path: clientMinisignPath || null
+        minisign_public_path: clientMinisignPath || null, renewal: csrRenewal
       });
       setCsrReview(result);
       setNotice("CSR signature, Client identity and age recipient inspected. No trust changes have been made.");
@@ -324,7 +354,7 @@ export default function App() {
     try {
       const result = await callFeclora("approve_client_csr", {
         csr_path: csrPath, age_recipient_path: ageRecipientPath, mac_address: clientMac,
-        minisign_public_path: clientMinisignPath || null, confirmation: csrConfirmation
+        minisign_public_path: clientMinisignPath || null, confirmation: csrConfirmation, renewal: csrRenewal
       });
       setNotice(result.message + " Bundle: " + result.bundle_directory);
       setCsrReview(null); setCsrConfirmation(""); setCsrApprovalResult(result);
