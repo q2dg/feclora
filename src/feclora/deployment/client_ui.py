@@ -155,7 +155,7 @@ def _client_enrollment_wizard(config_path: str) -> bool:
     server_fingerprint = _sha256_file(server_public_key)
     expected_server_key = dialog_app._input(
         "Verify Server image-signing key",
-        "Compare this SHA-256 fingerprint with the one shown by the Server during CSR approval, then type it exactly:\\n" + server_fingerprint,
+        "Compare this SHA-256 fingerprint with the one shown by the Server during CSR approval, then type it exactly:\n" + server_fingerprint,
     )
     if expected_server_key != server_fingerprint:
         raise PKIError("Server image-signing key fingerprint did not match")
