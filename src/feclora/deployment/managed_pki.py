@@ -161,6 +161,89 @@ def initialize_server_pki(
         raise
 
 
+def renew_server_certificate(
+    pki_directory: str | os.PathLike[str] = "/etc/feclora/pki",
+    *,
+    runner: Callable[..., Any] | None = None,
+    openssl: str = "/usr/bin/openssl",
+    validity_days: int = 825,
+) -> dict[str, str]:
+    """Renew the Server TLS certificate using the existing CA and private key."""
+    if isinstance(validity_days, bool) or not isinstance(validity_days, int) or not 1 <= validity_days <= 825:
+        raise PKIError("Server certificate validity must be between 1 and 825 days")
+    root = _root_only_directory(pki_directory)
+    paths = {
+        "ca_key": os.path.join(root, "ca.key"),
+        "ca_file": os.path.join(root, "ca.crt"),
+        "server_key": os.path.join(root, "server.key"),
+        "server_certificate": os.path.join(root, "server.crt"),
+    }
+    for label, path in paths.items():
+        _regular_file(path, label, root_owned=True)
+    if any(os.stat(paths[key]).st_mode & 0o077 for key in ("ca_key", "server_key")):
+        raise PKIError("CA and Server private keys must not be accessible by group or other users")
+    _run([openssl, "verify", "-CAfile", paths["ca_file"], paths["server_certificate"]], runner)
+    current_san = _run(
+        [openssl, "x509", "-in", paths["server_certificate"], "-noout", "-ext", "subjectAltName"],
+        runner,
+    ).stdout
+    if re.findall(r"URI:(feclora-server)", current_san) != ["feclora-server"] or re.search(r"\b(?:DNS|IP Address|email):", current_san):
+        raise PKIError("existing Server certificate identity is not exactly URI:feclora-server")
+    temporary_directory = tempfile.mkdtemp(prefix=".feclora-server-renewal-", dir=root)
+    os.chmod(temporary_directory, 0o700)
+    csr = os.path.join(temporary_directory, "server.csr")
+    extensions = os.path.join(temporary_directory, "server.ext")
+    renewed = os.path.join(temporary_directory, "server.crt")
+    try:
+        _run([
+            openssl, "req", "-new", "-key", paths["server_key"], "-out", csr,
+            "-subj", "/CN=feclora-server",
+            "-addext", "subjectAltName=URI:feclora-server",
+        ], runner)
+        Path(extensions).write_text(
+            "subjectAltName=URI:feclora-server\n"
+            "keyUsage=critical,digitalSignature,keyEncipherment\n"
+            "extendedKeyUsage=serverAuth\n",
+            encoding="ascii",
+        )
+        os.chmod(extensions, 0o600)
+        serial = "0x" + os.urandom(16).hex()
+        _run([
+            openssl, "x509", "-req", "-in", csr, "-CA", paths["ca_file"],
+            "-CAkey", paths["ca_key"], "-set_serial", serial, "-out", renewed,
+            "-days", str(validity_days), "-sha256", "-extfile", extensions,
+        ], runner)
+        _run([openssl, "verify", "-CAfile", paths["ca_file"], renewed], runner)
+        renewed_san = _run(
+            [openssl, "x509", "-in", renewed, "-noout", "-ext", "subjectAltName"],
+            runner,
+        ).stdout
+        if re.findall(r"URI:(feclora-server)", renewed_san) != ["feclora-server"] or re.search(r"\b(?:DNS|IP Address|email):", renewed_san):
+            raise PKIError("renewed Server certificate SAN does not match the managed Server identity")
+        certificate_public = _run(
+            [openssl, "x509", "-in", renewed, "-pubkey", "-noout"], runner,
+        ).stdout.strip()
+        key_public = _run(
+            [openssl, "pkey", "-in", paths["server_key"], "-pubout"], runner,
+        ).stdout.strip()
+        if not certificate_public or certificate_public != key_public:
+            raise PKIError("renewed Server certificate does not match the existing private key")
+        os.chmod(renewed, 0o644)
+        os.replace(renewed, paths["server_certificate"])
+        directory_fd = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+        return {
+            "certificate_file": paths["server_certificate"],
+            "ca_fingerprint": ca_fingerprint(paths["ca_file"], runner=runner, openssl=openssl),
+        }
+    finally:
+        import shutil
+        shutil.rmtree(temporary_directory, ignore_errors=True)
+
+
 def ca_fingerprint(ca_file: str, *, runner: Callable[..., Any] | None = None,
                    openssl: str = "/usr/bin/openssl") -> str:
     _regular_file(ca_file, "CA certificate")
