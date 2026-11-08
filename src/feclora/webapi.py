@@ -401,10 +401,10 @@ def _validate_pxe_profile(params: dict[str, Any]) -> dict[str, Any]:
 
     config = PXENetworkConfig(
         interface=interface, address=address, prefix_length=prefix, mode=mode,
-        tftp_root="/var/lib/feclora/pxe/tftp",
+        tftp_root="/srv/feclora/tftp",
         bios_boot_file="undionly.kpxe",
         uefi_boot_file="ipxe-snponly-x86_64.efi",
-        http_root="/var/lib/feclora/pxe/http",
+        http_root="/srv/feclora/http",
         http_port=port, pool_start=optional["pool_start"],
         pool_end=optional["pool_end"], lease_time=lease,
         gateway=optional["gateway"], dns_server=optional["dns_server"],
