@@ -2,12 +2,12 @@
 
 ## Milestone 0 — Project foundation
 - [x] Create the independent feclora repository.
-- [x] Define Fedora 43 x86_64 as the initial target.
+- [x] Define Fedora 45 x86_64 as the initial target.
 - [x] Publish architecture decisions for the single-ISO, multi-mode design and generic-tools-only storage implementation.
 - [ ] Define the project license and contribution policy.
 
 ## Milestone 1 — Single bootable ISO and startup menu
-- [ ] Build a reproducible Fedora 43 ISO.
+- [ ] Build a reproducible Fedora 45 ISO.
 - [ ] Boot on BIOS and UEFI in virtual machines.
 - [ ] Provide predictable live-session startup and logging.
 - [x] Implement read-only block-device/filesystem inventory with mocked tests.
