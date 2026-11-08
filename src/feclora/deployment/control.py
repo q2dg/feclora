@@ -7,7 +7,9 @@ does not implement the image data plane or execute storage operations.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
+import os
 import ipaddress
 import json
 import posixpath
@@ -23,7 +25,9 @@ from feclora.deployment.coordinator import (
     ClientState, CoordinatorError, DeploymentCoordinator, JobState,
 )
 from feclora.deployment.job import DeploymentJob, JobValidationError
-from feclora.storage.image_manifest import ImageManifest
+from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
+from feclora.storage.image_security import ImageSecurityError, verify_manifest_signature
+from feclora.network.udpcast import UDPcastConfig, UDPcastError, send_multicast_artifact
 from feclora.network.remote_clone_protocol import verify_peer_identity
 from feclora.network.tls import connect_mutual_tls
 
@@ -139,8 +143,6 @@ class DeploymentControlServer:
         interface: str | None = None,
     ) -> None:
         _require_tls13_mtls(tls_context)
-        if coordinator.job.transport != "unicast":
-            raise DeploymentControlError("the authenticated control runtime currently supports unicast jobs only")
         if not isinstance(local_identity, str) or not local_identity or len(local_identity) > 256:
             raise DeploymentControlError("Server certificate identity is required")
         self.coordinator = coordinator
@@ -494,6 +496,74 @@ class DeploymentControlServer:
             pass
         return self.collect_results(timeout=result_timeout)
 
+    def run_multicast_restore_job(
+        self,
+        repository: str,
+        manifest_path: str,
+        *,
+        trusted_public_key: str,
+        udpcast_config: UDPcastConfig,
+        result_timeout: float = 86400,
+    ) -> dict[str, str]:
+        """Restore one signed image to all enrolled READY Clients over UDPcast."""
+        job = self.coordinator.job
+        if job.transport != "multicast" or job.operation != "restore":
+            raise DeploymentControlError("multicast runtime supports restore jobs only")
+        if (udpcast_config.interface != job.network_interface
+                or udpcast_config.data_group != job.multicast_group
+                or udpcast_config.portbase != job.multicast_port):
+            raise DeploymentControlError("UDPcast configuration does not match the authenticated job")
+        clients = self.coordinator.clients()
+        if (len(clients) != len(job.authorized_clients)
+                or {item.mac_address for item in clients} != set(job.authorized_clients)
+                or any(item.state is not ClientState.READY for item in clients)):
+            raise DeploymentControlError("every authorized Client must be authenticated and READY before multicast arming")
+        if udpcast_config.min_receivers != len(clients):
+            raise DeploymentControlError("UDPcast receiver threshold must equal the enrolled READY Client count")
+        signature_path = manifest_path + ".minisig"
+        try:
+            verify_manifest_signature(manifest_path, trusted_public_key)
+            with open(manifest_path, "rb") as stream:
+                manifest_bytes = stream.read(8 * 1024 + 1)
+            with open(signature_path, "rb") as stream:
+                signature_bytes = stream.read(2048 + 1)
+            if len(manifest_bytes) > 8 * 1024 or len(signature_bytes) > 2048:
+                raise DeploymentControlError("signed manifest exceeds the multicast control-plane size limit")
+            manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
+        except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError) as exc:
+            raise DeploymentControlError(f"cannot verify multicast image manifest: {exc}") from exc
+        if manifest.image_id != job.image_id:
+            raise DeploymentControlError("signed manifest image identifier does not match the multicast job")
+        expected_macs = tuple(sorted(job.authorized_clients))
+        started = self.arm_and_start()
+        if tuple(sorted(started)) != expected_macs:
+            raise DeploymentControlError("not every authorized Client accepted the multicast START")
+        offer = {
+            "type": "transfer_offer",
+            "job_id": job.job_id,
+            "image_id": job.image_id,
+            "manifest_b64": base64.b64encode(manifest_bytes).decode("ascii"),
+            "signature_b64": base64.b64encode(signature_bytes).decode("ascii"),
+        }
+        with self._lock:
+            sessions = tuple((mac, self._sessions.get(mac)) for mac in expected_macs)
+        try:
+            for mac, tls_socket in sessions:
+                if tls_socket is None:
+                    raise DeploymentControlError(f"Client {mac} lost its authenticated control session")
+                send_control_message(tls_socket, offer)
+            for artifact in manifest.artifacts:
+                source_path = os.path.join(repository, artifact.filename)
+                send_multicast_artifact(
+                    self.coordinator, source_path, manifest_path,
+                    trusted_public_key, udpcast_config, firewall=self.firewall,
+                )
+        except (OSError, DeploymentControlError, UDPcastError, ImageSecurityError) as exc:
+            for mac, _tls_socket in sessions:
+                self._record_transfer_failure(mac, f"multicast restore failed: {exc}")
+            raise DeploymentControlError(f"multicast restore transfer failed: {exc}") from exc
+        return self.collect_results(timeout=result_timeout)
+
     def collect_results(self, *, timeout: float = 86400) -> dict[str, str]:
         results: dict[str, str] = {}
         with self._lock:
@@ -587,8 +657,8 @@ def join_deployment(
             job = DeploymentJob.from_dict(offer["job"])
         except (JobValidationError, TypeError) as exc:
             raise DeploymentControlError(f"server supplied an invalid deployment job: {exc}") from exc
-        if job.transport != "unicast":
-            raise DeploymentControlError("Client currently supports authenticated unicast jobs only")
+        if job.transport == "multicast" and job.operation != "restore":
+            raise DeploymentControlError("multicast Client jobs currently support restore only")
         if job.job_id != job_id or not job.authorizes_client(mac_address):
             raise DeploymentControlError("job does not authorize this client identity")
         approval = prepare_local_target(job)
