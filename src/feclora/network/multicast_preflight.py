@@ -60,11 +60,11 @@ def inspect_multicast_interface(
     if "UP" not in flag_set or "MULTICAST" not in flag_set:
         raise MulticastPreflightError("selected interface must be UP and support multicast")
     address_output = query([ip, "-o", "-4", "addr", "show", "dev", interface], "IPv4 interface inspection")
-    ipv4 = re.search(r"\\binet\\s+([0-9.]+)/[0-9]+", address_output)
+    ipv4 = re.search(r"\binet\s+([0-9.]+)/[0-9]+", address_output)
     if not ipv4:
         raise MulticastPreflightError("selected multicast interface has no IPv4 address")
     route_output = query([ip, "-4", "route", "get", str(address)], "multicast route inspection")
-    route = re.search(r"\\bdev\\s+(\\S+)", route_output)
+    route = re.search(r"\\bdev\\s+(\S+)", route_output)
     if not route:
         raise MulticastPreflightError("kernel did not select a route for the multicast group")
     if route.group(1) != interface:
