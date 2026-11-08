@@ -20,7 +20,7 @@ class FirewallTests(unittest.TestCase):
             if args == ["--get-default-zone"]:
                 return subprocess.CompletedProcess(argv, 0, "public\n", "")
             if args and args[0].startswith("--zone=work") and args[1] == "--list-interfaces":
-                return subprocess.CompletedProcess(argv, 0, "enp1s0 enp2s0\n", "")
+                return subprocess.CompletedProcess(argv, 0, ("enp1s0 enp2s0" if current["enp1s0"] == "work" else "enp2s0") + "\n", "")
             if args and args[0].startswith("--new-zone="):
                 zones.add(args[0].split("=", 1)[1])
                 return subprocess.CompletedProcess(argv, 0, "", "")
