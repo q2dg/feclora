@@ -9,7 +9,7 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from feclora.deployment.control import (
     DeploymentControlError,
@@ -252,7 +252,7 @@ class CoordinatorControlTests(unittest.TestCase):
         context.minimum_version = ssl.TLSVersion.TLSv1_3
         context.maximum_version = ssl.TLSVersion.TLSv1_3
         context.verify_mode = ssl.CERT_REQUIRED
-        firewall = unittest.mock.Mock()
+        firewall = Mock()
         firewall.is_open.return_value = False
         server = DeploymentControlServer(
             DeploymentCoordinator(make_job()), context,
