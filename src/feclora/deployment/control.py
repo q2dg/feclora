@@ -16,6 +16,7 @@ import threading
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
+from feclora.deployment.artifact_transfer import ImageTransferError, receive_image_set, send_image_set
 from feclora.deployment.coordinator import (
     ClientState, CoordinatorError, DeploymentCoordinator, JobState,
 )
@@ -309,6 +310,62 @@ class DeploymentControlServer:
                 tls_socket.close()
         return tuple(started)
 
+    def _running_session(self, mac_address: str, operation: str) -> Any:
+        if self.coordinator.job.operation != operation:
+            raise DeploymentControlError(f"job operation must be {operation!r}")
+        record = next(
+            (item for item in self.coordinator.clients() if item.mac_address == mac_address.lower()),
+            None,
+        )
+        if record is None or record.state is not ClientState.RUNNING:
+            raise DeploymentControlError("client must be authenticated, READY and STARTed before image transfer")
+        with self._lock:
+            tls_socket = self._sessions.get(mac_address.lower())
+        if tls_socket is None:
+            raise DeploymentControlError("client has no active authenticated control session")
+        return tls_socket
+
+    def send_restore_image(
+        self,
+        mac_address: str,
+        repository: str,
+        manifest_path: str,
+        *,
+        trusted_public_key: str,
+    ) -> ImageManifest:
+        """Send the job's signed image set to one authenticated running restore client."""
+        tls_socket = self._running_session(mac_address, "restore")
+        try:
+            return send_image_set(
+                tls_socket, repository, manifest_path,
+                expected_image_id=self.coordinator.job.image_id,
+                trusted_public_key=trusted_public_key,
+            )
+        except ImageTransferError:
+            raise
+        except OSError as exc:
+            raise DeploymentControlError(f"restore image transfer failed: {exc}") from exc
+
+    def receive_saved_image(
+        self,
+        mac_address: str,
+        repository: str,
+        *,
+        trusted_public_key: str,
+    ) -> str:
+        """Receive a signed image set from one authenticated running save client."""
+        tls_socket = self._running_session(mac_address, "save")
+        try:
+            return receive_image_set(
+                tls_socket, repository,
+                expected_image_id=self.coordinator.job.image_id,
+                trusted_public_key=trusted_public_key,
+            )
+        except ImageTransferError:
+            raise
+        except OSError as exc:
+            raise DeploymentControlError(f"saved image transfer failed: {exc}") from exc
+
     def collect_results(self, *, timeout: float = 3600) -> dict[str, str]:
         results: dict[str, str] = {}
         with self._lock:
@@ -365,7 +422,7 @@ def join_deployment(
     mac_address: str,
     job_id: str,
     prepare_local_target: Callable[[DeploymentJob], str],
-    execute_job: Callable[[DeploymentJob], tuple[bool, str]],
+    execute_job: Callable[[DeploymentJob, Any], tuple[bool, str]],
     timeout: float = 120,
 ) -> tuple[DeploymentJob, bool, str]:
     """Authenticate, receive a job, obtain local target approval, then execute on START."""
@@ -418,7 +475,7 @@ def join_deployment(
         if start.get("operation") != job.operation or start.get("image_id") != job.image_id:
             raise DeploymentControlError("server start command does not match the authorized job")
         try:
-            success, detail = execute_job(job)
+            success, detail = execute_job(job, tls_socket)
         except Exception as exc:
             success, detail = False, str(exc)
         if not isinstance(success, bool) or not isinstance(detail, str):
