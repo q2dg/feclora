@@ -41,7 +41,7 @@ restore workflow has completed and recorded its per-client result.
 - The sender does not use UDPcast `--autostart`; its process starts only after
   the deployment coordinator is armed. `--nokbd` is used because Feclora owns
   the explicit start gate.
-- The default bitrate is capped at 100 Mbit/s and FEC is optional.
+- The default bitrate is 100 Mbit/s, with a hard configuration ceiling of 10 Gbit/s; FEC is optional.
 - A firewalld manager is mandatory. If the PXE zone is already active in the same
   manager, the adapter temporarily adds only these UDP ports and removes them
   afterwards, preserving DHCP/TFTP/HTTP rules. Otherwise it creates a temporary
