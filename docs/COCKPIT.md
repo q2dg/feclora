@@ -84,8 +84,10 @@ services, alter firewall rules or persist a network profile.
 The Server **Remote jobs** tab now provides the persistent deployment
 lifecycle for supported jobs. Cockpit can start a non-boot-enabled
 `feclora-deployment@<UUID>.service`, inspect its mTLS listener and live
-per-Client READY/running/terminal states, explicitly arm a job after every
-authorized Client is READY, cancel only before arming, and stop the service
+per-Client READY/running/terminal states, byte progress and sampled
+throughput reported over each authenticated TLS control session, explicitly
+arm a job after every authorized Client is READY, cancel only before arming,
+and stop the service
 when it is not performing storage I/O. The service uses the existing
 coordinator, hash-chained journal, TLS control protocol and transfer engines;
 the local IPC socket accepts root peers only and validates the exact job UUID
