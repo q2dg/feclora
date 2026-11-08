@@ -142,6 +142,21 @@ class WebAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "complete PXE profile"):
             dispatch({"action": "validate_pxe_profile", "params": {"mode": "proxy"}})
 
+    def test_deployment_jobs_action_is_read_only(self):
+        expected = [{"job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479"}]
+        with patch("feclora.webapi._deployment_jobs", return_value=expected):
+            self.assertEqual(dispatch({"action": "deployment_jobs"}), {"jobs": expected})
+        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
+            dispatch({"action": "deployment_jobs", "params": {"x": 1}})
+
+    def test_create_deployment_job_requires_exact_job_envelope(self):
+        with self.assertRaisesRegex(WebAPIError, "exactly one job object"):
+            dispatch({"action": "create_deployment_job", "params": {"job": {}, "extra": True}})
+
+    def test_create_deployment_job_validates_job_before_server_configuration(self):
+        with self.assertRaisesRegex(WebAPIError, "job_id must be a UUID"):
+            dispatch({"action": "create_deployment_job", "params": {"job": {}}})
+
     def test_device_paths_are_restricted_to_dev_nodes(self):
         self.assertEqual(_device("/dev/nvme0n1p2", "target"), "/dev/nvme0n1p2")
         for invalid in ("/etc/passwd", "/dev/../etc/shadow", "sda", "/dev/sda;id"):
