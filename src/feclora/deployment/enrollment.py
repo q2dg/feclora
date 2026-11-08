@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 from typing import Any
 
-from feclora.deployment.runtime_config import (
+from feclora.deployment.managed_pki import remove_age_recipient\nfrom feclora.deployment.runtime_config import (
     load_server_runtime_config,
 )
 
@@ -154,6 +154,7 @@ def enroll_client_certificate(
         raise EnrollmentError("certificate identity is already enrolled for a different MAC")
     # Re-enrolling the same MAC rotates its certificate identity atomically.
     for old_identity in existing_for_mac:
+        remove_age_recipient(os.path.dirname(config["ca_file"]), old_identity)
         del identities[old_identity]
     identities[identity] = mac
     keys.pop(mac, None)
@@ -173,6 +174,7 @@ def revoke_client_certificate(config_path: str, identity: str, *, confirmation: 
         raise EnrollmentError("Client certificate identity is not enrolled")
     if confirmation != f"REVOKE {identity}":
         raise EnrollmentError("revocation confirmation does not match")
+    remove_age_recipient(os.path.dirname(config["ca_file"]), identity)
     mac = config["client_identity_to_mac"].pop(identity).lower()
     config["client_minisign_public_keys"].pop(mac, None)
     _write_config_atomically(config_path, config)
