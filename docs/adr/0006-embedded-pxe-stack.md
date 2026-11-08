@@ -70,7 +70,7 @@ local subnets, and any configuration that would bind wildcard DHCP sockets.
   at image boot. They are stopped on leaving Server mode and on shutdown.
 - TFTP is restricted to a dedicated read-only boot tree; no client uploads.
 - HTTP boot content is read-only. Deployment data transport is a separate
-  authenticated protocol and is not implemented by nginx.
+  authenticated protocol and is not implemented by Caddy.
 - Firewalld rules are scoped to the selected interface and required ports.
   Do not disable the firewall.
 - DHCP/TFTP/HTTP services must bind only to the configured deployment
