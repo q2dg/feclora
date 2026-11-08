@@ -25,6 +25,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             "network_interface": "enp1s0", "transport": transport,
             "multicast_group": "239.10.10.10" if transport == "multicast" else None,
             "multicast_port": 9000 if transport == "multicast" else None,
+            "staging_required_bytes": 1024 if transport == "multicast" else None,
             "start_policy": "manual", "expected_clients": None, "start_deadline": None,
         })
 
@@ -146,6 +147,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch("feclora.deployment.client_service.os.lstat",
                             side_effect=lambda path: block_info if os.fspath(path) == DEVICE else real_lstat(path)), \
                  mock.patch("feclora.deployment.client_service.inspect_multicast_interface", return_value=preflight) as inspect, \
+                 mock.patch("feclora.deployment.client_service.shutil.disk_usage", return_value=SimpleNamespace(free=1024 * 1024 * 1024)), \
                  mock.patch("feclora.deployment.client_service.join_deployment", side_effect=fake_join), \
                  mock.patch("feclora.deployment.client_service.execute_multicast_restore",
                             return_value=(True, "multicast image restored")) as execute:
