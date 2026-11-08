@@ -164,8 +164,6 @@ def clone_partition(
     run = runner or subprocess.run
     source_size, source_sector, source_ro = _geometry(source_path, lsblk, run)
     target_size, target_sector, target_ro = _geometry(target_path, lsblk, run)
-    if source_ro and target_ro:
-        raise PartitionCloneError("both selected partitions are read-only")
     if target_ro:
         raise PartitionCloneError("target partition is marked read-only")
     if source_sector != target_sector:
