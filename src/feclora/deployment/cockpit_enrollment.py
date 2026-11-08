@@ -252,6 +252,7 @@ def inspect_client_request(params: dict[str, object]) -> dict[str, str]:
         raise CockpitEnrollmentError("Client age recipient file is malformed")
     config = load_server_runtime_config(CONFIG)
     if renewal:
+        _verify_client_csr_pin(identity, csr)
         if identity not in config.client_identity_to_mac:
             raise CockpitEnrollmentError("renewal CSR identity is not currently enrolled")
         enrolled_mac = config.client_identity_to_mac[identity]
@@ -317,6 +318,7 @@ def approve_client_csr(params: dict[str, object]) -> dict[str, object]:
             raise CockpitEnrollmentError("Client age recipient file is malformed")
         config = load_server_runtime_config(CONFIG)
         if renewal:
+            _verify_client_csr_pin(identity, csr)
             if identity not in config.client_identity_to_mac:
                 raise CockpitEnrollmentError("renewal CSR identity is not currently enrolled")
             enrolled_mac = config.client_identity_to_mac[identity]
@@ -390,8 +392,10 @@ def approve_client_csr(params: dict[str, object]) -> dict[str, object]:
             raise CockpitEnrollmentError("A stale age-recipient mapping already exists for this Client identity")
         exported_paths = list(bundle_files)
         age_registered = False
+        pin_path: Path | None = None
         try:
             issue_client_certificate(csr, certificate, pki_directory=PKI)
+            pin_path = _store_client_certificate_pin(identity, certificate)
             if minisign_file:
                 public_key_destination = os.path.join(PKI, f"client-{client_id}.minisign.pub")
                 if os.path.lexists(public_key_destination):
@@ -424,6 +428,11 @@ def approve_client_csr(params: dict[str, object]) -> dict[str, object]:
             if public_key_destination:
                 try:
                     os.unlink(public_key_destination)
+                except OSError:
+                    pass
+            if pin_path:
+                try:
+                    os.unlink(pin_path)
                 except OSError:
                     pass
             raise
