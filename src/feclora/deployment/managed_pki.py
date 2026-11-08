@@ -258,7 +258,7 @@ def inspect_client_csr(
     _run([openssl, "req", "-in", csr_path, "-noout", "-verify"], runner)
     result = _run([openssl, "req", "-in", csr_path, "-noout", "-ext", "subjectAltName"], runner)
     identities = re.findall(r"URI:(feclora-client-[a-z0-9-]{1,48})", result.stdout)
-    other_sans = re.findall(r"\\b(?:DNS|IP Address|email):", result.stdout)
+    other_sans = re.findall(r"\b(?:DNS|IP Address|email):", result.stdout)
     if len(identities) != 1 or other_sans:
         raise PKIError("CSR must contain exactly one Feclora Client URI SAN")
     client_id = identities[0][len("feclora-client-"):]
@@ -336,8 +336,10 @@ def install_client_certificate(
     destination = _root_only_directory(destination_directory)
     for path, label in ((certificate_path, "Client certificate"), (ca_path, "CA certificate"),
                         (private_key_path, "local Client private key")):
-        _regular_file(path, label)
-    if os.stat(private_key_path).st_mode & 0o077:\n        raise PKIError("local Client private key must not be accessible by group or other users")\n    actual_fingerprint = ca_fingerprint(ca_path, runner=runner, openssl=openssl)
+        _regular_file(path, label, root_owned=(path == private_key_path))
+    if os.stat(private_key_path).st_mode & 0o077:
+        raise PKIError("local Client private key must not be accessible by group or other users")
+    actual_fingerprint = ca_fingerprint(ca_path, runner=runner, openssl=openssl)
     if actual_fingerprint != expected_fingerprint.replace(":", "").lower():
         raise PKIError("CA fingerprint does not match the fingerprint verified from the Server")
     _run([openssl, "verify", "-purpose", "sslclient", "-CAfile", ca_path, certificate_path], runner)
