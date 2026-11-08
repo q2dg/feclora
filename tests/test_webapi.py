@@ -212,10 +212,22 @@ class WebAPITests(unittest.TestCase):
             "interrupted": False,
         })
         with tempfile.TemporaryDirectory() as directory, patch(
+            "feclora.webapi._active_deployment_service_status", return_value=None
+        ), patch(
             "feclora.webapi._deployment_journal_directory", return_value=Path(directory)
         ), patch("feclora.deployment.journal.DeploymentJournal.inspect", return_value=journal):
             with self.assertRaisesRegex(WebAPIError, "cannot start multicast jobs"):
                 dispatch({"action": "start_deployment_service", "params": {"job_id": job_id}})
+
+    def test_start_deployment_service_reconnects_to_active_job_without_revalidating_freshness(self):
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        status = {"job_id": job_id, "job_state": "running", "worker_active": True}
+        with patch("feclora.webapi._active_deployment_service_status", return_value=status), patch(
+            "feclora.webapi.subprocess.run"
+        ) as run:
+            result = dispatch({"action": "start_deployment_service", "params": {"job_id": job_id}})
+        self.assertEqual(result, status)
+        run.assert_not_called()
 
     def test_create_deployment_job_rejects_multicast_until_client_receiver_exists(self):
         payload = {
