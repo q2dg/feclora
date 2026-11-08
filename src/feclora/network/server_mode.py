@@ -186,7 +186,7 @@ def run_server_ui(
     summary = (
         f"Interface: {config.interface}\nAddress: {config.address}/{config.prefix_length}\n"
         f"DHCP mode: {config.mode}\nTFTP: {config.tftp_root}\n"
-        f"HTTP: http://{config.address}:{config.http_port}{config.http_root}\n\n"
+        f"HTTP URL: http://{config.address}:{config.http_port}\nHTTP root: {config.http_root}\n\n"
         "This starts DHCP/PXE/TFTP and HTTP boot services and opens only the required "
         "ports in this interface's firewalld zone. The current boot payload starts "
         "Feclora Live; authenticated deployment jobs and Client mode are not yet wired."
