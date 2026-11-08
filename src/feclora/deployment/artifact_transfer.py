@@ -83,6 +83,7 @@ def send_image_set(
     repository: str | os.PathLike[str],
     manifest_path: str | os.PathLike[str],
     *,
+    expected_image_id: str,
     trusted_public_key: str | os.PathLike[str],
 ) -> ImageManifest:
     """Verify and send one complete signed image set to an authenticated peer."""
@@ -105,6 +106,8 @@ def send_image_set(
             manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
         except (UnicodeError, ManifestValidationError) as exc:
             raise ImageTransferError(f"invalid image manifest: {exc}") from exc
+        if manifest.image_id != expected_image_id:
+            raise ImageTransferError("source image identifier does not match the armed deployment job")
         if len(manifest.artifacts) > _MAX_ARTIFACTS:
             raise ImageTransferError("image set contains too many artifacts")
         reserved_names = {manifest.image_id + ".manifest.json", manifest.image_id + ".manifest.json.minisig"}
