@@ -106,9 +106,7 @@ class WebAPITests(unittest.TestCase):
             "lease_time": "1h", "gateway": None, "dns_server": None,
             "http_port": 8080, "authoritative_confirmed": False,
         }
-        with patch("feclora.network.pxe_preflight.validate_pxe_configuration"), \\
-             patch("feclora.network.interface_discovery.detect_existing_dhcp_server", return_value=None), \\
-             patch("feclora.network.pxe_service.PXEServiceManager", return_value=manager):
+        with patch("feclora.network.pxe_preflight.validate_pxe_configuration"), patch("feclora.network.interface_discovery.detect_existing_dhcp_server", return_value=None), patch("feclora.network.pxe_service.PXEServiceManager", return_value=manager):
             result = dispatch({"action": "start_pxe_services", "params": params})
         self.assertTrue(result["active"])
         self.assertEqual(len(manager.started), 1)
