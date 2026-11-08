@@ -13,6 +13,17 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build Cockpit React frontend
+        working-directory: webui
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/index.html
+          test -s dist/manifest.json
       - name: Install ShellCheck
         run: |
           sudo apt-get update
