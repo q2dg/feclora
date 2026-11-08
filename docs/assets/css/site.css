@@ -21,7 +21,7 @@
 }
 html { scroll-behavior: smooth; }
 body { background: var(--page); color: var(--ink); }
-.site-header, .site-footer:not(.landing .site-footer), .post-list-heading { display: none; }
+.site-header, .site-footer, .post-list-heading { display: none; }
 .page-content { padding: 0; }
 .wrapper { max-width: none; padding: 0; }
 .landing { max-width: 980px; margin: 0 auto; padding: 48px 28px 24px; }
@@ -48,13 +48,13 @@ body { background: var(--page); color: var(--ink); }
 .links li { border-bottom: 1px solid var(--line); padding: 15px 0; }
 .links a { color: var(--ink); text-decoration: none; }
 .links a:hover, .text-link:hover { text-decoration: underline; }
-.landing .site-footer { display: flex; justify-content: space-between; gap: 16px; padding: 26px 0 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: .85rem; }
-.landing .site-footer a { color: var(--ink); text-decoration: none; }
+.landing-footer { display: flex; justify-content: space-between; gap: 16px; padding: 26px 0 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: .85rem; }
+.landing-footer a { color: var(--ink); text-decoration: none; }
 @media (max-width: 680px) {
   .landing { padding: 20px 20px 16px; }
   .hero { padding: 76px 0 70px; }
   .feature-grid, .links ul { grid-template-columns: 1fr; }
   .status { display: block; padding: 26px; }
   .status .text-link { display: inline-block; margin-top: 22px; }
-  .landing .site-footer { flex-direction: column; }
+  .landing-footer { flex-direction: column; }
 }
