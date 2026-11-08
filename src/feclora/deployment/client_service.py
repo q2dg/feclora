@@ -47,7 +47,7 @@ def _job_paths(job_id: str) -> tuple[Path, Path, Path]:
     return (
         CLIENT_JOB_DIRECTORY / f"{job_id}.request.json",
         CLIENT_JOB_DIRECTORY / f"{job_id}.status.json",
-        CLIENT_JOB_DIRECTORY / f"{job_id}.lock",
+        CLIENT_JOB_DIRECTORY / "active.lock",
     )
 
 
