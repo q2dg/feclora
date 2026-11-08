@@ -67,11 +67,19 @@ key prevents future signatures with the same identity.
 
 The Cockpit application currently exposes local imaging operations, storage
 inventory, image inventory, deployment journal summaries and system status.
-The remote Server/Client provisioning and complete PXE deployment lifecycle
-still require web workflows; existing dialog-based Server/Client UI modules
-are not the primary supported operator path. Multicast partition restore is
-supported by the runtime but still requires complete Cockpit job orchestration
-and live per-client progress reporting.
+Cockpit now includes an initial Server identity bootstrap step. It discovers
+active IPv4 interface addresses, warns when NetworkManager reports an existing
+DHCP server, verifies the selected address is still assigned to the interface,
+and initializes or validates the managed CA, mTLS Server identity, age
+recipient and minisign signing material without enabling DHCP/PXE services.
+
+The rest of Server/Client provisioning and the complete PXE deployment
+lifecycle still require web workflows: network mode and address-pool setup,
+PXE service activation, CSR approval and Client enrollment, job creation and
+control, and live per-client progress. The old dialog-based modules are
+migration-era code and are not part of the supported Cockpit workflow.
+Multicast partition restore is supported by the runtime but still requires
+complete Cockpit job orchestration and live per-client progress reporting.
 
 No ISO build, hardware restore, PXE boot or multi-machine laboratory test is
 claimed by the source-level checks.
