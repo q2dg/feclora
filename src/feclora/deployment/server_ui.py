@@ -284,7 +284,7 @@ def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> Non
     client_id = identity.removeprefix("URI:feclora-client-")
     certificate = os.path.join(output_directory, f"feclora-{client_id}.crt")
     for destination in (certificate, os.path.join(output_directory, "ca.crt"),
-                       os.path.join(output_directory, "server.pub")):
+                       os.path.join(output_directory, "server.pub"), os.path.join(output_directory, "age-recipients.txt")):
         if os.path.lexists(destination):
             raise PKIError("enrollment response file already exists; choose an empty destination directory")
     confirmation = dialog_app._input(
@@ -296,8 +296,35 @@ def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> Non
     if os.path.realpath(config.ca_file) != os.path.realpath("/etc/feclora/pki/ca.crt"):
         raise PKIError("CSR signing is enabled only for the Feclora-managed CA; use external certificate import for an organization PKI")
     issued = issue_client_certificate(csr, certificate, pki_directory=os.path.dirname(config.ca_file))
+    pki_directory = os.path.dirname(config.ca_file)
+    recipient_candidates = [
+        os.path.join(os.path.dirname(csr), f"feclora-{client_id}.age-recipient"),
+        os.path.join(os.path.dirname(csr), f"feclora-{client_id}-renewal.age-recipient"),
+    ]
+    recipient_file = next((path for path in recipient_candidates if os.path.isfile(path)), None)
+    if recipient_file is None:
+        raise PKIError("Client CSR bundle is missing its age public recipient; prepare enrollment with the current Feclora Client")
+    recipient = Path(recipient_file).read_text(encoding="ascii").strip()
+    if not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
+        raise PKIError("Client age public recipient is malformed")
+    recipients_path = os.path.join(pki_directory, "age-recipients.txt")
+    existing_recipients = []
+    if os.path.exists(recipients_path):
+        existing_recipients = [
+            line.strip() for line in Path(recipients_path).read_text(encoding="ascii").splitlines()
+            if line.strip()
+        ]
+    recipients = sorted(set(existing_recipients + [recipient]))
+    temporary_recipients = recipients_path + ".tmp"
+    with open(temporary_recipients, "x", encoding="ascii") as stream:
+        stream.write("\n".join(recipients) + "\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.chmod(temporary_recipients, 0o600)
+    os.replace(temporary_recipients, recipients_path)
     shutil.copyfile(config.ca_file, os.path.join(output_directory, "ca.crt"))
     shutil.copyfile(config.server_minisign_public_key, os.path.join(output_directory, "server.pub"))
+    shutil.copyfile(recipients_path, os.path.join(output_directory, "age-recipients.txt"))
     os.chmod(certificate, 0o644)
     os.chmod(os.path.join(output_directory, "ca.crt"), 0o644)
     os.chmod(os.path.join(output_directory, "server.pub"), 0o644)
