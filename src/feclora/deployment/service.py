@@ -120,8 +120,21 @@ def recover_stale_firewall_state(*, lock_held: bool = False) -> None:
                     raise DeploymentServiceError("owned firewall zone cannot also declare separately added rules")
                 recovery.close(value["interface"])
             else:
-                recovery.remove_ports(value["interface"], value["added_ports"])
-                recovery.remove_protocols(value["interface"], value["added_protocols"])
+                zone = value["firewall"]["zone"]
+                current_ports = recovery._call([f"--zone={zone}", "--list-ports"], check=False)
+                current_protocols = recovery._call([f"--zone={zone}", "--list-protocols"], check=False)
+                if current_ports.returncode != 0 or current_protocols.returncode != 0:
+                    raise DeploymentServiceError("cannot inspect current firewall rules for crash recovery")
+                present_ports = set(current_ports.stdout.split())
+                present_protocols = set(current_protocols.stdout.split())
+                recovery.remove_ports(
+                    value["interface"],
+                    [port for port in value["added_ports"] if port in present_ports],
+                )
+                recovery.remove_protocols(
+                    value["interface"],
+                    [protocol for protocol in value["added_protocols"] if protocol in present_protocols],
+                )
         except Exception as exc:
             raise DeploymentServiceError(f"cannot safely restore stale deployment firewall state: {exc}") from exc
         current = os.lstat(FIREWALL_STATE)
