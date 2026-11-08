@@ -501,7 +501,7 @@ export default function App() {
                       <option value="disk">Whole disk</option><option value="partition">Partition</option>
                     </select>
                   </Field>}
-                  <Field label="Enrolled Client MAC addresses" help="Separate multiple unicast MAC addresses with spaces, commas or semicolons. Server verifies each is enrolled.">
+                  <Field label="Enrolled Client MAC addresses" help="Enter exactly one MAC for unicast, or at least two for multicast restore. Server verifies each is enrolled.">
                     <textarea className="pf-v5-c-form-control" rows={3} value={remoteClients} onChange={(e) => setRemoteClients(e.target.value)} required placeholder="52:54:00:12:34:56" />
                   </Field>
                   <Field label="Server network interface">
