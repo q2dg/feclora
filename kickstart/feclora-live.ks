@@ -27,10 +27,10 @@ psmisc
 NetworkManager
 
 # Embedded Server-mode PXE stack; services remain disabled until explicitly selected
-# dnsmasq provides DHCP/ProxyDHCP, PXE and read-only TFTP; nginx serves HTTP boot assets
+# dnsmasq provides DHCP/ProxyDHCP, PXE and read-only TFTP; Caddy serves HTTP boot assets
 dnsmasq
 ipxe-bootimgs-x86
-nginx
+caddy
 
 # Required live-media boot components
 dracut-config-generic
