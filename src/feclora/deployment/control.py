@@ -471,6 +471,8 @@ class DeploymentControlServer:
         result_timeout: float = 86400,
     ) -> dict[str, str]:
         """Arm and run one authenticated unicast save/restore job end to end."""
+        if self.coordinator.job.transport != "unicast":
+            raise DeploymentControlError("run_one_client_job only accepts unicast jobs")
         clients = self.coordinator.clients()
         if len(clients) != 1 or clients[0].state is not ClientState.READY:
             raise DeploymentControlError("initial unicast runtime requires exactly one authenticated READY client")
