@@ -41,6 +41,36 @@ def _media_file(value: object, label: str, *, optional: bool = False) -> str | N
     return str(path)
 
 
+
+def inspect_client_request(params: dict[str, object]) -> dict[str, str]:
+    required = {"csr_path", "age_recipient_path", "mac_address"}
+    optional = {"minisign_public_path"}
+    if set(params) - required - optional or not required.issubset(params):
+        raise CockpitEnrollmentError("inspect_client_csr requires CSR, age recipient and MAC")
+    csr = _media_file(params["csr_path"], "Client CSR")
+    age_file = _media_file(params["age_recipient_path"], "Client age recipient")
+    _media_file(params.get("minisign_public_path"), "Client minisign public key", optional=True)
+    assert csr is not None and age_file is not None
+    mac = params["mac_address"]
+    if not isinstance(mac, str) or not re.fullmatch(r"(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}", mac):
+        raise CockpitEnrollmentError("Client MAC address must be six hexadecimal octets")
+    identity = inspect_client_csr(csr)
+    recipient = Path(age_file).read_text(encoding="ascii").strip()
+    if not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
+        raise CockpitEnrollmentError("Client age recipient file is malformed")
+    config = load_server_runtime_config(CONFIG)
+    if identity in config.client_identity_to_mac:
+        raise CockpitEnrollmentError("Client identity is already enrolled")
+    if any(existing_mac.lower() == mac.lower() for existing_mac in config.client_identity_to_mac.values()):
+        raise CockpitEnrollmentError("MAC address is already assigned to another enrolled Client")
+    return {
+        "identity": identity,
+        "mac_address": mac.lower(),
+        "confirmation_phrase": f"ENROLL {identity} {mac.lower()}",
+        "image_capture_enabled": str(bool(params.get("minisign_public_path"))).lower(),
+    }
+
+
 def approve_client_csr(params: dict[str, object]) -> dict[str, object]:
     required = {"csr_path", "age_recipient_path", "mac_address", "confirmation"}
     optional = {"minisign_public_path"}
