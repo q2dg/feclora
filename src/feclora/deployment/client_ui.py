@@ -89,6 +89,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 local_minisign_secret_key=config.local_minisign_secret_key,
                 local_minisign_public_key=config.local_minisign_public_key,
                 age_identity_file=config.age_identity_file,
+                age_recipients_file=config.age_recipients_file,
                 compression=compression,
                 compression_level=level,
                 progress_callback=progress,
