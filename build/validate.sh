@@ -186,6 +186,12 @@ fi
 if ! grep -q 'ExecStopPost=.*--mark-interrupted' "$ROOT_DIR/src/feclora/data/feclora-client@.service"; then
   fail "Client service unit does not mark interrupted work without resuming it."
 fi
+if ! grep -q 'TimeoutStopSec=infinity' "$ROOT_DIR/src/feclora/data/feclora-client@.service"; then
+  fail "Client service must not time out and kill a block-device operation during shutdown."
+fi
+if ! grep -q 'test_orderly_signal_does_not_interrupt_active_block_device_io' "$ROOT_DIR/tests/test_client_service.py"; then
+  fail "Client service shutdown safety regression test is missing."
+fi
 if ! grep -q '^Environment=PYTHONPATH=/usr/share/feclora/pythonif ! grep -q 'inspect_remote_job|start_client_job|client_job_status' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Kickstart Cockpit wrapper does not allow Client job lifecycle actions."
 fi
