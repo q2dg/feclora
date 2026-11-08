@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from feclora.deployment.cockpit_client import (
     CockpitEnrollmentError, prepare_client_request, complete_client_enrollment, refresh_client_age_recipients,
+    prepare_client_renewal,
 )
 
 
@@ -29,6 +30,32 @@ class CockpitClientTests(unittest.TestCase):
         self.assertEqual(result["identity"], "URI:feclora-client-lab-01")
         self.assertIsNone(result["minisign_public_file"])
         self.assertEqual(result["private_key_stays_local"], "/etc/feclora/pki/client-lab-01.key")
+
+    def test_prepare_client_renewal_reuses_existing_tls_key_and_exports_only_public_material(self):
+        config = SimpleNamespace(
+            local_identity="URI:feclora-client-lab-01",
+            private_key_file="/etc/feclora/pki/client.key",
+            local_minisign_public_key=None,
+            age_identity_file="/etc/feclora/pki/client-lab-01.age",
+        )
+        with patch("feclora.deployment.cockpit_client.load_client_runtime_config", return_value=config), patch(
+            "feclora.deployment.cockpit_client._mounted_media_directory", return_value="/run/media/test/USB"
+        ), patch("feclora.deployment.cockpit_client.os.lstat", return_value=SimpleNamespace(
+            st_mode=stat.S_IFREG | 0o600, st_uid=0
+        )), patch("feclora.deployment.cockpit_client.os.path.lexists", return_value=True), patch(
+            "feclora.deployment.cockpit_client.subprocess.run", return_value=SimpleNamespace(
+                returncode=0, stdout=b"same-public-key"
+            )
+        ), patch("feclora.deployment.cockpit_client.create_client_csr", return_value=(
+            "URI:feclora-client-lab-01", config.private_key_file,
+            "/run/media/test/USB/feclora-lab-01-renewal.csr",
+        )) as create:
+            result = prepare_client_renewal({"export_directory": "/run/media/test/USB"})
+        create.assert_called_once_with(
+            "/etc/feclora/pki", "/run/media/test/USB", "lab-01", reuse_existing_key=True,
+        )
+        self.assertEqual(result["identity"], config.local_identity)
+        self.assertIsNone(result["minisign_public_file"])
 
     def test_prepare_rejects_invalid_client_identifier(self):
         with self.assertRaisesRegex(CockpitEnrollmentError, "identifier"):
