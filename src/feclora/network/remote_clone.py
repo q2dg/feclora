@@ -452,10 +452,18 @@ def _receive_remote_disk_impl(
             except (OSError, subprocess.SubprocessError) as exc:
                 raise RemoteDiskCloneError(f"cannot identify copied partition table: {exc}") from exc
             if table == "gpt":
+                # GPT relocation is a second destructive metadata write after
+                # the raw clone. Recheck the selected block-device identity and
+                # ensure the kernel has not mounted/claimed any copied volume
+                # before touching the partition table.
+                _revalidate_device(target, identity, validator)
+                _check_safe(target, safety)
                 sgdisk = _resolve(available, "sgdisk")
                 try:
                     command = privileged_argv([sgdisk, "-e", target], effective_uid=effective_uid)
                     subprocess.run(command, check=True, capture_output=True, text=True, timeout=60)
+                    _revalidate_device(target, identity, validator)
+                    _check_safe(target, safety)
                     verify = privileged_argv([sgdisk, "-v", target], effective_uid=effective_uid)
                     subprocess.run(verify, check=True, capture_output=True, text=True, timeout=60)
                 except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
