@@ -64,16 +64,7 @@ def list_connection_profiles(
     if not nmcli:
         raise NetworkProfileError("NetworkManager (nmcli) is required")
     fields = "NAME,UUID,TYPE,DEVICE,ACTIVE,connection.autoconnect,IP4.METHOD,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS"
-    try:
-        result = runner(
-            [nmcli, "--terse", "--escape", "yes", "--get-values", fields, "connection", "show"],
-            stdin=subprocess.DEVNULL, capture_output=True, text=True,
-            check=True, timeout=10,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise NetworkProfileError(f"cannot inspect NetworkManager profiles: {exc}") from exc
-    # nmcli's terse output is delimiter-based and ambiguous for escaped values;
-    # request JSON through its supported --mode=json output instead.
+    # JSON output avoids delimiter ambiguity in connection names and addresses.
     try:
         result = runner(
             [nmcli, "--mode", "json", "--fields", fields, "connection", "show"],
