@@ -111,7 +111,7 @@ class CredentialStore:
         try:
             info = os.fstat(fd)
             if (not stat.S_ISREG(info.st_mode) or info.st_uid != self.owner_uid or info.st_nlink != 1
-                    or info.st_mode & 0o077 or stat.S_IMODE(info.st_mode) != _MODES[kind]):
+                    or stat.S_IMODE(info.st_mode) != _MODES[kind]):
                 raise CredentialStoreError("existing credential has unsafe ownership, links or permissions")
         finally:
             os.close(fd)
