@@ -127,7 +127,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         thread.start()
         return thread
 
-    def _receive(self, sock, *, geometry, process_factory, target_path="/dev/target", executables=None):
+    def _receive(self, sock, *, geometry, process_factory, target_path="/dev/target", executables=None, safety_check=None):
         with tempfile.TemporaryDirectory() as directory:
             log_path = os.path.join(directory, "operations.jsonl")
             result = receive_remote_disk(
@@ -141,7 +141,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                 device_validator=lambda _path: True,
                 runner=lambda *args, **kwargs: None,
                 popen_factory=process_factory,
-                safety_check=lambda _path: None,
+                safety_check=safety_check or (lambda _path: None),
                 effective_uid=lambda: 0,
             )
             with open(log_path, encoding="utf-8") as journal:
@@ -325,6 +325,44 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         self.assertEqual(commands[0], ["/usr/bin/blkid", "-p", "-s", "PTTYPE", "-o", "value", "/dev/target"])
         self.assertEqual(commands[1][-2:], ["-e", "/dev/target"])
         self.assertEqual(commands[2][-2:], ["-v", "/dev/target"])
+
+    def test_larger_gpt_target_is_rechecked_for_safety_before_relocation(self):
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
+        source = self._start_source(left)
+        digest = hashlib.sha256(self.payload).hexdigest()
+        safety_checks = []
+        commands = []
+
+        def safety(path):
+            safety_checks.append(path)
+            if len(safety_checks) == 4:
+                raise RuntimeError("copied target became mounted")
+
+        def run(command, **kwargs):
+            commands.append(command)
+            return type("Result", (), {"stdout": "gpt\\n", "returncode": 0})()
+
+        with patch("feclora.network.remote_clone._geometry",
+                   return_value=(len(self.payload) + 1024 * 1024, 512, False, "gpt")), \\
+             patch("feclora.network.remote_clone._readback_digest", return_value=digest), \\
+             patch("feclora.network.remote_clone.subprocess.run", side_effect=run):
+            with self.assertRaisesRegex(RemoteDiskCloneError, "copied target became mounted"):
+                self._receive(
+                    right, geometry=None,
+                    process_factory=lambda *a, **k: FakeProcess(**k),
+                    safety_check=safety,
+                    executables={
+                        "lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd",
+                        "blkid": "/usr/bin/blkid", "sgdisk": "/usr/bin/sgdisk",
+                    },
+                )
+        source.join(timeout=5)
+        self.assertFalse(source.is_alive())
+        self.assertEqual(len(safety_checks), 4)
+        self.assertEqual(commands[0][0], "/usr/bin/blkid")
+        self.assertFalse(any(command[-2:] == ["-e", "/dev/target"] for command in commands))
 
     def test_receiver_writes_stream_and_requires_matching_readback(self):
         left, right = socket.socketpair()
