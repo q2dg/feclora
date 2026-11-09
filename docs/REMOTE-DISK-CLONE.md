@@ -61,6 +61,12 @@ Do not mark the running system disk read-only.
    `sgdisk -e` to relocate the backup GPT header to the physical end of the
    target and `sgdisk -v` to validate the table. GPT relocation occurs only
    after the original source-sized range has passed read-back verification.
+   Immediately before that metadata write, the receiver revalidates the target
+   block-device identity, repeats the mounted/in-use safety check and honors an
+   operator cancellation request. It repeats the identity and safety checks
+   after relocation before running GPT verification; if the target becomes
+   mounted or otherwise unsafe, the operation fails closed and is not reported
+   as verified.
 9. The receiver returns a terminal verification result bound to the session
    UUID, including the read-back digest. Only a successful receiver read-back
    verification is reported as success. Both endpoints persist started and
