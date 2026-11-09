@@ -84,8 +84,11 @@ Do not mark the running system disk read-only.
 - Strict maximum header and terminal-frame sizes; reject duplicate or unknown
   security-critical fields.
 - Bounded streaming (64 KiB–4 MiB chunks), exact byte counts and cancellation.
-  TLS helpers apply a 15-second client connection timeout and a 120-second
-  socket I/O timeout; the caller may choose stricter values.
+  TLS helpers apply a 15-second client connection deadline, polling TCP
+  connection attempts at a bounded interval so the caller's cancellation
+  callback is observed during connect, and a 120-second socket I/O timeout.
+  Cancellation is not yet interruptible during every blocked TLS handshake or
+  established-socket I/O operation.
 - SHA-256 over source/receiver stream and independent receiver read-back.
 - No path-based target acceptance alone: the receiver resolves and revalidates
   the block-device identity immediately before writing and verification.
@@ -121,7 +124,9 @@ transport. The initial runtime is in
   callback while waiting for the receiver. It restores the listener's original
   timeout after the attempt. Once connected, the same cancellation callback is
   passed into the disk sender. `connect_remote_clone()` connects as the receiver
-  and owns the TLS socket lifecycle for that session.
+  and owns the TLS socket lifecycle for that session. The receiver's TCP
+  connect phase polls cancellation between bounded connection attempts and
+  stops before TLS negotiation if cancellation is requested.
 - `src/feclora/network/tls.py` provides the client/server TLS socket wrappers.
   The caller still owns listener creation, certificate provisioning and UI
   authorization prompts. The TLS helpers apply bounded connection/I/O
