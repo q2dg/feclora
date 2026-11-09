@@ -288,6 +288,7 @@ class DeploymentService:
             client_identity_to_mac=self.config.client_identity_to_mac,
             firewall=self.firewall,
             interface=self.job.network_interface,
+            progress_event_sink=self.journal,
         )
         self.ipc = LocalControlServer(str(IPC_SOCKET), self._handle_ipc, allowed_uid=0)
         self._worker: threading.Thread | None = None
