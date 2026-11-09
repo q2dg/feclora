@@ -1,5 +1,8 @@
 import os
 import tempfile
+import tarfile
+import json
+import hashlib
 from pathlib import Path
 import unittest
 from datetime import datetime, timezone
@@ -291,6 +294,51 @@ class ManagedPKITests(unittest.TestCase):
                     rotate_server_keypair(root)
             self.assertEqual(Path(paths["server.key"]).read_bytes(), original_key)
             self.assertEqual(Path(paths["server.crt"]).read_bytes(), original_cert)
+
+    def test_encrypted_ca_backup_contains_ca_only_and_never_overwrites(self):
+        from feclora.deployment.managed_pki import backup_server_ca
+
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as export:
+            for name, value, mode in (
+                ("ca.key", "PRIVATE CA KEY", 0o600),
+                ("ca.crt", "PUBLIC CA CERT", 0o644),
+            ):
+                path = os.path.join(root, name)
+                Path(path).write_text(value, encoding="ascii")
+                os.chmod(path, mode)
+            destination = os.path.join(export, "feclora-ca-backup.tar.age")
+            seen = {}
+
+            def fake_run(argv, **kwargs):
+                self.assertEqual(argv[1:4], ["-r", "age1" + "a" * 40, "-o"])
+                archive = argv[-1]
+                with tarfile.open(archive, "r") as bundle:
+                    seen["names"] = sorted(bundle.getnames())
+                    seen["key"] = bundle.extractfile("ca.key").read()
+                    seen["manifest"] = json.load(bundle.extractfile("manifest.json"))
+                Path(argv[argv.index("-o") + 1]).write_bytes(b"AGE ENCRYPTED BACKUP")
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+            with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
+                "feclora.deployment.managed_pki.ca_fingerprint", return_value="a" * 64
+            ):
+                result = backup_server_ca(
+                    destination, "age1" + "a" * 40, pki_directory=root,
+                    runner=fake_run,
+                )
+            self.assertEqual(seen["names"], ["ca.crt", "ca.key", "manifest.json"])
+            self.assertEqual(seen["key"], b"PRIVATE CA KEY")
+            self.assertEqual(seen["manifest"]["ca_sha256_fingerprint"], "a" * 64)
+            self.assertEqual(Path(destination).read_bytes(), b"AGE ENCRYPTED BACKUP")
+            self.assertEqual(os.stat(destination).st_mode & 0o777, 0o600)
+            self.assertEqual(result["sha256"], hashlib.sha256(b"AGE ENCRYPTED BACKUP").hexdigest())
+            with self.assertRaisesRegex(PKIError, "refusing to overwrite"):
+                backup_server_ca(destination, "age1" + "a" * 40, pki_directory=root)
+
+    def test_encrypted_ca_backup_rejects_invalid_age_recipient(self):
+        from feclora.deployment.managed_pki import backup_server_ca
+        with self.assertRaisesRegex(PKIError, "valid age recipient"):
+            backup_server_ca("/tmp/backup.tar.age", "not-a-recipient")
 
     def test_certificate_expiry_uses_utc_and_returns_negative_when_expired(self):
         with tempfile.NamedTemporaryFile() as certificate:
