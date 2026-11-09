@@ -82,8 +82,7 @@ class SystemdCredentialStore:
             temporary = Path(temporary_dir) / "payload.cred"
             result = self.runner(
                 [executable, "encrypt", f"--name={name}", "--with-key=auto", "-", str(temporary)],
-                input=content, stdin=subprocess.DEVNULL if False else None,
-                capture_output=True, check=False, timeout=30,
+                input=content, capture_output=True, check=False, timeout=30,
             )
             if result.returncode != 0:
                 raise SystemdCredentialStoreError("systemd-creds could not encrypt the credential")
