@@ -32,6 +32,7 @@ The project is organized around a Cockpit-first Live environment. The remaining 
 See [docs/BUILD.md](docs/BUILD.md) for Fedora build-host prerequisites, installer ISO verification, build commands, output inspection, and BIOS/UEFI QEMU acceptance procedure. The focused [VM smoke-test checklist](tests/VM-SMOKE-TEST.md) records boot and device-discovery checks.
 
 Operational design notes:
+- [Durable local storage operations and crash recovery](docs/DURABLE-LOCAL-OPERATIONS.md)
 - [Whole-disk restore and larger-target GPT repair](docs/WHOLE-DISK-RESTORE.md)
 - [Mutually authenticated remote disk cloning](docs/REMOTE-DISK-CLONE.md)
 - [Authenticated Server/Client deployment control, signed unicast transfer and multi-client multicast restore](docs/DEPLOYMENT-CONTROL.md)
