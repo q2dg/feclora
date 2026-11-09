@@ -1008,7 +1008,7 @@ export default function App() {
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Remote image repositories</Title>
                 <p>Manage root-owned SSHFS, NFS and SMB/CIFS mounts. Credentials are referenced by protected file path; passwords and private keys are never entered into Cockpit or stored in the repository registry.</p>
-                <Alert variant="warning" title="Provider scope" isInline>Managed mount lifecycle supports SSHFS, NFS, SMB/CIFS, WebDAV and S3/rclone. Credentials must be provisioned in root-owned files before mounting.</Alert>
+                <Alert variant="warning" title="Provider scope" isInline>Managed mount lifecycle supports SSHFS, NFS, SMB/CIFS, WebDAV and S3/rclone. Credentials must be provisioned in root-owned files before mounting. S3 is read-only until Feclora has a safe object-publication protocol; use it for inventory, verification and restore, not capture.</Alert>
               </StackItem>
               <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
                 <Field label="Repository ID"><input className="pf-v5-c-form-control" value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
