@@ -337,6 +337,15 @@ class RemoteRepositoryManager:
             encrypted_paths.append(path)
         if not encrypted_paths:
             return []
+        if repo.provider == "webdav":
+            # davfs2's system-wide configuration always uses
+            # /etc/davfs2/secrets; its configurable secrets= setting is
+            # restricted to per-user configuration. Feclora mounts as root,
+            # so substituting a systemd credential path here would be ignored.
+            raise RepositoryManagerError(
+                "WebDAV encrypted credentials are not supported yet: davfs2 "
+                "uses the system-wide /etc/davfs2/secrets for root mounts"
+            )
         from feclora.storage.systemd_credential_store import SystemdCredentialStore
         try:
             inventory = SystemdCredentialStore(
