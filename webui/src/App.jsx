@@ -82,6 +82,8 @@ export default function App() {
   const [serverSetup, setServerSetup] = useState(null);
   const [serverRenewConfirmation, setServerRenewConfirmation] = useState("");
   const [serverRenewResult, setServerRenewResult] = useState(null);
+  const [serverRotateConfirmation, setServerRotateConfirmation] = useState("");
+  const [serverRotateResult, setServerRotateResult] = useState(null);
   const [clientId, setClientId] = useState("");
   const [clientExportDirectory, setClientExportDirectory] = useState("");
   const [clientImageCapture, setClientImageCapture] = useState(false);
@@ -321,6 +323,21 @@ export default function App() {
       });
       setServerRenewResult(result); setNotice(result.message);
       setServerRenewConfirmation("");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+
+  const rotateServerKeypair = async () => {
+    if (serverRotateConfirmation !== "ROTATE SERVER TLS KEYPAIR") return;
+    setBusy(true); setError(""); setNotice(""); setServerRotateResult(null);
+    try {
+      const result = await callFeclora("rotate_server_keypair", {
+        confirmation: serverRotateConfirmation
+      });
+      setServerRotateResult(result); setNotice(result.message);
+      setServerRotateConfirmation("");
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -1011,6 +1028,15 @@ export default function App() {
                 </>}
               </StackItem>}
               {serverSetup && <StackItem><Card><CardBody><Title headingLevel="h3" size="lg">Server identity status</Title><p>{serverSetup.message}</p><p>Bind address: {serverSetup.bind_address}:{serverSetup.port}</p><p>Certificate identity: {serverSetup.server_identity}</p><p>Enrolled Clients: {serverSetup.enrolled_clients}</p></CardBody></Card></StackItem>}
+              {status?.server_configured && <StackItem><Card><CardBody>
+                <Title headingLevel="h3" size="lg">Rotate Server TLS keypair</Title>
+                <Alert variant="warning" title="New Server private key; existing CA retained" isInline>This is separate from certificate renewal. All deployment jobs must be stopped. The new key and certificate are validated before installation; enrolled Clients continue to trust the existing CA and Server identity. This does not rotate the CA or image-signing key.</Alert>
+                <Field label="Type exactly: ROTATE SERVER TLS KEYPAIR">
+                  <input className="pf-v5-c-form-control" value={serverRotateConfirmation} onChange={(event) => setServerRotateConfirmation(event.target.value)} />
+                </Field>
+                <Button variant="danger" onClick={rotateServerKeypair} isLoading={busy} isDisabled={busy || serverRotateConfirmation !== "ROTATE SERVER TLS KEYPAIR"}>Rotate Server TLS keypair</Button>
+                {serverRotateResult && <Alert variant="success" title="Server TLS keypair rotated" isInline>{serverRotateResult.message} · New certificate expires in {serverRotateResult.expiry_days} days; CA expires in {serverRotateResult.ca_expiry_days} days.</Alert>}
+              </CardBody></Card></StackItem>}
               {status?.server_configured && <StackItem><Card><CardBody>
                 <Title headingLevel="h3" size="lg">Renew Server TLS certificate</Title>
                 <Alert variant="warning" title="Existing CA and private key will be retained" isInline>Renewal is blocked while any deployment job service is active. The Server certificate is replaced atomically; existing Clients continue trusting the same CA and Server identity. This does not rotate the CA or the Server private key.</Alert>
