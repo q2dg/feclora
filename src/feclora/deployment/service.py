@@ -517,7 +517,22 @@ class DeploymentService:
     def run(self) -> None:
         self._acquire_instance_lock()
         service_start_recorded = False
+        repository_lock_fd = None
         try:
+            if self.job.operation == "restore" and self.job.repository_id is not None:
+                from feclora.storage.repository_manager import RemoteRepositoryManager
+                manager = RemoteRepositoryManager()
+                try:
+                    repository_lock_fd = manager.acquire_usage_lock(self.job.repository_id)
+                    # Re-resolve only after acquiring the lease: an unmount that
+                    # won the race after construction must not leave a stale path.
+                    self.repository_path = manager.resolve(self.job.repository_id, write=False)
+                    self.manifest_path = str(Path(self.repository_path) / (self.job.image_id + ".manifest.json"))
+                    verify_manifest_signature(self.manifest_path, self.config.server_minisign_public_key)
+                except Exception as exc:
+                    raise DeploymentServiceError(
+                        f"selected image repository cannot be leased and verified for this restore: {exc}"
+                    ) from exc
             recover_stale_runtime_artifacts(lock_held=True)
             if (self._pxe_state is not None
                     and self._pxe_state["interface"] == self.job.network_interface):
@@ -559,6 +574,9 @@ class DeploymentService:
                             "detail": "Service stopped cleanly before any Client session or storage operation.",
                         })
                 finally:
+                    if repository_lock_fd is not None:
+                        os.close(repository_lock_fd)
+                        repository_lock_fd = None
                     if self._lock_fd is not None:
                         os.close(self._lock_fd)
                         self._lock_fd = None
