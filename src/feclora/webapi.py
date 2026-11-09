@@ -236,7 +236,7 @@ def _rotate_server_keypair(params: dict[str, Any]) -> dict[str, Any]:
         "rotated": True, "identity": config.local_identity,
         "certificate_file": rotated["certificate_file"],
         "private_key_file": rotated["private_key_file"],
-        "ca_fingerprint": rotated["ca_fingerprint"],
+        "ca_fingerprint": rotated["ca_fingerprint"], "key_rotated": rotated["key_rotated"],
         "expiry_days": days, "ca_expiry_days": rotated["ca_expiry_days"],
         "message": "Server TLS keypair rotated under the existing CA. Enrolled Clients retain CA trust and Server identity; the Server certificate and private key have both changed.",
     }
