@@ -44,7 +44,9 @@ Operational design notes:
 
 ## Repository layout
 
-Contribution and engineering safety expectations are documented in [CONTRIBUTING.md](CONTRIBUTING.md). Feclora is licensed under the GNU General Public License v3.0 or (at your option) any later version. See [LICENSE](LICENSE) for the complete license text.\n\nThe repository is organized by runtime responsibility rather than by UI:
+Contribution and engineering safety expectations are documented in [CONTRIBUTING.md](CONTRIBUTING.md). Feclora is licensed under the GNU General Public License v3.0 or (at your option) any later version. See [LICENSE](LICENSE) for the complete license text.
+
+The repository is organized by runtime responsibility rather than by UI:
 
 ```text
 feclora/
