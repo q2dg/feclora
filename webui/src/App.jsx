@@ -178,7 +178,7 @@ export default function App() {
   const clientRemoteJob = clientRemoteInspection?.job;
   const clientRemoteDeviceOptions = clientRemoteJob?.target_type === "partition" ? partitions : disks;
   const clientRemoteConfirmationPhrase = clientRemoteJob && clientRemoteTarget
-    ? (clientRemoteJob.operation === "restore"
+    ? (clientRemoteJob.operation === "restore" || clientRemoteJob.operation === "clone"
       ? `ERASE ${clientRemoteTarget} FROM ${clientRemoteInspection.server_identity}`
       : `READ ${clientRemoteTarget} TO ${clientRemoteInspection.server_identity}`)
     : "";
@@ -1205,7 +1205,7 @@ export default function App() {
                 {clientRemoteJob && <StackItem>
                   <Card><CardBody>
                     <Title headingLevel="h3" size="lg">Authenticated Server job</Title>
-                    <p>Operation: {clientRemoteJob.operation} · Image: {clientRemoteJob.image_id}</p>
+                    <p>Operation: {clientRemoteJob.operation}{clientRemoteJob.operation === "clone" ? " · Server source: " + clientRemoteJob.source_device : " · Image: " + clientRemoteJob.image_id}</p>
                     <p>Target type: {clientRemoteJob.target_type} · Transport: {clientRemoteJob.transport}</p>
                     <p>Server identity: {clientRemoteInspection.server_identity}</p>
                     <p>Authorized Client MACs: {(clientRemoteJob.authorized_clients || []).join(", ")}</p>
