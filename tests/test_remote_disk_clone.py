@@ -337,7 +337,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
 
         def safety(path):
             safety_checks.append(path)
-            if len(safety_checks) == 4:
+            if len(safety_checks) == 5:
                 raise RuntimeError("copied target became mounted")
 
         def run(command, **kwargs):
@@ -360,7 +360,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                 )
         source.join(timeout=5)
         self.assertFalse(source.is_alive())
-        self.assertEqual(len(safety_checks), 4)
+        self.assertEqual(len(safety_checks), 5)
         self.assertEqual(commands[0][0], "/usr/bin/blkid")
         self.assertFalse(any(command[-2:] == ["-e", "/dev/target"] for command in commands))
 
