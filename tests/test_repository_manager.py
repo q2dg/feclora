@@ -100,12 +100,13 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.manager._mount_record = lambda _path: (
             "fuse.davfs", "https://dav.example.net/images", "ro,relatime",
         )
-        self.assertEqual(self.manager.resolve("dav"), str(self.mount_root / "dav"))
-        self.manager._mount_record = lambda _path: (
-            "fuse.davfs", "https://evil.example/other", "ro,relatime",
-        )
-        with self.assertRaisesRegex(RepositoryManagerError, "does not match"):
-            self.manager.resolve("dav")
+        with patch("feclora.storage.repository_manager._check_secret_reference"):
+            self.assertEqual(self.manager.resolve("dav"), str(self.mount_root / "dav"))
+            self.manager._mount_record = lambda _path: (
+                "fuse.davfs", "https://evil.example/other", "ro,relatime",
+            )
+            with self.assertRaisesRegex(RepositoryManagerError, "does not match"):
+                self.manager.resolve("dav")
 
     def test_resolve_verifies_s3_remote_and_enforces_read_only(self):
         config = Path(self.temp.name) / "rclone.conf"
