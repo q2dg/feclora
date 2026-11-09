@@ -279,9 +279,13 @@ class RemoteRepositoryManager:
         service_managed = bool(encrypted)
         try:
             if encrypted:
+                systemd_run = self.which("systemd-run")
+                python = self.which("python3")
+                if not systemd_run or not python:
+                    raise RepositoryManagerError("systemd-run and python3 are required for encrypted repository mounts")
                 unit = f"feclora-repository-{identifier}.service"
                 command = [
-                    self.which("systemd-run") or "systemd-run",
+                    systemd_run,
                     f"--unit={unit}", "--no-block", "--collect",
                     "--property=User=root", "--property=Group=root",
                     "--property=UMask=0077", "--property=NoNewPrivileges=yes",
@@ -290,7 +294,7 @@ class RemoteRepositoryManager:
                     command.append(f"--property=LoadCredentialEncrypted={name}:{path}")
                 command.extend([
                     "--setenv=PYTHONPATH=/usr/share/feclora/python", "--",
-                    self.which("python3") or "/usr/bin/python3",
+                    python,
                     "-m", "feclora.storage.repository_mount_service", "--id", identifier,
                 ])
                 result = self.runner(
