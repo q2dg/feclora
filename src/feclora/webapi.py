@@ -897,7 +897,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
     }
-    if action not in allowed or set(params) != allowed[action]:
+    if action not in allowed or (set(params) != allowed[action] and set(params) != allowed[action] - {"repository_id"}):
         raise WebAPIError("operation parameters do not match the selected operation")
     started = time.monotonic()
     _emit({"event": "started", "operation_id": operation_id, "operation": action})
@@ -1164,7 +1164,7 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
     }
-    if action not in operation_fields or set(params) != operation_fields[action]:
+    if action not in operation_fields or (set(params) != operation_fields[action] and set(params) != operation_fields[action] - {"repository_id"}):
         raise WebAPIError("operation parameters do not match the selected operation")
     with _storage_operation_lock():
         return _run_operation_locked(action, params)
