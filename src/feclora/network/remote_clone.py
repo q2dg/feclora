@@ -554,21 +554,48 @@ def serve_remote_clone_once(
     local_identity: str,
     expected_peer_identity: str,
     confirmation: str,
+    cancel_check: Callable[[], bool] | None = None,
+    accept_poll_interval: float = 0.25,
     **kwargs: Any,
 ) -> CloneVerificationResult:
-    """Accept exactly one receiver connection and serve one source-disk session."""
-    accepted, _address = listener.accept()
-    tls_socket = accept_mutual_tls(
-        tls_context, accepted, expected_peer_identity=expected_peer_identity,
-    )
-    with tls_socket:
-        return send_remote_disk(
-            tls_socket, header,
-            local_identity=local_identity,
-            expected_peer_identity=expected_peer_identity,
-            confirmation=confirmation,
-            **kwargs,
+    """Accept one receiver connection, polling cancellation while awaiting it.
+
+    A persistent service can therefore stop an idle clone session promptly
+    without closing or otherwise disturbing its listening socket.
+    """
+    if (isinstance(accept_poll_interval, bool)
+            or not isinstance(accept_poll_interval, (int, float))
+            or not 0.05 <= accept_poll_interval <= 5.0):
+        raise RemoteDiskCloneError("accept polling interval must be between 0.05 and 5 seconds")
+    gettimeout = getattr(listener, "gettimeout", None)
+    settimeout = getattr(listener, "settimeout", None)
+    if not callable(gettimeout) or not callable(settimeout):
+        raise RemoteDiskCloneError("remote clone listener must support configurable accept timeouts")
+    try:
+        previous_timeout = gettimeout()
+        settimeout(float(accept_poll_interval))
+        while True:
+            if cancel_check is not None and cancel_check():
+                raise RemoteDiskCloneCancelled("remote clone cancelled while waiting for receiver")
+            try:
+                accepted, _address = listener.accept()
+                break
+            except socket.timeout:
+                continue
+        tls_socket = accept_mutual_tls(
+            tls_context, accepted, expected_peer_identity=expected_peer_identity,
         )
+        with tls_socket:
+            return send_remote_disk(
+                tls_socket, header,
+                local_identity=local_identity,
+                expected_peer_identity=expected_peer_identity,
+                confirmation=confirmation,
+                cancel_check=cancel_check,
+                **kwargs,
+            )
+    finally:
+        settimeout(previous_timeout)
 
 
 def connect_remote_clone(
