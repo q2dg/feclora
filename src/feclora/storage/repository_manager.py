@@ -22,7 +22,7 @@ from feclora.storage.repository import RemoteRepository, RepositoryError, requir
 REGISTRY = Path("/etc/feclora/repositories.json")
 MOUNT_ROOT = Path("/var/lib/feclora/repositories")
 _REPOSITORY_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
-_SUPPORTED = {"sshfs", "nfs", "smb"}
+_SUPPORTED = {"sshfs", "nfs", "smb", "webdav", "s3"}
 
 
 class RepositoryManagerError(RuntimeError):
@@ -129,10 +129,11 @@ def _check_secret_reference(path: str | None, label: str, *, private: bool = Tru
 def _repository(identifier: str, definition: dict[str, Any], *, owner_uid: int = 0) -> RemoteRepository:
     if not _REPOSITORY_ID.fullmatch(identifier):
         raise RepositoryManagerError("repository identifier is invalid")
-    if set(definition) != {
+    required = {
         "provider", "host", "remote_path", "username", "credential_file",
         "identity_file", "known_hosts_file", "port", "read_only",
-    }:
+    }
+    if set(definition) not in (required, required | {"rclone_remote"}):
         raise RepositoryManagerError("repository definition has missing or unknown fields")
     try:
         repo = RemoteRepository(
@@ -143,25 +144,27 @@ def _repository(identifier: str, definition: dict[str, Any], *, owner_uid: int =
             credential_file=definition["credential_file"],
             identity_file=definition["identity_file"],
             known_hosts_file=definition["known_hosts_file"],
-            port=definition["port"], read_only=definition["read_only"],
+            port=definition["port"], rclone_remote=definition.get("rclone_remote"),
+            read_only=definition["read_only"],
         )
     except (RepositoryError, TypeError) as exc:
         raise RepositoryManagerError(f"invalid repository definition: {exc}") from exc
     if repo.provider not in _SUPPORTED:
-        raise RepositoryManagerError(
-            "managed mounts currently support SSHFS, NFS and SMB/CIFS; "
-            "WebDAV and S3 need dedicated protected-credential integration"
-        )
+        raise RepositoryManagerError("unsupported managed repository provider")
     if repo.provider == "sshfs":
         _check_secret_reference(repo.identity_file, "SSH private key", owner_uid=owner_uid)
         _check_secret_reference(repo.known_hosts_file, "SSH known_hosts", private=False, owner_uid=owner_uid)
     if repo.provider == "smb":
         _check_secret_reference(repo.credential_file, "SMB credentials file", owner_uid=owner_uid)
+    if repo.provider == "webdav":
+        _check_secret_reference(repo.credential_file, "WebDAV system secrets file", owner_uid=owner_uid)
+    if repo.provider == "s3":
+        _check_secret_reference(repo.credential_file, "rclone configuration file", owner_uid=owner_uid)
     return repo
 
 
 class RemoteRepositoryManager:
-    """Manage SSHFS, NFS and SMB mounts below a private Feclora directory."""
+    """Manage SSHFS, NFS, SMB, WebDAV and S3 mounts below Feclora private storage."""
 
     def __init__(
         self, *, registry: Path = REGISTRY, mount_root: Path = MOUNT_ROOT,
@@ -229,7 +232,8 @@ class RemoteRepositoryManager:
             "provider": repo.provider, "host": repo.host, "remote_path": repo.remote_path,
             "username": repo.username, "credential_file": repo.credential_file,
             "identity_file": repo.identity_file, "known_hosts_file": repo.known_hosts_file,
-            "port": repo.port, "read_only": repo.read_only,
+            "port": repo.port, "rclone_remote": repo.rclone_remote,
+            "read_only": repo.read_only,
         }
         try:
             _write_registry(entries, self.registry, owner_uid=self.owner_uid)
@@ -325,13 +329,19 @@ class RemoteRepositoryManager:
         elif repo.provider == "nfs":
             valid_source = source == f"{repo.host}:{repo.remote_path}"
             valid_type = filesystem in {"nfs", "nfs4"}
-        else:
+        elif repo.provider == "smb":
             share = repo.remote_path.strip("/").split("/", 1)[0]
             valid_source = source == f"//{repo.host}/{share}"
             valid_type = filesystem == "cifs"
             subpath = repo.remote_path.strip("/").split("/", 1)
             if len(subpath) == 2:
                 valid_source = valid_source and ("prefixpath=" + subpath[1]) in options.split(",")
+        elif repo.provider == "webdav":
+            valid_source = source == f"https://{repo.host}{repo.remote_path}"
+            valid_type = filesystem.startswith("fuse.davfs")
+        else:
+            valid_source = source == f"{repo.rclone_remote}:{repo.remote_path.lstrip('/')}"
+            valid_type = filesystem.startswith("fuse.rclone")
         if not valid_source or not valid_type:
             raise RepositoryManagerError("mounted filesystem source or type does not match the saved repository definition")
         option_set = set(options.split(","))
