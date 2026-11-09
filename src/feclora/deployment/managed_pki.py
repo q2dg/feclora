@@ -384,6 +384,62 @@ def ca_fingerprint(ca_file: str, *, runner: Callable[..., Any] | None = None,
 
 
 
+
+def ca_bundle_fingerprints(
+    ca_file: str,
+    *,
+    runner: Callable[..., Any] | None = None,
+    openssl: str = "/usr/bin/openssl",
+) -> list[str]:
+    """Return the validated SHA-256 fingerprints of every CA in a PEM bundle."""
+    try:
+        fd = os.open(ca_file, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_size > 8 * 1024 * 1024:
+                raise PKIError("CA trust bundle must be a regular file no larger than 8 MiB")
+            raw = bytearray()
+            while len(raw) <= 8 * 1024 * 1024:
+                chunk = os.read(fd, min(65536, 8 * 1024 * 1024 + 1 - len(raw)))
+                if not chunk:
+                    break
+                raw.extend(chunk)
+            if len(raw) > 8 * 1024 * 1024:
+                raise PKIError("CA trust bundle exceeds 8 MiB")
+        finally:
+            os.close(fd)
+    except OSError as exc:
+        raise PKIError(f"cannot safely read CA trust bundle: {exc}") from exc
+
+    pattern = rb"-----BEGIN CERTIFICATE-----\\s*[A-Za-z0-9+/=\\r\\n]+\\s*-----END CERTIFICATE-----"
+    blocks = re.findall(pattern, bytes(raw))
+    remainder = re.sub(pattern, b"", bytes(raw))
+    if not 1 <= len(blocks) <= 8 or remainder.strip():
+        raise PKIError("CA trust bundle must contain one to eight PEM certificates and no other data")
+
+    fingerprints: list[str] = []
+    with tempfile.TemporaryDirectory(prefix="feclora-ca-inspect-") as temporary_directory:
+        for index, block in enumerate(blocks):
+            certificate = os.path.join(temporary_directory, f"ca-{index}.pem")
+            Path(certificate).write_bytes(block + b"\\n")
+            _run([openssl, "x509", "-in", certificate, "-noout"], runner)
+            constraints = _run(
+                [openssl, "x509", "-in", certificate, "-noout", "-ext", "basicConstraints"], runner
+            ).stdout
+            usage = _run(
+                [openssl, "x509", "-in", certificate, "-noout", "-ext", "keyUsage"], runner
+            ).stdout
+            if not re.search(r"CA\\s*:\\s*TRUE", constraints, re.IGNORECASE):
+                raise PKIError("trust bundle contains a certificate that is not a CA")
+            if not re.search(r"Certificate Sign", usage, re.IGNORECASE):
+                raise PKIError("trust bundle contains a CA without certificate-signing usage")
+            fingerprint = ca_fingerprint(certificate, runner=runner, openssl=openssl)
+            if fingerprint in fingerprints:
+                raise PKIError("CA trust bundle contains a duplicate certificate")
+            fingerprints.append(fingerprint)
+    return fingerprints
+
+
 def build_ca_trust_bundle(
     ca_files: list[str | os.PathLike[str]],
     destination: str | os.PathLike[str],
@@ -648,9 +704,9 @@ def install_client_certificate(
         _regular_file(path, label, root_owned=(path == private_key_path))
     if os.stat(private_key_path).st_mode & 0o077:
         raise PKIError("local Client private key must not be accessible by group or other users")
-    actual_fingerprint = ca_fingerprint(ca_path, runner=runner, openssl=openssl)
-    if actual_fingerprint != expected_fingerprint.replace(":", "").lower():
-        raise PKIError("CA fingerprint does not match the fingerprint verified from the Server")
+    trusted_fingerprints = ca_bundle_fingerprints(ca_path, runner=runner, openssl=openssl)
+    if expected_fingerprint.replace(":", "").lower() not in trusted_fingerprints:
+        raise PKIError("CA fingerprint does not match any CA in the trust bundle verified from the Server")
     _run([openssl, "verify", "-purpose", "sslclient", "-CAfile", ca_path, certificate_path], runner)
     san = _run([openssl, "x509", "-in", certificate_path, "-noout", "-ext", "subjectAltName"], runner)
     identity_entries = re.findall(r"URI:feclora-client-[a-z0-9-]{1,48}", san.stdout)
