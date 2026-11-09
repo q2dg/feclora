@@ -45,7 +45,7 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Add root-managed SSHFS/NFS/SMB mount lifecycle and Cockpit actions; keep this separate from image-engine integration.
 - [x] Report mounted state separately from verified provider/source/type/access-mode identity in Cockpit.
 - [ ] Complete the supported local, NFS, SMB/CIFS, SSHFS and SFTP providers; keep SSHFS mounts distinct from SFTP transfers.
-- [ ] Store credential references in root-owned protected storage; never ordinary config/logs.
+- [x] Add optional repository-ID routing for whole-disk/partition capture, restore and partition extraction; resolve only mounted, verified repositories and enforce read-only mounts for writes. Local repository remains the backward-compatible default.\n- [ ] Expose repository selection and per-repository image inventory in Cockpit; add end-to-end remote capture/restore acceptance.\n- [ ] Store credential references in root-owned protected storage; never ordinary config/logs.
 - [ ] Add SSH host-key pinning, key selection, permission checks and credential rotation.
 - [ ] Complete Cockpit create/edit/test/mount/unmount/read-only/delete workflows and health/free-space reporting; create/mount/unmount/remove are present for SSHFS/NFS/SMB, but edit/test/health and provider identity checks remain.
 - [ ] Handle stale mounts, network loss, interrupted publication, concurrent writers and cleanup.
