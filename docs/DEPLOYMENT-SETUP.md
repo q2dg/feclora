@@ -138,3 +138,39 @@ Client (unicast) or to the complete READY receiver set (UDPcast multicast).
 Keep the repository mounted until all Client terminal results have been
 collected. The remote repository's files must satisfy Feclora's root-owned
 image-manifest checks; NFS root-squash may prevent this.
+
+
+## PXE-to-restore workflow
+
+The embedded PXE stack boots the same Fedora Live environment over the
+deployment interface; it does not embed credentials, a disk target, or a
+destructive job command in DHCP, TFTP, HTTP or the iPXE script.
+
+1. On the Server, select the deployment interface and run PXE preflight.
+   Prefer ProxyDHCP on an existing LAN; use isolated DHCP only on a dedicated
+   subnet after confirming Feclora is authoritative there.
+2. Activate PXE. Feclora stages the packaged BIOS/UEFI iPXE firmware and the
+   current Live kernel, initramfs and squashfs into read-only TFTP/HTTP trees.
+   BIOS and UEFI clients chainload iPXE and boot that Live environment.
+3. In the Server's Remote jobs tab, create a restore job. Select the local
+   Server image repository or a mounted, verified remote repository, choose
+   a signed image, select one Client for unicast or at least two for UDPcast
+   multicast, and save the job definition.
+4. On each PXE-booted Client, enter Client mode in Cockpit, enter the job UUID,
+   authenticate to the Server, select the local destination device and type
+   the exact destructive confirmation. Each Client reports READY only after
+   its local target checks pass.
+5. The Server operator reviews the complete READY set and types the exact
+   job-specific ARM confirmation. Unicast sends the signed image to one
+   Client; multicast sends the same signed, age-encrypted artifacts to all
+   authorized READY Clients on the multicast segment.
+6. Each Client stages and verifies the artifact before invoking its normal
+   protected restore engine. The Server collects an independent terminal
+   result for every Client.
+
+PXE boot itself never arms or starts a restore. The current iPXE script boots
+the Live environment and does not yet pass a job UUID or auto-enter Client
+mode; the operator performs the Client job selection and local disk approval
+after boot. This separation is intentional: a DHCP lease or MAC address is
+not authorization to overwrite a disk. Stop PXE services after deployment if
+the network boot window is temporary.
