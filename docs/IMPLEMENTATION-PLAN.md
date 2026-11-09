@@ -2,6 +2,13 @@
 
 This document is the dependency-ordered implementation backlog and acceptance contract. It complements ROADMAP.md and FEATURE-MATRIX.md.
 
+
+## Product target: bootable Live system with six Cockpit workflows
+
+The maintainer's end-user requirements and measurable release gates are defined in [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md). That document is authoritative for the six workflows: (1) local disk/partition clone, (2) remote disk/partition clone with DHCP/static networking, (3) capture to SSHFS/SFTP/NFS/SMB/WebDAV/S3, (4) restore from those repositories to one local target, (5) multi-Client restore with manual Feclora boot or PXE, and (6) unattended multi-Client restore. It also defines the Cockpit-first operating modes, security invariants, documentation gates and operator ISO acceptance.
+
+Do not mark a workflow complete because an engine, command builder, protocol primitive or operator acceptance recipe exists. Completion requires an end-to-end Cockpit path, backend/runtime integration, safe authorization and failure handling, progress/results, automated software tests, operator acceptance procedure and a matching published step-by-step guide. In particular, S3 read-only support does not satisfy image capture; SFTP is distinct from SSHFS; current PXE service activation does not equal PXE job handoff; and signed restore-profile primitives do not equal unattended fleet restore.
+
 ## Delivery principles
 1. Reuse existing engines and security primitives; inspect current code before creating parallel implementations.
 2. A feature is complete only when runtime, privileged API, Cockpit workflow, failure handling, automated tests and documentation agree.
