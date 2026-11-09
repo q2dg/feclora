@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
-from feclora.storage.repository import RemoteRepository, RepositoryError
+from feclora.storage.repository import RemoteRepository, RepositoryError, required_tools
 
 
 REGISTRY = Path("/etc/feclora/repositories.json")
@@ -235,14 +235,13 @@ class RemoteRepositoryManager:
         _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
         if self._is_mounted(str(mountpoint)):
             raise RepositoryManagerError("repository is already mounted")
-        missing = [tool for tool in __import__(
-            "feclora.storage.repository", fromlist=["required_tools"]
-        ).required_tools(repo.provider) if not self.which(tool)]
+        tool_paths = {tool: self.which(tool) for tool in required_tools(repo.provider)}
+        missing = [tool for tool, resolved in tool_paths.items() if not resolved]
         if missing:
             raise RepositoryManagerError("missing repository tools: " + ", ".join(missing))
         try:
             result = self.runner(
-                repo.mount_argv(), stdin=subprocess.DEVNULL, capture_output=True,
+                repo.mount_argv(executables={tool: resolved for tool, resolved in tool_paths.items() if resolved}), stdin=subprocess.DEVNULL, capture_output=True,
                 text=True, check=False, timeout=60,
             )
         except (OSError, subprocess.SubprocessError) as exc:
