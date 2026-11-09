@@ -559,5 +559,45 @@ class ManagedPKITests(unittest.TestCase):
                     build_ca_trust_bundle(paths, os.path.join(root, "trust-bundle.pem"), pki_directory=root)
 
 
+    def test_ca_bundle_fingerprints_returns_each_validated_ca_fingerprint(self):
+        from feclora.deployment.managed_pki import ca_bundle_fingerprints
+
+        with tempfile.TemporaryDirectory() as root:
+            bundle = os.path.join(root, "dual-ca.pem")
+            Path(bundle).write_bytes(
+                b"-----BEGIN CERTIFICATE-----\\nT0xE\\n-----END CERTIFICATE-----\\n"
+                b"-----BEGIN CERTIFICATE-----\\nTkVX\\n-----END CERTIFICATE-----\\n"
+            )
+
+            def fake_run(argv, _runner=None):
+                if argv[-3:] == ["-noout", "-ext", "basicConstraints"]:
+                    return SimpleNamespace(stdout="CA:TRUE")
+                if argv[-3:] == ["-noout", "-ext", "keyUsage"]:
+                    return SimpleNamespace(stdout="Certificate Sign")
+                if argv[-2:] == ["-fingerprint", "-sha256"]:
+                    raw = Path(argv[argv.index("-in") + 1]).read_bytes()
+                    digest = "a" * 64 if b"T0xE" in raw else "b" * 64
+                    return SimpleNamespace(stdout="sha256 Fingerprint=" + digest)
+                return SimpleNamespace(stdout="parsed")
+
+            with patch("feclora.deployment.managed_pki._run", side_effect=fake_run):
+                self.assertEqual(
+                    ca_bundle_fingerprints(bundle),
+                    ["a" * 64, "b" * 64],
+                )
+
+    def test_ca_bundle_fingerprints_rejects_non_certificate_trailing_data(self):
+        from feclora.deployment.managed_pki import ca_bundle_fingerprints
+
+        with tempfile.TemporaryDirectory() as root:
+            bundle = os.path.join(root, "malformed.pem")
+            Path(bundle).write_bytes(
+                b"-----BEGIN CERTIFICATE-----\\nQ0E=\\n-----END CERTIFICATE-----\\n"
+                b"untrusted trailing bytes"
+            )
+            with self.assertRaisesRegex(PKIError, "no other data"):
+                ca_bundle_fingerprints(bundle)
+
+
 if __name__ == "__main__":
     unittest.main()
