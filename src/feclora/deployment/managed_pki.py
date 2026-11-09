@@ -819,17 +819,25 @@ def inspect_server_ca_backup(
         if identity_fd >= 0:
             os.close(identity_fd)
         raise PKIError(f"age decryption identity is unavailable or unsafe: {exc}") from exc
-    root = _root_only_directory(pki_directory)
-    temporary_directory = tempfile.mkdtemp(prefix=".feclora-ca-inspection-", dir=root)
-    os.chmod(temporary_directory, 0o700)
+    try:
+        root = _root_only_directory(pki_directory)
+        temporary_directory = tempfile.mkdtemp(prefix=".feclora-ca-inspection-", dir=root)
+        os.chmod(temporary_directory, 0o700)
+    except Exception:
+        os.close(identity_fd)
+        raise
     archive = os.path.join(temporary_directory, "backup.tar")
     identity_copy = os.path.join(temporary_directory, "age-identity.txt")
     ca_file = os.path.join(temporary_directory, "ca.crt")
     ca_key = os.path.join(temporary_directory, "ca.key")
     try:
-        with os.fdopen(identity_fd, "rb") as source, open(identity_copy, "xb") as target:
-            identity_fd = -1
-            shutil.copyfileobj(source, target, length=65536)
+        source = os.fdopen(identity_fd, "rb")
+        identity_fd = -1
+        with source, open(identity_copy, "xb") as target:
+            identity_data = source.read(65537)
+            if len(identity_data) != identity_info.st_size:
+                raise PKIError("age decryption identity changed while being copied")
+            target.write(identity_data)
             target.flush()
             os.fsync(target.fileno())
         os.chmod(identity_copy, 0o600)
