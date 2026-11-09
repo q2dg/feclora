@@ -55,6 +55,12 @@ class SystemdCredentialStoreTests(unittest.TestCase):
         }])
         self.assertNotIn("secret", repr(entries))
 
+    def test_empty_inventory_initializes_private_credential_directory(self):
+        entries = self.store.list()
+        self.assertEqual(entries, [])
+        self.assertTrue(self.root.is_dir())
+        self.assertEqual(self.root.stat().st_mode & 0o777, 0o700)
+
     def test_rejects_symlinked_existing_credential(self):
         self.store.put("nas", "ssh-key", b"secret")
         path = self.root / "feclora-nas-ssh-key.cred"
