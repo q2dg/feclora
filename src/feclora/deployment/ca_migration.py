@@ -143,7 +143,9 @@ def _validate(value: Any, migration_id: str | None = None) -> dict[str, Any]:
         raise CAMigrationError("retirement confirmation is inconsistent with the phase")
     phase_index = {phase: index for index, phase in enumerate(phases)}
     distribution_started = history_times[phase_index["distributing"]] if "distributing" in phase_index else None
+    distribution_completed = history_times[phase_index["trust_distributed"]] if "trust_distributed" in phase_index else None
     server_switched_at = history_times[phase_index["server_switched"]] if "server_switched" in phase_index else None
+    convergence_at = history_times[phase_index["converged"]] if "converged" in phase_index else None
     for client in clients.values():
         trust_at = (None if client["trust_acknowledged_at"] is None else
                     _timestamp(client["trust_acknowledged_at"], "trust acknowledgement"))
@@ -151,8 +153,12 @@ def _validate(value: Any, migration_id: str | None = None) -> dict[str, Any]:
                    _timestamp(client["leaf_acknowledged_at"], "leaf acknowledgement"))
         if trust_at is not None and (distribution_started is None or trust_at < distribution_started):
             raise CAMigrationError("Client trust acknowledgement predates distribution")
+        if trust_at is not None and distribution_completed is not None and trust_at > distribution_completed:
+            raise CAMigrationError("Client trust acknowledgement postdates distribution completion")
         if leaf_at is not None and (server_switched_at is None or leaf_at < server_switched_at):
             raise CAMigrationError("Client leaf acknowledgement predates Server identity switch")
+        if leaf_at is not None and convergence_at is not None and leaf_at > convergence_at:
+            raise CAMigrationError("Client leaf acknowledgement postdates convergence")
     if value["phase"] in {"trust_distributed", "server_switched", "converged", "retired"}:
         if any(client["trust_acknowledged_at"] is None for client in clients.values()):
             raise CAMigrationError("phase claims trust distribution before all Clients acknowledged")
