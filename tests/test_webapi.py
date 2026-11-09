@@ -1060,8 +1060,10 @@ class WebAPITests(unittest.TestCase):
                     dispatch({"action": "remove_systemd_credential", "params": {"id": "nas", "kind": "ssh-key"}})
 
     def test_systemd_credential_api_removes_by_reference_only(self):
-        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore.remove") as remove:
-            result = dispatch({"action": "remove_systemd_credential", "params": {"id": "nas", "kind": "ssh-key"}})
+        with patch("feclora.webapi._remote_repository_manager") as manager:
+            manager.return_value.credential_is_referenced.return_value = False
+            with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore.remove") as remove:
+                result = dispatch({"action": "remove_systemd_credential", "params": {"id": "nas", "kind": "ssh-key"}})
         remove.assert_called_once_with("nas", "ssh-key")
         self.assertEqual(result, {"removed": True, "id": "nas", "kind": "ssh-key"})
 
