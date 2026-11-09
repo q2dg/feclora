@@ -127,3 +127,14 @@ must independently approve the target before sending READY.
   writing, then reads the destination back and verifies SHA-256.
 - Do not use authoritative DHCP on a shared LAN. Use the isolated PXE VM lab
   described in tests/vm/README.md before testing destructive workflows.
+
+
+For a multi-Client restore, the Cockpit job form can select either the local
+Server image repository or a mounted, verified SSHFS/NFS/SMB repository. The
+job journal stores only the managed repository ID, not a path. The Server
+resolves that ID again when the persistent deployment service starts, checks
+the signed manifest, and streams from that mount to each authenticated READY
+Client (unicast) or to the complete READY receiver set (UDPcast multicast).
+Keep the repository mounted until all Client terminal results have been
+collected. The remote repository's files must satisfy Feclora's root-owned
+image-manifest checks; NFS root-squash may prevent this.
