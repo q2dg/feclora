@@ -282,11 +282,9 @@ class RemoteRepositoryManager:
                 unit = f"feclora-repository-{identifier}.service"
                 command = [
                     self.which("systemd-run") or "systemd-run",
-                    f"--unit={unit}", "--no-block",
+                    f"--unit={unit}", "--no-block", "--collect",
                     "--property=User=root", "--property=Group=root",
                     "--property=UMask=0077", "--property=NoNewPrivileges=yes",
-                    "--property=PrivateTmp=yes", "--property=ProtectSystem=full",
-                    f"--property=ReadWritePaths={mountpoint}",
                 ]
                 for name, path in encrypted:
                     command.append(f"--property=LoadCredentialEncrypted={name}:{path}")
