@@ -404,14 +404,27 @@ class DeploymentService:
         if params["job_id"] != self.job.job_id:
             raise DeploymentServiceError("command job UUID does not match the active job")
         confirmation = params["confirmation"]
-        if not isinstance(confirmation, str) or len(confirmation) > 96:
+        if not isinstance(confirmation, str) or len(confirmation) > 512:
             raise DeploymentServiceError("operator confirmation is invalid")
         if action == "arm":
-            required = (
-                "ARM MULTICAST " + self.job.job_id + " IGMP-VERIFIED"
-                if self.job.transport == "multicast"
-                else "ARM " + self.job.job_id
-            )
+            if self.job.operation == "clone":
+                receiver_identity = next(
+                    (identity for identity, mac in self.config.client_identity_to_mac.items()
+                     if mac == self.job.authorized_clients[0]),
+                    None,
+                )
+                if not receiver_identity or not self.job.source_device:
+                    raise DeploymentServiceError("clone source or enrolled receiver identity is unavailable")
+                required = (
+                    f"ARM {self.job.job_id} AND "
+                    f"READ {self.job.source_device} TO {receiver_identity}"
+                )
+            else:
+                required = (
+                    "ARM MULTICAST " + self.job.job_id + " IGMP-VERIFIED"
+                    if self.job.transport == "multicast"
+                    else "ARM " + self.job.job_id
+                )
             if confirmation != required:
                 raise DeploymentServiceError("arm confirmation does not match the exact job-specific phrase")
             if self.job.transport == "multicast":
@@ -456,7 +469,11 @@ class DeploymentService:
     def _run_job(self) -> None:
         self._last_error = None
         try:
-            if self.job.transport == "multicast":
+            if self.job.operation == "clone":
+                self.control.run_remote_clone_job(
+                    operation_log_path="/var/lib/feclora/operations.jsonl",
+                )
+            elif self.job.transport == "multicast":
                 udpcast = udpcast_config_for_job(
                     self.job, min_receivers=len(self.job.authorized_clients),
                 )
