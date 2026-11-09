@@ -15,11 +15,20 @@ the same repository API.
 | WebDAV | mount.davfs over HTTPS | davfs2 protected secrets store |
 | S3 | rclone mount | Protected rclone config or credential chain |
 
-The initial implementation in src/feclora/storage/repository.py validates
-provider definitions, rejects unsafe path characters and parent traversal,
-and builds argument vectors without invoking a shell. It never accepts
-passwords inline. The caller still owns mountpoint creation, privilege
-escalation, process lifecycle, mount verification and unmount.
+The provider definitions in src/feclora/storage/repository.py validate
+provider inputs, reject unsafe path characters and parent traversal, and
+build argument vectors without invoking a shell. The root-only lifecycle in
+src/feclora/storage/repository_manager.py now persists SSHFS, NFS and SMB/CIFS
+definitions in a mode-0600 registry, creates private mountpoints, checks
+root-owned credential references, invokes helpers without a shell, verifies
+the exact mountpoint with findmnt, and exposes mount/unmount/remove actions
+through Cockpit. Cockpit never receives or stores credential contents.
+
+This is a mount-management foundation, not yet a complete image-repository
+integration: capture/restore and Server/Client deployment still use their
+configured repository roots and do not select these repository IDs. WebDAV
+and S3/rclone are deliberately rejected by the lifecycle manager pending
+their dedicated credential handling.
 
 ## Security and durability requirements
 
@@ -31,8 +40,11 @@ escalation, process lifecycle, mount verification and unmount.
   protected rclone remote.
 - NFS/SMB/SSHFS/WebDAV/S3 are storage transports, not PXE deployment
   transports. PXE Server/Client services remain explicit opt-in features.
-- Before using a mount, runtime code must verify that the expected mount is
-  active, reject symlinked paths, and test write/read/rename/fsync behavior.
+- Before using a mount for imaging, runtime code must verify the expected
+  provider/source identity, reject symlinked paths, and test
+  write/read/rename/fsync behavior. Current mount-state inspection verifies
+  the mountpoint; provider/source identity and remote publication durability
+  remain to be completed before imaging can consume managed mounts.
 - A mount failure must never fall back to the local directory underneath an
   unmounted mountpoint.
 - Image artifacts must be staged on the same filesystem and the manifest
@@ -44,8 +56,11 @@ escalation, process lifecycle, mount verification and unmount.
 
 ## Remaining work
 
-The current command builders are not a complete storage integration. Still
-required: dependency packaging and availability detection, protected
-credential provisioning, mount/unmount lifecycle management, active-mount
-identity checks, remote write/read/rename verification, interruption recovery,
-and integration tests against real SSH, NFS, SMB, WebDAV and S3 endpoints.
+Remaining work: connect repository IDs to capture/restore and Server/Client
+job configuration; add edit/test and health/free-space workflows; verify
+provider/source identity rather than mountpoint alone; test remote
+write/read/rename/fsync and manifest publication semantics; implement
+credential provisioning/rotation and recovery; add WebDAV and S3/rclone
+credential integrations; and run integration tests against real SSH, NFS,
+SMB, WebDAV and S3 endpoints. SFTP file transfer is distinct from SSHFS and
+is not currently a mounted repository provider.
