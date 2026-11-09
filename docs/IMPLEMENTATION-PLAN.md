@@ -20,7 +20,7 @@ Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the 
 - [x] Add Cockpit source/peer selection, Client-local target selection, exact destructive confirmation and independent source/receiver authorization.
 - [x] Persist operation IDs, job states, errors and terminal verification through the existing operation logs, Client status and Server job journal; expose live byte progress and throughput in Server/Client status.
 - [ ] Persist Server-side progress snapshots and retain progress history across service restart.
-- [ ] Complete disconnect, timeout, cancellation and service-restart fault injection; document partial-write and GPT-relocation recovery without implying rollback.
+- [ ] Complete disconnect, timeout and service-restart fault injection; document partial-write and GPT-relocation recovery without implying rollback. Active-write cancellation and rollback are explicitly out of scope.
 - [ ] Add two-machine integration tests with generated certificates and disposable image-backed devices.
 - [x] Update feature matrix and operational guide.
 Acceptance: the Server binds the selected source and READY Client target into the session; the receiver independently verifies its local selection; both peers authorize independently; receiver read-back verifies; partial writes are marked untrusted; the persistent service survives browser disconnect.
@@ -58,10 +58,9 @@ Existing foundation: deployment journals, Server service lifecycle, Client progr
 - [ ] Move local long-running capture/restore/clone work out of browser request lifecycle.
 - [ ] Persist queued, preflight, running, verifying, completed, failed, cancelled and interrupted states.
 - [ ] Report bytes, phase, throughput, timestamps and diagnostic categories.
-- [ ] Define safe cancellation boundaries and non-cancellable phases.
 - [ ] Reconcile stale workers after restart without automatic destructive resume.
 - [ ] Add per-device locks/conflict detection.
-- [ ] Expose operation history/detail/cancel/export in Cockpit.
+- [ ] Expose operation history/detail/export in Cockpit; active destructive writes are not cancellable.
 - [ ] Add Server-side artifact-transfer progress; separate control/data channels if required.
 Acceptance: browser closure does not stop jobs; history survives service restart; destructive jobs cannot race on one device; restart never silently resumes writes.
 
@@ -109,7 +108,7 @@ The [guide index](GUIDES.md) distinguishes available procedures from planned
 workflows. Do not publish an operational recipe for an unimplemented path.
 Every guide needs prerequisites, supported layouts, exact Cockpit steps, expected results, verification, failure recovery and data-loss warnings. Use current screenshots and role/network diagrams.
 
-## P1 — Governance and release engineering
+## Operator acceptance guides\n\n- [x] Publish step-by-step operator procedures for physical two-machine clone, multi-Client unicast/multicast restore, SSHFS/NFS/SMB/WebDAV repository checks, S3 read-only checks, interruption/restart recovery and repository lease protection ([ACCEPTANCE-TESTS.md](ACCEPTANCE-TESTS.md)).\n- [ ] Hardware, network and real remote-service acceptance runs remain operator-owned; record results rather than treating them as code implementation.\n\n## P1 — Governance and release engineering
 - [x] Maintainer selected and published GNU GPL v3.0 or later (`GPL-3.0-or-later`) in the repository root LICENSE file.
 - [ ] Add reproducible frontend lockfile and deterministic CI installation.
 - [ ] Reconcile README, Cockpit README, roadmap, feature matrix and operator docs.
@@ -125,7 +124,7 @@ This does not waive software-level checks: Python tests, static checks, frontend
 
 ## Definition of done
 - Implementation and Cockpit integration are present where applicable.
-- Authorization, secret handling, failure and cancellation semantics are documented.
+- Authorization, secret handling and failure semantics are documented. Active destructive disk writes are non-cancellable and have no rollback guarantee.
 - Automated tests cover normal, invalid, interrupted and adversarial cases.
 - Relevant CI checks pass.
 - Feature matrix, roadmap and user docs match implementation.
