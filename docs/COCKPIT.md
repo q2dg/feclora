@@ -320,3 +320,21 @@ never returned. This is an inventory foundation, not yet a DHCP/static
 configuration workflow: Cockpit does not modify connection profiles, switch
 Server or Client addressing, or perform connectivity verification/rollback.
 Do not treat the DHCP/static Server-and-Client requirement as complete.
+
+
+### DHCP and static IPv4 profile application
+
+The Network tab exposes active NetworkManager profiles on the current host
+(Server or Client) and can apply DHCP or static IPv4 settings. Static mode
+validates the address, prefix, gateway and DNS values before changing the
+selected profile. Activation is performed inside a NetworkManager checkpoint
+with a 120-second automatic rollback deadline. Feclora verifies the selected
+profile and resulting IPv4 address before destroying the checkpoint; failures
+request an immediate rollback. If Cockpit disconnects or the API process is
+interrupted, NetworkManager's checkpoint timeout remains the recovery path.
+
+Only profiles currently attached to a device are selectable. Keep local
+console access available during changes, especially when changing the
+management interface. This workflow currently covers IPv4 only; IPv6, Wi-Fi
+secret provisioning, inactive profile binding and multi-interface routing
+policy are not configured here.
