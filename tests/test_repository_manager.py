@@ -131,6 +131,23 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         with self.assertRaisesRegex(RepositoryManagerError, "unmount"):
             self.manager.remove("images")
 
+    def test_active_restore_lease_blocks_repository_unmount(self):
+        self.manager.add("images", self.definition)
+        self.manager._is_mounted = lambda _path: True
+        self.manager._mount_record = lambda _path: (
+            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime",
+        )
+        lease_fd = self.manager.acquire_usage_lock("images")
+        try:
+            with self.assertRaisesRegex(RepositoryManagerError, "active deployment restore"):
+                self.manager.unmount("images")
+        finally:
+            os.close(lease_fd)
+
+    def test_unknown_repository_cannot_acquire_usage_lease(self):
+        with self.assertRaisesRegex(RepositoryManagerError, "unknown repository"):
+            self.manager.acquire_usage_lock("missing")
+
     def test_registry_rejects_symlink(self):
         self.manager.add("images", self.definition)
         real = self.registry
