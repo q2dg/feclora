@@ -37,6 +37,18 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def _timestamp(value: Any, label: str) -> datetime:
+    if not isinstance(value, str):
+        raise CAMigrationError(f"{label} timestamp is invalid")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise CAMigrationError(f"{label} timestamp is invalid") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise CAMigrationError(f"{label} timestamp must include a timezone")
+    return parsed.astimezone(timezone.utc)
+
+
 def _canonical(value: dict[str, Any]) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
 
@@ -83,8 +95,10 @@ def _validate(value: Any, migration_id: str | None = None) -> dict[str, Any]:
         raise CAMigrationError("old and new CA fingerprints must differ")
     if value["phase"] not in _PHASES:
         raise CAMigrationError("migration phase is invalid")
-    if not isinstance(value["created_at"], str) or not isinstance(value["updated_at"], str):
-        raise CAMigrationError("migration timestamps are invalid")
+    created_at = _timestamp(value["created_at"], "created_at")
+    updated_at = _timestamp(value["updated_at"], "updated_at")
+    if updated_at < created_at:
+        raise CAMigrationError("updated_at precedes migration creation")
     if type(value["retirement_confirmed"]) is not bool:
         raise CAMigrationError("retirement confirmation flag is invalid")
     clients = value["clients"]
@@ -95,17 +109,30 @@ def _validate(value: Any, migration_id: str | None = None) -> dict[str, Any]:
             raise CAMigrationError("migration inventory contains an invalid Client ID")
         if not isinstance(status, dict) or set(status) != {"trust_acknowledged_at", "leaf_acknowledged_at"}:
             raise CAMigrationError("migration Client status has an unsupported schema")
-        for key in ("trust_acknowledged_at", "leaf_acknowledged_at"):
-            if status[key] is not None and not isinstance(status[key], str):
-                raise CAMigrationError("migration acknowledgement timestamp is invalid")
-        if status["leaf_acknowledged_at"] is not None and status["trust_acknowledged_at"] is None:
+        trust_at = (None if status["trust_acknowledged_at"] is None else
+                    _timestamp(status["trust_acknowledged_at"], "trust acknowledgement"))
+        leaf_at = (None if status["leaf_acknowledged_at"] is None else
+                   _timestamp(status["leaf_acknowledged_at"], "leaf acknowledgement"))
+        if leaf_at is not None and trust_at is None:
             raise CAMigrationError("Client leaf acknowledgement lacks a prior trust acknowledgement")
+        if trust_at is not None and trust_at < created_at:
+            raise CAMigrationError("Client trust acknowledgement predates migration creation")
+        if leaf_at is not None and leaf_at < trust_at:
+            raise CAMigrationError("Client leaf acknowledgement predates trust acknowledgement")
+        if (trust_at is not None and trust_at > updated_at) or (leaf_at is not None and leaf_at > updated_at):
+            raise CAMigrationError("Client acknowledgement is later than manifest update")
     history = value["history"]
     if not isinstance(history, list) or not 1 <= len(history) <= 64:
         raise CAMigrationError("migration history is invalid")
     if any(not isinstance(event, dict) or set(event) != {"phase", "at"}
-           or event["phase"] not in _PHASES or not isinstance(event["at"], str) for event in history):
+           or not isinstance(event["phase"], str) or event["phase"] not in _PHASES
+           for event in history):
         raise CAMigrationError("migration history event is invalid")
+    history_times = [_timestamp(event["at"], "phase history") for event in history]
+    if history_times[0] != created_at or history_times[-1] > updated_at:
+        raise CAMigrationError("migration history timestamps do not match manifest timestamps")
+    if any(after < before for before, after in zip(history_times, history_times[1:])):
+        raise CAMigrationError("migration history timestamps are not monotonic")
     phases = [event["phase"] for event in history]
     if phases[0] != "prepared" or phases[-1] != value["phase"]:
         raise CAMigrationError("migration history does not match its current phase")
@@ -114,6 +141,18 @@ def _validate(value: Any, migration_id: str | None = None) -> dict[str, Any]:
             raise CAMigrationError("migration history contains an invalid phase transition")
     if (value["phase"] == "retired") != value["retirement_confirmed"]:
         raise CAMigrationError("retirement confirmation is inconsistent with the phase")
+    phase_index = {phase: index for index, phase in enumerate(phases)}
+    distribution_started = history_times[phase_index["distributing"]] if "distributing" in phase_index else None
+    server_switched_at = history_times[phase_index["server_switched"]] if "server_switched" in phase_index else None
+    for client in clients.values():
+        trust_at = (None if client["trust_acknowledged_at"] is None else
+                    _timestamp(client["trust_acknowledged_at"], "trust acknowledgement"))
+        leaf_at = (None if client["leaf_acknowledged_at"] is None else
+                   _timestamp(client["leaf_acknowledged_at"], "leaf acknowledgement"))
+        if trust_at is not None and (distribution_started is None or trust_at < distribution_started):
+            raise CAMigrationError("Client trust acknowledgement predates distribution")
+        if leaf_at is not None and (server_switched_at is None or leaf_at < server_switched_at):
+            raise CAMigrationError("Client leaf acknowledgement predates Server identity switch")
     if value["phase"] in {"trust_distributed", "server_switched", "converged", "retired"}:
         if any(client["trust_acknowledged_at"] is None for client in clients.values()):
             raise CAMigrationError("phase claims trust distribution before all Clients acknowledged")
