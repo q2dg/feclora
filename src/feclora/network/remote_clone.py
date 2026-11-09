@@ -580,7 +580,9 @@ def serve_remote_clone_once(
             try:
                 accepted, _address = listener.accept()
                 break
-            except socket.timeout:
+            except (socket.timeout, InterruptedError):
+                # Signals may interrupt accept() before the cancellation event
+                # is observed. Re-enter the bounded poll loop and check it again.
                 continue
         tls_socket = accept_mutual_tls(
             tls_context, accepted, expected_peer_identity=expected_peer_identity,
