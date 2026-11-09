@@ -464,7 +464,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                 "feclora.network.remote_clone._geometry",
                 return_value=(len(self.payload), 512, False, "gpt"),
             ):
-                with self.assertRaisesRegex(RemoteDiskCloneError, "closed|ended|EOF"):
+                with self.assertRaisesRegex(RemoteDiskCloneError, "disconnected"):
                     receive_remote_disk(
                         TlsSocketProxy(right),
                         operation_log_path=log_path,
