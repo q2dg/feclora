@@ -194,6 +194,7 @@ export default function App() {
   const isRestore = operation.startsWith("restore_");
   const isDisk = operation.endsWith("_disk");
   const deviceOptions = isDisk ? disks : partitions;
+  const selectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId);
   const availableImages = selectedRepositoryId ? repositoryImages : images;
   const matchingImages = availableImages.filter((item) => item.image_type === (isDisk ? "disk" : "partition"));
   const expectedConfirmation = operation === "clone_partition"
@@ -696,7 +697,7 @@ export default function App() {
   };
 
   const operationReady = isCapture
-    ? Boolean(source && imageId && (operation !== "capture_partition" || partitionId || imageId))
+    ? Boolean(source && imageId && (!selectedRepository?.read_only) && (operation !== "capture_partition" || partitionId || imageId))
     : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation && (!isDisk || !restoreLayoutPreview || !restoreTargetDevice || restoreTargetDevice.size_bytes >= restoreLayoutPreview.source_size_bytes))
       : Boolean(source && target && source !== target && confirmation === expectedConfirmation);
 
@@ -858,7 +859,7 @@ export default function App() {
                       {(extractLayout?.partitions || []).map((part) => <option key={part.node} value={part.selector}>{part.node} · {part.uuid || part.name || part.selector} · {formatBytes(part.size_bytes)}</option>)}
                     </select>
                   </Field>
-                  <Button variant="primary" onClick={extractPartitionFromImage} isLoading={busy} isDisabled={busy || !extractImageId || !extractLayout || !extractPartitionSelector}>Extract partition image</Button>
+                  <Button variant="primary" onClick={extractPartitionFromImage} isLoading={busy} isDisabled={busy || selectedRepository?.read_only || !extractImageId || !extractLayout || !extractPartitionSelector}>Extract partition image</Button>
                   {busy && progress && <Progress value={progress.bytes_total ? Math.min(100, progress.bytes_done / progress.bytes_total * 100) : 0} title="Partition extraction progress" measureLocation="outside" label={formatBytes(progress.bytes_done) + " / " + formatBytes(progress.bytes_total)} />}
                   {extractPartitionResult && <Alert variant="success" title="Partition image published" isInline>
                     Source: {extractPartitionResult.source_image_id} · New image: {extractPartitionResult.image_id} · {extractPartitionResult.signed ? "Signed" : "Unsigned"} · {extractPartitionResult.encrypted ? "age-encrypted" : "unencrypted"}
