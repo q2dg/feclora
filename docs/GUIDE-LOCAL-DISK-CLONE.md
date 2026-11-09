@@ -5,7 +5,7 @@ title: Local disk-to-disk cloning
 
 # Local disk-to-disk cloning
 
-<badge>Available in Cockpit</badge>
+**Status: available in Cockpit**
 
 This procedure copies one complete block device directly to another on the
 same Feclora machine. The destination is overwritten. It does not create an
