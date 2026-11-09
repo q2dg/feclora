@@ -7,6 +7,7 @@ import os
 import stat
 import uuid
 from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
@@ -73,6 +74,36 @@ def append_event(path: str | os.PathLike[str], event: dict) -> None:
     except (OSError, TypeError, ValueError) as exc:
         raise OperationLogError(f"cannot persist operation log: {exc}") from exc
 
+_ACTIVE_OPERATION: ContextVar[dict | None] = ContextVar("feclora_active_operation", default=None)
+_PROGRESS_INTERVAL_SECONDS = 1.0
+_PROGRESS_INTERVAL_BYTES = 64 * 1024 * 1024
+
+
+def record_progress(bytes_done: int, bytes_total: int | None) -> None:
+    """Persist throttled progress for the operation active in this context."""
+    active = _ACTIVE_OPERATION.get()
+    if active is None:
+        return
+    done = max(0, int(bytes_done))
+    total = max(0, int(bytes_total)) if bytes_total is not None else None
+    now = __import__("time").monotonic()
+    last_done = active["last_bytes"]
+    is_first = last_done is None
+    is_final = total is not None and done >= total
+    if not (is_first or is_final or done - last_done >= _PROGRESS_INTERVAL_BYTES
+            or now - active["last_at"] >= _PROGRESS_INTERVAL_SECONDS):
+        return
+    append_event(active["log_path"], {
+        **active["common"],
+        "timestamp": _timestamp(),
+        "status": "progress",
+        "bytes_done": done,
+        "bytes_total": total,
+    })
+    active["last_bytes"] = done
+    active["last_at"] = now
+
+
 
 @contextmanager
 def operation_record(
@@ -91,31 +122,41 @@ def operation_record(
         "image_id": image_id,
     }
     append_event(log_path, {**common, "timestamp": _timestamp(), "status": "started"})
+    import time
+    token = _ACTIVE_OPERATION.set({
+        "common": common,
+        "log_path": log_path,
+        "last_bytes": None,
+        "last_at": time.monotonic(),
+    })
     try:
-        yield operation_id
-    except BaseException as exc:
-        status = "cancelled" if "cancel" in type(exc).__name__.lower() else "failed"
         try:
-            append_event(log_path, {
-                **common,
-                "timestamp": _timestamp(),
-                "status": status,
-                "error_type": type(exc).__name__,
-                "error": str(exc)[:1000],
-            })
-        except OperationLogError as log_exc:
-            raise OperationLogError(
-                f"{status} operation and its terminal event could not be logged: {log_exc}"
-            ) from exc
-        raise
-    else:
-        try:
-            append_event(log_path, {
-                **common,
-                "timestamp": _timestamp(),
-                "status": "completed",
-            })
-        except OperationLogError as exc:
-            raise OperationLogError(
-                f"operation completed but its terminal journal event could not be persisted: {exc}"
-            ) from exc
+            yield operation_id
+        except BaseException as exc:
+            status = "cancelled" if "cancel" in type(exc).__name__.lower() else "failed"
+            try:
+                append_event(log_path, {
+                    **common,
+                    "timestamp": _timestamp(),
+                    "status": status,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc)[:1000],
+                })
+            except OperationLogError as log_exc:
+                raise OperationLogError(
+                    f"{status} operation and its terminal event could not be logged: {log_exc}"
+                ) from exc
+            raise
+        else:
+            try:
+                append_event(log_path, {
+                    **common,
+                    "timestamp": _timestamp(),
+                    "status": "completed",
+                })
+            except OperationLogError as exc:
+                raise OperationLogError(
+                    f"operation completed but its terminal journal event could not be persisted: {exc}"
+                ) from exc
+    finally:
+        _ACTIVE_OPERATION.reset(token)
