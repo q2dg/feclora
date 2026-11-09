@@ -1327,7 +1327,7 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
     if (network_interface is None) != (source_address is None):
         raise WebAPIError("network_interface and source_address must be supplied together")
     if network_interface is not None:
-        from feclora.network.interface_discovery import discover_interface_addresses, validate_selected_address
+        from feclora.network.interface_discovery import discover_interface_addresses
         try:
             discovered = discover_interface_addresses(network_interface)
             matches = [item for item in discovered if item.address == source_address]
@@ -1491,7 +1491,7 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
     job = inspection["job"]
     igmp_confirmed = params.get("igmp_confirmed", False)
     multicast_preflight = None
-    if network_interface is not None and source_address is None and job["transport"] != "multicast":
+    if job["transport"] == "unicast" and (network_interface is None or source_address is None):
         raise WebAPIError("unicast Client jobs require a selected interface and source IPv4 address")
     if job["transport"] == "multicast":
         if igmp_confirmed is not True:
