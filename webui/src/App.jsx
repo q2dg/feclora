@@ -6,7 +6,7 @@ import {
 } from "@patternfly/react-core";
 import { SyncAltIcon, ServerIcon, DatabaseIcon, ExclamationTriangleIcon } from "@patternfly/react-icons";
 import { Table, Thead, Tbody, Tr, Th, Td } from "@patternfly/react-table";
-import { callFeclora } from "./api.js";
+import { callFeclora, waitForLocalOperation } from "./api.js";
 
 const OPERATION_LABELS = {
   capture_disk: "Create a whole-disk image",
@@ -166,7 +166,7 @@ export default function App() {
     setBusy(true); setError("");
     try {
       const [s, i, j, op, inv, net, pxe, remote, clients, repositories] = await Promise.all([
-        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("server_trusted_clients"), callFeclora("remote_repositories")
+        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("server_trusted_clients"), callFeclora("remote_repositories")
       ]);
       setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setTrustedClients(clients.clients || []); setRemoteRepositories(repositories.repositories || []);
     } catch (err) { setError(err?.message || String(err)); }
@@ -212,10 +212,12 @@ export default function App() {
       else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else if (isRestore) params = { image_id: imageId, target, confirmation, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else params = { source, target, confirmation };
-      const result = await callFeclora(operation, params, (eventData) => {
+      const accepted = await callFeclora(operation, params);
+      setNotice("Operation accepted by the durable worker. It will continue if Cockpit disconnects.");
+      const result = await waitForLocalOperation(accepted.operation_id, (eventData) => {
         if (eventData.event === "progress") setProgress(eventData);
       });
-      setOperationResult(result);
+      setOperationResult(result.result);
       setNotice("Operation completed successfully.");
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
@@ -307,12 +309,14 @@ export default function App() {
   const extractPartitionFromImage = async () => {
     setBusy(true); setError(""); setNotice(""); setProgress(null); setExtractPartitionResult(null);
     try {
-      const result = await callFeclora("extract_partition_image", {
+      const accepted = await callFeclora("extract_partition_image", {
         image_id: extractImageId, selector: extractPartitionSelector, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
-      }, (eventData) => {
+      });
+      setNotice("Partition extraction accepted by the durable worker.");
+      const result = await waitForLocalOperation(accepted.operation_id, (eventData) => {
         if (eventData.event === "progress") setProgress(eventData);
       });
-      setExtractPartitionResult(result);
+      setExtractPartitionResult(result.result);
       setNotice("Partition image extracted and published.");
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
@@ -1044,9 +1048,22 @@ export default function App() {
             </Stack>
           </Tab>
           <Tab eventKey="operation-log" title="Operation log">
-            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Local operation history</Title><p>Last 200 durable operation journal events, including throttled byte-progress checkpoints, failure type and diagnostic text. A started entry without a terminal event requires operator review; interrupted writes are never resumed automatically.</p></StackItem>
+            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Local operation history</Title><p>Durable local operation definitions and state history, including worker progress and terminal diagnostics. Interrupted writes require operator inspection and are never resumed automatically.</p></StackItem>
               <StackItem><Table aria-label="Local operation history" variant="compact"><Thead><Tr><Th>Timestamp</Th><Th>Operation</Th><Th>Target</Th><Th>Image</Th><Th>Status</Th><Th>Progress</Th><Th>Operation ID</Th><Th>Failure detail</Th></Tr></Thead><Tbody>
-                {operations.map((item, index) => <Tr key={item.operation_id + "-" + item.status + "-" + index}><Td>{item.timestamp || "—"}</Td><Td>{item.operation || "—"}</Td><Td>{item.target || "—"}</Td><Td>{item.image_id || "—"}</Td><Td><Label color={item.status === "completed" ? "green" : item.status === "failed" || item.status === "cancelled" || item.status === "interrupted" ? "red" : "orange"}>{item.status || "unknown"}</Label></Td><Td>{item.status === "progress" ? formatBytes(item.bytes_done || 0) + (item.bytes_total !== null && item.bytes_total !== undefined ? " / " + formatBytes(item.bytes_total) : " processed") : "—"}</Td><Td>{item.operation_id || "—"}</Td><Td>{item.error ? <><strong>{item.error_type || "Operation error"}:</strong> {item.error}</> : item.recovery_note || "—"}</Td></Tr>)}
+                {operations.map((item) => {
+                  const events = item.events || [];
+                  const latest = events[events.length - 1] || {};
+                  const progress = [...events].reverse().find((event) => event.state === "progress");
+                  const details = latest.details || {};
+                  const progressDetails = progress?.details || {};
+                  return <Tr key={item.operation_id}>
+                    <Td>{latest.timestamp || "—"}</Td><Td>{item.action || "—"}</Td>
+                    <Td>{details.target || details.source || "—"}</Td><Td>{details.image_id || "—"}</Td>
+                    <Td><Label color={item.state === "completed" ? "green" : ["failed", "cancelled", "interrupted"].includes(item.state) ? "red" : "orange"}>{item.state || "unknown"}</Label></Td>
+                    <Td>{progress ? formatBytes(progressDetails.bytes_done || 0) + (progressDetails.bytes_total !== null && progressDetails.bytes_total !== undefined ? " / " + formatBytes(progressDetails.bytes_total) : " processed") : "—"}</Td>
+                    <Td>{item.operation_id}</Td><Td>{details.error ? <><strong>{details.error_type || "Operation error"}:</strong> {details.error}</> : details.reason || "—"}</Td>
+                  </Tr>;
+                })}
                 {!operations.length && <Tr><Td colSpan={8}>No local operations recorded.</Td></Tr>}
               </Tbody></Table></StackItem>
             </Stack>
