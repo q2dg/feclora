@@ -1,30 +1,30 @@
 # One-to-one remote disk cloning
 
-This document specifies direct disk-to-disk cloning between two Feclora
-machines. It is a distinct operation within the existing persistent
-Server/Client deployment lifecycle, not a separate daemon or job system.
-It is separate from image-based restore and multicast distribution.
+Feclora implements direct whole-disk cloning as a distinct `clone`
+operation inside the existing persistent Server/Client deployment lifecycle.
+It does not create a second daemon, listener, IPC protocol, or job journal.
+The Server is the source and the Client is the receiver.
 
 The current UDPcast integration is not the data plane for this operation:
-Feclora invokes UDPcast with artifact files, receives into private staging
-files, and verifies signed manifests before the existing restore engine writes
-a disk. It does not currently stream a source block device directly into a
-receiver block device. Remote disk clone therefore retains its dedicated
-bounded block-stream protocol, while reusing the existing deployment services,
-mTLS control session, durable job lifecycle, and Cockpit operation plumbing.
+UDPcast transfers image artifact files into private staging before signed-image
+restore; it does not stream a source block device directly into a receiver
+block device. Clone therefore reuses Feclora's existing bounded block-stream
+engine and runs it over the already authenticated TLS 1.3 control socket after
+the job's START frame. No additional network port or TLS service is opened.
 
 ## Roles
 
-- **Source:** owns the disk being read and exposes a short-lived TLS listener.
-- **Receiver:** initiates the connection and owns the destination disk.
+- **Source:** the Server owns the read-only source disk.
+- **Receiver:** the Client owns the destination disk and selects it locally.
 - **Operator on each endpoint:** explicitly authorizes the exact peer and local
   device involved in the session.
 
-The receiver initiates the connection. Both endpoints authenticate the other using TLS 1.3 and a configured CA trust
-anchor. Each endpoint also checks the expected peer identity by exact SAN or
-SHA-256 certificate fingerprint; CA validation without identity matching is
-insufficient. A fingerprint is an additional identity pin, not a replacement
-for the configured CA trust anchor.
+Both endpoints reuse the TLS 1.3 mutual-authenticated control session and the
+existing enrolled peer identity checks. The Server operator confirms the
+source disk and enrolled Client identity as part of the job-specific ARM
+phrase. The Client operator separately types the destructive confirmation for
+its selected destination. CA validation without exact peer identity matching
+is insufficient.
 
 ## Source precondition
 
@@ -36,25 +36,26 @@ Do not mark the running system disk read-only.
 
 ## Session sequence
 
-1. Both operators configure the expected peer identity and approve the
-   one-to-one session. The source approval names the source disk and receiver
-   identity. The receiver approval names the source identity and destination
-   disk and requires the exact destructive phrase ERASE /dev/DEVICE.
-2. The receiver connects to the source using mutual TLS. Neither endpoint
-   accepts an untrusted, mismatched, expired, or wrong-role peer certificate.
-3. The peers exchange a versioned, bounded session header containing a fresh
-   session UUID, endpoint roles and identities, source byte count, logical
-   sector size, and a fixed transfer chunk size. The receiver rejects a header
-   that does not match its independently approved session.
-4. Each endpoint compares the peer's session device path against its own
-   independently selected local source/target path; a remote header cannot
-   choose the receiver's disk. The source revalidates its device identity and
-   read safety and requires the source disk to be marked read-only. The
-   receiver revalidates its target identity, capacity (equal to or greater than
-   the source), logical sector size, writable status and destructive safety.
-   A smaller target is rejected before READY. The receiver writes and verifies
-   exactly the source-sized byte range; extra destination capacity is not part
-   of the transfer digest.
+1. The Server operator creates a unicast clone job, selects a whole source
+   disk already marked read-only, and authorizes exactly one enrolled Client.
+   The Client inspects the authenticated job, selects its own destination disk,
+   and types `ERASE /dev/DEVICE FROM SERVER_IDENTITY` before reporting READY.
+2. The Client sends its approved target path in the clone-specific READY frame.
+   The Server binds that path, its configured source path, and both enrolled
+   certificate identities into a fresh session header. The Client checks that
+   the header names the same locally selected target; it still performs its
+   own block-device identity and safety checks before writing.
+3. The Server operator must type the exact job-specific phrase
+   `ARM JOB_UUID AND READ /dev/SOURCE TO CLIENT_IDENTITY`. The Server checks
+   that the source is still read-only before sending START. The existing mTLS
+   session is then used for the bounded clone protocol; no new connection is
+   opened.
+4. Each endpoint verifies the peer identity again. The source revalidates its
+   device identity and read safety. The receiver revalidates its target
+   identity, capacity (equal to or greater than the source), logical sector
+   size, writable status and destructive safety. A smaller target is rejected
+   before READY. The receiver writes and verifies exactly the source-sized
+   byte range; extra destination capacity is not part of the transfer digest.
 5. Only after the receiver has completed its local authorization and target
    safety checks does it send a session-bound READY frame. The source waits for
    that frame before launching dd or disclosing disk data.
