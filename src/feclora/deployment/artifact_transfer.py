@@ -14,7 +14,7 @@ import stat
 import struct
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.image_security import ImageSecurityError, verify_manifest_signature
