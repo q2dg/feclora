@@ -39,7 +39,9 @@ class CAMigrationStoreTests(unittest.TestCase):
                 store.complete_distribution(identifier)
             store.acknowledge_trust(identifier, "client-b")
             self.assertEqual(store.complete_distribution(identifier)["phase"], "trust_distributed")
-            self.assertEqual(CAMigrationStore(directory).get(identifier)["phase"], "trust_distributed")
+            reloaded = CAMigrationStore(directory)
+            self.assertEqual(reloaded.get(identifier)["phase"], "trust_distributed")
+            self.assertEqual([item["migration_id"] for item in reloaded.list()], [identifier])
 
     def test_state_machine_requires_ordered_leaf_acknowledgements_and_explicit_retirement(self):
         with tempfile.TemporaryDirectory() as directory:
