@@ -411,7 +411,7 @@ def ca_bundle_fingerprints(
     except OSError as exc:
         raise PKIError(f"cannot safely read CA trust bundle: {exc}") from exc
 
-    pattern = rb"-----BEGIN CERTIFICATE-----\\s*[A-Za-z0-9+/=\\r\\n]+\\s*-----END CERTIFICATE-----"
+    pattern = rb"-----BEGIN CERTIFICATE-----\s*[A-Za-z0-9+/=\r\n]+\s*-----END CERTIFICATE-----"
     blocks = re.findall(pattern, bytes(raw))
     remainder = re.sub(pattern, b"", bytes(raw))
     if not 1 <= len(blocks) <= 8 or remainder.strip():
@@ -421,7 +421,7 @@ def ca_bundle_fingerprints(
     with tempfile.TemporaryDirectory(prefix="feclora-ca-inspect-") as temporary_directory:
         for index, block in enumerate(blocks):
             certificate = os.path.join(temporary_directory, f"ca-{index}.pem")
-            Path(certificate).write_bytes(block + b"\\n")
+            Path(certificate).write_bytes(block + b"\n")
             _run([openssl, "x509", "-in", certificate, "-noout"], runner)
             constraints = _run(
                 [openssl, "x509", "-in", certificate, "-noout", "-ext", "basicConstraints"], runner
@@ -429,7 +429,7 @@ def ca_bundle_fingerprints(
             usage = _run(
                 [openssl, "x509", "-in", certificate, "-noout", "-ext", "keyUsage"], runner
             ).stdout
-            if not re.search(r"CA\\s*:\\s*TRUE", constraints, re.IGNORECASE):
+            if not re.search(r"CA\s*:\s*TRUE", constraints, re.IGNORECASE):
                 raise PKIError("trust bundle contains a certificate that is not a CA")
             if not re.search(r"Certificate Sign", usage, re.IGNORECASE):
                 raise PKIError("trust bundle contains a CA without certificate-signing usage")
