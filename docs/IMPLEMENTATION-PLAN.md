@@ -35,12 +35,13 @@ Acceptance: no cutover strands enrolled clients without recovery; private materi
 
 ## P0 — Remote repositories and credentials
 Repository-related abstractions/tests already exist; inspect and extend them rather than creating a second implementation.
-- [ ] Inventory current repository code and reconcile feature matrix.
-- [ ] Define a provider interface independent of transport.
+- [x] Inventory current repository code and reconcile the feature matrix.
+- [x] Define a provider interface independent of transport.
+- [x] Add root-managed SSHFS/NFS/SMB mount lifecycle and Cockpit actions; keep this separate from image-engine integration.
 - [ ] Complete the supported local, NFS, SMB/CIFS, SSHFS and SFTP providers; keep SSHFS mounts distinct from SFTP transfers.
 - [ ] Store credential references in root-owned protected storage; never ordinary config/logs.
 - [ ] Add SSH host-key pinning, key selection, permission checks and credential rotation.
-- [ ] Add Cockpit create/edit/test/mount/unmount/read-only/delete workflows and health/free-space reporting.
+- [ ] Complete Cockpit create/edit/test/mount/unmount/read-only/delete workflows and health/free-space reporting; create/mount/unmount/remove are present for SSHFS/NFS/SMB, but edit/test/health and provider identity checks remain.
 - [ ] Handle stale mounts, network loss, interrupted publication, concurrent writers and cleanup.
 - [ ] Add integration tests with local test services where practical.
 Acceptance: engines use repository IDs/handles, secrets are redacted, failures cannot leave falsely complete images.
