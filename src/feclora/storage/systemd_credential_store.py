@@ -68,7 +68,7 @@ class SystemdCredentialStore:
         if self.effective_uid() != 0:
             raise SystemdCredentialStoreError("credential provisioning requires root")
         name = self._name(identifier, kind)
-        if not isinstance(content, bytes) or not content or len(content) > 1024 * 1024 or b"\\x00" in content:
+        if not isinstance(content, bytes) or not content or len(content) > 1024 * 1024 or b"\x00" in content:
             raise SystemdCredentialStoreError("credential content must be 1 byte to 1 MiB and contain no NUL")
         executable = self.which("systemd-creds")
         if not executable:
@@ -133,7 +133,7 @@ class SystemdCredentialStore:
         self._directory(create=False)
         result = []
         for path in sorted(self.root.glob("*.cred")):
-            match = re.fullmatch(r"feclora-([a-z0-9][a-z0-9-]{0,47})-(ssh-key|known-hosts|smb|rclone)\\.cred", path.name)
+            match = re.fullmatch(r"feclora-([a-z0-9][a-z0-9-]{0,47})-(ssh-key|known-hosts|smb|rclone)\.cred", path.name)
             if not match:
                 continue
             identifier, kind = match.groups()
