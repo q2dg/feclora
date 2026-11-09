@@ -565,8 +565,8 @@ class ManagedPKITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             bundle = os.path.join(root, "dual-ca.pem")
             Path(bundle).write_bytes(
-                b"-----BEGIN CERTIFICATE-----\\nT0xE\\n-----END CERTIFICATE-----\\n"
-                b"-----BEGIN CERTIFICATE-----\\nTkVX\\n-----END CERTIFICATE-----\\n"
+                b"-----BEGIN CERTIFICATE-----\nT0xE\n-----END CERTIFICATE-----\n"
+                b"-----BEGIN CERTIFICATE-----\nTkVX\n-----END CERTIFICATE-----\n"
             )
 
             def fake_run(argv, _runner=None):
@@ -592,7 +592,7 @@ class ManagedPKITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             bundle = os.path.join(root, "malformed.pem")
             Path(bundle).write_bytes(
-                b"-----BEGIN CERTIFICATE-----\\nQ0E=\\n-----END CERTIFICATE-----\\n"
+                b"-----BEGIN CERTIFICATE-----\nQ0E=\n-----END CERTIFICATE-----\n"
                 b"untrusted trailing bytes"
             )
             with self.assertRaisesRegex(PKIError, "no other data"):
