@@ -104,6 +104,8 @@ class DeploymentJournal:
             raw = b"".join(chunks)
         finally:
             os.close(fd)
+        if raw and not raw.endswith(b"\\n"):
+            raise DeploymentJournalError("journal ends with an incomplete event record")
         events: list[dict[str, Any]] = []
         previous = _ZERO_HASH
         for sequence, line in enumerate(raw.splitlines(), start=1):
