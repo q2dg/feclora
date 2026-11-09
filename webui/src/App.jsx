@@ -1008,12 +1008,12 @@ export default function App() {
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Remote image repositories</Title>
                 <p>Manage root-owned SSHFS, NFS and SMB/CIFS mounts. Credentials are referenced by protected file path; passwords and private keys are never entered into Cockpit or stored in the repository registry.</p>
-                <Alert variant="warning" title="Provider scope" isInline>Managed mount lifecycle currently supports SSHFS, NFS and SMB/CIFS. WebDAV and S3/rclone remain unavailable until their protected-credential workflows are implemented.</Alert>
+                <Alert variant="warning" title="Provider scope" isInline>Managed mount lifecycle supports SSHFS, NFS, SMB/CIFS, WebDAV and S3/rclone. Credentials must be provisioned in root-owned files before mounting.</Alert>
               </StackItem>
               <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
                 <Field label="Repository ID"><input className="pf-v5-c-form-control" value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
                 <Field label="Provider"><select className="pf-v5-c-form-control" value={repositoryProvider} onChange={(e) => { setRepositoryProvider(e.target.value); setRepositoryPort(e.target.value === "sshfs" ? "22" : ""); }}>
-                  <option value="sshfs">SSHFS (SFTP over SSH)</option><option value="nfs">NFSv4.2</option><option value="smb">SMB/CIFS</option>
+                  <option value="sshfs">SSHFS (SFTP over SSH)</option><option value="nfs">NFSv4.2</option><option value="smb">SMB/CIFS</option><option value="webdav">WebDAV over HTTPS</option><option value="s3">S3-compatible object storage (rclone)</option>
                 </select></Field>
                 <Field label="Server hostname or IPv4 address"><input className="pf-v5-c-form-control" value={repositoryHost} onChange={(e) => setRepositoryHost(e.target.value)} maxLength={253} required /></Field>
                 <Field label={repositoryProvider === "smb" ? "Share and optional subdirectory" : "Remote absolute path"}><input className="pf-v5-c-form-control" value={repositoryPath} onChange={(e) => setRepositoryPath(e.target.value)} maxLength={512} required /></Field>
