@@ -1368,6 +1368,7 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
             expected_server_identity=config.server_identity,
             mac_address=config.mac_address,
             job_id=job_id, source_address=source_address,
+            network_interface=network_interface,
         )
     except (DeploymentControlError, OSError, ValueError) as exc:
         raise WebAPIError(f"could not inspect authenticated Server job: {exc}") from exc
