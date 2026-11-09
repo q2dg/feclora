@@ -1008,6 +1008,20 @@ class WebAPITests(unittest.TestCase):
 
 
 
+    def test_apply_network_profile_api_passes_validated_fields(self):
+        expected = {"uuid": "12345678-1234-1234-1234-123456789abc", "interface": "enp1s0", "method": "auto", "address": "192.0.2.20/24"}
+        params = {
+            "uuid": expected["uuid"], "interface": "enp1s0", "method": "auto",
+            "address": None, "prefix_length": None, "gateway": None, "dns": [],
+        }
+        with patch("feclora.network.profile_apply.apply_ipv4_profile", return_value=expected) as apply:
+            self.assertEqual(dispatch({"action": "apply_network_profile", "params": params}), expected)
+        apply.assert_called_once_with(
+            uuid=params["uuid"], interface="enp1s0", method="auto",
+            address=None, prefix_length=None, gateway=None, dns=[], rollback_timeout=120,
+        )
+
+
     def test_network_connection_profiles_api_returns_sanitized_inventory(self):
         expected = [{"uuid": "12345678-1234-1234-1234-123456789abc", "name": "LAN"}]
         with patch("feclora.network.connection_profiles.list_connection_profiles", return_value=expected):
