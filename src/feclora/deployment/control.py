@@ -312,13 +312,14 @@ class DeploymentControlServer:
             except Exception as exc:
                 cleanup_error = exc
                 self._record_listener_error(f"firewall cleanup failed: {exc}")
+        callback = self._firewall_state_callback
+        self._firewall_state_callback = None
         if cleanup_error is not None:
+            # Keep the persisted ownership record on disk when cleanup failed:
+            # recovery must still know that this service may own an open zone.
             raise DeploymentControlError(f"control firewall cleanup failed: {cleanup_error}") from cleanup_error
-        if self._firewall_state_callback is not None:
-            try:
-                self._firewall_state_callback(None)
-            finally:
-                self._firewall_state_callback = None
+        if callback is not None:
+            callback(None)
 
     def accept_ready_client(self, listener: Any) -> ReadyClient | None:
         accepted, _address = listener.accept()
