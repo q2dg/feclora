@@ -74,10 +74,10 @@ def _repository(*, create: bool = False) -> Path:
     return REPOSITORY
 
 
-def _image_manifest(image_id: str) -> Path:
+def _image_manifest(image_id: str, repository: Path | None = None) -> Path:
     if not isinstance(image_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
         raise WebAPIError("image identifier is invalid")
-    path = _repository() / f"{image_id}.manifest.json"
+    path = (repository or _repository()) / f"{image_id}.manifest.json"
     try:
         info = os.lstat(path)
     except OSError as exc:
@@ -85,6 +85,20 @@ def _image_manifest(image_id: str) -> Path:
     if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
         raise WebAPIError("selected image manifest is not a root-owned regular file")
     return path
+
+
+def _operation_repository(params: dict[str, Any], *, write: bool, create_local: bool = False) -> Path:
+    """Resolve a local or explicitly selected, identity-verified image repository."""
+    repository_id = params.get("repository_id")
+    if repository_id is None:
+        return _repository(create=create_local)
+    if (not isinstance(repository_id, str)
+            or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", repository_id)):
+        raise WebAPIError("repository_id is invalid")
+    try:
+        return Path(_remote_repository_manager().resolve(repository_id, write=write))
+    except Exception as exc:
+        raise WebAPIError(f"selected image repository is not safely available: {exc}") from exc
 
 
 def _device(value: Any, field: str) -> str:
@@ -322,7 +336,8 @@ def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"image_id"}:
         raise WebAPIError("inspect_image_layout requires exactly image_id")
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-    manifest_path = _image_manifest(image_id)
+    repository = _operation_repository(params, write=False)
+        manifest_path = _image_manifest(image_id, repository)
     try:
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
     except Exception as exc:
@@ -401,7 +416,8 @@ def _verify_image(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"image_id"}:
         raise WebAPIError("verify_image requires exactly image_id")
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-    manifest_path = _image_manifest(image_id)
+    repository = _operation_repository(params, write=False)
+        manifest_path = _image_manifest(image_id, repository)
     try:
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
     except Exception as exc:
@@ -873,13 +889,13 @@ def _approve_client_csr(params: dict[str, Any]) -> dict[str, Any]:
 
 def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign"},
-        "restore_disk": {"image_id", "target", "confirmation"},
-        "restore_partition": {"image_id", "target", "confirmation"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id"},
+        "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
-        "extract_partition_image": {"image_id", "selector"},
+        "extract_partition_image": {"image_id", "selector", "repository_id"},
     }
     if action not in allowed or set(params) != allowed[action]:
         raise WebAPIError("operation parameters do not match the selected operation")
@@ -900,7 +916,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             raise WebAPIError("initialize Feclora security keys before enabling image signatures")
         recipients_file, signing_key = _capture_material()
         manifest = capture_disk(
-            source, image_id, _repository(create=True), compression=compression,
+            source, image_id, _operation_repository(params, write=True, create_local=True), compression=compression,
             progress_callback=_progress,
             age_recipients_file=recipients_file if encrypt else None,
             minisign_secret_key=signing_key if sign else None,
@@ -922,7 +938,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             raise WebAPIError("initialize Feclora security keys before enabling image signatures")
         recipients_file, signing_key = _capture_material()
         manifest = capture_partition_image(
-            source, image_id, partition_id, _repository(create=True),
+            source, image_id, partition_id, _operation_repository(params, write=True, create_local=True),
             compression=compression, progress_callback=_progress,
             age_recipients_file=recipients_file if encrypt else None,
             minisign_secret_key=signing_key if sign else None,
@@ -933,7 +949,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         from feclora.storage.image_security import verify_manifest_signature
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         selector = _text(params, "selector", maximum=256)
-        manifest_path = _image_manifest(image_id)
+        repository = _operation_repository(params, write=False)
+        manifest_path = _image_manifest(image_id, repository)
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
         if manifest.image_id != image_id:
             raise WebAPIError("selected image manifest identifier does not match its repository name")
@@ -987,7 +1004,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             else:
                 identity_file = identity_paths[0] if encrypted else None
             extracted, extracted_manifest = extract_partition_image(
-                manifest_path, _repository(), selector,
+                manifest_path, repository, selector,
                 age_identity_file=identity_file,
                 minisign_public_key=trusted_key,
                 require_signature=signed,
@@ -1012,7 +1029,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         expected = f"ERASE {target}"
         if params["confirmation"] != expected:
             raise WebAPIError(f"explicit confirmation required: {expected}")
-        manifest_path = _image_manifest(image_id)
+        repository = _operation_repository(params, write=False)
+        manifest_path = _image_manifest(image_id, repository)
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
         expected_type = "disk" if action == "restore_disk" else "partition"
         if manifest.image_type != expected_type:
@@ -1060,14 +1078,14 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             if action == "restore_disk":
                 from feclora.storage.disk_restore import restore_disk
                 restore_disk(
-                    manifest_path, _repository(), target, confirmation=expected,
+                    manifest_path, repository, target, confirmation=expected,
                     progress_callback=_progress, age_identity_file=identity_file,
                     minisign_public_key=trusted_key, require_signature=signed,
                 )
             else:
                 from feclora.storage.partition_restore import restore_partition
                 restore_partition(
-                    manifest_path, _repository(), target, confirmation=expected,
+                    manifest_path, repository, target, confirmation=expected,
                     progress_callback=_progress, age_identity_file=identity_file,
                     minisign_public_key=trusted_key, require_signature=signed,
                 )
@@ -1138,13 +1156,13 @@ def _storage_operation_lock():
 
 def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
     operation_fields = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign"},
-        "restore_disk": {"image_id", "target", "confirmation"},
-        "restore_partition": {"image_id", "target", "confirmation"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id"},
+        "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
-        "extract_partition_image": {"image_id", "selector"},
+        "extract_partition_image": {"image_id", "selector", "repository_id"},
     }
     if action not in operation_fields or set(params) != operation_fields[action]:
         raise WebAPIError("operation parameters do not match the selected operation")
@@ -1154,10 +1172,10 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
 
 def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]:
     operation_fields = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign"},
-        "restore_disk": {"image_id", "target", "confirmation"},
-        "restore_partition": {"image_id", "target", "confirmation"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id"},
+        "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
     }
