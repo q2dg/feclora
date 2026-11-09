@@ -92,3 +92,88 @@ class NetworkConnectionProfileTests(unittest.TestCase):
         from feclora.network.connection_profiles import NetworkProfileError, parse_connection_profiles
         with self.assertRaises(NetworkProfileError):
             parse_connection_profiles("{")
+
+
+class NetworkProfileApplyValidationTests(unittest.TestCase):
+    def test_dhcp_rejects_static_parameters(self):
+        from feclora.network.profile_apply import NetworkApplyError, validate_ipv4_profile
+        with self.assertRaises(NetworkApplyError):
+            validate_ipv4_profile(
+                uuid="12345678-1234-1234-1234-123456789abc",
+                interface="enp1s0", method="auto", address="192.0.2.20",
+                prefix_length=24,
+            )
+
+    def test_static_requires_valid_address_and_gateway_on_subnet(self):
+        from feclora.network.profile_apply import NetworkApplyError, validate_ipv4_profile
+        args = validate_ipv4_profile(
+            uuid="12345678-1234-1234-1234-123456789abc",
+            interface="enp1s0", method="manual", address="192.0.2.20",
+            prefix_length=24, gateway="192.0.2.1", dns=["192.0.2.53"],
+        )
+        self.assertIn("ipv4.method", args)
+        with self.assertRaises(NetworkApplyError):
+            validate_ipv4_profile(
+                uuid="12345678-1234-1234-1234-123456789abc",
+                interface="enp1s0", method="manual", address="192.0.2.20",
+                prefix_length=24, gateway="198.51.100.1",
+            )
+
+    def test_rejects_invalid_uuid_interface_and_dns(self):
+        from feclora.network.profile_apply import NetworkApplyError, validate_ipv4_profile
+        for values in (
+            {"uuid": "bad", "interface": "enp1s0", "method": "auto"},
+            {"uuid": "12345678-1234-1234-1234-123456789abc", "interface": "bad name", "method": "auto"},
+            {"uuid": "12345678-1234-1234-1234-123456789abc", "interface": "enp1s0", "method": "manual",
+             "address": "192.0.2.20", "prefix_length": 24, "dns": ["not-an-ip"]},
+        ):
+            with self.assertRaises(NetworkApplyError):
+                validate_ipv4_profile(**values)
+
+
+class NetworkProfileApplyExecutionTests(unittest.TestCase):
+    def test_applies_profile_and_destroys_checkpoint_only_after_verification(self):
+        from types import SimpleNamespace
+        from feclora.network.profile_apply import apply_ipv4_profile
+        calls = []
+        outputs = [
+            "/org/freedesktop/NetworkManager/Devices/2",
+            'o "/org/freedesktop/NetworkManager/Checkpoint/3"',
+            "", "", "12345678-1234-1234-1234-123456789abc",
+            "192.0.2.20/24", "",
+        ]
+        def runner(argv, **kwargs):
+            calls.append(argv)
+            return SimpleNamespace(stdout=outputs.pop(0), stderr="", returncode=0)
+        result = apply_ipv4_profile(
+            uuid="12345678-1234-1234-1234-123456789abc",
+            interface="enp1s0", method="manual", address="192.0.2.20",
+            prefix_length=24, gateway="192.0.2.1", dns=["192.0.2.53"],
+            nmcli="/usr/bin/nmcli", busctl="/usr/bin/busctl", runner=runner,
+        )
+        self.assertEqual(result["address"], "192.0.2.20/24")
+        self.assertIn("CheckpointCreate", calls[1])
+        self.assertIn("Checkpoint", calls[-1])
+        self.assertIn("Destroy", calls[-1])
+
+    def test_verification_failure_requests_rollback(self):
+        from types import SimpleNamespace
+        from feclora.network.profile_apply import NetworkApplyError, apply_ipv4_profile
+        calls = []
+        outputs = [
+            "/org/freedesktop/NetworkManager/Devices/2",
+            'o "/org/freedesktop/NetworkManager/Checkpoint/3"',
+            "", "", "12345678-1234-1234-1234-123456789abc",
+            "192.0.2.99/24", "", 
+        ]
+        def runner(argv, **kwargs):
+            calls.append(argv)
+            return SimpleNamespace(stdout=outputs.pop(0), stderr="", returncode=0)
+        with self.assertRaises(NetworkApplyError):
+            apply_ipv4_profile(
+                uuid="12345678-1234-1234-1234-123456789abc",
+                interface="enp1s0", method="manual", address="192.0.2.20",
+                prefix_length=24, gateway="192.0.2.1",
+                nmcli="/usr/bin/nmcli", busctl="/usr/bin/busctl", runner=runner,
+            )
+        self.assertIn("Rollback", calls[-1])
