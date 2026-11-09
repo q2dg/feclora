@@ -332,8 +332,11 @@ class ManagedPKITests(unittest.TestCase):
             self.assertEqual(Path(destination).read_bytes(), b"AGE ENCRYPTED BACKUP")
             self.assertEqual(os.stat(destination).st_mode & 0o777, 0o600)
             self.assertEqual(result["sha256"], hashlib.sha256(b"AGE ENCRYPTED BACKUP").hexdigest())
-            with self.assertRaisesRegex(PKIError, "refusing to overwrite"):
-                backup_server_ca(destination, "age1" + "a" * 40, pki_directory=root)
+            with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
+                "feclora.deployment.managed_pki.ca_fingerprint", return_value="a" * 64
+            ):
+                with self.assertRaisesRegex(PKIError, "refusing to overwrite"):
+                    backup_server_ca(destination, "age1" + "a" * 40, pki_directory=root)
 
     def test_encrypted_ca_backup_rejects_invalid_age_recipient(self):
         from feclora.deployment.managed_pki import backup_server_ca
