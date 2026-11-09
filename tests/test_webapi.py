@@ -447,12 +447,15 @@ class WebAPITests(unittest.TestCase):
         execute.assert_called_once_with("extract_partition_image", params, "operation-123")
         self.assertEqual(result, {"image_id": "whole-disk-part-123"})
 
-    def test_partition_extraction_is_exposed_as_a_storage_operation(self):
+    def test_partition_extraction_is_submitted_to_the_durable_worker(self):
         params = {"image_id": "whole-disk", "selector": "PARTUUID=abc"}
-        with patch("feclora.webapi._run_operation", return_value={"image_id": "whole-disk-part-123"}) as run:
+        accepted = {"operation_id": "00000000-0000-4000-8000-000000000001", "state": "queued"}
+        with patch("feclora.webapi._submit_local_operation", return_value=accepted) as submit:
             result = dispatch({"action": "extract_partition_image", "params": params})
-        run.assert_called_once_with("extract_partition_image", params)
-        self.assertEqual(result["image_id"], "whole-disk-part-123")
+        submit.assert_called_once_with({
+            "operation": "extract_partition_image", "operation_params": params,
+        })
+        self.assertEqual(result, accepted)
 
     def test_age_recipient_export_and_refresh_actions_are_allowlisted(self):
         with patch("feclora.deployment.cockpit_enrollment.export_server_age_recipients",
