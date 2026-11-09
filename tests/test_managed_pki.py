@@ -241,6 +241,57 @@ class ManagedPKITests(unittest.TestCase):
             self.assertEqual(Path(paths["server.key"]).read_bytes(), original_key)
             self.assertEqual(Path(paths["server.crt"]).read_bytes(), original_cert)
 
+    def test_server_keypair_rotation_rolls_back_certificate_if_key_install_fails(self):
+        with tempfile.TemporaryDirectory() as root:
+            paths = {
+                "ca.key": os.path.join(root, "ca.key"),
+                "ca.crt": os.path.join(root, "ca.crt"),
+                "server.key": os.path.join(root, "server.key"),
+                "server.crt": os.path.join(root, "server.crt"),
+            }
+            for name, path in paths.items():
+                Path(path).write_text("old " + name, encoding="ascii")
+                os.chmod(path, 0o600 if name.endswith(".key") else 0o644)
+            original_key = Path(paths["server.key"]).read_bytes()
+            original_cert = Path(paths["server.crt"]).read_bytes()
+
+            def fake_run(argv, _runner=None):
+                if argv[1:3] == ["x509", "-in"] and argv[-1:] == ["-enddate"]:
+                    return SimpleNamespace(stdout="notAfter=Jan  2 00:00:00 2030 GMT")
+                if argv[1:3] == ["genpkey", "-algorithm"]:
+                    Path(argv[argv.index("-out") + 1]).write_text("new private key", encoding="ascii")
+                elif argv[1:3] == ["req", "-new"]:
+                    Path(argv[argv.index("-out") + 1]).write_text("new CSR", encoding="ascii")
+                elif argv[1:3] == ["x509", "-req"]:
+                    Path(argv[argv.index("-out") + 1]).write_text("new certificate", encoding="ascii")
+                elif argv[1:3] == ["x509", "-in"] and argv[-3:] == ["-noout", "-ext", "subjectAltName"]:
+                    return SimpleNamespace(stdout="X509v3 Subject Alternative Name:\\n    URI:feclora-server\\n")
+                elif argv[1:3] == ["x509", "-in"] and "-pubkey" in argv:
+                    return SimpleNamespace(stdout="NEW PUBLIC KEY")
+                elif argv[1:2] == ["pkey"]:
+                    return SimpleNamespace(stdout="NEW PUBLIC KEY")
+                return SimpleNamespace(stdout="verified")
+
+            real_replace = os.replace
+            replace_calls = 0
+
+            def fail_second_replace(source, destination):
+                nonlocal replace_calls
+                replace_calls += 1
+                if replace_calls == 2:
+                    raise OSError("simulated private-key installation failure")
+                return real_replace(source, destination)
+
+            with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
+                "feclora.deployment.managed_pki._regular_file"
+            ), patch("feclora.deployment.managed_pki._run", side_effect=fake_run), patch(
+                "feclora.deployment.managed_pki.os.replace", side_effect=fail_second_replace
+            ):
+                with self.assertRaisesRegex(OSError, "simulated private-key installation failure"):
+                    rotate_server_keypair(root)
+            self.assertEqual(Path(paths["server.key"]).read_bytes(), original_key)
+            self.assertEqual(Path(paths["server.crt"]).read_bytes(), original_cert)
+
     def test_certificate_expiry_uses_utc_and_returns_negative_when_expired(self):
         with tempfile.NamedTemporaryFile() as certificate:
             with patch(
