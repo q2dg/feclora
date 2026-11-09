@@ -946,13 +946,14 @@ class WebAPITests(unittest.TestCase):
                 result = dispatch({"action": "start_client_job", "params": {
                     "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
                     "confirmation": "ERASE /dev/sda FROM URI:server", "compression": "gzip",
-                    "network_interface": None,
+                    "network_interface": "enp1s0", "source_address": "192.0.2.20",
                     "igmp_confirmed": False,
                 }})
             request = json.loads((root / (job_id + ".request.json")).read_text(encoding="utf-8"))
         self.assertEqual(result["phase"], "connecting")
         self.assertEqual(request["device_path"], "/dev/sda")
-        self.assertIsNone(request["network_interface"])
+        self.assertEqual(request["network_interface"], "enp1s0")
+        self.assertEqual(request["source_address"], "192.0.2.20")
         self.assertFalse(request["igmp_confirmed"])
         self.assertEqual(runner.call_args.args[0], [
             "/usr/bin/systemctl", "start", "feclora-client@" + job_id + ".service",
