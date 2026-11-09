@@ -93,9 +93,9 @@ existing source-safety checks. The runtime rechecks it before streaming.
   receiver device paths.
 - Strict maximum header and terminal-frame sizes; reject duplicate or unknown
   security-critical fields.
-- Bounded streaming (64 KiB–4 MiB chunks) and exact byte counts. The engine
-  exposes cancellation hooks, but the persistent Server/Client service does
-  not yet wire active-job cancellation into those hooks.
+- Bounded streaming (64 KiB–4 MiB chunks) and exact byte counts. Active
+  disk writing is intentionally non-cancellable through the persistent
+  workflow; graceful service shutdown waits for the worker to finish.
 - SHA-256 over the source/receiver stream and independent receiver read-back.
 - No path-based target acceptance alone: the receiver resolves and revalidates
   block-device identity immediately before writing and verification.
