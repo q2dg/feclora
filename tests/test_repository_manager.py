@@ -90,5 +90,20 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
             manager.list()
 
 
+
+    def test_resolve_requires_expected_sshfs_source_and_access_mode(self):
+        self.manager.add("images", self.definition)
+        self.manager._mount_record = lambda _path: (
+            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime",
+        )
+        self.assertEqual(self.manager.resolve("images"), str(self.mount_root / "images"))
+        with self.assertRaisesRegex(RepositoryManagerError, "read-only"):
+            self.manager.resolve("images", write=True)
+        self.manager._mount_record = lambda _path: (
+            "fuse.sshfs", "attacker@other.example:/other", "ro,relatime",
+        )
+        with self.assertRaisesRegex(RepositoryManagerError, "does not match"):
+            self.manager.resolve("images")
+
 if __name__ == "__main__":
     unittest.main()
