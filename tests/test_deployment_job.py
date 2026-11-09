@@ -55,10 +55,12 @@ class DeploymentJobTests(unittest.TestCase):
         self.assertIsNone(job.image_id)
         self.assertEqual(job.source_device, "/dev/nvme0n1")
         self.assertEqual(DeploymentJob.from_json(job.to_json()), job)
-        with self.assertRaisesRegex(JobValidationError, "source_device"):
-            DeploymentJob.from_dict(valid_job(
-                operation="clone", image_id=None, source_device="../sda",
-            ))
+        for invalid_source in ("../sda", "/dev/", "/dev/sda\\n"):
+            with self.subTest(source_device=invalid_source):
+                with self.assertRaisesRegex(JobValidationError, "source_device"):
+                    DeploymentJob.from_dict(valid_job(
+                        operation="clone", image_id=None, source_device=invalid_source,
+                    ))
         with self.assertRaisesRegex(JobValidationError, "image_id"):
             DeploymentJob.from_dict(valid_job(
                 operation="clone", image_id="unexpected-image", source_device="/dev/sda",
