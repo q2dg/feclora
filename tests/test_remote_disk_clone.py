@@ -490,6 +490,54 @@ class RemoteCloneListenerCancellationTests(unittest.TestCase):
         self.assertGreaterEqual(len(checks), 2)
         self.assertEqual(listener.gettimeout(), original_timeout)
 
+    def test_listener_rechecks_cancellation_after_interrupted_accept(self):
+        class InterruptedListener:
+            def __init__(self):
+                self.timeout = None
+                self.accept_calls = 0
+
+            def gettimeout(self):
+                return self.timeout
+
+            def settimeout(self, value):
+                self.timeout = value
+
+            def accept(self):
+                self.accept_calls += 1
+                if self.accept_calls == 1:
+                    raise InterruptedError
+                raise AssertionError("accept must not be called after cancellation")
+
+        listener = InterruptedListener()
+        checks = []
+
+        def cancelled():
+            checks.append(True)
+            return len(checks) > 1
+
+        header = CloneSessionHeader(
+            session_id="7a3c4c12-6a88-4f0d-bcc0-90df80a4adf1",
+            source_identity="DNS:source.example",
+            receiver_identity="DNS:receiver.example",
+            source_device="/dev/source",
+            receiver_target_device="/dev/target",
+            source_size_bytes=65536,
+            logical_sector_size=512,
+            chunk_size_bytes=65536,
+        )
+        with self.assertRaisesRegex(RemoteDiskCloneCancelled, "waiting for receiver"):
+            serve_remote_clone_once(
+                listener, object(), header,
+                local_identity="DNS:source.example",
+                expected_peer_identity="DNS:receiver.example",
+                confirmation="READ /dev/source TO DNS:receiver.example",
+                cancel_check=cancelled,
+                accept_poll_interval=0.05,
+            )
+        self.assertEqual(listener.accept_calls, 1)
+        self.assertEqual(len(checks), 2)
+        self.assertIsNone(listener.gettimeout())
+
     def test_listener_rejects_unbounded_or_invalid_poll_interval(self):
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.addCleanup(listener.close)
