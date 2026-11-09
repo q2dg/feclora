@@ -26,7 +26,7 @@ Acceptance: remote headers cannot select local devices; both peers authorize ind
 Existing foundation: managed CA bootstrap, Server leaf renewal under the existing CA, Client renewal/enrollment, trust inventory and revocation.
 - [ ] Define versioned trust-bundle and migration formats.
 - [ ] Implement staged CA rotation with old/new trust overlap, client migration accounting, explicit activation and rollback.
-- [ ] Implement Server TLS keypair rotation, distinct from leaf certificate renewal.
+- [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
 - [ ] Specify and implement minisign signing-key rotation and age recipient/identity rotation separately from TLS PKI.
 - [ ] Add encrypted offline backup/restore and compromise recovery.
 - [ ] Expose preflight, per-client status, expiry, progress and rollback in Cockpit.
