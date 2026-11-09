@@ -61,7 +61,7 @@ class ManagedPKITests(unittest.TestCase):
             os.mkdir(os.path.join(root, "age-recipients"))
             shared_recipient = "age1" + "c" * 40
             with open(recipients_file, "w", encoding="ascii") as stream:
-                stream.write(shared_recipient + "\\n")
+                stream.write(shared_recipient + "\n")
             with (
                 patch("feclora.deployment.managed_pki.os.geteuid", return_value=0),
                 patch("feclora.deployment.managed_pki._root_only_directory", side_effect=lambda path: os.fspath(path)),
@@ -71,7 +71,7 @@ class ManagedPKITests(unittest.TestCase):
                 with self.assertRaisesRegex(PKIError, "must have a unique age identity"):
                     register_age_recipient(root, "URI:feclora-client-another", shared_recipient)
             with open(recipients_file, encoding="ascii") as stream:
-                self.assertEqual(stream.read(), shared_recipient + "\\n")
+                self.assertEqual(stream.read(), shared_recipient + "\n")
             self.assertFalse(os.path.exists(os.path.join(root, "age-recipients", "another.txt")))
 
     def test_age_recipient_registration_rolls_back_inventory_if_mapping_write_fails(self):
