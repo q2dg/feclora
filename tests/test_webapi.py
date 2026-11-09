@@ -921,6 +921,7 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(inspect.call_args.args[0], "192.0.2.10")
         self.assertEqual(inspect.call_args.kwargs["mac_address"], config.mac_address)
         self.assertEqual(inspect.call_args.kwargs["source_address"], "192.0.2.20")
+        self.assertEqual(inspect.call_args.kwargs["network_interface"], "enp1s0")
 
     def test_start_client_job_persists_private_request_and_starts_systemd_unit(self):
         import stat
