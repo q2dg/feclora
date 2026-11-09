@@ -65,6 +65,45 @@ class LocalOperationStoreTests(unittest.TestCase):
         with self.assertRaises(LocalOperationError):
             validate_definition(payload)
 
+    def test_progress_events_do_not_change_logical_state_or_break_transitions(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            identifier = store.submit("capture_disk", {
+                "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                "encrypt": False, "sign": False,
+            })
+            store.append(identifier, "preflight")
+            store.append(identifier, "running")
+            store.append(identifier, "progress", {"bytes_done": 1024})
+            self.assertEqual(store.status(identifier)["state"], "running")
+            store.append(identifier, "verifying")
+            store.append(identifier, "completed")
+            self.assertEqual(store.status(identifier)["state"], "completed")
+
+    def test_running_destructive_write_cannot_be_cancelled(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            identifier = store.submit("restore_disk", {
+                "image_id": "gold", "target": "/dev/sdb",
+                "confirmation": "ERASE /dev/sdb",
+            })
+            store.append(identifier, "preflight")
+            store.append(identifier, "running")
+            with self.assertRaisesRegex(LocalOperationError, "invalid operation transition"):
+                store.append(identifier, "cancelled")
+
+    def test_list_returns_durable_operation_status(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            identifier = store.submit("capture_disk", {
+                "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                "encrypt": False, "sign": False,
+            })
+            reports = store.list()
+            self.assertEqual(len(reports), 1)
+            self.assertEqual(reports[0]["operation_id"], identifier)
+            self.assertEqual(reports[0]["state"], "queued")
+
     def test_duplicate_submission_is_rejected(self):
         with tempfile.TemporaryDirectory() as root:
             store = LocalOperationStore(os.path.join(root, "jobs"))
