@@ -27,7 +27,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.calls = []
         def runner(argv, **kwargs):
             self.calls.append(argv)
-            if argv[0] == "findmnt":
+            if argv[0].endswith("findmnt"):
                 return SimpleNamespace(returncode=1, stdout="", stderr="")
             return SimpleNamespace(returncode=0, stdout="", stderr="")
         self.runner = runner
