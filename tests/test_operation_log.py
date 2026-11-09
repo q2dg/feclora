@@ -41,6 +41,32 @@ class OperationLogTests(unittest.TestCase):
         from feclora.storage.operation_log import record_progress
         record_progress(10, 100)
 
+    def test_reconciles_unclosed_operation_when_originating_process_is_gone(self):
+        from unittest.mock import patch
+        from feclora.storage.operation_log import reconcile_interrupted
+
+        events = [
+            {"operation_id": "dead", "status": "started", "operation": "restore_disk"},
+            {"operation_id": "dead", "status": "progress", "bytes_done": 4096},
+            {"operation_id": "done", "status": "started"},
+            {"operation_id": "done", "status": "completed"},
+        ]
+        with patch("feclora.storage.operation_log._operation_process_active", return_value=False):
+            result = reconcile_interrupted(events)
+
+        self.assertEqual(result[0]["status"], "interrupted")
+        self.assertIn("not resumed", result[0]["recovery_note"])
+        self.assertEqual(result[1], events[1])
+        self.assertEqual(result[2:], events[2:])
+
+    def test_does_not_mark_live_operation_interrupted(self):
+        from unittest.mock import patch
+        from feclora.storage.operation_log import reconcile_interrupted
+
+        event = {"operation_id": "live", "status": "started"}
+        with patch("feclora.storage.operation_log._operation_process_active", return_value=True):
+            self.assertEqual(reconcile_interrupted([event]), [event])
+
     def test_records_failure_and_error_details(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "operations.jsonl")
