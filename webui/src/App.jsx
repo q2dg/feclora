@@ -73,6 +73,8 @@ export default function App() {
   const [operations, setOperations] = useState([]);
   const [remoteRepositories, setRemoteRepositories] = useState([]);
   const [repositoryId, setRepositoryId] = useState("");
+  const [selectedRepositoryId, setSelectedRepositoryId] = useState("");
+  const [repositoryImages, setRepositoryImages] = useState([]);
   const [repositoryProvider, setRepositoryProvider] = useState("sshfs");
   const [repositoryHost, setRepositoryHost] = useState("");
   const [repositoryPath, setRepositoryPath] = useState("/images");
@@ -152,7 +154,7 @@ export default function App() {
   const verifyImage = async (imageId) => {
     setImageVerification((current) => ({ ...current, [imageId]: { loading: true } }));
     try {
-      const report = await callFeclora("verify_image", { image_id: imageId });
+      const report = await callFeclora("verify_image", { image_id: imageId, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) });
       setImageVerification((current) => ({ ...current, [imageId]: { loading: false, report } }));
     } catch (err) {
       setImageVerification((current) => ({ ...current, [imageId]: { loading: false, error: err?.message || String(err) } }));
@@ -192,7 +194,8 @@ export default function App() {
   const isRestore = operation.startsWith("restore_");
   const isDisk = operation.endsWith("_disk");
   const deviceOptions = isDisk ? disks : partitions;
-  const matchingImages = images.filter((item) => item.image_type === (isDisk ? "disk" : "partition"));
+  const availableImages = selectedRepositoryId ? repositoryImages : images;
+  const matchingImages = availableImages.filter((item) => item.image_type === (isDisk ? "disk" : "partition"));
   const expectedConfirmation = operation === "clone_partition"
     ? (source && target ? `ERASE ${target} FROM ${source}` : "")
     : (isRestore || operation.startsWith("clone_")) && target ? `ERASE ${target}` : "";
@@ -203,9 +206,9 @@ export default function App() {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setProgress(null); setOperationResult(null);
     try {
       let params;
-      if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt, sign };
-      else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, sign };
-      else if (isRestore) params = { image_id: imageId, target, confirmation };
+      if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
+      else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
+      else if (isRestore) params = { image_id: imageId, target, confirmation, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else params = { source, target, confirmation };
       const result = await callFeclora(operation, params, (eventData) => {
         if (eventData.event === "progress") setProgress(eventData);
@@ -217,6 +220,20 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+
+  const selectImageRepository = async (id) => {
+    setSelectedRepositoryId(id); setRepositoryImages([]); setImageVerification({});
+    setExtractLayout(null); setExtractPartitionSelector(""); setExtractPartitionResult(null);
+    setRestoreLayoutPreview(null);
+    if (!id) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("repository_images", { repository_id: id });
+      setRepositoryImages(result.images || []);
+      setNotice("Loaded " + (result.images || []).length + " images from repository " + id + ".");
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
 
   const saveRemoteRepository = async (event) => {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
@@ -266,7 +283,7 @@ export default function App() {
     if (!sourceImageId) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const result = await callFeclora("inspect_image_layout", { image_id: sourceImageId });
+      const result = await callFeclora("inspect_image_layout", { image_id: sourceImageId, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) });
       setRestoreLayoutPreview(result);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -277,7 +294,7 @@ export default function App() {
     if (!imageId) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const result = await callFeclora("inspect_image_layout", { image_id: imageId });
+      const result = await callFeclora("inspect_image_layout", { image_id: imageId, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) });
       setExtractLayout(result);
       setNotice(result.message);
     } catch (err) { setError(err?.message || String(err)); }
@@ -288,7 +305,7 @@ export default function App() {
     setBusy(true); setError(""); setNotice(""); setProgress(null); setExtractPartitionResult(null);
     try {
       const result = await callFeclora("extract_partition_image", {
-        image_id: extractImageId, selector: extractPartitionSelector
+        image_id: extractImageId, selector: extractPartitionSelector, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
       }, (eventData) => {
         if (eventData.event === "progress") setProgress(eventData);
       });
@@ -815,7 +832,7 @@ export default function App() {
             </Stack>
           </Tab>
           <Tab eventKey="images" title="Image repository">
-            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Available images</Title></StackItem>
+            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Available images</Title><Field label="Image repository" help="Local is the default; remote mounts must be verified."><select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(event) => selectImageRepository(event.target.value)}><option value="">Local repository</option>{remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? "read-only" : "read/write"}</option>)}</select></Field></StackItem>
               <StackItem>
                 <Card><CardBody>
                   <Title headingLevel="h3" size="lg">Extract a partition from a whole-disk image</Title>
@@ -823,7 +840,7 @@ export default function App() {
                   <Field label="Whole-disk source image">
                     <select className="pf-v5-c-form-control" value={extractImageId} disabled={busy} onChange={(event) => { setExtractImageId(event.target.value); inspectImageLayout(event.target.value); }}>
                       <option value="">Select whole-disk image…</option>
-                      {images.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}{item.signed ? " · signed" : " · unsigned"}</option>)}
+                      {availableImages.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}{item.signed ? " · signed" : " · unsigned"}</option>)}
                     </select>
                   </Field>
                   {extractLayout && <>
@@ -860,7 +877,7 @@ export default function App() {
                     {verification?.error && <Alert variant="danger" title="Verification failed" isInline>{verification.error}</Alert>}
                   </Td></Tr>;
                 })}
-                {!images.length && <Tr><Td colSpan={7}>No manifest-backed images found.</Td></Tr>}
+                {!availableImages.length && <Tr><Td colSpan={7}>No manifest-backed images found in this repository.</Td></Tr>}
               </Tbody></Table></StackItem>
             </Stack>
           </Tab>
