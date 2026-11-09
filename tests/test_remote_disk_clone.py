@@ -372,6 +372,11 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         source = self._start_source(left)
         digest = hashlib.sha256(self.payload).hexdigest()
         commands = []
+        cancellation_checks = []
+
+        def cancel():
+            cancellation_checks.append(True)
+            return len(cancellation_checks) > 1
 
         def run(command, **kwargs):
             commands.append(command)
@@ -385,7 +390,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                 self._receive(
                     right, geometry=None,
                     process_factory=lambda *a, **k: FakeProcess(**k),
-                    cancel_check=lambda: True,
+                    cancel_check=cancel,
                     executables={
                         "lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd",
                         "blkid": "/usr/bin/blkid", "sgdisk": "/usr/bin/sgdisk",
@@ -393,6 +398,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                 )
         source.join(timeout=5)
         self.assertFalse(source.is_alive())
+        self.assertEqual(len(cancellation_checks), 2)
         self.assertEqual(commands[0][0], "/usr/bin/blkid")
         self.assertFalse(any(command[-2:] == ["-e", "/dev/target"] for command in commands))
 
