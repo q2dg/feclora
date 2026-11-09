@@ -179,7 +179,7 @@ def recover_interrupted() -> int:
         raise LocalOperationError("local operation recovery must run as root")
     store = LocalOperationStore()
     recovered = 0
-    for report in store.list(limit=500):
+    for report in store.list_all():
         if report["state"] not in TERMINAL_STATES:
             store.mark_interrupted(report["operation_id"])
             recovered += 1
