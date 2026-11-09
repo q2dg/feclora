@@ -42,7 +42,7 @@ Status meanings:
 | Repositories | Protected credential lifecycle | Root-owned SSH key/known_hosts and SMB credentials are referenced and permission-checked; no provisioning/rotation; WebDAV/S3 unsupported | File paths only | Partial | Unit tests |
 | Monitoring | Deployment journals and audit reconciliation | Implemented | Cockpit summaries and reconciliation | Automated tests |
 | Monitoring | Per-Client disk-operation progress | Authenticated Server-side byte progress and throughput; Client-local transfer-phase byte progress; Server-side artifact-transfer telemetry pending separate channel design | Cockpit live status | Automated tests |
-| Monitoring | Local long-running operation lifecycle | Append-only started/terminal journal, throttled durable byte-progress checkpoints and streamed request progress | Cockpit operation history shows byte checkpoints; work still runs in the request lifecycle | Partial: progress survives in the journal, but no detached local worker/queue, phase/throughput model, or restart reconciliation for local operations | Automated journal tests |
+| Monitoring | Local long-running operation lifecycle | Append-only started/terminal journal, throttled durable byte-progress checkpoints, streamed request progress and process-identity-based interrupted-state detection | Cockpit history shows byte checkpoints and marks abandoned operations interrupted for manual review | Partial: no detached local worker/queue, phase/throughput model, or automatic worker supervision; interrupted writes are never resumed | Automated journal/reconciliation tests |
 | UI | Cockpit React/PatternFly | Implemented | Primary interface | Frontend CI build |
 | UI | Terminal diagnostics | Cockpit component | Available in Cockpit | Operator validation |
 
