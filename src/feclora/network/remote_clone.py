@@ -458,6 +458,10 @@ def _receive_remote_disk_impl(
                 # before touching the partition table.
                 _revalidate_device(target, identity, validator)
                 _check_safe(target, safety)
+                if cancel_check is not None and cancel_check():
+                    raise RemoteCloneCancelled(
+                        "receiver operator cancelled before GPT backup-header relocation"
+                    )
                 sgdisk = _resolve(available, "sgdisk")
                 try:
                     command = privileged_argv([sgdisk, "-e", target], effective_uid=effective_uid)
