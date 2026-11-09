@@ -1024,6 +1024,13 @@ class WebAPITests(unittest.TestCase):
                 dispatch({"action": "add_remote_repository", "params": {"id": "x", "password": "secret"}})
 
 
+    def test_repository_images_action_lists_only_selected_verified_repository(self):
+        expected = [{"image_id": "golden", "image_type": "disk"}]
+        with patch("feclora.webapi._images", return_value=expected) as images:
+            self.assertEqual(dispatch({"action": "repository_images", "params": {"repository_id": "nas-images"}}), {"images": expected})
+        images.assert_called_once_with("nas-images")
+
+
     def test_operation_repository_resolves_only_verified_remote_mount(self):
         from feclora.webapi import _operation_repository
         manager = Mock()
