@@ -1171,6 +1171,64 @@ def _storage_operation_lock():
         os.close(fd)
 
 
+def _local_operation_store():
+    from feclora.storage.local_operations import LocalOperationStore
+    return LocalOperationStore("/var/lib/feclora/local-operations")
+
+
+def _submit_local_operation(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"operation", "operation_params"}:
+        raise WebAPIError("submit_local_operation requires operation and operation_params")
+    operation, operation_params = params["operation"], params["operation_params"]
+    if not isinstance(operation, str) or not isinstance(operation_params, dict):
+        raise WebAPIError("operation must be a string and operation_params must be an object")
+    try:
+        store = _local_operation_store()
+        operation_id = store.submit(operation, operation_params)
+    except Exception as exc:
+        raise WebAPIError(f"cannot persist local operation: {exc}") from exc
+    unit = f"feclora-local-operation@{operation_id}.service"
+    try:
+        result = subprocess.run(
+            ["/usr/bin/systemctl", "start", "--no-block", unit],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        try:
+            store.append(operation_id, "failed", {"error": f"cannot start worker: {str(exc)[:256]}"})
+        except Exception:
+            pass
+        raise WebAPIError(f"local operation was persisted but its worker could not be started: {exc}") from exc
+    if result.returncode != 0:
+        message = (result.stderr or result.stdout or "systemd rejected the operation").strip()[:384]
+        try:
+            store.append(operation_id, "failed", {"error": message})
+        except Exception:
+            pass
+        raise WebAPIError(f"local operation was persisted but its worker could not be started: {message}")
+    return {"operation_id": operation_id, "state": "queued", "unit": unit}
+
+
+def _local_operation_status(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"operation_id"} or not isinstance(params["operation_id"], str):
+        raise WebAPIError("local_operation_status requires one operation_id")
+    try:
+        return _local_operation_store().status(params["operation_id"])
+    except Exception as exc:
+        raise WebAPIError(f"cannot read local operation status: {exc}") from exc
+
+
+def _local_operations(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) - {"limit"}:
+        raise WebAPIError("local_operations accepts only an optional limit")
+    limit = params.get("limit", 100)
+    try:
+        return {"operations": _local_operation_store().list(limit=limit)}
+    except Exception as exc:
+        raise WebAPIError(f"cannot read local operation history: {exc}") from exc
+
+
 def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
     operation_fields = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id"},
@@ -2084,6 +2142,12 @@ def dispatch(request: Any) -> dict[str, Any]:
              "progress": item["progress"]}
             for item in reports
         ]}
+    if action == "submit_local_operation":
+        return _submit_local_operation(params)
+    if action == "local_operation_status":
+        return _local_operation_status(params)
+    if action == "local_operations":
+        return _local_operations(params)
     if action in {"capture_disk", "capture_partition", "restore_disk", "restore_partition",
                   "clone_disk", "clone_partition", "extract_partition_image"}:
         return _run_operation(action, params)
