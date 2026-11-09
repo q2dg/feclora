@@ -27,7 +27,8 @@ Acceptance: the Server binds the selected source and READY Client target into th
 
 ## P0 — PKI, trust and identity lifecycle
 Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS keypair rotation under the existing CA, Client renewal/enrollment, trust inventory and revocation. Staged CA rotation and trust migration remain outstanding.
-- [ ] Define versioned trust-bundle and migration formats.
+- [x] Add a root-owned, atomic CA trust-bundle builder that validates CA constraints, certificate-signing usage, unique SHA-256 fingerprints and bounded PEM inputs. (This is a local building block only; the versioned migration manifest/package format remains pending.)
+- [ ] Define versioned trust-bundle and migration manifest/package formats, including authenticated Client acknowledgements.
 - [ ] Implement staged CA rotation with old/new trust overlap, client migration accounting, explicit activation and rollback.
 - [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
 - [ ] Specify and implement minisign signing-key rotation and age recipient/identity rotation separately from TLS PKI.
