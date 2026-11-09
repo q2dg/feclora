@@ -236,15 +236,15 @@ class ClientDeploymentService:
             from feclora.deployment.service import recover_stale_runtime_artifacts
             recover_stale_runtime_artifacts(lock_held=True)
             request = _read_private_json(self.request_path)
-            expected = {"schema_version", "job_id", "host", "device_path", "confirmation", "compression", "network_interface", "source_address", "igmp_confirmed"}
-            if set(request) != expected or request.get("schema_version") != 1 or request.get("job_id") != self.job_id:
+            expected = {"schema_version", "job_id", "host", "device_path", "confirmation", "compression", "network_interface", "igmp_confirmed"}
+            if set(request) not in (expected, expected | {"source_address"}) or request.get("schema_version") != 1 or request.get("job_id") != self.job_id:
                 raise ClientJobServiceError("Client job request has an invalid schema or job identifier")
             host = request["host"]
             device_path = request["device_path"]
             confirmation = request["confirmation"]
             compression = request["compression"]
             network_interface = request["network_interface"]
-            source_address = request["source_address"]
+            source_address = request.get("source_address")
             igmp_confirmed = request["igmp_confirmed"]
             if not isinstance(igmp_confirmed, bool):
                 raise ClientJobServiceError("IGMP network acknowledgement must be boolean")
