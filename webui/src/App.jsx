@@ -1054,7 +1054,7 @@ export default function App() {
                   const events = item.events || [];
                   const latest = events[events.length - 1] || {};
                   const progress = [...events].reverse().find((event) => event.state === "progress");
-                  const details = latest.details || {};
+                  const details = { ...(events[0]?.details || {}), ...(latest.details || {}) };
                   const progressDetails = progress?.details || {};
                   return <Tr key={item.operation_id}>
                     <Td>{latest.timestamp || "—"}</Td><Td>{item.action || "—"}</Td>
