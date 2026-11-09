@@ -412,6 +412,7 @@ class ClientDeploymentService:
                 return execute_client_image_job(
                     job, tls_socket, approval,
                     server_identity=config.server_identity,
+                    local_identity=config.local_identity,
                     repository=config.repository,
                     trusted_server_public_key=config.trusted_server_public_key,
                     local_minisign_secret_key=config.local_minisign_secret_key,
