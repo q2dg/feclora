@@ -258,20 +258,21 @@ class ClientDeploymentService:
                 raise ClientJobServiceError("local target confirmation is invalid")
             if not isinstance(compression, str) or compression not in {"none", "gzip", "xz"}:
                 raise ClientJobServiceError("capture compression must be none, gzip or xz")
-            if (network_interface is None) != (source_address is None):
-                raise ClientJobServiceError("Client interface and source address must be supplied together")
+            if source_address is not None and network_interface is None:
+                raise ClientJobServiceError("Client source address requires its selected interface")
             if network_interface is not None:
                 if (not isinstance(network_interface, str)
                         or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,15}", network_interface)
                         or not isinstance(source_address, str)):
                     raise ClientJobServiceError("selected Client interface/source address is invalid")
-                from feclora.network.interface_discovery import discover_interface_addresses
-                try:
-                    current_addresses = discover_interface_addresses(network_interface)
-                except Exception as exc:
-                    raise ClientJobServiceError(f"selected Client interface is unavailable: {exc}") from exc
-                if source_address not in {item.address for item in current_addresses}:
-                    raise ClientJobServiceError("selected Client source address is no longer assigned to its interface")
+                if source_address is not None:
+                    from feclora.network.interface_discovery import discover_interface_addresses
+                    try:
+                        current_addresses = discover_interface_addresses(network_interface)
+                    except Exception as exc:
+                        raise ClientJobServiceError(f"selected Client interface is unavailable: {exc}") from exc
+                    if source_address not in {item.address for item in current_addresses}:
+                        raise ClientJobServiceError("selected Client source address is no longer assigned to its interface")
             self.request_path.unlink()
             config = load_client_runtime_config("/etc/feclora/deployment-client.json")
             context = create_mutual_tls_context(
