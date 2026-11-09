@@ -40,6 +40,31 @@ class MutualTlsSocketTests(unittest.TestCase):
         self.assertIs(result, wrapped)
         context.wrap_socket.assert_called_once_with(raw, server_hostname="source.example")
 
+    def test_client_binds_tcp_connection_to_selected_source_address(self):
+        raw = Mock()
+        wrapped = FakeTlsSocket("source.example")
+        context = Mock()
+        context.wrap_socket.return_value = wrapped
+        with patch("feclora.network.tls.socket.create_connection", return_value=raw) as connect:
+            result = connect_mutual_tls(
+                context, "source.example", 9443,
+                expected_peer_identity="DNS:source.example",
+                source_address="192.0.2.20",
+            )
+        self.assertIs(result, wrapped)
+        self.assertEqual(connect.call_args.kwargs["source_address"], ("192.0.2.20", 0))
+
+    def test_client_rejects_invalid_source_address_before_connecting(self):
+        context = Mock()
+        with patch("feclora.network.tls.socket.create_connection") as connect:
+            with self.assertRaisesRegex(ValueError, "source_address"):
+                connect_mutual_tls(
+                    context, "source.example", 9443,
+                    expected_peer_identity="DNS:source.example",
+                    source_address="not-an-ip",
+                )
+        connect.assert_not_called()
+
     def test_client_cancels_before_attempting_tcp_connection(self):
         from feclora.network.remote_clone_protocol import RemoteCloneCancelled
 
