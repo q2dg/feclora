@@ -215,6 +215,30 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertEqual(report["job_state"], "running")
             self.assertEqual(report["clients"][MAC]["state"], "running")
             self.assertEqual(report["job"]["job_id"], JOB_ID)
+    def test_recovery_report_retains_last_durable_client_progress(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
+            coordinator.register_client(MAC, authenticated=True)
+            coordinator.mark_ready(MAC)
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+            journal({
+                "timestamp": "2026-11-08T12:00:02+00:00",
+                "job_id": JOB_ID, "event": "client_progress", "job_state": "running",
+                "client_mac": MAC, "client_state": "running",
+                "progress": {
+                    "phase": "restore", "completed_bytes": 1048576,
+                    "total_bytes": 4194304, "bytes_per_second": 512.0,
+                    "updated_at": "2026-11-08T12:00:02+00:00",
+                },
+            })
+            report = DeploymentJournal.inspect(path).recovery_report()
+            self.assertTrue(report["interrupted"])
+            self.assertFalse(report["automatic_resume"])
+            self.assertEqual(report["progress"][MAC]["completed_bytes"], 1048576)
+
     def test_coordinator_rehydrates_interrupted_state_without_resuming(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "job.jsonl")
