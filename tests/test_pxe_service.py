@@ -85,6 +85,27 @@ class PxeServiceTests(unittest.TestCase):
             manager.stop()
             self.assertEqual(firewall.closed, ["enp1s0"])
 
+    def test_existing_active_profile_is_rejected_before_boot_staging(self):
+        calls = []
+        def runner(argv, **kwargs):
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        with tempfile.TemporaryDirectory() as tmp:
+            first = PXEServiceManager(
+                tmp, runner=runner, preflight=lambda _config: None,
+                firewall=FakeFirewall(), boot_stager=lambda _config: calls.append("first-stage"),
+            )
+            first.start(config())
+            calls.clear()
+            second = PXEServiceManager(
+                tmp, runner=runner,
+                preflight=lambda _config: calls.append("preflight"),
+                firewall=FakeFirewall(), boot_stager=lambda _config: calls.append("stage"),
+            )
+            with self.assertRaisesRegex(PXEServiceError, "already have a persisted active profile"):
+                second.start(config())
+            self.assertEqual(calls, [])
+            first.stop()
+
     def test_rolls_back_when_caddy_start_fails(self):
         calls = []
         def runner(argv, **kwargs):
