@@ -37,6 +37,15 @@ class CredentialStoreTests(unittest.TestCase):
         self.store.put("nas", "known-hosts", b"nas ssh-ed25519 AAAA")
         self.assertEqual((self.root / "nas.known-hosts").stat().st_mode & 0o777, 0o644)
 
+    def test_known_hosts_can_be_replaced_and_removed(self):
+        self.store.put("nas", "known-hosts", b"old host key")
+        self.store.put("nas", "known-hosts", b"new host key", replace=True)
+        path = self.root / "nas.known-hosts"
+        self.assertEqual(path.read_bytes(), b"new host key")
+        self.assertEqual(path.stat().st_mode & 0o777, 0o644)
+        self.store.remove("nas", "known-hosts")
+        self.assertFalse(path.exists())
+
     def test_rejects_symlinked_store_directory(self):
         real = Path(self.temp.name) / "real"
         real.mkdir(mode=0o700)
