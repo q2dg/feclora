@@ -1,0 +1,211 @@
+# Physical and remote-environment acceptance guide
+
+This document is an operator runbook for acceptance testing on disposable
+hardware and real remote-storage services. It does not describe new software
+features and does not make physical testing a prerequisite for continuing
+software development. Record the Feclora commit, host models, firmware mode,
+network topology, repository provider/version, test date and outcome for every
+run.
+
+## Safety rules for every test
+
+1. Use only disks and machines explicitly reserved for destructive testing.
+   Disconnect or positively identify every production/system disk.
+2. Keep a separate, verified backup of anything that must survive.
+3. Record each disk's model, serial, capacity, logical sector size and
+   /dev/disk/by-id path before starting. Do not rely on /dev/sdX ordering.
+4. Confirm the source/target roles with two people for destructive multi-host
+   tests. Use Feclora's exact local target confirmation and Server ARM phrase.
+5. Never interpret a disconnect or failed test as rollback. Once a target
+   writer has started, the destination may be partially or fully overwritten.
+   Mark it untrusted until a later complete operation and verification.
+6. Do not interrupt power to a production host or disconnect a production
+   storage service. Fault injection belongs on disposable test equipment.
+7. Preserve Server and Client operation logs and deployment journals with the
+   test record. Redact credentials, private keys and secret configuration.
+
+## 1. Two-machine disk clone
+
+**Purpose:** verify one-to-one Server-to-Client cloning with real block devices.
+
+Prerequisites: two disposable machines, one read-only source disk, one target
+disk at least as large as the source, enrolled Server/Client identities, and
+a wired network path between the hosts.
+
+1. Boot both machines and verify their hostnames, network interfaces and
+   enrolled identities.
+2. On the source host, identify the intended source by model, serial and
+   /dev/disk/by-id. Verify it is a whole disk and reports read-only (RO=1).
+3. On the receiver, identify the disposable target independently. Verify its
+   capacity and logical sector size are compatible with the source.
+4. In Cockpit, create a unicast clone deployment, select the source disk and
+   authorize exactly the enrolled receiver.
+5. On the receiver, inspect the authenticated job, select the local target and
+   enter the exact destructive confirmation displayed by Feclora.
+6. On the Server, verify the READY receiver identity and enter the exact
+   job-specific ARM phrase. Do not substitute a generic confirmation.
+7. Wait for transfer, receiver read-back and terminal verification to finish.
+8. Confirm both endpoints report the same completed job/session, byte count
+   and SHA-256 result. Confirm the receiver's operation journal records
+   completion.
+9. Power down the receiver and inspect the cloned partition table and
+   filesystems from a separate maintenance environment. Do not mount a
+   filesystem read-write if the source disk will also be attached.
+10. Save logs and record the result. If any step fails after writing starts,
+    mark the target untrusted; do not assume it is unchanged.
+
+Repeat with a larger target to verify supported GPT backup-header relocation.
+Repeat with an undersized target and a mismatched logical sector size to
+confirm that Feclora rejects the target before writing.
+
+## 2. Multi-client restore: unicast and multicast
+
+**Purpose:** verify the persistent Server/Client restore workflow with more
+than one physical receiver.
+
+Prerequisites: a verified signed image in the selected repository, at least
+two disposable Client machines, enrolled identities, and a dedicated test
+network. Multicast additionally requires a network whose IGMP snooping and
+querier behavior has been independently configured and checked.
+
+1. Verify the image manifest and every referenced artifact in Cockpit before
+   creating the deployment.
+2. Record each Client's target disk identity, capacity, sector size and
+   existing partition layout. Confirm all targets are disposable.
+3. For unicast, create a restore job for one enrolled Client and complete the
+   READY, ARM, restore and read-back verification sequence. Repeat separately
+   for the next Client.
+4. For multicast, create one restore job authorizing at least two Clients.
+   Confirm each Client has selected and locally authorized its own target.
+5. Check the Server reports every intended Client READY before ARM. A missing
+   or unexpected Client must prevent the operation from starting.
+6. Enter the multicast-specific confirmation only after the test network's
+   IGMP behavior has been verified. Do not infer multicast readiness merely
+   from successful unicast traffic.
+7. Monitor per-Client progress and terminal state. Confirm every Client
+   reports successful verification; one successful receiver does not prove
+   the others completed.
+8. Reboot each receiver and inspect the resulting disk layout and bootability
+   appropriate to the test image.
+9. Save the Server journal and each Client's operation log.
+
+## 3. Remote repository provider acceptance
+
+Run this procedure independently for each configured SSHFS, NFS, SMB/CIFS and
+WebDAV endpoint. Use a dedicated test account/export/share and a disposable
+image. Do not reuse production credentials.
+
+1. Prepare the provider endpoint and provision credentials using the
+   provider's root-protected mechanism. Verify SSH host keys for SSHFS, NFS
+   export ownership/mapping, SMB share permissions, or HTTPS certificate and
+   WebDAV secrets as appropriate.
+2. Add the repository in Cockpit with the correct provider, endpoint/share,
+   remote path and access mode. Credential contents must never be pasted into
+   Cockpit fields or stored in ordinary project configuration.
+3. Mount it through Feclora. Confirm Cockpit reports both mounted and verified
+   and that provider identity, filesystem type and access mode match the
+   intended endpoint.
+4. Open the repository image inventory. Confirm it lists only images from the
+   selected verified repository, not files from the local directory beneath
+   an unmounted mountpoint.
+5. For a read/write provider, capture a small disposable test disk to that
+   repository. Verify its manifest, signature, artifact byte counts and
+   cryptographic digests, then restore it to a disposable target and verify
+   read-back.
+6. For a read-only mount, confirm inventory, inspection and verification work,
+   and confirm capture/extraction controls are unavailable.
+7. For NFS, explicitly test the configured root-squash/ownership policy.
+   Root-owned manifest validation must remain enforced; a manifest mapped to
+   an anonymous UID is expected to be rejected.
+8. Unmount through Feclora, confirm the mount is gone, and verify the
+   repository definition remains available for a later mount.
+9. Record provider version, mount options, identity/access-mode verification,
+   throughput observations, and all failures. Never include secrets in the
+   report.
+
+## 4. S3-compatible repository acceptance (read-only)
+
+S3 repositories are intentionally read-only. This test must not attempt
+capture, partition extraction, object overwrite or publication.
+
+1. Provision a dedicated read-only S3-compatible bucket/prefix and a
+   root-owned rclone configuration referencing it.
+2. Add and mount the S3 repository in Feclora.
+3. Confirm Cockpit identifies the expected remote alias/bucket and reports
+   read-only access.
+4. Browse image inventory, inspect manifests and verify image artifacts.
+5. Restore one verified image to a disposable local disk or use it as the
+   source for a disposable multi-client restore.
+6. Confirm capture and partition-extraction operations cannot target this
+   repository.
+7. Confirm the bucket contains no new or modified objects after the test.
+8. Record service/vendor, API compatibility, rclone version and verification
+   results. Do not infer safe publication support from the label
+   S3-compatible.
+
+## 5. Interrupted operation, disconnect and restart recovery
+
+This is destructive fault injection. Use a disposable source/target pair and
+an image whose loss is acceptable.
+
+1. Complete a normal baseline clone or restore and preserve its logs.
+2. Start a second operation using a different disposable target.
+3. After the receiver has demonstrably begun writing, interrupt the test
+   network or stop the disposable peer. Do not interrupt a production system.
+4. Confirm the receiver reports failure/interruption rather than success and
+   that the partial target is not presented as verified.
+5. Restore network connectivity. Confirm Feclora does not silently resume the
+   old destructive operation.
+6. Restart the disposable Server service or host while the job is active in a
+   separate run. Inspect the durable journal after restart.
+7. Confirm recovery reconstructs the last durable job/client state, marks an
+   active job interrupted, and requires explicit operator reconciliation.
+   Reconciliation must not recreate sessions or restart disk I/O.
+8. Reinitialize or replace the disposable target, then create a new job with
+   fresh authorization and verify it end to end.
+9. Preserve both endpoints' journals and record exactly when the failure was
+   injected and how much data may have been written.
+
+There is no rollback guarantee after the writer starts. The expected safe
+outcome is a failed/interrupted job, a destination treated as untrusted, and
+no automatic replay.
+
+## 6. Repository lease and unmount protection
+
+This test verifies that an active persistent restore owns its remote repository
+for the full service lifetime.
+
+1. Configure and verify a disposable read-only or read/write remote repository
+   containing a signed image suitable for restoration.
+2. Create and start a remote-repository restore job with a disposable Client.
+3. Once the persistent Server service has acquired the repository usage lease,
+   attempt to unmount the repository through Cockpit or the supported manager
+   action.
+4. Confirm unmount is refused while the lease is held and the active restore
+   continues to resolve the same verified repository.
+5. If safe for the test, simulate the mount disappearing outside Feclora.
+   Attempt to remove the repository definition. Confirm removal is refused
+   while the service still owns the lease.
+6. Allow the restore to reach a terminal state, then stop the persistent
+   deployment service.
+7. Retry unmount and, if desired, definition removal. Confirm they now succeed.
+8. Record the job ID, repository ID, lease lifetime and each attempted action.
+
+The expected protection is fail-closed: an active restore must not lose its
+repository definition or be unmounted through Feclora while its service holds
+the shared lease.
+
+## Results record
+
+For each run, record:
+
+- Feclora commit SHA and workflow status.
+- Test date, operator and test case number.
+- Host model, firmware mode, disk model/serial/capacity/sector size.
+- Network topology, link speed and multicast/IGMP configuration where used.
+- Repository provider, server version, filesystem/API version and mount mode.
+- Job/session ID, image ID, byte counts, verification result and elapsed time.
+- Failure injection point, observed terminal state and recovery action.
+- Links or protected locations for redacted logs and journal exports.
+- Outcome: **pass**, **fail**, or **not run**. Never mark a test passed from
+  unit-test results alone.
