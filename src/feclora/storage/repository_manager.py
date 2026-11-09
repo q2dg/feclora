@@ -190,14 +190,27 @@ class RemoteRepositoryManager:
 
     def list(self) -> list[dict[str, Any]]:
         entries = self._load()
-        return [
-            {"id": identifier, "provider": definition["provider"],
-             "host": definition["host"], "remote_path": definition["remote_path"],
-             "read_only": definition["read_only"],
-             "mountpoint": str(self.mount_root / identifier),
-             "mounted": self._is_mounted(str(self.mount_root / identifier))}
-            for identifier, definition in sorted(entries.items())
-        ]
+        result = []
+        for identifier, definition in sorted(entries.items()):
+            mountpoint = str(self.mount_root / identifier)
+            mounted = self._is_mounted(mountpoint)
+            item = {
+                "id": identifier, "provider": definition["provider"],
+                "host": definition["host"], "remote_path": definition["remote_path"],
+                "read_only": definition["read_only"], "mountpoint": mountpoint,
+                "mounted": mounted, "verified": False, "mount_error": None,
+            }
+            if mounted:
+                try:
+                    self.resolve(identifier)
+                    item["verified"] = True
+                except RepositoryManagerError as exc:
+                    # A mount at the managed path is not necessarily the
+                    # remote filesystem that this repository definition owns.
+                    # Keep it visible as mounted, but never label it trusted.
+                    item["mount_error"] = str(exc)[:512]
+            result.append(item)
+        return result
 
     def add(self, identifier: str, definition: dict[str, Any]) -> dict[str, Any]:
         entries = self._load()
