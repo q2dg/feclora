@@ -1977,6 +1977,14 @@ def _remote_repository_manager():
 def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, Any]:
     manager = _remote_repository_manager()
     try:
+        if action == "remote_credentials":
+            if params:
+                raise WebAPIError("remote_credentials does not accept parameters")
+            from feclora.storage.credential_store import CredentialStore
+            try:
+                return {"credentials": CredentialStore().list()}
+            except Exception as exc:
+                raise WebAPIError(f"remote credential inventory failed: {exc}") from exc
         if action == "remote_repositories":
             if params:
                 raise WebAPIError("remote_repositories does not accept parameters")
@@ -2041,6 +2049,8 @@ def dispatch(request: Any) -> dict[str, Any]:
             "security": _security_material(),
             "certificate_status": _certificate_status(),
         }
+    if action == "remote_credentials":
+        return _remote_repository_action(action, params)
     if action in {"remote_repositories", "add_remote_repository", "mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"}:
         return _remote_repository_action(action, params)
     if action == "server_trusted_clients":
