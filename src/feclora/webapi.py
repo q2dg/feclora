@@ -949,7 +949,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         from feclora.storage.image_security import verify_manifest_signature
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         selector = _text(params, "selector", maximum=256)
-        repository = _operation_repository(params, write=False)
+        repository = _operation_repository(params, write=True)
         manifest_path = _image_manifest(image_id, repository)
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
         if manifest.image_id != image_id:
