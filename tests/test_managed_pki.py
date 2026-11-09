@@ -320,6 +320,8 @@ class ManagedPKITests(unittest.TestCase):
                 return SimpleNamespace(returncode=0, stdout="", stderr="")
 
             with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
+                "feclora.deployment.managed_pki._regular_file"
+            ), patch(
                 "feclora.deployment.managed_pki.ca_fingerprint", return_value="a" * 64
             ):
                 result = backup_server_ca(
