@@ -260,7 +260,7 @@ class LocalOperationStore:
                 if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
                     raise LocalOperationError("operation journal permissions or ownership are unsafe")
                 history = self.events(operation_id)
-                current = history[-1]["state"] if history else None
+                current = next((item["state"] for item in reversed(history) if item["state"] != "progress"), None)
                 if current is None:
                     if state != "queued":
                         raise LocalOperationError("first operation event must be queued")
@@ -324,8 +324,9 @@ class LocalOperationStore:
         history = self.events(operation_id)
         if not history:
             raise LocalOperationError("operation has no state history")
+        current_state = next((item["state"] for item in reversed(history) if item["state"] != "progress"), None)
         return {"operation_id": operation_id, "action": definition["action"],
-                "state": history[-1]["state"], "events": history}
+                "state": current_state, "events": history}
 
     def mark_interrupted(self, operation_id: str, reason: str = "worker exited; operation was not resumed") -> dict[str, Any]:
         history = self.events(operation_id)
