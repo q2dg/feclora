@@ -103,6 +103,8 @@ class LocalOperationStoreTests(unittest.TestCase):
             self.assertEqual(len(reports), 1)
             self.assertEqual(reports[0]["operation_id"], identifier)
             self.assertEqual(reports[0]["state"], "queued")
+            all_reports = store.list_all()
+            self.assertEqual([item["operation_id"] for item in all_reports], [identifier])
 
     def test_duplicate_submission_is_rejected(self):
         with tempfile.TemporaryDirectory() as root:
