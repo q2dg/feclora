@@ -323,8 +323,8 @@ class LocalOperationStore:
             reports.append(self.status(operation_id))
         return reports
 
-    def list_all(self) -> list[dict[str, Any]]:
-        """Return every durable job; recovery must never be limited to recent history."""
+    def operation_ids(self) -> list[str]:
+        """Enumerate every job definition without parsing its event journal."""
         directory_fd = _safe_directory(self.directory, create=False)
         try:
             names = sorted(
@@ -334,7 +334,11 @@ class LocalOperationStore:
             )
         finally:
             os.close(directory_fd)
-        return [self.status(name[:-5]) for name in names]
+        return [name[:-5] for name in names]
+
+    def list_all(self) -> list[dict[str, Any]]:
+        """Return every durable job; recovery must never be limited to recent history."""
+        return [self.status(operation_id) for operation_id in self.operation_ids()]
 
     def status(self, operation_id: str) -> dict[str, Any]:
         definition = self.definition(operation_id)
