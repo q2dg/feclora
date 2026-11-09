@@ -26,12 +26,9 @@ Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the 
 Acceptance: the Server binds the selected source and READY Client target into the session; the receiver independently verifies its local selection; both peers authorize independently; receiver read-back verifies; partial writes are marked untrusted; the persistent service survives browser disconnect.
 
 ## P0 — PKI, trust and identity lifecycle
-Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS keypair rotation under the existing CA, Client renewal/enrollment, trust inventory and revocation. Staged CA rotation and trust migration remain outstanding.
+Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS keypair rotation under the existing CA, Client renewal/enrollment, trust inventory and revocation. Broader CA rotation/migration is deferred and is not part of the currently implemented lifecycle.
 - [x] Add a root-owned, atomic CA trust-bundle builder that validates CA constraints, certificate-signing usage, unique SHA-256 fingerprints and bounded PEM inputs. (Local building block only; authenticated package distribution remains pending.)
 - [x] Validate Client leaf certificates against any explicitly fingerprinted CA anchor in an imported PEM bundle and retain the complete bundle as the Client trust file.
-- [x] Add version-1 root-owned persistent CA migration manifest with validated phase history and timestamps, fixed Client inventory, per-Client acknowledgement slots, atomic writes and explicit retirement gate. (Local state record only; acknowledgement transport/authentication and external side-effect verification remain pending.)
-- [ ] Define authenticated trust-bundle package format and authenticated Client acknowledgement protocol.
-- [ ] Implement staged CA rotation with old/new trust overlap, client migration accounting, explicit activation and rollback.
 - [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
 - [ ] Specify and implement minisign signing-key rotation and age recipient/identity rotation separately from TLS PKI.
 - [x] Add encrypted offline CA backup to mounted removable media using an independently supplied age recipient; private CA material remains in root-only staging until encrypted.
