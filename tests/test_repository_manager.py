@@ -79,6 +79,32 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
             self.manager.mount("images")
         self.assertTrue(any(call[0] == "/usr/bin/sshfs" for call in self.calls))
 
+    def test_encrypted_ssh_key_and_known_hosts_are_both_bound_to_mount_service(self):
+        from feclora.storage.repository_manager import _repository
+        encrypted_root = self.mount_root / "encrypted-bindings"
+        encrypted_root.mkdir(parents=True)
+        key = encrypted_root / "feclora-nas-ssh-key.cred"
+        known_hosts = encrypted_root / "feclora-nas-known-hosts.cred"
+        key.write_bytes(b"encrypted-key")
+        known_hosts.write_bytes(b"encrypted-known-hosts")
+        key.chmod(0o600)
+        known_hosts.chmod(0o600)
+        self.manager.credential_root = encrypted_root
+        definition = dict(self.definition)
+        definition["identity_file"] = str(key)
+        definition["known_hosts_file"] = str(known_hosts)
+        repository = _repository("nas", definition, owner_uid=os.getuid())
+        inventory = [
+            {"id": "nas", "kind": "ssh-key", "name": "feclora-nas-ssh-key", "path": str(key)},
+            {"id": "nas", "kind": "known-hosts", "name": "feclora-nas-known-hosts", "path": str(known_hosts)},
+        ]
+        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore.list", return_value=inventory):
+            bindings = self.manager._encrypted_credential_bindings(repository)
+        self.assertEqual(bindings, [
+            ("feclora-nas-ssh-key", str(key)),
+            ("feclora-nas-known-hosts", str(known_hosts)),
+        ])
+
     def test_rejects_symlinked_credential_file(self):
         target = Path(self.temp.name) / "real-key"
         target.write_text("private key", encoding="ascii")
