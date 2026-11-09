@@ -1024,5 +1024,20 @@ class WebAPITests(unittest.TestCase):
                 dispatch({"action": "add_remote_repository", "params": {"id": "x", "password": "secret"}})
 
 
+    def test_operation_repository_resolves_only_verified_remote_mount(self):
+        from feclora.webapi import _operation_repository
+        manager = Mock()
+        manager.resolve.return_value = "/var/lib/feclora/repositories/images"
+        with patch("feclora.webapi._remote_repository_manager", return_value=manager):
+            result = _operation_repository({"repository_id": "images"}, write=True)
+        self.assertEqual(str(result), "/var/lib/feclora/repositories/images")
+        manager.resolve.assert_called_once_with("images", write=True)
+
+    def test_operation_repository_rejects_invalid_repository_id(self):
+        from feclora.webapi import _operation_repository
+        with self.assertRaisesRegex(WebAPIError, "repository_id is invalid"):
+            _operation_repository({"repository_id": "../images"}, write=False)
+
+
 if __name__ == "__main__":
     unittest.main()
