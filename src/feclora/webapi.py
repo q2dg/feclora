@@ -199,6 +199,48 @@ def _renew_server_certificate(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+
+def _rotate_server_keypair(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"confirmation"} or params.get("confirmation") != "ROTATE SERVER TLS KEYPAIR":
+        raise WebAPIError("explicit confirmation required: ROTATE SERVER TLS KEYPAIR")
+    try:
+        from feclora.deployment.runtime_config import load_server_runtime_config
+        config = load_server_runtime_config("/etc/feclora/deployment-server.json")
+    except Exception as exc:
+        raise WebAPIError(f"managed Server identity is unavailable: {exc}") from exc
+    if (os.path.realpath(config.certificate_file) != "/etc/feclora/pki/server.crt"
+            or os.path.realpath(config.private_key_file) != "/etc/feclora/pki/server.key"
+            or os.path.realpath(config.ca_file) != "/etc/feclora/pki/ca.crt"
+            or config.local_identity != "URI:feclora-server"):
+        raise WebAPIError("Server PKI paths or identity differ from the managed rotation locations")
+    try:
+        active = subprocess.run(
+            ["/usr/bin/systemctl", "list-units", "--type=service", "--state=running",
+             "--no-legend", "feclora-deployment@*.service"],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise WebAPIError(f"cannot establish whether a deployment service is active: {exc}") from exc
+    if active.returncode != 0:
+        raise WebAPIError("cannot establish whether a deployment service is active; Server key rotation is blocked")
+    if active.stdout.strip():
+        raise WebAPIError("stop all active deployment jobs before rotating the Server TLS keypair")
+    try:
+        from feclora.deployment.managed_pki import rotate_server_keypair, certificate_expiry_days
+        rotated = rotate_server_keypair("/etc/feclora/pki")
+        days = certificate_expiry_days(rotated["certificate_file"])
+    except Exception as exc:
+        raise WebAPIError(f"Server TLS keypair rotation failed: {exc}") from exc
+    return {
+        "rotated": True, "identity": config.local_identity,
+        "certificate_file": rotated["certificate_file"],
+        "private_key_file": rotated["private_key_file"],
+        "ca_fingerprint": rotated["ca_fingerprint"],
+        "expiry_days": days, "ca_expiry_days": rotated["ca_expiry_days"],
+        "message": "Server TLS keypair rotated under the existing CA. Enrolled Clients retain CA trust and Server identity; the Server certificate and private key have both changed.",
+    }
+
 def _initialize_security() -> dict[str, Any]:
     from feclora.deployment.managed_pki import initialize_server_pki
 
@@ -1878,6 +1920,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _bootstrap_server(params)
     if action == "renew_server_certificate":
         return _renew_server_certificate(params)
+    if action == "rotate_server_keypair":
+        return _rotate_server_keypair(params)
     if action == "prepare_client_request":
         return _prepare_client_request(params)
     if action == "complete_client_enrollment":
