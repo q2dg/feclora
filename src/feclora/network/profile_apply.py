@@ -140,8 +140,8 @@ def apply_ipv4_profile(
         elif not addresses:
             raise NetworkApplyError("DHCP did not assign an IPv4 address")
         _run(
-            [busctl, "call", "org.freedesktop.NetworkManager", checkpoint_path,
-             "org.freedesktop.NetworkManager.Checkpoint", "Destroy"],
+            [busctl, "call", "org.freedesktop.NetworkManager", _NM_PATH,
+             _NM_IFACE, "CheckpointDestroy", "o", checkpoint_path],
             runner=runner,
         )
         return {"uuid": uuid, "interface": interface, "method": method,
@@ -151,8 +151,8 @@ def apply_ipv4_profile(
         # final safety net if this process or the management connection dies.
         try:
             _run(
-                [busctl, "call", "org.freedesktop.NetworkManager", checkpoint_path,
-                 "org.freedesktop.NetworkManager.Checkpoint", "Rollback"],
+                [busctl, "call", "org.freedesktop.NetworkManager", _NM_PATH,
+                 _NM_IFACE, "CheckpointRollback", "o", checkpoint_path],
                 runner=runner,
             )
         except NetworkApplyError:
