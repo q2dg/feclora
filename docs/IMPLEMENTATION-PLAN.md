@@ -86,17 +86,20 @@ Acceptance: PXE boot alone never authorizes writes; each client verifies signed,
 
 ## P1 — GitHub Pages guides
 Publish task-oriented guides only when the exact workflow is implemented; mark future workflows as planned.
-1. Local disk-to-disk clone.
-2. Remote disk-to-disk clone.
-3. Capture disk image to remote SSHFS repository.
-4. Restore image from SSHFS to one disk.
-5. Restore image to multiple remote clients.
-6. Restore multiple clients using PXE.
-7. Unattended multi-client PXE restore.
-8. Initial Server/Client setup, enrollment and trust.
-9. Repository and credential administration.
-10. Advanced storage: LVM, LUKS, Btrfs and Stratis.
-11. Interrupted-operation and PKI recovery.
+1. [x] Local disk-to-disk clone ([published guide](GUIDE-LOCAL-DISK-CLONE.md)).
+2. [ ] Remote disk-to-disk clone.
+3. [ ] Capture disk image to remote SSHFS repository.
+4. [ ] Restore image from SSHFS to one disk.
+5. [ ] Restore image to multiple remote clients.
+6. [ ] Restore multiple clients using PXE.
+7. [ ] Unattended multi-client PXE restore.
+8. [ ] Initial Server/Client setup, enrollment and trust.
+9. [ ] Repository and credential administration.
+10. [ ] Advanced storage: LVM, LUKS, Btrfs and Stratis.
+11. [ ] Interrupted-operation and PKI recovery.
+
+The [guide index](GUIDES.md) distinguishes available procedures from planned
+workflows. Do not publish an operational recipe for an unimplemented path.
 Every guide needs prerequisites, supported layouts, exact Cockpit steps, expected results, verification, failure recovery and data-loss warnings. Use current screenshots and role/network diagrams.
 
 ## P1 — Governance and release engineering
