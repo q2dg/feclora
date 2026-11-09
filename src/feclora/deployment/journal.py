@@ -1,6 +1,7 @@
 """Append-only, hash-chained deployment event journal."""
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -130,7 +131,7 @@ class DeploymentJournal:
     @property
     def events(self) -> tuple[dict[str, Any], ...]:
         with self._lock:
-            return tuple(dict(event) for event in self._events)
+            return tuple(copy.deepcopy(event) for event in self._events)
 
     def __call__(self, event: Mapping[str, Any]) -> None:
         with self._lock:
@@ -180,7 +181,7 @@ class DeploymentJournal:
     def recovery_report(self) -> dict[str, Any]:
         """Reconstruct an audit-only recovery summary; never recreate live sessions."""
         with self._lock:
-            events = tuple(dict(event) for event in self._events)
+            events = tuple(copy.deepcopy(event) for event in self._events)
         if not events:
             raise DeploymentJournalError("cannot recover an empty deployment journal")
         first = events[0]
@@ -264,4 +265,4 @@ class DeploymentJournal:
     def latest_state(self) -> dict[str, Any] | None:
         """Return the most recent recorded job/client state without resuming a job."""
         with self._lock:
-            return dict(self._events[-1]) if self._events else None
+            return copy.deepcopy(self._events[-1]) if self._events else None
