@@ -25,6 +25,10 @@ The detailed, dependency-ordered implementation backlog and acceptance criteria 
 - [x] Initial Cockpit Server identity bootstrap from a currently assigned IPv4 address, including DHCP-server warning and managed trust-material initialization.
 - [x] Cockpit PXE network-profile preflight and explicit activation/shutdown for ProxyDHCP and isolated DHCP, with persisted transient systemd units and reversible interface-scoped firewalld state.
 
+## Project license
+
+- [x] GNU General Public License v3.0 or later (`GPL-3.0-or-later`); see [LICENSE](../LICENSE).
+
 ## Remaining implementation work
 
 See [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) for task-level checklists and acceptance criteria. Immediate priorities are remote disk-cloning integration, full PKI rotation, repository/credential lifecycle, durable local operations and accurate Server-side transfer progress. Storage growth and volume-aware workflows, PXE unattended orchestration, documentation and governance follow.
