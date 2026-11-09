@@ -65,7 +65,23 @@ class SystemdCredentialStoreTests(unittest.TestCase):
         with self.assertRaises(SystemdCredentialStoreError):
             self.store.remove("nas", "ssh-key")
 
-    def test_rejects_nul_and_failed_encryption_without_publishing(self):\n        with self.assertRaises(SystemdCredentialStoreError):\n            self.store.put("nas", "smb", b"bad\\x00secret")\n        self.assertFalse(self.root.exists())\n\n        def failed_runner(argv, **kwargs):\n            return SimpleNamespace(returncode=1, stdout="", stderr="private details")\n\n        failed = SystemdCredentialStore(\n            self.root, effective_uid=lambda: 0, owner_uid=os.getuid(),\n            runner=failed_runner, which=lambda name: "/usr/bin/systemd-creds",\n        )\n        with self.assertRaisesRegex(SystemdCredentialStoreError, "could not encrypt"):\n            failed.put("nas", "smb", b"secret")\n        self.assertEqual(list(self.root.glob("*.cred")), [])\n\n    def test_requires_root_and_systemd_creds(self):
+    def test_rejects_nul_and_failed_encryption_without_publishing(self):
+        with self.assertRaises(SystemdCredentialStoreError):
+            self.store.put("nas", "smb", b"bad\x00secret")
+        self.assertFalse(self.root.exists())
+
+        def failed_runner(argv, **kwargs):
+            return SimpleNamespace(returncode=1, stdout="", stderr="private details")
+
+        failed = SystemdCredentialStore(
+            self.root, effective_uid=lambda: 0, owner_uid=os.getuid(),
+            runner=failed_runner, which=lambda name: "/usr/bin/systemd-creds",
+        )
+        with self.assertRaisesRegex(SystemdCredentialStoreError, "could not encrypt"):
+            failed.put("nas", "smb", b"secret")
+        self.assertEqual(list(self.root.glob("*.cred")), [])
+
+    def test_requires_root_and_systemd_creds(self):
         non_root = SystemdCredentialStore(
             self.root, effective_uid=lambda: 1000, owner_uid=os.getuid(),
             runner=self.store.runner, which=self.store.which,
