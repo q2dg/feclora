@@ -121,8 +121,13 @@ def _text(params: dict[str, Any], key: str, *, default: str | None = None,
 
 
 def _progress(done: int, total: int | None) -> None:
-    _emit({"event": "progress", "bytes_done": max(0, int(done)),
-           "bytes_total": int(total) if total is not None else None})
+    from feclora.storage.operation_log import record_progress
+
+    bytes_done = max(0, int(done))
+    bytes_total = int(total) if total is not None else None
+    record_progress(bytes_done, bytes_total)
+    _emit({"event": "progress", "bytes_done": bytes_done,
+           "bytes_total": bytes_total})
 
 
 def _client_runtime_config() -> Any | None:
