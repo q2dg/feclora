@@ -179,12 +179,26 @@ def recover_interrupted() -> int:
         raise LocalOperationError("local operation recovery must run as root")
     store = LocalOperationStore()
     recovered = 0
-    for report in store.list_all():
-        if report["state"] not in TERMINAL_STATES:
-            store.mark_interrupted(report["operation_id"])
-            recovered += 1
-    print(f"Marked {recovered} unfinished local operation(s) interrupted; no operation was resumed.")
-    return 0
+    inspection_errors = 0
+    for operation_id in store.operation_ids():
+        try:
+            report = store.status(operation_id)
+            if report["state"] not in TERMINAL_STATES:
+                store.mark_interrupted(operation_id)
+                recovered += 1
+        except Exception as exc:
+            # One damaged journal must not prevent recovery of unrelated jobs.
+            print(
+                f"Cannot reconcile local operation {operation_id}: {str(exc)[:256]}",
+                file=sys.stderr,
+            )
+            inspection_errors += 1
+    print(
+        f"Marked {recovered} unfinished local operation(s) interrupted; "
+        f"{inspection_errors} operation(s) need manual journal inspection. "
+        "No operation was resumed."
+    )
+    return 1 if inspection_errors else 0
 
 
 def main(argv: list[str] | None = None) -> int:
