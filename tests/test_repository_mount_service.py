@@ -56,6 +56,42 @@ class RepositoryMountServiceTests(unittest.TestCase):
         self.assertNotIn("--daemon-wait", argv)
         self.assertNotIn(encrypted, " ".join(argv))
 
+    def test_unmount_stops_service_owned_fuse_mount(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            credential_root = root / "encrypted"
+            credential_root.mkdir(mode=0o700)
+            encrypted = credential_root / "feclora-nas-smb.cred"
+            encrypted.write_bytes(b"encrypted-payload")
+            encrypted.chmod(0o600)
+            calls = []
+
+            def runner(argv, **kwargs):
+                calls.append(argv)
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+            manager = RemoteRepositoryManager(
+                registry=root / "etc" / "repositories.json",
+                mount_root=root / "mounts", credential_root=credential_root,
+                runner=runner, which=lambda name: "/usr/bin/" + name,
+                effective_uid=lambda: 0, owner_uid=os.getuid(),
+            )
+            manager.add("nas", {
+                "provider": "smb", "host": "nas.example.net",
+                "remote_path": "/images", "username": "backup",
+                "credential_file": str(encrypted), "identity_file": None,
+                "known_hosts_file": None, "port": None, "read_only": True,
+            })
+            manager._mount_record = lambda _path: ("cifs", "//nas.example.net/images", "ro,relatime")
+            states = iter([True, False, False])
+            manager._is_mounted = lambda _path: next(states)
+            result = manager.unmount("nas")
+            self.assertFalse(result["mounted"])
+            self.assertIn(
+                ["/usr/bin/systemctl", "stop", "feclora-repository-nas.service"],
+                calls,
+            )
+
     def test_manager_launches_transient_service_with_encrypted_credential(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
