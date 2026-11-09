@@ -106,6 +106,26 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
             self.manager.resolve("images")
 
 
+    def test_list_marks_mount_verified_only_when_source_and_type_match(self):
+        self.manager.add("images", self.definition)
+        self.manager._mount_record = lambda _path: (
+            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime",
+        )
+        item = self.manager.list()[0]
+        self.assertTrue(item["mounted"])
+        self.assertTrue(item["verified"])
+        self.assertIsNone(item["mount_error"])
+
+    def test_list_exposes_unexpected_mount_without_trusting_it(self):
+        self.manager.add("images", self.definition)
+        self.manager._mount_record = lambda _path: (
+            "nfs4", "attacker.example.net:/other", "ro,relatime",
+        )
+        item = self.manager.list()[0]
+        self.assertTrue(item["mounted"])
+        self.assertFalse(item["verified"])
+        self.assertIn("does not match", item["mount_error"])
+
     def test_unmount_refuses_unexpected_filesystem_at_managed_mountpoint(self):
         self.manager.add("images", self.definition)
         self.manager._mount_record = lambda _path: (
