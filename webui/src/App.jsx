@@ -605,7 +605,7 @@ export default function App() {
     try {
       const result = await callFeclora("start_deployment_service", { job_id: jobId });
       setServiceStatuses((current) => ({ ...current, [jobId]: result }));
-      setNotice("Persistent deployment service started. Clients may now connect; no disk operation starts until explicit arming.");
+      setNotice("Persistent deployment service started. Clients may now connect; no disk operation starts until the Server operator explicitly authorizes and starts it.");
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -682,7 +682,7 @@ export default function App() {
       setClientRemoteJobStatus(result);
       setNotice(result.phase === "failed"
         ? "Client service started but reported a failure before completion; inspect its status detail."
-        : "Client service started. It will report READY only after local target approval, and will write only after the Server operator arms the job.");
+        : "Client service started. It will report READY only after local target approval, and will write only after the Server operator explicitly authorizes and starts the job.");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -889,7 +889,7 @@ export default function App() {
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Create a remote deployment job</Title>
                 <Alert variant="warning" title="Definition only — service not started; no Client contact or disk I/O" isInline>
-                  This step validates and journals a job definition. Start its persistent service separately; Clients then authenticate and approve their own local target through the existing Client-local runtime. Each Client selects and approves its own local destination in the Client jobs tab. No storage operation starts until you explicitly arm the job here after all authorized Clients report READY.
+                  This step validates and journals a job definition. Start its persistent service separately; Clients then authenticate and approve their own local target through the existing Client-local runtime. Each Client selects and approves its own local destination in the Client jobs tab. No storage operation starts until you explicitly authorize and start it here after all authorized Clients report READY.
                 </Alert>
               </StackItem>
               <StackItem>
@@ -980,8 +980,8 @@ export default function App() {
                         {serviceStatuses[job.job_id].multicast_preflight?.warnings?.length > 0 && <StackItem><Alert variant="warning" isInline title="Multicast network warnings">{serviceStatuses[job.job_id].multicast_preflight.warnings.join(" ")}</Alert></StackItem>}
                         {serviceStatuses[job.job_id].multicast_preflight?.error && <StackItem><Alert variant="danger" isInline title="Multicast preflight failed">{serviceStatuses[job.job_id].multicast_preflight.error}</Alert></StackItem>}
                         {serviceStatuses[job.job_id].job_state === "created" && <>
-                          <StackItem><input className="pf-v5-c-form-control" aria-label={"Arm confirmation for " + job.job_id} placeholder={deploymentArmPhrase(job) || "Enrolled Client identity unavailable"} value={serviceConfirmations[job.job_id] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem>
-                          <StackItem><Button size="sm" variant="primary" isDisabled={busy || !deploymentArmPhrase(job) || serviceConfirmations[job.job_id] !== deploymentArmPhrase(job)} onClick={() => sendDeploymentServiceCommand(job.job_id, "arm_deployment_job", serviceConfirmations[job.job_id])}>Arm and execute</Button></StackItem>
+                          <StackItem><input className="pf-v5-c-form-control" aria-label={"Start authorization confirmation for " + job.job_id} placeholder={deploymentArmPhrase(job) || "Enrolled Client identity unavailable"} value={serviceConfirmations[job.job_id] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem>
+                          <StackItem><Button size="sm" variant="primary" isDisabled={busy || !deploymentArmPhrase(job) || serviceConfirmations[job.job_id] !== deploymentArmPhrase(job)} onClick={() => sendDeploymentServiceCommand(job.job_id, "arm_deployment_job", serviceConfirmations[job.job_id])}>Authorize and execute</Button></StackItem>
                           <StackItem><input className="pf-v5-c-form-control" aria-label={"Cancel confirmation for " + job.job_id} placeholder={"CANCEL " + job.job_id} value={serviceConfirmations[job.job_id + "-cancel"] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id + "-cancel"]: event.target.value }))} /></StackItem>
                           <StackItem><Button size="sm" variant="secondary" isDisabled={busy || serviceConfirmations[job.job_id + "-cancel"] !== "CANCEL " + job.job_id} onClick={() => sendDeploymentServiceCommand(job.job_id, "cancel_deployment_job", serviceConfirmations[job.job_id + "-cancel"])}>Cancel before arm</Button></StackItem>
                         </>}
@@ -1270,7 +1270,7 @@ export default function App() {
           <Tab eventKey="client-jobs" title="Client jobs">
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Remote job on this Client</Title>
-                <p>Inspect the Server job over enrolled mTLS, choose this machine's local target, type the exact destructive/read confirmation, then connect. The Client reports READY after approval and waits for the Server operator to arm it.</p>
+                <p>Inspect the Server job over enrolled mTLS, choose this machine's local target, type the exact destructive/read confirmation, then connect. The Client reports READY after approval and waits for the Server operator to authorize and start the operation.</p>
               </StackItem>
               {!status?.client_configured && <StackItem><Alert variant="warning" title="Client enrollment required" isInline>Complete Client removable-media enrollment before inspecting or joining a remote job.</Alert></StackItem>}
               {status?.client_configured && <>
@@ -1291,7 +1291,7 @@ export default function App() {
                     <p>Target type: {clientRemoteJob.target_type} · Transport: {clientRemoteJob.transport}</p>
                     <p>Server identity: {clientRemoteInspection.server_identity}</p>
                     <p>Authorized Client MACs: {(clientRemoteJob.authorized_clients || []).join(", ")}</p>
-                    {clientRemoteJob.transport === "multicast" && <Alert variant="warning" title="Multicast network requirements" isInline>All authorized Clients must be READY before arming. Confirm UDP multicast reachability, switch IGMP snooping and an active querier on the same VLAN. UDPcast data packets are not encrypted or authenticated; mTLS protects only the control channel.</Alert>}
+                    {clientRemoteJob.transport === "multicast" && <Alert variant="warning" title="Multicast network requirements" isInline>All authorized Clients must be READY before the Server operator authorizes and starts the operation. Confirm UDP multicast reachability, switch IGMP snooping and an active querier on the same VLAN. UDPcast data packets are not encrypted or authenticated; mTLS protects only the control channel.</Alert>}
                     {clientRemoteJob.transport === "multicast" && <label><input type="checkbox" checked={clientRemoteIgmpConfirmed} onChange={(event) => setClientRemoteIgmpConfirmed(event.target.checked)} /> I verified IGMP snooping and an active querier on this VLAN, and confirmed all Clients are on the same multicast network.</label>}
                     {(clientRemoteJob.transport === "unicast" || clientRemoteJob.transport === "multicast") && <>
                       {clientRemoteJob.transport === "multicast" && <Field label="Local multicast receive interface" help="Choose the Client interface on the same L2 multicast VLAN as the Server. Interface, route and udp-receiver preflight run again before READY.">
@@ -1315,7 +1315,7 @@ export default function App() {
                       <Field label="Local target confirmation">
                         <input className="pf-v5-c-form-control" value={clientRemoteConfirmation} onChange={(event) => setClientRemoteConfirmation(event.target.value)} placeholder="Type the phrase shown above exactly" />
                       </Field>
-                      <Button variant="primary" onClick={startClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteTarget || !clientRemoteConfirmationPhrase || clientRemoteConfirmation !== clientRemoteConfirmationPhrase || (clientRemoteJob.transport === "multicast" && (!clientRemoteInterface || !clientRemoteIgmpConfirmed))}>Connect and wait for Server arm</Button>
+                      <Button variant="primary" onClick={startClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteTarget || !clientRemoteConfirmationPhrase || clientRemoteConfirmation !== clientRemoteConfirmationPhrase || (clientRemoteJob.transport === "multicast" && (!clientRemoteInterface || !clientRemoteIgmpConfirmed))}>Connect and wait for Server authorization</Button>
                     </>}
                   </CardBody></Card>
                 </StackItem>}
