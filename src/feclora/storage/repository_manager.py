@@ -288,7 +288,47 @@ class RemoteRepositoryManager:
         _write_registry(entries, self.registry, owner_uid=self.owner_uid)
         return {"id": identifier, "removed": True}
 
-    def _is_mounted(self, mountpoint: str) -> bool:
+    def resolve(self, identifier: str, *, write: bool = False) -> str:
+        """Return a repository path only when its expected remote mount is active."""
+        entries = self._load()
+        try:
+            definition = entries[identifier]
+        except KeyError as exc:
+            raise RepositoryManagerError("unknown repository ID") from exc
+        repo = _repository(identifier, definition, owner_uid=self.owner_uid)
+        if write and repo.read_only:
+            raise RepositoryManagerError("repository is configured read-only and cannot receive image artifacts")
+        mountpoint = str(self.mount_root / identifier)
+        record = self._mount_record(mountpoint)
+        if record is None:
+            raise RepositoryManagerError("repository is not mounted")
+        filesystem, source, options = record
+        if repo.provider == "sshfs":
+            expected_source = f"{repo.username}@{repo.host}:{repo.remote_path}"
+            valid_source = source == expected_source
+            valid_type = filesystem.startswith("fuse.sshfs")
+        elif repo.provider == "nfs":
+            valid_source = source == f"{repo.host}:{repo.remote_path}"
+            valid_type = filesystem in {"nfs", "nfs4"}
+        else:
+            share = repo.remote_path.strip("/").split("/", 1)[0]
+            valid_source = source == f"//{repo.host}/{share}"
+            valid_type = filesystem == "cifs"
+            subpath = repo.remote_path.strip("/").split("/", 1)
+            if len(subpath) == 2:
+                valid_source = valid_source and ("prefixpath=" + subpath[1]) in options.split(",")
+        if not valid_source or not valid_type:
+            raise RepositoryManagerError("mounted filesystem source or type does not match the saved repository definition")
+        option_set = set(options.split(","))
+        if "ro" not in option_set and "rw" not in option_set:
+            raise RepositoryManagerError("mounted filesystem does not report its access mode")
+        if write and "rw" not in option_set:
+            raise RepositoryManagerError("repository is not mounted read/write")
+        if not write and repo.read_only and "ro" not in option_set:
+            raise RepositoryManagerError("repository was configured read-only but is mounted read/write")
+        return mountpoint
+
+    def _mount_record(self, mountpoint: str) -> tuple[str, str, str] | None:
         findmnt = self.which("findmnt")
         if not findmnt:
             raise RepositoryManagerError("findmnt is required to verify repository mount state")
@@ -302,10 +342,13 @@ class RemoteRepositoryManager:
         except (OSError, subprocess.SubprocessError) as exc:
             raise RepositoryManagerError(f"cannot verify repository mount state: {exc}") from exc
         if result.returncode == 1 and not result.stdout.strip():
-            return False
+            return None
         if result.returncode != 0:
             raise RepositoryManagerError("findmnt could not verify repository mount state")
         fields = result.stdout.strip().split(None, 3)
         if len(fields) != 4 or fields[0] != mountpoint:
             raise RepositoryManagerError("findmnt returned an unexpected mountpoint record")
-        return True
+        return fields[1], fields[2], fields[3]
+
+    def _is_mounted(self, mountpoint: str) -> bool:
+        return self._mount_record(mountpoint) is not None
