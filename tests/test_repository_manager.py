@@ -64,11 +64,30 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         with self.assertRaisesRegex(RepositoryManagerError, "mode 0600"):
             self.manager.add("images", self.definition)
 
-    def test_rejects_unsupported_webdav_until_credential_lifecycle_exists(self):
-        definition = {**self.definition, "provider": "webdav", "username": None,
-                      "identity_file": None, "known_hosts_file": None, "port": None}
-        with self.assertRaisesRegex(RepositoryManagerError, "currently support"):
+    def test_add_accepts_webdav_with_root_owned_system_secrets(self):
+        secrets = Path(self.temp.name) / "dav-secrets"
+        secrets.write_text("https://dav.example.net/images user password\\n", encoding="utf-8")
+        secrets.chmod(0o600)
+        definition = {**self.definition, "provider": "webdav", "host": "dav.example.net",
+                      "remote_path": "/images", "username": None,
+                      "credential_file": str(secrets), "identity_file": None,
+                      "known_hosts_file": None, "port": None}
+        # davfs2 only reads its system secrets path; the manager rejects alternate paths.
+        definition["credential_file"] = "/etc/davfs2/secrets"
+        with self.assertRaisesRegex(RepositoryManagerError, "unavailable"):
             self.manager.add("images", definition)
+
+    def test_add_accepts_s3_with_protected_rclone_config(self):
+        config = Path(self.temp.name) / "rclone.conf"
+        config.write_text("[feclora_s3]\\ntype = s3\\n", encoding="utf-8")
+        config.chmod(0o600)
+        definition = {**self.definition, "provider": "s3", "host": "s3.example.net",
+                      "remote_path": "/bucket/images", "username": None,
+                      "credential_file": str(config), "identity_file": None,
+                      "known_hosts_file": None, "port": None,
+                      "rclone_remote": "feclora_s3"}
+        result = self.manager.add("images", definition)
+        self.assertEqual(result["provider"], "s3")
 
     def test_remove_refuses_mounted_repository(self):
         self.manager.add("images", self.definition)
