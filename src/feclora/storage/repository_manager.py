@@ -339,14 +339,21 @@ class RemoteRepositoryManager:
         entries = self._load()
         if identifier not in entries:
             raise RepositoryManagerError("unknown repository ID")
-        mountpoint = self.mount_root / identifier
-        _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
-        if self._is_mounted(str(mountpoint)):
-            raise RepositoryManagerError("unmount the repository before removing its definition")
-        mountpoint.rmdir()
-        del entries[identifier]
-        _write_registry(entries, self.registry, owner_uid=self.owner_uid)
-        return {"id": identifier, "removed": True}
+        # Definition removal must obey the same exclusive lease as unmount:
+        # a restore may still need this registry entry even if the remote mount
+        # disappeared unexpectedly while its service was active.
+        lock_fd = self._acquire_usage_lock(identifier, exclusive=True)
+        try:
+            mountpoint = self.mount_root / identifier
+            _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
+            if self._is_mounted(str(mountpoint)):
+                raise RepositoryManagerError("unmount the repository before removing its definition")
+            mountpoint.rmdir()
+            del entries[identifier]
+            _write_registry(entries, self.registry, owner_uid=self.owner_uid)
+            return {"id": identifier, "removed": True}
+        finally:
+            os.close(lock_fd)
 
     def resolve(self, identifier: str, *, write: bool = False) -> str:
         """Return a repository path only when its expected remote mount is active."""
