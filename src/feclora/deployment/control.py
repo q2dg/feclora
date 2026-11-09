@@ -498,9 +498,11 @@ class DeploymentControlServer:
                 "updated_at": updated_at,
             }
             self._progress[mac] = {**snapshot, "monotonic": now}
-            previous_saved = self._last_persisted_progress.get(mac)
+            progress_sink = getattr(self, "_progress_event_sink", None)
+            last_persisted = getattr(self, "_last_persisted_progress", {})
+            previous_saved = last_persisted.get(mac)
             should_persist = (
-                self._progress_event_sink is not None
+                progress_sink is not None
                 and (
                     previous_saved is None
                     or previous_saved["phase"] != snapshot["phase"]
@@ -511,7 +513,7 @@ class DeploymentControlServer:
             )
             if should_persist:
                 try:
-                    self._progress_event_sink({
+                    progress_sink({
                         "timestamp": updated_at,
                         "job_id": self.coordinator.job.job_id,
                         "event": "client_progress",
@@ -522,7 +524,8 @@ class DeploymentControlServer:
                     })
                 except Exception as exc:
                     raise DeploymentControlError(f"could not persist Client progress snapshot: {exc}") from exc
-                self._last_persisted_progress[mac] = {**snapshot, "monotonic": now}
+                last_persisted[mac] = {**snapshot, "monotonic": now}
+                self._last_persisted_progress = last_persisted
 
     def client_progress(self) -> dict[str, dict[str, Any]]:
         with self._lock:
