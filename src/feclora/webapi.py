@@ -1732,7 +1732,11 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         except (SourceSafetyError, OSError) as exc:
             raise WebAPIError(f"clone source disk is unsafe or in use: {exc}") from exc
     else:
-        manifest_path = _image_manifest(job.image_id)
+        image_repository = (
+            _operation_repository({"repository_id": job.repository_id}, write=False)
+            if job.repository_id else Path(config.repository)
+        )
+        manifest_path = _image_manifest(job.image_id, image_repository)
         try:
             manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
             expected_type = "disk" if job.target_type == "disk" else "partition"
