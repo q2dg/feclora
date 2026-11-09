@@ -35,10 +35,10 @@ def parse_connection_profiles(payload: str) -> list[dict[str, Any]]:
             continue
         if kind not in {"ethernet", "wifi", "vlan", "bond", "bridge"}:
             continue
-        method = row.get("IP4.METHOD", "auto")
+        method = row.get("ipv4.method", row.get("IP4.METHOD", "auto"))
         if method not in {"auto", "manual", "disabled", "link-local", "shared"}:
             method = "unknown"
-        addresses = row.get("IP4.ADDRESS", [])
+        addresses = row.get("ipv4.addresses", row.get("IP4.ADDRESS", []))
         if isinstance(addresses, str):
             addresses = [addresses] if addresses else []
         if not isinstance(addresses, list) or any(not isinstance(v, str) for v in addresses):
@@ -50,8 +50,8 @@ def parse_connection_profiles(payload: str) -> list[dict[str, Any]]:
             "autoconnect": str(row.get("connection.autoconnect", "yes")).lower() in {"yes", "true", "1"},
             "ipv4_method": method,
             "ipv4_addresses": addresses[:8],
-            "ipv4_gateway": row.get("IP4.GATEWAY") if isinstance(row.get("IP4.GATEWAY"), str) else None,
-            "ipv4_dns": row.get("IP4.DNS", []) if isinstance(row.get("IP4.DNS", []), list) else [],
+            "ipv4_gateway": row.get("ipv4.gateway", row.get("IP4.GATEWAY")) if isinstance(row.get("ipv4.gateway", row.get("IP4.GATEWAY")), str) else None,
+            "ipv4_dns": row.get("ipv4.dns", row.get("IP4.DNS", [])) if isinstance(row.get("ipv4.dns", row.get("IP4.DNS", [])), list) else [],
         })
     return profiles
 
@@ -63,7 +63,7 @@ def list_connection_profiles(
     nmcli = executable or shutil.which("nmcli")
     if not nmcli:
         raise NetworkProfileError("NetworkManager (nmcli) is required")
-    fields = "NAME,UUID,TYPE,DEVICE,ACTIVE,connection.autoconnect,IP4.METHOD,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS"
+    fields = "NAME,UUID,TYPE,DEVICE,ACTIVE,connection.autoconnect,ipv4.method,ipv4.addresses,ipv4.gateway,ipv4.dns"
     # JSON output avoids delimiter ambiguity in connection names and addresses.
     try:
         result = runner(
