@@ -106,6 +106,16 @@ class LocalOperationStoreTests(unittest.TestCase):
             all_reports = store.list_all()
             self.assertEqual([item["operation_id"] for item in all_reports], [identifier])
 
+    def test_list_all_includes_jobs_older_than_recent_history_limit(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            params = {"source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                      "encrypt": False, "sign": False}
+            for _ in range(501):
+                store.submit("capture_disk", params)
+            self.assertEqual(len(store.list()), 500)
+            self.assertEqual(len(store.list_all()), 501)
+
     def test_duplicate_submission_is_rejected(self):
         with tempfile.TemporaryDirectory() as root:
             store = LocalOperationStore(os.path.join(root, "jobs"))
