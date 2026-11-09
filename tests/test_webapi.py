@@ -908,14 +908,19 @@ class WebAPITests(unittest.TestCase):
         )
         with patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config), \
              patch("feclora.network.remote_clone_protocol.create_mutual_tls_context", return_value=object()), \
+             patch("feclora.network.interface_discovery.discover_interface_addresses", return_value=[
+                 SimpleNamespace(address="192.0.2.20"),
+             ]), \
              patch("feclora.deployment.control.inspect_deployment_job", return_value=job) as inspect:
             result = dispatch({"action": "inspect_remote_job", "params": {
                 "host": "", "job_id": job_id,
+                "network_interface": "enp1s0", "source_address": "192.0.2.20",
             }})
         self.assertEqual(result["job"]["job_id"], job_id)
         self.assertEqual(result["host"], "192.0.2.10")
         self.assertEqual(inspect.call_args.args[0], "192.0.2.10")
         self.assertEqual(inspect.call_args.kwargs["mac_address"], config.mac_address)
+        self.assertEqual(inspect.call_args.kwargs["source_address"], "192.0.2.20")
 
     def test_start_client_job_persists_private_request_and_starts_systemd_unit(self):
         import stat
