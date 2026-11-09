@@ -36,7 +36,10 @@ class RemoteRepositoryTests(unittest.TestCase):
             provider="smb", host="nas.example.net", remote_path="/images/feclora",
             mountpoint="/mnt/images", credential_file="/etc/feclora/smb.creds",
         )
-        self.assertIn("credentials=/etc/feclora/smb.creds", repo.mount_argv()[4])
+        argv = repo.mount_argv()
+        self.assertIn("credentials=/etc/feclora/smb.creds", argv[4])
+        self.assertIn("prefixpath=feclora", argv[4])
+        self.assertEqual(argv[-2], "//nas.example.net/images")
 
     def test_webdav_uses_https(self):
         repo = RemoteRepository(
