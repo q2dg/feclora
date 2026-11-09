@@ -1,6 +1,7 @@
 """Small TLS socket helpers for remote disk-clone endpoints."""
 from __future__ import annotations
 
+import re
 import socket
 import ssl
 import subprocess
@@ -38,7 +39,7 @@ def connect_mutual_tls(
         parsed_source = None
     if network_interface is not None:
         if (not isinstance(network_interface, str)
-                or not __import__("re").fullmatch(r"[A-Za-z0-9_.:-]{1,15}", network_interface)
+                or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,15}", network_interface)
                 or source_address is None):
             raise ValueError("network_interface requires a valid selected interface and source_address")
     deadline = time.monotonic() + timeout
