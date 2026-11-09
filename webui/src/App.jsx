@@ -687,9 +687,12 @@ export default function App() {
   const inspectClientRemoteJob = async () => {
     setBusy(true); setError(""); setNotice("");
     setClientRemoteInspection(null); setClientRemoteJobStatus(null);
+    const selectedInterface = networkInterfaces.find((item) => item.binding === clientRemoteInterface);
+    if (!selectedInterface) { setError("Select an active Client interface/address before testing connectivity."); setBusy(false); return; }
     try {
       const result = await callFeclora("inspect_remote_job", {
         host: clientRemoteHost, job_id: clientRemoteJobId,
+        network_interface: selectedInterface.interface, source_address: selectedInterface.address,
       });
       setClientRemoteInspection(result);
       setClientRemoteTarget("");
@@ -707,9 +710,8 @@ export default function App() {
         host: clientRemoteHost, job_id: clientRemoteInspection.job.job_id,
         device_path: clientRemoteTarget, confirmation: clientRemoteConfirmation,
         compression: clientRemoteCompression,
-        network_interface: clientRemoteJob.transport === "multicast"
-          ? (networkInterfaces.find((item) => item.binding === clientRemoteInterface)?.interface || null)
-          : null,
+        network_interface: networkInterfaces.find((item) => item.binding === clientRemoteInterface)?.interface || null,
+        source_address: networkInterfaces.find((item) => item.binding === clientRemoteInterface)?.address || null,
         igmp_confirmed: clientRemoteJob.transport === "multicast" ? clientRemoteIgmpConfirmed : false,
       });
       setClientRemoteJobStatus(result);
@@ -1363,8 +1365,14 @@ export default function App() {
                   <Field label="Remote job UUID">
                     <input className="pf-v5-c-form-control" value={clientRemoteJobId} onChange={(event) => { setClientRemoteJobId(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); }} placeholder="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" />
                   </Field>
-                  <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Preflight: this contacts the Server over the network, completes the authenticated TLS connection, verifies the enrolled Server identity and fetches the job before any local target is approved or storage operation starts.</p>
-                  <Button variant="primary" onClick={inspectClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteJobId}>Test connectivity and inspect authenticated job</Button>
+                  <Field label="Local Client network interface" help="Select the IPv4 address used as the source for the authenticated connection to the Server. The address is revalidated immediately before connection.">
+                    <select className="pf-v5-c-form-control" value={clientRemoteInterface} onChange={(event) => { setClientRemoteInterface(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); setClientRemoteIgmpConfirmed(false); }}>
+                      <option value="">Select Client interface/address…</option>
+                      {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
+                    </select>
+                  </Field>
+                  <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Preflight binds the TCP/TLS connection to this Client IPv4 address, verifies the enrolled Server identity and fetches the job before any local target is approved or storage operation starts.</p>
+                  <Button variant="primary" onClick={inspectClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteJobId || !clientRemoteInterface}>Test connectivity and inspect authenticated job</Button>
                   <Button variant="link" onClick={refreshClientRemoteJobStatus} isLoading={busy} isDisabled={busy || !clientRemoteJobId}>Check existing Client job status</Button>
                 </StackItem>
                 {clientRemoteJob && <StackItem>
@@ -1377,12 +1385,7 @@ export default function App() {
                     {clientRemoteJob.transport === "multicast" && <Alert variant="warning" title="Multicast network requirements" isInline>All authorized Clients must be READY before the Server operator authorizes and starts the operation. Confirm UDP multicast reachability, switch IGMP snooping and an active querier on the same VLAN. UDPcast data packets are not encrypted or authenticated; mTLS protects only the control channel.</Alert>}
                     {clientRemoteJob.transport === "multicast" && <label><input type="checkbox" checked={clientRemoteIgmpConfirmed} onChange={(event) => setClientRemoteIgmpConfirmed(event.target.checked)} /> I verified IGMP snooping and an active querier on this VLAN, and confirmed all Clients are on the same multicast network.</label>}
                     {(clientRemoteJob.transport === "unicast" || clientRemoteJob.transport === "multicast") && <>
-                      {clientRemoteJob.transport === "multicast" && <Field label="Local multicast receive interface" help="Choose the Client interface on the same L2 multicast VLAN as the Server. Interface, route and udp-receiver preflight run again before READY.">
-                        <select className="pf-v5-c-form-control" value={clientRemoteInterface} onChange={(event) => { setClientRemoteInterface(event.target.value); setClientRemoteIgmpConfirmed(false); }}>
-                          <option value="">Select receive interface…</option>
-                          {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
-                        </select>
-                      </Field>}
+
                       <Field label={clientRemoteJob.target_type === "partition" ? "Local destination partition" : "Local destination disk"} help="The selected block device is rechecked against live inventory immediately before READY. Root, mounted or busy destinations are rejected by the storage engine.">
                         <select className="pf-v5-c-form-control" value={clientRemoteTarget} onChange={(event) => { setClientRemoteTarget(event.target.value); setClientRemoteConfirmation(""); }}>
                           <option value="">Select local target…</option>
@@ -1398,7 +1401,7 @@ export default function App() {
                       <Field label="Local target confirmation">
                         <input className="pf-v5-c-form-control" value={clientRemoteConfirmation} onChange={(event) => setClientRemoteConfirmation(event.target.value)} placeholder="Type the phrase shown above exactly" />
                       </Field>
-                      <Button variant="primary" onClick={startClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteTarget || !clientRemoteConfirmationPhrase || clientRemoteConfirmation !== clientRemoteConfirmationPhrase || (clientRemoteJob.transport === "multicast" && (!clientRemoteInterface || !clientRemoteIgmpConfirmed))}>Connect and wait for Server authorization</Button>
+                      <Button variant="primary" onClick={startClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteTarget || !clientRemoteConfirmationPhrase || clientRemoteConfirmation !== clientRemoteConfirmationPhrase || (!clientRemoteInterface || (clientRemoteJob.transport === "multicast" && !clientRemoteIgmpConfirmed))}>Connect and wait for Server authorization</Button>
                     </>}
                   </CardBody></Card>
                 </StackItem>}
