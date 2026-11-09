@@ -93,6 +93,24 @@ class CAMigrationStoreTests(unittest.TestCase):
             with self.assertRaisesRegex(CAMigrationError, "timezone"):
                 store.get(identifier)
 
+    def test_manifest_rejects_trust_acknowledgement_after_distribution_completed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = self.store(directory)
+            identifier = store.create("a" * 64, "b" * 64, ["client-a"])["migration_id"]
+            store.begin_distribution(identifier)
+            store.acknowledge_trust(identifier, "client-a")
+            store.complete_distribution(identifier)
+            path = os.path.join(directory, identifier + ".json")
+            with open(path, encoding="ascii") as stream:
+                manifest = json.load(stream)
+            manifest["clients"]["client-a"]["trust_acknowledged_at"] = "2099-01-01T00:00:00Z"
+            manifest["updated_at"] = "2100-01-01T00:00:00Z"
+            with open(path, "w", encoding="ascii") as stream:
+                json.dump(manifest, stream)
+            os.chmod(path, 0o600)
+            with self.assertRaisesRegex(CAMigrationError, "postdates distribution completion"):
+                store.get(identifier)
+
     def test_manifest_rejects_acknowledgements_before_their_phase(self):
         with tempfile.TemporaryDirectory() as directory:
             store = self.store(directory)
