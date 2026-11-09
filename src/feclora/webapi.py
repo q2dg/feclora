@@ -130,6 +130,17 @@ def _progress(done: int, total: int | None) -> None:
            "bytes_total": bytes_total})
 
 
+def _clone_disk_progress(done: int, message: str) -> None:
+    from feclora.storage.operation_log import record_progress
+
+    bytes_done = max(0, int(done))
+    record_progress(bytes_done, None)
+    _emit({
+        "event": "progress", "bytes_done": bytes_done,
+        "bytes_total": None, "message": str(message)[:256],
+    })
+
+
 def _client_runtime_config() -> Any | None:
     path = Path("/etc/feclora/deployment-client.json")
     if not path.exists():
@@ -1105,10 +1116,10 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         expected = f"ERASE {target}"
         if params["confirmation"] != expected:
             raise WebAPIError(f"explicit confirmation required: {expected}")
-        copied = clone_disk(source, target, confirmation=expected,
-                            progress_callback=lambda done, message: _emit(
-                                {"event": "progress", "bytes_done": int(done),
-                                 "bytes_total": None, "message": str(message)[:256]}))
+        copied = clone_disk(
+            source, target, confirmation=expected,
+            progress_callback=_clone_disk_progress,
+        )
         result = {"source": source, "target": target, "bytes_copied": copied}
     else:
         from feclora.storage.partition_clone import clone_partition
