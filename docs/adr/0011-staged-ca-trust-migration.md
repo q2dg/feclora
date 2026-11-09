@@ -80,12 +80,14 @@ Implement CA rotation as an explicit, resumable, multi-phase migration. The old 
 
 ## Implementation progress
 
-A first local primitive now exists as `build_ca_trust_bundle()` in
-`feclora.deployment.managed_pki`. It accepts a bounded list of public PEM
-certificates, validates CA basic constraints and certificate-signing key usage,
-rejects duplicate SHA-256 fingerprints, and writes the combined bundle
-atomically under the protected PKI directory. Its input reads reject symlinks
-and are size-bounded.
+A local trust-bundle foundation now exists in `feclora.deployment.managed_pki`:
+`build_ca_trust_bundle()` validates and atomically writes a bounded list of public
+CA PEM certificates, while `ca_bundle_fingerprints()` safely enumerates and
+validates every anchor. Client certificate installation now accepts a leaf
+whose expected issuer fingerprint matches any CA in the supplied bundle, and
+copies the entire bundle into the Client trust path. The existing TLS runtime
+already passes that path to Python's `SSLContext.load_verify_locations()`, which
+accepts concatenated PEM anchors. Input reads reject symlinks and are size-bounded.
 
 This primitive does **not** yet provide versioned CA storage, a migration
 manifest, authenticated removable-media distribution, TLS runtime activation,
