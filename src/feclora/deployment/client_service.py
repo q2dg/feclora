@@ -390,7 +390,7 @@ class ClientDeploymentService:
                             pass
 
                 def progress(current: int, total: int | None) -> None:
-                    report_progress(job.operation, current, total)
+                    report_progress(job.operation, current, total, report_remote=job.operation != "clone")
 
                 def transfer_progress(current: int, total: int) -> None:
                     # Image bytes and control frames share one TLS stream. Keep
