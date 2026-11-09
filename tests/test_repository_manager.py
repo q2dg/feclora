@@ -144,6 +144,21 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         finally:
             os.close(lease_fd)
 
+    def test_restore_lease_blocks_unmount_through_another_manager_instance(self):
+        self.manager.add("images", self.definition)
+        other_manager = RemoteRepositoryManager(
+            registry=self.registry, mount_root=self.mount_root,
+            runner=self.runner, which=lambda name: "/usr/bin/" + name,
+            effective_uid=lambda: 0, owner_uid=os.getuid(),
+        )
+        other_manager._is_mounted = lambda _path: True
+        lease_fd = self.manager.acquire_usage_lock("images")
+        try:
+            with self.assertRaisesRegex(RepositoryManagerError, "active restore"):
+                other_manager.unmount("images")
+        finally:
+            os.close(lease_fd)
+
     def test_unknown_repository_cannot_acquire_usage_lease(self):
         with self.assertRaisesRegex(RepositoryManagerError, "unknown repository"):
             self.manager.acquire_usage_lock("missing")
