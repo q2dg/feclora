@@ -1976,6 +1976,14 @@ def _remote_repository_manager():
 
 def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, Any]:
     try:
+        if action == "systemd_credentials":
+            if params:
+                raise WebAPIError("systemd_credentials does not accept parameters")
+            from feclora.storage.systemd_credential_store import SystemdCredentialStore
+            try:
+                return {"credentials": SystemdCredentialStore().list()}
+            except Exception as exc:
+                raise WebAPIError(f"encrypted credential inventory failed: {exc}") from exc
         if action == "remote_credentials":
             if params:
                 raise WebAPIError("remote_credentials does not accept parameters")
@@ -2048,7 +2056,7 @@ def dispatch(request: Any) -> dict[str, Any]:
             "security": _security_material(),
             "certificate_status": _certificate_status(),
         }
-    if action == "remote_credentials":
+    if action in {"remote_credentials", "systemd_credentials"}:
         return _remote_repository_action(action, params)
     if action in {"remote_repositories", "add_remote_repository", "mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"}:
         return _remote_repository_action(action, params)
