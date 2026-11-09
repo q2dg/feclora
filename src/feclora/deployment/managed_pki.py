@@ -383,6 +383,88 @@ def ca_fingerprint(ca_file: str, *, runner: Callable[..., Any] | None = None,
     return value[len(prefix):].replace(":", "").lower()
 
 
+
+def build_ca_trust_bundle(
+    ca_files: list[str | os.PathLike[str]],
+    destination: str | os.PathLike[str],
+    *,
+    pki_directory: str | os.PathLike[str] = "/etc/feclora/pki",
+    runner: Callable[..., Any] | None = None,
+    openssl: str = "/usr/bin/openssl",
+) -> dict[str, Any]:
+    """Atomically build a public PEM trust bundle from validated CA certificates.
+
+    The output must be a direct child of the protected PKI directory. Inputs
+    are public certificates only; private keys are never read or copied.
+    """
+    root = _root_only_directory(pki_directory)
+    target = os.path.abspath(os.fspath(destination))
+    if os.path.dirname(target) != root or os.path.basename(target) in {"", ".", ".."}:
+        raise PKIError("CA trust bundle destination must be a direct child of the PKI directory")
+    if not isinstance(ca_files, list) or not 1 <= len(ca_files) <= 8:
+        raise PKIError("CA trust bundle requires between one and eight CA certificates")
+
+    certificates: list[bytes] = []
+    fingerprints: list[str] = []
+    seen: set[str] = set()
+    for item in ca_files:
+        source = os.path.abspath(os.fspath(item))
+        _regular_file(source, "CA trust certificate")
+        try:
+            info = os.lstat(source)
+            if info.st_size > 1024 * 1024:
+                raise PKIError("CA trust certificate exceeds the 1 MiB limit")
+            raw = Path(source).read_bytes()
+        except OSError as exc:
+            raise PKIError(f"cannot read CA trust certificate: {exc}") from exc
+        if (raw.count(b"-----BEGIN CERTIFICATE-----") != 1
+                or raw.count(b"-----END CERTIFICATE-----") != 1):
+            raise PKIError("each CA trust input must contain exactly one PEM certificate")
+        _run([openssl, "x509", "-in", source, "-noout"], runner)
+        constraints = _run([openssl, "x509", "-in", source, "-noout", "-ext", "basicConstraints"], runner).stdout
+        usage = _run([openssl, "x509", "-in", source, "-noout", "-ext", "keyUsage"], runner).stdout
+        if not re.search(r"CA\s*:\s*TRUE", constraints, re.IGNORECASE):
+            raise PKIError("trust bundle input is not a CA certificate")
+        if not re.search(r"Certificate Sign", usage, re.IGNORECASE):
+            raise PKIError("CA trust certificate does not permit certificate signing")
+        fingerprint = ca_fingerprint(source, runner=runner, openssl=openssl)
+        if not re.fullmatch(r"[0-9a-f]{64}", fingerprint):
+            raise PKIError("OpenSSL returned a malformed CA fingerprint")
+        if fingerprint in seen:
+            raise PKIError("CA trust bundle contains a duplicate certificate")
+        seen.add(fingerprint)
+        certificates.append(raw.rstrip() + b"\n")
+        fingerprints.append(fingerprint)
+
+    if os.path.lexists(target):
+        _regular_file(target, "existing CA trust bundle", root_owned=True)
+    fd, temporary = tempfile.mkstemp(prefix=".feclora-trust-bundle-", dir=root)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(b"".join(certificates))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, target)
+        directory_fd = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
+    return {
+        "trust_bundle": target,
+        "ca_fingerprints": fingerprints,
+        "certificate_count": len(fingerprints),
+        "message": "Validated public CA certificates were installed atomically; no private key material was accessed.",
+    }
+
+
 def create_client_csr(
     pki_directory: str | os.PathLike[str],
     export_directory: str | os.PathLike[str],
