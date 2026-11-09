@@ -175,7 +175,11 @@ class LocalOperationStore:
             raise LocalOperationError(f"cannot persist operation definition: {exc}") from exc
         finally:
             os.close(directory_fd)
-        self.append(identifier, "queued", {"action": action})
+        details = {"action": action}
+        for key in ("source", "target", "image_id"):
+            if key in definition["params"]:
+                details[key] = definition["params"][key]
+        self.append(identifier, "queued", details)
         return identifier
 
     def definition(self, operation_id: str) -> dict[str, Any]:
