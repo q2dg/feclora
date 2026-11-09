@@ -19,9 +19,9 @@ def build_mount_argv(repo, bindings: list[tuple[str, str]], credential_directory
     names = {path: name for name, path in bindings}
     argv = repo.mount_argv()
     for index, value in enumerate(argv):
-        name = names.get(value)
-        if name is not None:
-            argv[index] = str(Path(credential_directory) / name)
+        for encrypted_path, name in names.items():
+            value = value.replace(encrypted_path, str(Path(credential_directory) / name))
+        argv[index] = value
     if repo.provider == "sshfs":
         argv.insert(1, "-f")
     elif repo.provider == "s3":
