@@ -618,6 +618,16 @@ def _service_state() -> dict[str, str]:
     return services
 
 
+def _network_connection_profiles() -> list[dict[str, Any]]:
+    from feclora.network.connection_profiles import (
+        NetworkProfileError, list_connection_profiles,
+    )
+    try:
+        return list_connection_profiles()
+    except NetworkProfileError as exc:
+        raise WebAPIError(str(exc)) from exc
+
+
 def _network_interfaces() -> list[dict[str, Any]]:
     from feclora.network.interface_discovery import (
         detect_existing_dhcp_server, parse_interface_addresses,
@@ -2074,6 +2084,10 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _inspect_server_ca_backup(params)
     if action == "refresh_client_age_recipients":
         return _refresh_client_age_recipients(params)
+    if action == "network_connection_profiles":
+        if params:
+            raise WebAPIError("network_connection_profiles does not accept parameters")
+        return {"profiles": _network_connection_profiles()}
     if action == "network_interfaces":
         if params:
             raise WebAPIError("network_interfaces does not accept parameters")
