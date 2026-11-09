@@ -1008,6 +1008,14 @@ class WebAPITests(unittest.TestCase):
 
 
 
+    def test_network_connection_profiles_api_returns_sanitized_inventory(self):
+        expected = [{"uuid": "12345678-1234-1234-1234-123456789abc", "name": "LAN"}]
+        with patch("feclora.network.connection_profiles.list_connection_profiles", return_value=expected):
+            self.assertEqual(dispatch({"action": "network_connection_profiles"}), {"profiles": expected})
+        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
+            dispatch({"action": "network_connection_profiles", "params": {"password": "secret"}})
+
+
     def test_systemd_credentials_api_lists_encrypted_references_only(self):
         expected = [{"id": "nas", "kind": "ssh-key", "name": "feclora-nas-ssh-key", "path": "/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred"}]
         with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore.list", return_value=expected):
