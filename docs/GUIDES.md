@@ -23,13 +23,10 @@ procedure; do not attempt to reproduce it with undocumented commands.
 ## Remote repositories and single-disk imaging
 
 - **Capture an image to an SSHFS repository** — **Status: planned — not yet available**
-  SSHFS command construction exists, but protected credential provisioning,
-  mount lifecycle, active-mount verification and Cockpit repository management
-  are not complete.
+  SSHFS mount management now exists in Cockpit, but capture/restore cannot yet select a managed repository ID. Provider identity checks, remote publication verification and credential provisioning are still incomplete.
 
 - **Restore an image from an SSHFS repository** — **Status: planned — not yet available**
-  The restore engine accepts repository paths, but Feclora does not yet provide
-  the complete managed SSHFS mount and recovery workflow.
+  The restore engine accepts repository paths, but Cockpit does not yet connect those paths to managed SSHFS repository IDs or provide complete mount recovery.
 
 ## Multi-client deployment
 
