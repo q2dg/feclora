@@ -28,14 +28,18 @@ present on the host.
 
 The Client's network configuration is performed separately from the Client's
 own Cockpit session. After the Server's persistent service is started, the
-Client operator uses **Test connectivity and inspect authenticated job**. This
-opens the TLS connection, verifies the enrolled Server identity and retrieves
-the job before the operator approves a local target or starts any storage
-operation. The Server does not proactively probe every enrolled Client from
-its MAC inventory; each Client performs this preflight from its own Cockpit
-session. A saved job definition alone is not proof that a Client is online or
-reachable. Unicast Client interface selection is not yet exposed and currently
-uses the Client host's routing table.
+Client operator selects an active local IPv4 interface/address and uses **Test
+connectivity and inspect authenticated job**. Feclora revalidates that the
+address is still assigned to that interface and binds the TCP/TLS connection
+to it. The preflight verifies the enrolled Server identity and retrieves the
+job before the operator approves a local target or starts any storage
+operation. The same source-address binding is revalidated and applied when the
+persistent Client service connects. The Server does not proactively probe
+every enrolled Client from its MAC inventory; each Client performs this
+preflight from its own Cockpit session. A saved job definition alone is not
+proof that a Client is online or reachable. Routing beyond the selected local
+source address remains governed by the Client's kernel routing table; Feclora
+does not yet expose per-job policy routing or a route-table override.
 
 ## Roles and authorization
 
