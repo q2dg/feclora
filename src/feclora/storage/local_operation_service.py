@@ -10,6 +10,7 @@ import os
 import re
 import stat
 import sys
+import signal
 from pathlib import Path
 from typing import Any
 
@@ -101,6 +102,7 @@ def _device_lock_fds(params: dict[str, Any]) -> list[int]:
 def execute(operation_id: str) -> int:
     if os.geteuid() != 0:
         raise LocalOperationError("local storage worker must run as root")
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
     store = LocalOperationStore()
     definition = store.definition(operation_id)
     status = store.status(operation_id)
@@ -156,12 +158,32 @@ def mark_interrupted(operation_id: str) -> int:
     return 0
 
 
+def recover_interrupted() -> int:
+    if os.geteuid() != 0:
+        raise LocalOperationError("local operation recovery must run as root")
+    store = LocalOperationStore()
+    recovered = 0
+    for report in store.list(limit=500):
+        if report["state"] not in TERMINAL_STATES:
+            store.mark_interrupted(report["operation_id"])
+            recovered += 1
+    print(f"Marked {recovered} unfinished local operation(s) interrupted; no operation was resumed.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Feclora durable local storage worker")
-    parser.add_argument("--operation-id", required=True)
+    parser.add_argument("--operation-id")
     parser.add_argument("--mark-interrupted", action="store_true")
+    parser.add_argument("--recover", action="store_true")
     args = parser.parse_args(argv)
+    if args.recover and (args.operation_id or args.mark_interrupted):
+        parser.error("--recover cannot be combined with --operation-id or --mark-interrupted")
+    if not args.recover and not args.operation_id:
+        parser.error("--operation-id is required unless --recover is selected")
     try:
+        if args.recover:
+            return recover_interrupted()
         return mark_interrupted(args.operation_id) if args.mark_interrupted else execute(args.operation_id)
     except Exception as exc:
         print(f"feclora local operation: {str(exc)[:512]}", file=sys.stderr)
