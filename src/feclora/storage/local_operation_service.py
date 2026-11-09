@@ -62,7 +62,7 @@ class _ProgressForwarder:
 
 
 def _device_lock_fds(params: dict[str, Any]) -> list[int]:
-    """Take exclusive, process-independent locks for every involved block device."""
+    """Lock physical block-device identities, not just potentially aliased paths."""
     devices = sorted({value for key, value in params.items()
                       if key in {"source", "target"} and isinstance(value, str)})
     RUNTIME.mkdir(mode=0o755, parents=True, exist_ok=True)
@@ -76,10 +76,20 @@ def _device_lock_fds(params: dict[str, Any]) -> list[int]:
             or directory_info.st_uid != 0 or directory_info.st_mode & 0o077):
         raise LocalOperationError("device lock directory is unsafe")
     os.chmod(DEVICE_LOCKS, 0o700)
+    identities: dict[tuple[int, int], str] = {}
+    for device in devices:
+        try:
+            info = os.stat(device)
+        except OSError as exc:
+            raise LocalOperationError(f"cannot resolve block device {device}: {exc}") from exc
+        if not stat.S_ISBLK(info.st_mode):
+            raise LocalOperationError(f"{device} is not a block device")
+        identities[(os.major(info.st_rdev), os.minor(info.st_rdev))] = device
     fds: list[int] = []
     try:
-        for device in devices:
-            digest = hashlib.sha256(device.encode("utf-8")).hexdigest()
+        for major_minor, device in sorted(identities.items()):
+            identity = f"{major_minor[0]}:{major_minor[1]}"
+            digest = hashlib.sha256(identity.encode("ascii")).hexdigest()
             path = DEVICE_LOCKS / (digest + ".lock")
             fd = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
             info = os.fstat(fd)
@@ -92,6 +102,12 @@ def _device_lock_fds(params: dict[str, Any]) -> list[int]:
                 os.close(fd)
                 raise LocalOperationError(f"device {device} is already in use by another Feclora operation") from exc
             fds.append(fd)
+        # Re-resolve after acquiring locks to close a device-node replacement race.
+        for major_minor, device in identities.items():
+            info = os.stat(device)
+            if (not stat.S_ISBLK(info.st_mode)
+                    or (os.major(info.st_rdev), os.minor(info.st_rdev)) != major_minor):
+                raise LocalOperationError(f"block device identity changed while locking {device}")
         return fds
     except Exception:
         for fd in reversed(fds):
