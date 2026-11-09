@@ -430,9 +430,12 @@ def build_ca_trust_bundle(
                 os.close(source_fd)
         except OSError as exc:
             raise PKIError(f"cannot safely read CA trust certificate: {exc}") from exc
-        if (raw.count(b"-----BEGIN CERTIFICATE-----") != 1
-                or raw.count(b"-----END CERTIFICATE-----") != 1):
-            raise PKIError("each CA trust input must contain exactly one PEM certificate")
+        if not re.fullmatch(
+            rb"\\s*-----BEGIN CERTIFICATE-----\\s*[A-Za-z0-9+/=\\r\\n]+"
+            rb"\\s*-----END CERTIFICATE-----\\s*",
+            raw,
+        ):
+            raise PKIError("each CA trust input must contain exactly one clean PEM certificate")
         _run([openssl, "x509", "-in", source, "-noout"], runner)
         constraints = _run([openssl, "x509", "-in", source, "-noout", "-ext", "basicConstraints"], runner).stdout
         usage = _run([openssl, "x509", "-in", source, "-noout", "-ext", "keyUsage"], runner).stdout
