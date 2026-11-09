@@ -459,3 +459,22 @@ def approve_client_csr(params: dict[str, object]) -> dict[str, object]:
         }
     except (PKIError, OSError, UnicodeError, ValueError) as exc:
         raise CockpitEnrollmentError(str(exc)) from exc
+
+
+def export_server_ca_backup(params: dict[str, object]) -> dict[str, object]:
+    if set(params) != {"export_directory", "age_recipient"}:
+        raise CockpitEnrollmentError(
+            "export_server_ca_backup requires exactly export_directory and age_recipient"
+        )
+    export_dir = _media_directory(params["export_directory"], "CA backup export directory")
+    recipient = params["age_recipient"]
+    if not isinstance(recipient, str) or not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
+        raise CockpitEnrollmentError("CA backup requires a valid age recipient")
+    try:
+        from feclora.deployment.managed_pki import backup_server_ca
+        fingerprint = ca_fingerprint(os.path.join(PKI, "ca.crt"))
+        destination = os.path.join(export_dir, f"feclora-ca-backup-{fingerprint[:16]}.tar.age")
+        result = backup_server_ca(destination, recipient, pki_directory=PKI)
+        return result
+    except (PKIError, OSError, ValueError) as exc:
+        raise CockpitEnrollmentError(str(exc)) from exc
