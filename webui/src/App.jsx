@@ -187,7 +187,7 @@ export default function App() {
     setBusy(true); setError("");
     try {
       const [s, i, j, op, inv, net, profiles, pxe, remote, clients, repositories] = await Promise.all([
-        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("server_trusted_clients"), callFeclora("remote_repositories")
+        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("network_connection_profiles"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("server_trusted_clients"), callFeclora("remote_repositories")
       ]);
       setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setNetworkProfiles(profiles.profiles || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setTrustedClients(clients.clients || []); setRemoteRepositories(repositories.repositories || []);
     } catch (err) { setError(err?.message || String(err)); }
@@ -1103,7 +1103,7 @@ export default function App() {
                   <Field label="NetworkManager connection profile">
                     <select className="pf-v5-c-form-control" value={networkProfileUuid} onChange={(event) => setNetworkProfileUuid(event.target.value)} required>
                       <option value="">Select profile…</option>
-                      {networkProfiles.map((profile) => <option key={profile.uuid} value={profile.uuid}>{profile.name} · {profile.type} · {profile.device || "not active"}{profile.active ? " · active" : ""}</option>)}
+                      {networkProfiles.map((profile) => <option key={profile.uuid} value={profile.uuid} disabled={!profile.device}>{profile.name} · {profile.type} · {profile.device || "not active"}{profile.active ? " · active" : ""}</option>)}
                     </select>
                   </Field>
                   <Field label="IPv4 configuration">
