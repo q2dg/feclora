@@ -30,13 +30,15 @@ Status meanings:
 | Deployment identity | Managed CA and Server mTLS identity bootstrap | Implemented | Cockpit initial bootstrap | Automated tests; operator validation |
 | Deployment trust | Client inventory, MAC/signing authorization, exact-confirmation revocation | Implemented | Cockpit | Automated tests |
 | Deployment trust | Age recipient export and Client-side verified refresh | Implemented; removable-media exchange | Cockpit | Automated tests |
-| Deployment trust | Client certificate renewal and CA/Server rotation | Existing renewal primitives; Cockpit integration incomplete | Not yet complete | Automated tests; operator workflow validation |
+| Deployment trust | Client certificate renewal | Key-preserving removable-media renewal primitives and Cockpit workflow | Cockpit + removable media | Automated tests; operator workflow validation |
+| Deployment trust | Managed CA rotation and Server TLS keypair rotation | No staged CA trust migration or Server private-key rotation; current Server certificate renewal retains both CA and Server key | Not implemented | Not yet complete | Not yet covered end to end |
 | Network boot | dnsmasq/iPXE/TFTP/Caddy | ProxyDHCP/isolated DHCP preflight and transient lifecycle implemented | Cockpit activation/shutdown; persistent network setup/diagnostics incomplete | Automated tests; operator validation |
 | Remote deployment | mTLS unicast save/restore | Persistent Server/Client services, READY/ARM gating, durable journals | Cockpit workflows | Automated tests; operator validation |
 | Remote deployment | UDPcast multicast restore | Engine and Server/Client receiver lifecycle integrated; switch IGMP remains external | Cockpit workflows | Automated tests; operator validation |
 | Remote clone | mTLS disk-to-disk protocol | Protocol engine implemented; persistent Server/Client workflow not integrated | Not yet complete | Automated tests; operator validation |
 | Monitoring | Deployment journals and audit reconciliation | Implemented | Cockpit summaries and reconciliation | Automated tests |
-| Monitoring | Per-Client disk-operation progress | Authenticated Server-side byte progress and throughput; Client-local transfer-phase byte progress; Server-side transfer telemetry pending separate channel design | Cockpit live status | Automated tests |
+| Monitoring | Per-Client disk-operation progress | Authenticated Server-side byte progress and throughput; Client-local transfer-phase byte progress; Server-side artifact-transfer telemetry pending separate channel design | Cockpit live status | Automated tests |
+| Monitoring | Local long-running operation lifecycle | Append-only started/terminal operation journal and streamed request progress | Cockpit operation history; work still runs in the request lifecycle | Partial: history survives, but no detached local worker/queue, persisted phase progress, or restart reconciliation for local operations | Automated journal tests |
 | UI | Cockpit React/PatternFly | Implemented | Primary interface | Frontend CI build |
 | UI | Terminal diagnostics | Cockpit component | Available in Cockpit | Operator validation |
 
