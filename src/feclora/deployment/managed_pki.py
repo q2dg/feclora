@@ -782,3 +782,99 @@ def backup_server_ca(
             except FileNotFoundError:
                 pass
         shutil.rmtree(temporary_directory, ignore_errors=True)
+
+
+def inspect_server_ca_backup(
+    encrypted_file: str,
+    identity_file: str,
+    *,
+    pki_directory: str | os.PathLike[str] = "/etc/feclora/pki",
+    runner: Callable[..., Any] | None = None,
+    openssl: str = "/usr/bin/openssl",
+    age: str = "/usr/bin/age",
+) -> dict[str, str]:
+    """Decrypt and validate a CA backup without changing active PKI material.
+
+    The identity must be a root-owned regular file with restrictive permissions.
+    Archive members are read individually; tar extraction is never used.
+    """
+    encrypted = os.path.abspath(encrypted_file)
+    identity = os.path.abspath(identity_file)
+    _regular_file(encrypted, "encrypted CA backup")
+    _regular_file(identity, "age decryption identity", root_owned=True)
+    if os.stat(identity).st_mode & 0o077:
+        raise PKIError("age decryption identity must not be accessible by group or other users")
+    if os.stat(encrypted).st_size <= 0 or os.stat(encrypted).st_size > 16 * 1024 * 1024:
+        raise PKIError("encrypted CA backup size is outside the permitted limit")
+    root = _root_only_directory(pki_directory)
+    temporary_directory = tempfile.mkdtemp(prefix=".feclora-ca-inspection-", dir=root)
+    os.chmod(temporary_directory, 0o700)
+    archive = os.path.join(temporary_directory, "backup.tar")
+    ca_file = os.path.join(temporary_directory, "ca.crt")
+    ca_key = os.path.join(temporary_directory, "ca.key")
+    try:
+        _run([age, "-d", "-i", identity, "-o", archive, encrypted], runner)
+        _regular_file(archive, "decrypted CA archive", root_owned=True)
+        if os.stat(archive).st_size <= 0 or os.stat(archive).st_size > 4 * 1024 * 1024:
+            raise PKIError("decrypted CA archive size is outside the permitted limit")
+        expected = {"ca.crt", "ca.key", "manifest.json"}
+        extracted: dict[str, bytes] = {}
+        try:
+            with tarfile.open(archive, "r:*") as bundle:
+                members = bundle.getmembers()
+                names = [member.name for member in members]
+                if len(names) != len(expected) or set(names) != expected:
+                    raise PKIError("CA archive must contain exactly ca.crt, ca.key and manifest.json")
+                for member in members:
+                    if not member.isfile() or member.issym() or member.islnk() or member.size < 1 or member.size > 1024 * 1024:
+                        raise PKIError("CA archive contains an unsupported entry or file size")
+                    stream = bundle.extractfile(member)
+                    if stream is None:
+                        raise PKIError("CA archive contains an unreadable entry")
+                    data = stream.read(1024 * 1024 + 1)
+                    if len(data) != member.size or len(data) > 1024 * 1024:
+                        raise PKIError("CA archive entry size is invalid")
+                    extracted[member.name] = data
+        except (tarfile.TarError, OSError) as exc:
+            raise PKIError(f"CA archive is invalid: {exc}") from exc
+        try:
+            manifest = json.loads(extracted["manifest.json"].decode("ascii"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise PKIError("CA archive manifest is not valid JSON") from exc
+        if not isinstance(manifest, dict) or set(manifest) != {
+            "schema_version", "purpose", "ca_sha256_fingerprint", "contents"
+        }:
+            raise PKIError("CA archive manifest has an unsupported schema")
+        if (
+            manifest["schema_version"] != 1
+            or manifest["purpose"] != "feclora-managed-deployment-ca-recovery"
+            or manifest["contents"] != ["ca.crt", "ca.key"]
+            or not isinstance(manifest["ca_sha256_fingerprint"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", manifest["ca_sha256_fingerprint"])
+        ):
+            raise PKIError("CA archive manifest values are invalid")
+        for name, data in (("ca.crt", extracted["ca.crt"]), ("ca.key", extracted["ca.key"])):
+            with open(os.path.join(temporary_directory, name), "xb") as output:
+                output.write(data)
+            os.chmod(os.path.join(temporary_directory, name), 0o600)
+        fingerprint = ca_fingerprint(ca_file, runner=runner, openssl=openssl)
+        if fingerprint != manifest["ca_sha256_fingerprint"]:
+            raise PKIError("CA certificate fingerprint does not match the archive manifest")
+        constraints = _run(
+            [openssl, "x509", "-in", ca_file, "-noout", "-ext", "basicConstraints", "-ext", "keyUsage"],
+            runner,
+        ).stdout
+        if "CA:TRUE" not in constraints or "Certificate Sign" not in constraints:
+            raise PKIError("backup certificate is not a CA certificate with certificate-signing usage")
+        _run([openssl, "verify", "-no_check_time", "-CAfile", ca_file, ca_file], runner)
+        certificate_public = _run([openssl, "x509", "-in", ca_file, "-pubkey", "-noout"], runner).stdout.strip()
+        key_public = _run([openssl, "pkey", "-in", ca_key, "-pubout"], runner).stdout.strip()
+        if not certificate_public or certificate_public != key_public:
+            raise PKIError("CA private key does not match the CA certificate")
+        return {
+            "ca_fingerprint": fingerprint,
+            "archive_valid": "true",
+            "message": "Encrypted CA backup decrypted and validated. Active PKI was not changed.",
+        }
+    finally:
+        shutil.rmtree(temporary_directory, ignore_errors=True)
