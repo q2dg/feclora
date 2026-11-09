@@ -158,3 +158,25 @@ This does not waive software-level checks: Python tests, static checks, frontend
 - No automatic filesystem growth without an explicitly selected policy.
 - No multicast capture, concurrent unicast fleet deployment or Wake-on-LAN unless separately approved.
 - No mandatory ISO build or physical lab run for software-backlog completion.
+
+## Network configuration implementation checkpoint
+
+A read-only NetworkManager connection-profile inventory is available to the
+Cockpit API. It reports sanitized profile metadata and IPv4 configuration
+without returning connection secrets. This is preparatory infrastructure only.
+Still required for the DHCP/static networking acceptance gate:
+
+- Cockpit controls to select the Server or Client role and a NetworkManager
+  connection profile;
+- validated DHCP and static IPv4 configuration, including prefix, gateway
+  and DNS handling;
+- safeguards against changing the management path without explicit warning
+  and a recoverable apply/rollback strategy;
+- post-apply address, route and DNS verification, with clear failure reporting;
+- Client-side configuration integrated with enrollment and remote-job
+  interface selection;
+- automated tests for validation, command construction, failure and rollback,
+  followed by non-E2E operational acceptance on Fedora hardware.
+
+The inventory endpoint does not apply network changes and does not close this
+acceptance gate.
