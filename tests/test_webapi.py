@@ -902,5 +902,45 @@ class WebAPITests(unittest.TestCase):
         self.assertTrue(result["interrupted"])
 
 
+
+    def test_remote_repository_actions_are_exposed_through_allowlisted_dispatch(self):
+        manager = Mock()
+        manager.list.return_value = [{"id": "images", "mounted": False}]
+        manager.add.return_value = {"id": "images", "provider": "sshfs"}
+        manager.mount.return_value = {"id": "images", "mounted": True}
+        manager.unmount.return_value = {"id": "images", "mounted": False}
+        manager.remove.return_value = {"id": "images", "removed": True}
+        definition = {
+            "id": "images", "provider": "sshfs", "host": "nas.example.net",
+            "remote_path": "/images", "username": "backup",
+            "credential_file": None, "identity_file": "/etc/feclora/id_ed25519",
+            "known_hosts_file": "/etc/feclora/known_hosts", "port": 22,
+            "read_only": True,
+        }
+        with patch("feclora.webapi._remote_repository_manager", return_value=manager):
+            self.assertEqual(dispatch({"action": "remote_repositories"}), {
+                "repositories": [{"id": "images", "mounted": False}],
+            })
+            self.assertEqual(dispatch({"action": "add_remote_repository", "params": definition}),
+                             {"id": "images", "provider": "sshfs"})
+            self.assertEqual(dispatch({"action": "mount_remote_repository", "params": {"id": "images"}}),
+                             {"id": "images", "mounted": True})
+            self.assertEqual(dispatch({"action": "unmount_remote_repository", "params": {"id": "images"}}),
+                             {"id": "images", "mounted": False})
+            self.assertEqual(dispatch({"action": "remove_remote_repository", "params": {"id": "images"}}),
+                             {"id": "images", "removed": True})
+        manager.add.assert_called_once_with("images", {
+            key: value for key, value in definition.items() if key != "id"
+        })
+        manager.mount.assert_called_once_with("images")
+        manager.unmount.assert_called_once_with("images")
+        manager.remove.assert_called_once_with("images")
+
+    def test_remote_repository_add_rejects_extra_fields(self):
+        with patch("feclora.webapi._remote_repository_manager"):
+            with self.assertRaisesRegex(WebAPIError, "missing or unknown fields"):
+                dispatch({"action": "add_remote_repository", "params": {"id": "x", "password": "secret"}})
+
+
 if __name__ == "__main__":
     unittest.main()
