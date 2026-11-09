@@ -36,6 +36,23 @@ rclone remote, not in Feclora's registry. S3 repositories are deliberately
 read-only: rclone's FUSE mount does not provide the provider-aware staging,
 atomic publication and durability contract required for safe image capture.
 
+## Local credential provisioning primitive
+
+`feclora.storage.credential_store.CredentialStore` provides a root-only
+administrative primitive for storing SSH private keys, SSH known-hosts files,
+SMB credential files and rclone configurations under
+`/etc/feclora/credentials`. It writes atomically, defaults to create-only,
+requires an explicit replace operation to update an existing credential, and
+validates ownership, link count and permissions before replacement or removal.
+The returned value is only a filesystem reference; secret contents are never
+returned or copied into the repository registry.
+
+This is not yet a Cockpit credential-management workflow or an interactive
+CLI. Do not expose `put` through the Cockpit API: callers must obtain the
+material through a trusted local administrative channel. WebDAV continues to
+use the separately managed `/etc/davfs2/secrets` file. Existing repository
+definitions must be updated to reference the resulting protected file paths.
+
 ## Host dependencies
 
 On Fedora, install the helpers required by the providers you intend to use:
