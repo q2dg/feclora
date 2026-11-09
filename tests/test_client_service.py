@@ -37,7 +37,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
                 "device_path": DEVICE,
                 "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
-                "compression": "gzip", "network_interface": None, "igmp_confirmed": False,
+                "compression": "gzip", "network_interface": "enp1s0", "source_address": "192.0.2.20", "igmp_confirmed": False,
             }), encoding="utf-8")
             request.chmod(0o600)
             service = ClientDeploymentService(JOB_ID)
@@ -55,7 +55,9 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
             real_lstat = os.lstat
 
+            join_options = {}
             def fake_join(host, port, context, **kwargs):
+                join_options.update(kwargs)
                 job = self._job()
                 approval = kwargs["prepare_local_target"](job)
                 success, detail = kwargs["execute_job"](job, object(), approval)
@@ -79,6 +81,8 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                      "model": "Test disk", "size_bytes": 1024, "serial": "SN-1",
                  }), \
                  mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \
+                 mock.patch("feclora.network.interface_discovery.discover_interface_addresses", return_value=[SimpleNamespace(address="192.0.2.20")]), \
+
                  mock.patch("feclora.deployment.client_service.os.lstat",
                             side_effect=lambda path: block_info if os.fspath(path) == DEVICE else real_lstat(path)), \
                  mock.patch("feclora.deployment.client_service.join_deployment", side_effect=fake_join), \
@@ -92,6 +96,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             self.assertEqual(status["target_description"], "Test disk 1024 SN-1")
             self.assertFalse(request.exists())
             execute.assert_called_once()
+            self.assertEqual(join_options["source_address"], "192.0.2.20")
 
     def test_multicast_job_preflights_selected_interface_and_uses_receiver_runtime(self):
         with tempfile.TemporaryDirectory() as directory:
