@@ -68,9 +68,12 @@ run the interactive rclone configuration wizard.
 - A remote restore holds a shared, root-managed usage lease for the
   lifetime of its persistent Server service. Unmount takes an exclusive
   non-blocking lease and is refused while a restore service holds the
-  repository. The Server re-resolves and re-verifies the mount after acquiring
-  its lease, closing the race between job creation and service startup. Stop
-  the restore service after the job reaches a terminal state before unmounting.
+  repository. Removing its registry definition takes the same exclusive lease,
+  so a vanished mount cannot make an active restore lose its repository
+  configuration. The Server re-resolves and re-verifies the mount after
+  acquiring its lease, closing the race between job creation and service
+  startup. Stop the restore service after the job reaches a terminal state
+  before unmounting or removing the definition.
 - S3 is read-only until a provider-aware staging/publish protocol with remote
   read-back is implemented; do not enable capture or extraction on S3.
 - A mount failure must never fall back to the local directory underneath an
