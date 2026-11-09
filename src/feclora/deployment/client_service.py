@@ -362,7 +362,7 @@ class ClientDeploymentService:
                 last_reported_at = 0.0
                 last_reported_phase = None
 
-                def report_progress(phase: str, current: int, total: int | None) -> None:
+                def report_progress(phase: str, current: int, total: int | None, *, report_remote: bool = True) -> None:
                     nonlocal last_reported_bytes, last_reported_at, last_reported_phase
                     completed = max(0, int(current))
                     total_bytes = max(0, int(total)) if total is not None else None
@@ -374,7 +374,7 @@ class ClientDeploymentService:
                         "phase": phase, "completed_bytes": completed, "total_bytes": total_bytes,
                     })
                     now = time.monotonic()
-                    if (now - last_reported_at >= 1.0
+                    if report_remote and (now - last_reported_at >= 1.0
                             or completed - last_reported_bytes >= 16 * 1024 * 1024
                             or (total_bytes is not None and completed >= total_bytes)):
                         try:
@@ -393,7 +393,10 @@ class ClientDeploymentService:
                     report_progress(job.operation, current, total)
 
                 def transfer_progress(current: int, total: int) -> None:
-                    report_progress("transfer", current, total)
+                    # Image bytes and control frames share one TLS stream. Keep
+                    # transfer telemetry local; sending JSON here would corrupt
+                    # the framed artifact payload in that same byte stream.
+                    report_progress("transfer", current, total, report_remote=False)
 
                 if job.transport == "multicast":
                     return execute_multicast_restore(
