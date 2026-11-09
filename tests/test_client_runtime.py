@@ -120,6 +120,37 @@ class ClientImageRuntimeTests(unittest.TestCase):
         restore_partition.assert_called_once()
         restore_disk.assert_not_called()
 
+    def test_clone_uses_existing_mutual_tls_socket_and_local_target_approval(self):
+        job = DeploymentJob.from_dict({
+            "schema_version": 1, "job_id": JOB_ID, "operation": "clone",
+            "image_id": None, "source_device": "/dev/sda", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56"],
+            "network_interface": "enp1s0", "transport": "unicast",
+            "multicast_group": None, "multicast_port": None,
+            "start_policy": "manual", "expected_clients": None, "start_deadline": None,
+        })
+        with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
+             patch("feclora.deployment.client_runtime.receive_remote_disk",
+                   return_value=SimpleNamespace(byte_count=4096, readback_sha256="a" * 64)) as receive:
+            result = execute_client_image_job(
+                job, FakeTLS(), self.approval,
+                server_identity="URI:feclora-server",
+                local_identity="URI:feclora-client",
+                repository="/repo",
+                trusted_server_public_key="/trusted/server.pub",
+            )
+        self.assertTrue(result[0])
+        self.assertIn("4096 bytes", result[1])
+        receive.assert_called_once()
+        self.assertEqual(receive.call_args.args[0].__class__, FakeTLS)
+        self.assertEqual(receive.call_args.kwargs["local_identity"], "URI:feclora-client")
+        self.assertEqual(receive.call_args.kwargs["expected_peer_identity"], "URI:feclora-server")
+        self.assertEqual(receive.call_args.kwargs["target_path"], "/dev/vda")
+        self.assertEqual(
+            receive.call_args.kwargs["confirmation"],
+            "ERASE /dev/vda FROM URI:feclora-server",
+        )
+
     def test_restore_rejects_wrong_local_confirmation_before_network_read(self):
         tls = FakeTLS()
         wrong = LocalTargetApproval(
