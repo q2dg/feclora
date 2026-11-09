@@ -1,3 +1,4 @@
+import os
 import stat
 import threading
 import unittest
@@ -68,6 +69,14 @@ def make_service(transport="unicast", clients=()):
     service._last_error = None
     service._run_job = lambda: None
     return service
+
+
+def _fd_is_open(fd):
+    try:
+        os.fstat(fd)
+        return True
+    except OSError:
+        return False
 
 
 class DeploymentServiceCommandTests(unittest.TestCase):
@@ -196,6 +205,73 @@ class DeploymentServiceCommandTests(unittest.TestCase):
                 "job_id": service.job.job_id,
                 "confirmation": "CANCEL " + service.job.job_id,
             })
+
+    def test_remote_repository_lease_is_held_until_service_shutdown_finishes(self):
+        lease_fd = os.open(os.devnull, os.O_RDONLY)
+        self.addCleanup(lambda: os.close(lease_fd) if _fd_is_open(lease_fd) else None)
+        service = make_service()
+        service.job.repository_id = "images"
+        service.config = SimpleNamespace(
+            bind_address="192.0.2.10", port=9443,
+            server_minisign_public_key="public-key",
+        )
+        service._lock_fd = None
+        service._pxe_state = None
+        service.firewall = SimpleNamespace(on_change=None)
+        service._firewall_changed = lambda _state: None
+        service._write_firewall_state = lambda _state: None
+        service.journal = mock.Mock()
+        service._acquire_instance_lock = lambda: None
+        service._stop_event = threading.Event()
+
+        class Worker:
+            joined = False
+
+            def is_alive(self):
+                return True
+
+            def join(self):
+                os.fstat(lease_fd)
+                self.joined = True
+
+        worker = Worker()
+        service._worker = worker
+
+        class IPC:
+            def start(self):
+                service._stop_event.set()
+
+            def stop(self):
+                pass
+
+        service.ipc = IPC()
+
+        class Control:
+            def start(self, *_args, **_kwargs):
+                pass
+
+            def stop(self):
+                os.fstat(lease_fd)
+                if not worker.joined:
+                    raise AssertionError("control sessions stopped before the active worker finished")
+
+        service.control = Control()
+        manager = mock.Mock()
+        manager.acquire_usage_lock.return_value = lease_fd
+        manager.resolve.return_value = "/mnt/feclora/images"
+
+        with mock.patch(
+            "feclora.storage.repository_manager.RemoteRepositoryManager",
+            return_value=manager,
+        ), mock.patch("feclora.deployment.service.verify_manifest_signature"):
+            service.run()
+
+        manager.acquire_usage_lock.assert_called_once_with("images")
+        manager.resolve.assert_called_once_with("images", write=False)
+        self.assertTrue(worker.joined)
+        with self.assertRaises(OSError):
+            os.fstat(lease_fd)
+
 
     def test_stale_private_root_socket_is_removed_after_lock_is_held(self):
         info = SimpleNamespace(
