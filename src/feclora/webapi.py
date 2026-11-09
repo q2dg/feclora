@@ -1822,6 +1822,14 @@ def _export_server_ca_backup(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError(f"encrypted CA backup export failed: {exc}") from exc
 
 
+def _inspect_server_ca_backup(params: dict[str, Any]) -> dict[str, Any]:
+    from feclora.deployment.cockpit_enrollment import inspect_server_ca_backup
+    try:
+        return inspect_server_ca_backup(params)
+    except Exception as exc:
+        raise WebAPIError(f"CA backup inspection failed: {exc}") from exc
+
+
 def _refresh_client_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
     from feclora.deployment.cockpit_client import refresh_client_age_recipients
     try:
@@ -1937,6 +1945,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _export_server_age_recipients(params)
     if action == "export_server_ca_backup":
         return _export_server_ca_backup(params)
+    if action == "inspect_server_ca_backup":
+        return _inspect_server_ca_backup(params)
     if action == "refresh_client_age_recipients":
         return _refresh_client_age_recipients(params)
     if action == "network_interfaces":
