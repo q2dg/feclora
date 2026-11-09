@@ -73,7 +73,7 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [ ] Select and publish the project software license; this requires a maintainer decision.
 - [x] Document engineering, review, testing and storage-safety contribution policy in [CONTRIBUTING.md](../CONTRIBUTING.md).
 - [ ] Add reproducible dependency lockfiles for the web frontend.
-- [ ] Confirm GitHub Pages publication and canonical hostname. The minimalist landing page and deployment workflow are in source. GitHub Pages is enabled with GitHub Actions as the source; confirm a successful deployment run and public URL response before treating publication as complete.
+- [ ] Verify the published GitHub Pages URL and canonical hostname from an external client. The landing page and GitHub Actions deployment are implemented; the latest Pages deployment workflow succeeded, but the public URL response has not yet been independently confirmed.
 
 ## Explicitly out of scope unless requested
 
