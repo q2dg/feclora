@@ -27,9 +27,9 @@ Acceptance: the Server binds the selected source and READY Client target into th
 
 ## P0 — PKI, trust and identity lifecycle
 Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS keypair rotation under the existing CA, Client renewal/enrollment, trust inventory and revocation. Staged CA rotation and trust migration remain outstanding.
-- [x] Add a root-owned, atomic CA trust-bundle builder that validates CA constraints, certificate-signing usage, unique SHA-256 fingerprints and bounded PEM inputs. (This is a local building block only; the versioned migration manifest/package format remains pending.)
+- [x] Add a root-owned, atomic CA trust-bundle builder that validates CA constraints, certificate-signing usage, unique SHA-256 fingerprints and bounded PEM inputs. (Local building block only; authenticated package distribution remains pending.)
 - [x] Validate Client leaf certificates against any explicitly fingerprinted CA anchor in an imported PEM bundle and retain the complete bundle as the Client trust file.
-- [x] Add version-1 root-owned persistent CA migration manifest with validated phase history, fixed Client inventory, per-Client acknowledgement slots, atomic writes and explicit retirement gate. (Local state record only; acknowledgement transport/authentication and external side-effect verification remain pending.)
+- [x] Add version-1 root-owned persistent CA migration manifest with validated phase history and timestamps, fixed Client inventory, per-Client acknowledgement slots, atomic writes and explicit retirement gate. (Local state record only; acknowledgement transport/authentication and external side-effect verification remain pending.)
 - [ ] Define authenticated trust-bundle package format and authenticated Client acknowledgement protocol.
 - [ ] Implement staged CA rotation with old/new trust overlap, client migration accounting, explicit activation and rollback.
 - [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
