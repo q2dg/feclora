@@ -41,6 +41,23 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertEqual(reopened.latest_state()["event"], "job_armed")
             self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
 
+    def test_returned_events_and_latest_state_cannot_mutate_journal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            journal({
+                "timestamp": "2026-11-08T12:00:00+00:00",
+                "job_id": JOB_ID, "event": "job_created", "job_state": "created",
+                "job": {"authorized_clients": [MAC]},
+            })
+            exposed = journal.events
+            exposed[0]["job"]["authorized_clients"].append("02:00:00:00:00:01")
+            latest = journal.latest_state()
+            latest["job"]["authorized_clients"].clear()
+            reopened = DeploymentJournal.inspect(path)
+            self.assertEqual(reopened.events[0]["job"]["authorized_clients"], [MAC])
+            self.assertEqual(journal.events[0]["job"]["authorized_clients"], [MAC])
+
     def test_journal_rejects_tampered_event(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "job.jsonl")
