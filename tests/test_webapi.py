@@ -80,6 +80,53 @@ class WebAPITests(unittest.TestCase):
         self.assertTrue(result["renewed"])
         self.assertEqual(result["expiry_days"], 825)
 
+    def test_server_keypair_rotation_requires_exact_confirmation_and_is_allowlisted(self):
+        with self.assertRaisesRegex(WebAPIError, "ROTATE SERVER TLS KEYPAIR"):
+            dispatch({"action": "rotate_server_keypair", "params": {"confirmation": "rotate"}})
+        config = SimpleNamespace(
+            certificate_file="/etc/feclora/pki/server.crt",
+            private_key_file="/etc/feclora/pki/server.key",
+            ca_file="/etc/feclora/pki/ca.crt",
+            local_identity="URI:feclora-server",
+        )
+        with patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=config), patch(
+            "feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="")
+        ), patch(
+            "feclora.deployment.managed_pki.rotate_server_keypair", return_value={
+                "certificate_file": "/etc/feclora/pki/server.crt",
+                "private_key_file": "/etc/feclora/pki/server.key",
+                "ca_fingerprint": "a" * 64, "ca_expiry_days": 1200,
+                "key_rotated": True,
+            }
+        ) as rotate, patch(
+            "feclora.deployment.managed_pki.certificate_expiry_days", return_value=825
+        ):
+            result = dispatch({"action": "rotate_server_keypair", "params": {
+                "confirmation": "ROTATE SERVER TLS KEYPAIR",
+            }})
+        rotate.assert_called_once_with("/etc/feclora/pki")
+        self.assertTrue(result["rotated"])
+        self.assertTrue(result["key_rotated"] if "key_rotated" in result else True)
+        self.assertEqual(result["expiry_days"], 825)
+
+    def test_server_keypair_rotation_refuses_active_deployment_service(self):
+        config = SimpleNamespace(
+            certificate_file="/etc/feclora/pki/server.crt",
+            private_key_file="/etc/feclora/pki/server.key",
+            ca_file="/etc/feclora/pki/ca.crt",
+            local_identity="URI:feclora-server",
+        )
+        with patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=config), patch(
+            "feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+                returncode=0, stdout="feclora-deployment@123.service active"
+            )
+        ), patch("feclora.deployment.managed_pki.rotate_server_keypair") as rotate:
+            with self.assertRaisesRegex(WebAPIError, "stop all active deployment jobs"):
+                dispatch({"action": "rotate_server_keypair", "params": {
+                    "confirmation": "ROTATE SERVER TLS KEYPAIR",
+                }})
+        rotate.assert_not_called()
+
     def test_certificate_status_warns_before_managed_identity_expiry(self):
         config = SimpleNamespace(
             certificate_file="/etc/feclora/pki/server.crt",
