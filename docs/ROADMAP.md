@@ -2,7 +2,7 @@
 
 This roadmap distinguishes code implementation, Cockpit integration and operator-owned validation. Feclora's primary interface is Cockpit; the old local `dialog` menu is no longer installed in the Live package.
 
-The detailed, dependency-ordered implementation backlog and acceptance criteria live in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md). Operator procedures are indexed in [GUIDES.md](GUIDES.md); only workflows implemented end to end are presented as available.
+The detailed, dependency-ordered implementation backlog and acceptance criteria live in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md). Operator procedures are indexed in [GUIDES.md](GUIDES.md); only workflows implemented end to end are presented as available. Broader CA rotation and trust migration are deferred and are not offered as an available workflow.
 
 ## Completed in source
 
@@ -32,7 +32,7 @@ The detailed, dependency-ordered implementation backlog and acceptance criteria 
 
 ## Remaining implementation work
 
-See [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) for task-level checklists and acceptance criteria. Immediate priorities are implementation of staged CA trust migration and recovery (design and safety invariants are recorded in [ADR 0011](adr/0011-staged-ca-trust-migration.md)), repository credential/provider lifecycle, remote-clone disconnect/restart fault injection, consistent operation telemetry and Server-side artifact-transfer progress. CA rotation is not yet implemented; current leaf-certificate renewal and CA backup are not substitutes for CA rotation. Durable local operations now have a root-owned systemd worker, persistent queue/journal, Cockpit status/history and boot-time interrupted-job recovery; live systemd and hardware acceptance remain outstanding. Storage growth and volume-aware workflows, PXE unattended orchestration, documentation and release governance follow. Remote-clone two-machine hardware and real network/storage-provider acceptance are operator-run procedures documented in [ACCEPTANCE-TESTS.md](ACCEPTANCE-TESTS.md). Automated fault-injection and recovery checks remain software test responsibilities.
+See [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) for task-level checklists and acceptance criteria. Immediate priorities are repository credential/provider lifecycle, remote-clone disconnect/restart fault injection, consistent operation telemetry and Server-side artifact-transfer progress. Broader CA rotation and trust migration are explicitly deferred; the supported PKI scope remains managed CA bootstrap, enrollment/renewal, trust inventory/revocation, Server leaf renewal and Server TLS keypair rotation under the existing CA. CA backup does not provide CA rotation or compromise recovery. Durable local operations now have a root-owned systemd worker, persistent queue/journal, Cockpit status/history and boot-time interrupted-job recovery; live systemd and hardware acceptance remain outstanding. Storage growth and volume-aware workflows, PXE unattended orchestration, documentation and release governance follow. Remote-clone two-machine hardware and real network/storage-provider acceptance are operator-run procedures documented in [ACCEPTANCE-TESTS.md](ACCEPTANCE-TESTS.md). Automated fault-injection and recovery checks remain software test responsibilities.
 
 ## Operator-owned validation (optional, not a software completion gate)
 
