@@ -28,7 +28,7 @@ TERMINAL_STATES = frozenset({"completed", "failed", "cancelled", "interrupted"})
 TRANSITIONS = {
     "queued": {"preflight", "cancelled", "interrupted"},
     "preflight": {"running", "failed", "cancelled", "interrupted"},
-    "running": {"verifying", "completed", "failed", "cancelled", "interrupted"},
+    "running": {"verifying", "completed", "failed", "interrupted"},
     "verifying": {"completed", "failed", "interrupted"},
 }
 DEVICE_RE = re.compile(r"/dev/[A-Za-z0-9_.!/+:-]{1,120}")
