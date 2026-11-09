@@ -4,6 +4,13 @@ This roadmap distinguishes code implementation, Cockpit integration and operator
 
 The detailed, dependency-ordered implementation backlog and acceptance criteria live in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md). Operator procedures are indexed in [GUIDES.md](GUIDES.md); only workflows implemented end to end are presented as available. Broader CA rotation and trust migration are deferred and are not offered as an available workflow.
 
+
+## Maintainer's end-user target
+
+The release target is a bootable Cockpit-first Live system covering six end-to-end workflows: local disk/partition cloning; remote disk/partition cloning with DHCP/static networking; image capture to SSHFS, SFTP, NFS, SMB/CIFS, WebDAV and writable S3; restore from those repositories to one local target; multi-Client restore with manual Feclora or PXE boot; and unattended multi-Client restore. Measurable acceptance gates, security requirements and guide requirements are maintained in [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md).
+
+The present implementation is a foundation, not completion of that target. In particular, do not equate S3 read-only access with capture support, SSHFS with SFTP, PXE service lifecycle with PXE job handoff, or signed-profile primitives with unattended fleet deployment. Only advertise a workflow as available when its Cockpit path, backend/runtime, authorization, error handling, tests and published operator guide are complete.
+
 ## Completed in source
 
 - [x] Fedora 45 x86_64 Live-image build configuration and BIOS/UEFI boot assets.
