@@ -734,6 +734,8 @@ def backup_server_ca(
     temporary_directory = tempfile.mkdtemp(prefix=".feclora-ca-backup-", dir=root)
     fd, staged_output = tempfile.mkstemp(prefix=".feclora-ca-backup-", dir=parent)
     os.close(fd)
+    # age deliberately refuses to overwrite an existing output file.
+    os.unlink(staged_output)
     archive = os.path.join(temporary_directory, "ca-backup.tar")
     try:
         manifest = {
