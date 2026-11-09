@@ -544,7 +544,8 @@ def _operations() -> list[dict[str, Any]]:
             continue
         if isinstance(value, dict):
             records.append(value)
-    return records
+    from feclora.storage.operation_log import reconcile_interrupted
+    return reconcile_interrupted(records)
 
 
 def _certificate_status() -> list[dict[str, Any]]:
