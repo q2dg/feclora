@@ -427,6 +427,26 @@ class WebAPITests(unittest.TestCase):
                     {"image_id": "wrong-size"}
                 )
 
+    def test_partition_extraction_runs_through_the_durable_local_journal(self):
+        from contextlib import nullcontext
+        from feclora.webapi import _run_operation
+
+        params = {"image_id": "whole-disk", "selector": "PARTUUID=abc"}
+        with patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), patch(
+            "feclora.storage.operation_log.operation_record"
+        ) as record, patch(
+            "feclora.webapi._execute_operation", return_value={"image_id": "whole-disk-part-123"}
+        ) as execute:
+            record.return_value.__enter__.return_value = "operation-123"
+            result = _run_operation("extract_partition_image", params)
+
+        record.assert_called_once_with(
+            "extract_partition_image", "whole-disk", image_id="whole-disk",
+            log_path="/var/lib/feclora/operations.jsonl",
+        )
+        execute.assert_called_once_with("extract_partition_image", params, "operation-123")
+        self.assertEqual(result, {"image_id": "whole-disk-part-123"})
+
     def test_partition_extraction_is_exposed_as_a_storage_operation(self):
         params = {"image_id": "whole-disk", "selector": "PARTUUID=abc"}
         with patch("feclora.webapi._run_operation", return_value={"image_id": "whole-disk-part-123"}) as run:
