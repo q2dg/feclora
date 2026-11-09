@@ -262,6 +262,8 @@ class RemoteRepositoryManager:
         _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
         if not self._is_mounted(str(mountpoint)):
             return {"id": identifier, "mounted": False, "already_unmounted": True}
+        # Never unmount an unrelated filesystem that happens to occupy this path.
+        self.resolve(identifier)
         try:
             result = self.runner(
                 [self.which("umount") or "umount", "--", str(mountpoint)],
