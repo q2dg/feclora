@@ -54,3 +54,20 @@ that security layer.
 
 Unknown fields and unsupported schema versions are rejected. No job can cause
 a disk write merely by being parsed.
+
+
+## Restore from a managed remote image repository
+
+A restore job may include the optional `repository_id` field. It is a simple
+managed-repository identifier, never a filesystem path. Job creation resolves
+it through the root-owned repository registry and requires the corresponding
+mount to be active and verified before reading the signed image manifest.
+Persistent Server startup resolves the same ID again and verifies the image
+signature before accepting the job. The selected mount must remain available
+for the lifetime of the restore.
+
+Cockpit's remote restore workflow exposes only mounted, verified repositories
+and signed images. Multi-Client unicast and UDPcast multicast restore use the
+same selected repository. Save and direct clone jobs do not accept
+`repository_id`; Client captures continue to use the Server's configured
+repository.
