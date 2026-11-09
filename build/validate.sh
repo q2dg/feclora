@@ -265,7 +265,7 @@ if ! grep -q '"phase": phase' "$ROOT_DIR/src/feclora/deployment/client_service.p
   fail "Client service is not reporting disk-operation and transfer progress over mTLS."
 fi
 if ! grep -q 'transfer_progress_callback=transfer_progress' "$ROOT_DIR/src/feclora/deployment/client_service.py"; then
-  fail "Client service is not wiring authenticated image-transfer progress."
+  fail "Client service is not tracking its local image-transfer phase."
 fi
 if ! grep -q '"transfer"' "$ROOT_DIR/src/feclora/deployment/control.py"; then
   fail "Server control plane is not accepting the separate transfer progress phase."
