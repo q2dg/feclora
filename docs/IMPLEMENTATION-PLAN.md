@@ -38,6 +38,7 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Inventory current repository code and reconcile the feature matrix.
 - [x] Define a provider interface independent of transport.
 - [x] Add root-managed SSHFS/NFS/SMB mount lifecycle and Cockpit actions; keep this separate from image-engine integration.
+- [x] Report mounted state separately from verified provider/source/type/access-mode identity in Cockpit.
 - [ ] Complete the supported local, NFS, SMB/CIFS, SSHFS and SFTP providers; keep SSHFS mounts distinct from SFTP transfers.
 - [ ] Store credential references in root-owned protected storage; never ordinary config/logs.
 - [ ] Add SSH host-key pinning, key selection, permission checks and credential rotation.
