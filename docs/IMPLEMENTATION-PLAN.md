@@ -12,8 +12,10 @@ This document is the dependency-ordered implementation backlog and acceptance co
 7. Never claim hardware/PXE/switch acceptance from unit tests alone.
 
 ## P0 — Remote disk-to-disk cloning
-Existing foundation: remote_clone runtime, protocol/TLS modules, tests and REMOTE-DISK-CLONE.md.
-- [ ] Integrate source and receiver roles with persistent Server/Client services.
+Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the existing persistent Server/Client deployment services.
+- [ ] Add remote clone as a distinct operation to the existing Server/Client service lifecycle; do not create parallel daemons, IPC or job journals.
+- [ ] Reuse the existing mTLS control session, enrollment/peer authorization, service locks, durable job records and Cockpit status plumbing wherever their contracts fit.
+- [ ] Keep the direct block-stream data plane separate from UDPcast: the current UDPcast wrapper transfers signed image artifacts to private staging files for multicast restore; it does not implement direct block-device cloning.
 - [ ] Add least-privilege API actions for preflight, authorize, start, inspect and cancel.
 - [ ] Add Cockpit device/peer selection, peer identity verification, exact destructive confirmation and dual-operator authorization.
 - [ ] Persist operation IDs, states, bytes, throughput, errors and terminal verification on both endpoints.
