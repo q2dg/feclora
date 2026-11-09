@@ -2139,7 +2139,7 @@ def dispatch(request: Any) -> dict[str, Any]:
             "security": _security_material(),
             "certificate_status": _certificate_status(),
         }
-    if action in {"remote_credentials", "systemd_credentials"}:
+    if action in {"remote_credentials", "systemd_credentials", "put_systemd_credential", "remove_systemd_credential"}:
         return _remote_repository_action(action, params)
     if action in {"remote_repositories", "add_remote_repository", "mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"}:
         return _remote_repository_action(action, params)
