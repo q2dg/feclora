@@ -53,3 +53,24 @@ export async function callFeclora(action, params = {}, onEvent = () => {}) {
   if (!finalResponse?.ok) throw new Error("Feclora did not return an operation result");
   return finalResponse.data;
 }
+
+
+export async function waitForLocalOperation(operationId, onUpdate = () => {}, intervalMs = 1500) {
+  if (typeof operationId !== "string" || !operationId) throw new Error("Invalid local operation ID");
+  while (true) {
+    const status = await callFeclora("local_operation_status", { operation_id: operationId });
+    const events = status.events || [];
+    const progress = [...events].reverse().find((event) => event.state === "progress");
+    if (progress) onUpdate({ event: "progress", ...progress.details });
+    onUpdate({ event: "state", state: status.state, operation_id: operationId });
+    if (["completed", "failed", "cancelled", "interrupted"].includes(status.state)) {
+      if (status.state !== "completed") {
+        const terminal = events[events.length - 1];
+        const reason = terminal?.details?.error || terminal?.details?.reason || status.state;
+        throw new Error("Local operation " + status.state + ": " + reason);
+      }
+      return { operation_id: operationId, result: events[events.length - 1]?.details || {} };
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, intervalMs));
+  }
+}
