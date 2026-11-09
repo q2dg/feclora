@@ -18,33 +18,42 @@ the same repository API.
 The provider definitions in src/feclora/storage/repository.py validate
 provider inputs, reject unsafe path characters and parent traversal, and
 build argument vectors without invoking a shell. The root-only lifecycle in
-src/feclora/storage/repository_manager.py now persists SSHFS, NFS and SMB/CIFS
+src/feclora/storage/repository_manager.py persists all five provider
 definitions in a mode-0600 registry, creates private mountpoints, checks
 root-owned credential references, invokes helpers without a shell, verifies
-the exact mountpoint with findmnt, verifies the mounted source/type/access mode against the saved provider definition (including in the repository listing), and exposes mount/unmount/remove actions
-through Cockpit. Cockpit never receives or stores credential contents.
+the exact mountpoint with findmnt, and checks the mounted source, filesystem
+type and access mode against the saved definition. Cockpit exposes
+add/mount/unmount/remove and never receives credential contents. Existing
+registry entries created before the rclone_remote field was introduced remain
+readable.
 
-This is a mount-management foundation, not yet a complete image-repository
-integration: capture/restore and Server/Client deployment still use their
-configured repository roots and do not select these repository IDs. WebDAV
-and S3/rclone are deliberately rejected by the lifecycle manager pending
-their dedicated credential handling.
+WebDAV uses HTTPS and the system davfs2 secrets file at
+/etc/davfs2/secrets (root-owned, mode 0600); that file must contain the
+matching URL, username and password entry. S3 uses a preconfigured rclone
+remote alias and a separate root-owned mode-0600 rclone config file. The
+endpoint, bucket credentials and provider-specific settings belong in that
+rclone remote, not in Feclora's registry. S3 repositories are deliberately
+read-only: rclone's FUSE mount does not provide the provider-aware staging,
+atomic publication and durability contract required for safe image capture.
 
 ## Security and durability requirements
 
 - SSH host keys must be verified; never disable strict host-key checking.
 - SSH keys, SMB credentials, davfs2 secrets and rclone credentials must be
   stored outside image manifests and restore profiles with restrictive
-  ownership and permissions.
-- WebDAV requires HTTPS. S3 endpoint and credentials are configured in the
-  protected rclone remote.
+  ownership and permissions. Cockpit accepts paths/aliases, never secret
+  contents.
+- WebDAV requires HTTPS and the root-only /etc/davfs2/secrets file.
+- S3 requires a root-owned mode-0600 rclone config and an existing remote
+  alias configured for the intended S3-compatible service. The config file
+  must be available non-interactively to the root rclone process.
 - NFS/SMB/SSHFS/WebDAV/S3 are storage transports, not PXE deployment
   transports. PXE Server/Client services remain explicit opt-in features.
-- Before using a mount for imaging, runtime code must verify the expected
-  provider/source identity, reject symlinked paths, and test
-  write/read/rename/fsync behavior. Current mount-state inspection verifies
-  the mountpoint; provider/source identity and remote publication durability
-  remain to be completed before imaging can consume managed mounts.
+- Runtime resolves repository IDs through the manager and checks the
+  expected mount source/type/access mode. A failed or mismatched mount never
+  falls back to the local directory underneath the mountpoint.
+- S3 is read-only until a provider-aware staging/publish protocol with remote
+  read-back is implemented; do not enable capture or extraction on S3.
 - A mount failure must never fall back to the local directory underneath an
   unmounted mountpoint.
 - Image artifacts must be staged on the same filesystem and the manifest
@@ -56,14 +65,12 @@ their dedicated credential handling.
 
 ## Remaining work
 
-Remaining work: connect repository IDs to capture/restore and Server/Client
-job configuration; add edit/test and health/free-space workflows; verify
-provider/source identity rather than mountpoint alone; test remote
-write/read/rename/fsync and manifest publication semantics; implement
-credential provisioning/rotation and recovery; add WebDAV and S3/rclone
-credential integrations; and run integration tests against real SSH, NFS,
-SMB, WebDAV and S3 endpoints. SFTP file transfer is distinct from SSHFS and
-is not currently a mounted repository provider.
+Remaining engineering work: add edit/test and health/free-space workflows,
+credential provisioning/rotation and recovery, provider-aware S3 artifact
+publication, and automated coverage for the remote mount lifecycle. Physical
+tests against SSHFS, NFS, SMB, WebDAV and S3 endpoints are operator acceptance
+tests. SFTP file transfer is distinct from SSHFS and is not a separate mounted
+repository provider.
 
 
 ## Image workflow integration
@@ -76,12 +83,10 @@ read/write mount. Restore, inventory, layout inspection and verification can
 use a read-only mount. Partition extraction writes a new image and therefore
 requires read/write access.
 
-Image manifests are still required to be root-owned regular files, matching
-Feclora's local repository trust model. A remote export that maps created files
-to an unprivileged UID (for example, an NFS export using root-squash) will not
-be accepted by the current image inventory/restore path. Do not weaken this
-ownership check to make such a mount appear to work; validate the export's
-ownership semantics and complete a remote-server round-trip test before
-treating that provider configuration as production-ready. Remote repository
-image inventory is not yet wired into persistent multi-Client deployment jobs;
-those jobs still use the deployment Server's configured image repository.
+Image manifests are required to be root-owned regular files. An NFS export
+using root-squash may map files created by the client root user to an anonymous
+UID, causing Feclora's ownership check to reject the manifest. Do not weaken
+this check; configure the export's ownership semantics accordingly. Cockpit
+image operations and multi-Client restore jobs can select mounted repository
+IDs. S3 remains read-only and is suitable for inventory/verification/restore,
+not image capture.
