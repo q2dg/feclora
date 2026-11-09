@@ -75,8 +75,8 @@ def append_event(path: str | os.PathLike[str], event: dict) -> None:
         raise OperationLogError(f"cannot persist operation log: {exc}") from exc
 
 _ACTIVE_OPERATION: ContextVar[dict | None] = ContextVar("feclora_active_operation", default=None)
-_PROGRESS_INTERVAL_SECONDS = 1.0
-_PROGRESS_INTERVAL_BYTES = 64 * 1024 * 1024
+_PROGRESS_INTERVAL_SECONDS = 30.0
+_PROGRESS_INTERVAL_BYTES = 1024 * 1024 * 1024
 
 
 def record_progress(bytes_done: int, bytes_total: int | None) -> None:
