@@ -190,3 +190,10 @@ mode; the operator performs the Client job selection and local disk approval
 after boot. This separation is intentional: a DHCP lease or MAC address is
 not authorization to overwrite a disk. Stop PXE services after deployment if
 the network boot window is temporary.
+
+
+### Durable Client progress and restart history
+
+The Server journals bounded progress checkpoints received over each authenticated Client TLS session. The first snapshot for a Client is persisted, followed by checkpoints after at least 1 MiB of additional progress or five seconds; phase and total-size changes are also persisted immediately. This bounds journal growth while retaining useful restart diagnostics. The Deployment history view reports the last durable checkpoint per Client, not a live rate estimate.
+
+A progress checkpoint is an audit record, not a recovery cursor. After a Server process or host restart, Feclora does not reconnect the old Client session, continue a transfer, or resume disk I/O. The last recorded byte count may precede the actual point of interruption. Operators must inspect every Client and destination device and reconcile the interrupted job before creating a new one. A partially written destination remains potentially unusable.
