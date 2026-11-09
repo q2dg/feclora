@@ -190,8 +190,11 @@ exports `feclora-<id>.crt`, `ca.crt`, `server.pub` and
 overwritten.
 
 Only public enrollment material is copied to removable media. TLS and age
-private keys remain on the Client. The Client-side preparation and response-import stages are also integrated
-in Cockpit; no dialog workflow is required for enrollment.
+private keys remain on the Client. Each enrolled Client must use a unique age
+recipient: the Server rejects reuse so revoking one Client cannot accidentally
+remove another Client's ability to decrypt future captures. The Client-side
+preparation and response-import stages are also integrated in Cockpit; no
+dialog workflow is required for enrollment.
 
 The Server setup tab also exposes the enrolled Client trust inventory. It shows
 each stable TLS URI identity, its authorized unicast MAC and whether image
