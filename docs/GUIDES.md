@@ -8,7 +8,8 @@ title: Step-by-step guides
 This index distinguishes implemented workflows from partially integrated and
 planned workflows. Use the linked technical and operator documentation for
 the current Cockpit sequence and safety contract. A feature marked planned is
-not an operator procedure.
+not an operator procedure. The release-wide acceptance contract is in
+[USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.html).
 
 ## Cloning
 
@@ -23,9 +24,10 @@ not an operator procedure.
 
 ## Remote repositories and disk imaging
 
-- [Remote repository administration and provider constraints](REMOTE-REPOSITORIES.html) — **Available**
-  Configure and verify SSHFS, NFS, SMB/CIFS, WebDAV and read-only S3 mounts.
-  Provider identity and access mode are checked before an image operation.
+- [Remote repository administration and provider constraints](REMOTE-REPOSITORIES.html) — **Partial; check provider limits**
+  SSHFS, NFS and SMB/CIFS have Cockpit mount/inventory integration. WebDAV and
+  S3 have incomplete provider/credential workflows; S3 is read-only in the
+  current image integration. Do not infer capture support for every provider.
 
 - [Whole-disk capture](WHOLE-DISK-CAPTURE.html) and
   [partition capture](PARTITION-CAPTURE.html) — **Available**
@@ -57,6 +59,10 @@ not an operator procedure.
 - **Unattended multi-client PXE restore** — **Planned**
   Signed single-use restore-profile primitives exist, but profile authoring,
   fleet authorization and PXE execution are not integrated end to end.
+
+## Requirements and acceptance
+
+- [Six end-user workflows and release acceptance contract](USER-REQUIREMENTS-ACCEPTANCE.html) — the authoritative checklist for the requested Live/Cockpit experience.
 
 ## Acceptance testing
 
