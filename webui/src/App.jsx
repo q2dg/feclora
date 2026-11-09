@@ -41,6 +41,9 @@ export default function App() {
   const [revokeConfirmation, setRevokeConfirmation] = useState("");
   const [ageRecipientExportDirectory, setAgeRecipientExportDirectory] = useState("");
   const [ageRecipientExport, setAgeRecipientExport] = useState(null);
+  const [caBackupDirectory, setCaBackupDirectory] = useState("");
+  const [caBackupRecipient, setCaBackupRecipient] = useState("");
+  const [caBackupResult, setCaBackupResult] = useState(null);
   const [clientAgeInventoryPath, setClientAgeInventoryPath] = useState("");
   const [clientAgeInventoryResult, setClientAgeInventoryResult] = useState(null);
   const [extractImageId, setExtractImageId] = useState("");
@@ -291,6 +294,18 @@ export default function App() {
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); setProgress(null); }
+  };
+
+  const exportServerCABackup = async () => {
+    setBusy(true); setError(""); setNotice(""); setCaBackupResult(null);
+    try {
+      const result = await callFeclora("export_server_ca_backup", {
+        export_directory: caBackupDirectory,
+        age_recipient: caBackupRecipient.trim()
+      });
+      setCaBackupResult(result); setNotice(result.message);
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
   };
 
   const exportServerAgeRecipients = async () => {
@@ -1047,6 +1062,18 @@ export default function App() {
                 </>}
               </StackItem>}
               {serverSetup && <StackItem><Card><CardBody><Title headingLevel="h3" size="lg">Server identity status</Title><p>{serverSetup.message}</p><p>Bind address: {serverSetup.bind_address}:{serverSetup.port}</p><p>Certificate identity: {serverSetup.server_identity}</p><p>Enrolled Clients: {serverSetup.enrolled_clients}</p></CardBody></Card></StackItem>}
+              {status?.server_configured && <StackItem><Card><CardBody>
+                <Title headingLevel="h3" size="lg">Encrypted offline CA backup</Title>
+                <Alert variant="warning" title="Protect the root CA signing key" isInline>The backup contains the CA private key and certificate, encrypted to the age recipient below. Keep the matching age identity separately and offline. Without that identity, the backup cannot be recovered. Never store the decryption identity beside this backup.</Alert>
+                <Field label="Mounted removable-media directory" help="Use a mounted USB filesystem under /run/media, /media or /mnt.">
+                  <input className="pf-v5-c-form-control" value={caBackupDirectory} onChange={(event) => { setCaBackupDirectory(event.target.value); setCaBackupResult(null); }} placeholder="/run/media/.../BACKUPS" />
+                </Field>
+                <Field label="age public recipient" help="Use a recovery recipient whose private identity is held separately and securely.">
+                  <input className="pf-v5-c-form-control" value={caBackupRecipient} onChange={(event) => { setCaBackupRecipient(event.target.value); setCaBackupResult(null); }} placeholder="age1..." />
+                </Field>
+                <Button variant="primary" onClick={exportServerCABackup} isLoading={busy} isDisabled={busy || !caBackupDirectory || !/^age1[0-9a-z]{20,}$/.test(caBackupRecipient.trim())}>Create encrypted CA backup</Button>
+                {caBackupResult && <Alert variant="success" title="Encrypted CA backup created" isInline>{caBackupResult.backup_file} · SHA-256 {caBackupResult.sha256} · CA fingerprint {caBackupResult.ca_fingerprint}</Alert>}
+              </CardBody></Card></StackItem>}
               {status?.server_configured && <StackItem><Card><CardBody>
                 <Title headingLevel="h3" size="lg">Rotate Server TLS keypair</Title>
                 <Alert variant="warning" title="New Server private key; existing CA retained" isInline>This is separate from certificate renewal. All deployment jobs must be stopped. The new key and certificate are validated before installation; enrolled Clients continue to trust the existing CA and Server identity. This does not rotate the CA or image-signing key.</Alert>
