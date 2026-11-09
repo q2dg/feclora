@@ -148,6 +148,7 @@ class DeploymentControlServer:
         client_identity_to_mac: Mapping[str, str],
         firewall: Any = None,
         interface: str | None = None,
+        progress_event_sink: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         _require_tls13_mtls(tls_context)
         if not isinstance(local_identity, str) or not local_identity or len(local_identity) > 256:
@@ -171,6 +172,8 @@ class DeploymentControlServer:
         self._identities: dict[str, str] = {}
         self._target_devices: dict[str, str] = {}
         self._progress: dict[str, dict[str, Any]] = {}
+        self._progress_event_sink = progress_event_sink
+        self._last_persisted_progress: dict[str, dict[str, Any]] = {}
         self._pending_sockets: set[Any] = set()
         self._lock = threading.RLock()
         self._stop_event = threading.Event()
@@ -488,12 +491,38 @@ class DeploymentControlServer:
             if (previous is not None and previous["phase"] == message["phase"]
                     and now > previous["monotonic"]):
                 rate = max(0.0, (completed - previous["completed_bytes"]) / (now - previous["monotonic"]))
-            self._progress[mac] = {
+            updated_at = datetime.now(timezone.utc).isoformat()
+            snapshot = {
                 "phase": message["phase"], "completed_bytes": completed,
                 "total_bytes": total, "bytes_per_second": round(rate, 1),
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-                "monotonic": now,
+                "updated_at": updated_at,
             }
+            self._progress[mac] = {**snapshot, "monotonic": now}
+            previous_saved = self._last_persisted_progress.get(mac)
+            should_persist = (
+                self._progress_event_sink is not None
+                and (
+                    previous_saved is None
+                    or previous_saved["phase"] != snapshot["phase"]
+                    or previous_saved["total_bytes"] != total
+                    or completed - previous_saved["completed_bytes"] >= 1024 * 1024
+                    or now - previous_saved["monotonic"] >= 5.0
+                )
+            )
+            if should_persist:
+                try:
+                    self._progress_event_sink({
+                        "timestamp": updated_at,
+                        "job_id": self.coordinator.job.job_id,
+                        "event": "client_progress",
+                        "job_state": self.coordinator.state.value,
+                        "client_mac": mac,
+                        "client_state": ClientState.RUNNING.value,
+                        "progress": snapshot,
+                    })
+                except Exception as exc:
+                    raise DeploymentControlError(f"could not persist Client progress snapshot: {exc}") from exc
+                self._last_persisted_progress[mac] = {**snapshot, "monotonic": now}
 
     def client_progress(self) -> dict[str, dict[str, Any]]:
         with self._lock:
