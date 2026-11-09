@@ -116,9 +116,12 @@ transport. The initial runtime is in
 - `receive_remote_disk()` runs on the receiver endpoint. It validates the
   target, writes through `dd`, reads back the complete source-sized extent,
   and sends a success acknowledgement only when SHA-256 matches.
-- `serve_remote_clone_once()` accepts one connection as the source, while
-  `connect_remote_clone()` connects as the receiver and owns the TLS socket
-  lifecycle for that session.
+- `serve_remote_clone_once()` accepts one connection as the source, polls its
+  listening socket at a bounded interval, and honors the caller's cancellation
+  callback while waiting for the receiver. It restores the listener's original
+  timeout after the attempt. Once connected, the same cancellation callback is
+  passed into the disk sender. `connect_remote_clone()` connects as the receiver
+  and owns the TLS socket lifecycle for that session.
 - `src/feclora/network/tls.py` provides the client/server TLS socket wrappers.
   The caller still owns listener creation, certificate provisioning and UI
   authorization prompts. The TLS helpers apply bounded connection/I/O
