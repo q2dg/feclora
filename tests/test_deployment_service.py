@@ -96,6 +96,29 @@ class DeploymentServiceCommandTests(unittest.TestCase):
                     "job_id": service.job.job_id, "confirmation": "ARM wrong",
                 })
 
+    def test_clone_arm_requires_source_and_enrolled_peer_confirmation(self):
+        mac = "02:00:00:00:00:01"
+        client = SimpleNamespace(mac_address=mac, state=ClientState.READY, detail=None)
+        service = make_service(clients=(client,))
+        service.job.operation = "clone"
+        service.job.source_device = "/dev/sda"
+        service.config = SimpleNamespace(client_identity_to_mac={"URI:feclora-client": mac})
+        expected = (
+            "ARM " + service.job.job_id
+            + " AND READ /dev/sda TO URI:feclora-client"
+        )
+        with self.assertRaisesRegex(DeploymentServiceError, "exact job-specific"):
+            service._handle_ipc("arm", {
+                "job_id": service.job.job_id,
+                "confirmation": "ARM " + service.job.job_id,
+            })
+        with mock.patch("feclora.deployment.service.threading.Thread", FakeThread):
+            result = service._handle_ipc("arm", {
+                "job_id": service.job.job_id, "confirmation": expected,
+            })
+        self.assertTrue(result["accepted"])
+        self.assertTrue(service._arm_requested)
+
     def test_arm_requires_every_authorized_client_ready(self):
         client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.CONNECTED, detail=None)
         service = make_service(clients=(client,))
