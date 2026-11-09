@@ -15,6 +15,7 @@ The detailed, dependency-ordered implementation backlog and acceptance criteria 
 - [x] Source-safety checks, target geometry checks and explicit destructive confirmations.
 - [x] Local managed CA/TLS identity bootstrap and Client CSR enrollment primitives.
 - [x] Authenticated unicast deployment engine and UDPcast multicast restore engine.
+- [x] Direct whole-disk Server-to-Client remote clone integrated into the persistent job lifecycle, existing mTLS control session, durable journals and Cockpit workflow.
 - [x] PXE/iPXE boot-tree staging and transient dnsmasq/Caddy/firewalld service lifecycle.
 - [x] Durable deployment journals, audit-state reconstruction from verified journals, and explicit interrupted-job reconciliation (reconstruction does not restore sessions or resume work).
 - [x] Root-peer Unix IPC protocol integrated with the persistent systemd Server service and Cockpit lifecycle API.
@@ -31,7 +32,7 @@ The detailed, dependency-ordered implementation backlog and acceptance criteria 
 
 ## Remaining implementation work
 
-See [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) for task-level checklists and acceptance criteria. Immediate priorities are remote disk-cloning integration, full PKI rotation, repository/credential lifecycle, durable local operations and accurate Server-side transfer progress. Storage growth and volume-aware workflows, PXE unattended orchestration, documentation and governance follow.
+See [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) for task-level checklists and acceptance criteria. Immediate priorities are full PKI rotation, repository/credential lifecycle, durable local operations and accurate Server-side transfer progress. Remote-clone two-machine hardware and fault-injection validation remains an operator/test task. Storage growth and volume-aware workflows, PXE unattended orchestration, documentation and governance follow.
 
 ## Operator-owned validation (optional, not a software completion gate)
 
