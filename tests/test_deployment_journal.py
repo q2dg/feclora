@@ -1,5 +1,6 @@
 import os
 import tempfile
+import threading
 import unittest
 
 from feclora.deployment.coordinator import (
@@ -98,6 +99,46 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertEqual(
                 [event["event"] for event in reopened.events],
                 ["job_created", "job_armed", "job_running"],
+            )
+
+    def test_concurrent_journal_instances_keep_one_hash_chain(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journals = [
+                DeploymentJournal(path, JOB_ID),
+                DeploymentJournal(path, JOB_ID),
+            ]
+            barrier = threading.Barrier(len(journals))
+            errors = []
+
+            def append_events(index, journal):
+                try:
+                    barrier.wait()
+                    for event_number in range(10):
+                        journal({
+                            "timestamp": f"2026-11-08T12:00:{event_number:02d}+00:00",
+                            "job_id": JOB_ID,
+                            "event": f"writer_{index}",
+                            "job_state": "created",
+                        })
+                except Exception as exc:
+                    errors.append(exc)
+
+            threads = [
+                threading.Thread(target=append_events, args=(index, journal))
+                for index, journal in enumerate(journals)
+            ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+            self.assertEqual(errors, [])
+            events = DeploymentJournal.inspect(path).events
+            self.assertEqual(len(events), 20)
+            self.assertEqual(
+                [event["sequence"] for event in events],
+                list(range(1, 21)),
             )
 
     def test_journal_rejects_tampered_event(self):
