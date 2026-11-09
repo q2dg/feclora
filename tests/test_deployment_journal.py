@@ -58,6 +58,33 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertEqual(reopened.events[0]["job"]["authorized_clients"], [MAC])
             self.assertEqual(journal.events[0]["job"]["authorized_clients"], [MAC])
 
+    def test_multiple_journal_instances_serialize_appends(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            first = DeploymentJournal(path, JOB_ID)
+            second = DeploymentJournal(path, JOB_ID)
+            first({
+                "timestamp": "2026-11-08T12:00:00+00:00",
+                "job_id": JOB_ID, "event": "job_created", "job_state": "created",
+            })
+            second({
+                "timestamp": "2026-11-08T12:00:01+00:00",
+                "job_id": JOB_ID, "event": "job_armed", "job_state": "armed",
+            })
+            first({
+                "timestamp": "2026-11-08T12:00:02+00:00",
+                "job_id": JOB_ID, "event": "job_running", "job_state": "running",
+            })
+            reopened = DeploymentJournal.inspect(path)
+            self.assertEqual(
+                [event["sequence"] for event in reopened.events],
+                [1, 2, 3],
+            )
+            self.assertEqual(
+                [event["event"] for event in reopened.events],
+                ["job_created", "job_armed", "job_running"],
+            )
+
     def test_journal_rejects_tampered_event(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "job.jsonl")
