@@ -14,6 +14,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -275,6 +276,7 @@ class RemoteRepositoryManager:
         if missing:
             raise RepositoryManagerError("missing repository tools: " + ", ".join(missing))
         encrypted = self._encrypted_credential_bindings(repo)
+        service_managed = bool(encrypted)
         try:
             if encrypted:
                 unit = f"feclora-repository-{identifier}.service"
@@ -308,7 +310,13 @@ class RemoteRepositoryManager:
         if result.returncode != 0:
             detail = (result.stderr or result.stdout or "").strip()[:512]
             raise RepositoryManagerError("repository mount failed" + (f": {detail}" if detail else ""))
-        if not self._is_mounted(str(mountpoint)):
+        mounted = self._is_mounted(str(mountpoint))
+        if service_managed and not mounted:
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline and not mounted:
+                time.sleep(0.2)
+                mounted = self._is_mounted(str(mountpoint))
+        if not mounted:
             raise RepositoryManagerError("mount command returned success but the selected mountpoint is not mounted")
         return {"id": identifier, "mounted": True, "mountpoint": str(mountpoint)}
 
@@ -392,12 +400,31 @@ class RemoteRepositoryManager:
                 return {"id": identifier, "mounted": False, "already_unmounted": True}
             # Never unmount an unrelated filesystem that happens to occupy this path.
             self.resolve(identifier)
+            unit = f"feclora-repository-{identifier}.service"
+            systemctl = self.which("systemctl") or "systemctl"
             try:
-                result = self.runner(
-                    [self.which("umount") or "umount", "--", str(mountpoint)],
+                active = self.runner(
+                    [systemctl, "is-active", "--quiet", unit],
                     stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                    check=False, timeout=30,
+                    check=False, timeout=10,
                 )
+                if active.returncode == 0:
+                    stopped = self.runner(
+                        [systemctl, "stop", unit],
+                        stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                        check=False, timeout=30,
+                    )
+                    if stopped.returncode != 0:
+                        detail = (stopped.stderr or stopped.stdout or "").strip()[:512]
+                        raise RepositoryManagerError("repository mount service could not stop" + (f": {detail}" if detail else ""))
+                if self._is_mounted(str(mountpoint)):
+                    result = self.runner(
+                        [self.which("umount") or "umount", "--", str(mountpoint)],
+                        stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                        check=False, timeout=30,
+                    )
+                else:
+                    result = type("Result", (), {"returncode": 0, "stderr": "", "stdout": ""})()
             except (OSError, subprocess.SubprocessError) as exc:
                 raise RepositoryManagerError(f"repository unmount failed: {exc}") from exc
             if result.returncode != 0 or self._is_mounted(str(mountpoint)):
