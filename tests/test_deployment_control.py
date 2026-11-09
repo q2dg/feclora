@@ -167,6 +167,41 @@ class TLSContextTests(unittest.TestCase):
             )
 
 
+    def test_firewall_cleanup_failure_preserves_recovery_state_and_releases_callback(self):
+        class Firewall:
+            def is_open(self, interface):
+                return False
+
+            def open(self, interface, ports, include_tftp=False):
+                pass
+
+            def export_state(self, interface):
+                return {"zone": "feclora-pxe-12345678", "restore_zone": "public",
+                        "ports": ["9443/tcp"]}
+
+            def close(self, interface):
+                raise RuntimeError("firewalld unavailable")
+
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.maximum_version = ssl.TLSVersion.TLSv1_3
+        context.verify_mode = ssl.CERT_REQUIRED
+        firewall = Firewall()
+        callbacks = []
+        server = DeploymentControlServer(
+            DeploymentCoordinator(make_job()), context,
+            local_identity="URI:feclora-server",
+            client_identity_to_mac={"URI:feclora-client": MAC},
+            firewall=firewall, interface="enp1s0",
+        )
+        server.start("127.0.0.1", 0, firewall_state_callback=callbacks.append)
+        self.assertTrue(callbacks[0]["opened_by_service"])
+        with self.assertRaisesRegex(DeploymentControlError, "firewall cleanup failed"):
+            server.stop()
+        self.assertEqual(len(callbacks), 1)
+        self.assertIsNone(server._firewall_state_callback)
+        self.assertTrue(server._firewall_opened)
+
     def test_listener_persists_and_clears_firewall_ownership_callback(self):
         class Firewall:
             def __init__(self):
