@@ -36,7 +36,7 @@ Status meanings:
 | Remote deployment | UDPcast multicast restore | Engine and Server/Client receiver lifecycle integrated; switch IGMP remains external | Cockpit workflows | Automated tests; operator validation |
 | Remote clone | mTLS disk-to-disk protocol | Protocol engine implemented; persistent Server/Client workflow not integrated | Not yet complete | Automated tests; operator validation |
 | Monitoring | Deployment journals and audit reconciliation | Implemented | Cockpit summaries and reconciliation | Automated tests |
-| Monitoring | Per-client disk-operation progress | Implemented; transfer-stage progress remains separate outstanding work | Cockpit live status | Automated tests |
+| Monitoring | Per-Client disk-operation progress | Authenticated Server-side byte progress and throughput; Client-local transfer-phase byte progress; Server-side transfer telemetry pending separate channel design | Cockpit live status | Automated tests |
 | UI | Cockpit React/PatternFly | Implemented | Primary interface | Frontend CI build |
 | UI | Terminal diagnostics | Cockpit component | Available in Cockpit | Operator validation |
 
