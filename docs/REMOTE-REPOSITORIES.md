@@ -64,3 +64,24 @@ credential provisioning/rotation and recovery; add WebDAV and S3/rclone
 credential integrations; and run integration tests against real SSH, NFS,
 SMB, WebDAV and S3 endpoints. SFTP file transfer is distinct from SSHFS and
 is not currently a mounted repository provider.
+
+
+## Image workflow integration
+
+Cockpit's Image repository tab and local capture/restore operation form can select
+a configured repository only while its mount is active and verified. The API
+resolves the repository ID through the manager on every operation; it does not
+accept a client-supplied mount path. Whole-disk and partition capture require a
+read/write mount. Restore, inventory, layout inspection and verification can
+use a read-only mount. Partition extraction writes a new image and therefore
+requires read/write access.
+
+Image manifests are still required to be root-owned regular files, matching
+Feclora's local repository trust model. A remote export that maps created files
+to an unprivileged UID (for example, an NFS export using root-squash) will not
+be accepted by the current image inventory/restore path. Do not weaken this
+ownership check to make such a mount appear to work; validate the export's
+ownership semantics and complete a remote-server round-trip test before
+treating that provider configuration as production-ready. Remote repository
+image inventory is not yet wired into persistent multi-Client deployment jobs;
+those jobs still use the deployment Server's configured image repository.
