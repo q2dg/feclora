@@ -1183,6 +1183,12 @@ def _submit_local_operation(params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(operation, str) or not isinstance(operation_params, dict):
         raise WebAPIError("operation must be a string and operation_params must be an object")
     try:
+        from uuid import uuid4
+        from feclora.storage.local_operations import validate_definition
+        validate_definition({
+            "schema_version": 1, "operation_id": str(uuid4()),
+            "action": operation, "params": operation_params,
+        })
         store = _local_operation_store()
         operation_id = store.submit(operation, operation_params)
     except Exception as exc:
