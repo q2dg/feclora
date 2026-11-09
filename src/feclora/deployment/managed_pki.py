@@ -846,7 +846,8 @@ def inspect_server_ca_backup(
         }:
             raise PKIError("CA archive manifest has an unsupported schema")
         if (
-            manifest["schema_version"] != 1
+            type(manifest["schema_version"]) is not int
+            or manifest["schema_version"] != 1
             or manifest["purpose"] != "feclora-managed-deployment-ca-recovery"
             or manifest["contents"] != ["ca.crt", "ca.key"]
             or not isinstance(manifest["ca_sha256_fingerprint"], str)
@@ -861,10 +862,14 @@ def inspect_server_ca_backup(
         if fingerprint != manifest["ca_sha256_fingerprint"]:
             raise PKIError("CA certificate fingerprint does not match the archive manifest")
         constraints = _run(
-            [openssl, "x509", "-in", ca_file, "-noout", "-ext", "basicConstraints", "-ext", "keyUsage"],
+            [openssl, "x509", "-in", ca_file, "-noout", "-ext", "basicConstraints"],
             runner,
         ).stdout
-        if "CA:TRUE" not in constraints or "Certificate Sign" not in constraints:
+        usage = _run(
+            [openssl, "x509", "-in", ca_file, "-noout", "-ext", "keyUsage"],
+            runner,
+        ).stdout
+        if "CA:TRUE" not in constraints or "Certificate Sign" not in usage:
             raise PKIError("backup certificate is not a CA certificate with certificate-signing usage")
         _run([openssl, "verify", "-no_check_time", "-CAfile", ca_file, ca_file], runner)
         certificate_public = _run([openssl, "x509", "-in", ca_file, "-pubkey", "-noout"], runner).stdout.strip()
