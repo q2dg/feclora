@@ -34,6 +34,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.manager = RemoteRepositoryManager(
             registry=self.registry, mount_root=self.mount_root,
             runner=runner, which=lambda name: "/usr/bin/" + name,
+            effective_uid=lambda: 0, owner_uid=os.getuid(),
         )
         self.definition = {
             "provider": "sshfs", "host": "nas.example.net",
@@ -83,6 +84,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         manager = RemoteRepositoryManager(
             registry=link, mount_root=self.mount_root, runner=self.runner,
             which=lambda name: "/usr/bin/" + name,
+            effective_uid=lambda: 0, owner_uid=os.getuid(),
         )
         with self.assertRaisesRegex(RepositoryManagerError, "private root-owned"):
             manager.list()
