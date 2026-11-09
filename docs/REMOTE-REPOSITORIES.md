@@ -65,6 +65,26 @@ Until per-repository systemd mount/service units consume
 `LoadCredentialEncrypted=`, existing repository credential references still
 use the legacy protected-file mechanism.
 
+The encrypted store can be provisioned locally (as root) from a root-owned,
+mode-0600 source file:
+
+```bash
+sudo python3 -m feclora.storage.systemd_credential_cli put \
+  --id nas --kind ssh-key --source /root/secure/nas.key
+sudo python3 -m feclora.storage.systemd_credential_cli put \
+  --id nas --kind ssh-key --source /root/secure/nas.key --replace
+sudo python3 -m feclora.storage.systemd_credential_cli remove \
+  --id nas --kind ssh-key
+```
+
+The command prints only the encrypted blob path. The credential name returned
+by the inventory is suitable for a future service declaration such as
+`LoadCredentialEncrypted=feclora-nas-ssh-key:/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred`.
+Do not add this directive to a service until its consumer has been changed to
+read the named file from `$CREDENTIALS_DIRECTORY`. The privileged
+`systemd_credentials` API action currently exposes validated metadata only;
+it does not expose plaintext or create/update credentials through Cockpit.
+
 ## Local credential provisioning primitive
 
 `feclora.storage.credential_store.CredentialStore` provides a root-only
