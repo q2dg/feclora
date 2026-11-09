@@ -12,6 +12,28 @@ Remote clone therefore reuses the existing bounded block-stream engine over
 the already authenticated TLS 1.3 Client control socket after the job's START
 frame. No additional network port or TLS service is opened.
 
+## Cockpit network preparation
+
+On each machine, open its local Cockpit Network tab and apply the intended
+NetworkManager profile as DHCP or static IPv4. The form only offers active
+profiles with an associated device and uses a NetworkManager checkpoint with
+a 120-second rollback window. Keep console access available while applying a
+change.
+
+On the Server, the Remote jobs form requires an active IPv4 interface/address
+binding. The saved job carries the selected Linux interface name; the address
+and prefix shown in Cockpit make the operator's choice unambiguous when a host
+has multiple addresses. The Server API rejects an interface name that is not
+present on the host.
+
+The Client's network configuration is performed separately from the Client's
+own Cockpit session. A Client can only inspect and join a job after the
+Server's persistent service is started and reachable. The current workflow
+does not run a pre-start end-to-end connectivity probe to every enrolled
+Client: job creation verifies the Server interface exists, while authenticated
+Client inspection/join is the actual reachability and mTLS check. Do not
+interpret a saved job definition as proof that a Client is online or reachable.
+
 ## Roles and authorization
 
 - **Server/source:** selects a whole disk already marked read-only.
