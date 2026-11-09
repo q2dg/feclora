@@ -1,6 +1,6 @@
 [Unit]
 Description=Feclora durable local storage operation %i
-After=local-fs.target
+After=local-fs.target feclora-local-operation-recovery.service
 RequiresMountsFor=/var/lib/feclora
 
 [Service]
