@@ -27,7 +27,8 @@ Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the 
 - [x] Add Cockpit source/peer selection, Client-local target selection, exact destructive confirmation and independent source/receiver authorization.
 - [x] Add local Cockpit DHCP/static IPv4 configuration for the currently managed Server or Client, with NetworkManager checkpoint rollback and profile/address verification.
 - [x] Bind remote job definitions to an explicitly selected active Server interface/address; document that Client networking is configured from its own Cockpit session.
-- [ ] Add a pre-start reachability check to the intended Client endpoint and verify routing/interface selection on both peers; current authenticated inspect/join remains the first end-to-end Client reachability check.
+- [x] Expose the Client's pre-start authenticated reachability check in Cockpit: inspect the job over TLS and verify the enrolled Server identity before local target approval.
+- [ ] Add explicit unicast route/interface selection and route verification on both peers; the Client currently relies on the host routing table for unicast.
 - [ ] Complete Fedora Live acceptance for DHCP/static changes on both roles, including browser/API disconnect during checkpoint and remote clone connectivity.
 - [x] Persist operation IDs, job states, errors and terminal verification through the existing operation logs, Client status and Server job journal; expose live byte progress and throughput in Server/Client status.
 - [x] Persist bounded Client progress snapshots in the Server journal and expose the last durable checkpoint in history; restart recovery remains audit-only and never resumes disk I/O.
