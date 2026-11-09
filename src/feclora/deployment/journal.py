@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import fcntl
 import hashlib
 import json
 import os
@@ -139,19 +140,6 @@ class DeploymentJournal:
         with self._lock:
             if event.get("job_id") != self.job_id:
                 raise DeploymentJournalError("event belongs to a different deployment job")
-            sequence = len(self._events) + 1
-            previous = self._events[-1]["event_hash"] if self._events else _ZERO_HASH
-            record = dict(event)
-            record["sequence"] = sequence
-            record["previous_hash"] = previous
-            canonical = json.dumps(record, sort_keys=True, separators=(",", ":"),
-                                   ensure_ascii=True, allow_nan=False).encode("ascii")
-            event_hash = hashlib.sha256(canonical).hexdigest()
-            record["event_hash"] = event_hash
-            line = json.dumps(record, sort_keys=True, separators=(",", ":"),
-                              ensure_ascii=True, allow_nan=False).encode("ascii") + b"\n"
-            if len(line) > _MAX_EVENT_BYTES:
-                raise DeploymentJournalError("deployment journal event exceeds the size limit")
             try:
                 fd = os.open(
                     self.path,
@@ -159,15 +147,41 @@ class DeploymentJournal:
                     0o600,
                 )
                 try:
+                    fcntl.flock(fd, fcntl.LOCK_EX)
                     info = os.fstat(fd)
-                    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
+                    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
+                            or info.st_mode & 0o077):
                         raise DeploymentJournalError("journal file permissions or ownership are unsafe")
+                    # Another journal instance may have appended since this
+                    # instance was opened. Refresh the verified chain while
+                    # holding the cross-process file lock before assigning a
+                    # sequence number or previous hash.
+                    self._events = self._read_and_verify()
+                    if any(item.get("job_id") != self.job_id for item in self._events):
+                        raise DeploymentJournalError("journal already belongs to a different deployment job")
+                    sequence = len(self._events) + 1
+                    previous = self._events[-1]["event_hash"] if self._events else _ZERO_HASH
+                    record = dict(event)
+                    record["sequence"] = sequence
+                    record["previous_hash"] = previous
+                    canonical = json.dumps(record, sort_keys=True, separators=(",", ":"),
+                                           ensure_ascii=True, allow_nan=False).encode("ascii")
+                    event_hash = hashlib.sha256(canonical).hexdigest()
+                    record["event_hash"] = event_hash
+                    line = json.dumps(record, sort_keys=True, separators=(",", ":"),
+                                      ensure_ascii=True, allow_nan=False).encode("ascii") + b"\\n"
+                    if len(line) > _MAX_EVENT_BYTES:
+                        raise DeploymentJournalError("deployment journal event exceeds the size limit")
                     if info.st_size + len(line) > _MAX_JOURNAL_BYTES:
                         raise DeploymentJournalError("deployment journal reached its 32 MiB safety limit")
                     written = 0
                     while written < len(line):
-                        written += os.write(fd, line[written:])
+                        count = os.write(fd, line[written:])
+                        if count <= 0:
+                            raise OSError("journal append made no forward progress")
+                        written += count
                     os.fsync(fd)
+                    self._events.append(record)
                 finally:
                     os.close(fd)
                 parent_fd = os.open(os.path.dirname(self.path), os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
@@ -177,8 +191,6 @@ class DeploymentJournal:
                     os.close(parent_fd)
             except OSError as exc:
                 raise DeploymentJournalError(f"cannot persist deployment event: {exc}") from exc
-            self._events.append(record)
-
 
     def recovery_report(self) -> dict[str, Any]:
         """Reconstruct an audit-only recovery summary; never recreate live sessions."""
