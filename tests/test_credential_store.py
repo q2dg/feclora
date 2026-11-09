@@ -62,6 +62,22 @@ class CredentialStoreTests(unittest.TestCase):
         with self.assertRaisesRegex(CredentialStoreError, "unsafe ownership"):
             self.store.remove("nas", "ssh-key")
 
+    def test_list_returns_only_validated_references(self):
+        self.store.put("nas", "ssh-key", b"private")
+        self.store.put("nas", "known-hosts", b"host key")
+        entries = self.store.list()
+        self.assertEqual(entries, [
+            {"id": "nas", "kind": "known-hosts", "path": str(self.root / "nas.known-hosts")},
+            {"id": "nas", "kind": "ssh-key", "path": str(self.root / "nas.ssh-key")},
+        ])
+        self.assertNotIn("private", repr(entries))
+
+    def test_list_requires_root(self):
+        self.store.put("nas", "smb", b"username=x")
+        unprivileged = CredentialStore(self.root, effective_uid=lambda: 1000, owner_uid=os.getuid())
+        with self.assertRaisesRegex(CredentialStoreError, "requires root"):
+            unprivileged.list()
+
     def test_remove_validates_then_deletes(self):
         self.store.put("nas", "smb", b"username=x")
         self.store.remove("nas", "smb")
