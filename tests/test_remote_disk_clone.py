@@ -127,7 +127,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         thread.start()
         return thread
 
-    def _receive(self, sock, *, geometry, process_factory, target_path="/dev/target", executables=None, safety_check=None):
+    def _receive(self, sock, *, geometry, process_factory, target_path="/dev/target", executables=None, safety_check=None, cancel_check=None):
         with tempfile.TemporaryDirectory() as directory:
             log_path = os.path.join(directory, "operations.jsonl")
             result = receive_remote_disk(
@@ -361,6 +361,37 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         source.join(timeout=5)
         self.assertFalse(source.is_alive())
         self.assertEqual(len(safety_checks), 5)
+        self.assertEqual(commands[0][0], "/usr/bin/blkid")
+        self.assertFalse(any(command[-2:] == ["-e", "/dev/target"] for command in commands))
+
+    def test_larger_gpt_target_honors_cancellation_before_relocation(self):
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
+        source = self._start_source(left)
+        digest = hashlib.sha256(self.payload).hexdigest()
+        commands = []
+
+        def run(command, **kwargs):
+            commands.append(command)
+            return type("Result", (), {"stdout": "gpt\\n", "returncode": 0})()
+
+        with patch("feclora.network.remote_clone._geometry",
+                   return_value=(len(self.payload) + 1024 * 1024, 512, False, "gpt")), \\
+             patch("feclora.network.remote_clone._readback_digest", return_value=digest), \\
+             patch("feclora.network.remote_clone.subprocess.run", side_effect=run):
+            with self.assertRaisesRegex(RemoteDiskCloneError, "cancelled before GPT"):
+                self._receive(
+                    right, geometry=None,
+                    process_factory=lambda *a, **k: FakeProcess(**k),
+                    cancel_check=lambda: True,
+                    executables={
+                        "lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd",
+                        "blkid": "/usr/bin/blkid", "sgdisk": "/usr/bin/sgdisk",
+                    },
+                )
+        source.join(timeout=5)
+        self.assertFalse(source.is_alive())
         self.assertEqual(commands[0][0], "/usr/bin/blkid")
         self.assertFalse(any(command[-2:] == ["-e", "/dev/target"] for command in commands))
 
