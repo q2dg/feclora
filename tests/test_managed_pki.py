@@ -500,7 +500,7 @@ class ManagedPKITests(unittest.TestCase):
                     return SimpleNamespace(stdout="X509v3 Basic Constraints: critical\\n    CA:TRUE")
                 if argv[-3:] == ["-noout", "-ext", "keyUsage"]:
                     return SimpleNamespace(stdout="X509v3 Key Usage: critical\\n    Certificate Sign, CRL Sign")
-                if argv[-1:] == ["-fingerprint", "-sha256"]:
+                if argv[-2:] == ["-fingerprint", "-sha256"]:
                     return SimpleNamespace(stdout="sha256 Fingerprint=" + next(fingerprints))
                 return SimpleNamespace(stdout="certificate parsed")
 
