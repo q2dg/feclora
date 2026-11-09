@@ -71,11 +71,21 @@ the backup. Losing that identity makes the backup unrecoverable; storing it
 beside the backup defeats the offline protection. Test decryption and archive
 inspection in a controlled recovery environment before relying on a backup.
 
-**Restore is not yet exposed in Cockpit.** Do not copy files manually over a
-live `/etc/feclora/pki` directory. A future restore workflow must verify the
-archive manifest and CA key/certificate match, stop all deployment services,
-preserve an encrypted pre-restore snapshot, and require explicit confirmation
-before installing the restored CA.
+Cockpit now provides **Verify an offline CA backup**. Select the encrypted
+archive and its matching age identity from mounted removable media. Feclora
+decrypts into a private temporary directory, accepts only the exact three
+expected regular-file entries, validates the versioned manifest and CA
+fingerprint, checks CA basic constraints/key usage and confirms the private
+key matches the certificate. It removes temporary plaintext on exit and does
+not alter live PKI material. The identity file must be root-owned and mode
+0600 or stricter; the encrypted archive is limited to 16 MiB.
+
+**Restore is not yet exposed in Cockpit.** Verification is not restoration and
+does not prove that the rest of the Server state can be recovered. Do not copy
+files manually over a live `/etc/feclora/pki` directory. A future restore
+workflow must verify the archive, stop all deployment services, preserve an
+encrypted pre-restore snapshot, and require explicit confirmation before
+installing the restored CA.
 
 ## Renewal, revocation and recovery
 
