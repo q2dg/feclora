@@ -293,6 +293,10 @@ class RemoteRepositoryManager:
             if "fd" in locals():
                 os.close(fd)
             raise RepositoryManagerError("repository is in use by an active deployment restore") from exc
+        except RepositoryManagerError:
+            if "fd" in locals():
+                os.close(fd)
+            raise
         except OSError as exc:
             if "fd" in locals():
                 os.close(fd)
