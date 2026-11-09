@@ -52,6 +52,7 @@ description: Fedora-based disk imaging, cloning and recovery.
     <p class="eyebrow">LEARN MORE</p>
     <h2 id="learn-title">Project resources</h2>
     <ul>
+      <li><a href="./GUIDES.html">Step-by-step operator guides</a></li>
       <li><a href="./BUILD.html">Build and installation</a></li>
       <li><a href="./FEATURE-MATRIX.html">Features and compatibility</a></li>
       <li><a href="./CERTIFICATE-MANAGEMENT.html">Security and certificates</a></li>
