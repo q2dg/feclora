@@ -40,6 +40,7 @@ _ALLOWED_FIELDS = {
     "start_deadline",
     "staging_required_bytes",
     "source_device",
+    "repository_id",
 }
 
 
@@ -62,6 +63,7 @@ class DeploymentJob:
     schema_version: int = 1
     staging_required_bytes: int | None = None
     source_device: str | None = None
+    repository_id: str | None = None
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "DeploymentJob":
@@ -98,6 +100,11 @@ class DeploymentJob:
         elif not isinstance(image_id, str) or not _IMAGE_ID_RE.fullmatch(image_id):
             raise JobValidationError("image_id must be a simple identifier, not a path")
 
+        repository_id = payload.get("repository_id")
+        if repository_id is not None:
+            if (operation != "restore" or not isinstance(repository_id, str)
+                    or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", repository_id)):
+                raise JobValidationError("repository_id is valid only for restore jobs and must be a simple repository ID")
         source_device = payload.get("source_device")
         if operation == "clone":
             if (not isinstance(source_device, str)
@@ -209,6 +216,7 @@ class DeploymentJob:
             target_type=target_type,
             staging_required_bytes=staging_required_bytes,
             source_device=source_device,
+            repository_id=repository_id,
         )
 
     @classmethod
@@ -241,6 +249,8 @@ class DeploymentJob:
             document["staging_required_bytes"] = self.staging_required_bytes
         if self.source_device is not None:
             document["source_device"] = self.source_device
+        if self.repository_id is not None:
+            document["repository_id"] = self.repository_id
         return document
 
     def to_json(self) -> str:
