@@ -440,17 +440,27 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         self.addCleanup(left.close)
         self.addCleanup(right.close)
         processes = []
+        header = CloneSessionHeader(
+            session_id=self.header.session_id,
+            source_identity=self.header.source_identity,
+            receiver_identity=self.header.receiver_identity,
+            source_device=self.header.source_device,
+            receiver_target_device=self.header.receiver_target_device,
+            source_size_bytes=len(self.payload) * 2,
+            logical_sector_size=self.header.logical_sector_size,
+            chunk_size_bytes=len(self.payload),
+        )
 
-        def disconnect_after_partial_stream():
-            send_session_header(left, self.header)
+        def disconnect_after_one_full_chunk():
+            send_session_header(left, header)
             receive_session_ready(
-                left, session_id=self.header.session_id,
-                expected_target_device=self.header.receiver_target_device,
+                left, session_id=header.session_id,
+                expected_target_device=header.receiver_target_device,
             )
-            left.sendall(self.payload[: len(self.payload) // 2])
+            left.sendall(self.payload)
             left.shutdown(socket.SHUT_WR)
 
-        source = threading.Thread(target=disconnect_after_partial_stream)
+        source = threading.Thread(target=disconnect_after_one_full_chunk)
         source.start()
 
         def factory(*args, **kwargs):
@@ -462,7 +472,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
             log_path = os.path.join(directory, "operations.jsonl")
             with patch(
                 "feclora.network.remote_clone._geometry",
-                return_value=(len(self.payload), 512, False, "gpt"),
+                return_value=(len(self.payload) * 2, 512, False, "gpt"),
             ):
                 with self.assertRaisesRegex(RemoteDiskCloneError, "disconnected"):
                     receive_remote_disk(
@@ -485,7 +495,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         source.join(timeout=5)
         self.assertFalse(source.is_alive())
         self.assertEqual(len(processes), 1)
-        self.assertEqual(len(processes[0].stdin.data), len(self.payload) // 2)
+        self.assertEqual(len(processes[0].stdin.data), len(self.payload))
         self.assertTrue(processes[0].stdin.closed)
         self.assertEqual([event["status"] for event in events], ["started", "failed"])
         self.assertEqual(events[-1]["error_type"], "RemoteDiskCloneError")
