@@ -347,7 +347,7 @@ class RemoteRepositoryManager:
 
     def _encrypted_credential_bindings(self, repo: RemoteRepository) -> list[tuple[str, str]]:
         """Return validated systemd credential names for encrypted blob paths."""
-        candidates = [repo.identity_file, repo.credential_file]
+        candidates = [repo.identity_file, repo.known_hosts_file, repo.credential_file]
         encrypted_paths = []
         for value in candidates:
             if value is None:
