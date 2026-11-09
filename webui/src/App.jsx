@@ -44,6 +44,9 @@ export default function App() {
   const [caBackupDirectory, setCaBackupDirectory] = useState("");
   const [caBackupRecipient, setCaBackupRecipient] = useState("");
   const [caBackupResult, setCaBackupResult] = useState(null);
+  const [caBackupInspectionFile, setCaBackupInspectionFile] = useState("");
+  const [caBackupIdentityFile, setCaBackupIdentityFile] = useState("");
+  const [caBackupInspection, setCaBackupInspection] = useState(null);
   const [clientAgeInventoryPath, setClientAgeInventoryPath] = useState("");
   const [clientAgeInventoryResult, setClientAgeInventoryResult] = useState(null);
   const [extractImageId, setExtractImageId] = useState("");
@@ -304,6 +307,18 @@ export default function App() {
         age_recipient: caBackupRecipient.trim()
       });
       setCaBackupResult(result); setNotice(result.message);
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const inspectServerCABackup = async () => {
+    setBusy(true); setError(""); setNotice(""); setCaBackupInspection(null);
+    try {
+      const result = await callFeclora("inspect_server_ca_backup", {
+        backup_file: caBackupInspectionFile,
+        identity_file: caBackupIdentityFile
+      });
+      setCaBackupInspection(result); setNotice(result.message);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -1073,6 +1088,17 @@ export default function App() {
                 </Field>
                 <Button variant="primary" onClick={exportServerCABackup} isLoading={busy} isDisabled={busy || !caBackupDirectory || !/^age1[0-9a-z]{20,}$/.test(caBackupRecipient.trim())}>Create encrypted CA backup</Button>
                 {caBackupResult && <Alert variant="success" title="Encrypted CA backup created" isInline>{caBackupResult.backup_file} · SHA-256 {caBackupResult.sha256} · CA fingerprint {caBackupResult.ca_fingerprint}</Alert>}
+                <hr />
+                <Title headingLevel="h4" size="md">Verify an offline CA backup</Title>
+                <Alert variant="info" title="Verification only" isInline>This decrypts into a private temporary directory and validates the archive, manifest, CA certificate and matching private key. It does not install or replace any live PKI files. Select the encrypted archive and its age identity from mounted removable media. Keep the identity on separate media from the archive.</Alert>
+                <Field label="Encrypted CA backup file" help="Mounted removable-media file under /run/media, /media or /mnt; maximum 16 MiB.">
+                  <input className="pf-v5-c-form-control" value={caBackupInspectionFile} onChange={(event) => { setCaBackupInspectionFile(event.target.value); setCaBackupInspection(null); }} placeholder="/run/media/.../feclora-ca-backup.tar.age" />
+                </Field>
+                <Field label="age decryption identity file" help="The root-owned identity file corresponding to the backup recipient; keep it separate from the archive.">
+                  <input className="pf-v5-c-form-control" value={caBackupIdentityFile} onChange={(event) => { setCaBackupIdentityFile(event.target.value); setCaBackupInspection(null); }} placeholder="/run/media/.../recovery-identity.txt" />
+                </Field>
+                <Button variant="secondary" onClick={inspectServerCABackup} isLoading={busy} isDisabled={busy || !caBackupInspectionFile || !caBackupIdentityFile}>Decrypt and verify backup</Button>
+                {caBackupInspection && <Alert variant="success" title="CA backup verified; live PKI unchanged" isInline>CA fingerprint {caBackupInspection.ca_fingerprint}. {caBackupInspection.message}</Alert>}
               </CardBody></Card></StackItem>}
               {status?.server_configured && <StackItem><Card><CardBody>
                 <Title headingLevel="h3" size="lg">Rotate Server TLS keypair</Title>
