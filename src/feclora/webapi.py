@@ -618,6 +618,23 @@ def _service_state() -> dict[str, str]:
     return services
 
 
+def _apply_network_profile(params: dict[str, Any]) -> dict[str, Any]:
+    required = {"uuid", "interface", "method", "address", "prefix_length", "gateway", "dns"}
+    if not required.issubset(params) or set(params) - required - {"rollback_timeout"}:
+        raise WebAPIError("apply_network_profile requires uuid, interface, method, address, prefix_length, gateway and dns")
+    timeout = params.get("rollback_timeout", 120)
+    from feclora.network.profile_apply import NetworkApplyError, apply_ipv4_profile
+    try:
+        return apply_ipv4_profile(
+            uuid=params["uuid"], interface=params["interface"],
+            method=params["method"], address=params["address"],
+            prefix_length=params["prefix_length"], gateway=params["gateway"],
+            dns=params["dns"], rollback_timeout=timeout,
+        )
+    except NetworkApplyError as exc:
+        raise WebAPIError(str(exc)) from exc
+
+
 def _network_connection_profiles() -> list[dict[str, Any]]:
     from feclora.network.connection_profiles import (
         NetworkProfileError, list_connection_profiles,
@@ -2084,6 +2101,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _inspect_server_ca_backup(params)
     if action == "refresh_client_age_recipients":
         return _refresh_client_age_recipients(params)
+    if action == "apply_network_profile":
+        return _apply_network_profile(params)
     if action == "network_connection_profiles":
         if params:
             raise WebAPIError("network_connection_profiles does not accept parameters")
