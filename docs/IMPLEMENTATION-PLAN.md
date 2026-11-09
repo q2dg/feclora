@@ -53,16 +53,18 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 Acceptance: engines use repository IDs/handles, secrets are redacted, failures cannot leave falsely complete images.
 
 ## P0 — Durable operations and progress
-Existing foundation: deployment journals, Server service lifecycle, Client progress and local operation log.
-- [ ] Define a common versioned operation state machine/event schema.
-- [ ] Move local long-running capture/restore/clone work out of browser request lifecycle.
+Existing foundation: deployment journals, persistent Server service lifecycle, root-only Unix-socket control, Client progress and local operation log. Architecture decision: [ADR 0010](adr/0010-durable-local-operations.md).
+- [ ] Define a common versioned operation state machine/event schema without silently changing existing deployment or operation journals.
+- [ ] Move local long-running capture/restore/clone work out of the Cockpit/API request process into a root-owned service independent of every UI session.
+- [ ] Make Cockpit submit validated jobs and consume durable operation IDs, status and progress; a disconnected browser must not own or terminate worker execution.
 - [ ] Persist queued, preflight, running, verifying, completed, failed, cancelled and interrupted states.
-- [ ] Report bytes, phase, throughput, timestamps and diagnostic categories.
+- [ ] Report bytes, phase, throughput, timestamps and bounded diagnostic categories.
 - [x] Detect local operations whose originating process exited (including across reboot) and mark them interrupted for manual review; never resume destructive I/O automatically. Detached-worker supervision remains pending.
-- [ ] Add per-device locks/conflict detection.
+- [ ] Add process-independent per-device locks/conflict detection while preserving the existing host-wide storage/deployment exclusion.
 - [ ] Expose operation history/detail/export in Cockpit; active destructive writes are not cancellable.
 - [ ] Add Server-side artifact-transfer progress; separate control/data channels if required.
-Acceptance: browser closure does not stop jobs; history survives service restart; destructive jobs cannot race on one device; restart never silently resumes writes.
+- [ ] Keep `dialog`/ `zenity` out of the execution architecture; any future console UI must be a client of the same durable service. The legacy `dialog_app.py` still executes engines in its own process and is not safe to reactivate as-is.
+Acceptance: browser closure does not stop jobs; history survives Cockpit/API and worker service restarts; destructive jobs cannot race on one device; restart never silently resumes writes; all UI clients use the same validation and authorization boundary.
 
 ## P1 — Storage topology and explicit growth
 Existing foundation: block inventory, read-only LVM reporting, Btrfs/Stratis inventory, restore profiles and whole-disk layout preview.
