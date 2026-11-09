@@ -1037,6 +1037,27 @@ class WebAPITests(unittest.TestCase):
             dispatch({"action": "network_connection_profiles", "params": {"password": "secret"}})
 
 
+    def test_systemd_credential_api_imports_protected_source_without_returning_secret(self):
+        stored = {"id": "nas", "kind": "ssh-key", "name": "feclora-nas-ssh-key", "path": "/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred"}
+        with patch("feclora.storage.credential_cli.read_source_file", return_value=b"private-key-bytes") as read_source, \\
+             patch("feclora.storage.systemd_credential_store.SystemdCredentialStore.put", return_value=stored) as put:
+            result = dispatch({"action": "put_systemd_credential", "params": {
+                "id": "nas", "kind": "ssh-key", "source_file": "/root/nas.key", "replace": False,
+            }})
+        read_source.assert_called_once_with("/root/nas.key")
+        put.assert_called_once_with("nas", "ssh-key", b"private-key-bytes", replace=False)
+        self.assertEqual(result, {"credential": stored})
+        with self.assertRaisesRegex(WebAPIError, "replace must be boolean"):
+            dispatch({"action": "put_systemd_credential", "params": {
+                "id": "nas", "kind": "ssh-key", "source_file": "/root/nas.key", "replace": "yes",
+            }})
+
+    def test_systemd_credential_api_removes_by_reference_only(self):
+        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore.remove") as remove:
+            result = dispatch({"action": "remove_systemd_credential", "params": {"id": "nas", "kind": "ssh-key"}})
+        remove.assert_called_once_with("nas", "ssh-key")
+        self.assertEqual(result, {"removed": True, "id": "nas", "kind": "ssh-key"})
+
     def test_systemd_credentials_api_lists_encrypted_references_only(self):
         expected = [{"id": "nas", "kind": "ssh-key", "name": "feclora-nas-ssh-key", "path": "/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred"}]
         with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore.list", return_value=expected):
