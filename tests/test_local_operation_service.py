@@ -38,7 +38,8 @@ class LocalOperationWorkerTests(unittest.TestCase):
             RuntimeError("invalid event hash"),
             {"state": "completed"},
         ]
-        with patch("feclora.storage.local_operation_service.LocalOperationStore",
+        with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \
+             patch("feclora.storage.local_operation_service.LocalOperationStore",
                    return_value=store):
             self.assertEqual(recover_interrupted(), 1)
         store.mark_interrupted.assert_called_once_with("running-job")
