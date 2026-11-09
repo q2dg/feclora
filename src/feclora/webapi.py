@@ -1382,6 +1382,8 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
         "port": config.port,
         "client_identity": config.local_identity,
         "client_mac": config.mac_address,
+        "client_network_interface": network_interface,
+        "client_source_address": source_address,
         "server_identity": config.server_identity,
         "job": job.to_dict(),
     }
