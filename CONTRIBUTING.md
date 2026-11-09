@@ -1,13 +1,13 @@
 # Contributing to Feclora
 
-This document describes the engineering and review expectations for changes to
-Feclora. The project is a Fedora Live rescue environment: correctness and
-storage safety take priority over feature count.
+This document describes the engineering and review expectations for
+contributions to Feclora. The project is a Fedora Live rescue environment:
+correctness and storage safety take priority over feature count.
 
 ## Before changing code
 
 - Read the relevant operator documentation and the current
-  [roadmap](docs/ROADMAP.md).
+  [roadmap](docs/ROADMAP.md) and [implementation plan](docs/IMPLEMENTATION-PLAN.md).
 - Check applicable architecture decisions in `docs/adr/`.
 - Keep Cockpit as the primary operator interface. Privileged operations belong
   behind the allowlisted Python API; browser code must not execute privileged
@@ -46,9 +46,9 @@ make webui
 ```
 
 The Python tests use the standard-library unittest runner. The frontend build
-uses the exact dependency versions listed in `webui/package.json`. A committed
-npm lockfile is still pending; do not claim fully locked frontend dependency
-resolution until one is present and used by CI.
+uses the exact dependency versions listed in `webui/package.json`. Until a
+committed npm lockfile is present and CI uses `npm ci`, dependency resolution
+is not fully locked.
 
 Changes to shell scripts must pass Bash syntax validation and ShellCheck.
 Changes to the frontend must compile successfully. CI must pass on the exact
@@ -75,7 +75,7 @@ implementation, Cockpit integration where applicable, and automated
 non-destructive validation are complete. Keep hardware acceptance explicitly
 separate.
 
-The repository's software license and contribution terms have not yet been
-selected. Until maintainers publish a license, do not assume that the source
-is licensed for redistribution, relicensing, or incorporation into another
-project.
+Feclora is licensed under the GNU General Public License v3.0 or (at your
+option) any later version (`GPL-3.0-or-later`). See [LICENSE](LICENSE).
+Individual components and dependencies may carry separate licenses; preserve
+their applicable notices and terms when incorporating or redistributing them.
