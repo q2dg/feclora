@@ -27,12 +27,15 @@ has multiple addresses. The Server API rejects an interface name that is not
 present on the host.
 
 The Client's network configuration is performed separately from the Client's
-own Cockpit session. A Client can only inspect and join a job after the
-Server's persistent service is started and reachable. The current workflow
-does not run a pre-start end-to-end connectivity probe to every enrolled
-Client: job creation verifies the Server interface exists, while authenticated
-Client inspection/join is the actual reachability and mTLS check. Do not
-interpret a saved job definition as proof that a Client is online or reachable.
+own Cockpit session. After the Server's persistent service is started, the
+Client operator uses **Test connectivity and inspect authenticated job**. This
+opens the TLS connection, verifies the enrolled Server identity and retrieves
+the job before the operator approves a local target or starts any storage
+operation. The Server does not proactively probe every enrolled Client from
+its MAC inventory; each Client performs this preflight from its own Cockpit
+session. A saved job definition alone is not proof that a Client is online or
+reachable. Unicast Client interface selection is not yet exposed and currently
+uses the Client host's routing table.
 
 ## Roles and authorization
 
