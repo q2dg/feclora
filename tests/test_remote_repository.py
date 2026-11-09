@@ -44,7 +44,7 @@ class RemoteRepositoryTests(unittest.TestCase):
     def test_webdav_uses_https(self):
         repo = RemoteRepository(
             provider="webdav", host="dav.example.net", remote_path="/images",
-            mountpoint="/mnt/images",
+            mountpoint="/mnt/images", credential_file="/etc/davfs2/secrets",
         )
         self.assertIn("https://dav.example.net/images", repo.mount_argv())
 
@@ -52,9 +52,12 @@ class RemoteRepositoryTests(unittest.TestCase):
         repo = RemoteRepository(
             provider="s3", host="s3.example.net", remote_path="/bucket/images",
             mountpoint="/mnt/images", rclone_remote="feclora_s3",
+            credential_file="/etc/feclora/rclone.conf",
         )
         argv = repo.mount_argv()
-        self.assertEqual(argv[1:3], ["mount", "feclora_s3:bucket/images"])
+        self.assertEqual(argv[1:4], ["--config", "/etc/feclora/rclone.conf", "mount"])
+        self.assertIn("feclora_s3:bucket/images", argv)
+        self.assertIn("--daemon", argv)
         self.assertIn("writes", argv)
         self.assertNotIn("--allow-other", argv)
 
