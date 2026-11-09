@@ -484,5 +484,80 @@ class ManagedPKITests(unittest.TestCase):
                     inspect_server_ca_backup(encrypted, identity, pki_directory=root)
 
 
+    def test_ca_trust_bundle_validates_and_atomically_combines_two_ca_certificates(self):
+        from feclora.deployment.managed_pki import build_ca_trust_bundle
+
+        with tempfile.TemporaryDirectory() as root:
+            old_ca = os.path.join(root, "old-ca.crt")
+            new_ca = os.path.join(root, "new-ca.crt")
+            destination = os.path.join(root, "trust-bundle.pem")
+            Path(old_ca).write_bytes(b"-----BEGIN CERTIFICATE-----\\nOLD\\n-----END CERTIFICATE-----\\n")
+            Path(new_ca).write_bytes(b"-----BEGIN CERTIFICATE-----\\nNEW\\n-----END CERTIFICATE-----\\n")
+            fingerprints = iter(("a" * 64, "b" * 64))
+
+            def fake_run(argv, _runner=None):
+                if argv[-3:] == ["-noout", "-ext", "basicConstraints"]:
+                    return SimpleNamespace(stdout="X509v3 Basic Constraints: critical\\n    CA:TRUE")
+                if argv[-3:] == ["-noout", "-ext", "keyUsage"]:
+                    return SimpleNamespace(stdout="X509v3 Key Usage: critical\\n    Certificate Sign, CRL Sign")
+                if argv[-1:] == ["-fingerprint", "-sha256"]:
+                    return SimpleNamespace(stdout="sha256 Fingerprint=" + next(fingerprints))
+                return SimpleNamespace(stdout="certificate parsed")
+
+            with patch("feclora.deployment.managed_pki.os.geteuid", return_value=0), patch(
+                "feclora.deployment.managed_pki._root_only_directory", return_value=root
+            ), patch("feclora.deployment.managed_pki._run", side_effect=fake_run):
+                result = build_ca_trust_bundle([old_ca, new_ca], destination, pki_directory=root)
+            self.assertEqual(result["certificate_count"], 2)
+            self.assertEqual(result["ca_fingerprints"], ["a" * 64, "b" * 64])
+            self.assertEqual(Path(destination).read_bytes(), Path(old_ca).read_bytes() + Path(new_ca).read_bytes())
+            self.assertEqual(os.stat(destination).st_mode & 0o777, 0o644)
+
+    def test_ca_trust_bundle_rejects_non_ca_without_replacing_existing_bundle(self):
+        from feclora.deployment.managed_pki import build_ca_trust_bundle
+
+        with tempfile.TemporaryDirectory() as root:
+            source = os.path.join(root, "leaf.crt")
+            destination = os.path.join(root, "trust-bundle.pem")
+            Path(source).write_bytes(b"-----BEGIN CERTIFICATE-----\\nLEAF\\n-----END CERTIFICATE-----\\n")
+            Path(destination).write_bytes(b"existing trusted bundle")
+            original = Path(destination).read_bytes()
+
+            def fake_run(argv, _runner=None):
+                if argv[-3:] == ["-noout", "-ext", "basicConstraints"]:
+                    return SimpleNamespace(stdout="X509v3 Basic Constraints: critical\\n    CA:FALSE")
+                return SimpleNamespace(stdout="parsed")
+
+            with patch("feclora.deployment.managed_pki.os.geteuid", return_value=0), patch(
+                "feclora.deployment.managed_pki._root_only_directory", return_value=root
+            ), patch("feclora.deployment.managed_pki._run", side_effect=fake_run):
+                with self.assertRaisesRegex(PKIError, "not a CA"):
+                    build_ca_trust_bundle([source], destination, pki_directory=root)
+            self.assertEqual(Path(destination).read_bytes(), original)
+
+    def test_ca_trust_bundle_rejects_duplicate_ca_fingerprints(self):
+        from feclora.deployment.managed_pki import build_ca_trust_bundle
+
+        with tempfile.TemporaryDirectory() as root:
+            paths = [os.path.join(root, name) for name in ("one.crt", "two.crt")]
+            for path in paths:
+                Path(path).write_bytes(b"-----BEGIN CERTIFICATE-----\\nCA\\n-----END CERTIFICATE-----\\n")
+
+            def fake_run(argv, _runner=None):
+                if argv[-3:] == ["-noout", "-ext", "basicConstraints"]:
+                    return SimpleNamespace(stdout="CA:TRUE")
+                if argv[-3:] == ["-noout", "-ext", "keyUsage"]:
+                    return SimpleNamespace(stdout="Certificate Sign")
+                if argv[-1:] == ["-fingerprint", "-sha256"]:
+                    return SimpleNamespace(stdout="sha256 Fingerprint=" + "c" * 64)
+                return SimpleNamespace(stdout="parsed")
+
+            with patch("feclora.deployment.managed_pki.os.geteuid", return_value=0), patch(
+                "feclora.deployment.managed_pki._root_only_directory", return_value=root
+            ), patch("feclora.deployment.managed_pki._run", side_effect=fake_run):
+                with self.assertRaisesRegex(PKIError, "duplicate"):
+                    build_ca_trust_bundle(paths, os.path.join(root, "trust-bundle.pem"), pki_directory=root)
+
+
 if __name__ == "__main__":
     unittest.main()
