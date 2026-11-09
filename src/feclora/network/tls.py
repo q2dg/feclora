@@ -44,6 +44,7 @@ def connect_mutual_tls(
             raise ValueError("network_interface requires a valid selected interface and source_address")
     deadline = time.monotonic() + timeout
     raw = None
+    connect_host = host
     while raw is None:
         if cancel_check is not None and cancel_check():
             raise RemoteCloneCancelled("remote clone cancelled while connecting to receiver")
@@ -57,6 +58,7 @@ def connect_mutual_tls(
                 )})
                 if not destinations:
                     raise OSError("Server hostname has no IPv4 addresses")
+                connect_host = destinations[0]
                 for destination in destinations:
                     route = subprocess.run(
                         ["/usr/sbin/ip", "-4", "route", "get", destination,
@@ -77,7 +79,7 @@ def connect_mutual_tls(
                 raise OSError(f"selected Client network route is unavailable: {exc}") from exc
         try:
             raw = socket.create_connection(
-                (host, port), timeout=min(float(connect_poll_interval), remaining),
+                (connect_host, port), timeout=min(float(connect_poll_interval), remaining),
                 source_address=(source_address, 0) if parsed_source is not None else None,
             )
         except socket.timeout:
