@@ -208,6 +208,7 @@ class DeploymentJournal:
         if first.get("event") != "job_created" or not isinstance(job, dict):
             raise DeploymentJournalError("journal does not begin with a valid job_created event")
         clients: dict[str, dict[str, Any]] = {}
+        progress: dict[str, dict[str, Any]] = {}
         for event in events:
             mac = event.get("client_mac")
             if mac is None:
@@ -224,6 +225,20 @@ class DeploymentJournal:
                     "last_event": event.get("event"),
                     "timestamp": event.get("timestamp"),
                 }
+            if event.get("event") == "client_progress":
+                snapshot = event.get("progress")
+                if (not isinstance(snapshot, dict)
+                        or snapshot.get("phase") not in {"save", "restore", "transfer"}
+                        or isinstance(snapshot.get("completed_bytes"), bool)
+                        or not isinstance(snapshot.get("completed_bytes"), int)
+                        or snapshot["completed_bytes"] < 0
+                        or (snapshot.get("total_bytes") is not None and (
+                            isinstance(snapshot.get("total_bytes"), bool)
+                            or not isinstance(snapshot.get("total_bytes"), int)
+                            or snapshot["total_bytes"] < snapshot["completed_bytes"]
+                        ))):
+                    raise DeploymentJournalError("journal contains an invalid Client progress snapshot")
+                progress[mac] = copy.deepcopy(snapshot)
         job_state = events[-1].get("job_state")
         if job_state not in {"created", "armed", "running", "completed", "failed", "cancelled"}:
             raise DeploymentJournalError("journal contains an unknown job state")
@@ -245,6 +260,7 @@ class DeploymentJournal:
             "job": dict(job),
             "job_state": job_state,
             "clients": clients,
+            "progress": progress,
             "event_count": len(events),
             "last_event": events[-1].get("event"),
             "interrupted": interrupted,
