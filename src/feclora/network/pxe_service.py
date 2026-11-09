@@ -151,14 +151,14 @@ class PXEServiceManager:
     def start(self, config: PXENetworkConfig) -> None:
         """Start PXE services and persist enough state for a later API process to stop them."""
         config.validated()
+        self._prepare_runtime()
+        if self._read_state() is not None:
+            raise PXEServiceError("PXE services already have a persisted active profile; stop it before starting another")
         # Validate interfaces and daemon prerequisites before touching the
         # published TFTP/HTTP trees. A failed preflight must have no staging
         # side effects.
         self.preflight(config)
         self.boot_stager(config)
-        self._prepare_runtime()
-        if self._read_state() is not None:
-            raise PXEServiceError("PXE services already have a persisted active profile; stop it before starting another")
         suffix = hashlib.sha256(config.interface.encode("ascii")).hexdigest()[:12]
         self._dnsmasq_unit = f"feclora-dnsmasq-{suffix}"
         self._caddy_unit = f"feclora-caddy-{suffix}"
