@@ -34,6 +34,37 @@ class FakeFirewall:
 
 
 class PxeServiceTests(unittest.TestCase):
+    def test_preflight_failure_does_not_stage_boot_assets(self):
+        calls = []
+        def preflight(_config):
+            calls.append("preflight")
+            raise PXEServiceError("interface is not ready")
+        def stage(_config):
+            calls.append("stage")
+        with tempfile.TemporaryDirectory() as tmp:
+            manager = PXEServiceManager(
+                tmp, preflight=preflight, firewall=FakeFirewall(),
+                boot_stager=stage,
+            )
+            with self.assertRaisesRegex(PXEServiceError, "interface is not ready"):
+                manager.start(config())
+        self.assertEqual(calls, ["preflight"])
+        self.assertFalse((Path(tmp) / "active.json").exists())
+
+    def test_successful_start_preflights_before_staging(self):
+        calls = []
+        def runner(argv, **kwargs):
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        with tempfile.TemporaryDirectory() as tmp:
+            manager = PXEServiceManager(
+                tmp, runner=runner,
+                preflight=lambda _config: calls.append("preflight"),
+                firewall=FakeFirewall(),
+                boot_stager=lambda _config: calls.append("stage"),
+            )
+            manager.start(config())
+            self.assertEqual(calls, ["preflight", "stage"])
+            manager.stop()
     def test_starts_two_explicit_transient_units_and_writes_private_configs(self):
         calls = []
         def runner(argv, **kwargs):
