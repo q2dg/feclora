@@ -1073,6 +1073,15 @@ class WebAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
             dispatch({"action": "remote_credentials", "params": {"secret": "must-not-be-accepted"}})
 
+    def test_webdav_repository_is_rejected_until_safe_credential_lifecycle_exists(self):
+        params = {
+            "id": "webdav", "provider": "webdav", "host": "files.example", "remote_path": "/",
+            "username": "operator", "credential_file": None, "identity_file": None,
+            "known_hosts_file": None, "port": None, "read_only": True, "rclone_remote": None,
+        }
+        with self.assertRaisesRegex(WebAPIError, "per-repository encrypted credential lifecycle"):
+            dispatch({"action": "add_remote_repository", "params": params})
+
     def test_remote_repository_actions_are_exposed_through_allowlisted_dispatch(self):
         manager = Mock()
         manager.list.return_value = [{"id": "images", "mounted": False}]
