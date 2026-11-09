@@ -104,16 +104,14 @@ existing source-safety checks. The runtime rechecks it before streaming.
 - Durable operation events on both endpoints and the persistent deployment
   job journal on the Server.
 
-Cancellation is not yet interruptible during every blocked TLS handshake or
-established-socket I/O operation.
-
 ## Failure semantics
 
 Once the receiver writer starts, disconnects, timeouts, or integrity failures
-can leave the destination partially or fully overwritten. Active clone
-cancellation is not yet exposed; the current cancel action is available only
-before ARM, and stopping the persistent service does not interrupt active disk
-I/O. The UI must not imply rollback. The receiver must report the target as
+can leave the destination partially or fully overwritten. The persistent
+workflow does not expose cancellation after ARM. Stopping the service or
+losing the peer may still interrupt the underlying I/O; this is a failure, not
+a rollback. The UI must not imply that the destination is restored to its
+previous contents. The receiver must report the target as
 untrusted until a subsequent successful restore or clone completes and
 verifies. Interrupted jobs are never resumed automatically; inspect both
 endpoints and their journals before starting another operation.
@@ -141,6 +139,8 @@ Feclora job path does not use them because it already owns an authenticated
 control socket.
 
 The Python unit tests and CI cover the job contract, local approvals, the
-existing clone engine and integration plumbing. Active cancellation wiring,
-physical two-machine tests, hardware-specific validation, and interruption
-testing during established socket I/O remain outstanding.
+existing clone engine and integration plumbing. Physical two-machine tests
+and hardware-specific validation are operator acceptance activities described
+in [ACCEPTANCE-TESTS.md](ACCEPTANCE-TESTS.md). Automated fault-injection coverage
+for established socket disconnects and interrupted journal recovery is a
+software test responsibility.
