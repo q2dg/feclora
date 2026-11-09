@@ -1482,15 +1482,17 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError("start_client_job requires host, job_id, device_path, confirmation, compression and optional multicast acknowledgements")
     network_interface = params.get("network_interface")
     source_address = params.get("source_address")
-    if (network_interface is None) != (source_address is None):
-        raise WebAPIError("network_interface and source_address must be supplied together")
+    if source_address is not None and network_interface is None:
+        raise WebAPIError("source_address requires a selected network_interface")
     inspection_params = {"host": params["host"], "job_id": params["job_id"]}
-    if network_interface is not None:
+    if network_interface is not None and source_address is not None:
         inspection_params.update(network_interface=network_interface, source_address=source_address)
     inspection = _inspect_remote_job(inspection_params)
     job = inspection["job"]
     igmp_confirmed = params.get("igmp_confirmed", False)
     multicast_preflight = None
+    if network_interface is not None and source_address is None and job["transport"] != "multicast":
+        raise WebAPIError("unicast Client jobs require a selected interface and source IPv4 address")
     if job["transport"] == "multicast":
         if igmp_confirmed is not True:
             raise WebAPIError("explicitly confirm IGMP snooping and an active querier on the deployment VLAN")
