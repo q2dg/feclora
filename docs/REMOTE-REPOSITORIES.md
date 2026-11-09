@@ -68,8 +68,8 @@ The `SystemdCredentialStore` writes host-bound encrypted blobs under
 `/etc/credstore.encrypted/feclora`, imports plaintext only over the
 `systemd-creds` stdin interface, and returns metadata/references rather than
 secret contents. The repository manager now detects registered encrypted
-credential paths for SSHFS identity keys, SMB credential files and rclone
-configurations. It launches a transient per-repository systemd service with
+credential paths for SSHFS identity keys and pinned `known_hosts` files, SMB credential
+files and rclone configurations. It launches a transient per-repository systemd service with
 `LoadCredentialEncrypted=`; the mount helper reads the decrypted file only
 from that service's `$CREDENTIALS_DIRECTORY`. SSHFS and rclone stay in the
 foreground under the service, and unmount stops the service before falling
