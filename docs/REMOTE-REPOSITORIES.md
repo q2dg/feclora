@@ -36,6 +36,19 @@ rclone remote, not in Feclora's registry. S3 repositories are deliberately
 read-only: rclone's FUSE mount does not provide the provider-aware staging,
 atomic publication and durability contract required for safe image capture.
 
+## Host dependencies
+
+On Fedora, install the helpers required by the providers you intend to use:
+
+```bash
+sudo dnf install fuse-sshfs nfs-utils cifs-utils davfs2 rclone
+```
+
+Only the selected provider's helper is needed. The manager checks for the
+required executable before attempting a mount. The S3 rclone config must be
+created and provisioned separately; Feclora does not collect access keys or
+run the interactive rclone configuration wizard.
+
 ## Security and durability requirements
 
 - SSH host keys must be verified; never disable strict host-key checking.
