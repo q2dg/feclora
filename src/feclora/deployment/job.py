@@ -100,8 +100,10 @@ class DeploymentJob:
 
         source_device = payload.get("source_device")
         if operation == "clone":
-            if (not isinstance(source_device, str) or not source_device.startswith("/dev/")
-                    or len(source_device) > 256 or source_device != source_device.strip()
+            if (not isinstance(source_device, str)
+                    or not re.fullmatch(r"/dev/[A-Za-z0-9_.!/+:-]{1,120}", source_device)
+                    or ".." in source_device.split("/") or "//" in source_device
+                    or any(ord(char) < 32 for char in source_device)
                     or os.path.normpath(source_device) != source_device):
                 raise JobValidationError("clone source_device must be a normalized absolute /dev path")
         elif source_device is not None:
