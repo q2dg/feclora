@@ -240,8 +240,8 @@ class RemoteRepositoryManager:
 
     def _is_encrypted_credential_path(self, value: str) -> bool:
         try:
-            Path(value).relative_to(self.credential_root)
-            return True
+            path = Path(value)
+            return path.is_absolute() and path.parent == self.credential_root and path.name.endswith(".cred")
         except (TypeError, ValueError):
             return False
 
