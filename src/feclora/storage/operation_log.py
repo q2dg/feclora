@@ -19,6 +19,59 @@ class OperationLogError(RuntimeError):
     """The operation journal could not be safely persisted."""
 
 
+def _process_start_ticks(stat_path: str | os.PathLike[str]) -> int | None:
+    try:
+        raw = Path(stat_path).read_text(encoding="ascii")
+        fields = raw[raw.rfind(")") + 2:].split()
+        return int(fields[19])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _operation_process_active(event: dict) -> bool:
+    """Return whether the exact process that started an operation still exists."""
+    pid = event.get("pid")
+    boot_id = event.get("boot_id")
+    start_ticks = event.get("process_start_ticks")
+    if not isinstance(pid, int) or pid <= 0 or not isinstance(boot_id, str) or not isinstance(start_ticks, int):
+        return False
+    try:
+        current_boot_id = Path("/proc/sys/kernel/random/boot_id").read_text(encoding="ascii").strip()
+    except OSError:
+        return False
+    if current_boot_id != boot_id:
+        return False
+    try:
+        current_ticks = _process_start_ticks(f"/proc/{pid}/stat")
+    except OSError:
+        return False
+    return current_ticks == start_ticks
+
+
+def reconcile_interrupted(events: list[dict]) -> list[dict]:
+    """Mark unclosed operations interrupted when their originating process exited.
+
+    This is an in-memory view only: it never edits the journal or retries disk I/O.
+    """
+    terminal_ids = {
+        event.get("operation_id") for event in events
+        if event.get("status") in {"completed", "failed", "cancelled"}
+    }
+    result = []
+    for event in events:
+        if (event.get("status") == "started"
+                and event.get("operation_id") not in terminal_ids
+                and not _operation_process_active(event)):
+            result.append({
+                **event,
+                "status": "interrupted",
+                "recovery_note": "The originating process exited before a terminal event. Inspect the destination; the operation was not resumed.",
+            })
+        else:
+            result.append(event)
+    return result
+
+
 def _timestamp() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
@@ -120,6 +173,9 @@ def operation_record(
         "operation": operation,
         "target": target,
         "image_id": image_id,
+        "pid": os.getpid(),
+        "boot_id": Path("/proc/sys/kernel/random/boot_id").read_text(encoding="ascii").strip(),
+        "process_start_ticks": _process_start_ticks("/proc/self/stat"),
     }
     append_event(log_path, {**common, "timestamp": _timestamp(), "status": "started"})
     import time
