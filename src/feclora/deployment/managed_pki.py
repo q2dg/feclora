@@ -820,7 +820,7 @@ def inspect_server_ca_backup(
         expected = {"ca.crt", "ca.key", "manifest.json"}
         extracted: dict[str, bytes] = {}
         try:
-            with tarfile.open(archive, "r:*") as bundle:
+            with tarfile.open(archive, "r:") as bundle:
                 members = bundle.getmembers()
                 names = [member.name for member in members]
                 if len(names) != len(expected) or set(names) != expected:
