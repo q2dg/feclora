@@ -90,6 +90,40 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         result = self.manager.add("images", definition)
         self.assertEqual(result["provider"], "s3")
 
+    def test_resolve_verifies_webdav_source_and_fuse_type(self):
+        definition = {**self.definition, "provider": "webdav", "host": "dav.example.net",
+                      "remote_path": "/images", "username": None,
+                      "credential_file": "/etc/davfs2/secrets", "identity_file": None,
+                      "known_hosts_file": None, "port": None}
+        with patch("feclora.storage.repository_manager._check_secret_reference"):
+            self.manager.add("dav", definition)
+        self.manager._mount_record = lambda _path: (
+            "fuse.davfs", "https://dav.example.net/images", "ro,relatime",
+        )
+        self.assertEqual(self.manager.resolve("dav"), str(self.mount_root / "dav"))
+        self.manager._mount_record = lambda _path: (
+            "fuse.davfs", "https://evil.example/other", "ro,relatime",
+        )
+        with self.assertRaisesRegex(RepositoryManagerError, "does not match"):
+            self.manager.resolve("dav")
+
+    def test_resolve_verifies_s3_remote_and_enforces_read_only(self):
+        config = Path(self.temp.name) / "rclone.conf"
+        config.write_text("[feclora_s3]\\ntype = s3\\n", encoding="utf-8")
+        config.chmod(0o600)
+        definition = {**self.definition, "provider": "s3", "host": "s3.example.net",
+                      "remote_path": "/bucket/images", "username": None,
+                      "credential_file": str(config), "identity_file": None,
+                      "known_hosts_file": None, "port": None,
+                      "rclone_remote": "feclora_s3", "read_only": True}
+        self.manager.add("objects", definition)
+        self.manager._mount_record = lambda _path: (
+            "fuse.rclone", "feclora_s3:bucket/images", "ro,relatime",
+        )
+        self.assertEqual(self.manager.resolve("objects"), str(self.mount_root / "objects"))
+        with self.assertRaisesRegex(RepositoryManagerError, "read-only"):
+            self.manager.resolve("objects", write=True)
+
     def test_remove_refuses_mounted_repository(self):
         self.manager.add("images", self.definition)
         self.manager._is_mounted = lambda _path: True
