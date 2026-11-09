@@ -335,6 +335,8 @@ class ManagedPKITests(unittest.TestCase):
             self.assertEqual(os.stat(destination).st_mode & 0o777, 0o600)
             self.assertEqual(result["sha256"], hashlib.sha256(b"AGE ENCRYPTED BACKUP").hexdigest())
             with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
+                "feclora.deployment.managed_pki._regular_file"
+            ), patch(
                 "feclora.deployment.managed_pki.ca_fingerprint", return_value="a" * 64
             ):
                 with self.assertRaisesRegex(PKIError, "refusing to overwrite"):
