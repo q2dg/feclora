@@ -148,6 +148,17 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         with self.assertRaisesRegex(RepositoryManagerError, "unknown repository"):
             self.manager.acquire_usage_lock("missing")
 
+    def test_active_restore_lease_blocks_definition_removal_even_if_mount_disappeared(self):
+        self.manager.add("images", self.definition)
+        lease_fd = self.manager.acquire_usage_lock("images")
+        try:
+            with self.assertRaisesRegex(RepositoryManagerError, "active deployment restore"):
+                self.manager.remove("images")
+            self.assertIn("images", self.manager._load())
+            self.assertTrue((self.mount_root / "images").is_dir())
+        finally:
+            os.close(lease_fd)
+
     def test_registry_rejects_symlink(self):
         self.manager.add("images", self.definition)
         real = self.registry
