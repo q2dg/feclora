@@ -1008,6 +1008,13 @@ class WebAPITests(unittest.TestCase):
 
 
 
+    def test_remote_credentials_api_lists_references_without_secret_contents(self):
+        expected = [{"id": "nas", "kind": "ssh-key", "path": "/etc/feclora/credentials/nas.ssh-key"}]
+        with patch("feclora.storage.credential_store.CredentialStore.list", return_value=expected):
+            self.assertEqual(dispatch({"action": "remote_credentials"}), {"credentials": expected})
+        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
+            dispatch({"action": "remote_credentials", "params": {"secret": "must-not-be-accepted"}})
+
     def test_remote_repository_actions_are_exposed_through_allowlisted_dispatch(self):
         manager = Mock()
         manager.list.return_value = [{"id": "images", "mounted": False}]
