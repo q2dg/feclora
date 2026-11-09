@@ -168,6 +168,22 @@ destructive job command in DHCP, TFTP, HTTP or the iPXE script.
    protected restore engine. The Server collects an independent terminal
    result for every Client.
 
+### What the Server authorization means
+
+“ARM” is the literal word used at the final Server-side authorization gate; it
+is not a PXE command, a boot mode, or a network signal. The operator enters
+the exact job-specific phrase shown by Cockpit after reviewing the complete
+READY set. The service checks the job UUID and confirmation phrase, verifies
+that every authorized Client is READY, and performs the multicast network
+preflight when applicable. Only then does it start the existing deployment
+engine and send START to the authenticated Client sessions.
+
+Each Client's local destructive confirmation is a separate prerequisite. For
+a disk clone, the Server phrase also binds the approved source device to the
+enrolled receiver identity. For multicast restore, it explicitly includes
+the IGMP-verification acknowledgement. Neither a PXE boot, a DHCP lease, a
+MAC address, nor knowledge of the job UUID can substitute for these checks.
+
 PXE boot itself never arms or starts a restore. The current iPXE script boots
 the Live environment and does not yet pass a job UUID or auto-enter Client
 mode; the operator performs the Client job selection and local disk approval
