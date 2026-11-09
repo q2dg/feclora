@@ -130,7 +130,7 @@ class SystemdCredentialStore:
     def list(self) -> list[dict[str, str]]:
         if self.effective_uid() != 0:
             raise SystemdCredentialStoreError("credential inventory requires root")
-        self._directory(create=False)
+        self._directory(create=True)
         result = []
         for path in sorted(self.root.glob("*.cred")):
             match = re.fullmatch(r"feclora-([a-z0-9][a-z0-9-]{0,47})-(ssh-key|known-hosts|smb|rclone)\.cred", path.name)
