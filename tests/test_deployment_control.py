@@ -79,6 +79,43 @@ class FakeSocket:
 
 
 class ListenerShutdownRaceTests(unittest.TestCase):
+    def test_ready_client_is_not_registered_after_shutdown_begins(self):
+        tls_socket = FakeSocket()
+        job = SimpleNamespace(job_id=JOB_ID, authorizes_client=lambda mac: mac == MAC)
+        coordinator = Mock()
+        coordinator.job = job
+        def mark_ready(_mac):
+            server._stop_event.set()
+        coordinator.mark_ready.side_effect = mark_ready
+        server = object.__new__(DeploymentControlServer)
+        server._lock = threading.RLock()
+        server._pending_sockets = set()
+        server._stop_event = threading.Event()
+        server._sessions = {}
+        server._identities = {}
+        server._target_devices = {}
+        server.tls_context = SimpleNamespace(wrap_socket=lambda accepted, server_side: tls_socket)
+        server.client_identity_to_mac = {"URI:feclora-client": MAC}
+        server.local_identity = "URI:feclora-server"
+        server.coordinator = coordinator
+        listener = SimpleNamespace(accept=lambda: (FakeSocket(), ("192.0.2.20", 40000)))
+        messages = [
+            {"type": "hello", "job_id": JOB_ID, "mac_address": MAC,
+             "certificate_identity": "URI:feclora-client"},
+            {"type": "ready", "job_id": JOB_ID, "target_description": "approved target",
+             "locally_authorized": True},
+        ]
+        with patch("feclora.deployment.control._certificate_identity", return_value="URI:feclora-client"), \
+             patch("feclora.deployment.control.verify_peer_identity"), \
+             patch("feclora.deployment.control.receive_control_message", side_effect=messages), \
+             patch("feclora.deployment.control.send_control_message"):
+            with self.assertRaisesRegex(DeploymentControlError, "stopped during Client admission"):
+                server.accept_ready_client(listener)
+        self.assertTrue(tls_socket.closed)
+        self.assertEqual(server._sessions, {})
+        self.assertEqual(server._pending_sockets, set())
+        coordinator.disconnect_client.assert_called_once()
+
     def test_tls_socket_created_during_shutdown_is_not_readded_as_pending(self):
         accepted = FakeSocket()
         tls_socket = FakeSocket()
