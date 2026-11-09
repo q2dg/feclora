@@ -2032,6 +2032,28 @@ def _remote_repository_manager():
 
 def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, Any]:
     try:
+        if action == "put_systemd_credential":
+            if set(params) != {"id", "kind", "source_file", "replace"}:
+                raise WebAPIError("put_systemd_credential requires id, kind, source_file and replace")
+            identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
+            kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb|rclone", maximum=16)
+            source_file = _text(params, "source_file", maximum=512)
+            if not isinstance(params["replace"], bool):
+                raise WebAPIError("replace must be boolean")
+            from feclora.storage.credential_cli import read_source_file
+            from feclora.storage.systemd_credential_store import SystemdCredentialStore
+            content = read_source_file(source_file)
+            return {"credential": SystemdCredentialStore().put(
+                identifier, kind, content, replace=params["replace"],
+            )}
+        if action == "remove_systemd_credential":
+            if set(params) != {"id", "kind"}:
+                raise WebAPIError("remove_systemd_credential requires id and kind")
+            identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
+            kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb|rclone", maximum=16)
+            from feclora.storage.systemd_credential_store import SystemdCredentialStore
+            SystemdCredentialStore().remove(identifier, kind)
+            return {"removed": True, "id": identifier, "kind": kind}
         if action == "systemd_credentials":
             if params:
                 raise WebAPIError("systemd_credentials does not accept parameters")
