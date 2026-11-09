@@ -46,7 +46,7 @@ def parse_connection_profiles(payload: str) -> list[dict[str, Any]]:
         profiles.append({
             "uuid": uuid, "name": name, "type": kind,
             "device": row.get("DEVICE") if isinstance(row.get("DEVICE"), str) else None,
-            "active": bool(row.get("ACTIVE")),
+            "active": str(row.get("ACTIVE", "no")).lower() in {"yes", "true", "1"},
             "autoconnect": str(row.get("connection.autoconnect", "yes")).lower() in {"yes", "true", "1"},
             "ipv4_method": method,
             "ipv4_addresses": addresses[:8],
