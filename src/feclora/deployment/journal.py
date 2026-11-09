@@ -169,7 +169,7 @@ class DeploymentJournal:
                     event_hash = hashlib.sha256(canonical).hexdigest()
                     record["event_hash"] = event_hash
                     line = json.dumps(record, sort_keys=True, separators=(",", ":"),
-                                      ensure_ascii=True, allow_nan=False).encode("ascii") + b"\\n"
+                                      ensure_ascii=True, allow_nan=False).encode("ascii") + b"\n"
                     if len(line) > _MAX_EVENT_BYTES:
                         raise DeploymentJournalError("deployment journal event exceeds the size limit")
                     if info.st_size + len(line) > _MAX_JOURNAL_BYTES:
