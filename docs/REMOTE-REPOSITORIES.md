@@ -36,6 +36,35 @@ rclone remote, not in Feclora's registry. S3 repositories are deliberately
 read-only: rclone's FUSE mount does not provide the provider-aware staging,
 atomic publication and durability contract required for safe image capture.
 
+## Credential architecture transition
+
+Fedora's `oo7-daemon` implements the Secret Service D-Bus API for an
+interactive user session. It is suitable for secrets owned by an operator
+session, but it is not a machine-wide root secret broker: a headless Server
+job must not depend on an operator's user bus, unlocked keyring or browser
+session. In particular, a Cockpit request must never pass secret bytes through
+the browser to bridge this session boundary.
+
+For persistent Server-side work, Feclora is adopting systemd's native
+encrypted service credentials. `systemd-creds` encrypts credential payloads
+against the local system credential key (and TPM2 where available); the
+resulting blobs are intended for `LoadCredentialEncrypted=` on the specific
+systemd service that consumes them. Plaintext is made available only in that
+service's private credential directory at activation. This supports jobs that
+continue after Cockpit disconnects and does not require an interactive
+operator session. See [ADR 0011](adr/0011-secret-service-and-systemd-credentials.md).
+
+The new `SystemdCredentialStore` is the first implementation step: it writes
+host-bound encrypted blobs under `/etc/credstore.encrypted/feclora`, imports
+plaintext only over the `systemd-creds` stdin interface, and returns
+metadata/references rather than secret contents. **It is not yet wired into
+repository mount units or the Cockpit credential workflow.** The existing
+plaintext `CredentialStore` and CLI are retained temporarily for compatibility
+and migration; do not treat them as the final Server credential architecture.
+Until per-repository systemd mount/service units consume
+`LoadCredentialEncrypted=`, existing repository credential references still
+use the legacy protected-file mechanism.
+
 ## Local credential provisioning primitive
 
 `feclora.storage.credential_store.CredentialStore` provides a root-only
