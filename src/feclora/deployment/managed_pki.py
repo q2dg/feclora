@@ -757,7 +757,10 @@ def backup_server_ca(
         if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_size <= 0:
             raise PKIError("age did not produce a valid encrypted CA backup")
         os.chmod(staged_output, 0o600)
-        os.replace(staged_output, destination)
+        # link() publishes atomically without replacing a destination created
+        # concurrently after the earlier lexists() check.
+        os.link(staged_output, destination, follow_symlinks=False)
+        os.unlink(staged_output)
         directory_fd = os.open(parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
             os.fsync(directory_fd)
