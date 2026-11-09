@@ -173,6 +173,46 @@ class ImageTransferTests(unittest.TestCase):
             self.assertEqual(os.listdir(target), [])
 
 
+
+    def test_publication_collision_removes_only_files_created_by_this_transfer(self):
+        with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
+            manifest_path = make_image_set(source)
+            collision = os.path.join(target, "table.txt")
+            with open(collision, "wb") as stream:
+                stream.write(b"pre-existing")
+            left, right = socket.socketpair()
+            sender_errors = []
+
+            def sender():
+                try:
+                    with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
+                        send_image_set(
+                            left, source, manifest_path, expected_image_id="golden",
+                            trusted_public_key="/trusted/server.pub",
+                        )
+                except Exception as exc:
+                    sender_errors.append(exc)
+                finally:
+                    left.close()
+
+            with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
+                thread = threading.Thread(target=sender, daemon=True)
+                thread.start()
+                with self.assertRaisesRegex(ImageTransferError, "could not publish"):
+                    receive_image_set(
+                        right, target, expected_image_id="golden",
+                        trusted_public_key="/trusted/server.pub",
+                    )
+                thread.join(5)
+            right.close()
+
+            self.assertFalse(thread.is_alive())
+            self.assertEqual(sender_errors, [])
+            self.assertEqual(os.listdir(target), ["table.txt"])
+            with open(collision, "rb") as stream:
+                self.assertEqual(stream.read(), b"pre-existing")
+
+
     def test_receiver_rejects_wrong_job_image_id_without_publishing(self):
         with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
             manifest_path = make_image_set(source)
