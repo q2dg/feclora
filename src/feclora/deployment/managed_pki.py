@@ -522,6 +522,10 @@ def register_age_recipient(
     ]
     if any(not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in inventory):
         raise PKIError("Server age recipient inventory contains an invalid entry")
+    if recipient in inventory:
+        raise PKIError(
+            "Client age recipient is already registered; each Client must have a unique age identity"
+        )
     directory = _root_only_directory(os.path.join(root, "age-recipients"))
     mapping_file = os.path.join(directory, client_id + ".txt")
     if os.path.lexists(mapping_file):
