@@ -145,18 +145,9 @@ class ManagedPKITests(unittest.TestCase):
                     return SimpleNamespace(stdout="sha256 Fingerprint=" + "A" * 64)
                 return SimpleNamespace(stdout="verified")
 
-            real_fstat = os.fstat
-            def root_owned_fstat(fd):
-                info = real_fstat(fd)
-                values = list(info)
-                values[4] = 0
-                return os.stat_result(values)
-
             with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
                 "feclora.deployment.managed_pki._regular_file"
-            ), patch("feclora.deployment.managed_pki.os.fstat", side_effect=root_owned_fstat), patch(
-                "feclora.deployment.managed_pki._run", side_effect=fake_run
-            ):
+            ), patch("feclora.deployment.managed_pki._run", side_effect=fake_run):
                 result = renew_server_certificate(root)
             self.assertEqual(Path(paths["server.crt"]).read_text(encoding="ascii"), "renewed certificate")
             self.assertEqual(Path(paths["server.key"]).read_bytes(), original_key)
@@ -477,9 +468,18 @@ class ManagedPKITests(unittest.TestCase):
                 Path(argv[argv.index("-o") + 1]).write_bytes(Path(archive).read_bytes())
                 return SimpleNamespace(stdout="")
 
+            real_fstat = os.fstat
+            def root_owned_fstat(fd):
+                info = real_fstat(fd)
+                values = list(info)
+                values[4] = 0
+                return os.stat_result(values)
+
             with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
                 "feclora.deployment.managed_pki._regular_file"
-            ), patch("feclora.deployment.managed_pki._run", side_effect=fake_run):
+            ), patch("feclora.deployment.managed_pki.os.fstat", side_effect=root_owned_fstat), patch(
+                "feclora.deployment.managed_pki._run", side_effect=fake_run
+            ):
                 with self.assertRaisesRegex(PKIError, "exactly"):
                     inspect_server_ca_backup(encrypted, identity, pki_directory=root)
 
