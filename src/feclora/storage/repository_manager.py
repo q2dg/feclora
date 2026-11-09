@@ -232,7 +232,7 @@ class RemoteRepositoryManager:
             raise RepositoryManagerError("unknown repository ID") from exc
         repo = _repository(identifier, definition)
         mountpoint = self.mount_root / identifier
-        _private_directory(mountpoint, create=False)
+        _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
         if self._is_mounted(str(mountpoint)):
             raise RepositoryManagerError("repository is already mounted")
         missing = [tool for tool in __import__(
