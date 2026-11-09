@@ -865,6 +865,7 @@ def inspect_deployment_job(
     mac_address: str,
     job_id: str,
     timeout: float = 15,
+    source_address: str | None = None,
 ) -> DeploymentJob:
     """Read an authorized job offer without registering a Client or becoming READY."""
     _require_tls13_mtls(tls_context)
@@ -876,7 +877,7 @@ def inspect_deployment_job(
         raise DeploymentControlError("deployment job UUID is required")
     tls_socket = connect_mutual_tls(
         tls_context, host, port, expected_peer_identity=expected_server_identity,
-        timeout=timeout, io_timeout=timeout,
+        timeout=timeout, io_timeout=timeout, source_address=source_address,
     )
     with tls_socket:
         send_control_message(tls_socket, {
@@ -911,6 +912,7 @@ def join_deployment(
     prepare_local_target: Callable[[DeploymentJob], LocalTargetApproval],
     execute_job: Callable[[DeploymentJob, Any, LocalTargetApproval], tuple[bool, str]],
     timeout: float = 120,
+    source_address: str | None = None,
 ) -> tuple[DeploymentJob, bool, str]:
     """Authenticate, receive a job, obtain local target approval, then execute on START."""
     _require_tls13_mtls(tls_context)
@@ -922,7 +924,7 @@ def join_deployment(
         raise DeploymentControlError("deployment job UUID is required")
     tls_socket = connect_mutual_tls(
         tls_context, host, port, expected_peer_identity=expected_server_identity,
-        timeout=15, io_timeout=timeout,
+        timeout=15, io_timeout=timeout, source_address=source_address,
     )
     with tls_socket:
         send_control_message(tls_socket, {
