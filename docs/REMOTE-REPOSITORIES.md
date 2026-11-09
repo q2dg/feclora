@@ -46,6 +46,31 @@ rclone remote, not in Feclora's registry. S3 repositories are deliberately
 read-only: rclone's FUSE mount does not provide the provider-aware staging,
 atomic publication and durability contract required for safe image capture.
 
+## Cockpit credential workflow
+
+1. Prepare each source file on the Feclora host. It must be a root-owned regular
+   file, mode 0600, with no symlink or hard link, between 1 byte and 1 MiB.
+   This applies to `known_hosts` files too. Do not paste secret material into
+   Cockpit fields or command arguments.
+2. In Cockpit, open **Remote repositories → Encrypted repository credentials**.
+   Enter a credential ID, select SSH private key, SSH `known_hosts`, SMB
+   credentials or rclone config, and enter the protected source-file path.
+   Import encrypts the file locally; the browser sends only the path and receives
+   only metadata. Feclora leaves the source file in place.
+3. Create the repository definition and select the imported encrypted
+   credential references in the provider-specific fields. SSHFS requires both
+   a private key and pinned `known_hosts` entry; SMB requires an SMB file;
+   S3 requires an rclone config and is forced read-only. NFS needs no credential.
+4. Mount and verify the repository. A credential cannot be removed while any
+   saved repository references it. To rotate one, import with **Replace**, then
+   unmount and remount each affected repository so its service loads the new
+   encrypted credential. Existing mount processes retain the credential they
+   received at activation.
+
+The encrypted blobs are bound to the local system credential key. They are not
+portable backup files; plan credential reprovisioning when moving a repository
+to another Server or recovering after loss of its host/TPM credential key.
+
 ## Credential architecture transition
 
 Fedora's `oo7-daemon` implements the Secret Service D-Bus API for an
