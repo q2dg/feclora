@@ -435,6 +435,61 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         )
         self.assertEqual(acknowledgement, result)
 
+    def test_disconnect_during_target_write_is_journaled_as_failed(self):
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
+        processes = []
+
+        def disconnect_after_partial_stream():
+            send_session_header(left, self.header)
+            receive_session_ready(
+                left, session_id=self.header.session_id,
+                expected_target_device=self.header.receiver_target_device,
+            )
+            left.sendall(self.payload[: len(self.payload) // 2])
+            left.shutdown(socket.SHUT_WR)
+
+        source = threading.Thread(target=disconnect_after_partial_stream)
+        source.start()
+
+        def factory(*args, **kwargs):
+            process = FakeProcess(**kwargs)
+            processes.append(process)
+            return process
+
+        with tempfile.TemporaryDirectory() as directory:
+            log_path = os.path.join(directory, "operations.jsonl")
+            with patch(
+                "feclora.network.remote_clone._geometry",
+                return_value=(len(self.payload), 512, False, "gpt"),
+            ):
+                with self.assertRaisesRegex(RemoteDiskCloneError, "closed|ended|EOF"):
+                    receive_remote_disk(
+                        TlsSocketProxy(right),
+                        operation_log_path=log_path,
+                        local_identity="DNS:receiver.example",
+                        expected_peer_identity="DNS:source.example",
+                        target_path="/dev/target",
+                        confirmation="ERASE /dev/target FROM DNS:source.example",
+                        executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
+                        device_validator=lambda _path: True,
+                        runner=lambda *args, **kwargs: None,
+                        popen_factory=factory,
+                        safety_check=lambda _path: None,
+                        effective_uid=lambda: 0,
+                    )
+            with open(log_path, encoding="utf-8") as journal:
+                events = [json.loads(line) for line in journal]
+
+        source.join(timeout=5)
+        self.assertFalse(source.is_alive())
+        self.assertEqual(len(processes), 1)
+        self.assertEqual(len(processes[0].stdin.data), len(self.payload) // 2)
+        self.assertTrue(processes[0].stdin.closed)
+        self.assertEqual([event["status"] for event in events], ["started", "failed"])
+        self.assertEqual(events[-1]["error_type"], "RemoteDiskCloneError")
+
     def test_receiver_rejects_wrong_local_confirmation(self):
         left, right = socket.socketpair()
         self.addCleanup(left.close)
