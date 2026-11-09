@@ -1607,6 +1607,7 @@ def _deployment_jobs() -> list[dict[str, Any]]:
             "job_id": report["job_id"],
             "operation": job["operation"],
             "image_id": job["image_id"],
+            "source_device": job.get("source_device"),
             "target_type": job.get("target_type", "disk"),
             "transport": job["transport"],
             "job_state": report["job_state"],
