@@ -1575,7 +1575,7 @@ def _deployment_service_command(action: str, params: dict[str, Any]) -> dict[str
     ):
         raise WebAPIError("job_id must be a canonical UUID")
     confirmation = params["confirmation"]
-    if not isinstance(confirmation, str) or len(confirmation) > 96:
+    if not isinstance(confirmation, str) or len(confirmation) > 512:
         raise WebAPIError("operator confirmation is invalid")
     from feclora.deployment.local_control import LocalControlError, local_control_request
     try:
