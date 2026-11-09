@@ -614,6 +614,7 @@ def connect_remote_clone(
     tls_socket = connect_mutual_tls(
         tls_context, host, port,
         expected_peer_identity=expected_peer_identity,
+        cancel_check=kwargs.get("cancel_check"),
     )
     with tls_socket:
         return receive_remote_disk(
