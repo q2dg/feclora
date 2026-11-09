@@ -91,7 +91,7 @@ Acceptance: PXE boot alone never authorizes writes; each client verifies signed,
 ## P1 — GitHub Pages guides
 Publish task-oriented guides only when the exact workflow is implemented; mark future workflows as planned.
 1. [x] Local disk-to-disk clone ([published guide](GUIDE-LOCAL-DISK-CLONE.md)).
-2. [ ] Remote disk-to-disk clone.
+2. [x] Remote disk-to-disk clone ([operational guide](REMOTE-DISK-CLONE.md)).
 3. [ ] Capture disk image to remote SSHFS repository.
 4. [ ] Restore image from SSHFS to one disk.
 5. [ ] Restore image to multiple remote clients.
