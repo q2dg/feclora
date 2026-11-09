@@ -24,7 +24,7 @@ class CockpitEnrollmentError(RuntimeError):
     """A removable-media enrollment request could not be safely approved."""
 
 
-def _media_file(value: object, label: str, *, optional: bool = False) -> str | None:
+def _media_file(value: object, label: str, *, optional: bool = False, maximum_size: int = 65536) -> str | None:
     if optional and value in (None, ""):
         return None
     if not isinstance(value, str) or not os.path.isabs(value) or len(value) > 512:
@@ -53,7 +53,7 @@ def _media_file(value: object, label: str, *, optional: bool = False) -> str | N
         info = os.lstat(path)
     except OSError as exc:
         raise CockpitEnrollmentError(f"{label} is unavailable: {exc}") from exc
-    if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_size > 65536:
+    if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_size > maximum_size:
         raise CockpitEnrollmentError(f"{label} must be a regular file no larger than 64 KiB")
     return str(path)
 
@@ -475,6 +475,24 @@ def export_server_ca_backup(params: dict[str, object]) -> dict[str, object]:
         fingerprint = ca_fingerprint(os.path.join(PKI, "ca.crt"))
         destination = os.path.join(export_dir, f"feclora-ca-backup-{fingerprint[:16]}.tar.age")
         result = backup_server_ca(destination, recipient, pki_directory=PKI)
+        return result
+    except (PKIError, OSError, ValueError) as exc:
+        raise CockpitEnrollmentError(str(exc)) from exc
+
+
+
+def inspect_server_ca_backup(params: dict[str, object]) -> dict[str, object]:
+    if set(params) != {"backup_file", "identity_file"}:
+        raise CockpitEnrollmentError(
+            "inspect_server_ca_backup requires exactly backup_file and identity_file"
+        )
+    backup = _media_file(
+        params["backup_file"], "Encrypted CA backup", maximum_size=16 * 1024 * 1024
+    )
+    identity = _media_file(params["identity_file"], "age decryption identity")
+    try:
+        from feclora.deployment.managed_pki import inspect_server_ca_backup as inspect_backup
+        result = inspect_backup(backup, identity, pki_directory=PKI)
         return result
     except (PKIError, OSError, ValueError) as exc:
         raise CockpitEnrollmentError(str(exc)) from exc
