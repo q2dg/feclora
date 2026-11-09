@@ -148,7 +148,9 @@ class ManagedPKITests(unittest.TestCase):
             real_fstat = os.fstat
             def root_owned_fstat(fd):
                 info = real_fstat(fd)
-                return SimpleNamespace(st_mode=info.st_mode, st_uid=0, st_size=info.st_size)
+                values = list(info)
+                values[4] = 0
+                return os.stat_result(values)
 
             with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
                 "feclora.deployment.managed_pki._regular_file"
@@ -438,7 +440,9 @@ class ManagedPKITests(unittest.TestCase):
             real_fstat = os.fstat
             def root_owned_fstat(fd):
                 info = real_fstat(fd)
-                return SimpleNamespace(st_mode=info.st_mode, st_uid=0, st_size=info.st_size)
+                values = list(info)
+                values[4] = 0
+                return os.stat_result(values)
 
             with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
                 "feclora.deployment.managed_pki._regular_file"
