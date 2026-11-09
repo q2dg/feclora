@@ -1065,6 +1065,19 @@ class WebAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "repository_id is invalid"):
             _operation_repository({"repository_id": "../images"}, write=False)
 
+    def test_local_disk_clone_persists_progress_in_operation_journal(self):
+        from feclora.webapi import _clone_disk_progress
+        with patch("feclora.storage.operation_log.record_progress") as record, patch(
+            "feclora.webapi._emit"
+        ) as emit:
+            _clone_disk_progress(4096, "Copied data")
+        record.assert_called_once_with(4096, None)
+        emit.assert_called_once_with({
+            "event": "progress", "bytes_done": 4096,
+            "bytes_total": None, "message": "Copied data",
+        })
+
+
 
 if __name__ == "__main__":
     unittest.main()
