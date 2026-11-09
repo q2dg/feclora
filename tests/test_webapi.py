@@ -1052,6 +1052,13 @@ class WebAPITests(unittest.TestCase):
                 "id": "nas", "kind": "ssh-key", "source_file": "/root/nas.key", "replace": "yes",
             }})
 
+    def test_systemd_credential_removal_rejects_saved_repository_reference(self):
+        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore._path", return_value="/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred"):
+            with patch("feclora.webapi._remote_repository_manager") as manager:
+                manager.return_value.credential_is_referenced.return_value = True
+                with self.assertRaisesRegex(WebAPIError, "still referenced by a saved repository"):
+                    dispatch({"action": "remove_systemd_credential", "params": {"id": "nas", "kind": "ssh-key"}})
+
     def test_systemd_credential_api_removes_by_reference_only(self):
         with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore.remove") as remove:
             result = dispatch({"action": "remove_systemd_credential", "params": {"id": "nas", "kind": "ssh-key"}})
