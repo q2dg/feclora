@@ -116,6 +116,25 @@ class CredentialStore:
         finally:
             os.close(fd)
 
+    def list(self) -> list[dict[str, str]]:
+        """List valid credential references without reading their contents."""
+        if self.effective_uid() != 0:
+            raise CredentialStoreError("credential inventory requires root")
+        self._directory(create=False)
+        result = []
+        for entry in sorted(self.root.iterdir(), key=lambda item: item.name):
+            if entry.name.startswith(".credential-"):
+                continue
+            matched = next(((entry.name[:-len("." + kind)], kind) for kind in _MODES
+                            if entry.name.endswith("." + kind)), None)
+            if matched is None:
+                continue
+            identifier, kind = matched
+            self._name(identifier, kind)
+            self._validate_existing(entry, kind)
+            result.append({"id": identifier, "kind": kind, "path": str(entry)})
+        return result
+
     def remove(self, identifier: str, kind: str) -> None:
         """Remove a credential after validating its current file identity."""
         if self.effective_uid() != 0:
