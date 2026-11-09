@@ -61,7 +61,7 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Add optional repository-ID routing for whole-disk/partition capture, restore and partition extraction; resolve only mounted, verified repositories and enforce read-only mounts for writes. Local repository remains the backward-compatible default.
 - [x] Expose repository selection and per-repository image inventory in Cockpit; route capture, restore, verification, layout inspection and partition extraction to the selected verified mount.
 - Operator acceptance (documented in `ACCEPTANCE-TESTS.md`): run remote-server checks on SSHFS, NFS and SMB/CIFS, including NFS root-squash/ownership and failure/interruption cases. These physical/provider runs are not implementation blockers.
-- [ ] Store credential references in root-owned protected storage; never ordinary config/logs.
+- [x] Store repository credential references as host-bound encrypted systemd credential blobs under root-only storage; never persist plaintext in ordinary config/logs.
 - [x] Validate referenced secret files through `O_NOFOLLOW` descriptors and `fstat`; reject symlinks, unsafe ownership/modes and hard-linked credential files.
 - [ ] Add SSH host-key pinning, key selection, permission checks and credential rotation.
 - [x] Add a root-only local credential-store primitive for SSH keys, known_hosts, SMB files and rclone configs, with atomic create/replace/remove and strict file validation. This is not exposed through Cockpit and does not complete credential administration.
@@ -69,7 +69,8 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Add a local root-only credential import/removal CLI that reads protected source files, plus a read-only Cockpit API inventory of validated credential references; the API never accepts or returns secret material.
 - [ ] Integrate Fedora `oo7-daemon` Secret Service with interactive operator-session workflows where a user bus is available; never make unattended Server jobs depend on that session.
 - [ ] Design and implement a safe per-repository WebDAV credential lifecycle compatible with davfs2's root-mount semantics; do not use or mutate the global `/etc/davfs2/secrets` as a multi-repository workaround. Extend encrypted service credentials to other long-running Server jobs; migrate existing plaintext credential references and remove the legacy plaintext store/CLI only after compatibility and recovery paths are covered.
-- [ ] Add Cockpit credential selection and repository edit/test/health workflows, WebDAV secret lifecycle, provider-aware S3 artifact publication and automated mount-lifecycle coverage.
+- [x] Add Cockpit import/removal of protected local credential files into systemd-creds storage, read-only encrypted-reference inventory, and credential selection for SSHFS, SMB and S3 repositories.
+- [ ] Add repository edit/test/health workflows, a safe WebDAV per-repository secret lifecycle, provider-aware S3 artifact publication and automated mount-lifecycle coverage.
 - [ ] Handle stale mounts, network loss, interrupted publication, concurrent writers and cleanup.
 - [ ] Add integration tests with local test services where practical.
 Acceptance: engines use repository IDs/handles, secrets are redacted, failures cannot leave falsely complete images.
