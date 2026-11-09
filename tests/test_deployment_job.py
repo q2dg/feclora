@@ -45,6 +45,34 @@ class DeploymentJobTests(unittest.TestCase):
         with self.assertRaisesRegex(JobValidationError, "whole disks"):
             DeploymentJob.from_dict(valid_job(operation="save", target_type="partition"))
 
+    def test_clone_job_requires_local_source_device_and_has_no_image(self):
+        payload = valid_job(
+            operation="clone", image_id=None, source_device="/dev/nvme0n1",
+            transport="unicast",
+        )
+        job = DeploymentJob.from_dict(payload)
+        self.assertEqual(job.operation, "clone")
+        self.assertIsNone(job.image_id)
+        self.assertEqual(job.source_device, "/dev/nvme0n1")
+        self.assertEqual(DeploymentJob.from_json(job.to_json()), job)
+        with self.assertRaisesRegex(JobValidationError, "source_device"):
+            DeploymentJob.from_dict(valid_job(
+                operation="clone", image_id=None, source_device="../sda",
+            ))
+        with self.assertRaisesRegex(JobValidationError, "image_id"):
+            DeploymentJob.from_dict(valid_job(
+                operation="clone", image_id="unexpected-image", source_device="/dev/sda",
+            ))
+        with self.assertRaisesRegex(JobValidationError, "unicast"):
+            DeploymentJob.from_dict(valid_job(
+                operation="clone", image_id=None, source_device="/dev/sda",
+                transport="multicast", multicast_group="239.10.10.10", multicast_port=5000,
+            ))
+
+    def test_non_clone_jobs_reject_source_device(self):
+        with self.assertRaisesRegex(JobValidationError, "only valid for clone"):
+            DeploymentJob.from_dict(valid_job(source_device="/dev/sda"))
+
     def test_rejects_unknown_fields(self):
         with self.assertRaisesRegex(JobValidationError, "Unknown"):
             DeploymentJob.from_dict(valid_job(shell_command="dd if=/dev/zero"))
