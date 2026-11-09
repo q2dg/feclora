@@ -1632,6 +1632,7 @@ def _deployment_jobs() -> list[dict[str, Any]]:
             "interrupted": report["interrupted"] and not service_active,
             "service_active": service_active,
             "clients": report["clients"],
+            "progress": report["progress"],
             "authorized_clients": job["authorized_clients"],
             "event_count": report["event_count"],
             "last_event": report["last_event"],
@@ -2058,7 +2059,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return {"journals": [
             {"job_id": item["job_id"], "job_state": item["job_state"],
              "interrupted": item["interrupted"], "event_count": item["event_count"],
-             "clients": {mac: state["state"] for mac, state in item["clients"].items()}}
+             "clients": {mac: state["state"] for mac, state in item["clients"].items()},
+             "progress": item["progress"]}
             for item in reports
         ]}
     if action in {"capture_disk", "capture_partition", "restore_disk", "restore_partition",
