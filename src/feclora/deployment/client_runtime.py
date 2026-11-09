@@ -19,6 +19,7 @@ from feclora.storage.disk_capture import DiskCaptureError, capture_disk
 from feclora.storage.disk_restore import DiskRestoreError, restore_disk
 from feclora.storage.partition_restore import PartitionRestoreError, restore_partition
 from feclora.storage.image_security import ImageSecurityError
+from feclora.network.remote_clone import receive_remote_disk
 
 
 class ClientImageRuntimeError(RuntimeError):
@@ -55,6 +56,26 @@ def execute_client_image_job(
     if not stat.S_ISBLK(info.st_mode):
         raise ClientImageRuntimeError("local device selection must resolve to a block device")
     tls_socket.settimeout(86400)
+    if job.operation == "clone":
+        required = f"ERASE {local_device_path} FROM {server_identity}"
+        if confirmation != required:
+            raise ClientImageRuntimeError(f"explicit local clone-target confirmation required: {required}")
+        try:
+            result = receive_remote_disk(
+                tls_socket,
+                local_identity=server_identity if False else "unused",
+                expected_peer_identity=server_identity,
+                target_path=local_device_path,
+                confirmation=confirmation,
+                progress_callback=progress_callback,
+                executables=executables,
+            )
+            return True, (
+                f"remote disk clone verified: {result.byte_count} bytes, "
+                f"SHA-256 {result.readback_sha256}"
+            )
+        except Exception as exc:
+            raise ClientImageRuntimeError(f"remote disk clone failed: {exc}") from exc
     if job.operation == "restore":
         required = f"ERASE {local_device_path} FROM {server_identity}"
         if confirmation != required:
