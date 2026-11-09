@@ -181,6 +181,7 @@ class RemoteRepositoryManager:
         if self.effective_uid() != 0:
             raise RepositoryManagerError("remote repository management requires root")
         _private_directory(self.mount_root, create=True, owner_uid=self.owner_uid)
+        os.chmod(self.mount_root, 0o700)
         _private_directory(self.registry.parent, create=True, owner_uid=self.owner_uid)
 
     def _load(self) -> dict[str, dict[str, Any]]:
