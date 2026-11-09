@@ -1104,7 +1104,7 @@ export default function App() {
                   <Button type="submit" variant="primary" isDisabled={busy || !credentialId || !credentialSourceFile}>Import and encrypt credential</Button>
                 </form></CardBody></Card>
                 <Table aria-label="Encrypted repository credentials" variant="compact"><Thead><Tr><Th>ID</Th><Th>Type</Th><Th>Encrypted reference</Th><Th>Action</Th></Tr></Thead><Tbody>
-                  {systemdCredentials.map((credential) => <Tr key={credential.name}><Td>{credential.id}</Td><Td>{credential.kind}</Td><Td>{credential.path}</Td><Td><Button size="sm" variant="danger" isDisabled={busy || remoteRepositories.some((repo) => [repo.credential_file, repo.identity_file, repo.known_hosts_file].includes(credential.path))} onClick={() => removeSystemdCredential(credential)}>Remove</Button></Td></Tr>)}
+                  {systemdCredentials.map((credential) => <Tr key={credential.name}><Td>{credential.id}</Td><Td>{credential.kind}</Td><Td>{credential.path}</Td><Td><Button size="sm" variant="danger" isDisabled={busy || remoteRepositories.some((repo) => (repo.credential_refs || []).includes(credential.path))} onClick={() => removeSystemdCredential(credential)}>Remove</Button></Td></Tr>)}
                   {!systemdCredentials.length && <Tr><Td colSpan={4}>No encrypted credentials imported.</Td></Tr>}
                 </Tbody></Table>
               </StackItem>
