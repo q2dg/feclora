@@ -29,7 +29,7 @@ class RepositoryManagerError(RuntimeError):
     """A managed repository operation failed safely."""
 
 
-def _private_directory(path: Path, *, create: bool) -> None:
+def _private_directory(path: Path, *, create: bool, owner_uid: int = 0) -> None:
     if create:
         path.mkdir(mode=0o700, parents=True, exist_ok=True)
     try:
@@ -37,11 +37,11 @@ def _private_directory(path: Path, *, create: bool) -> None:
     except OSError as exc:
         raise RepositoryManagerError(f"repository state directory is unavailable: {path}") from exc
     if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != 0 or info.st_mode & 0o077):
-        raise RepositoryManagerError(f"repository state directory is not private and root-owned: {path}")
+            or info.st_uid != owner_uid or info.st_mode & 0o022):
+        raise RepositoryManagerError(f"repository state directory is not root-owned or is group/other-writable: {path}")
 
 
-def _read_registry(path: Path = REGISTRY) -> dict[str, dict[str, Any]]:
+def _read_registry(path: Path = REGISTRY, *, owner_uid: int = 0) -> dict[str, dict[str, Any]]:
     try:
         info = os.lstat(path)
     except FileNotFoundError:
@@ -49,12 +49,12 @@ def _read_registry(path: Path = REGISTRY) -> dict[str, dict[str, Any]]:
     except OSError as exc:
         raise RepositoryManagerError(f"cannot inspect repository registry: {exc}") from exc
     if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != 0 or info.st_mode & 0o077 or info.st_size > 256 * 1024):
+            or info.st_uid != owner_uid or info.st_mode & 0o077 or info.st_size > 256 * 1024):
         raise RepositoryManagerError("repository registry must be a private root-owned regular file")
     fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
     try:
         opened = os.fstat(fd)
-        if (not stat.S_ISREG(opened.st_mode) or opened.st_uid != 0
+        if (not stat.S_ISREG(opened.st_mode) or opened.st_uid != owner_uid
                 or opened.st_mode & 0o077
                 or (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino)):
             raise RepositoryManagerError("repository registry changed during inspection")
@@ -89,8 +89,8 @@ def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
-def _write_registry(repositories: dict[str, dict[str, Any]], path: Path = REGISTRY) -> None:
-    _private_directory(path.parent, create=True)
+def _write_registry(repositories: dict[str, dict[str, Any]], path: Path = REGISTRY, *, owner_uid: int = 0) -> None:
+    _private_directory(path.parent, create=True, owner_uid=owner_uid)
     fd, temporary = tempfile.mkstemp(prefix=".repositories-", dir=path.parent)
     try:
         os.fchmod(fd, 0o600)
@@ -114,7 +114,7 @@ def _write_registry(repositories: dict[str, dict[str, Any]], path: Path = REGIST
         raise
 
 
-def _check_secret_reference(path: str | None, label: str, *, private: bool = True) -> None:
+def _check_secret_reference(path: str | None, label: str, *, private: bool = True, owner_uid: int = 0) -> None:
     if path is None:
         return
     try:
@@ -122,11 +122,11 @@ def _check_secret_reference(path: str | None, label: str, *, private: bool = Tru
     except OSError as exc:
         raise RepositoryManagerError(f"{label} is unavailable") from exc
     if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != 0 or (private and info.st_mode & 0o077)):
+            or info.st_uid != owner_uid or (private and info.st_mode & 0o077)):
         raise RepositoryManagerError(f"{label} must be a root-owned regular file with mode 0600 or stricter")
 
 
-def _repository(identifier: str, definition: dict[str, Any]) -> RemoteRepository:
+def _repository(identifier: str, definition: dict[str, Any], *, owner_uid: int = 0) -> RemoteRepository:
     if not _REPOSITORY_ID.fullmatch(identifier):
         raise RepositoryManagerError("repository identifier is invalid")
     if set(definition) != {
@@ -153,10 +153,10 @@ def _repository(identifier: str, definition: dict[str, Any]) -> RemoteRepository
             "WebDAV and S3 need dedicated protected-credential integration"
         )
     if repo.provider == "sshfs":
-        _check_secret_reference(repo.identity_file, "SSH private key")
-        _check_secret_reference(repo.known_hosts_file, "SSH known_hosts", private=False)
+        _check_secret_reference(repo.identity_file, "SSH private key", owner_uid=owner_uid)
+        _check_secret_reference(repo.known_hosts_file, "SSH known_hosts", private=False, owner_uid=owner_uid)
     if repo.provider == "smb":
-        _check_secret_reference(repo.credential_file, "SMB credentials file")
+        _check_secret_reference(repo.credential_file, "SMB credentials file", owner_uid=owner_uid)
     return repo
 
 
@@ -167,21 +167,25 @@ class RemoteRepositoryManager:
         self, *, registry: Path = REGISTRY, mount_root: Path = MOUNT_ROOT,
         runner: Callable[..., Any] | None = None,
         which: Callable[[str], str | None] | None = None,
+        effective_uid: Callable[[], int] | None = None,
+        owner_uid: int = 0,
     ) -> None:
         self.registry = Path(registry)
         self.mount_root = Path(mount_root)
         self.runner = runner or subprocess.run
         self.which = which or shutil.which
+        self.effective_uid = effective_uid or os.geteuid
+        self.owner_uid = owner_uid
 
     def _root(self) -> None:
-        if os.geteuid() != 0:
+        if self.effective_uid() != 0:
             raise RepositoryManagerError("remote repository management requires root")
-        _private_directory(self.mount_root, create=True)
-        _private_directory(self.registry.parent, create=True)
+        _private_directory(self.mount_root, create=True, owner_uid=self.owner_uid)
+        _private_directory(self.registry.parent, create=True, owner_uid=self.owner_uid)
 
     def _load(self) -> dict[str, dict[str, Any]]:
         self._root()
-        return _read_registry(self.registry)
+        return _read_registry(self.registry, owner_uid=self.owner_uid)
 
     def list(self) -> list[dict[str, Any]]:
         entries = self._load()
@@ -202,7 +206,7 @@ class RemoteRepositoryManager:
             raise RepositoryManagerError("repository ID already exists")
         if not isinstance(definition, dict):
             raise RepositoryManagerError("repository definition must be an object")
-        repo = _repository(identifier, definition)
+        repo = _repository(identifier, definition, owner_uid=self.owner_uid)
         mountpoint = self.mount_root / identifier
         if os.path.lexists(mountpoint):
             raise RepositoryManagerError("repository mountpoint already exists outside the registry")
@@ -214,7 +218,7 @@ class RemoteRepositoryManager:
             "port": repo.port, "read_only": repo.read_only,
         }
         try:
-            _write_registry(entries, self.registry)
+            _write_registry(entries, self.registry, owner_uid=self.owner_uid)
         except Exception:
             mountpoint.rmdir()
             raise
