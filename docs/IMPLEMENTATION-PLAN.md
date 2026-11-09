@@ -56,6 +56,7 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Expose repository selection and per-repository image inventory in Cockpit; route capture, restore, verification, layout inspection and partition extraction to the selected verified mount.
 - Operator acceptance (documented in `ACCEPTANCE-TESTS.md`): run remote-server checks on SSHFS, NFS and SMB/CIFS, including NFS root-squash/ownership and failure/interruption cases. These physical/provider runs are not implementation blockers.
 - [ ] Store credential references in root-owned protected storage; never ordinary config/logs.
+- [x] Validate referenced secret files through `O_NOFOLLOW` descriptors and `fstat`; reject symlinks, unsafe ownership/modes and hard-linked credential files.
 - [ ] Add SSH host-key pinning, key selection, permission checks and credential rotation.
 - [ ] Complete Cockpit create/edit/test/mount/unmount/read-only/delete workflows and health/free-space reporting; create/mount/unmount/remove are present for SSHFS/NFS/SMB, but edit/test/health and provider identity checks remain.
 - [ ] Handle stale mounts, network loss, interrupted publication, concurrent writers and cleanup.
