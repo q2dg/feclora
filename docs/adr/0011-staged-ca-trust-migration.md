@@ -101,7 +101,8 @@ size-bounded, duplicate-key rejecting, atomically replaced and serialized with a
 process lock. Allowed phases are \`prepared → distributing → trust_distributed →
 server_switched → converged → retired\`; advancement is gated by the complete
 inventory and explicit retirement confirmation. Reload validates the schema,
-phase history and acknowledgement invariants and fails closed on corruption.
+phase history, timezone-aware monotonic timestamps and acknowledgement ordering
+relative to distribution and Server-switch phases, and fails closed on corruption.
 
 These acknowledgements are currently local manifest records, **not authenticated
 remote Client messages**. The store does not verify that a trust package was
