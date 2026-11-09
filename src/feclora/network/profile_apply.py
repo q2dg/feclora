@@ -116,9 +116,9 @@ def apply_ipv4_profile(
          str(rollback_timeout), "0"],
         runner=runner,
     ).stdout.strip().split()
-    if len(checkpoint) < 2 or not checkpoint[-1].startswith("/org/freedesktop/NetworkManager/Checkpoint"):
+    checkpoint_path = checkpoint[-1].strip('"') if len(checkpoint) >= 2 else ""
+    if not checkpoint_path.startswith("/org/freedesktop/NetworkManager/Checkpoint"):
         raise NetworkApplyError("NetworkManager did not create a valid rollback checkpoint")
-    checkpoint_path = checkpoint[-1]
     try:
         _run([nmcli, *modify], runner=runner)
         _run([nmcli, "--wait", "45", "connection", "up", "uuid", uuid, "ifname", interface],
