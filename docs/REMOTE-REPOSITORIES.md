@@ -54,16 +54,30 @@ service's private credential directory at activation. This supports jobs that
 continue after Cockpit disconnects and does not require an interactive
 operator session. See [ADR 0011](adr/0011-secret-service-and-systemd-credentials.md).
 
-The new `SystemdCredentialStore` is the first implementation step: it writes
-host-bound encrypted blobs under `/etc/credstore.encrypted/feclora`, imports
-plaintext only over the `systemd-creds` stdin interface, and returns
-metadata/references rather than secret contents. **It is not yet wired into
-repository mount units or the Cockpit credential workflow.** The existing
-plaintext `CredentialStore` and CLI are retained temporarily for compatibility
-and migration; do not treat them as the final Server credential architecture.
-Until per-repository systemd mount/service units consume
-`LoadCredentialEncrypted=`, existing repository credential references still
-use the legacy protected-file mechanism.
+The `SystemdCredentialStore` writes host-bound encrypted blobs under
+`/etc/credstore.encrypted/feclora`, imports plaintext only over the
+`systemd-creds` stdin interface, and returns metadata/references rather than
+secret contents. The repository manager now detects registered encrypted
+credential paths for SSHFS identity keys, SMB credential files and rclone
+configurations. It launches a transient per-repository systemd service with
+`LoadCredentialEncrypted=`; the mount helper reads the decrypted file only
+from that service's `$CREDENTIALS_DIRECTORY`. SSHFS and rclone stay in the
+foreground under the service, and unmount stops the service before falling
+back to an explicit unmount where needed.
+
+The mount service intentionally does not enable systemd filesystem namespace
+isolation: doing so would make its mount namespace private and hide the mount
+from Feclora's other services. It runs as root with `NoNewPrivileges=` and a
+restrictive umask; the encrypted credential itself is exposed only through
+systemd's service credential directory. This is a deliberate mount-propagation
+trade-off and should be revisited if a dedicated mount-namespace propagation
+design is introduced.
+
+This first integration does not yet cover WebDAV, which still requires the
+global `/etc/davfs2/secrets` file, or Cockpit credential provisioning and
+selection. NFS does not require credentials. Existing plaintext
+`CredentialStore` and CLI paths remain temporarily supported for migration;
+they are not the target architecture.
 
 The encrypted store can be provisioned locally (as root) from a root-owned,
 mode-0600 source file:
@@ -77,13 +91,15 @@ sudo python3 -m feclora.storage.systemd_credential_cli remove \
   --id nas --kind ssh-key
 ```
 
-The command prints only the encrypted blob path. The credential name returned
-by the inventory is suitable for a future service declaration such as
-`LoadCredentialEncrypted=feclora-nas-ssh-key:/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred`.
-Do not add this directive to a service until its consumer has been changed to
-read the named file from `$CREDENTIALS_DIRECTORY`. The privileged
-`systemd_credentials` API action currently exposes validated metadata only;
-it does not expose plaintext or create/update credentials through Cockpit.
+The command prints only the encrypted blob path. Use that path as the
+`identity_file` for SSHFS, or as `credential_file` for SMB and S3 repository
+definitions. The manager derives the credential name from the validated
+inventory and supplies `LoadCredentialEncrypted=` to the transient mount
+service. The helper substitutes the corresponding
+`$CREDENTIALS_DIRECTORY/name` path into the provider command; no plaintext
+credential path is persisted in the repository registry. The privileged
+`systemd_credentials` API action exposes validated metadata only; it does
+not expose plaintext or create/update credentials through Cockpit.
 
 ## Local credential provisioning primitive
 
