@@ -32,7 +32,7 @@ The detailed, dependency-ordered implementation backlog and acceptance criteria 
 
 ## Remaining implementation work
 
-See [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) for task-level checklists and acceptance criteria. Immediate priorities are full PKI rotation, repository/credential lifecycle, durable local operations and accurate Server-side transfer progress. Remote-clone two-machine hardware and fault-injection validation remains an operator/test task. Storage growth and volume-aware workflows, PXE unattended orchestration, documentation and governance follow.
+See [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) for task-level checklists and acceptance criteria. Immediate priorities are full PKI rotation, repository/credential lifecycle, durable local operations and accurate Server-side transfer progress. Remote-clone two-machine hardware and real network/storage-provider acceptance are operator-run procedures documented in [ACCEPTANCE-TESTS.md](ACCEPTANCE-TESTS.md). Automated fault-injection and recovery checks remain software test responsibilities. Storage growth and volume-aware workflows, PXE unattended orchestration, documentation and governance follow.
 
 ## Operator-owned validation (optional, not a software completion gate)
 
