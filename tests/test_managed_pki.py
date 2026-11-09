@@ -491,8 +491,8 @@ class ManagedPKITests(unittest.TestCase):
             old_ca = os.path.join(root, "old-ca.crt")
             new_ca = os.path.join(root, "new-ca.crt")
             destination = os.path.join(root, "trust-bundle.pem")
-            Path(old_ca).write_bytes(b"-----BEGIN CERTIFICATE-----\\nOLD\\n-----END CERTIFICATE-----\\n")
-            Path(new_ca).write_bytes(b"-----BEGIN CERTIFICATE-----\\nNEW\\n-----END CERTIFICATE-----\\n")
+            Path(old_ca).write_bytes(b"-----BEGIN CERTIFICATE-----\\nT0xE\\n-----END CERTIFICATE-----\\n")
+            Path(new_ca).write_bytes(b"-----BEGIN CERTIFICATE-----\\nTkVX\\n-----END CERTIFICATE-----\\n")
             fingerprints = iter(("a" * 64, "b" * 64))
 
             def fake_run(argv, _runner=None):
@@ -519,7 +519,7 @@ class ManagedPKITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             source = os.path.join(root, "leaf.crt")
             destination = os.path.join(root, "trust-bundle.pem")
-            Path(source).write_bytes(b"-----BEGIN CERTIFICATE-----\\nLEAF\\n-----END CERTIFICATE-----\\n")
+            Path(source).write_bytes(b"-----BEGIN CERTIFICATE-----\\nTEVBRg==\\n-----END CERTIFICATE-----\\n")
             Path(destination).write_bytes(b"existing trusted bundle")
             original = Path(destination).read_bytes()
 
@@ -541,7 +541,7 @@ class ManagedPKITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             paths = [os.path.join(root, name) for name in ("one.crt", "two.crt")]
             for path in paths:
-                Path(path).write_bytes(b"-----BEGIN CERTIFICATE-----\\nCA\\n-----END CERTIFICATE-----\\n")
+                Path(path).write_bytes(b"-----BEGIN CERTIFICATE-----\\nQ0E=\\n-----END CERTIFICATE-----\\n")
 
             def fake_run(argv, _runner=None):
                 if argv[-3:] == ["-noout", "-ext", "basicConstraints"]:
