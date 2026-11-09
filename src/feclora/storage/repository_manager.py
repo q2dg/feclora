@@ -230,7 +230,7 @@ class RemoteRepositoryManager:
             definition = entries[identifier]
         except KeyError as exc:
             raise RepositoryManagerError("unknown repository ID") from exc
-        repo = _repository(identifier, definition)
+        repo = _repository(identifier, definition, owner_uid=self.owner_uid)
         mountpoint = self.mount_root / identifier
         _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
         if self._is_mounted(str(mountpoint)):
@@ -259,7 +259,7 @@ class RemoteRepositoryManager:
         if identifier not in entries:
             raise RepositoryManagerError("unknown repository ID")
         mountpoint = self.mount_root / identifier
-        _private_directory(mountpoint, create=False)
+        _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
         if not self._is_mounted(str(mountpoint)):
             return {"id": identifier, "mounted": False, "already_unmounted": True}
         try:
@@ -285,7 +285,7 @@ class RemoteRepositoryManager:
             raise RepositoryManagerError("unmount the repository before removing its definition")
         mountpoint.rmdir()
         del entries[identifier]
-        _write_registry(entries, self.registry)
+        _write_registry(entries, self.registry, owner_uid=self.owner_uid)
         return {"id": identifier, "removed": True}
 
     def _is_mounted(self, mountpoint: str) -> bool:
