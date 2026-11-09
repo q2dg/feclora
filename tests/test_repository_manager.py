@@ -59,6 +59,28 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
             self.manager.mount("images")
         self.assertTrue(any(call[0] == "/usr/bin/sshfs" for call in self.calls))
 
+    def test_rejects_symlinked_credential_file(self):
+        target = Path(self.temp.name) / "real-key"
+        target.write_text("private key", encoding="ascii")
+        target.chmod(0o600)
+        link = Path(self.temp.name) / "linked-key"
+        link.symlink_to(target)
+        definition = {**self.definition, "identity_file": str(link)}
+        with self.assertRaisesRegex(RepositoryManagerError, "unavailable"):
+            self.manager.add("images", definition)
+
+    def test_rejects_hard_linked_credential_file(self):
+        linked = Path(self.temp.name) / "linked-key"
+        os.link(self.key, linked)
+        definition = {**self.definition, "identity_file": str(linked)}
+        with self.assertRaisesRegex(RepositoryManagerError, "hard links"):
+            self.manager.add("images", definition)
+
+    def test_known_hosts_may_be_world_readable_but_not_writable(self):
+        self.known_hosts.chmod(0o666)
+        with self.assertRaisesRegex(RepositoryManagerError, "not group/other-writable"):
+            self.manager.add("images", self.definition)
+
     def test_rejects_unprotected_ssh_private_key(self):
         self.key.chmod(0o644)
         with self.assertRaisesRegex(RepositoryManagerError, "mode 0600"):
