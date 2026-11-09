@@ -25,6 +25,10 @@ Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the 
 - [x] Keep the direct block-stream data plane separate from UDPcast: the current UDPcast wrapper transfers signed image artifacts to private staging files for multicast restore; it does not implement direct block-device cloning.
 - [x] Extend the existing job definition and privileged API validation for a Server-local read-only source disk; reuse the existing inspect/start/status/arm API and local IPC rather than adding parallel actions.
 - [x] Add Cockpit source/peer selection, Client-local target selection, exact destructive confirmation and independent source/receiver authorization.
+- [x] Add local Cockpit DHCP/static IPv4 configuration for the currently managed Server or Client, with NetworkManager checkpoint rollback and profile/address verification.
+- [x] Bind remote job definitions to an explicitly selected active Server interface/address; document that Client networking is configured from its own Cockpit session.
+- [ ] Add a pre-start reachability check to the intended Client endpoint and verify routing/interface selection on both peers; current authenticated inspect/join remains the first end-to-end Client reachability check.
+- [ ] Complete Fedora Live acceptance for DHCP/static changes on both roles, including browser/API disconnect during checkpoint and remote clone connectivity.
 - [x] Persist operation IDs, job states, errors and terminal verification through the existing operation logs, Client status and Server job journal; expose live byte progress and throughput in Server/Client status.
 - [x] Persist bounded Client progress snapshots in the Server journal and expose the last durable checkpoint in history; restart recovery remains audit-only and never resumes disk I/O.
 - [ ] Complete disconnect, timeout and service-restart fault injection; document partial-write and GPT-relocation recovery without implying rollback. Active-write cancellation and rollback are explicitly out of scope.
