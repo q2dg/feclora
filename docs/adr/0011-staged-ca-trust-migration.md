@@ -102,7 +102,7 @@ process lock. Allowed phases are \`prepared → distributing → trust_distribut
 server_switched → converged → retired\`; advancement is gated by the complete
 inventory and explicit retirement confirmation. Reload validates the schema,
 phase history, timezone-aware monotonic timestamps and acknowledgement ordering
-relative to distribution and Server-switch phases, and fails closed on corruption.
+within distribution, Server-switch and convergence boundaries, and fails closed on corruption.
 
 These acknowledgements are currently local manifest records, **not authenticated
 remote Client messages**. The store does not verify that a trust package was
