@@ -78,6 +78,20 @@ Implement CA rotation as an explicit, resumable, multi-phase migration. The old 
 - Never retire old trust while an enrolled Client is unaccounted for.
 - Never claim live connectivity, systemd or hardware acceptance based only on unit tests.
 
+## Implementation progress
+
+A first local primitive now exists as `build_ca_trust_bundle()` in
+`feclora.deployment.managed_pki`. It accepts a bounded list of public PEM
+certificates, validates CA basic constraints and certificate-signing key usage,
+rejects duplicate SHA-256 fingerprints, and writes the combined bundle
+atomically under the protected PKI directory. Its input reads reject symlinks
+and are size-bounded.
+
+This primitive does **not** yet provide versioned CA storage, a migration
+manifest, authenticated removable-media distribution, TLS runtime activation,
+Client acknowledgement, rollback orchestration or old-trust retirement. It
+must not be exposed as a complete CA-rotation workflow.
+
 ## Consequences
 
 CA rotation remains unavailable until the dependencies and phase-level tests above are implemented. Existing same-CA Server certificate renewal, Server keypair rotation, Client certificate renewal and encrypted CA backup remain separate workflows and must not be presented as CA rotation.
