@@ -32,6 +32,7 @@ Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS ke
 - [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
 - [ ] Specify and implement minisign signing-key rotation and age recipient/identity rotation separately from TLS PKI.
 - [x] Add encrypted offline CA backup to mounted removable media using an independently supplied age recipient; private CA material remains in root-only staging until encrypted.
+- [x] Add non-destructive Cockpit backup inspection: age decryption, strict archive/manifest validation, CA fingerprint and key-pair checks; never installs material.
 - [ ] Implement verified CA backup restore and compromise recovery; no manual overwrite of a live PKI directory.
 - [ ] Expose preflight, per-client status, expiry, progress and rollback in Cockpit.
 - [ ] Test mixed-version clients, interrupted rotation, expiry, wrong SAN/fingerprint and lost Server state.
