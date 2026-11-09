@@ -49,10 +49,15 @@ service's private credential directory.
 - The first implementation step is
   `feclora.storage.systemd_credential_store.SystemdCredentialStore`, which
   stores encrypted blobs under `/etc/credstore.encrypted/feclora`.
-- This store is not yet connected to repository mount lifecycles or Cockpit.
-  Per-repository systemd units (or equivalent service-scoped consumers) must
-  be introduced before encrypted credentials can replace current mount-time
-  credential files.
+- The repository manager now launches transient per-repository systemd
+  services for SSHFS, SMB and rclone mounts that reference registered
+  encrypted blobs through `LoadCredentialEncrypted=`. The mount helper reads
+  only from `$CREDENTIALS_DIRECTORY`; SSHFS/rclone stay foreground so the
+  service owns their lifetime. WebDAV still uses its system davfs2 secrets
+  file, and Cockpit provisioning/selection is not implemented. The mount
+  service deliberately avoids filesystem namespace isolation so its mounts
+  propagate to the host; this limits sandboxing and must be revisited if a
+  mount-propagation broker is introduced.
 - Existing repository definitions and the local credential CLI remain
   compatibility paths during migration; their continued presence is not the
   target architecture.
