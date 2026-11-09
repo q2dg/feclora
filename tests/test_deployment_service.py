@@ -263,7 +263,9 @@ class DeploymentServiceCommandTests(unittest.TestCase):
         with mock.patch(
             "feclora.storage.repository_manager.RemoteRepositoryManager",
             return_value=manager,
-        ), mock.patch("feclora.deployment.service.verify_manifest_signature"):
+        ), mock.patch("feclora.deployment.service.verify_manifest_signature"), mock.patch(
+            "feclora.deployment.service.recover_stale_runtime_artifacts",
+        ):
             service.run()
 
         manager.acquire_usage_lock.assert_called_once_with("images")
