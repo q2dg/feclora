@@ -29,10 +29,13 @@ operation identifier.
 ## Recovery and cancellation
 
 The boot-time `feclora-local-operation-recovery.service` runs before the
-Cockpit socket and marks every unfinished queued/preflight/running/verifying
-operation as `interrupted`. It never replays a job or resumes block-device
-writes. A worker also ignores SIGTERM while executing: an ordinary service
-stop waits for the current operation rather than cancelling destructive I/O.
+Cockpit socket and enumerates every persisted operation definition, not just
+the most recent history page. It marks every unfinished queued/preflight/
+running/verifying operation as `interrupted`. A damaged journal is reported
+for manual inspection without preventing recovery of other jobs. Recovery
+never replays a job or resumes block-device writes. A worker also ignores
+SIGTERM while executing: an ordinary service stop waits for the current
+operation rather than cancelling destructive I/O.
 There is deliberately no cancellation API for active writes. A forced kill or
 power loss leaves a job for manual inspection; an operator must submit a new,
 explicitly confirmed operation after inspecting the destination.
