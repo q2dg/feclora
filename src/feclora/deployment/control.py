@@ -396,6 +396,8 @@ class DeploymentControlServer:
                 raise DeploymentControlError("Client clone target device path is invalid")
             self.coordinator.mark_ready(mac)
             with self._lock:
+                if self._stop_event.is_set():
+                    raise DeploymentControlError("Server control service stopped during Client admission")
                 self._pending_sockets.discard(tls_socket)
                 self._sessions[mac] = tls_socket
                 self._identities[mac] = identity
