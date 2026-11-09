@@ -487,17 +487,19 @@ class DeploymentControlServer:
         now = time.monotonic()
         with self._lock:
             previous = self._progress.get(mac)
+            if (previous is not None and previous["phase"] == message["phase"]
+                    and completed < previous["completed_bytes"]):
+                raise DeploymentControlError("Client progress byte counter moved backwards")
             rate = 0.0
             if (previous is not None and previous["phase"] == message["phase"]
                     and now > previous["monotonic"]):
-                rate = max(0.0, (completed - previous["completed_bytes"]) / (now - previous["monotonic"]))
+                rate = (completed - previous["completed_bytes"]) / (now - previous["monotonic"])
             updated_at = datetime.now(timezone.utc).isoformat()
             snapshot = {
                 "phase": message["phase"], "completed_bytes": completed,
                 "total_bytes": total, "bytes_per_second": round(rate, 1),
                 "updated_at": updated_at,
             }
-            self._progress[mac] = {**snapshot, "monotonic": now}
             progress_sink = getattr(self, "_progress_event_sink", None)
             last_persisted = getattr(self, "_last_persisted_progress", {})
             previous_saved = last_persisted.get(mac)
@@ -526,6 +528,7 @@ class DeploymentControlServer:
                     raise DeploymentControlError(f"could not persist Client progress snapshot: {exc}") from exc
                 last_persisted[mac] = {**snapshot, "monotonic": now}
                 self._last_persisted_progress = last_persisted
+            self._progress[mac] = {**snapshot, "monotonic": now}
 
     def client_progress(self) -> dict[str, dict[str, Any]]:
         with self._lock:
