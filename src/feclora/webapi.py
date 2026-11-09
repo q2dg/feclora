@@ -1180,7 +1180,10 @@ def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
     }
-    if action not in operation_fields or set(params) != operation_fields[action]:
+    if action not in operation_fields or (
+        set(params) != operation_fields[action]
+        and set(params) != operation_fields[action] - {"repository_id"}
+    ):
         raise WebAPIError("operation parameters do not match the selected operation")
     from feclora.storage.operation_log import operation_record
 
