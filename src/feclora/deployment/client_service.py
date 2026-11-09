@@ -332,7 +332,7 @@ class ClientDeploymentService:
                     raise DeploymentControlError(f"selected local target is unsafe or in use: {exc}") from exc
                 required = (
                     f"ERASE {device_path} FROM {config.server_identity}"
-                    if job.operation == "restore"
+                    if job.operation in {"restore", "clone"}
                     else f"READ {device_path} TO {config.server_identity}"
                 )
                 if confirmation != required:
