@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 from feclora.storage.repository import RemoteRepository
 from feclora.storage.repository_mount_service import build_mount_argv
-from feclora.storage.repository_manager import RemoteRepositoryManager
+from feclora.storage.repository_manager import RemoteRepositoryManager, RepositoryManagerError
 
 
 class RepositoryMountServiceTests(unittest.TestCase):
@@ -150,7 +150,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
                 effective_uid=lambda: 0, owner_uid=os.getuid(),
             )
             with self.assertRaisesRegex(
-                Exception, "WebDAV encrypted credentials are not supported yet"
+                RepositoryManagerError, "WebDAV encrypted credentials are not supported yet"
             ):
                 manager._encrypted_credential_bindings(repo)
 
