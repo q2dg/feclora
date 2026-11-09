@@ -390,5 +390,81 @@ class ManagedPKITests(unittest.TestCase):
             self.assertEqual(os.stat(private_key).st_mode & 0o777, 0o600)
 
 
+    def test_ca_backup_inspection_validates_archive_without_installing(self):
+        from feclora.deployment.managed_pki import inspect_server_ca_backup
+
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as media:
+            encrypted = os.path.join(media, "backup.tar.age")
+            identity = os.path.join(root, "identity.txt")
+            archive = os.path.join(media, "fixture.tar")
+            Path(encrypted).write_bytes(b"AGE ENCRYPTED")
+            Path(identity).write_text("AGE-SECRET-KEY-1TEST", encoding="ascii")
+            manifest = {
+                "schema_version": 1,
+                "purpose": "feclora-managed-deployment-ca-recovery",
+                "ca_sha256_fingerprint": "c" * 64,
+                "contents": ["ca.crt", "ca.key"],
+            }
+            with tarfile.open(archive, "w") as bundle:
+                for name, data in (
+                    ("ca.crt", b"CA CERTIFICATE"),
+                    ("ca.key", b"CA PRIVATE KEY"),
+                    ("manifest.json", json.dumps(manifest).encode("ascii")),
+                ):
+                    info = tarfile.TarInfo(name)
+                    info.size = len(data)
+                    bundle.addfile(info, __import__("io").BytesIO(data))
+
+            def fake_run(argv, _runner=None):
+                if argv[1:2] == ["-d"]:
+                    Path(argv[argv.index("-o") + 1]).write_bytes(Path(archive).read_bytes())
+                    return SimpleNamespace(stdout="")
+                if argv[1:2] == ["x509"] and "-ext" in argv:
+                    return SimpleNamespace(stdout="CA:TRUE\nCertificate Sign\n")
+                if argv[1:2] == ["x509"] and "-pubkey" in argv:
+                    return SimpleNamespace(stdout="MATCHING PUBLIC KEY")
+                if argv[1:2] == ["pkey"]:
+                    return SimpleNamespace(stdout="MATCHING PUBLIC KEY")
+                return SimpleNamespace(stdout="verified")
+
+            with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
+                "feclora.deployment.managed_pki._regular_file"
+            ), patch("feclora.deployment.managed_pki._run", side_effect=fake_run), patch(
+                "feclora.deployment.managed_pki.ca_fingerprint", return_value="c" * 64
+            ):
+                result = inspect_server_ca_backup(encrypted, identity, pki_directory=root)
+            self.assertEqual(result["ca_fingerprint"], "c" * 64)
+            self.assertEqual(result["archive_valid"], "true")
+            self.assertEqual(os.listdir(root), ["identity.txt"])
+
+    def test_ca_backup_inspection_rejects_unexpected_archive_entries(self):
+        from feclora.deployment.managed_pki import inspect_server_ca_backup
+
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as media:
+            encrypted = os.path.join(media, "backup.tar.age")
+            identity = os.path.join(root, "identity.txt")
+            archive = os.path.join(media, "fixture.tar")
+            Path(encrypted).write_bytes(b"AGE ENCRYPTED")
+            Path(identity).write_text("AGE-SECRET-KEY-1TEST", encoding="ascii")
+            with tarfile.open(archive, "w") as bundle:
+                for name, data in (
+                    ("ca.crt", b"cert"), ("ca.key", b"key"),
+                    ("manifest.json", b"{}"), ("../../outside", b"bad"),
+                ):
+                    info = tarfile.TarInfo(name)
+                    info.size = len(data)
+                    bundle.addfile(info, __import__("io").BytesIO(data))
+
+            def fake_run(argv, _runner=None):
+                Path(argv[argv.index("-o") + 1]).write_bytes(Path(archive).read_bytes())
+                return SimpleNamespace(stdout="")
+
+            with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
+                "feclora.deployment.managed_pki._regular_file"
+            ), patch("feclora.deployment.managed_pki._run", side_effect=fake_run):
+                with self.assertRaisesRegex(PKIError, "exactly"):
+                    inspect_server_ca_backup(encrypted, identity, pki_directory=root)
+
+
 if __name__ == "__main__":
     unittest.main()
