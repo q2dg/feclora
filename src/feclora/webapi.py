@@ -1784,6 +1784,61 @@ def _revoke_server_client(params: dict[str, Any]) -> dict[str, Any]:
     return {"identity": identity, "mac_address": mac, "revoked": True, "certificate_pin_removed": pin_removed}
 
 
+
+
+def _remote_repository_manager():
+    from feclora.storage.repository_manager import RemoteRepositoryManager
+    return RemoteRepositoryManager()
+
+
+def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, Any]:
+    manager = _remote_repository_manager()
+    try:
+        if action == "remote_repositories":
+            if params:
+                raise WebAPIError("remote_repositories does not accept parameters")
+            return {"repositories": manager.list()}
+        if action == "add_remote_repository":
+            required = {
+                "id", "provider", "host", "remote_path", "username",
+                "credential_file", "identity_file", "known_hosts_file",
+                "port", "read_only",
+            }
+            if set(params) != required:
+                raise WebAPIError("remote repository definition has missing or unknown fields")
+            identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
+            definition = {key: params[key] for key in required - {"id"}}
+            for key in ("provider", "host", "remote_path"):
+                _text(definition, key, maximum=512)
+            for key in ("username", "credential_file", "identity_file", "known_hosts_file"):
+                if definition[key] is not None and (
+                    not isinstance(definition[key], str) or not definition[key]
+                    or len(definition[key]) > 512
+                ):
+                    raise WebAPIError(f"{key} must be null or a non-empty path/value")
+            if definition["port"] is not None and (
+                isinstance(definition["port"], bool) or not isinstance(definition["port"], int)
+                or not 1 <= definition["port"] <= 65535
+            ):
+                raise WebAPIError("port must be null or an integer between 1 and 65535")
+            if not isinstance(definition["read_only"], bool):
+                raise WebAPIError("read_only must be boolean")
+            return manager.add(identifier, definition)
+        if action in {"mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"}:
+            if set(params) != {"id"}:
+                raise WebAPIError(f"{action} requires exactly id")
+            identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
+            if action == "mount_remote_repository":
+                return manager.mount(identifier)
+            if action == "unmount_remote_repository":
+                return manager.unmount(identifier)
+            return manager.remove(identifier)
+    except WebAPIError:
+        raise
+    except Exception as exc:
+        raise WebAPIError(f"remote repository operation failed: {exc}") from exc
+    raise WebAPIError("unsupported remote repository action")
+
 def dispatch(request: Any) -> dict[str, Any]:
     if not isinstance(request, dict) or set(request) - {"action", "params"} or "action" not in request:
         raise WebAPIError("request must contain an action and optional params object")
@@ -1803,6 +1858,8 @@ def dispatch(request: Any) -> dict[str, Any]:
             "security": _security_material(),
             "certificate_status": _certificate_status(),
         }
+    if action in {"remote_repositories", "add_remote_repository", "mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"}:
+        return _remote_repository_action(action, params)
     if action == "server_trusted_clients":
         if params:
             raise WebAPIError("server_trusted_clients does not accept parameters")
