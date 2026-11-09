@@ -22,7 +22,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
             repo, [("feclora-nas-ssh-key", encrypted)], "/run/credentials/unit",
         )
         self.assertEqual(argv[1], "-f")
-        self.assertIn("IdentityFile=/run/credentials/unit/feclora-nas-ssh-key", argv[2])
+        self.assertIn("IdentityFile=/run/credentials/unit/feclora-nas-ssh-key", argv[3])
         self.assertNotIn(encrypted, " ".join(argv))
 
     def test_smb_credentials_path_is_replaced_in_mount_options(self):
