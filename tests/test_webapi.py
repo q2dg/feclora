@@ -1039,11 +1039,11 @@ class WebAPITests(unittest.TestCase):
 
     def test_systemd_credential_api_imports_protected_source_without_returning_secret(self):
         stored = {"id": "nas", "kind": "ssh-key", "name": "feclora-nas-ssh-key", "path": "/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred"}
-        with patch("feclora.storage.credential_cli.read_source_file", return_value=b"private-key-bytes") as read_source, \\
-             patch("feclora.storage.systemd_credential_store.SystemdCredentialStore.put", return_value=stored) as put:
-            result = dispatch({"action": "put_systemd_credential", "params": {
-                "id": "nas", "kind": "ssh-key", "source_file": "/root/nas.key", "replace": False,
-            }})
+        with patch("feclora.storage.credential_cli.read_source_file", return_value=b"private-key-bytes") as read_source:
+            with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore.put", return_value=stored) as put:
+                result = dispatch({"action": "put_systemd_credential", "params": {
+                    "id": "nas", "kind": "ssh-key", "source_file": "/root/nas.key", "replace": False,
+                }})
         read_source.assert_called_once_with("/root/nas.key")
         put.assert_called_once_with("nas", "ssh-key", b"private-key-bytes", replace=False)
         self.assertEqual(result, {"credential": stored})
