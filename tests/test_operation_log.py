@@ -19,6 +19,28 @@ class OperationLogTests(unittest.TestCase):
             self.assertEqual(events[0]["target"], "/dev/sda1")
             self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
 
+    def test_records_progress_and_forces_final_progress_event(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "operations.jsonl")
+            with operation_record("capture_disk", "/dev/sda", log_path=path):
+                from feclora.storage.operation_log import record_progress
+                record_progress(0, 100)
+                record_progress(100, 100)
+            with open(path, encoding="utf-8") as stream:
+                events = [json.loads(line) for line in stream]
+            self.assertEqual(
+                [item["status"] for item in events],
+                ["started", "progress", "progress", "completed"],
+            )
+            self.assertEqual(events[1]["bytes_done"], 0)
+            self.assertEqual(events[2]["bytes_done"], 100)
+            self.assertEqual(events[2]["bytes_total"], 100)
+            self.assertEqual(events[0]["operation_id"], events[2]["operation_id"])
+
+    def test_progress_outside_an_operation_is_ignored(self):
+        from feclora.storage.operation_log import record_progress
+        record_progress(10, 100)
+
     def test_records_failure_and_error_details(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "operations.jsonl")
