@@ -161,7 +161,9 @@ class DeploymentJournal:
                         raise DeploymentJournalError("journal already belongs to a different deployment job")
                     sequence = len(self._events) + 1
                     previous = self._events[-1]["event_hash"] if self._events else _ZERO_HASH
-                    record = dict(event)
+                    # Detach nested caller-owned values before both hashing and
+                    # retaining the record in this journal instance.
+                    record = copy.deepcopy(dict(event))
                     record["sequence"] = sequence
                     record["previous_hash"] = previous
                     canonical = json.dumps(record, sort_keys=True, separators=(",", ":"),
