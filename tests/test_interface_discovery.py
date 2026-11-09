@@ -63,3 +63,32 @@ class InterfaceDiscoveryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NetworkConnectionProfileTests(unittest.TestCase):
+    def test_parses_safe_connection_profile_inventory(self):
+        from feclora.network.connection_profiles import parse_connection_profiles
+        payload = json.dumps([{
+            "NAME": "Management LAN", "UUID": "12345678-1234-1234-1234-123456789abc",
+            "TYPE": "ethernet", "DEVICE": "enp1s0", "ACTIVE": True,
+            "connection.autoconnect": "yes", "IP4.METHOD": "manual",
+            "IP4.ADDRESS": ["192.0.2.10/24"], "IP4.GATEWAY": "192.0.2.1",
+            "IP4.DNS": ["192.0.2.53"], "802-1x.password": "must-not-leak",
+        }])
+        result = parse_connection_profiles(payload)
+        self.assertEqual(result[0]["ipv4_method"], "manual")
+        self.assertEqual(result[0]["ipv4_addresses"], ["192.0.2.10/24"])
+        self.assertNotIn("password", json.dumps(result))
+
+    def test_ignores_unsupported_and_malformed_profiles(self):
+        from feclora.network.connection_profiles import parse_connection_profiles
+        payload = json.dumps([
+            {"NAME": "VPN", "UUID": "12345678-1234-1234-1234-123456789abc", "TYPE": "vpn"},
+            {"NAME": "Broken", "UUID": "not-a-uuid", "TYPE": "ethernet"},
+        ])
+        self.assertEqual(parse_connection_profiles(payload), [])
+
+    def test_rejects_invalid_nmcli_json(self):
+        from feclora.network.connection_profiles import NetworkProfileError, parse_connection_profiles
+        with self.assertRaises(NetworkProfileError):
+            parse_connection_profiles("{")
