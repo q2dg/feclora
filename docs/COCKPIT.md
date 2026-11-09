@@ -149,9 +149,12 @@ automatically reconnected or resumed. An orderly systemd stop is deferred
 while the Client is in its storage-I/O phase; the unit has no stop timeout that
 could kill an active write. To cancel a Client that is waiting for ARM, cancel
 the unarmed job from the Server Cockpit. For multicast restore, each
-Client selects its own receive interface and local destination in the
-**Client jobs** tab; interface/route and udp-receiver preflight must pass
-before READY. No automatic poweroff/reboot is performed.
+Client selects its own active IPv4 interface/address before authenticated
+job inspection. Feclora binds the preflight and persistent unicast TLS session
+to that source address and revalidates it before connecting. Multicast restore
+also uses the selected interface for the receiver preflight before READY.
+The next hop and policy routing remain controlled by the Client kernel routing
+table; per-job route-table overrides are not yet exposed. No automatic poweroff/reboot is performed.
 
 ## PXE service lifecycle
 
