@@ -180,3 +180,23 @@ Still required for the DHCP/static networking acceptance gate:
 
 The inventory endpoint does not apply network changes and does not close this
 acceptance gate.
+
+
+## DHCP/static NetworkManager apply checkpoint
+
+The Cockpit Network tab now exposes a first usable IPv4 configuration path on
+the current host, whether operating as deployment Server or Client. It lists
+sanitized NetworkManager connection profiles, applies DHCP or static IPv4
+settings to an active profile, activates it, and verifies the active profile
+and resulting address. NetworkManager D-Bus checkpoints provide a 120-second
+automatic rollback window; Feclora destroys the checkpoint only after
+verification and requests rollback on an error.
+
+This is an initial implementation, not yet a release acceptance pass. The
+remaining networking gate includes Fedora 45 runtime validation of the
+NetworkManager D-Bus checkpoint calls and rollback semantics, DHCP lease and
+static route/DNS verification, recovery after browser/API disconnection,
+inactive profile selection, and the full Server/Client enrollment and remote
+clone workflow. The current verifier checks profile activation and address;
+gateway reachability, DNS resolution and end-to-end remote connectivity are
+not yet acceptance-tested.
