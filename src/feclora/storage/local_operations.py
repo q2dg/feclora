@@ -92,7 +92,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
     }
-    if action not in fields or not isinstance(params, dict):
+    if not isinstance(action, str) or action not in fields or not isinstance(params, dict):
         raise LocalOperationError("unsupported local storage operation")
     allowed = fields[action]
     if set(params) not in (allowed, allowed - {"repository_id"}):
