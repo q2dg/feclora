@@ -240,7 +240,7 @@ class CAMigrationStore:
         lock = self._lock()
         try:
             names = sorted(name for name in os.listdir(self.directory)
-                           if re.fullmatch(r"[0-9a-f-]{36}\\.json", name))
+                           if re.fullmatch(r"[0-9a-f-]{36}\.json", name))
             if len(names) > 4096:
                 raise CAMigrationError("migration inventory exceeds the supported limit")
             migrations = [self._read(name[:-5]) for name in names]
