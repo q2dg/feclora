@@ -58,6 +58,7 @@ class DeploymentJournal:
         try:
             fd = os.open(absolute, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
             try:
+                fcntl.flock(fd, fcntl.LOCK_SH)
                 info = os.fstat(fd)
                 if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
                         or info.st_mode & 0o077 or info.st_size > _MAX_JOURNAL_BYTES):
@@ -82,7 +83,7 @@ class DeploymentJournal:
         if not isinstance(job_id, str) or not job_id:
             raise DeploymentJournalError("journal first event has no job UUID")
         return cls(absolute, job_id)
-    def _read_and_verify(self) -> list[dict[str, Any]]:
+    def _read_and_verify(self, *, acquire_lock: bool = True) -> list[dict[str, Any]]:
         try:
             fd = os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         except FileNotFoundError:
@@ -90,6 +91,8 @@ class DeploymentJournal:
         except OSError as exc:
             raise DeploymentJournalError(f"cannot safely open journal: {exc}") from exc
         try:
+            if acquire_lock:
+                fcntl.flock(fd, fcntl.LOCK_SH)
             info = os.fstat(fd)
             if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
                     or info.st_mode & 0o077 or info.st_size > _MAX_JOURNAL_BYTES):
@@ -156,7 +159,7 @@ class DeploymentJournal:
                     # instance was opened. Refresh the verified chain while
                     # holding the cross-process file lock before assigning a
                     # sequence number or previous hash.
-                    self._events = self._read_and_verify()
+                    self._events = self._read_and_verify(acquire_lock=False)
                     if any(item.get("job_id") != self.job_id for item in self._events):
                         raise DeploymentJournalError("journal already belongs to a different deployment job")
                     sequence = len(self._events) + 1
