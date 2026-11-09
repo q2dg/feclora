@@ -25,7 +25,7 @@ class LocalOperationWorkerTests(unittest.TestCase):
             forwarder.write(payload)
             forwarder.flush()
             report = store.status(operation_id)
-            self.assertEqual(report["state"], "progress")
+            self.assertEqual(report["state"], "running")
             self.assertEqual(report["events"][-1]["details"]["bytes_done"], 4096)
             self.assertEqual(report["events"][-1]["details"]["bytes_total"], 8192)
 
