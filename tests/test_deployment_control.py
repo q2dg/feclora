@@ -210,6 +210,45 @@ class ClientProgressTests(unittest.TestCase):
         self.assertEqual(saved["client_mac"], MAC)
         self.assertEqual(saved["progress"]["completed_bytes"], 1024 * 1024 + 1024)
 
+    def test_progress_is_not_published_in_memory_when_journal_write_fails(self):
+        server = object.__new__(DeploymentControlServer)
+        server.coordinator = DeploymentCoordinator(make_job())
+        server.coordinator.register_client(MAC, authenticated=True)
+        server.coordinator.mark_ready(MAC)
+        server.coordinator.arm()
+        server.coordinator.mark_running(MAC)
+        server._lock = threading.RLock()
+        server._progress = {}
+        server._last_persisted_progress = {}
+        server._progress_event_sink = Mock(side_effect=OSError("disk full"))
+        frame = {
+            "type": "progress", "job_id": JOB_ID, "phase": "restore",
+            "completed_bytes": 1024, "total_bytes": 4096,
+        }
+        with self.assertRaisesRegex(DeploymentControlError, "could not persist"):
+            server._record_client_progress(MAC, frame)
+        self.assertEqual(server.client_progress(), {})
+        self.assertEqual(server._last_persisted_progress, {})
+
+    def test_progress_counter_cannot_move_backwards_within_phase(self):
+        server = object.__new__(DeploymentControlServer)
+        server.coordinator = DeploymentCoordinator(make_job())
+        server.coordinator.register_client(MAC, authenticated=True)
+        server.coordinator.mark_ready(MAC)
+        server.coordinator.arm()
+        server.coordinator.mark_running(MAC)
+        server._lock = threading.RLock()
+        server._progress = {}
+        frame = {
+            "type": "progress", "job_id": JOB_ID, "phase": "restore",
+            "completed_bytes": 2048, "total_bytes": 4096,
+        }
+        with patch("feclora.deployment.control.time.monotonic", side_effect=[10.0, 11.0]):
+            server._record_client_progress(MAC, frame)
+            with self.assertRaisesRegex(DeploymentControlError, "moved backwards"):
+                server._record_client_progress(MAC, {**frame, "completed_bytes": 1024})
+        self.assertEqual(server.client_progress()[MAC]["completed_bytes"], 2048)
+
     def test_transfer_progress_is_a_distinct_phase_with_independent_throughput(self):
         server = object.__new__(DeploymentControlServer)
         server.coordinator = DeploymentCoordinator(make_job())
