@@ -41,6 +41,21 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertEqual(reopened.latest_state()["event"], "job_armed")
             self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
 
+    def test_caller_cannot_mutate_event_after_append(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            payload = {
+                "timestamp": "2026-11-08T12:00:00+00:00",
+                "job_id": JOB_ID, "event": "job_created", "job_state": "created",
+                "metadata": {"authorized_clients": [MAC]},
+            }
+            journal(payload)
+            payload["metadata"]["authorized_clients"].clear()
+            self.assertEqual(journal.events[0]["metadata"]["authorized_clients"], [MAC])
+            reopened = DeploymentJournal.inspect(path)
+            self.assertEqual(reopened.events[0]["metadata"]["authorized_clients"], [MAC])
+
     def test_returned_events_and_latest_state_cannot_mutate_journal(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "job.jsonl")
