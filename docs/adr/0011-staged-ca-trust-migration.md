@@ -89,10 +89,26 @@ copies the entire bundle into the Client trust path. The existing TLS runtime
 already passes that path to Python's `SSLContext.load_verify_locations()`, which
 accepts concatenated PEM anchors. Input reads reject symlinks and are size-bounded.
 
-This primitive does **not** yet provide versioned CA storage, a migration
-manifest, authenticated removable-media distribution, TLS runtime activation,
-Client acknowledgement, rollback orchestration or old-trust retirement. It
-must not be exposed as a complete CA-rotation workflow.
+This primitive does **not** yet provide authenticated removable-media distribution,
+TLS runtime activation, authenticated Client acknowledgement, rollback orchestration
+or old-trust retirement. It must not be exposed as a complete CA-rotation workflow.
+
+A version-1 persistent manifest state machine now exists in
+\`feclora.deployment.ca_migration.CAMigrationStore\`. It stores only CA SHA-256
+fingerprints, a fixed Client inventory, per-Client trust/leaf acknowledgement
+timestamps and an append-only phase history. Manifests are root-owned, mode 0600,
+size-bounded, duplicate-key rejecting, atomically replaced and serialized with a
+process lock. Allowed phases are \`prepared → distributing → trust_distributed →
+server_switched → converged → retired\`; advancement is gated by the complete
+inventory and explicit retirement confirmation. Reload validates the schema,
+phase history and acknowledgement invariants and fails closed on corruption.
+
+These acknowledgements are currently local manifest records, **not authenticated
+remote Client messages**. The store does not verify that a trust package was
+installed, that a Server TLS identity was switched, or that a Client leaf was
+renewed; callers must not record those facts until a future authenticated workflow
+performs and verifies them. The state store also does not activate or retire trust
+files, and no Cockpit/API action is wired to it.
 
 ## Consequences
 
