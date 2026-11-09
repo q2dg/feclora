@@ -60,7 +60,7 @@ def validate_ipv4_profile(
     if method == "auto":
         if any(value is not None for value in (address, prefix_length, gateway)) or parsed_dns:
             raise NetworkApplyError("DHCP configuration must not include static address, gateway or DNS values")
-        args += ["ipv4.addresses", "", "ipv4.gateway", "", "ipv4.dns", ""]
+        args += ["ipv4.addresses", "", "ipv4.gateway", "", "ipv4.dns", "", "ipv4.ignore-auto-dns", "no"]
     else:
         if not isinstance(prefix_length, int) or isinstance(prefix_length, bool) or not 1 <= prefix_length <= 30:
             raise NetworkApplyError("Static IPv4 prefix must be between 1 and 30")
