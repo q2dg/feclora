@@ -338,6 +338,9 @@ class DeploymentControlServer:
             tls_socket = self.tls_context.wrap_socket(accepted, server_side=True)
             with self._lock:
                 self._pending_sockets.discard(accepted)
+                if self._stop_event.is_set():
+                    tls_socket.close()
+                    return None
                 self._pending_sockets.add(tls_socket)
             tls_socket.settimeout(120)
             identity = _certificate_identity(tls_socket)
