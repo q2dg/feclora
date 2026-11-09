@@ -263,7 +263,7 @@ class ClientDeploymentService:
             if network_interface is not None:
                 if (not isinstance(network_interface, str)
                         or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,15}", network_interface)
-                        or not isinstance(source_address, str)):
+                        or (source_address is not None and not isinstance(source_address, str))):
                     raise ClientJobServiceError("selected Client interface/source address is invalid")
                 if source_address is not None:
                     from feclora.network.interface_discovery import discover_interface_addresses
