@@ -58,7 +58,7 @@ Existing foundation: deployment journals, Server service lifecycle, Client progr
 - [ ] Move local long-running capture/restore/clone work out of browser request lifecycle.
 - [ ] Persist queued, preflight, running, verifying, completed, failed, cancelled and interrupted states.
 - [ ] Report bytes, phase, throughput, timestamps and diagnostic categories.
-- [ ] Reconcile stale workers after restart without automatic destructive resume.
+- [x] Detect local operations whose originating process exited (including across reboot) and mark them interrupted for manual review; never resume destructive I/O automatically. Detached-worker supervision remains pending.
 - [ ] Add per-device locks/conflict detection.
 - [ ] Expose operation history/detail/export in Cockpit; active destructive writes are not cancellable.
 - [ ] Add Server-side artifact-transfer progress; separate control/data channels if required.
