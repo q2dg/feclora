@@ -1,0 +1,30 @@
+[Unit]
+Description=Feclora durable local storage operation %i
+After=local-fs.target
+RequiresMountsFor=/var/lib/feclora
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=PYTHONPATH=/usr/share/feclora/python
+ExecStartPre=/usr/bin/install -d -o root -g root -m 0755 /run/feclora
+ExecStartPre=/usr/bin/install -d -o root -g root -m 0700 /var/lib/feclora/local-operations
+ExecStart=/usr/bin/python3 -m feclora.storage.local_operation_service --operation-id %i
+ExecStopPost=/usr/bin/python3 -m feclora.storage.local_operation_service --operation-id %i --mark-interrupted
+TimeoutStartSec=infinity
+TimeoutStopSec=infinity
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/run/feclora /var/lib/feclora /etc/feclora /srv/feclora
+
+[Install]
+# Intentionally not enabled at boot; Cockpit starts a validated operation instance.
