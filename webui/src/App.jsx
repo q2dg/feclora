@@ -87,7 +87,7 @@ export default function App() {
   const [repositoryReadOnly, setRepositoryReadOnly] = useState(true);
   const [imageVerification, setImageVerification] = useState({});
   const [inventory, setInventory] = useState(null);
-  const [networkInterfaces, setNetworkInterfaces] = useState([]);
+  const [networkInterfaces, setNetworkInterfaces] = useState([]);\n  const [networkProfiles, setNetworkProfiles] = useState([]);\n  const [networkProfileUuid, setNetworkProfileUuid] = useState("");\n  const [networkMethod, setNetworkMethod] = useState("auto");\n  const [networkAddress, setNetworkAddress] = useState("");\n  const [networkPrefix, setNetworkPrefix] = useState("24");\n  const [networkGateway, setNetworkGateway] = useState("");\n  const [networkDns, setNetworkDns] = useState("");\n  const [networkApplyResult, setNetworkApplyResult] = useState(null);
   const [serverBinding, setServerBinding] = useState("");
   const [serverSetup, setServerSetup] = useState(null);
   const [serverRenewConfirmation, setServerRenewConfirmation] = useState("");
@@ -152,6 +152,27 @@ export default function App() {
   const [progress, setProgress] = useState(null);
   const [operationResult, setOperationResult] = useState(null);
 
+  const applyNetworkProfile = async (event) => {
+    event.preventDefault();
+    const selected = networkProfiles.find((profile) => profile.uuid === networkProfileUuid);
+    if (!selected?.device) { setError("Select an active NetworkManager profile with an associated device."); return; }
+    setBusy(true); setError(""); setNotice(""); setNetworkApplyResult(null);
+    try {
+      const result = await callFeclora("apply_network_profile", {
+        uuid: networkProfileUuid, interface: selected.device, method: networkMethod,
+        address: networkMethod === "manual" ? networkAddress : null,
+        prefix_length: networkMethod === "manual" ? Number(networkPrefix) : null,
+        gateway: networkMethod === "manual" && networkGateway ? networkGateway : null,
+        dns: networkMethod === "manual" && networkDns.trim() ? networkDns.split(",").map((value) => value.trim()).filter(Boolean) : [],
+        rollback_timeout: 120
+      });
+      setNetworkApplyResult(result);
+      setNotice("Network profile applied and verified. NetworkManager checkpoint committed.");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
   const verifyImage = async (imageId) => {
     setImageVerification((current) => ({ ...current, [imageId]: { loading: true } }));
     try {
@@ -165,10 +186,10 @@ export default function App() {
   const refresh = useCallback(async () => {
     setBusy(true); setError("");
     try {
-      const [s, i, j, op, inv, net, pxe, remote, clients, repositories] = await Promise.all([
+      const [s, i, j, op, inv, net, profiles, pxe, remote, clients, repositories] = await Promise.all([
         callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("server_trusted_clients"), callFeclora("remote_repositories")
       ]);
-      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setTrustedClients(clients.clients || []); setRemoteRepositories(repositories.repositories || []);
+      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setNetworkProfiles(profiles.profiles || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setTrustedClients(clients.clients || []); setRemoteRepositories(repositories.repositories || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   }, []);
@@ -1066,6 +1087,41 @@ export default function App() {
                 })}
                 {!operations.length && <Tr><Td colSpan={8}>No local operations recorded.</Td></Tr>}
               </Tbody></Table></StackItem>
+            </Stack>
+          </Tab>
+          <Tab eventKey="network" title="Network (Server / Client)">
+            <Stack hasGutter className="pf-v5-u-pt-lg">
+              <StackItem>
+                <Title headingLevel="h2" size="xl">Host IPv4 configuration</Title>
+                <p>Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.</p>
+                <Alert variant="warning" title="Management connectivity protection" isInline>
+                  Changes run under a 120-second NetworkManager checkpoint. If activation or verification fails, Feclora requests rollback; if Cockpit disconnects or the process is interrupted, NetworkManager automatically restores the previous network state when the checkpoint expires. Keep local console access available.
+                </Alert>
+              </StackItem>
+              <StackItem>
+                <form onSubmit={applyNetworkProfile}>
+                  <Field label="NetworkManager connection profile">
+                    <select className="pf-v5-c-form-control" value={networkProfileUuid} onChange={(event) => setNetworkProfileUuid(event.target.value)} required>
+                      <option value="">Select profile…</option>
+                      {networkProfiles.map((profile) => <option key={profile.uuid} value={profile.uuid}>{profile.name} · {profile.type} · {profile.device || "not active"}{profile.active ? " · active" : ""}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="IPv4 configuration">
+                    <select className="pf-v5-c-form-control" value={networkMethod} onChange={(event) => setNetworkMethod(event.target.value)}>
+                      <option value="auto">DHCP (automatic)</option>
+                      <option value="manual">Static IPv4</option>
+                    </select>
+                  </Field>
+                  {networkMethod === "manual" && <>
+                    <Field label="IPv4 address"><input className="pf-v5-c-form-control" value={networkAddress} onChange={(event) => setNetworkAddress(event.target.value)} required placeholder="192.0.2.10" /></Field>
+                    <Field label="Prefix length"><input className="pf-v5-c-form-control" type="number" min="1" max="30" value={networkPrefix} onChange={(event) => setNetworkPrefix(event.target.value)} required /></Field>
+                    <Field label="Gateway (optional)"><input className="pf-v5-c-form-control" value={networkGateway} onChange={(event) => setNetworkGateway(event.target.value)} placeholder="192.0.2.1" /></Field>
+                    <Field label="DNS servers (comma-separated, optional)"><input className="pf-v5-c-form-control" value={networkDns} onChange={(event) => setNetworkDns(event.target.value)} placeholder="192.0.2.53, 192.0.2.54" /></Field>
+                  </>}
+                  <Button type="submit" variant="primary" isLoading={busy} isDisabled={busy || !networkProfileUuid}>Apply and verify network configuration</Button>
+                </form>
+                {networkApplyResult && <Alert variant="success" title="Network configuration verified" isInline className="pf-v5-u-mt-md">Interface {networkApplyResult.interface}, mode {networkApplyResult.method}, address {networkApplyResult.address || "assigned by DHCP"}.</Alert>}
+              </StackItem>
             </Stack>
           </Tab>
           <Tab eventKey="server" title="Server setup">
