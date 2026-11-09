@@ -96,13 +96,13 @@ class RemoteRepository:
             parsed = urlsplit(self.remote_path)
             if parsed.scheme or parsed.netloc:
                 raise RepositoryError("WebDAV remote_path must be a path; host is configured separately")
-            if self.credential_file is not None:
-                raise RepositoryError("WebDAV credentials are managed by davfs2 secrets")
+            if self.credential_file != "/etc/davfs2/secrets":
+                raise RepositoryError("WebDAV requires the root-managed /etc/davfs2/secrets file")
         elif self.provider == "s3":
             if not isinstance(self.rclone_remote, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", self.rclone_remote):
                 raise RepositoryError("S3 requires a configured rclone remote alias")
-            if self.credential_file is not None:
-                raise RepositoryError("S3 credentials belong in the protected rclone config")
+            if self.credential_file is None:
+                raise RepositoryError("S3 requires a protected rclone configuration file")
         elif self.provider == "nfs" and (self.username or self.credential_file or self.identity_file):
             raise RepositoryError("NFS does not accept username or credential-file fields")
 
@@ -142,8 +142,10 @@ class RemoteRepository:
             return [exe("mount.davfs"), "-o", ",".join(options),
                     f"https://{self.host}{self.remote_path}", self.mountpoint]
         bucket_path = self.remote_path.lstrip("/")
-        argv = [exe("rclone"), "mount", f"{self.rclone_remote}:{bucket_path}",
-                self.mountpoint, "--vfs-cache-mode", "writes", "--dir-cache-time", "5m"]
+        argv = [exe("rclone"), "--config", self.credential_file, "mount",
+                f"{self.rclone_remote}:{bucket_path}", self.mountpoint,
+                "--vfs-cache-mode", "writes", "--dir-cache-time", "5m",
+                "--daemon", "--daemon-wait", "60s"]
         if self.read_only:
             argv.append("--read-only")
         return argv
