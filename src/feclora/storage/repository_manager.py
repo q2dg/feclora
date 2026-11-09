@@ -219,7 +219,11 @@ class RemoteRepositoryManager:
                 "id": identifier, "provider": definition["provider"],
                 "host": definition["host"], "remote_path": definition["remote_path"],
                 "read_only": definition["read_only"], "mountpoint": mountpoint,
-                "credential_refs": [definition[key] for key in ("credential_file", "identity_file", "known_hosts_file") if definition.get(key)],
+                "credential_refs": [
+                    value for key in ("credential_file", "identity_file", "known_hosts_file")
+                    if (value := definition.get(key)) is not None
+                    and self._is_encrypted_credential_path(value)
+                ],
                 "mounted": mounted, "verified": False, "mount_error": None,
             }
             if mounted:
@@ -233,6 +237,13 @@ class RemoteRepositoryManager:
                     item["mount_error"] = str(exc)[:512]
             result.append(item)
         return result
+
+    def _is_encrypted_credential_path(self, value: str) -> bool:
+        try:
+            Path(value).relative_to(self.credential_root)
+            return True
+        except (TypeError, ValueError):
+            return False
 
     def credential_is_referenced(self, credential_path: str) -> bool:
         """Return whether any saved repository definition references this credential."""
