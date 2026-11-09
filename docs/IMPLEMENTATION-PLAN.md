@@ -23,7 +23,7 @@ Existing foundation: remote_clone runtime, protocol/TLS modules, tests and REMOT
 Acceptance: remote headers cannot select local devices; both peers authorize independently; receiver read-back verifies; partial writes are marked untrusted; UI survives browser disconnect.
 
 ## P0 — PKI, trust and identity lifecycle
-Existing foundation: managed CA bootstrap, Server leaf renewal under the existing CA, Client renewal/enrollment, trust inventory and revocation.
+Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS keypair rotation under the existing CA, Client renewal/enrollment, trust inventory and revocation. Staged CA rotation and trust migration remain outstanding.
 - [ ] Define versioned trust-bundle and migration formats.
 - [ ] Implement staged CA rotation with old/new trust overlap, client migration accounting, explicit activation and rollback.
 - [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
