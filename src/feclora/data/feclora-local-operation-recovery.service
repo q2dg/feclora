@@ -1,0 +1,26 @@
+[Unit]
+Description=Reconcile unfinished Feclora local storage operations
+After=local-fs.target
+Before=cockpit.socket
+RequiresMountsFor=/var/lib/feclora
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=PYTHONPATH=/usr/share/feclora/python
+ExecStartPre=/usr/bin/install -d -o root -g root -m 0700 /var/lib/feclora/local-operations
+ExecStart=/usr/bin/python3 -m feclora.storage.local_operation_service --recover
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/feclora
+
+[Install]
+WantedBy=multi-user.target
