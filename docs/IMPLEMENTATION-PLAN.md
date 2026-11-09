@@ -100,7 +100,7 @@ Publish task-oriented guides only when the exact workflow is implemented; mark f
 Every guide needs prerequisites, supported layouts, exact Cockpit steps, expected results, verification, failure recovery and data-loss warnings. Use current screenshots and role/network diagrams.
 
 ## P1 — Governance and release engineering
-- [ ] Maintainer selects and publishes the software license; do not guess it.
+- [x] Maintainer selected and published GNU GPL v3.0 or later (`GPL-3.0-or-later`) in the repository root LICENSE file.
 - [ ] Add reproducible frontend lockfile and deterministic CI installation.
 - [ ] Reconcile README, Cockpit README, roadmap, feature matrix and operator docs.
 - [ ] Add dependency/security scanning and secret-leak checks.
