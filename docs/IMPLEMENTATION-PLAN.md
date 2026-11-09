@@ -19,7 +19,7 @@ Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the 
 - [x] Extend the existing job definition and privileged API validation for a Server-local read-only source disk; reuse the existing inspect/start/status/arm API and local IPC rather than adding parallel actions.
 - [x] Add Cockpit source/peer selection, Client-local target selection, exact destructive confirmation and independent source/receiver authorization.
 - [x] Persist operation IDs, job states, errors and terminal verification through the existing operation logs, Client status and Server job journal; expose live byte progress and throughput in Server/Client status.
-- [ ] Persist Server-side progress snapshots and retain progress history across service restart.
+- [x] Persist bounded Client progress snapshots in the Server journal and expose the last durable checkpoint in history; restart recovery remains audit-only and never resumes disk I/O.
 - [ ] Complete disconnect, timeout and service-restart fault injection; document partial-write and GPT-relocation recovery without implying rollback. Active-write cancellation and rollback are explicitly out of scope.
 - [ ] Add two-machine integration tests with generated certificates and disposable image-backed devices.
 - [x] Update feature matrix and operational guide.
@@ -45,7 +45,7 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Add root-managed SSHFS/NFS/SMB mount lifecycle and Cockpit actions; keep this separate from image-engine integration.
 - [x] Report mounted state separately from verified provider/source/type/access-mode identity in Cockpit.
 - [ ] Complete the supported local, NFS, SMB/CIFS, SSHFS and SFTP providers; keep SSHFS mounts distinct from SFTP transfers.
-- [x] Add optional repository-ID routing for whole-disk/partition capture, restore and partition extraction; resolve only mounted, verified repositories and enforce read-only mounts for writes. Local repository remains the backward-compatible default.\n- [x] Expose repository selection and per-repository image inventory in Cockpit; route capture, restore, verification, layout inspection and partition extraction to the selected verified mount.\n- [ ] Run remote-server acceptance on SSHFS, NFS and SMB/CIFS, including NFS root-squash/ownership behavior and failure/interruption cases.\n- [ ] Store credential references in root-owned protected storage; never ordinary config/logs.
+- [x] Add optional repository-ID routing for whole-disk/partition capture, restore and partition extraction; resolve only mounted, verified repositories and enforce read-only mounts for writes. Local repository remains the backward-compatible default.\n- [x] Expose repository selection and per-repository image inventory in Cockpit; route capture, restore, verification, layout inspection and partition extraction to the selected verified mount.\n- Operator acceptance (documented in `ACCEPTANCE-TESTS.md`): run remote-server checks on SSHFS, NFS and SMB/CIFS, including NFS root-squash/ownership and failure/interruption cases. These physical/provider runs are not implementation blockers.\n- [ ] Store credential references in root-owned protected storage; never ordinary config/logs.
 - [ ] Add SSH host-key pinning, key selection, permission checks and credential rotation.
 - [ ] Complete Cockpit create/edit/test/mount/unmount/read-only/delete workflows and health/free-space reporting; create/mount/unmount/remove are present for SSHFS/NFS/SMB, but edit/test/health and provider identity checks remain.
 - [ ] Handle stale mounts, network loss, interrupted publication, concurrent writers and cleanup.
@@ -87,7 +87,7 @@ Existing foundation: PXE/iPXE lifecycle, unicast/multicast restore, signed profi
 - [ ] Add per-client preflight, staging space, signature and expiry reporting.
 - [ ] Define retry behavior that cannot replay single-use authorization.
 - [ ] Add per-client verification and exportable deployment reports.
-- [ ] Test BIOS/UEFI PXE in virtual networks; physical switch/IGMP acceptance remains operator-owned.
+- [ ] Add automated BIOS/UEFI PXE tests in virtual networks; physical switch/IGMP acceptance remains operator-owned and is documented in `ACCEPTANCE-TESTS.md`.
 Acceptance: PXE boot alone never authorizes writes; each client verifies signed, unexpired, single-use authorization and target identity.
 
 ## P1 — GitHub Pages guides
