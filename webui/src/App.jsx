@@ -695,7 +695,7 @@ export default function App() {
       setClientRemoteTarget("");
       setClientRemoteConfirmation("");
       setClientRemoteIgmpConfirmed(false);
-      setNotice("Authenticated job inspected. No Client registration or disk operation has started.");
+      setNotice("Server reachability and authenticated TLS identity verified; job inspected. No Client registration or disk operation has started.");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -1363,7 +1363,8 @@ export default function App() {
                   <Field label="Remote job UUID">
                     <input className="pf-v5-c-form-control" value={clientRemoteJobId} onChange={(event) => { setClientRemoteJobId(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); }} placeholder="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" />
                   </Field>
-                  <Button variant="primary" onClick={inspectClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteJobId}>Inspect authenticated job</Button>
+                  <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Preflight: this contacts the Server over the network, completes the authenticated TLS connection, verifies the enrolled Server identity and fetches the job before any local target is approved or storage operation starts.</p>
+                  <Button variant="primary" onClick={inspectClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteJobId}>Test connectivity and inspect authenticated job</Button>
                   <Button variant="link" onClick={refreshClientRemoteJobStatus} isLoading={busy} isDisabled={busy || !clientRemoteJobId}>Check existing Client job status</Button>
                 </StackItem>
                 {clientRemoteJob && <StackItem>
