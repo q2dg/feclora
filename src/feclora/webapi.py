@@ -1178,6 +1178,7 @@ def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
+        "extract_partition_image": {"image_id", "selector", "repository_id"},
     }
     if action not in operation_fields or set(params) != operation_fields[action]:
         raise WebAPIError("operation parameters do not match the selected operation")
