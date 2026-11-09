@@ -59,7 +59,8 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Validate referenced secret files through `O_NOFOLLOW` descriptors and `fstat`; reject symlinks, unsafe ownership/modes and hard-linked credential files.
 - [ ] Add SSH host-key pinning, key selection, permission checks and credential rotation.
 - [x] Add a root-only local credential-store primitive for SSH keys, known_hosts, SMB files and rclone configs, with atomic create/replace/remove and strict file validation. This is not exposed through Cockpit and does not complete credential administration.
-- [ ] Complete Cockpit-safe credential administration through a trusted local provisioning channel, WebDAV secret lifecycle, repository create/edit/test/mount/unmount/read-only/delete workflows and health/free-space reporting; provider-aware S3 artifact publication and automated mount-lifecycle coverage also remain.
+- [x] Add a local root-only credential import/removal CLI that reads protected source files, plus a read-only Cockpit API inventory of validated credential references; the API never accepts or returns secret material.
+- [ ] Add Cockpit credential selection and repository edit/test/health workflows, WebDAV secret lifecycle, provider-aware S3 artifact publication and automated mount-lifecycle coverage.
 - [ ] Handle stale mounts, network loss, interrupted publication, concurrent writers and cleanup.
 - [ ] Add integration tests with local test services where practical.
 Acceptance: engines use repository IDs/handles, secrets are redacted, failures cannot leave falsely complete images.
