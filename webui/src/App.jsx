@@ -64,6 +64,17 @@ export default function App() {
   const [remoteInterface, setRemoteInterface] = useState("");
   const [remoteJobResult, setRemoteJobResult] = useState(null);
   const [operations, setOperations] = useState([]);
+  const [remoteRepositories, setRemoteRepositories] = useState([]);
+  const [repositoryId, setRepositoryId] = useState("");
+  const [repositoryProvider, setRepositoryProvider] = useState("sshfs");
+  const [repositoryHost, setRepositoryHost] = useState("");
+  const [repositoryPath, setRepositoryPath] = useState("/images");
+  const [repositoryUsername, setRepositoryUsername] = useState("");
+  const [repositoryIdentity, setRepositoryIdentity] = useState("");
+  const [repositoryKnownHosts, setRepositoryKnownHosts] = useState("");
+  const [repositoryCredentials, setRepositoryCredentials] = useState("");
+  const [repositoryPort, setRepositoryPort] = useState("22");
+  const [repositoryReadOnly, setRepositoryReadOnly] = useState(true);
   const [imageVerification, setImageVerification] = useState({});
   const [inventory, setInventory] = useState(null);
   const [networkInterfaces, setNetworkInterfaces] = useState([]);
@@ -142,10 +153,10 @@ export default function App() {
   const refresh = useCallback(async () => {
     setBusy(true); setError("");
     try {
-      const [s, i, j, op, inv, net, pxe, remote, clients] = await Promise.all([
-        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("server_trusted_clients")
+      const [s, i, j, op, inv, net, pxe, remote, clients, repositories] = await Promise.all([
+        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("server_trusted_clients"), callFeclora("remote_repositories")
       ]);
-      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setTrustedClients(clients.clients || []);
+      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setTrustedClients(clients.clients || []); setRemoteRepositories(repositories.repositories || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   }, []);
@@ -192,6 +203,36 @@ export default function App() {
       });
       setOperationResult(result);
       setNotice("Operation completed successfully.");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+
+  const saveRemoteRepository = async (event) => {
+    event.preventDefault(); setBusy(true); setError(""); setNotice("");
+    try {
+      await callFeclora("add_remote_repository", {
+        id: repositoryId, provider: repositoryProvider, host: repositoryHost,
+        remote_path: repositoryPath,
+        username: repositoryProvider === "sshfs" || repositoryProvider === "smb" ? repositoryUsername || null : null,
+        credential_file: repositoryProvider === "smb" ? repositoryCredentials : null,
+        identity_file: repositoryProvider === "sshfs" ? repositoryIdentity : null,
+        known_hosts_file: repositoryProvider === "sshfs" ? repositoryKnownHosts : null,
+        port: repositoryPort ? Number(repositoryPort) : null, read_only: repositoryReadOnly
+      });
+      setNotice("Repository definition saved; no mount was started.");
+      setRepositoryId(""); await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const runRemoteRepositoryAction = async (action, id) => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await callFeclora(action, { id });
+      setNotice(action === "remove_remote_repository" ? `Removed repository ${id}.`
+        : action === "mount_remote_repository" ? `Mounted repository ${id}.` : `Unmounted repository ${id}.`);
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -867,6 +908,44 @@ export default function App() {
                 {journals.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.job_state}</Td><Td>{job.interrupted ? <Label color="orange">Review required</Label> : "No"}</Td><Td>{Object.entries(job.clients || {}).map(([mac, state]) => mac + ": " + state).join(", ") || "—"}</Td><Td>{job.event_count}</Td></Tr>)}
                 {!journals.length && <Tr><Td colSpan={5}>No deployment jobs recorded.</Td></Tr>}
               </Tbody></Table></StackItem>
+            </Stack>
+          </Tab>
+
+          <Tab eventKey="repositories" title="Remote repositories">
+            <Stack hasGutter className="pf-v5-u-pt-lg">
+              <StackItem><Title headingLevel="h2" size="xl">Remote image repositories</Title>
+                <p>Manage root-owned SSHFS, NFS and SMB/CIFS mounts. Credentials are referenced by protected file path; passwords and private keys are never entered into Cockpit or stored in the repository registry.</p>
+                <Alert variant="warning" title="Provider scope" isInline>Managed mount lifecycle currently supports SSHFS, NFS and SMB/CIFS. WebDAV and S3/rclone remain unavailable until their protected-credential workflows are implemented.</Alert>
+              </StackItem>
+              <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
+                <Field label="Repository ID"><input className="pf-v5-c-form-control" value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
+                <Field label="Provider"><select className="pf-v5-c-form-control" value={repositoryProvider} onChange={(e) => { setRepositoryProvider(e.target.value); setRepositoryPort(e.target.value === "sshfs" ? "22" : ""); }}>
+                  <option value="sshfs">SSHFS (SFTP over SSH)</option><option value="nfs">NFSv4.2</option><option value="smb">SMB/CIFS</option>
+                </select></Field>
+                <Field label="Server hostname or IPv4 address"><input className="pf-v5-c-form-control" value={repositoryHost} onChange={(e) => setRepositoryHost(e.target.value)} maxLength={253} required /></Field>
+                <Field label={repositoryProvider === "smb" ? "Share and optional subdirectory" : "Remote absolute path"}><input className="pf-v5-c-form-control" value={repositoryPath} onChange={(e) => setRepositoryPath(e.target.value)} maxLength={512} required /></Field>
+                {(repositoryProvider === "sshfs" || repositoryProvider === "smb") && <Field label="Username"><input className="pf-v5-c-form-control" value={repositoryUsername} onChange={(e) => setRepositoryUsername(e.target.value)} maxLength={64} required /></Field>}
+                {repositoryProvider === "sshfs" && <>
+                  <Field label="SSH private-key file (root-owned, mode 0600)"><input className="pf-v5-c-form-control" value={repositoryIdentity} onChange={(e) => setRepositoryIdentity(e.target.value)} maxLength={512} required /></Field>
+                  <Field label="Pinned SSH known_hosts file (root-owned)"><input className="pf-v5-c-form-control" value={repositoryKnownHosts} onChange={(e) => setRepositoryKnownHosts(e.target.value)} maxLength={512} required /></Field>
+                </>}
+                {repositoryProvider === "smb" && <Field label="SMB credentials file (root-owned, mode 0600)"><input className="pf-v5-c-form-control" value={repositoryCredentials} onChange={(e) => setRepositoryCredentials(e.target.value)} maxLength={512} required /></Field>}
+                <Field label="Port (optional)"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={repositoryPort} onChange={(e) => setRepositoryPort(e.target.value)} /></Field>
+                <Field label="Mount access"><select className="pf-v5-c-form-control" value={repositoryReadOnly ? "ro" : "rw"} onChange={(e) => setRepositoryReadOnly(e.target.value === "ro")}>
+                  <option value="ro">Read-only</option><option value="rw">Read/write (image capture)</option>
+                </select></Field>
+                <Button type="submit" variant="primary" isDisabled={busy || !repositoryId || !repositoryHost || !repositoryPath}>Save repository definition</Button>
+              </form></CardBody></Card></StackItem>
+              <StackItem><Title headingLevel="h2" size="lg">Configured repositories</Title>
+                <Table aria-label="Remote image repositories" variant="compact"><Thead><Tr><Th>ID</Th><Th>Provider</Th><Th>Remote location</Th><Th>Access</Th><Th>Mount state</Th><Th>Actions</Th></Tr></Thead><Tbody>
+                  {remoteRepositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.provider}</Td><Td>{repo.host}:{repo.remote_path}<br />{repo.mountpoint}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td>{repo.mounted ? <Label color="green">Mounted</Label> : <Label color="grey">Unmounted</Label>}</Td><Td>
+                    <Button size="sm" variant="secondary" isDisabled={busy || repo.mounted} onClick={() => runRemoteRepositoryAction("mount_remote_repository", repo.id)}>Mount</Button>{" "}
+                    <Button size="sm" variant="secondary" isDisabled={busy || !repo.mounted} onClick={() => runRemoteRepositoryAction("unmount_remote_repository", repo.id)}>Unmount</Button>{" "}
+                    <Button size="sm" variant="danger" isDisabled={busy || repo.mounted} onClick={() => runRemoteRepositoryAction("remove_remote_repository", repo.id)}>Remove</Button>
+                  </Td></Tr>)}
+                  {!remoteRepositories.length && <Tr><Td colSpan={6}>No remote repositories configured.</Td></Tr>}
+                </Tbody></Table>
+              </StackItem>
             </Stack>
           </Tab>
           <Tab eventKey="operation-log" title="Operation log">
