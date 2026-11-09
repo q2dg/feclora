@@ -219,6 +219,7 @@ class RemoteRepositoryManager:
                 "id": identifier, "provider": definition["provider"],
                 "host": definition["host"], "remote_path": definition["remote_path"],
                 "read_only": definition["read_only"], "mountpoint": mountpoint,
+                "credential_refs": [definition[key] for key in ("credential_file", "identity_file", "known_hosts_file") if definition.get(key)],
                 "mounted": mounted, "verified": False, "mount_error": None,
             }
             if mounted:
@@ -232,6 +233,17 @@ class RemoteRepositoryManager:
                     item["mount_error"] = str(exc)[:512]
             result.append(item)
         return result
+
+    def credential_is_referenced(self, credential_path: str) -> bool:
+        """Return whether any saved repository definition references this credential."""
+        if not isinstance(credential_path, str) or not credential_path:
+            raise RepositoryManagerError("credential path is invalid")
+        entries = self._load()
+        return any(
+            definition.get(field) == credential_path
+            for definition in entries.values()
+            for field in ("credential_file", "identity_file", "known_hosts_file")
+        )
 
     def add(self, identifier: str, definition: dict[str, Any]) -> dict[str, Any]:
         entries = self._load()
