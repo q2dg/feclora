@@ -55,6 +55,25 @@ class ManagedPKITests(unittest.TestCase):
                 self.assertEqual(stream.read(), server_recipient + "\n")
             self.assertFalse(os.path.exists(os.path.join(root, "age-recipients", "lab.txt")))
 
+    def test_age_recipient_registration_rejects_recipient_already_owned_by_another_client(self):
+        with tempfile.TemporaryDirectory() as root:
+            recipients_file = os.path.join(root, "age-recipients.txt")
+            os.mkdir(os.path.join(root, "age-recipients"))
+            shared_recipient = "age1" + "c" * 40
+            with open(recipients_file, "w", encoding="ascii") as stream:
+                stream.write(shared_recipient + "\\n")
+            with (
+                patch("feclora.deployment.managed_pki.os.geteuid", return_value=0),
+                patch("feclora.deployment.managed_pki._root_only_directory", side_effect=lambda path: os.fspath(path)),
+                patch("feclora.deployment.managed_pki._regular_file"),
+            ):
+                from feclora.deployment.managed_pki import register_age_recipient
+                with self.assertRaisesRegex(PKIError, "must have a unique age identity"):
+                    register_age_recipient(root, "URI:feclora-client-another", shared_recipient)
+            with open(recipients_file, encoding="ascii") as stream:
+                self.assertEqual(stream.read(), shared_recipient + "\\n")
+            self.assertFalse(os.path.exists(os.path.join(root, "age-recipients", "another.txt")))
+
     def test_age_recipient_registration_rolls_back_inventory_if_mapping_write_fails(self):
         with tempfile.TemporaryDirectory() as root:
             recipients_file = os.path.join(root, "age-recipients.txt")
