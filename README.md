@@ -109,17 +109,27 @@ minisign signatures using locally managed keys.
 
 The underlying Python storage engines include safety checks, manifest-backed
 artifact publication, compression, integrity verification, and restore
-preflight. The remote deployment engines include mTLS enrollment, signed
-unicast image transfer, PXE/iPXE boot infrastructure and UDPcast multicast
-restore. Cockpit now provides initial Server identity bootstrap and PXE network-profile
-preflight for ProxyDHCP or isolated DHCP. It validates daemon configuration
-without starting services. Complete Server/Client network activation,
-enrollment, job lifecycle and per-client live progress still need to be
-integrated. Local storage flows and
-the new Cockpit frontend have not yet been exercised against a built ISO or
-physical disks; CI status must be checked before claiming automated test
-success. ISO generation, BIOS/UEFI boot and laboratory restore/deployment
-acceptance are intentionally left to the operator.
+preflight. The remote deployment stack includes persistent Server/Client
+services, mTLS enrollment and authorization, signed unicast image transfer,
+UDPcast multicast restore, and direct whole-disk remote cloning. Cockpit
+exposes Server/Client lifecycle and job workflows, per-client status, initial
+Server identity bootstrap, and PXE network-profile preflight/activation for
+ProxyDHCP or isolated DHCP. The PXE workflow still has network-configuration,
+diagnostics and unattended-profile gaps tracked in the implementation plan.
+
+Local long-running capture, restore, extraction and clone operations are
+submitted through the privileged API to a root-owned systemd worker. Their
+versioned definitions and hash-chained event journals persist under
+`/var/lib/feclora/local-operations`; Cockpit displays durable status, progress
+and history. Boot recovery marks unfinished jobs interrupted and never
+replays destructive I/O. Phase/throughput telemetry, export and live systemd
+acceptance remain outstanding.
+
+The source tree and CI checks do not establish ISO boot or physical-device
+acceptance. Local storage and Cockpit workflows still require validation on a
+live system with disposable devices. ISO generation, BIOS/UEFI boot and
+laboratory restore/deployment acceptance are intentionally left to the
+operator.
 
 ## Fedora baseline lifecycle
 
