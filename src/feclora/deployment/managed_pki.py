@@ -801,19 +801,39 @@ def inspect_server_ca_backup(
     encrypted = os.path.abspath(encrypted_file)
     identity = os.path.abspath(identity_file)
     _regular_file(encrypted, "encrypted CA backup")
-    _regular_file(identity, "age decryption identity", root_owned=True)
-    if os.stat(identity).st_mode & 0o077:
-        raise PKIError("age decryption identity must not be accessible by group or other users")
     if os.stat(encrypted).st_size <= 0 or os.stat(encrypted).st_size > 16 * 1024 * 1024:
         raise PKIError("encrypted CA backup size is outside the permitted limit")
+    identity_fd = -1
+    try:
+        identity_fd = os.open(
+            identity, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        )
+        identity_info = os.fstat(identity_fd)
+        if not stat.S_ISREG(identity_info.st_mode) or identity_info.st_uid != 0:
+            raise PKIError("age decryption identity must be a root-owned regular file")
+        if identity_info.st_mode & 0o077:
+            raise PKIError("age decryption identity must not be accessible by group or other users")
+        if identity_info.st_size <= 0 or identity_info.st_size > 65536:
+            raise PKIError("age decryption identity size is outside the permitted limit")
+    except OSError as exc:
+        if identity_fd >= 0:
+            os.close(identity_fd)
+        raise PKIError(f"age decryption identity is unavailable or unsafe: {exc}") from exc
     root = _root_only_directory(pki_directory)
     temporary_directory = tempfile.mkdtemp(prefix=".feclora-ca-inspection-", dir=root)
     os.chmod(temporary_directory, 0o700)
     archive = os.path.join(temporary_directory, "backup.tar")
+    identity_copy = os.path.join(temporary_directory, "age-identity.txt")
     ca_file = os.path.join(temporary_directory, "ca.crt")
     ca_key = os.path.join(temporary_directory, "ca.key")
     try:
-        _run([age, "-d", "-i", identity, "-o", archive, encrypted], runner)
+        with os.fdopen(identity_fd, "rb") as source, open(identity_copy, "xb") as target:
+            identity_fd = -1
+            shutil.copyfileobj(source, target, length=65536)
+            target.flush()
+            os.fsync(target.fileno())
+        os.chmod(identity_copy, 0o600)
+        _run([age, "-d", "-i", identity_copy, "-o", archive, encrypted], runner)
         _regular_file(archive, "decrypted CA archive", root_owned=True)
         if os.stat(archive).st_size <= 0 or os.stat(archive).st_size > 4 * 1024 * 1024:
             raise PKIError("decrypted CA archive size is outside the permitted limit")
@@ -882,4 +902,6 @@ def inspect_server_ca_backup(
             "message": "Encrypted CA backup decrypted and validated. Active PKI was not changed.",
         }
     finally:
+        if identity_fd >= 0:
+            os.close(identity_fd)
         shutil.rmtree(temporary_directory, ignore_errors=True)
