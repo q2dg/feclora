@@ -1,4 +1,5 @@
 import os
+import json
 import tempfile
 import unittest
 import uuid
@@ -77,6 +78,35 @@ class CAMigrationStoreTests(unittest.TestCase):
             store.create("a" * 64, "b" * 64, [], migration_id=identifier)
             with self.assertRaisesRegex(CAMigrationError, "already exists"):
                 store.create("a" * 64, "c" * 64, [], migration_id=identifier)
+
+    def test_manifest_rejects_invalid_and_timezone_naive_timestamps(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = self.store(directory)
+            identifier = store.create("a" * 64, "b" * 64, [])["migration_id"]
+            path = os.path.join(directory, identifier + ".json")
+            with open(path, encoding="ascii") as stream:
+                manifest = json.load(stream)
+            manifest["history"][0]["at"] = "2026-11-09T12:00:00"
+            with open(path, "w", encoding="ascii") as stream:
+                json.dump(manifest, stream)
+            os.chmod(path, 0o600)
+            with self.assertRaisesRegex(CAMigrationError, "timezone"):
+                store.get(identifier)
+
+    def test_manifest_rejects_acknowledgements_before_their_phase(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = self.store(directory)
+            identifier = store.create("a" * 64, "b" * 64, ["client-a"])["migration_id"]
+            store.begin_distribution(identifier)
+            path = os.path.join(directory, identifier + ".json")
+            with open(path, encoding="ascii") as stream:
+                manifest = json.load(stream)
+            manifest["clients"]["client-a"]["trust_acknowledged_at"] = "2000-01-01T00:00:00Z"
+            with open(path, "w", encoding="ascii") as stream:
+                json.dump(manifest, stream)
+            os.chmod(path, 0o600)
+            with self.assertRaisesRegex(CAMigrationError, "predates migration creation"):
+                store.get(identifier)
 
     def test_corrupt_or_unsafe_manifest_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
