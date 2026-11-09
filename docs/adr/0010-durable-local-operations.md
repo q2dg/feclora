@@ -53,12 +53,11 @@ The service must:
   Cockpit/API boundary and a root-owned local IPC mechanism. Do not expose a
   shell, arbitrary executable, arbitrary argv or filesystem path API.
 
-Reuse the security and lifecycle patterns already present in the Server
-deployment service, deployment journal and local Unix-socket control code.
-Do not create a parallel deployment daemon, duplicate journal format or
-second host-wide lock. Define the common operation schema before connecting
-local and remote operation histories; migrate formats explicitly rather than
-silently changing existing journals.
+Reuse the storage-safety checks, host-wide exclusion and audit principles
+already present in the Server deployment service. Do not create a parallel
+deployment daemon or a second host-wide lock. Local jobs currently use their
+own versioned, hash-chained journal and per-device lock files; they do not
+silently reinterpret or rewrite existing deployment journals.
 
 ## Interface consequences
 
@@ -78,6 +77,23 @@ It must not be wired into the Live startup flow until it has been refactored
 to submit and monitor durable service jobs and to use the same authorization,
 repository, device-lock and audit contracts as Cockpit.
 
+## Implementation status
+
+The initial implementation is present on `main`: Cockpit submits validated,
+allowlisted operation definitions to a root-owned persistent queue; a
+systemd template unit executes each job independently of the request process;
+a hash-chained event journal records state and byte progress; and the worker
+reuses the host-wide storage lock plus per-block-device locks. Boot recovery
+marks every unfinished job interrupted and never replays it. Recovery isolates
+a damaged journal so it does not prevent reconciliation of other jobs, while
+reporting that damaged record for manual inspection.
+
+The implementation deliberately uses systemd activation and a file-backed
+handoff rather than the originally considered dedicated local IPC service.
+Remaining work includes consistent phase/throughput telemetry, history export,
+stronger detached-worker supervision, and live systemd/Cockpit acceptance.
+The latter is not claimed by unit tests or static checks.
+
 ## Acceptance
 
 - Closing a browser tab or restarting Cockpit does not terminate an accepted
@@ -90,6 +106,6 @@ repository, device-lock and audit contracts as Cockpit.
 - All destructive actions are revalidated by the service immediately before
   execution and retain typed confirmation and authorization requirements.
 - Unit tests cover state transitions, persistence, restart recovery, lock
-  contention, duplicate submissions, malformed IPC and cancellation boundaries.
+  contention, duplicate submissions, journal integrity and cancellation boundaries.
 - No ISO build, VM lab or physical-disk test is implied by this software design
   decision; operator acceptance remains separately documented.
