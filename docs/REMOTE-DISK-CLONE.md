@@ -108,9 +108,10 @@ existing source-safety checks. The runtime rechecks it before streaming.
 
 Once the receiver writer starts, disconnects, timeouts, or integrity failures
 can leave the destination partially or fully overwritten. The persistent
-workflow does not expose cancellation after ARM. Stopping the service or
-losing the peer may still interrupt the underlying I/O; this is a failure, not
-a rollback. The UI must not imply that the destination is restored to its
+workflow does not expose cancellation after ARM. A graceful service stop
+waits for the active worker to finish; abrupt process/host failure or peer
+disconnection can interrupt the underlying I/O. These are failures, not
+rollbacks. The UI must not imply that the destination is restored to its
 previous contents. The receiver must report the target as
 untrusted until a subsequent successful restore or clone completes and
 verifies. Interrupted jobs are never resumed automatically; inspect both
