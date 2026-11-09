@@ -18,7 +18,8 @@ Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the 
 - [x] Keep the direct block-stream data plane separate from UDPcast: the current UDPcast wrapper transfers signed image artifacts to private staging files for multicast restore; it does not implement direct block-device cloning.
 - [x] Extend the existing job definition and privileged API validation for a Server-local read-only source disk; reuse the existing inspect/start/status/arm API and local IPC rather than adding parallel actions.
 - [x] Add Cockpit source/peer selection, Client-local target selection, exact destructive confirmation and independent source/receiver authorization.
-- [x] Persist operation IDs, states, byte progress, throughput, errors and terminal verification through the existing operation logs, Client status and Server job journal.
+- [x] Persist operation IDs, job states, errors and terminal verification through the existing operation logs, Client status and Server job journal; expose live byte progress and throughput in Server/Client status.
+- [ ] Persist Server-side progress snapshots and retain progress history across service restart.
 - [ ] Complete disconnect, timeout, cancellation and service-restart fault injection; document partial-write and GPT-relocation recovery without implying rollback.
 - [ ] Add two-machine integration tests with generated certificates and disposable image-backed devices.
 - [x] Update feature matrix and operational guide.
