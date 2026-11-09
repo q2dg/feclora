@@ -56,6 +56,7 @@ export default function App() {
   const [serviceConfirmations, setServiceConfirmations] = useState({});
   const [remoteOperation, setRemoteOperation] = useState("restore");
   const [remoteImageId, setRemoteImageId] = useState("");
+  const [remoteSourceDevice, setRemoteSourceDevice] = useState("");
   const [remoteTargetType, setRemoteTargetType] = useState("disk");
   const [remoteClients, setRemoteClients] = useState("");
   const [remoteTransport, setRemoteTransport] = useState("unicast");
@@ -494,13 +495,25 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const deploymentArmPhrase = (job) => {
+    if (job.transport === "multicast") return "ARM MULTICAST " + job.job_id + " IGMP-VERIFIED";
+    if (job.operation === "clone") {
+      const peer = trustedClients.find((client) => job.authorized_clients?.includes(client.mac_address));
+      return peer?.identity
+        ? "ARM " + job.job_id + " AND READ " + job.source_device + " TO " + peer.identity
+        : "";
+    }
+    return "ARM " + job.job_id;
+  };
+
   const createRemoteJob = async (event) => {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setRemoteJobResult(null);
     try {
       const authorizedClients = remoteClients.split(/[\s,;]+/).map((value) => value.trim()).filter(Boolean);
       const job = {
         schema_version: 1, job_id: crypto.randomUUID(), operation: remoteOperation,
-        image_id: remoteImageId, target_type: remoteTargetType,
+        image_id: remoteOperation === "clone" ? null : remoteImageId,
+        ...(remoteOperation === "clone" ? { source_device: remoteSourceDevice, target_type: "disk" } : { target_type: remoteTargetType }),
         authorized_clients: authorizedClients, network_interface: remoteInterface,
         transport: remoteTransport,
         multicast_group: remoteTransport === "multicast" ? remoteMulticastGroup : null,
@@ -831,23 +844,29 @@ export default function App() {
               <StackItem>
                 <Card><CardBody><form onSubmit={createRemoteJob}>
                   <Field label="Operation">
-                    <select className="pf-v5-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); if (e.target.value === "save") { setRemoteTransport("unicast"); setRemoteTargetType("disk"); } }}>
+                    <select className="pf-v5-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); if (e.target.value === "save" || e.target.value === "clone") { setRemoteTransport("unicast"); setRemoteTargetType("disk"); } }}>
                       <option value="restore">Restore a signed Server image to Clients</option>
                       <option value="save">Capture whole disks from Clients to Server</option>
+                      <option value="clone">Clone Server disk directly to one Client disk</option>
                     </select>
                   </Field>
-                  <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing signed image." : "New identifier for the image captured from Clients."}>
+                  {remoteOperation === "clone" ? <Field label="Server source disk" help="Select a whole disk already marked read-only. Feclora rechecks it before streaming.">
+                    <select className="pf-v5-c-form-control" value={remoteSourceDevice} onChange={(e) => setRemoteSourceDevice(e.target.value)} required>
+                      <option value="">Select read-only source disk…</option>
+                      {(inventory?.devices || []).filter((item) => item.type === "disk" && item.read_only === true).map((item) => <option key={item.path} value={item.path}>{item.path} · {item.model || "Disk"} · {formatBytes(item.size_bytes)}</option>)}
+                    </select>
+                  </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing signed image." : "New identifier for the image captured from Clients."}>
                     {remoteOperation === "restore" ? <select className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)}>
                       <option value="">Select signed image…</option>
                       {images.filter((item) => item.image_type === remoteTargetType && item.signed).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}</option>)}
                     </select> : <input className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)} maxLength={128} required />}
-                  </Field>
+                  </Field>}
                   {remoteOperation === "restore" && <Field label="Target type">
                     <select className="pf-v5-c-form-control" value={remoteTargetType} onChange={(e) => { setRemoteTargetType(e.target.value); setRemoteImageId(""); }}>
                       <option value="disk">Whole disk</option><option value="partition">Partition</option>
                     </select>
                   </Field>}
-                  <Field label="Enrolled Client MAC addresses" help="Enter exactly one MAC for unicast, or at least two for multicast restore. Server verifies each is enrolled.">
+                  <Field label="Enrolled Client MAC addresses" help={remoteOperation === "clone" ? "Enter exactly one enrolled Client MAC. That Client independently selects and confirms its destination disk." : "Enter exactly one MAC for unicast, or at least two for multicast restore. Server verifies each is enrolled."}>
                     <textarea className="pf-v5-c-form-control" rows={3} value={remoteClients} onChange={(e) => setRemoteClients(e.target.value)} required placeholder="52:54:00:12:34:56" />
                   </Field>
                   <Field label="Server network interface">
@@ -857,7 +876,7 @@ export default function App() {
                     </select>
                   </Field>
                   <Field label="Transport">
-                    <select className="pf-v5-c-form-control" value={remoteTransport} onChange={(e) => setRemoteTransport(e.target.value)}>
+                    <select className="pf-v5-c-form-control" value={remoteTransport} disabled={remoteOperation === "clone"} onChange={(e) => setRemoteTransport(e.target.value)}>
                       <option value="unicast">Authenticated unicast</option>
                       <option value="multicast" disabled={remoteOperation === "save"}>UDPcast multicast restore</option>
                     </select>
@@ -868,7 +887,7 @@ export default function App() {
                     <Alert variant="warning" title="Multicast transport limitation" isInline>UDPcast data packets are not encrypted or authenticated. mTLS protects the control plane, not the multicast data stream. Use only on a trusted, isolated deployment network.</Alert>
                   </>}
                   <Field label="Start policy"><input className="pf-v5-c-form-control" value="Manual — exact job-specific typed confirmation required" readOnly /></Field>
-                  <Button type="submit" variant="primary" isDisabled={busy || !remoteImageId || !remoteClients.trim() || !remoteInterface}>Validate and save job definition</Button>
+                  <Button type="submit" variant="primary" isDisabled={busy || (remoteOperation === "clone" ? !remoteSourceDevice : !remoteImageId) || !remoteClients.trim() || !remoteInterface}>Validate and save job definition</Button>
                 </form>
                 {remoteJobResult && <Alert variant="success" title="Job definition persisted" isInline className="pf-v5-u-mt-md">{remoteJobResult.message}<p>Job ID: {remoteJobResult.job_id}</p></Alert>}
                 </CardBody></Card>
@@ -876,7 +895,7 @@ export default function App() {
               <StackItem><Title headingLevel="h2" size="lg">Persisted remote jobs</Title>
                 <p>Interrupted jobs can only be closed for audit after you have inspected every Client and destination manually. This does not resume or retry disk operations.</p>
                 <Table aria-label="Persisted remote deployment jobs" variant="compact"><Thead><Tr><Th>Job ID</Th><Th>Operation</Th><Th>Image</Th><Th>Target</Th><Th>Transport</Th><Th>State</Th><Th>Client progress</Th><Th>Recovery</Th><Th>Events</Th><Th>Service and execution</Th></Tr></Thead><Tbody>
-                  {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.image_id}</Td><Td>{job.target_type}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{Object.entries(job.clients || {}).map(([mac, client]) => mac + ": " + client.state).join(", ") || "Not connected"}</Td><Td>{job.interrupted ? <Stack hasGutter><StackItem><Label color="orange">Review required · no auto-resume</Label></StackItem><StackItem><input className="pf-v5-c-form-control" aria-label={`Reconciliation confirmation for ${job.job_id}`} placeholder={`RECONCILE ${job.job_id}`} value={reconcileConfirmations[job.job_id] || ""} onChange={(event) => setReconcileConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem><StackItem><Button variant="secondary" size="sm" isDisabled={busy || reconcileConfirmations[job.job_id] !== `RECONCILE ${job.job_id}`} onClick={() => reconcileDeploymentJob(job.job_id)}>Close for audit</Button></StackItem></Stack> : "—"}</Td><Td>{job.event_count}</Td><Td>
+                  {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.operation === "clone" ? job.source_device : job.image_id}</Td><Td>{job.target_type}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{Object.entries(job.clients || {}).map(([mac, client]) => mac + ": " + client.state).join(", ") || "Not connected"}</Td><Td>{job.interrupted ? <Stack hasGutter><StackItem><Label color="orange">Review required · no auto-resume</Label></StackItem><StackItem><input className="pf-v5-c-form-control" aria-label={`Reconciliation confirmation for ${job.job_id}`} placeholder={`RECONCILE ${job.job_id}`} value={reconcileConfirmations[job.job_id] || ""} onChange={(event) => setReconcileConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem><StackItem><Button variant="secondary" size="sm" isDisabled={busy || reconcileConfirmations[job.job_id] !== `RECONCILE ${job.job_id}`} onClick={() => reconcileDeploymentJob(job.job_id)}>Close for audit</Button></StackItem></Stack> : "—"}</Td><Td>{job.event_count}</Td><Td>
                     <Stack hasGutter>
                       <StackItem>
                         <Button size="sm" variant="secondary" isDisabled={busy || job.interrupted || (!job.service_active && job.job_state !== "created")} onClick={() => startDeploymentService(job.job_id)}>{job.service_active ? "Connect / inspect service" : "Start / connect service"}</Button>
@@ -904,8 +923,8 @@ export default function App() {
                         {serviceStatuses[job.job_id].multicast_preflight?.warnings?.length > 0 && <StackItem><Alert variant="warning" isInline title="Multicast network warnings">{serviceStatuses[job.job_id].multicast_preflight.warnings.join(" ")}</Alert></StackItem>}
                         {serviceStatuses[job.job_id].multicast_preflight?.error && <StackItem><Alert variant="danger" isInline title="Multicast preflight failed">{serviceStatuses[job.job_id].multicast_preflight.error}</Alert></StackItem>}
                         {serviceStatuses[job.job_id].job_state === "created" && <>
-                          <StackItem><input className="pf-v5-c-form-control" aria-label={"Arm confirmation for " + job.job_id} placeholder={job.transport === "multicast" ? "ARM MULTICAST " + job.job_id + " IGMP-VERIFIED" : "ARM " + job.job_id} value={serviceConfirmations[job.job_id] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem>
-                          <StackItem><Button size="sm" variant="primary" isDisabled={busy || serviceConfirmations[job.job_id] !== (job.transport === "multicast" ? "ARM MULTICAST " + job.job_id + " IGMP-VERIFIED" : "ARM " + job.job_id)} onClick={() => sendDeploymentServiceCommand(job.job_id, "arm_deployment_job", serviceConfirmations[job.job_id])}>Arm and execute</Button></StackItem>
+                          <StackItem><input className="pf-v5-c-form-control" aria-label={"Arm confirmation for " + job.job_id} placeholder={deploymentArmPhrase(job) || "Enrolled Client identity unavailable"} value={serviceConfirmations[job.job_id] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem>
+                          <StackItem><Button size="sm" variant="primary" isDisabled={busy || !deploymentArmPhrase(job) || serviceConfirmations[job.job_id] !== deploymentArmPhrase(job)} onClick={() => sendDeploymentServiceCommand(job.job_id, "arm_deployment_job", serviceConfirmations[job.job_id])}>Arm and execute</Button></StackItem>
                           <StackItem><input className="pf-v5-c-form-control" aria-label={"Cancel confirmation for " + job.job_id} placeholder={"CANCEL " + job.job_id} value={serviceConfirmations[job.job_id + "-cancel"] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id + "-cancel"]: event.target.value }))} /></StackItem>
                           <StackItem><Button size="sm" variant="secondary" isDisabled={busy || serviceConfirmations[job.job_id + "-cancel"] !== "CANCEL " + job.job_id} onClick={() => sendDeploymentServiceCommand(job.job_id, "cancel_deployment_job", serviceConfirmations[job.job_id + "-cancel"])}>Cancel before arm</Button></StackItem>
                         </>}
