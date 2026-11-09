@@ -280,7 +280,7 @@ class RemoteRepositoryManager:
         if identifier not in entries:
             raise RepositoryManagerError("unknown repository ID")
         mountpoint = self.mount_root / identifier
-        _private_directory(mountpoint, create=False)
+        _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
         if self._is_mounted(str(mountpoint)):
             raise RepositoryManagerError("unmount the repository before removing its definition")
         mountpoint.rmdir()
