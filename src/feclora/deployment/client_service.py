@@ -236,7 +236,7 @@ class ClientDeploymentService:
             from feclora.deployment.service import recover_stale_runtime_artifacts
             recover_stale_runtime_artifacts(lock_held=True)
             request = _read_private_json(self.request_path)
-            expected = {"schema_version", "job_id", "host", "device_path", "confirmation", "compression", "network_interface", "igmp_confirmed"}
+            expected = {"schema_version", "job_id", "host", "device_path", "confirmation", "compression", "network_interface", "source_address", "igmp_confirmed"}
             if set(request) != expected or request.get("schema_version") != 1 or request.get("job_id") != self.job_id:
                 raise ClientJobServiceError("Client job request has an invalid schema or job identifier")
             host = request["host"]
@@ -244,6 +244,7 @@ class ClientDeploymentService:
             confirmation = request["confirmation"]
             compression = request["compression"]
             network_interface = request["network_interface"]
+            source_address = request["source_address"]
             igmp_confirmed = request["igmp_confirmed"]
             if not isinstance(igmp_confirmed, bool):
                 raise ClientJobServiceError("IGMP network acknowledgement must be boolean")
@@ -257,11 +258,20 @@ class ClientDeploymentService:
                 raise ClientJobServiceError("local target confirmation is invalid")
             if not isinstance(compression, str) or compression not in {"none", "gzip", "xz"}:
                 raise ClientJobServiceError("capture compression must be none, gzip or xz")
-            if network_interface is not None and (
-                not isinstance(network_interface, str)
-                or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,15}", network_interface)
-            ):
-                raise ClientJobServiceError("multicast receive interface is invalid")
+            if (network_interface is None) != (source_address is None):
+                raise ClientJobServiceError("Client interface and source address must be supplied together")
+            if network_interface is not None:
+                if (not isinstance(network_interface, str)
+                        or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,15}", network_interface)
+                        or not isinstance(source_address, str)):
+                    raise ClientJobServiceError("selected Client interface/source address is invalid")
+                from feclora.network.interface_discovery import discover_interface_addresses
+                try:
+                    current_addresses = discover_interface_addresses(network_interface)
+                except Exception as exc:
+                    raise ClientJobServiceError(f"selected Client interface is unavailable: {exc}") from exc
+                if source_address not in {item.address for item in current_addresses}:
+                    raise ClientJobServiceError("selected Client source address is no longer assigned to its interface")
             self.request_path.unlink()
             config = load_client_runtime_config("/etc/feclora/deployment-client.json")
             context = create_mutual_tls_context(
@@ -434,7 +444,7 @@ class ClientDeploymentService:
                     job_id=self.job_id,
                     prepare_local_target=prepare_local_target,
                     execute_job=execute_job,
-                    timeout=86400,
+                    timeout=86400, source_address=source_address,
                 )
                 self._set_status(
                     "completed" if success else "failed",
