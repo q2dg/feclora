@@ -1899,7 +1899,7 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             required = {
                 "id", "provider", "host", "remote_path", "username",
                 "credential_file", "identity_file", "known_hosts_file",
-                "port", "read_only",
+                "port", "read_only", "rclone_remote",
             }
             if set(params) != required:
                 raise WebAPIError("remote repository definition has missing or unknown fields")
@@ -1907,7 +1907,7 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             definition = {key: params[key] for key in required - {"id"}}
             for key in ("provider", "host", "remote_path"):
                 _text(definition, key, maximum=512)
-            for key in ("username", "credential_file", "identity_file", "known_hosts_file"):
+            for key in ("username", "credential_file", "identity_file", "known_hosts_file", "rclone_remote"):
                 if definition[key] is not None and (
                     not isinstance(definition[key], str) or not definition[key]
                     or len(definition[key]) > 512
