@@ -323,6 +323,19 @@ class LocalOperationStore:
             reports.append(self.status(operation_id))
         return reports
 
+    def list_all(self) -> list[dict[str, Any]]:
+        """Return every durable job; recovery must never be limited to recent history."""
+        directory_fd = _safe_directory(self.directory, create=False)
+        try:
+            names = sorted(
+                (entry.name for entry in os.scandir(directory_fd)
+                 if re.fullmatch(r"[0-9a-f-]{36}\\.json", entry.name)),
+                reverse=True,
+            )
+        finally:
+            os.close(directory_fd)
+        return [self.status(name[:-5]) for name in names]
+
     def status(self, operation_id: str) -> dict[str, Any]:
         definition = self.definition(operation_id)
         history = self.events(operation_id)
