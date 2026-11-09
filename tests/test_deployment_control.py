@@ -230,6 +230,25 @@ class ClientProgressTests(unittest.TestCase):
         self.assertEqual(server.client_progress(), {})
         self.assertEqual(server._last_persisted_progress, {})
 
+    def test_progress_is_rejected_after_client_reaches_terminal_state(self):
+        server = object.__new__(DeploymentControlServer)
+        coordinator = DeploymentCoordinator(make_job())
+        coordinator.register_client(MAC, authenticated=True)
+        coordinator.mark_ready(MAC)
+        coordinator.arm()
+        coordinator.mark_running(MAC)
+        coordinator.report_result(MAC, success=True)
+        server.coordinator = coordinator
+        server._lock = threading.RLock()
+        server._progress = {}
+        frame = {
+            "type": "progress", "job_id": JOB_ID, "phase": "restore",
+            "completed_bytes": 4096, "total_bytes": 4096,
+        }
+        with self.assertRaisesRegex(DeploymentControlError, "running authenticated Client"):
+            server._record_client_progress(MAC, frame)
+        self.assertEqual(server.client_progress(), {})
+
     def test_progress_counter_cannot_move_backwards_within_phase(self):
         server = object.__new__(DeploymentControlServer)
         server.coordinator = DeploymentCoordinator(make_job())
