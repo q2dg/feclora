@@ -19,6 +19,7 @@ def connect_mutual_tls(
     io_timeout: float = 120.0,
     cancel_check: Callable[[], bool] | None = None,
     connect_poll_interval: float = 0.25,
+    source_address: str | None = None,
 ) -> ssl.SSLSocket:
     """Connect to a TLS server, polling cancellation during the TCP connect phase."""
     if (isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0
@@ -26,6 +27,13 @@ def connect_mutual_tls(
             or not isinstance(connect_poll_interval, (int, float))
             or not 0.05 <= connect_poll_interval <= 5.0):
         raise ValueError("connection timeout and polling interval must be positive and bounded")
+    if source_address is not None:
+        try:
+            parsed_source = socket.inet_pton(socket.AF_INET, source_address)
+        except OSError as exc:
+            raise ValueError("source_address must be a valid IPv4 address") from exc
+    else:
+        parsed_source = None
     deadline = time.monotonic() + timeout
     raw = None
     while raw is None:
@@ -37,6 +45,7 @@ def connect_mutual_tls(
         try:
             raw = socket.create_connection(
                 (host, port), timeout=min(float(connect_poll_interval), remaining),
+                source_address=(source_address, 0) if parsed_source is not None else None,
             )
         except socket.timeout:
             continue
