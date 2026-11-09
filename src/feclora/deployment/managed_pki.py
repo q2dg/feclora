@@ -299,9 +299,9 @@ def rotate_server_keypair(
             "-addext", "subjectAltName=URI:feclora-server",
         ], runner)
         Path(extensions).write_text(
-            "subjectAltName=URI:feclora-server\\n"
-            "keyUsage=critical,digitalSignature,keyEncipherment\\n"
-            "extendedKeyUsage=serverAuth\\n",
+            "subjectAltName=URI:feclora-server\n"
+            "keyUsage=critical,digitalSignature,keyEncipherment\n"
+            "extendedKeyUsage=serverAuth\n",
             encoding="ascii",
         )
         os.chmod(extensions, 0o600)
@@ -317,7 +317,7 @@ def rotate_server_keypair(
             [openssl, "x509", "-in", new_certificate, "-noout", "-ext", "subjectAltName"],
             runner,
         ).stdout
-        if re.findall(r"URI:(feclora-server)", san) != ["feclora-server"] or re.search(r"\\b(?:DNS|IP Address|email):", san):
+        if re.findall(r"URI:(feclora-server)", san) != ["feclora-server"] or re.search(r"\b(?:DNS|IP Address|email):", san):
             raise PKIError("new Server certificate SAN does not match the managed Server identity")
         certificate_public = _run(
             [openssl, "x509", "-in", new_certificate, "-pubkey", "-noout"], runner,
