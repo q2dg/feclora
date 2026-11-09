@@ -36,7 +36,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
         argv = build_mount_argv(
             repo, [("feclora-nas-smb", encrypted)], "/run/credentials/unit",
         )
-        self.assertIn("credentials=/run/credentials/unit/feclora-nas-smb", argv[3])
+        self.assertIn("credentials=/run/credentials/unit/feclora-nas-smb", argv[4])
         self.assertNotIn(encrypted, " ".join(argv))
 
     def test_rclone_runs_in_service_foreground_with_encrypted_config(self):
