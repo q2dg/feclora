@@ -185,6 +185,31 @@ class ClientProgressTests(unittest.TestCase):
         self.assertEqual(progress["bytes_per_second"], 512.0)
         self.assertNotIn("monotonic", progress)
 
+    def test_progress_persists_initial_and_bounded_byte_checkpoints(self):
+        server = object.__new__(DeploymentControlServer)
+        server.coordinator = DeploymentCoordinator(make_job())
+        server.coordinator.register_client(MAC, authenticated=True)
+        server.coordinator.mark_ready(MAC)
+        server.coordinator.arm()
+        server.coordinator.mark_running(MAC)
+        server._lock = threading.RLock()
+        server._progress = {}
+        server._last_persisted_progress = {}
+        server._progress_event_sink = Mock()
+        frame = {
+            "type": "progress", "job_id": JOB_ID, "phase": "restore",
+            "completed_bytes": 1024, "total_bytes": 4 * 1024 * 1024,
+        }
+        with patch("feclora.deployment.control.time.monotonic", side_effect=[10.0, 11.0, 12.0]):
+            server._record_client_progress(MAC, frame)
+            server._record_client_progress(MAC, {**frame, "completed_bytes": 2048})
+            server._record_client_progress(MAC, {**frame, "completed_bytes": 1024 * 1024 + 1024})
+        self.assertEqual(server._progress_event_sink.call_count, 2)
+        saved = server._progress_event_sink.call_args_list[-1].args[0]
+        self.assertEqual(saved["event"], "client_progress")
+        self.assertEqual(saved["client_mac"], MAC)
+        self.assertEqual(saved["progress"]["completed_bytes"], 1024 * 1024 + 1024)
+
     def test_transfer_progress_is_a_distinct_phase_with_independent_throughput(self):
         server = object.__new__(DeploymentControlServer)
         server.coordinator = DeploymentCoordinator(make_job())
