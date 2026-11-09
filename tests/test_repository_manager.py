@@ -53,6 +53,20 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.assertNotIn("private key", content)
         self.assertIn(str(self.key), content)
 
+    def test_credential_reference_inventory_and_guard(self):
+        self.manager.add("nas", {
+            "provider": "sshfs", "host": "nas.example", "remote_path": "/images",
+            "username": "backup", "credential_file": None,
+            "identity_file": "/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred",
+            "known_hosts_file": "/etc/credstore.encrypted/feclora/feclora-nas-known-hosts.cred",
+            "port": 22, "read_only": True,
+        })
+        self.assertTrue(self.manager.credential_is_referenced(
+            "/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred"
+        ))
+        self.assertFalse(self.manager.credential_is_referenced("/etc/credstore.encrypted/feclora/unused.cred"))
+        self.assertEqual(len(self.manager.list()[0]["credential_refs"]), 2)
+
     def test_mount_uses_argv_and_requires_verified_mount_state(self):
         self.manager.add("images", self.definition)
         with self.assertRaisesRegex(RepositoryManagerError, "not mounted"):
