@@ -6,6 +6,7 @@ accepted from a Cockpit request or copied into the repository registry.
 """
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import re
@@ -271,28 +272,64 @@ class RemoteRepositoryManager:
             raise RepositoryManagerError("mount command returned success but the selected mountpoint is not mounted")
         return {"id": identifier, "mounted": True, "mountpoint": str(mountpoint)}
 
+    def _acquire_usage_lock(self, identifier: str, *, exclusive: bool) -> int:
+        if not isinstance(identifier, str) or not _REPOSITORY_ID.fullmatch(identifier):
+            raise RepositoryManagerError("repository identifier is invalid")
+        self._root()
+        lock_dir = self.mount_root / ".locks"
+        _private_directory(lock_dir, create=True, owner_uid=self.owner_uid)
+        os.chmod(lock_dir, 0o700)
+        path = lock_dir / (identifier + ".lock")
+        try:
+            fd = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+            info = os.fstat(fd)
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != self.owner_uid
+                    or info.st_mode & 0o077):
+                raise RepositoryManagerError("repository usage lock is not a private root-owned regular file")
+            operation = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
+            fcntl.flock(fd, operation | fcntl.LOCK_NB)
+            return fd
+        except BlockingIOError as exc:
+            if "fd" in locals():
+                os.close(fd)
+            raise RepositoryManagerError("repository is in use by an active deployment restore") from exc
+        except OSError as exc:
+            if "fd" in locals():
+                os.close(fd)
+            raise RepositoryManagerError(f"cannot acquire repository usage lock: {exc}") from exc
+
+    def acquire_usage_lock(self, identifier: str) -> int:
+        """Hold a shared lease while a deployment job may read this repository."""
+        if identifier not in self._load():
+            raise RepositoryManagerError("unknown repository ID")
+        return self._acquire_usage_lock(identifier, exclusive=False)
+
     def unmount(self, identifier: str) -> dict[str, Any]:
         entries = self._load()
         if identifier not in entries:
             raise RepositoryManagerError("unknown repository ID")
-        mountpoint = self.mount_root / identifier
-        _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
-        if not self._is_mounted(str(mountpoint)):
-            return {"id": identifier, "mounted": False, "already_unmounted": True}
-        # Never unmount an unrelated filesystem that happens to occupy this path.
-        self.resolve(identifier)
+        lock_fd = self._acquire_usage_lock(identifier, exclusive=True)
         try:
-            result = self.runner(
-                [self.which("umount") or "umount", "--", str(mountpoint)],
-                stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                check=False, timeout=30,
-            )
-        except (OSError, subprocess.SubprocessError) as exc:
-            raise RepositoryManagerError(f"repository unmount failed: {exc}") from exc
-        if result.returncode != 0 or self._is_mounted(str(mountpoint)):
-            detail = (result.stderr or result.stdout or "").strip()[:512]
-            raise RepositoryManagerError("repository remains mounted" + (f": {detail}" if detail else ""))
-        return {"id": identifier, "mounted": False}
+            mountpoint = self.mount_root / identifier
+            _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
+            if not self._is_mounted(str(mountpoint)):
+                return {"id": identifier, "mounted": False, "already_unmounted": True}
+            # Never unmount an unrelated filesystem that happens to occupy this path.
+            self.resolve(identifier)
+            try:
+                result = self.runner(
+                    [self.which("umount") or "umount", "--", str(mountpoint)],
+                    stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                    check=False, timeout=30,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                raise RepositoryManagerError(f"repository unmount failed: {exc}") from exc
+            if result.returncode != 0 or self._is_mounted(str(mountpoint)):
+                detail = (result.stderr or result.stdout or "").strip()[:512]
+                raise RepositoryManagerError("repository remains mounted" + (f": {detail}" if detail else ""))
+            return {"id": identifier, "mounted": False}
+        finally:
+            os.close(lock_fd)
 
     def remove(self, identifier: str) -> dict[str, Any]:
         entries = self._load()
