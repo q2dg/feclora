@@ -103,6 +103,8 @@ class RemoteRepository:
                 raise RepositoryError("S3 requires a configured rclone remote alias")
             if self.credential_file is None:
                 raise RepositoryError("S3 requires a protected rclone configuration file")
+            if not self.read_only:
+                raise RepositoryError("S3 repositories are read-only until provider-aware artifact publication is implemented")
         elif self.provider == "nfs" and (self.username or self.credential_file or self.identity_file):
             raise RepositoryError("NFS does not accept username or credential-file fields")
 
