@@ -13,16 +13,16 @@ This document is the dependency-ordered implementation backlog and acceptance co
 
 ## P0 — Remote disk-to-disk cloning
 Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the existing persistent Server/Client deployment services.
-- [ ] Add remote clone as a distinct operation to the existing Server/Client service lifecycle; do not create parallel daemons, IPC or job journals.
-- [ ] Reuse the existing mTLS control session, enrollment/peer authorization, service locks, durable job records and Cockpit status plumbing wherever their contracts fit.
-- [ ] Keep the direct block-stream data plane separate from UDPcast: the current UDPcast wrapper transfers signed image artifacts to private staging files for multicast restore; it does not implement direct block-device cloning.
-- [ ] Add least-privilege API actions for preflight, authorize, start, inspect and cancel.
-- [ ] Add Cockpit device/peer selection, peer identity verification, exact destructive confirmation and dual-operator authorization.
-- [ ] Persist operation IDs, states, bytes, throughput, errors and terminal verification on both endpoints.
-- [ ] Handle disconnects, timeouts, service restart, cancellation and GPT relocation without implying rollback.
-- [ ] Add integration tests with generated certificates and disposable image-backed devices.
-- [ ] Update feature matrix and add an operational guide.
-Acceptance: remote headers cannot select local devices; both peers authorize independently; receiver read-back verifies; partial writes are marked untrusted; UI survives browser disconnect.
+- [x] Add remote clone as a distinct operation to the existing Server/Client service lifecycle; do not create parallel daemons, IPC or job journals.
+- [x] Reuse the existing mTLS control session, enrollment/peer authorization, service locks, durable job records and Cockpit status plumbing.
+- [x] Keep the direct block-stream data plane separate from UDPcast: the current UDPcast wrapper transfers signed image artifacts to private staging files for multicast restore; it does not implement direct block-device cloning.
+- [x] Extend the existing job definition and privileged API validation for a Server-local read-only source disk; reuse the existing inspect/start/status/arm API and local IPC rather than adding parallel actions.
+- [x] Add Cockpit source/peer selection, Client-local target selection, exact destructive confirmation and independent source/receiver authorization.
+- [x] Persist operation IDs, states, byte progress, throughput, errors and terminal verification through the existing operation logs, Client status and Server job journal.
+- [ ] Complete disconnect, timeout, cancellation and service-restart fault injection; document partial-write and GPT-relocation recovery without implying rollback.
+- [ ] Add two-machine integration tests with generated certificates and disposable image-backed devices.
+- [x] Update feature matrix and operational guide.
+Acceptance: the Server binds the selected source and READY Client target into the session; the receiver independently verifies its local selection; both peers authorize independently; receiver read-back verifies; partial writes are marked untrusted; the persistent service survives browser disconnect.
 
 ## P0 — PKI, trust and identity lifecycle
 Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS keypair rotation under the existing CA, Client renewal/enrollment, trust inventory and revocation. Staged CA rotation and trust migration remain outstanding.
