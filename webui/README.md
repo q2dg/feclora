@@ -22,8 +22,11 @@ The frontend invokes only fixed actions through the root-owned
 stdin. Cockpit superuser authorization is required for privileged operations.
 No arbitrary shell or argv is exposed by the Feclora API.
 
-Remote disk-to-disk cloning is not yet integrated into the persistent services
-or Cockpit. The remote clone protocol/runtime is a separate foundation and
-must not be confused with the existing Server/Client image-deployment jobs.
-Server-side transfer-byte telemetry also remains incomplete; Client-local
-progress and deployment job states are available.
+Remote whole-disk cloning is available as a distinct unicast job in the
+existing persistent Server/Client lifecycle. The Server selects a read-only
+source disk and authorizes the enrolled Client identity; the Client selects
+and confirms its local destination. Both use the existing TLS 1.3 mTLS control
+session, durable job journal and managed services. Clone streams directly
+between block devices through the existing bounded remote-clone engine; it
+does not use UDPcast or create a second service stack. Server-side byte
+progress is exposed through the existing per-Client job status.
