@@ -11,6 +11,8 @@ import re
 import shutil
 import stat
 import subprocess
+import tarfile
+import json
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -695,3 +697,83 @@ def remove_age_recipient(
     _atomic_text(recipients_file, ("\n".join(sorted(set(remaining))) + "\n") if remaining else "")
     os.unlink(mapping)
     return True
+
+
+def backup_server_ca(
+    output_file: str,
+    recipient: str,
+    *,
+    pki_directory: str | os.PathLike[str] = "/etc/feclora/pki",
+    runner: Callable[..., Any] | None = None,
+    openssl: str = "/usr/bin/openssl",
+    age: str = "/usr/bin/age",
+) -> dict[str, str]:
+    """Create an age-encrypted offline backup containing only the managed CA.
+
+    The CA private key is never written unencrypted outside the root-only PKI
+    directory. The backup is staged and atomically published on removable
+    media; an existing destination is never overwritten.
+    """
+    if not isinstance(recipient, str) or not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
+        raise PKIError("backup encryption requires a valid age recipient")
+    root = _root_only_directory(pki_directory)
+    ca_key = os.path.join(root, "ca.key")
+    ca_file = os.path.join(root, "ca.crt")
+    _regular_file(ca_key, "CA private key", root_owned=True)
+    _regular_file(ca_file, "CA certificate", root_owned=True)
+    if os.stat(ca_key).st_mode & 0o077:
+        raise PKIError("CA private key must not be accessible by group or other users")
+    destination = os.path.abspath(output_file)
+    parent = os.path.dirname(destination)
+    parent_info = os.lstat(parent)
+    if not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode):
+        raise PKIError("CA backup destination must be an existing real directory")
+    if os.path.lexists(destination):
+        raise PKIError("refusing to overwrite an existing CA backup")
+    fingerprint = ca_fingerprint(ca_file, runner=runner, openssl=openssl)
+    temporary_directory = tempfile.mkdtemp(prefix=".feclora-ca-backup-", dir=root)
+    fd, staged_output = tempfile.mkstemp(prefix=".feclora-ca-backup-", dir=parent)
+    os.close(fd)
+    archive = os.path.join(temporary_directory, "ca-backup.tar")
+    try:
+        manifest = {
+            "schema_version": 1,
+            "purpose": "feclora-managed-deployment-ca-recovery",
+            "ca_sha256_fingerprint": fingerprint,
+            "contents": ["ca.crt", "ca.key"],
+        }
+        with tarfile.open(archive, "w") as bundle:
+            bundle.add(ca_file, arcname="ca.crt", recursive=False)
+            bundle.add(ca_key, arcname="ca.key", recursive=False)
+            encoded = (json.dumps(manifest, sort_keys=True) + "\\n").encode("ascii")
+            info = tarfile.TarInfo("manifest.json")
+            info.size = len(encoded)
+            info.mode = 0o600
+            import io
+            bundle.addfile(info, io.BytesIO(encoded))
+        os.chmod(archive, 0o600)
+        _run([age, "-r", recipient, "-o", staged_output, archive], runner)
+        info = os.lstat(staged_output)
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_size <= 0:
+            raise PKIError("age did not produce a valid encrypted CA backup")
+        os.chmod(staged_output, 0o600)
+        os.replace(staged_output, destination)
+        directory_fd = os.open(parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+        digest = hashlib.sha256(Path(destination).read_bytes()).hexdigest()
+        return {
+            "backup_file": destination,
+            "sha256": digest,
+            "ca_fingerprint": fingerprint,
+            "message": "Encrypted offline CA backup created. Store the age identity needed to decrypt it separately and securely.",
+        }
+    finally:
+        for path in (staged_output,):
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                pass
+        shutil.rmtree(temporary_directory, ignore_errors=True)
