@@ -124,6 +124,55 @@ class ImageTransferTests(unittest.TestCase):
             right.close()
             thread.join(5)
 
+
+    def test_disconnect_during_payload_removes_staging_without_publishing(self):
+        with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
+            manifest_path = make_image_set(source)
+            left, right = socket.socketpair()
+            sender_errors = []
+
+            class DisconnectAfterPartialPayload:
+                def __init__(self, wrapped):
+                    self.wrapped = wrapped
+                    self.calls = 0
+
+                def sendall(self, data):
+                    self.calls += 1
+                    if self.calls == 1:
+                        self.wrapped.sendall(data)
+                        return
+                    self.wrapped.sendall(data[:2])
+                    self.wrapped.shutdown(socket.SHUT_WR)
+                    raise BrokenPipeError("simulated peer disconnect")
+
+            def sender():
+                try:
+                    send_image_set(
+                        DisconnectAfterPartialPayload(left), source, manifest_path,
+                        expected_image_id="golden", trusted_public_key="/trusted/server.pub",
+                    )
+                except Exception as exc:
+                    sender_errors.append(exc)
+                finally:
+                    left.close()
+
+            with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
+                thread = threading.Thread(target=sender, daemon=True)
+                thread.start()
+                with self.assertRaisesRegex(ImageTransferError, "peer closed"):
+                    receive_image_set(
+                        right, target, expected_image_id="golden",
+                        trusted_public_key="/trusted/server.pub",
+                    )
+                thread.join(5)
+            right.close()
+
+            self.assertFalse(thread.is_alive())
+            self.assertEqual(len(sender_errors), 1)
+            self.assertIsInstance(sender_errors[0], ImageTransferError)
+            self.assertEqual(os.listdir(target), [])
+
+
     def test_receiver_rejects_wrong_job_image_id_without_publishing(self):
         with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
             manifest_path = make_image_set(source)
