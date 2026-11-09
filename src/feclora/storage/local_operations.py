@@ -300,6 +300,25 @@ class LocalOperationStore:
         finally:
             os.close(directory_fd)
 
+    def list(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        """Return recent durable jobs without trusting directory entry types."""
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 500:
+            raise LocalOperationError("operation list limit must be between 1 and 500")
+        directory_fd = _safe_directory(self.directory, create=False)
+        try:
+            names = sorted(
+                (entry.name for entry in os.scandir(directory_fd)
+                 if re.fullmatch(r"[0-9a-f-]{36}\\.json", entry.name)),
+                reverse=True,
+            )[:limit]
+        finally:
+            os.close(directory_fd)
+        reports = []
+        for name in names:
+            operation_id = name[:-5]
+            reports.append(self.status(operation_id))
+        return reports
+
     def status(self, operation_id: str) -> dict[str, Any]:
         definition = self.definition(operation_id)
         history = self.events(operation_id)
