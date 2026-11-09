@@ -126,4 +126,4 @@ Fedora has a short, regularly advancing release lifecycle. Before changing the p
 
 ## License
 
-License selection is pending. Individual components and dependencies may carry their own licenses; these will be documented before code is incorporated or redistributed.
+Feclora is licensed under the **GNU General Public License v3.0 or (at your option) any later version** (`GPL-3.0-or-later`). The complete license text is available in [LICENSE](LICENSE). Individual components and dependencies may carry their own licenses; their applicable notices and terms must be respected when they are incorporated or redistributed.
