@@ -73,6 +73,21 @@ class DeploymentJournalTests(unittest.TestCase):
             with self.assertRaisesRegex(DeploymentJournalError, "hash mismatch"):
                 DeploymentJournal(path, JOB_ID)
 
+    def test_journal_rejects_truncated_final_record_without_newline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            journal({
+                "timestamp": "2026-11-08T12:00:00+00:00",
+                "job_id": JOB_ID, "event": "job_created", "job_state": "created",
+            })
+            with open(path, "rb") as stream:
+                payload = stream.read()
+            with open(path, "wb") as stream:
+                stream.write(payload[:-1])
+            with self.assertRaisesRegex(DeploymentJournalError, "incomplete event record"):
+                DeploymentJournal(path, JOB_ID)
+
     def test_journal_rejects_symlink(self):
         with tempfile.TemporaryDirectory() as directory:
             target = os.path.join(directory, "target")
