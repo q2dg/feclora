@@ -341,3 +341,7 @@ console access available during changes, especially when changing the
 management interface. This workflow currently covers IPv4 only; IPv6, Wi-Fi
 secret provisioning, inactive profile binding and multi-interface routing
 policy are not configured here.
+
+## Remote repository credentials
+
+See [Remote image repositories](REMOTE-REPOSITORIES.md) for the Cockpit encrypted-credential import, selection, rotation and removal workflow.
