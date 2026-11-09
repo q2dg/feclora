@@ -2,7 +2,7 @@
 
 This roadmap distinguishes code implementation, Cockpit integration and operator-owned validation. Feclora's primary interface is Cockpit; the old local `dialog` menu is no longer installed in the Live package.
 
-The detailed, dependency-ordered implementation backlog and acceptance criteria live in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md).
+The detailed, dependency-ordered implementation backlog and acceptance criteria live in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md). Operator procedures are indexed in [GUIDES.md](GUIDES.md); only workflows implemented end to end are presented as available.
 
 ## Completed in source
 
