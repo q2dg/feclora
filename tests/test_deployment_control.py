@@ -81,7 +81,7 @@ class FakeSocket:
 class ListenerShutdownRaceTests(unittest.TestCase):
     def test_ready_client_is_not_registered_after_shutdown_begins(self):
         tls_socket = FakeSocket()
-        job = SimpleNamespace(job_id=JOB_ID, authorizes_client=lambda mac: mac == MAC)
+        job = SimpleNamespace(job_id=JOB_ID, operation="restore", authorizes_client=lambda mac: mac == MAC, to_dict=lambda: {})
         coordinator = Mock()
         coordinator.job = job
         def mark_ready(_mac):
