@@ -31,7 +31,7 @@ Status meanings:
 | Deployment trust | Client inventory, MAC/signing authorization, exact-confirmation revocation | Implemented | Cockpit | Automated tests |
 | Deployment trust | Age recipient export and Client-side verified refresh | Implemented; removable-media exchange | Cockpit | Automated tests |
 | Deployment trust | Client certificate renewal | Key-preserving removable-media renewal primitives and Cockpit workflow | Cockpit + removable media | Automated tests; operator workflow validation |
-| Deployment trust | Managed CA rotation and Server TLS keypair rotation | No staged CA trust migration or Server private-key rotation; current Server certificate renewal retains both CA and Server key | Not implemented | Not yet complete | Not yet covered end to end |
+| Deployment trust | Managed CA rotation and Server TLS keypair rotation | Server TLS keypair rotation is implemented under the existing CA with new-key/certificate validation and guarded Cockpit action; staged CA trust migration remains unimplemented | Partial | Unit/API tests; no mixed-client CA migration acceptance |
 | Network boot | dnsmasq/iPXE/TFTP/Caddy | ProxyDHCP/isolated DHCP preflight and transient lifecycle implemented | Cockpit activation/shutdown; persistent network setup/diagnostics incomplete | Automated tests; operator validation |
 | Remote deployment | mTLS unicast save/restore | Persistent Server/Client services, READY/ARM gating, durable journals | Cockpit workflows | Automated tests; operator validation |
 | Remote deployment | UDPcast multicast restore | Engine and Server/Client receiver lifecycle integrated; switch IGMP remains external | Cockpit workflows | Automated tests; operator validation |
