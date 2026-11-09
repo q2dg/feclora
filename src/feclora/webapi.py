@@ -1319,8 +1319,24 @@ def _deployment_journal_directory(*, create: bool = False) -> Path:
 
 
 def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
-    if set(params) != {"host", "job_id"}:
-        raise WebAPIError("remote job inspection requires exactly host and job_id")
+    allowed = ({"host", "job_id"}, {"host", "job_id", "network_interface", "source_address"})
+    if set(params) not in allowed:
+        raise WebAPIError("remote job inspection requires host/job_id and an optional local interface/source address pair")
+    network_interface = params.get("network_interface")
+    source_address = params.get("source_address")
+    if (network_interface is None) != (source_address is None):
+        raise WebAPIError("network_interface and source_address must be supplied together")
+    if network_interface is not None:
+        from feclora.network.interface_discovery import discover_interface_addresses, validate_selected_address
+        try:
+            discovered = discover_interface_addresses(network_interface)
+            matches = [item for item in discovered if item.address == source_address]
+            if len(matches) != 1:
+                raise WebAPIError("selected source address is not assigned to the selected Client interface")
+        except WebAPIError:
+            raise
+        except Exception as exc:
+            raise WebAPIError(f"cannot validate selected Client interface/address: {exc}") from exc
     host = params["host"]
     job_id = params["job_id"]
     if not isinstance(job_id, str) or not re.fullmatch(
@@ -1351,7 +1367,7 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
             local_identity=config.local_identity,
             expected_server_identity=config.server_identity,
             mac_address=config.mac_address,
-            job_id=job_id,
+            job_id=job_id, source_address=source_address,
         )
     except (DeploymentControlError, OSError, ValueError) as exc:
         raise WebAPIError(f"could not inspect authenticated Server job: {exc}") from exc
@@ -1457,14 +1473,20 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
     required = {"host", "job_id", "device_path", "confirmation", "compression"}
     allowed = {
         frozenset(required),
-        frozenset(required | {"network_interface"}),
-        frozenset(required | {"network_interface", "igmp_confirmed"}),
+        frozenset(required | {"network_interface", "source_address"}),
+        frozenset(required | {"network_interface", "source_address", "igmp_confirmed"}),
     }
     if frozenset(params) not in allowed:
         raise WebAPIError("start_client_job requires host, job_id, device_path, confirmation, compression and optional multicast acknowledgements")
-    inspection = _inspect_remote_job({"host": params["host"], "job_id": params["job_id"]})
-    job = inspection["job"]
     network_interface = params.get("network_interface")
+    source_address = params.get("source_address")
+    if (network_interface is None) != (source_address is None):
+        raise WebAPIError("network_interface and source_address must be supplied together")
+    inspection_params = {"host": params["host"], "job_id": params["job_id"]}
+    if network_interface is not None:
+        inspection_params.update(network_interface=network_interface, source_address=source_address)
+    inspection = _inspect_remote_job(inspection_params)
+    job = inspection["job"]
     igmp_confirmed = params.get("igmp_confirmed", False)
     multicast_preflight = None
     if job["transport"] == "multicast":
@@ -1483,8 +1505,8 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
             )
         except Exception as exc:
             raise WebAPIError(f"multicast receive interface preflight failed: {exc}") from exc
-    elif network_interface is not None or igmp_confirmed is not False:
-        raise WebAPIError("multicast interface and IGMP acknowledgement are only valid for multicast Client jobs")
+    elif igmp_confirmed is not False:
+        raise WebAPIError("IGMP acknowledgement is only valid for multicast Client jobs")
     device_path = params["device_path"]
     confirmation = params["confirmation"]
     compression = params["compression"]
@@ -1533,7 +1555,7 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
         "schema_version": 1, "job_id": params["job_id"], "host": inspection["host"],
         "device_path": device_path, "confirmation": confirmation,
         "compression": compression, "network_interface": network_interface,
-        "igmp_confirmed": igmp_confirmed,
+        "source_address": source_address, "igmp_confirmed": igmp_confirmed,
     })
     unit = "feclora-client@" + params["job_id"] + ".service"
     try:
