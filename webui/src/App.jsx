@@ -82,6 +82,7 @@ export default function App() {
   const [repositoryIdentity, setRepositoryIdentity] = useState("");
   const [repositoryKnownHosts, setRepositoryKnownHosts] = useState("");
   const [repositoryCredentials, setRepositoryCredentials] = useState("");
+  const [repositoryRcloneRemote, setRepositoryRcloneRemote] = useState("");
   const [repositoryPort, setRepositoryPort] = useState("22");
   const [repositoryReadOnly, setRepositoryReadOnly] = useState(true);
   const [imageVerification, setImageVerification] = useState({});
@@ -243,10 +244,11 @@ export default function App() {
         id: repositoryId, provider: repositoryProvider, host: repositoryHost,
         remote_path: repositoryPath,
         username: repositoryProvider === "sshfs" || repositoryProvider === "smb" ? repositoryUsername || null : null,
-        credential_file: repositoryProvider === "smb" ? repositoryCredentials : null,
+        credential_file: repositoryProvider === "smb" || repositoryProvider === "s3" ? repositoryCredentials : repositoryProvider === "webdav" ? "/etc/davfs2/secrets" : null,
         identity_file: repositoryProvider === "sshfs" ? repositoryIdentity : null,
         known_hosts_file: repositoryProvider === "sshfs" ? repositoryKnownHosts : null,
-        port: repositoryPort ? Number(repositoryPort) : null, read_only: repositoryReadOnly
+        port: repositoryProvider === "sshfs" || repositoryProvider === "smb" ? (repositoryPort ? Number(repositoryPort) : null) : null,
+        rclone_remote: repositoryProvider === "s3" ? repositoryRcloneRemote : null, read_only: repositoryReadOnly
       });
       setNotice("Repository definition saved; no mount was started.");
       setRepositoryId(""); await refresh();
