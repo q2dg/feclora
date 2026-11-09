@@ -336,8 +336,8 @@ def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"image_id"}:
         raise WebAPIError("inspect_image_layout requires exactly image_id")
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-    repository = _operation_repository(params, write=False)
-        manifest_path = _image_manifest(image_id, repository)
+    repository = _repository()
+    manifest_path = _image_manifest(image_id, repository)
     try:
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
     except Exception as exc:
