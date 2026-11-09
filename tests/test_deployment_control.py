@@ -78,6 +78,20 @@ class FakeSocket:
         self.close()
 
 
+class ListenerShutdownRaceTests(unittest.TestCase):
+    def test_socket_accepted_after_shutdown_begins_is_closed_immediately(self):
+        fake = FakeSocket()
+        server = object.__new__(DeploymentControlServer)
+        server._lock = threading.RLock()
+        server._pending_sockets = set()
+        server._stop_event = threading.Event()
+        server._stop_event.set()
+        listener = SimpleNamespace(accept=lambda: (fake, ("192.0.2.20", 40000)))
+        self.assertIsNone(server.accept_ready_client(listener))
+        self.assertTrue(fake.closed)
+        self.assertEqual(server._pending_sockets, set())
+
+
 class ListenerErrorTests(unittest.TestCase):
     def test_listener_error_history_is_bounded_and_truncated(self):
         server = object.__new__(DeploymentControlServer)
@@ -303,6 +317,7 @@ class ControlFramingTests(unittest.TestCase):
         server.tls_context = SimpleNamespace(wrap_socket=lambda accepted, server_side: accepted)
         server._lock = threading.RLock()
         server._pending_sockets = set()
+        server._stop_event = threading.Event()
         server._sessions = {}
         server._identities = {}
         server.client_identity_to_mac = {"URI:feclora-client": MAC}
