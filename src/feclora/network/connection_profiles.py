@@ -51,7 +51,7 @@ def parse_connection_profiles(payload: str) -> list[dict[str, Any]]:
             "ipv4_method": method,
             "ipv4_addresses": addresses[:8],
             "ipv4_gateway": row.get("ipv4.gateway", row.get("IP4.GATEWAY")) if isinstance(row.get("ipv4.gateway", row.get("IP4.GATEWAY")), str) else None,
-            "ipv4_dns": row.get("ipv4.dns", row.get("IP4.DNS", [])) if isinstance(row.get("ipv4.dns", row.get("IP4.DNS", [])), list) else [],
+            "ipv4_dns": dns[:4],
         })
     return profiles
 
