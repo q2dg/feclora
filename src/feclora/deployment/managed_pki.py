@@ -431,8 +431,8 @@ def build_ca_trust_bundle(
         except OSError as exc:
             raise PKIError(f"cannot safely read CA trust certificate: {exc}") from exc
         if not re.fullmatch(
-            rb"\\s*-----BEGIN CERTIFICATE-----\\s*[A-Za-z0-9+/=\\r\\n]+"
-            rb"\\s*-----END CERTIFICATE-----\\s*",
+            rb"\s*-----BEGIN CERTIFICATE-----\s*[A-Za-z0-9+/=\r\n]+"
+            rb"\s*-----END CERTIFICATE-----\s*",
             raw,
         ):
             raise PKIError("each CA trust input must contain exactly one clean PEM certificate")
