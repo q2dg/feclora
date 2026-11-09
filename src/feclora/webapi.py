@@ -305,8 +305,8 @@ def _initialize_security() -> dict[str, Any]:
     return {"created": created, **_security_material()}
 
 
-def _images() -> list[dict[str, Any]]:
-    path = _repository()
+def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
+    path = _operation_repository({"repository_id": repository_id}, write=False) if repository_id else _repository()
     if not path.exists():
         return []
     items = []
@@ -333,10 +333,10 @@ def _images() -> list[dict[str, Any]]:
 
 
 def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
-    if set(params) != {"image_id"}:
-        raise WebAPIError("inspect_image_layout requires exactly image_id")
+    if set(params) not in ({"image_id"}, {"image_id", "repository_id"}):
+        raise WebAPIError("inspect_image_layout requires image_id and optional repository_id")
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-    repository = _repository()
+    repository = _operation_repository(params, write=False)
     manifest_path = _image_manifest(image_id, repository)
     try:
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
@@ -413,10 +413,10 @@ def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
 
 def _verify_image(params: dict[str, Any]) -> dict[str, Any]:
     """Read-only, end-to-end verification of every stored image artifact."""
-    if set(params) != {"image_id"}:
-        raise WebAPIError("verify_image requires exactly image_id")
+    if set(params) not in ({"image_id"}, {"image_id", "repository_id"}):
+        raise WebAPIError("verify_image requires image_id and optional repository_id")
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-    repository = _repository()
+    repository = _operation_repository(params, write=False)
     manifest_path = _image_manifest(image_id, repository)
     try:
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
@@ -2009,6 +2009,10 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise WebAPIError("images does not accept parameters")
         return {"images": _images()}
+    if action == "repository_images":
+        if set(params) != {"repository_id"}:
+            raise WebAPIError("repository_images requires repository_id")
+        return {"images": _images(_text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}"))}
     if action == "inspect_image_layout":
         return _inspect_image_layout(params)
     if action == "verify_image":
