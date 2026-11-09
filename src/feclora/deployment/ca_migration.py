@@ -156,7 +156,15 @@ class CAMigrationStore:
                 if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
                         or info.st_mode & 0o077 or info.st_size > MAX_MANIFEST_BYTES):
                     raise CAMigrationError("migration manifest ownership, mode or size is unsafe")
-                raw = os.read(fd, MAX_MANIFEST_BYTES + 1)
+                chunks = []
+                remaining = MAX_MANIFEST_BYTES + 1
+                while remaining:
+                    part = os.read(fd, min(65536, remaining))
+                    if not part:
+                        break
+                    chunks.append(part)
+                    remaining -= len(part)
+                raw = b"".join(chunks)
             finally:
                 os.close(fd)
         except OSError as exc:
@@ -224,6 +232,19 @@ class CAMigrationStore:
         lock = self._lock()
         try:
             return self._read(migration_id)
+        finally:
+            os.close(lock)
+
+    def list(self) -> list[dict[str, Any]]:
+        """Load every persisted migration for restart recovery; corruption fails closed."""
+        lock = self._lock()
+        try:
+            names = sorted(name for name in os.listdir(self.directory)
+                           if re.fullmatch(r"[0-9a-f-]{36}\\.json", name))
+            if len(names) > 4096:
+                raise CAMigrationError("migration inventory exceeds the supported limit")
+            migrations = [self._read(name[:-5]) for name in names]
+            return sorted(migrations, key=lambda item: (item["created_at"], item["migration_id"]))
         finally:
             os.close(lock)
 
