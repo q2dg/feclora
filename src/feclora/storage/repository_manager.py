@@ -116,15 +116,30 @@ def _write_registry(repositories: dict[str, dict[str, Any]], path: Path = REGIST
 
 
 def _check_secret_reference(path: str | None, label: str, *, private: bool = True, owner_uid: int = 0) -> None:
+    """Validate a credential path without following symlinks or trusting a stale stat.
+
+    Open with O_NOFOLLOW and validate the descriptor itself. This closes the
+    lstat/open symlink-swap window and ensures the file actually consumed by
+    the privileged mount helper is a root-owned regular file with safe modes.
+    """
     if path is None:
         return
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
     try:
-        info = os.lstat(path)
+        fd = os.open(path, flags)
     except OSError as exc:
-        raise RepositoryManagerError(f"{label} is unavailable") from exc
-    if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != owner_uid or (private and info.st_mode & 0o077)):
-        raise RepositoryManagerError(f"{label} must be a root-owned regular file with mode 0600 or stricter")
+        raise RepositoryManagerError(f"{label} is unavailable or is not a regular non-symlink file") from exc
+    try:
+        info = os.fstat(fd)
+        unsafe_mode = bool(info.st_mode & (0o077 if private else 0o022))
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != owner_uid
+                or unsafe_mode or info.st_nlink != 1):
+            requirement = "mode 0600 or stricter" if private else "not group/other-writable"
+            raise RepositoryManagerError(
+                f"{label} must be a root-owned regular file with {requirement} and no hard links"
+            )
+    finally:
+        os.close(fd)
 
 
 def _repository(identifier: str, definition: dict[str, Any], *, owner_uid: int = 0) -> RemoteRepository:
