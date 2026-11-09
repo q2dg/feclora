@@ -446,6 +446,7 @@ class ClientDeploymentService:
                     prepare_local_target=prepare_local_target,
                     execute_job=execute_job,
                     timeout=86400, source_address=source_address,
+                    network_interface=network_interface,
                 )
                 self._set_status(
                     "completed" if success else "failed",
