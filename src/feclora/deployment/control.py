@@ -326,6 +326,12 @@ class DeploymentControlServer:
         tls_socket = None
         registered_mac = None
         with self._lock:
+            # stop() sets the event before taking this lock and draining the
+            # pending set. This closes the accept-vs-stop race without leaving
+            # a newly accepted socket outside shutdown's ownership.
+            if self._stop_event.is_set():
+                accepted.close()
+                return None
             self._pending_sockets.add(accepted)
         try:
             accepted.settimeout(30)
