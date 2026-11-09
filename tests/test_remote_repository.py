@@ -52,7 +52,7 @@ class RemoteRepositoryTests(unittest.TestCase):
         repo = RemoteRepository(
             provider="s3", host="s3.example.net", remote_path="/bucket/images",
             mountpoint="/mnt/images", rclone_remote="feclora_s3",
-            credential_file="/etc/feclora/rclone.conf",
+            credential_file="/etc/feclora/rclone.conf", read_only=True,
         )
         argv = repo.mount_argv()
         self.assertEqual(argv[1:4], ["--config", "/etc/feclora/rclone.conf", "mount"])
