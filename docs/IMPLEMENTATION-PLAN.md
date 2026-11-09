@@ -59,7 +59,10 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Validate referenced secret files through `O_NOFOLLOW` descriptors and `fstat`; reject symlinks, unsafe ownership/modes and hard-linked credential files.
 - [ ] Add SSH host-key pinning, key selection, permission checks and credential rotation.
 - [x] Add a root-only local credential-store primitive for SSH keys, known_hosts, SMB files and rclone configs, with atomic create/replace/remove and strict file validation. This is not exposed through Cockpit and does not complete credential administration.
+- [x] Add an initial systemd-creds-backed encrypted credential store; encrypted blobs are host-bound and intended for per-service `LoadCredentialEncrypted=` consumption. Repository mount-unit integration is still pending.
 - [x] Add a local root-only credential import/removal CLI that reads protected source files, plus a read-only Cockpit API inventory of validated credential references; the API never accepts or returns secret material.
+- [ ] Integrate Fedora `oo7-daemon` Secret Service with interactive operator-session workflows where a user bus is available; never make unattended Server jobs depend on that session.
+- [ ] Move repository mounts and long-running Server jobs to per-service `LoadCredentialEncrypted=`; migrate existing plaintext credential references and remove the legacy plaintext store/CLI only after compatibility and recovery paths are covered.
 - [ ] Add Cockpit credential selection and repository edit/test/health workflows, WebDAV secret lifecycle, provider-aware S3 artifact publication and automated mount-lifecycle coverage.
 - [ ] Handle stale mounts, network loss, interrupted publication, concurrent writers and cleanup.
 - [ ] Add integration tests with local test services where practical.
