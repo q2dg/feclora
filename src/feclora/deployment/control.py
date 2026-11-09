@@ -117,6 +117,7 @@ class ReadyClient:
     mac_address: str
     certificate_identity: str
     target_description: str
+    target_device: str | None = None
 
 
 def _require_tls13_mtls(context: ssl.SSLContext) -> None:
@@ -167,6 +168,7 @@ class DeploymentControlServer:
             raise DeploymentControlError("at least one certificate-identity-to-MAC mapping is required")
         self._sessions: dict[str, Any] = {}
         self._identities: dict[str, str] = {}
+        self._target_devices: dict[str, str] = {}
         self._progress: dict[str, dict[str, Any]] = {}
         self._pending_sockets: set[Any] = set()
         self._lock = threading.RLock()
@@ -356,20 +358,32 @@ class DeploymentControlServer:
                 "server_identity": self.local_identity,
             })
             ready = receive_control_message(tls_socket, expected_type="ready")
-            if set(ready) != {"type", "job_id", "target_description", "locally_authorized"}:
+            expected_fields = {"type", "job_id", "target_description", "locally_authorized"}
+            if self.coordinator.job.operation == "clone":
+                expected_fields.add("target_device")
+            if set(ready) != expected_fields:
                 raise DeploymentControlError("client readiness contains missing or unknown fields")
             description = ready["target_description"]
+            target_device = ready.get("target_device")
             if (ready["job_id"] != self.coordinator.job.job_id
                     or ready["locally_authorized"] is not True
                     or not isinstance(description, str) or not description
                     or len(description) > 256 or "/dev/" in description or any(ord(c) < 32 for c in description)):
                 raise DeploymentControlError("client has not supplied valid local target authorization")
+            if self.coordinator.job.operation == "clone" and (
+                not isinstance(target_device, str) or not target_device.startswith("/dev/")
+                or len(target_device) > 256 or posixpath.normpath(target_device) != target_device
+                or "//" in target_device or any(ord(c) < 32 for c in target_device)
+            ):
+                raise DeploymentControlError("Client clone target device path is invalid")
             self.coordinator.mark_ready(mac)
             with self._lock:
                 self._pending_sockets.discard(tls_socket)
                 self._sessions[mac] = tls_socket
                 self._identities[mac] = identity
-            return ReadyClient(mac, identity, description)
+                if target_device is not None:
+                    self._target_devices[mac] = target_device
+            return ReadyClient(mac, identity, description, target_device)
         except Exception as exc:
             if registered_mac is not None:
                 try:
@@ -824,15 +838,18 @@ def join_deployment(
             raise DeploymentControlError("local target approval contains an invalid description")
         required_confirmation = (
             f"ERASE {device_path} FROM {expected_server_identity}"
-            if job.operation == "restore"
+            if job.operation in {"restore", "clone"}
             else f"READ {device_path} TO {expected_server_identity}"
         )
         if approval.confirmation != required_confirmation:
             raise DeploymentControlError("local typed target confirmation does not match the selected device and Server")
-        send_control_message(tls_socket, {
+        ready_message = {
             "type": "ready", "job_id": job.job_id,
             "target_description": description, "locally_authorized": True,
-        })
+        }
+        if job.operation == "clone":
+            ready_message["target_device"] = device_path
+        send_control_message(tls_socket, ready_message)
         start = receive_control_message(tls_socket)
         if start.get("type") == "cancel":
             if set(start) != {"type", "job_id"} or start.get("job_id") != job.job_id:
