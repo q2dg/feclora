@@ -77,15 +77,17 @@ class DeploymentServiceCommandTests(unittest.TestCase):
     def test_status_includes_per_client_progress(self):
         client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.RUNNING, detail=None)
         service = make_service(clients=(client,))
-        service.control.client_progress = lambda: {
+        progress = {
             client.mac_address: {
                 "phase": "restore", "completed_bytes": 1024,
                 "total_bytes": 4096, "bytes_per_second": 512.0,
                 "updated_at": "2026-01-01T00:00:00+00:00",
             }
         }
+        service.control.client_progress = mock.Mock(return_value=progress)
         status = service._status()
         self.assertEqual(status["clients"][0]["progress"]["completed_bytes"], 1024)
+        service.control.client_progress.assert_called_once_with()
 
     def test_arm_requires_exact_job_specific_confirmation(self):
         client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
