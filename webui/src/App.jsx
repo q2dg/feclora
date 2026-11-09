@@ -307,7 +307,7 @@ export default function App() {
         identity_file: repositoryProvider === "sshfs" ? repositoryIdentity : null,
         known_hosts_file: repositoryProvider === "sshfs" ? repositoryKnownHosts : null,
         port: repositoryProvider === "sshfs" || repositoryProvider === "smb" ? (repositoryPort ? Number(repositoryPort) : null) : null,
-        rclone_remote: repositoryProvider === "s3" ? repositoryRcloneRemote : null, read_only: repositoryReadOnly
+        rclone_remote: repositoryProvider === "s3" ? repositoryRcloneRemote : null, read_only: repositoryProvider === "s3" ? true : repositoryReadOnly
       });
       setNotice("Repository definition saved; no mount was started.");
       setRepositoryId(""); await refresh();
@@ -1090,7 +1090,7 @@ export default function App() {
                 {repositoryProvider === "s3" && <><Field label="rclone remote alias"><input className="pf-v5-c-form-control" value={repositoryRcloneRemote} onChange={(e) => setRepositoryRcloneRemote(e.target.value)} pattern="[A-Za-z0-9_-]{1,64}" maxLength={64} required /></Field><Field label="Encrypted rclone configuration"><select className="pf-v5-c-form-control" value={repositoryCredentials} onChange={(e) => setRepositoryCredentials(e.target.value)} required><option value="">Select imported rclone config</option>{systemdCredentials.filter((item) => item.kind === "rclone").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field><p>Configure S3 endpoint and credentials in this rclone config file. Remote path is /bucket/prefix.</p></> }
                 <Field label="Port (optional)"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={repositoryPort} onChange={(e) => setRepositoryPort(e.target.value)} /></Field>
                 <Field label="Mount access"><select className="pf-v5-c-form-control" value={repositoryReadOnly ? "ro" : "rw"} onChange={(e) => setRepositoryReadOnly(e.target.value === "ro")}>
-                  <option value="ro">Read-only</option><option value="rw">Read/write (image capture)</option>
+                  <option value="ro">Read-only</option><option value="rw" disabled={repositoryProvider === "s3"}>Read/write (image capture)</option>
                 </select></Field>
                 <Button type="submit" variant="primary" isDisabled={busy || !repositoryId || !repositoryHost || !repositoryPath}>Save repository definition</Button>
               </form></CardBody></Card></StackItem>
