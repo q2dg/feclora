@@ -1,8 +1,17 @@
 # One-to-one remote disk cloning
 
-This document specifies direct disk-to-disk cloning between two feclora
-machines. It is deliberately separate from PXE boot, Server/Client deployment
-jobs, and multicast distribution.
+This document specifies direct disk-to-disk cloning between two Feclora
+machines. It is a distinct operation within the existing persistent
+Server/Client deployment lifecycle, not a separate daemon or job system.
+It is separate from image-based restore and multicast distribution.
+
+The current UDPcast integration is not the data plane for this operation:
+Feclora invokes UDPcast with artifact files, receives into private staging
+files, and verifies signed manifests before the existing restore engine writes
+a disk. It does not currently stream a source block device directly into a
+receiver block device. Remote disk clone therefore retains its dedicated
+bounded block-stream protocol, while reusing the existing deployment services,
+mTLS control session, durable job lifecycle, and Cockpit operation plumbing.
 
 ## Roles
 
