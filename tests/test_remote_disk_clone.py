@@ -342,11 +342,11 @@ class RemoteDiskReceiverTests(unittest.TestCase):
 
         def run(command, **kwargs):
             commands.append(command)
-            return type("Result", (), {"stdout": "gpt\\n", "returncode": 0})()
+            return type("Result", (), {"stdout": "gpt\n", "returncode": 0})()
 
         with patch("feclora.network.remote_clone._geometry",
-                   return_value=(len(self.payload) + 1024 * 1024, 512, False, "gpt")), \\
-             patch("feclora.network.remote_clone._readback_digest", return_value=digest), \\
+                   return_value=(len(self.payload) + 1024 * 1024, 512, False, "gpt")), \
+             patch("feclora.network.remote_clone._readback_digest", return_value=digest), \
              patch("feclora.network.remote_clone.subprocess.run", side_effect=run):
             with self.assertRaisesRegex(RemoteDiskCloneError, "copied target became mounted"):
                 self._receive(
