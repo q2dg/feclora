@@ -43,7 +43,7 @@ description: Fedora-based disk imaging, cloning and recovery.
     <div>
       <p class="eyebrow">PROJECT STATUS</p>
       <h2 id="status-title">Implemented in stages. Not yet lab-certified.</h2>
-      <p>Cockpit currently guides local capture, restore and clone operations, PXE service lifecycle, and the removable-media Server/Client certificate-enrollment ceremony. Remote deployment job orchestration, per-Client progress and remote cloning are still being integrated.</p>
+      <p>Cockpit currently guides local capture, restore and clone operations; Server/Client enrollment and authenticated image-deployment jobs; Client target approval; deployment service lifecycle; and PXE preflight/activation. Remote disk-to-disk cloning and complete Server-side transfer telemetry remain in development. The SSHFS-backed repository workflow and unattended fleet/PXE profile integration are also not yet complete.</p>
     </div>
     <a class="text-link" href="./ROADMAP.html">See what is next →</a>
   </section>
