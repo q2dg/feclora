@@ -348,6 +348,42 @@ class ClientJoinTests(unittest.TestCase):
         self.assertNotIn("/dev/vda", json.dumps(ready))
         self.assertTrue(result["success"])
 
+    def test_clone_client_sends_locally_approved_target_binding(self):
+        job = make_job(
+            operation="clone", image_id=None, source_device="/dev/sda",
+        )
+        fake = FakeSocket(frame({
+            "type": "job", "job": job.to_dict(),
+            "server_identity": "URI:feclora-server",
+        }) + frame({
+            "type": "start", "job_id": JOB_ID,
+            "operation": "clone", "image_id": None,
+        }))
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.maximum_version = ssl.TLSVersion.TLSv1_3
+        context.verify_mode = ssl.CERT_REQUIRED
+        approval = LocalTargetApproval(
+            "/dev/vdb", "Destination disk",
+            "ERASE /dev/vdb FROM URI:feclora-server",
+        )
+        with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
+            join_deployment(
+                "192.0.2.10", 9443, context,
+                local_identity="URI:feclora-client",
+                expected_server_identity="URI:feclora-server",
+                mac_address=MAC, job_id=JOB_ID,
+                prepare_local_target=lambda offered: approval,
+                execute_job=lambda offered, tls, local: (True, "clone verified"),
+            )
+        outgoing = FakeSocket(bytes(fake.outgoing))
+        receive_control_message(outgoing, expected_type="hello")
+        ready = receive_control_message(outgoing, expected_type="ready")
+        self.assertEqual(ready["target_device"], "/dev/vdb")
+        self.assertTrue(ready["locally_authorized"])
+        result = receive_control_message(outgoing, expected_type="result")
+        self.assertTrue(result["success"])
+
     def test_client_rejects_wrong_typed_confirmation_before_ready(self):
         job = make_job()
         fake = FakeSocket(frame({
