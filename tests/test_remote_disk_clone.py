@@ -142,6 +142,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                 runner=lambda *args, **kwargs: None,
                 popen_factory=process_factory,
                 safety_check=safety_check or (lambda _path: None),
+                cancel_check=cancel_check,
                 effective_uid=lambda: 0,
             )
             with open(log_path, encoding="utf-8") as journal:
