@@ -261,8 +261,14 @@ fi
 if ! grep -q 'def _record_client_progress' "$ROOT_DIR/src/feclora/deployment/control.py"; then
   fail "Server-side Client progress validation is missing."
 fi
-if ! grep -q '"phase": job.operation' "$ROOT_DIR/src/feclora/deployment/client_service.py"; then
-  fail "Client service is not reporting disk-operation progress over mTLS."
+if ! grep -q '"phase": phase' "$ROOT_DIR/src/feclora/deployment/client_service.py"; then
+  fail "Client service is not reporting disk-operation and transfer progress over mTLS."
+fi
+if ! grep -q 'transfer_progress_callback=transfer_progress' "$ROOT_DIR/src/feclora/deployment/client_service.py"; then
+  fail "Client service is not wiring authenticated image-transfer progress."
+fi
+if ! grep -q '"transfer"' "$ROOT_DIR/src/feclora/deployment/control.py"; then
+  fail "Server control plane is not accepting the separate transfer progress phase."
 fi
 if ! grep -q 'self.control.client_progress()' "$ROOT_DIR/src/feclora/deployment/service.py"; then
   fail "Persistent Server status is not exposing per-Client progress."
