@@ -1015,7 +1015,7 @@ export default function App() {
                 <Field label="Provider"><select className="pf-v5-c-form-control" value={repositoryProvider} onChange={(e) => { setRepositoryProvider(e.target.value); setRepositoryPort(e.target.value === "sshfs" ? "22" : ""); }}>
                   <option value="sshfs">SSHFS (SFTP over SSH)</option><option value="nfs">NFSv4.2</option><option value="smb">SMB/CIFS</option><option value="webdav">WebDAV over HTTPS</option><option value="s3">S3-compatible object storage (rclone)</option>
                 </select></Field>
-                <Field label="Server hostname or IPv4 address"><input className="pf-v5-c-form-control" value={repositoryHost} onChange={(e) => setRepositoryHost(e.target.value)} maxLength={253} required /></Field>
+                <Field label={repositoryProvider === "s3" ? "Endpoint hostname (informational; actual endpoint is in rclone config)" : "Server hostname or IPv4 address"}><input className="pf-v5-c-form-control" value={repositoryHost} onChange={(e) => setRepositoryHost(e.target.value)} maxLength={253} required /></Field>
                 <Field label={repositoryProvider === "smb" ? "Share and optional subdirectory" : "Remote absolute path"}><input className="pf-v5-c-form-control" value={repositoryPath} onChange={(e) => setRepositoryPath(e.target.value)} maxLength={512} required /></Field>
                 {(repositoryProvider === "sshfs" || repositoryProvider === "smb") && <Field label="Username"><input className="pf-v5-c-form-control" value={repositoryUsername} onChange={(e) => setRepositoryUsername(e.target.value)} maxLength={64} required /></Field>}
                 {repositoryProvider === "sshfs" && <>
