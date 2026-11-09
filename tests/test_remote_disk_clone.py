@@ -10,6 +10,8 @@ from unittest.mock import patch
 
 from feclora.network.remote_clone import (
     RemoteDiskCloneError,
+    RemoteDiskCloneCancelled,
+    serve_remote_clone_once,
     _readback_digest,
     build_remote_clone_header,
     receive_remote_disk,
@@ -451,6 +453,67 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                     device_validator=lambda _path: True,
                     safety_check=lambda _path: None,
             )
+
+
+class RemoteCloneListenerCancellationTests(unittest.TestCase):
+    def test_idle_listener_polls_cancellation_and_restores_timeout(self):
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.addCleanup(listener.close)
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        original_timeout = listener.gettimeout()
+        checks = []
+
+        def cancelled():
+            checks.append(True)
+            return len(checks) > 1
+
+        header = CloneSessionHeader(
+            session_id="7a3c4c12-6a88-4f0d-bcc0-90df80a4adf1",
+            source_identity="DNS:source.example",
+            receiver_identity="DNS:receiver.example",
+            source_device="/dev/source",
+            receiver_target_device="/dev/target",
+            source_size_bytes=65536,
+            logical_sector_size=512,
+            chunk_size_bytes=65536,
+        )
+        with self.assertRaisesRegex(RemoteDiskCloneCancelled, "waiting for receiver"):
+            serve_remote_clone_once(
+                listener, object(), header,
+                local_identity="DNS:source.example",
+                expected_peer_identity="DNS:receiver.example",
+                confirmation="READ /dev/source TO DNS:receiver.example",
+                cancel_check=cancelled,
+                accept_poll_interval=0.05,
+            )
+        self.assertGreaterEqual(len(checks), 2)
+        self.assertEqual(listener.gettimeout(), original_timeout)
+
+    def test_listener_rejects_unbounded_or_invalid_poll_interval(self):
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.addCleanup(listener.close)
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        header = CloneSessionHeader(
+            session_id="7a3c4c12-6a88-4f0d-bcc0-90df80a4adf1",
+            source_identity="DNS:source.example",
+            receiver_identity="DNS:receiver.example",
+            source_device="/dev/source",
+            receiver_target_device="/dev/target",
+            source_size_bytes=65536,
+            logical_sector_size=512,
+            chunk_size_bytes=65536,
+        )
+        with self.assertRaisesRegex(RemoteDiskCloneError, "polling interval"):
+            serve_remote_clone_once(
+                listener, object(), header,
+                local_identity="DNS:source.example",
+                expected_peer_identity="DNS:receiver.example",
+                confirmation="READ /dev/source TO DNS:receiver.example",
+                accept_poll_interval=0,
+            )
+        self.assertIsNone(listener.gettimeout())
 
 
 if __name__ == "__main__":
