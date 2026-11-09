@@ -50,7 +50,7 @@ the old local `dialog` menu is no longer installed in the Live package.
 - [x] Persistent Server control-plane lifecycle survives browser disconnect; service/process restarts never resume interrupted jobs.
 - [x] Start/connect, inspect live Client state, arm, pre-arm cancel, safe stop and audit reconciliation through Cockpit.
 - [x] Live per-client READY/running/terminal state and service errors through Cockpit.
-- [x] Per-client disk-operation and authenticated image-transfer byte progress with separate `save`/`restore`/`transfer` phases, sampled throughput and final-byte reporting over the TLS control channel.
+- [x] Per-Client disk-operation byte progress and sampled throughput over the authenticated TLS control channel; Client-local UI also tracks the image-transfer phase and byte count. Server-side transfer progress remains pending because image payloads and control frames currently share one TLS stream.
 - [x] Server-side multicast restore engine, interface/route preflight, explicit arm confirmation and integrated Cockpit Server/Client receiver lifecycle.
 - [x] Derive multicast staging bytes from the verified signed manifest and require each Client to pass a pre-READY free-space check with a 64 MiB safety reserve; runtime checks capacity again before receiving artifacts.
 - [x] Require explicit Client and Server operator acknowledgement of switch IGMP snooping and an active querier before multicast restore is armed.
