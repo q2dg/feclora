@@ -106,7 +106,7 @@ class WebAPITests(unittest.TestCase):
             }})
         rotate.assert_called_once_with("/etc/feclora/pki")
         self.assertTrue(result["rotated"])
-        self.assertTrue(result["key_rotated"] if "key_rotated" in result else True)
+        self.assertTrue(result["key_rotated"])
         self.assertEqual(result["expiry_days"], 825)
 
     def test_server_keypair_rotation_refuses_active_deployment_service(self):
