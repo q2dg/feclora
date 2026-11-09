@@ -187,7 +187,7 @@ class RemoteRepositoryManager:
         runner: Callable[..., Any] | None = None,
         which: Callable[[str], str | None] | None = None,
         effective_uid: Callable[[], int] | None = None,
-        owner_uid: int = 0,
+        owner_uid: int = 0, credential_root: Path = Path("/etc/credstore.encrypted/feclora"),
     ) -> None:
         self.registry = Path(registry)
         self.mount_root = Path(mount_root)
@@ -195,6 +195,7 @@ class RemoteRepositoryManager:
         self.which = which or shutil.which
         self.effective_uid = effective_uid or os.geteuid
         self.owner_uid = owner_uid
+        self.credential_root = Path(credential_root)
 
     def _root(self) -> None:
         if self.effective_uid() != 0:
@@ -273,11 +274,35 @@ class RemoteRepositoryManager:
         missing = [tool for tool, resolved in tool_paths.items() if not resolved]
         if missing:
             raise RepositoryManagerError("missing repository tools: " + ", ".join(missing))
+        encrypted = self._encrypted_credential_bindings(repo)
         try:
-            result = self.runner(
-                repo.mount_argv(executables={tool: resolved for tool, resolved in tool_paths.items() if resolved}), stdin=subprocess.DEVNULL, capture_output=True,
-                text=True, check=False, timeout=60,
-            )
+            if encrypted:
+                unit = f"feclora-repository-{identifier}.service"
+                command = [
+                    self.which("systemd-run") or "systemd-run",
+                    f"--unit={unit}", "--no-block",
+                    "--property=User=root", "--property=Group=root",
+                    "--property=UMask=0077", "--property=NoNewPrivileges=yes",
+                    "--property=PrivateTmp=yes", "--property=ProtectSystem=full",
+                    f"--property=ReadWritePaths={mountpoint}",
+                ]
+                for name, path in encrypted:
+                    command.append(f"--property=LoadCredentialEncrypted={name}:{path}")
+                command.extend([
+                    "--setenv=PYTHONPATH=/usr/share/feclora/python", "--",
+                    self.which("python3") or "/usr/bin/python3",
+                    "-m", "feclora.storage.repository_mount_service", "--id", identifier,
+                ])
+                result = self.runner(
+                    command, stdin=subprocess.DEVNULL, capture_output=True,
+                    text=True, check=False, timeout=30,
+                )
+            else:
+                result = self.runner(
+                    repo.mount_argv(executables={tool: resolved for tool, resolved in tool_paths.items() if resolved}),
+                    stdin=subprocess.DEVNULL, capture_output=True,
+                    text=True, check=False, timeout=60,
+                )
         except (OSError, subprocess.SubprocessError) as exc:
             raise RepositoryManagerError(f"repository mount failed: {exc}") from exc
         if result.returncode != 0:
@@ -286,6 +311,38 @@ class RemoteRepositoryManager:
         if not self._is_mounted(str(mountpoint)):
             raise RepositoryManagerError("mount command returned success but the selected mountpoint is not mounted")
         return {"id": identifier, "mounted": True, "mountpoint": str(mountpoint)}
+
+    def _encrypted_credential_bindings(self, repo: RemoteRepository) -> list[tuple[str, str]]:
+        """Return validated systemd credential names for encrypted blob paths."""
+        candidates = [repo.identity_file, repo.credential_file]
+        encrypted_paths = []
+        for value in candidates:
+            if value is None:
+                continue
+            path = Path(value)
+            try:
+                path.relative_to(self.credential_root)
+            except ValueError:
+                continue
+            encrypted_paths.append(path)
+        if not encrypted_paths:
+            return []
+        from feclora.storage.systemd_credential_store import SystemdCredentialStore
+        try:
+            inventory = SystemdCredentialStore(
+                self.credential_root, effective_uid=self.effective_uid,
+                owner_uid=self.owner_uid,
+            ).list()
+        except Exception as exc:
+            raise RepositoryManagerError(f"encrypted repository credentials are unavailable: {exc}") from exc
+        by_path = {item["path"]: item["name"] for item in inventory}
+        bindings = []
+        for path in encrypted_paths:
+            name = by_path.get(str(path))
+            if name is None:
+                raise RepositoryManagerError("repository credential path is not a registered encrypted credential")
+            bindings.append((name, str(path)))
+        return bindings
 
     def _acquire_usage_lock(self, identifier: str, *, exclusive: bool) -> int:
         if not isinstance(identifier, str) or not _REPOSITORY_ID.fullmatch(identifier):
