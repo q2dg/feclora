@@ -44,7 +44,7 @@ Operational design notes:
 
 ## Repository layout
 
-The repository is organized by runtime responsibility rather than by UI:
+Contribution and engineering safety expectations are documented in [CONTRIBUTING.md](CONTRIBUTING.md). The project license has not yet been selected; see the roadmap before assuming reuse or redistribution rights.\n\nThe repository is organized by runtime responsibility rather than by UI:
 
 ```text
 feclora/
