@@ -87,7 +87,15 @@ export default function App() {
   const [repositoryReadOnly, setRepositoryReadOnly] = useState(true);
   const [imageVerification, setImageVerification] = useState({});
   const [inventory, setInventory] = useState(null);
-  const [networkInterfaces, setNetworkInterfaces] = useState([]);\n  const [networkProfiles, setNetworkProfiles] = useState([]);\n  const [networkProfileUuid, setNetworkProfileUuid] = useState("");\n  const [networkMethod, setNetworkMethod] = useState("auto");\n  const [networkAddress, setNetworkAddress] = useState("");\n  const [networkPrefix, setNetworkPrefix] = useState("24");\n  const [networkGateway, setNetworkGateway] = useState("");\n  const [networkDns, setNetworkDns] = useState("");\n  const [networkApplyResult, setNetworkApplyResult] = useState(null);
+  const [networkInterfaces, setNetworkInterfaces] = useState([]);
+  const [networkProfiles, setNetworkProfiles] = useState([]);
+  const [networkProfileUuid, setNetworkProfileUuid] = useState("");
+  const [networkMethod, setNetworkMethod] = useState("auto");
+  const [networkAddress, setNetworkAddress] = useState("");
+  const [networkPrefix, setNetworkPrefix] = useState("24");
+  const [networkGateway, setNetworkGateway] = useState("");
+  const [networkDns, setNetworkDns] = useState("");
+  const [networkApplyResult, setNetworkApplyResult] = useState(null);
   const [serverBinding, setServerBinding] = useState("");
   const [serverSetup, setServerSetup] = useState(null);
   const [serverRenewConfirmation, setServerRenewConfirmation] = useState("");
@@ -589,7 +597,7 @@ export default function App() {
         schema_version: 1, job_id: crypto.randomUUID(), operation: remoteOperation,
         image_id: remoteOperation === "clone" ? null : remoteImageId,
         ...(remoteOperation === "clone" ? { source_device: remoteSourceDevice, target_type: "disk" } : { target_type: remoteTargetType }),
-        authorized_clients: authorizedClients, network_interface: remoteInterface,
+        authorized_clients: authorizedClients, network_interface: remoteInterface.split("|")[0],
         transport: remoteTransport,
         ...(remoteOperation === "restore" && selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}),
         multicast_group: remoteTransport === "multicast" ? remoteMulticastGroup : null,
@@ -953,9 +961,10 @@ export default function App() {
                   </Field>
                   <Field label="Server network interface">
                     <select className="pf-v5-c-form-control" value={remoteInterface} onChange={(e) => setRemoteInterface(e.target.value)} required>
-                      <option value="">Select interface…</option>
-                      {networkInterfaces.map((item) => <option key={item.interface} value={item.interface}>{item.interface} · {item.address}</option>)}
+                      <option value="">Select active Server interface/address…</option>
+                      {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
                     </select>
+                    <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">The job binds to the selected Server interface. Configure the Client independently from its local Cockpit Network tab; this does not test end-to-end reachability to an offline Client.</div>
                   </Field>
                   <Field label="Transport">
                     <select className="pf-v5-c-form-control" value={remoteTransport} disabled={remoteOperation === "clone"} onChange={(e) => setRemoteTransport(e.target.value)}>
