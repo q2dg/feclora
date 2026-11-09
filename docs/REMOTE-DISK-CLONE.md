@@ -76,9 +76,8 @@ existing source-safety checks. The runtime rechecks it before streaming.
    target and `sgdisk -v` to validate the table. GPT relocation occurs only
    after the original source-sized range passes read-back verification.
    Immediately before that metadata write, the receiver revalidates target
-   identity, repeats the mounted/in-use safety check and honors cancellation.
-   It repeats identity and safety checks after relocation before GPT
-   verification.
+   identity and repeats the mounted/in-use safety check. It repeats identity
+   and safety checks after relocation before GPT verification.
 9. The receiver returns a terminal verification result bound to the session
    UUID, including the read-back digest. The receiver's durable operation
    journal is completed before it acknowledges success. The Client then sends
@@ -94,8 +93,9 @@ existing source-safety checks. The runtime rechecks it before streaming.
   receiver device paths.
 - Strict maximum header and terminal-frame sizes; reject duplicate or unknown
   security-critical fields.
-- Bounded streaming (64 KiB–4 MiB chunks), exact byte counts and cancellation
-  checks between I/O operations.
+- Bounded streaming (64 KiB–4 MiB chunks) and exact byte counts. The engine
+  exposes cancellation hooks, but the persistent Server/Client service does
+  not yet wire active-job cancellation into those hooks.
 - SHA-256 over the source/receiver stream and independent receiver read-back.
 - No path-based target acceptance alone: the receiver resolves and revalidates
   block-device identity immediately before writing and verification.
@@ -109,12 +109,14 @@ established-socket I/O operation.
 
 ## Failure semantics
 
-Once the receiver writer starts, cancellation, disconnect, or any integrity
-failure can leave the destination partially or fully overwritten. The UI must
-not imply rollback. The receiver must report the target as untrusted until a
-subsequent successful restore or clone completes and verifies. Interrupted
-jobs are never resumed automatically; inspect both endpoints and their
-journals before starting another operation.
+Once the receiver writer starts, disconnects, timeouts, or integrity failures
+can leave the destination partially or fully overwritten. Active clone
+cancellation is not yet exposed; the current cancel action is available only
+before ARM, and stopping the persistent service does not interrupt active disk
+I/O. The UI must not imply rollback. The receiver must report the target as
+untrusted until a subsequent successful restore or clone completes and
+verifies. Interrupted jobs are never resumed automatically; inspect both
+endpoints and their journals before starting another operation.
 
 ## Implementation boundaries
 
@@ -139,6 +141,6 @@ Feclora job path does not use them because it already owns an authenticated
 control socket.
 
 The Python unit tests and CI cover the job contract, local approvals, the
-existing clone engine and integration plumbing. Physical two-machine tests,
-hardware-specific validation, and interruption testing during established
-socket I/O remain outstanding.
+existing clone engine and integration plumbing. Active cancellation wiring,
+physical two-machine tests, hardware-specific validation, and interruption
+testing during established socket I/O remain outstanding.
