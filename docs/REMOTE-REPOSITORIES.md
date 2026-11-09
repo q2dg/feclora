@@ -84,6 +84,22 @@ run the interactive rclone configuration wizard.
 - S3 object storage must not be assumed to provide POSIX atomic rename or
   fsync semantics merely because rclone exposes a mount. It needs a
   provider-aware staging and publish protocol with remote read-back.
+- A future S3 publisher must use the object API directly, not write through
+  the rclone FUSE mount. Each final artifact key must be created with a
+  server-enforced create-if-absent precondition (for example, conditional
+  PutObject with If-None-Match: * where the provider documents support).
+  A preceding HEAD/list check is not a substitute: it has a time-of-check /
+  time-of-use race. Multipart uploads need an equivalent conditional
+  completion guarantee; if the provider cannot guarantee it, Feclora must
+  reject publication rather than silently fall back to an unconditional
+  overwrite.
+- Publication must use unique staging keys, verify each completed object by
+  reading it back and checking byte count and cryptographic digest, then
+  publish the signed manifest last with the same create-if-absent condition.
+  Failed publication may leave unreachable staging objects for later
+  garbage collection, but must never expose a manifest referencing
+  incomplete artifacts. Provider capability checks must be explicit and
+  fail closed; S3-compatible branding alone is not evidence of support.
 
 ## Remaining work
 
