@@ -1008,7 +1008,7 @@ class WebAPITests(unittest.TestCase):
 
 
 
-    def test_remote_credentials_api_lists_references_without_secret_contents(self):
+    def test_systemd_credentials_api_lists_encrypted_references_only(self):\n        expected = [{"id": "nas", "kind": "ssh-key", "name": "feclora-nas-ssh-key", "path": "/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred"}]\n        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore.list", return_value=expected):\n            self.assertEqual(dispatch({"action": "systemd_credentials"}), {"credentials": expected})\n        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):\n            dispatch({"action": "systemd_credentials", "params": {"secret": "must-not-be-accepted"}})\n\n    def test_remote_credentials_api_lists_references_without_secret_contents(self):
         expected = [{"id": "nas", "kind": "ssh-key", "path": "/etc/feclora/credentials/nas.ssh-key"}]
         with patch("feclora.storage.credential_store.CredentialStore.list", return_value=expected):
             self.assertEqual(dispatch({"action": "remote_credentials"}), {"credentials": expected})
