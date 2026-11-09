@@ -154,7 +154,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         other_manager._is_mounted = lambda _path: True
         lease_fd = self.manager.acquire_usage_lock("images")
         try:
-            with self.assertRaisesRegex(RepositoryManagerError, "active restore"):
+            with self.assertRaisesRegex(RepositoryManagerError, "active deployment restore"):
                 other_manager.unmount("images")
         finally:
             os.close(lease_fd)
