@@ -409,14 +409,27 @@ def build_ca_trust_bundle(
     seen: set[str] = set()
     for item in ca_files:
         source = os.path.abspath(os.fspath(item))
-        _regular_file(source, "CA trust certificate")
         try:
-            info = os.lstat(source)
-            if info.st_size > 1024 * 1024:
-                raise PKIError("CA trust certificate exceeds the 1 MiB limit")
-            raw = Path(source).read_bytes()
+            source_fd = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            try:
+                info = os.fstat(source_fd)
+                if not stat.S_ISREG(info.st_mode):
+                    raise PKIError("CA trust certificate must be a regular file, not a symlink")
+                if info.st_size > 1024 * 1024:
+                    raise PKIError("CA trust certificate exceeds the 1 MiB limit")
+                chunks = bytearray()
+                while len(chunks) <= 1024 * 1024:
+                    chunk = os.read(source_fd, min(65536, 1024 * 1024 + 1 - len(chunks)))
+                    if not chunk:
+                        break
+                    chunks.extend(chunk)
+                if len(chunks) > 1024 * 1024:
+                    raise PKIError("CA trust certificate exceeds the 1 MiB limit")
+                raw = bytes(chunks)
+            finally:
+                os.close(source_fd)
         except OSError as exc:
-            raise PKIError(f"cannot read CA trust certificate: {exc}") from exc
+            raise PKIError(f"cannot safely read CA trust certificate: {exc}") from exc
         if (raw.count(b"-----BEGIN CERTIFICATE-----") != 1
                 or raw.count(b"-----END CERTIFICATE-----") != 1):
             raise PKIError("each CA trust input must contain exactly one PEM certificate")
