@@ -83,10 +83,17 @@ systemd's service credential directory. This is a deliberate mount-propagation
 trade-off and should be revisited if a dedicated mount-namespace propagation
 design is introduced.
 
-This first integration does not yet cover WebDAV encrypted credentials,
-SFTP, or Cockpit credential provisioning and selection. WebDAV currently
-requires the global `/etc/davfs2/secrets` file for root mounts; encrypted
-references are explicitly rejected. NFS does not require credentials. Existing plaintext
+This integration now exposes Cockpit import/removal and selection of encrypted
+SSH private keys, SSH `known_hosts`, SMB credentials and rclone configuration.
+The operator supplies only a path to a root-owned private source file; the API
+reads it locally, encrypts it through `systemd-creds`, and returns metadata.
+The source file is not deleted by Feclora. Repository definitions reference the
+encrypted blob path, and the mount service receives it through
+`LoadCredentialEncrypted=`. NFS does not require credentials. WebDAV remains
+unavailable through the Cockpit/API path until a per-repository encrypted
+credential design is implemented; the global `/etc/davfs2/secrets` file is not
+used as a workaround. SFTP remains a separate, unimplemented transfer provider.
+Existing plaintext
 `CredentialStore` and CLI paths remain temporarily supported for migration;
 they are not the target architecture.
 
