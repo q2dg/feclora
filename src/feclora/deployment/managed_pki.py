@@ -745,7 +745,7 @@ def backup_server_ca(
         with tarfile.open(archive, "w") as bundle:
             bundle.add(ca_file, arcname="ca.crt", recursive=False)
             bundle.add(ca_key, arcname="ca.key", recursive=False)
-            encoded = (json.dumps(manifest, sort_keys=True) + "\\n").encode("ascii")
+            encoded = (json.dumps(manifest, sort_keys=True) + "\n").encode("ascii")
             info = tarfile.TarInfo("manifest.json")
             info.size = len(encoded)
             info.mode = 0o600
