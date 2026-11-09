@@ -84,11 +84,12 @@ services, alter firewall rules or persist a network profile.
 The Server **Remote jobs** tab now provides the persistent deployment
 lifecycle for supported jobs. Cockpit can start a non-boot-enabled
 `feclora-deployment@<UUID>.service`, inspect its mTLS listener and live
-per-Client READY/running/terminal states, disk-operation and image-transfer byte progress,
-separate `save`/`restore`/`transfer` phases, and sampled throughput reported over
-each authenticated TLS control session, with Cockpit refreshing active service
-status every two seconds. Transfer progress reaches a final byte-count update
-before the Client reports its terminal result. Operators can explicitly arm a job after every authorized Client is
+per-Client READY/running/terminal states, disk-operation byte progress and
+sampled throughput reported over each authenticated TLS control session, with
+Cockpit refreshing active service status every two seconds. The Client's local
+status also tracks image-transfer phase and byte count. Server-side transfer
+progress is not yet reported: artifact bytes and control frames share one TLS
+stream, so telemetry must not be injected into that stream. Operators can explicitly arm a job after every authorized Client is
 READY, cancel only before arming, and stop the service when it is not
 performing storage I/O. The service uses the existing
 coordinator, hash-chained journal, TLS control protocol and transfer engines;
