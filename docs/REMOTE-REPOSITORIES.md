@@ -21,7 +21,7 @@ build argument vectors without invoking a shell. The root-only lifecycle in
 src/feclora/storage/repository_manager.py now persists SSHFS, NFS and SMB/CIFS
 definitions in a mode-0600 registry, creates private mountpoints, checks
 root-owned credential references, invokes helpers without a shell, verifies
-the exact mountpoint with findmnt, and exposes mount/unmount/remove actions
+the exact mountpoint with findmnt, verifies the mounted source/type/access mode against the saved provider definition (including in the repository listing), and exposes mount/unmount/remove actions
 through Cockpit. Cockpit never receives or stores credential contents.
 
 This is a mount-management foundation, not yet a complete image-repository
