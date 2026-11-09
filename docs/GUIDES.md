@@ -42,7 +42,7 @@ procedure; do not attempt to reproduce it with undocumented commands.
   Signed single-use restore-profile primitives exist, but profile authoring,
   fleet authorization and PXE execution are not integrated as this workflow.
 
-## Related technical documentation
+## Acceptance testing\n\n- [Physical and remote-environment acceptance](ACCEPTANCE-TESTS.html) — step-by-step operator procedures for two-machine clone, multi-Client unicast/multicast restore, remote repositories, S3 read-only, interruption/restart recovery and repository lease checks. These are operator-run tests, not new implementation features.\n\n## Related technical documentation
 
 - [Feature and compatibility matrix](FEATURE-MATRIX.html)
 - [Remote disk-clone protocol and safety model](REMOTE-DISK-CLONE.html)
