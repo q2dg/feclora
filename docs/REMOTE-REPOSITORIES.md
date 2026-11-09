@@ -10,9 +10,10 @@ the same repository API.
 | Provider | Helper | Authentication material |
 |---|---|---|
 | SSH filesystem | sshfs | Dedicated SSH private key; verified host keys |
+| SFTP | Not implemented | Separate file-transfer provider; not equivalent to SSHFS |
 | NFS | mount.nfs, NFSv4.2 | Server/export policy |
 | SMB/CIFS | mount.cifs, SMB 3.1.1 | Protected credentials file |
-| WebDAV | mount.davfs over HTTPS | davfs2 protected secrets store |
+| WebDAV | mount.davfs over HTTPS | System-wide `/etc/davfs2/secrets` for root mounts; encrypted Feclora credential integration blocked |
 | S3 | rclone mount | Protected rclone config or credential chain |
 
 The provider definitions in src/feclora/storage/repository.py validate
@@ -27,9 +28,18 @@ add/mount/unmount/remove and never receives credential contents. Existing
 registry entries created before the rclone_remote field was introduced remain
 readable.
 
-WebDAV uses HTTPS and the system davfs2 secrets file at
-/etc/davfs2/secrets (root-owned, mode 0600); that file must contain the
-matching URL, username and password entry. S3 uses a preconfigured rclone
+WebDAV uses HTTPS and, for the current root-invoked mount path, davfs2 reads
+its system-wide `/etc/davfs2/secrets` file (root-owned, mode 0600); that file
+must contain the matching URL, username and password entry. Feclora rejects
+systemd-encrypted credential references for WebDAV rather than silently
+ignoring them: upstream davfs2 documents `secrets` as a per-user configuration
+setting, while root mounts always use the system-wide secrets file. A safe
+per-repository WebDAV design therefore needs a deliberate non-root davfs2
+configuration/daemon model; it must not write credentials into the global file
+or claim that `LoadCredentialEncrypted=` is already integrated. See the
+[davfs2 configuration manual](https://manpages.debian.org/unstable/davfs2/davfs2.conf.5.en.html).
+
+S3 uses a preconfigured rclone
 remote alias and a separate root-owned mode-0600 rclone config file. The
 endpoint, bucket credentials and provider-specific settings belong in that
 rclone remote, not in Feclora's registry. S3 repositories are deliberately
@@ -73,9 +83,10 @@ systemd's service credential directory. This is a deliberate mount-propagation
 trade-off and should be revisited if a dedicated mount-namespace propagation
 design is introduced.
 
-This first integration does not yet cover WebDAV, which still requires the
-global `/etc/davfs2/secrets` file, or Cockpit credential provisioning and
-selection. NFS does not require credentials. Existing plaintext
+This first integration does not yet cover WebDAV encrypted credentials,
+SFTP, or Cockpit credential provisioning and selection. WebDAV currently
+requires the global `/etc/davfs2/secrets` file for root mounts; encrypted
+references are explicitly rejected. NFS does not require credentials. Existing plaintext
 `CredentialStore` and CLI paths remain temporarily supported for migration;
 they are not the target architecture.
 
