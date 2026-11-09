@@ -98,6 +98,8 @@ class RemoteRepository:
                 raise RepositoryError("WebDAV remote_path must be a path; host is configured separately")
             if self.credential_file != "/etc/davfs2/secrets":
                 raise RepositoryError("WebDAV requires the root-managed /etc/davfs2/secrets file")
+            if self.port is not None:
+                raise RepositoryError("WebDAV uses HTTPS port 443; configure a reverse proxy for non-standard ports")
         elif self.provider == "s3":
             if not isinstance(self.rclone_remote, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", self.rclone_remote):
                 raise RepositoryError("S3 requires a configured rclone remote alias")
@@ -105,6 +107,8 @@ class RemoteRepository:
                 raise RepositoryError("S3 requires a protected rclone configuration file")
             if not self.read_only:
                 raise RepositoryError("S3 repositories are read-only until provider-aware artifact publication is implemented")
+            if self.port is not None:
+                raise RepositoryError("S3 endpoint and port must be configured in the protected rclone remote")
         elif self.provider == "nfs" and (self.username or self.credential_file or self.identity_file):
             raise RepositoryError("NFS does not accept username or credential-file fields")
 
