@@ -5,48 +5,71 @@ title: Step-by-step guides
 
 # Step-by-step guides
 
-These guides describe only workflows that are currently implemented and
-exposed in Feclora. A feature marked **planned** is not yet an operator
-procedure; do not attempt to reproduce it with undocumented commands.
+This index distinguishes implemented workflows from partially integrated and
+planned workflows. Use the linked technical and operator documentation for
+the current Cockpit sequence and safety contract. A feature marked planned is
+not an operator procedure.
 
 ## Cloning
 
-- [Local disk-to-disk cloning](GUIDE-LOCAL-DISK-CLONE.html) — **Status: available in Cockpit**
+- [Local disk-to-disk cloning](GUIDE-LOCAL-DISK-CLONE.html) — **Available in Cockpit**
   Copy a complete local disk to another local disk, with explicit destination
   confirmation.
 
-- **Remote disk-to-disk cloning** — **Status: planned — not yet available**
-  The mTLS transfer engine exists, but its persistent Server/Client service and
-  Cockpit workflow are not integrated. No supported end-to-end operator
-  procedure is available yet.
+- [Remote disk-to-disk cloning](REMOTE-DISK-CLONE.html) — **Available in Cockpit**
+  Clone a read-only Server source disk to one enrolled Client over the existing
+  authenticated persistent Server/Client session. The guide documents both
+  endpoint authorization, READY/ARM, streaming and independent read-back.
 
-## Remote repositories and single-disk imaging
+## Remote repositories and disk imaging
 
-- **Capture an image to an SSHFS repository** — **Status: planned — not yet available**
-  SSHFS mount management now exists in Cockpit, but capture/restore cannot yet select a managed repository ID. Provider identity checks, remote publication verification and credential provisioning are still incomplete.
+- [Remote repository administration and provider constraints](REMOTE-REPOSITORIES.html) — **Available**
+  Configure and verify SSHFS, NFS, SMB/CIFS, WebDAV and read-only S3 mounts.
+  Provider identity and access mode are checked before an image operation.
 
-- **Restore an image from an SSHFS repository** — **Status: planned — not yet available**
-  The restore engine accepts repository paths, but Cockpit does not yet connect those paths to managed SSHFS repository IDs or provide complete mount recovery.
+- [Whole-disk capture](WHOLE-DISK-CAPTURE.html) and
+  [partition capture](PARTITION-CAPTURE.html) — **Available**
+  Capture to the local repository or a selected active, verified remote
+  repository with write access. S3 remains read-only.
+
+- [Whole-disk restore](WHOLE-DISK-RESTORE.html) and
+  [partition restore](PARTITION-RESTORE.html) — **Available**
+  Restore from a selected active, verified repository, including read-only
+  remote mounts.
+
+- **Remote provider-specific capture/restore recipes** — **Operator acceptance**
+  Provider-by-provider test sequences are documented in
+  [physical and remote acceptance tests](ACCEPTANCE-TESTS.html). They are
+  validation procedures, not additional implementation requirements.
 
 ## Multi-client deployment
 
-- **Restore multiple remote Clients from an SSHFS image repository** — **Status: planned — not yet available**
-  Server/Client deployment exists for its configured local repository; remote
-  repository integration and the requested SSHFS workflow are not complete.
+- [Server/Client deployment setup](DEPLOYMENT-SETUP.html) — **Available**
+  Enroll Clients, configure a persistent deployment and use unicast or
+  multicast restore. Multi-Client restore can select an active, verified remote
+  repository.
 
-- **Restore multiple Clients through PXE from an SSHFS image repository** — **Status: planned — not yet available**
-  PXE service lifecycle and deployment primitives exist, but this exact
-  repository-backed end-to-end workflow is not yet integrated.
+- **PXE boot-to-job automatic handoff** — **Planned**
+  PXE/iPXE service lifecycle and boot assets exist, but PXE boot does not
+  automatically bind a Client to a deployment job or authorize a destructive
+  restore. The current workflow remains explicitly operator-controlled.
 
-- **Unattended multi-client PXE restore from SSHFS** — **Status: planned — not yet available**
+- **Unattended multi-client PXE restore** — **Planned**
   Signed single-use restore-profile primitives exist, but profile authoring,
-  fleet authorization and PXE execution are not integrated as this workflow.
+  fleet authorization and PXE execution are not integrated end to end.
 
-## Acceptance testing\n\n- [Physical and remote-environment acceptance](ACCEPTANCE-TESTS.html) — step-by-step operator procedures for two-machine clone, multi-Client unicast/multicast restore, remote repositories, S3 read-only, interruption/restart recovery and repository lease checks. These are operator-run tests, not new implementation features.\n\n## Related technical documentation
+## Acceptance testing
+
+- [Physical and remote-environment acceptance](ACCEPTANCE-TESTS.html) —
+  step-by-step operator procedures for two-machine clone, multi-Client
+  unicast/multicast restore, SSHFS/NFS/SMB/WebDAV repository checks, S3
+  read-only checks, interruption/restart recovery and repository lease
+  protection. Physical runs are operator-owned and are not reported as passed
+  until actually performed.
+
+## Related technical documentation
 
 - [Feature and compatibility matrix](FEATURE-MATRIX.html)
-- [Remote disk-clone protocol and safety model](REMOTE-DISK-CLONE.html)
 - [Remote repository architecture and security requirements](REMOTE-REPOSITORIES.html)
-- [Server/Client deployment setup](DEPLOYMENT-SETUP.html)
 - [Unattended restore profiles and current limits](RESTORE-PROFILES.html)
 - [Implementation plan](IMPLEMENTATION-PLAN.html)
