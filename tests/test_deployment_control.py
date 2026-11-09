@@ -78,6 +78,20 @@ class FakeSocket:
         self.close()
 
 
+class ListenerErrorTests(unittest.TestCase):
+    def test_listener_error_history_is_bounded_and_truncated(self):
+        server = object.__new__(DeploymentControlServer)
+        server._lock = threading.RLock()
+        server.listener_errors = []
+        for index in range(100):
+            server._record_listener_error(f"listener error {index}")
+        self.assertEqual(len(server.listener_errors), 64)
+        self.assertEqual(server.listener_errors[0], "listener error 36")
+        self.assertEqual(server.listener_errors[-1], "listener error 99")
+        server._record_listener_error("x" * 600)
+        self.assertEqual(len(server.listener_errors[-1]), 512)
+
+
 class ClientProgressTests(unittest.TestCase):
     def test_progress_frame_is_validated_and_exposed_with_throughput(self):
         server = object.__new__(DeploymentControlServer)
