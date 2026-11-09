@@ -244,6 +244,13 @@ class DeploymentControlServer:
         self._listener_thread.start()
         return self.bound_address  # type: ignore[return-value]
 
+    def _record_listener_error(self, message: object) -> None:
+        """Keep unauthenticated connection failures from growing memory without bound."""
+        with self._lock:
+            self.listener_errors.append(str(message)[:512])
+            if len(self.listener_errors) > 64:
+                del self.listener_errors[:-64]
+
     def _serve_listener(self) -> None:
         while not self._stop_event.is_set():
             try:
@@ -252,7 +259,7 @@ class DeploymentControlServer:
                 continue
             except OSError as exc:
                 if not self._stop_event.is_set():
-                    self.listener_errors.append(str(exc))
+                    self._record_listener_error(exc)
             except Exception as exc:
                 if not self._stop_event.is_set():
                     self.listener_errors.append(str(exc))
@@ -304,7 +311,7 @@ class DeploymentControlServer:
                     self._firewall_opened = False
             except Exception as exc:
                 cleanup_error = exc
-                self.listener_errors.append(f"firewall cleanup failed: {exc}")
+                self._record_listener_error(f"firewall cleanup failed: {exc}")
         if cleanup_error is not None:
             raise DeploymentControlError(f"control firewall cleanup failed: {cleanup_error}") from cleanup_error
         if self._firewall_state_callback is not None:
