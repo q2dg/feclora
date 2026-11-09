@@ -564,6 +564,7 @@ export default function App() {
         ...(remoteOperation === "clone" ? { source_device: remoteSourceDevice, target_type: "disk" } : { target_type: remoteTargetType }),
         authorized_clients: authorizedClients, network_interface: remoteInterface,
         transport: remoteTransport,
+        ...(remoteOperation === "restore" && selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}),
         multicast_group: remoteTransport === "multicast" ? remoteMulticastGroup : null,
         multicast_port: remoteTransport === "multicast" ? Number(remoteMulticastPort) : null,
         start_policy: "manual", expected_clients: null, start_deadline: null
@@ -898,6 +899,12 @@ export default function App() {
                       <option value="clone">Clone Server disk directly to one Client disk</option>
                     </select>
                   </Field>
+                  {remoteOperation === "restore" && <Field label="Image repository">
+                    <select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => { selectImageRepository(e.target.value); setRemoteImageId(""); }}>
+                      <option value="">Local Server repository</option>
+                      {remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
+                    </select>
+                  </Field>}
                   {remoteOperation === "clone" ? <Field label="Server source disk" help="Select a whole disk already marked read-only. Feclora rechecks it before streaming.">
                     <select className="pf-v5-c-form-control" value={remoteSourceDevice} onChange={(e) => setRemoteSourceDevice(e.target.value)} required>
                       <option value="">Select read-only source disk…</option>
@@ -906,7 +913,7 @@ export default function App() {
                   </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing signed image." : "New identifier for the image captured from Clients."}>
                     {remoteOperation === "restore" ? <select className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)}>
                       <option value="">Select signed image…</option>
-                      {images.filter((item) => item.image_type === remoteTargetType && item.signed).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}</option>)}
+                      {availableImages.filter((item) => item.image_type === remoteTargetType && item.signed).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}</option>)}
                     </select> : <input className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)} maxLength={128} required />}
                   </Field>}
                   {remoteOperation === "restore" && <Field label="Target type">
