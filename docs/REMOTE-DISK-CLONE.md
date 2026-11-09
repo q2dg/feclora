@@ -34,12 +34,16 @@ address is still assigned to that interface and binds the TCP/TLS connection
 to it. The preflight verifies the enrolled Server identity and retrieves the
 job before the operator approves a local target or starts any storage
 operation. The same source-address binding is revalidated and applied when the
-persistent Client service connects. The Server does not proactively probe
+persistent Client service connects. Before each connection, Feclora resolves
+the Server's IPv4 destinations and runs `ip route get` for each one. Every
+route must select the requested interface and source address; a mismatch or
+missing route fails closed before TCP/TLS connection. This verifies the
+kernel's current route decision but does not install policy rules or pin a
+route against later network changes. The Server does not proactively probe
 every enrolled Client from its MAC inventory; each Client performs this
 preflight from its own Cockpit session. A saved job definition alone is not
-proof that a Client is online or reachable. Routing beyond the selected local
-source address remains governed by the Client's kernel routing table; Feclora
-does not yet expose per-job policy routing or a route-table override.
+proof that a Client is online or reachable. Per-job policy routing and
+route-table overrides remain unsupported.
 
 ## Roles and authorization
 
