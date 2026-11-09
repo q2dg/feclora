@@ -56,7 +56,7 @@ class MutualTlsSocketTests(unittest.TestCase):
 
     def test_client_rejects_route_not_using_selected_interface(self):
         context = Mock()
-        route = Mock(returncode=0, stdout="192.0.2.1 dev eth0 src 192.0.2.20\\n", stderr="")
+        route = Mock(returncode=0, stdout="192.0.2.1 dev eth0 src 192.0.2.20\n", stderr="")
         with patch("feclora.network.tls.socket.getaddrinfo", return_value=[
             (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.0.2.1", 9443)),
         ]):
@@ -69,6 +69,25 @@ class MutualTlsSocketTests(unittest.TestCase):
                             source_address="192.0.2.20", network_interface="eth1",
                         )
         connect.assert_not_called()
+
+    def test_client_accepts_route_using_selected_interface(self):
+        raw = Mock()
+        wrapped = FakeTlsSocket("source.example")
+        context = Mock()
+        context.wrap_socket.return_value = wrapped
+        route = Mock(returncode=0, stdout="192.0.2.1 dev eth1 src 192.0.2.20\n", stderr="")
+        with patch("feclora.network.tls.socket.getaddrinfo", return_value=[
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.0.2.1", 9443)),
+        ]):
+            with patch("feclora.network.tls.subprocess.run", return_value=route):
+                with patch("feclora.network.tls.socket.create_connection", return_value=raw) as connect:
+                    result = connect_mutual_tls(
+                        context, "source.example", 9443,
+                        expected_peer_identity="DNS:source.example",
+                        source_address="192.0.2.20", network_interface="eth1",
+                    )
+        self.assertIs(result, wrapped)
+        self.assertEqual(connect.call_args.kwargs["source_address"], ("192.0.2.20", 0))
 
     def test_client_rejects_invalid_source_address_before_connecting(self):
         context = Mock()
