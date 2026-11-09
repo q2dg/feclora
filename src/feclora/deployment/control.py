@@ -262,7 +262,7 @@ class DeploymentControlServer:
                     self._record_listener_error(exc)
             except Exception as exc:
                 if not self._stop_event.is_set():
-                    self.listener_errors.append(str(exc))
+                    self._record_listener_error(exc)
 
     def stop(self) -> None:
         """Stop accepting peers and close pending and established control sessions."""
