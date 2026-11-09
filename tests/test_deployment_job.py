@@ -71,6 +71,20 @@ class DeploymentJobTests(unittest.TestCase):
                 transport="multicast", multicast_group="239.10.10.10", multicast_port=5000,
             ))
 
+    def test_restore_job_can_reference_a_simple_remote_repository_id(self):
+        job = DeploymentJob.from_dict(valid_job(repository_id="nas-images"))
+        self.assertEqual(job.repository_id, "nas-images")
+        self.assertEqual(DeploymentJob.from_json(job.to_json()), job)
+        self.assertEqual(job.to_dict()["repository_id"], "nas-images")
+
+    def test_repository_id_is_rejected_for_non_restore_and_invalid_values(self):
+        with self.assertRaisesRegex(JobValidationError, "only for restore"):
+            DeploymentJob.from_dict(valid_job(operation="save", repository_id="nas-images"))
+        for invalid in ("../images", "", "UpperCase"):
+            with self.subTest(repository_id=invalid):
+                with self.assertRaisesRegex(JobValidationError, "repository_id"):
+                    DeploymentJob.from_dict(valid_job(repository_id=invalid))
+
     def test_non_clone_jobs_reject_source_device(self):
         with self.assertRaisesRegex(JobValidationError, "only valid for clone"):
             DeploymentJob.from_dict(valid_job(source_device="/dev/sda"))
