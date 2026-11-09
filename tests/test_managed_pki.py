@@ -181,7 +181,7 @@ class ManagedPKITests(unittest.TestCase):
                 elif argv[1:3] == ["x509", "-req"]:
                     Path(argv[argv.index("-out") + 1]).write_text("new certificate", encoding="ascii")
                 elif argv[1:3] == ["x509", "-in"] and argv[-3:] == ["-noout", "-ext", "subjectAltName"]:
-                    return SimpleNamespace(stdout="X509v3 Subject Alternative Name:\\n    URI:feclora-server\\n")
+                    return SimpleNamespace(stdout="X509v3 Subject Alternative Name:\n    URI:feclora-server\n")
                 elif argv[1:3] == ["x509", "-in"] and "-pubkey" in argv:
                     return SimpleNamespace(stdout="NEW PUBLIC KEY")
                 elif argv[1:2] == ["pkey"]:
@@ -229,7 +229,7 @@ class ManagedPKITests(unittest.TestCase):
                 elif argv[1:3] == ["x509", "-req"]:
                     Path(argv[argv.index("-out") + 1]).write_text("new certificate", encoding="ascii")
                 elif argv[1:3] == ["x509", "-in"] and argv[-3:] == ["-noout", "-ext", "subjectAltName"]:
-                    return SimpleNamespace(stdout="X509v3 Subject Alternative Name:\\n    URI:feclora-server\\n")
+                    return SimpleNamespace(stdout="X509v3 Subject Alternative Name:\n    URI:feclora-server\n")
                 elif argv[1:3] == ["x509", "-in"] and "-pubkey" in argv:
                     return SimpleNamespace(stdout="CERTIFICATE PUBLIC KEY")
                 elif argv[1:2] == ["pkey"]:
@@ -268,7 +268,7 @@ class ManagedPKITests(unittest.TestCase):
                 elif argv[1:3] == ["x509", "-req"]:
                     Path(argv[argv.index("-out") + 1]).write_text("new certificate", encoding="ascii")
                 elif argv[1:3] == ["x509", "-in"] and argv[-3:] == ["-noout", "-ext", "subjectAltName"]:
-                    return SimpleNamespace(stdout="X509v3 Subject Alternative Name:\\n    URI:feclora-server\\n")
+                    return SimpleNamespace(stdout="X509v3 Subject Alternative Name:\n    URI:feclora-server\n")
                 elif argv[1:3] == ["x509", "-in"] and "-pubkey" in argv:
                     return SimpleNamespace(stdout="NEW PUBLIC KEY")
                 elif argv[1:2] == ["pkey"]:
@@ -491,15 +491,15 @@ class ManagedPKITests(unittest.TestCase):
             old_ca = os.path.join(root, "old-ca.crt")
             new_ca = os.path.join(root, "new-ca.crt")
             destination = os.path.join(root, "trust-bundle.pem")
-            Path(old_ca).write_bytes(b"-----BEGIN CERTIFICATE-----\\nT0xE\\n-----END CERTIFICATE-----\\n")
-            Path(new_ca).write_bytes(b"-----BEGIN CERTIFICATE-----\\nTkVX\\n-----END CERTIFICATE-----\\n")
+            Path(old_ca).write_bytes(b"-----BEGIN CERTIFICATE-----\nT0xE\n-----END CERTIFICATE-----\n")
+            Path(new_ca).write_bytes(b"-----BEGIN CERTIFICATE-----\nTkVX\n-----END CERTIFICATE-----\n")
             fingerprints = iter(("a" * 64, "b" * 64))
 
             def fake_run(argv, _runner=None):
                 if argv[-3:] == ["-noout", "-ext", "basicConstraints"]:
-                    return SimpleNamespace(stdout="X509v3 Basic Constraints: critical\\n    CA:TRUE")
+                    return SimpleNamespace(stdout="X509v3 Basic Constraints: critical\n    CA:TRUE")
                 if argv[-3:] == ["-noout", "-ext", "keyUsage"]:
-                    return SimpleNamespace(stdout="X509v3 Key Usage: critical\\n    Certificate Sign, CRL Sign")
+                    return SimpleNamespace(stdout="X509v3 Key Usage: critical\n    Certificate Sign, CRL Sign")
                 if argv[-2:] == ["-fingerprint", "-sha256"]:
                     return SimpleNamespace(stdout="sha256 Fingerprint=" + next(fingerprints))
                 return SimpleNamespace(stdout="certificate parsed")
@@ -519,13 +519,13 @@ class ManagedPKITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             source = os.path.join(root, "leaf.crt")
             destination = os.path.join(root, "trust-bundle.pem")
-            Path(source).write_bytes(b"-----BEGIN CERTIFICATE-----\\nTEVBRg==\\n-----END CERTIFICATE-----\\n")
+            Path(source).write_bytes(b"-----BEGIN CERTIFICATE-----\nTEVBRg==\n-----END CERTIFICATE-----\n")
             Path(destination).write_bytes(b"existing trusted bundle")
             original = Path(destination).read_bytes()
 
             def fake_run(argv, _runner=None):
                 if argv[-3:] == ["-noout", "-ext", "basicConstraints"]:
-                    return SimpleNamespace(stdout="X509v3 Basic Constraints: critical\\n    CA:FALSE")
+                    return SimpleNamespace(stdout="X509v3 Basic Constraints: critical\n    CA:FALSE")
                 return SimpleNamespace(stdout="parsed")
 
             with patch("feclora.deployment.managed_pki.os.geteuid", return_value=0), patch(
@@ -541,14 +541,14 @@ class ManagedPKITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             paths = [os.path.join(root, name) for name in ("one.crt", "two.crt")]
             for path in paths:
-                Path(path).write_bytes(b"-----BEGIN CERTIFICATE-----\\nQ0E=\\n-----END CERTIFICATE-----\\n")
+                Path(path).write_bytes(b"-----BEGIN CERTIFICATE-----\nQ0E=\n-----END CERTIFICATE-----\n")
 
             def fake_run(argv, _runner=None):
                 if argv[-3:] == ["-noout", "-ext", "basicConstraints"]:
                     return SimpleNamespace(stdout="CA:TRUE")
                 if argv[-3:] == ["-noout", "-ext", "keyUsage"]:
                     return SimpleNamespace(stdout="Certificate Sign")
-                if argv[-1:] == ["-fingerprint", "-sha256"]:
+                if argv[-2:] == ["-fingerprint", "-sha256"]:
                     return SimpleNamespace(stdout="sha256 Fingerprint=" + "c" * 64)
                 return SimpleNamespace(stdout="parsed")
 
