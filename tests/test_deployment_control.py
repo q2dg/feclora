@@ -309,6 +309,36 @@ class ClientProgressTests(unittest.TestCase):
         with self.assertRaisesRegex(DeploymentControlError, "byte counters"):
             server._record_client_progress(MAC, {**valid, "completed_bytes": True})
 
+
+class TransferFailureTests(unittest.TestCase):
+    def test_restore_transfer_timeout_is_journaled_as_failed_and_closes_session(self):
+        coordinator = DeploymentCoordinator(make_job())
+        coordinator.register_client(MAC, authenticated=True)
+        coordinator.mark_ready(MAC)
+        tls_socket = FakeSocket()
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server._lock = threading.RLock()
+        server._sessions = {MAC: tls_socket}
+        server._progress = {}
+        server._last_persisted_progress = {}
+        server._progress_event_sink = None
+
+        with patch("feclora.deployment.control.send_control_message"), \
+             patch("feclora.deployment.control.send_image_set", side_effect=TimeoutError("transfer timed out")):
+            self.assertEqual(server.arm_and_start(), (MAC,))
+            with self.assertRaisesRegex(DeploymentControlError, "restore image transfer failed: transfer timed out"):
+                server.send_restore_image(
+                    MAC, "/repository", "/repository/golden-image.manifest.json",
+                    trusted_public_key="/trusted/server.pub",
+                )
+
+        self.assertTrue(tls_socket.closed)
+        self.assertEqual(server.collect_results(), {MAC: "failed"})
+        self.assertEqual(coordinator.state, JobState.FAILED)
+
+
+
 class TLSContextTests(unittest.TestCase):
     def test_server_rejects_context_without_mandatory_peer_certificates(self):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
