@@ -105,5 +105,15 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         with self.assertRaisesRegex(RepositoryManagerError, "does not match"):
             self.manager.resolve("images")
 
+
+    def test_unmount_refuses_unexpected_filesystem_at_managed_mountpoint(self):
+        self.manager.add("images", self.definition)
+        self.manager._mount_record = lambda _path: (
+            "nfs4", "other.example.net:/wrong", "ro,relatime",
+        )
+        with self.assertRaisesRegex(RepositoryManagerError, "does not match"):
+            self.manager.unmount("images")
+        self.assertFalse(any(call[0].endswith("umount") for call in self.calls))
+
 if __name__ == "__main__":
     unittest.main()
