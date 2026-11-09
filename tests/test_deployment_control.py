@@ -79,6 +79,25 @@ class FakeSocket:
 
 
 class ListenerShutdownRaceTests(unittest.TestCase):
+    def test_tls_socket_created_during_shutdown_is_not_readded_as_pending(self):
+        accepted = FakeSocket()
+        tls_socket = FakeSocket()
+        server = object.__new__(DeploymentControlServer)
+        server._lock = threading.RLock()
+        server._pending_sockets = set()
+        server._stop_event = threading.Event()
+        server._pending_sockets.add(accepted)
+        def wrap_socket(_accepted, server_side):
+            self.assertTrue(server_side)
+            server._stop_event.set()
+            return tls_socket
+        server.tls_context = SimpleNamespace(wrap_socket=wrap_socket)
+        listener = SimpleNamespace(accept=lambda: (accepted, ("192.0.2.20", 40000)))
+        self.assertIsNone(server.accept_ready_client(listener))
+        self.assertTrue(tls_socket.closed)
+        self.assertNotIn(accepted, server._pending_sockets)
+        self.assertNotIn(tls_socket, server._pending_sockets)
+
     def test_socket_accepted_after_shutdown_begins_is_closed_immediately(self):
         fake = FakeSocket()
         server = object.__new__(DeploymentControlServer)
