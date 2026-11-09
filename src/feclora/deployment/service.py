@@ -248,8 +248,19 @@ class DeploymentService:
                 )
             except Exception as exc:
                 raise DeploymentServiceError(f"multicast Server interface preflight failed: {exc}") from exc
+        self.repository_path = self.config.repository
         if self.job.operation == "restore":
-            self.manifest_path = str(Path(self.config.repository) / (self.job.image_id + ".manifest.json"))
+            if self.job.repository_id is not None:
+                from feclora.storage.repository_manager import RemoteRepositoryManager
+                try:
+                    self.repository_path = RemoteRepositoryManager().resolve(
+                        self.job.repository_id, write=False,
+                    )
+                except Exception as exc:
+                    raise DeploymentServiceError(
+                        f"selected image repository is not mounted and verified: {exc}"
+                    ) from exc
+            self.manifest_path = str(Path(self.repository_path) / (self.job.image_id + ".manifest.json"))
             verify_manifest_signature(self.manifest_path, self.config.server_minisign_public_key)
         else:
             self.manifest_path = None
@@ -478,7 +489,7 @@ class DeploymentService:
                     self.job, min_receivers=len(self.job.authorized_clients),
                 )
                 self.control.run_multicast_restore_job(
-                    self.config.repository, self.manifest_path,
+                    self.repository_path, self.manifest_path,
                     trusted_public_key=self.config.server_minisign_public_key,
                     udpcast_config=udpcast,
                 )
@@ -490,7 +501,7 @@ class DeploymentService:
                     else self.config.client_minisign_public_keys[mac]
                 )
                 self.control.run_one_client_job(
-                    self.config.repository,
+                    self.repository_path,
                     trusted_public_key=trusted_key,
                     manifest_path=self.manifest_path,
                 )
