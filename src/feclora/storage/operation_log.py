@@ -33,18 +33,22 @@ def _operation_process_active(event: dict) -> bool:
     pid = event.get("pid")
     boot_id = event.get("boot_id")
     start_ticks = event.get("process_start_ticks")
-    if not isinstance(pid, int) or pid <= 0 or not isinstance(boot_id, str) or not isinstance(start_ticks, int):
+    if not isinstance(pid, int) or pid <= 0 or not isinstance(boot_id, str):
+        # Older journal entries have no process identity; they need manual review.
         return False
     try:
         current_boot_id = Path("/proc/sys/kernel/random/boot_id").read_text(encoding="ascii").strip()
     except OSError:
-        return False
+        # If process identity cannot be checked, do not falsely report a live
+        # destructive operation as interrupted.
+        return True
     if current_boot_id != boot_id:
         return False
-    try:
-        current_ticks = _process_start_ticks(f"/proc/{pid}/stat")
-    except OSError:
-        return False
+    if not isinstance(start_ticks, int):
+        return True
+    current_ticks = _process_start_ticks(f"/proc/{pid}/stat")
+    if current_ticks is None:
+        return Path(f"/proc/{pid}").exists()
     return current_ticks == start_ticks
 
 
