@@ -53,6 +53,30 @@ remain usable without certificates, a CA, Cockpit or a network service.
 This is an intentionally physical bootstrap ceremony. Feclora never trusts a
 Client merely because it appears on DHCP/PXE or presents a MAC address.
 
+## Encrypted offline CA backup
+
+The Server Cockpit **Server setup** tab can export an encrypted CA recovery
+archive to a mounted removable-media directory. Supply an age public recipient
+whose corresponding private identity is held separately, preferably offline
+and under a different administrative control. The archive contains only
+`ca.key`, `ca.crt`, and a versioned manifest with the CA fingerprint; it
+does not contain Server endpoint keys, Client keys, minisign keys, or age
+identities. The CA private key is never staged unencrypted outside the
+root-only PKI directory. The resulting `.tar.age` file is mode 0600, published
+without overwriting an existing backup, and its SHA-256 is shown for
+verification.
+
+Keep the age decryption identity separate from the removable media containing
+the backup. Losing that identity makes the backup unrecoverable; storing it
+beside the backup defeats the offline protection. Test decryption and archive
+inspection in a controlled recovery environment before relying on a backup.
+
+**Restore is not yet exposed in Cockpit.** Do not copy files manually over a
+live `/etc/feclora/pki` directory. A future restore workflow must verify the
+archive manifest and CA key/certificate match, stop all deployment services,
+preserve an encrypted pre-restore snapshot, and require explicit confirmation
+before installing the restored CA.
+
 ## Renewal, revocation and recovery
 
 - Client renewal preserves the existing TLS private key and stable identity.
@@ -89,12 +113,13 @@ primitives, Server allowlist enrollment and revocation, per-Client age
 recipient registration/removal, Cockpit Server-side CSR inspection/approval
 with public response-bundle export, Cockpit trusted-Client inventory and
 exact-confirmation revocation, plus Cockpit Server export and Client-side
-verification/atomic refresh of the age recipient snapshot.
+verification/atomic refresh of the age recipient snapshot, and encrypted
+removable-media backup of the managed CA.
 
-Not yet implemented: Cockpit-based Client certificate renewal, full managed
-CA and Server identity rotation/renewal from Cockpit, CRL/OCSP validation,
-server-side certificate expiry/last-seen inventory, or automatic network push
-of age recipient snapshots to already-enrolled Clients.
+Not yet implemented: staged CA rotation and Client trust migration, CA backup
+restore, minisign signing-key rotation, age identity/recipient rotation,
+CRL/OCSP validation, server-side certificate last-seen inventory, or automatic
+network push of age recipient snapshots to already-enrolled Clients.
 
 ## Explicit non-goals
 
