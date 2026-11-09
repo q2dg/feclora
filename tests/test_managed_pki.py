@@ -399,6 +399,7 @@ class ManagedPKITests(unittest.TestCase):
             archive = os.path.join(media, "fixture.tar")
             Path(encrypted).write_bytes(b"AGE ENCRYPTED")
             Path(identity).write_text("AGE-SECRET-KEY-1TEST", encoding="ascii")
+            os.chmod(identity, 0o600)
             manifest = {
                 "schema_version": 1,
                 "purpose": "feclora-managed-deployment-ca-recovery",
@@ -446,6 +447,7 @@ class ManagedPKITests(unittest.TestCase):
             archive = os.path.join(media, "fixture.tar")
             Path(encrypted).write_bytes(b"AGE ENCRYPTED")
             Path(identity).write_text("AGE-SECRET-KEY-1TEST", encoding="ascii")
+            os.chmod(identity, 0o600)
             with tarfile.open(archive, "w") as bundle:
                 for name, data in (
                     ("ca.crt", b"cert"), ("ca.key", b"key"),
