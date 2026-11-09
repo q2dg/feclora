@@ -40,6 +40,44 @@ class MutualTlsSocketTests(unittest.TestCase):
         self.assertIs(result, wrapped)
         context.wrap_socket.assert_called_once_with(raw, server_hostname="source.example")
 
+    def test_client_cancels_before_attempting_tcp_connection(self):
+        from feclora.network.remote_clone_protocol import RemoteCloneCancelled
+
+        context = Mock()
+        with patch("feclora.network.tls.socket.create_connection") as connect:
+            with self.assertRaisesRegex(RemoteCloneCancelled, "while connecting"):
+                connect_mutual_tls(
+                    context, "source.example", 9443,
+                    expected_peer_identity="DNS:source.example",
+                    cancel_check=lambda: True,
+                )
+        connect.assert_not_called()
+
+    def test_client_retries_tcp_timeout_and_checks_cancellation(self):
+        from feclora.network.remote_clone_protocol import RemoteCloneCancelled
+
+        raw = Mock()
+        context = Mock()
+        checks = []
+
+        def cancelled():
+            checks.append(True)
+            return len(checks) > 1
+
+        with patch(
+            "feclora.network.tls.socket.create_connection",
+            side_effect=[socket.timeout(), raw],
+        ) as connect:
+            with self.assertRaisesRegex(RemoteCloneCancelled, "while connecting"):
+                connect_mutual_tls(
+                    context, "source.example", 9443,
+                    expected_peer_identity="DNS:source.example",
+                    cancel_check=cancelled,
+                    connect_poll_interval=0.05,
+                )
+        self.assertEqual(connect.call_count, 1)
+        context.wrap_socket.assert_not_called()
+
     def test_server_wraps_and_verifies_client_certificate(self):
         raw = Mock()
         wrapped = FakeTlsSocket("receiver.example")
