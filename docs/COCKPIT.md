@@ -309,3 +309,14 @@ Client certificate renewal is available from the Cockpit Client enrollment tab. 
 Cockpit also reports the local managed Server and/or Client TLS certificate expiry and the associated deployment CA expiry. Certificates with 30 days or fewer remaining are flagged for renewal; expired leaf certificates or CA certificates and configuration/inspection errors are surfaced as critical status. This is read-only and does not rotate certificates automatically.
 
 Server TLS certificate renewal is also available in the Cockpit Server setup tab. It requires typing `RENEW SERVER CERTIFICATE`, refuses to proceed while any deployment service is active, renews the certificate using the existing CA and Server private key, verifies the resulting chain, SAN and key match, and atomically replaces `server.crt`. The CA, Server identity, Client trust and image-signing keys are unchanged. This is certificate renewal, not CA rotation or Server key rotation.
+
+## Network configuration status
+
+Cockpit's privileged API can now enumerate NetworkManager connection profiles
+through a read-only, JSON-based inventory. The response is sanitized to expose
+only profile identity, interface/device, autoconnect state and IPv4 method,
+addresses, gateway and DNS; Wi-Fi credentials and other secret properties are
+never returned. This is an inventory foundation, not yet a DHCP/static
+configuration workflow: Cockpit does not modify connection profiles, switch
+Server or Client addressing, or perform connectivity verification/rollback.
+Do not treat the DHCP/static Server-and-Client requirement as complete.
