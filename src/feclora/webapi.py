@@ -2150,7 +2150,7 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _local_operations(params)
     if action in {"capture_disk", "capture_partition", "restore_disk", "restore_partition",
                   "clone_disk", "clone_partition", "extract_partition_image"}:
-        return _run_operation(action, params)
+        return _submit_local_operation({"operation": action, "operation_params": params})
     raise WebAPIError("unsupported Cockpit API action")
 
 
