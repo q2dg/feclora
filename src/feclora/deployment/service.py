@@ -370,6 +370,9 @@ class DeploymentService:
 
     def _status(self) -> dict[str, Any]:
         clients = self.coordinator.clients()
+        # Progress is a snapshot shared by all clients; collect it once so a
+        # large deployment reports one coherent view without repeated work.
+        progress_by_client = self.control.client_progress()
         result: dict[str, Any] = {
             "job_id": self.job.job_id,
             "job_state": self.coordinator.state.value,
@@ -380,7 +383,7 @@ class DeploymentService:
             "clients": [
                 {
                     "mac_address": item.mac_address, "state": item.state.value,
-                    "progress": self.control.client_progress().get(item.mac_address),
+                    "progress": progress_by_client.get(item.mac_address),
                 }
                 for item in clients[:128]
             ],
