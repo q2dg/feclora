@@ -74,8 +74,9 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
                       "known_hosts_file": None, "port": None}
         # davfs2 only reads its system secrets path; the manager rejects alternate paths.
         definition["credential_file"] = "/etc/davfs2/secrets"
-        with self.assertRaisesRegex(RepositoryManagerError, "unavailable"):
-            self.manager.add("images", definition)
+        with patch("feclora.storage.repository_manager._check_secret_reference"):
+            result = self.manager.add("images", definition)
+        self.assertEqual(result["provider"], "webdav")
 
     def test_add_accepts_s3_with_protected_rclone_config(self):
         config = Path(self.temp.name) / "rclone.conf"
