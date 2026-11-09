@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import ipaddress
 import json
+import os
 import re
 from typing import Any
 from uuid import UUID
@@ -38,6 +39,7 @@ _ALLOWED_FIELDS = {
     "expected_clients",
     "start_deadline",
     "staging_required_bytes",
+    "source_device",
 }
 
 
@@ -47,7 +49,7 @@ class DeploymentJob:
 
     job_id: str
     operation: str
-    image_id: str
+    image_id: str | None
     authorized_clients: tuple[str, ...]
     network_interface: str
     transport: str
@@ -59,6 +61,7 @@ class DeploymentJob:
     target_type: str = "disk"
     schema_version: int = 1
     staging_required_bytes: int | None = None
+    source_device: str | None = None
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "DeploymentJob":
@@ -66,7 +69,7 @@ class DeploymentJob:
             raise JobValidationError("Job document must be a JSON object")
         unknown = set(payload) - _ALLOWED_FIELDS
         missing = _ALLOWED_FIELDS - set(payload) - {
-            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type", "staging_required_bytes"
+            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type", "staging_required_bytes", "source_device"
         }
         if unknown:
             raise JobValidationError(f"Unknown job fields: {', '.join(sorted(unknown))}")
@@ -85,17 +88,33 @@ class DeploymentJob:
             raise JobValidationError("job_id must be a valid UUID") from exc
 
         operation = payload.get("operation")
-        if not isinstance(operation, str) or operation not in {"save", "restore"}:
-            raise JobValidationError("operation must be 'save' or 'restore'")
+        if not isinstance(operation, str) or operation not in {"save", "restore", "clone"}:
+            raise JobValidationError("operation must be 'save', 'restore', or 'clone'")
 
         image_id = payload.get("image_id")
-        if not isinstance(image_id, str) or not _IMAGE_ID_RE.fullmatch(image_id):
+        if operation == "clone":
+            if image_id is not None:
+                raise JobValidationError("clone jobs must not reference an image_id")
+        elif not isinstance(image_id, str) or not _IMAGE_ID_RE.fullmatch(image_id):
             raise JobValidationError("image_id must be a simple identifier, not a path")
+
+        source_device = payload.get("source_device")
+        if operation == "clone":
+            if (not isinstance(source_device, str) or not source_device.startswith("/dev/")
+                    or len(source_device) > 256 or source_device != source_device.strip()
+                    or os.path.normpath(source_device) != source_device):
+                raise JobValidationError("clone source_device must be a normalized absolute /dev path")
+        elif source_device is not None:
+            raise JobValidationError("source_device is only valid for clone jobs")
         target_type = payload.get("target_type", "disk")
         if not isinstance(target_type, str) or target_type not in {"disk", "partition"}:
             raise JobValidationError("target_type must be disk or partition")
-        if operation == "save" and target_type != "disk":
-            raise JobValidationError("network save currently supports whole disks only")
+        if operation in {"save", "clone"} and target_type != "disk":
+            raise JobValidationError("network save and clone currently support whole disks only")
+        if operation == "clone" and (
+            payload.get("transport") != "unicast" or payload.get("start_policy") != "manual"
+        ):
+            raise JobValidationError("clone jobs require unicast transport and manual start policy")
 
         clients = payload.get("authorized_clients")
         if not isinstance(clients, list) or not clients:
@@ -187,6 +206,7 @@ class DeploymentJob:
             start_deadline=deadline,
             target_type=target_type,
             staging_required_bytes=staging_required_bytes,
+            source_device=source_device,
         )
 
     @classmethod
@@ -217,6 +237,8 @@ class DeploymentJob:
         # Keep pre-capacity schema-v1 journals byte-for-byte reconstructible.
         if self.staging_required_bytes is not None:
             document["staging_required_bytes"] = self.staging_required_bytes
+        if self.source_device is not None:
+            document["source_device"] = self.source_device
         return document
 
     def to_json(self) -> str:
