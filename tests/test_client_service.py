@@ -97,6 +97,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             self.assertFalse(request.exists())
             execute.assert_called_once()
             self.assertEqual(join_options["source_address"], "192.0.2.20")
+            self.assertEqual(join_options["network_interface"], "enp1s0")
 
     def test_multicast_job_preflights_selected_interface_and_uses_receiver_runtime(self):
         with tempfile.TemporaryDirectory() as directory:
