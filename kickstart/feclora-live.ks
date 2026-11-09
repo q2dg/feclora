@@ -51,6 +51,10 @@ shim-x64
 syslinux
 
 # Storage and inspection tools
+# Remote image repository mounts (enabled only by explicit Cockpit action)
+fuse-sshfs
+nfs-utils
+cifs-utils
 partclone
 zstd
 lz4
