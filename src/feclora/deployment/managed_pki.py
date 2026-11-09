@@ -249,6 +249,127 @@ def renew_server_certificate(
         shutil.rmtree(temporary_directory, ignore_errors=True)
 
 
+
+def rotate_server_keypair(
+    pki_directory: str | os.PathLike[str] = "/etc/feclora/pki",
+    *,
+    runner: Callable[..., Any] | None = None,
+    openssl: str = "/usr/bin/openssl",
+    validity_days: int = 825,
+) -> dict[str, Any]:
+    """Rotate the Server TLS key and leaf certificate under the existing CA.
+
+    The CA and its private key are never changed. Both replacement files are
+    fully generated and validated before either active file is touched. If an
+    installation step fails, the original key and certificate are restored.
+    """
+    if isinstance(validity_days, bool) or not isinstance(validity_days, int) or not 1 <= validity_days <= 825:
+        raise PKIError("Server certificate validity must be between 1 and 825 days")
+    root = _root_only_directory(pki_directory)
+    paths = {
+        "ca_key": os.path.join(root, "ca.key"),
+        "ca_file": os.path.join(root, "ca.crt"),
+        "server_key": os.path.join(root, "server.key"),
+        "server_certificate": os.path.join(root, "server.crt"),
+    }
+    for label, path in paths.items():
+        _regular_file(path, label, root_owned=True)
+    if any(os.stat(paths[key]).st_mode & 0o077 for key in ("ca_key", "server_key")):
+        raise PKIError("CA and Server private keys must not be accessible by group or other users")
+    ca_expiry_days = certificate_expiry_days(paths["ca_file"], runner=runner, openssl=openssl)
+    if ca_expiry_days <= 0:
+        raise PKIError("deployment CA has expired; CA rotation and Client trust migration are required")
+    effective_validity_days = min(validity_days, ca_expiry_days)
+    _run([openssl, "verify", "-no_check_time", "-CAfile", paths["ca_file"], paths["server_certificate"]], runner)
+    temporary_directory = tempfile.mkdtemp(prefix=".feclora-server-key-rotation-", dir=root)
+    os.chmod(temporary_directory, 0o700)
+    new_key = os.path.join(temporary_directory, "server.key")
+    csr = os.path.join(temporary_directory, "server.csr")
+    extensions = os.path.join(temporary_directory, "server.ext")
+    new_certificate = os.path.join(temporary_directory, "server.crt")
+    try:
+        _run([
+            openssl, "genpkey", "-algorithm", "RSA",
+            "-pkeyopt", "rsa_keygen_bits:3072", "-out", new_key,
+        ], runner)
+        os.chmod(new_key, 0o600)
+        _run([
+            openssl, "req", "-new", "-key", new_key, "-out", csr,
+            "-subj", "/CN=feclora-server",
+            "-addext", "subjectAltName=URI:feclora-server",
+        ], runner)
+        Path(extensions).write_text(
+            "subjectAltName=URI:feclora-server\\n"
+            "keyUsage=critical,digitalSignature,keyEncipherment\\n"
+            "extendedKeyUsage=serverAuth\\n",
+            encoding="ascii",
+        )
+        os.chmod(extensions, 0o600)
+        serial = "0x" + os.urandom(16).hex()
+        _run([
+            openssl, "x509", "-req", "-in", csr, "-CA", paths["ca_file"],
+            "-CAkey", paths["ca_key"], "-set_serial", serial,
+            "-out", new_certificate, "-days", str(effective_validity_days),
+            "-sha256", "-extfile", extensions,
+        ], runner)
+        _run([openssl, "verify", "-CAfile", paths["ca_file"], new_certificate], runner)
+        san = _run(
+            [openssl, "x509", "-in", new_certificate, "-noout", "-ext", "subjectAltName"],
+            runner,
+        ).stdout
+        if re.findall(r"URI:(feclora-server)", san) != ["feclora-server"] or re.search(r"\\b(?:DNS|IP Address|email):", san):
+            raise PKIError("new Server certificate SAN does not match the managed Server identity")
+        certificate_public = _run(
+            [openssl, "x509", "-in", new_certificate, "-pubkey", "-noout"], runner,
+        ).stdout.strip()
+        key_public = _run([openssl, "pkey", "-in", new_key, "-pubout"], runner).stdout.strip()
+        if not certificate_public or certificate_public != key_public:
+            raise PKIError("new Server certificate does not match the rotated private key")
+        os.chmod(new_certificate, 0o644)
+
+        originals: dict[str, tuple[bytes, int]] = {}
+        for active in (paths["server_key"], paths["server_certificate"]):
+            info = os.stat(active)
+            originals[active] = (Path(active).read_bytes(), stat.S_IMODE(info.st_mode))
+        replaced: list[str] = []
+        try:
+            os.replace(new_certificate, paths["server_certificate"])
+            replaced.append(paths["server_certificate"])
+            os.replace(new_key, paths["server_key"])
+            replaced.append(paths["server_key"])
+            directory_fd = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except Exception:
+            for active in reversed(replaced):
+                content, mode = originals[active]
+                fd, backup = tempfile.mkstemp(prefix=".feclora-server-rollback-", dir=root)
+                try:
+                    with os.fdopen(fd, "wb") as stream:
+                        stream.write(content)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    os.chmod(backup, mode)
+                    os.replace(backup, active)
+                except Exception:
+                    try:
+                        os.unlink(backup)
+                    except OSError:
+                        pass
+                    raise
+            raise
+        return {
+            "certificate_file": paths["server_certificate"],
+            "private_key_file": paths["server_key"],
+            "ca_fingerprint": ca_fingerprint(paths["ca_file"], runner=runner, openssl=openssl),
+            "ca_expiry_days": ca_expiry_days,
+            "key_rotated": True,
+        }
+    finally:
+        shutil.rmtree(temporary_directory, ignore_errors=True)
+
 def ca_fingerprint(ca_file: str, *, runner: Callable[..., Any] | None = None,
                    openssl: str = "/usr/bin/openssl") -> str:
     _regular_file(ca_file, "CA certificate")
