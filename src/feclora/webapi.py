@@ -1473,6 +1473,7 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
     required = {"host", "job_id", "device_path", "confirmation", "compression"}
     allowed = {
         frozenset(required),
+        frozenset(required | {"network_interface"}),
         frozenset(required | {"network_interface", "source_address"}),
         frozenset(required | {"network_interface", "source_address", "igmp_confirmed"}),
     }
