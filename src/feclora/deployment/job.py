@@ -71,7 +71,7 @@ class DeploymentJob:
             raise JobValidationError("Job document must be a JSON object")
         unknown = set(payload) - _ALLOWED_FIELDS
         missing = _ALLOWED_FIELDS - set(payload) - {
-            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type", "staging_required_bytes", "source_device"
+            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type", "staging_required_bytes", "source_device", "repository_id"
         }
         if unknown:
             raise JobValidationError(f"Unknown job fields: {', '.join(sorted(unknown))}")
