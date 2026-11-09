@@ -29,7 +29,7 @@ Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the 
 - [x] Bind remote job definitions to an explicitly selected active Server interface/address; document that Client networking is configured from its own Cockpit session.
 - [x] Expose the Client's pre-start authenticated reachability check in Cockpit: inspect the job over TLS and verify the enrolled Server identity before local target approval.
 - [x] Expose Client interface/address selection in Cockpit and bind both the authenticated preflight and persistent Client TLS session to that source IPv4 address; revalidate address ownership immediately before each connection.
-- [ ] Add policy-route/table selection and route verification beyond source-address binding; the Client still relies on the kernel routing table to choose the next hop.
+- [x] Verify each resolved Server IPv4 route with `ip route get` before Client preflight and persistent TLS connections; fail closed unless the kernel selects the requested interface and source address. Per-job policy-route/table selection and route pinning remain pending.
 - [ ] Complete Fedora Live acceptance for DHCP/static changes on both roles, including browser/API disconnect during checkpoint and remote clone connectivity.
 - [x] Persist operation IDs, job states, errors and terminal verification through the existing operation logs, Client status and Server job journal; expose live byte progress and throughput in Server/Client status.
 - [x] Persist bounded Client progress snapshots in the Server journal and expose the last durable checkpoint in history; restart recovery remains audit-only and never resumes disk I/O.
