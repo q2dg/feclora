@@ -329,7 +329,7 @@ class LocalOperationStore:
         try:
             names = sorted(
                 (entry.name for entry in os.scandir(directory_fd)
-                 if re.fullmatch(r"[0-9a-f-]{36}\\.json", entry.name)),
+                 if re.fullmatch(r"[0-9a-f-]{36}\.json", entry.name)),
                 reverse=True,
             )
         finally:
