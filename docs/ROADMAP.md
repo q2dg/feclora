@@ -70,7 +70,8 @@ the old local `dialog` menu is no longer installed in the Live package.
 
 ### Project governance
 
-- [ ] Select and document the project license and contribution policy.
+- [ ] Select and publish the project software license; this requires a maintainer decision.
+- [x] Document engineering, review, testing and storage-safety contribution policy in [CONTRIBUTING.md](../CONTRIBUTING.md).
 - [ ] Add reproducible dependency lockfiles for the web frontend.
 - [ ] Confirm GitHub Pages publication and canonical hostname. The minimalist landing page and deployment workflow are in source. GitHub Pages is enabled with GitHub Actions as the source; confirm a successful deployment run and public URL response before treating publication as complete.
 
