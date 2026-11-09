@@ -454,6 +454,46 @@ class CoordinatorControlTests(unittest.TestCase):
         server._sessions[MAC] = fake
         return coordinator, server, fake
 
+    def test_remote_clone_job_binds_ready_target_and_uses_existing_tls_session(self):
+        job = make_job(
+            operation="clone", image_id=None, source_device="/dev/sda",
+        )
+        coordinator = DeploymentCoordinator(job)
+        coordinator.register_client(MAC, authenticated=True)
+        coordinator.mark_ready(MAC)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.maximum_version = ssl.TLSVersion.TLSv1_3
+        context.verify_mode = ssl.CERT_REQUIRED
+        server = DeploymentControlServer(
+            coordinator, context, local_identity="URI:feclora-server",
+            client_identity_to_mac={"URI:feclora-client": MAC},
+        )
+        fake = FakeSocket()
+        server._sessions[MAC] = fake
+        server._identities[MAC] = "URI:feclora-client"
+        server._target_devices[MAC] = "/dev/vdb"
+        header = object()
+        with patch("feclora.deployment.control.build_remote_clone_header", return_value=header) as build, \
+             patch("feclora.deployment.control.send_remote_disk") as send, \
+             patch.object(server, "arm_and_start", return_value=(MAC,)), \
+             patch.object(server, "collect_results", return_value={MAC: "succeeded"}):
+            result = server.run_remote_clone_job()
+        self.assertEqual(result, {MAC: "succeeded"})
+        build.assert_called_once_with(
+            "/dev/sda", "/dev/vdb",
+            source_identity="URI:feclora-server",
+            receiver_identity="URI:feclora-client",
+        )
+        send.assert_called_once()
+        self.assertIs(send.call_args.args[0], fake)
+        self.assertIs(send.call_args.args[1], header)
+        self.assertEqual(send.call_args.kwargs["source_path"], "/dev/sda")
+        self.assertEqual(
+            send.call_args.kwargs["confirmation"],
+            "READ /dev/sda TO URI:feclora-client",
+        )
+
     def test_restore_server_sends_job_bound_transfer_offer_before_image(self):
         coordinator, server, fake = self._server(make_job(image_id="golden"))
         with patch("feclora.deployment.control.send_image_set", return_value="manifest") as send:
