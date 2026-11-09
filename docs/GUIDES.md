@@ -11,37 +11,37 @@ procedure; do not attempt to reproduce it with undocumented commands.
 
 ## Cloning
 
-- [Local disk-to-disk cloning](GUIDE-LOCAL-DISK-CLONE.html) — <badge>Available in Cockpit</badge>
+- [Local disk-to-disk cloning](GUIDE-LOCAL-DISK-CLONE.html) — **Status: available in Cockpit**
   Copy a complete local disk to another local disk, with explicit destination
   confirmation.
 
-- **Remote disk-to-disk cloning** — <badge color="warning">Planned</badge>
+- **Remote disk-to-disk cloning** — **Status: planned — not yet available**
   The mTLS transfer engine exists, but its persistent Server/Client service and
   Cockpit workflow are not integrated. No supported end-to-end operator
   procedure is available yet.
 
 ## Remote repositories and single-disk imaging
 
-- **Capture an image to an SSHFS repository** — <badge color="warning">Planned</badge>
+- **Capture an image to an SSHFS repository** — **Status: planned — not yet available**
   SSHFS command construction exists, but protected credential provisioning,
   mount lifecycle, active-mount verification and Cockpit repository management
   are not complete.
 
-- **Restore an image from an SSHFS repository** — <badge color="warning">Planned</badge>
+- **Restore an image from an SSHFS repository** — **Status: planned — not yet available**
   The restore engine accepts repository paths, but Feclora does not yet provide
   the complete managed SSHFS mount and recovery workflow.
 
 ## Multi-client deployment
 
-- **Restore multiple remote Clients from an SSHFS image repository** — <badge color="warning">Planned</badge>
+- **Restore multiple remote Clients from an SSHFS image repository** — **Status: planned — not yet available**
   Server/Client deployment exists for its configured local repository; remote
   repository integration and the requested SSHFS workflow are not complete.
 
-- **Restore multiple Clients through PXE from an SSHFS image repository** — <badge color="warning">Planned</badge>
+- **Restore multiple Clients through PXE from an SSHFS image repository** — **Status: planned — not yet available**
   PXE service lifecycle and deployment primitives exist, but this exact
   repository-backed end-to-end workflow is not yet integrated.
 
-- **Unattended multi-client PXE restore from SSHFS** — <badge color="warning">Planned</badge>
+- **Unattended multi-client PXE restore from SSHFS** — **Status: planned — not yet available**
   Signed single-use restore-profile primitives exist, but profile authoring,
   fleet authorization and PXE execution are not integrated as this workflow.
 
