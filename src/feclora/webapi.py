@@ -2052,7 +2052,10 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
             kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb|rclone", maximum=16)
             from feclora.storage.systemd_credential_store import SystemdCredentialStore
-            SystemdCredentialStore().remove(identifier, kind)
+            store = SystemdCredentialStore()
+            if _remote_repository_manager().credential_is_referenced(str(store._path(identifier, kind))):
+                raise WebAPIError("credential is still referenced by a saved repository; update or remove that repository first")
+            store.remove(identifier, kind)
             return {"removed": True, "id": identifier, "kind": kind}
         if action == "systemd_credentials":
             if params:
