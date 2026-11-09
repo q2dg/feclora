@@ -35,6 +35,7 @@ from feclora.network.udpcast import UDPcastConfig, UDPcastError, send_multicast_
 from feclora.network.remote_clone_protocol import verify_peer_identity
 from feclora.network.firewall import PXEFirewallError
 from feclora.network.tls import connect_mutual_tls
+from feclora.network.remote_clone import build_remote_clone_header, send_remote_disk
 
 MAX_CONTROL_FRAME = 16 * 1024
 _CONTROL_TYPES = {"hello", "inspect", "job", "ready", "start", "result", "cancel", "error", "transfer_offer", "transfer_ready", "progress"}
@@ -601,6 +602,70 @@ class DeploymentControlServer:
             # The transfer method records a terminal failed result and closes
             # the session; collect_results returns that recorded state.
             pass
+        return self.collect_results(timeout=result_timeout)
+
+    def run_remote_clone_job(
+        self,
+        *,
+        operation_log_path: str | None = None,
+        result_timeout: float = 86400,
+    ) -> dict[str, str]:
+        """Clone the Server-local source to one READY Client over its existing mTLS session."""
+        job = self.coordinator.job
+        if job.operation != "clone" or job.transport != "unicast":
+            raise DeploymentControlError("remote disk clone requires a unicast clone job")
+        clients = self.coordinator.clients()
+        if len(clients) != 1 or clients[0].state is not ClientState.READY:
+            raise DeploymentControlError("remote disk clone requires exactly one authenticated READY Client")
+        mac = clients[0].mac_address
+        with self._lock:
+            target_device = self._target_devices.get(mac)
+            receiver_identity = self._identities.get(mac)
+            tls_socket = self._sessions.get(mac)
+        if not target_device or not receiver_identity or tls_socket is None:
+            raise DeploymentControlError("Client clone target approval or authenticated session is unavailable")
+        if not job.source_device:
+            raise DeploymentControlError("clone job has no approved Server source device")
+        header = build_remote_clone_header(
+            job.source_device, target_device,
+            source_identity=self.local_identity,
+            receiver_identity=receiver_identity,
+        )
+        started = self.arm_and_start()
+        if started != (mac,):
+            return self.collect_results(timeout=result_timeout)
+        try:
+            def report_progress(completed: int, total: int) -> None:
+                now = time.monotonic()
+                with self._lock:
+                    previous = self._progress.get(mac)
+                    rate = 0.0
+                    if previous and previous.get("phase") == "clone" and now > previous.get("monotonic", now):
+                        rate = max(0.0, (completed - previous["completed_bytes"]) / (now - previous["monotonic"]))
+                    self._progress[mac] = {
+                        "phase": "clone", "completed_bytes": completed,
+                        "total_bytes": total, "bytes_per_second": round(rate, 1),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                        "monotonic": now,
+                    }
+
+            kwargs: dict[str, Any] = {
+                "local_identity": self.local_identity,
+                "expected_peer_identity": receiver_identity,
+                "source_path": job.source_device,
+                "confirmation": f"READ {job.source_device} TO {receiver_identity}",
+                "progress_callback": report_progress,
+            }
+            if operation_log_path is not None:
+                kwargs["operation_log_path"] = operation_log_path
+            send_remote_disk(tls_socket, header, **kwargs)
+        except Exception as exc:
+            self._record_transfer_failure(mac, f"remote disk clone failed: {exc}")
+        finally:
+            with self._lock:
+                current = self._progress.get(mac)
+                if current is not None:
+                    current.pop("monotonic", None)
         return self.collect_results(timeout=result_timeout)
 
     def run_multicast_restore_job(
