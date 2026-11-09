@@ -47,9 +47,15 @@ validates ownership, link count and permissions before replacement or removal.
 The returned value is only a filesystem reference; secret contents are never
 returned or copied into the repository registry.
 
-This is not yet a Cockpit credential-management workflow or an interactive
-CLI. Do not expose `put` through the Cockpit API: callers must obtain the
-material through a trusted local administrative channel. WebDAV continues to
+The local CLI is invoked as root with
+`python3 -m feclora.storage.credential_cli put --id nas --kind ssh-key --source /root/secure/nas.key`.
+The source must itself be a root-owned private regular file, not a symlink or
+hard link. Add `--replace` only when intentionally rotating the stored file.
+Use `python3 -m feclora.storage.credential_cli remove --id nas --kind ssh-key`
+to remove it. The command prints only the resulting reference path, never the
+secret. Cockpit's `remote_credentials` API action lists validated references
+only; it never accepts or returns secret contents. Cockpit selection and
+repository edit workflows are not yet implemented. WebDAV continues to
 use the separately managed `/etc/davfs2/secrets` file. Existing repository
 definitions must be updated to reference the resulting protected file paths.
 
