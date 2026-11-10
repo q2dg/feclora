@@ -132,9 +132,9 @@ def execute(operation_id: str) -> int:
     status = store.status(operation_id)
     if status["state"] != "queued":
         raise LocalOperationError("only a queued operation can be started")
-    store.append(operation_id, "preflight", {"message": "Validating operation definition and device locks"})
     fds: list[int] = []
     try:
+        store.append(operation_id, "preflight", {"message": "Validating operation definition and device locks"})
         # Reuse the existing host-wide Server/Client/storage exclusion lock.
         from feclora.webapi import _execute_operation, _storage_operation_lock
         with _storage_operation_lock():
