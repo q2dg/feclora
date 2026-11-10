@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -120,15 +121,34 @@ def _stop_transient_unit(systemctl: str, unit: str) -> None:
             raise RepositoryManagerError("transient SFTP transfer is still active after cancellation")
 
 
+def _retryable_transport_failure(detail: str) -> bool:
+    """Recognize only transport failures safe to retry for read-only SFTP operations."""
+    lowered = detail.lower()
+    return any(marker in lowered for marker in (
+        "connection timed out", "connection reset by peer", "connection closed",
+        "broken pipe", "no route to host", "network is unreachable",
+        "operation timed out", "connection refused",
+    ))
+
+
 def run_sftp_transfer(
-    *, identity_credential: str, known_hosts_credential: str,
+    *,
+    identity_credential: str, known_hosts_credential: str,
     operation: str, host: str, username: str, remote_path: str,
     local_path: str = "/run/feclora-sftp-inventory-unused", port: int = 22, expected_sha256: str | None = None,
     allow_unverified_metadata: bool = False,
     manager: RemoteRepositoryManager | None = None,
     runner: Callable[..., Any] = subprocess.run,
 ) -> dict[str, Any]:
-    """Run one SFTP transfer in a synchronous transient systemd service."""
+    """Run SFTP in a transient service; retry only idempotent reads on transport faults.
+
+    Uploads are deliberately never retried automatically: a lost response can
+    occur after the server has published the no-overwrite final name, making
+    the outcome ambiguous. Downloads/inventory may be retried because failed
+    downloads publish no destination until verification succeeds.
+    """
+    if operation not in {"upload", "download", "inventory"}:
+        raise RepositoryManagerError("SFTP operation must be upload, download or inventory")
     store_manager = manager or RemoteRepositoryManager()
     bindings = credential_bindings(
         identity_credential, known_hosts_credential, manager=store_manager,
@@ -138,38 +158,54 @@ def run_sftp_transfer(
     if not systemd_run or not python:
         raise RepositoryManagerError("systemd-run and python3 are required for encrypted SFTP transfers")
     import uuid
-    unit = f"feclora-sftp-{uuid.uuid4().hex}.service"
-    command = build_systemd_transfer_argv(
-        systemd_run=systemd_run, python=python, unit=unit, bindings=bindings,
-        operation=operation, host=host, username=username,
-        remote_path=remote_path, local_path=local_path, port=port,
-        expected_sha256=expected_sha256,
-        allow_unverified_metadata=allow_unverified_metadata,
-    )
-    try:
-        result = runner(
-            command, stdin=subprocess.DEVNULL, capture_output=True,
-            text=True, check=False, timeout=86430,
+    max_attempts = 3 if operation in {"download", "inventory"} else 1
+    result = None
+    for attempt in range(max_attempts):
+        unit = f"feclora-sftp-{uuid.uuid4().hex}.service"
+        command = build_systemd_transfer_argv(
+            systemd_run=systemd_run, python=python, unit=unit, bindings=bindings,
+            operation=operation, host=host, username=username,
+            remote_path=remote_path, local_path=local_path, port=port,
+            expected_sha256=expected_sha256,
+            allow_unverified_metadata=allow_unverified_metadata,
         )
-    except BaseException as exc:
-        # systemd-run --wait is only a client: killing that client does not
-        # stop the transient service. Explicitly stop the uniquely named unit
-        # so a cancelled local restore cannot leave an orphaned SFTP fetch.
-        systemctl = store_manager.which("systemctl") or "/usr/bin/systemctl"
-        _stop_transient_unit(systemctl, unit)
-        if isinstance(exc, (OSError, subprocess.SubprocessError)):
-            raise RepositoryManagerError(f"SFTP transient service could not complete: {exc}") from exc
-        raise
-    if result.returncode:
-        detail = (result.stderr or result.stdout or "").strip()[:512]
-        raise RepositoryManagerError("SFTP transfer failed" + (f": {detail}" if detail else ""))
+        try:
+            result = runner(
+                command, stdin=subprocess.DEVNULL, capture_output=True,
+                text=True, check=False, timeout=86430,
+            )
+        except BaseException as exc:
+            # systemd-run --wait is only a client: killing that client does not
+            # stop the transient service. Explicitly stop the uniquely named unit
+            # so a cancelled local restore cannot leave an orphaned SFTP fetch.
+            systemctl = store_manager.which("systemctl") or "/usr/bin/systemctl"
+            _stop_transient_unit(systemctl, unit)
+            if (operation in {"download", "inventory"}
+                    and isinstance(exc, subprocess.TimeoutExpired)
+                    and attempt + 1 < max_attempts):
+                time.sleep(0.25 * (attempt + 1))
+                continue
+            if isinstance(exc, (OSError, subprocess.SubprocessError)):
+                raise RepositoryManagerError(f"SFTP transient service could not complete: {exc}") from exc
+            raise
+        if result.returncode:
+            detail = (result.stderr or result.stdout or "").strip()[:512]
+            if (operation in {"download", "inventory"}
+                    and _retryable_transport_failure(detail)
+                    and attempt + 1 < max_attempts):
+                time.sleep(0.25 * (attempt + 1))
+                continue
+            raise RepositoryManagerError("SFTP transfer failed" + (f": {detail}" if detail else ""))
+        break
+    if result is None:
+        raise RepositoryManagerError("SFTP transfer did not produce a result")
     if operation == "inventory":
         try:
             import json
             payload = json.loads(result.stdout or "{}")
             manifests = payload.get("manifests")
             if not isinstance(manifests, list) or any(
-                not isinstance(name, str) or not (name == "manifest.json" or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.manifest\.json", name))
+                not isinstance(name, str) or not (name == "manifest.json" or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\\.manifest\\.json", name))
                 for name in manifests
             ):
                 raise ValueError("invalid inventory payload")
