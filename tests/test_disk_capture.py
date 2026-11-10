@@ -1,8 +1,12 @@
+import hashlib
 import io
 import os
 import tempfile
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
+
+from feclora.storage.image_manifest import ImageArtifact
 
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
 from feclora.storage.capture import CaptureCancelled
@@ -149,6 +153,40 @@ class DiskCaptureTests(unittest.TestCase):
                 popen_factory=lambda *_args, **_kwargs: FakeProcess(),
             )
         self.assertEqual(os.listdir(self.temp.name), ["manifest-taken.manifest.json"])
+
+
+    def test_zstd_and_lz4_use_supported_image_suffixes(self):
+        for codec, suffix in (("zstd", ".raw.zst"), ("lz4", ".raw.lz4")):
+            with self.subTest(codec=codec), tempfile.TemporaryDirectory() as directory:
+                payload = b"whole disk bytes"
+
+                def fake_write_artifact(root, filename, source, *, role, image_format,
+                                        compression="none", compression_level=None,
+                                        **kwargs):
+                    raw = source.read()
+                    stored = b"encoded:" + raw if compression != "none" else raw
+                    with open(os.path.join(root, filename), "wb") as output:
+                        output.write(stored)
+                    return ImageArtifact(
+                        filename=filename, role=role, format=image_format,
+                        compression=compression, size_bytes=len(stored),
+                        sha256=hashlib.sha256(stored).hexdigest(),
+                        compression_level=compression_level,
+                    )
+
+                with patch("feclora.storage.disk_capture.write_artifact", side_effect=fake_write_artifact):
+                    manifest = capture_disk(
+                        "/dev/fake", "codec-test", directory,
+                        compression=codec, compression_level=3,
+                        executables=self.executables,
+                        device_validator=lambda _path: True,
+                        runner=lambda command, **kwargs: self.runner(command, **kwargs),
+                        source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                        popen_factory=lambda *_args, **_kwargs: FakeProcess(payload),
+                    )
+                self.assertTrue(os.path.isfile(os.path.join(directory, "codec-test.disk" + suffix)))
+                disk_artifact = next(item for item in manifest.artifacts if item.role == "disk-image")
+                self.assertEqual(disk_artifact.compression, codec)
 
 
 if __name__ == "__main__":
