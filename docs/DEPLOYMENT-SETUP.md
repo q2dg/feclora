@@ -122,7 +122,7 @@ Install /etc/feclora/deployment-client.json on each Client:
 }
 ~~~
 
-The example above is configured for a Client that can both restore and save. A restore-only Client should set both `local_minisign_secret_key` and `local_minisign_public_key` to `null`; Feclora does not require or provision a Client signing secret unless that Client is authorized to create images.
+The example above is configured for a Client that has the capability to create signed and age-encrypted images. A Client may omit either capability independently. A restore-only Client should set `local_minisign_secret_key` and `local_minisign_public_key` to `null` unless it also needs to verify images signed by that Client. Key presence makes an option available; it does not enable that protection automatically. Each remote save asks the operator to choose age encryption and minisign signing for that image.
 
 Select Client mode, enter the job UUID shown by Server, select the local
 whole disk or existing target partition as specified by the job, and type the exact operation-specific confirmation. For restore,
