@@ -305,3 +305,28 @@ publisher does not yet implement remote inventory/garbage collection,
 download-side manifest discovery, operation-journal progress, Cockpit actions,
 or capture/restore routing. It is an integration primitive, not end-user SFTP
 support; SFTP remains outside the complete provider acceptance gate.
+
+
+The same module now includes `fetch_image_set()`. It downloads only
+`manifest.json` and `manifest.json.minisig` in explicitly marked unverified
+metadata mode into a new private staging directory. It enforces metadata size
+limits, parses the existing manifest schema and verifies minisign against an
+independently trusted public key before requesting any image artifact.
+Artifacts are downloaded with their signed SHA-256 values, checked again for
+byte count and digest, and the complete directory is published under the
+manifest image ID using Linux `renameat2(RENAME_NOREPLACE)`. If atomic
+no-replace directory publication is unavailable, the operation fails closed.
+An existing image ID is never overwritten. Failed or invalid retrievals remove
+the private staging directory.
+
+The metadata download mode is restricted by the transient-service CLI to the
+two metadata filenames; it never marks them as verified. Artifact download
+results explicitly report digest verification. The destination root must
+already exist and must not contain symlinked path components. The remote
+directory must already exist on the SFTP server.
+
+This provides a signed, integrity-checked image-set transfer primitive in both
+directions. It still does not discover remote image IDs, list SFTP repositories,
+integrate with Cockpit, operation journals, or capture/restore orchestration.
+It is not yet an accepted end-user SFTP workflow. The new unit tests have not
+been executed in this implementation session.
