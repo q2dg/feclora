@@ -18,6 +18,7 @@ class CockpitClientTests(unittest.TestCase):
             "client_id": "lab-01",
             "export_directory": "/run/media/test/USB",
             "image_signing": False,
+            "age_encryption": False,
         }
         with patch("feclora.deployment.cockpit_client.os.path.lexists", return_value=False), patch(
             "feclora.deployment.cockpit_client._mounted_media_directory", return_value=params["export_directory"]
@@ -89,7 +90,7 @@ class CockpitClientTests(unittest.TestCase):
         with self.assertRaisesRegex(CockpitEnrollmentError, "identifier"):
             prepare_client_request({
                 "client_id": "../bad", "export_directory": "/run/media/test/USB",
-                "image_signing": False,
+                "image_signing": False, "age_encryption": False,
             })
 
     def test_refresh_client_age_recipients_verifies_own_identity_and_atomically_installs(self):
