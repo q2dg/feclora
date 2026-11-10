@@ -105,8 +105,9 @@ def fetch_image_set(
             or Path(root).resolve(strict=True) != Path(root)):
         raise SFTPImageSetError("image destination root must be a real directory without symlinked path components")
 
+    # mkdtemp creates mode 0700; avoid a post-creation chmod failure leaking
+    # a staging directory before the cleanup guard is established.
     staging = tempfile.mkdtemp(prefix=".feclora-sftp-incoming-", dir=root)
-    os.chmod(staging, 0o700)
 
     def download(filename: str, expected_sha256: str | None) -> dict[str, Any]:
         return transfer(
