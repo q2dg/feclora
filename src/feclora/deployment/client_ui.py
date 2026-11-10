@@ -145,6 +145,7 @@ def _client_enrollment_wizard(config_path: str) -> bool:
             return False
         identity, _private_key, exported_csr = create_client_csr(
             pki_directory, export_directory, client_id,
+            age_keygen=shutil.which("age-keygen"),
         )
         if capability == "save":
             _generate_client_minisign_keypair(pki_directory, export_directory, client_id)
@@ -170,7 +171,7 @@ def _client_enrollment_wizard(config_path: str) -> bool:
         return False
     bundle = dialog_app._input(
         "Server response bundle",
-        "Path to the removable-media directory containing feclora-<id>.crt, ca.crt and server.pub:",
+        "Path to the removable-media directory containing feclora-<id>.crt and ca.crt; optional image-security files may also be present:",
     )
     if not bundle or not os.path.isdir(bundle) or os.path.islink(bundle):
         raise PKIError("Server response bundle must be an existing real directory")
@@ -191,42 +192,52 @@ def _client_enrollment_wizard(config_path: str) -> bool:
     )
     if not ca_expected:
         return False
+    has_server_key = os.path.lexists(server_public_key)
+    if has_server_key:
+        info = os.lstat(server_public_key)
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
+            raise PKIError("Server minisign public key must be a regular file, not a symlink")
+        server_fingerprint = _sha256_file(server_public_key)
+        expected_server_key = dialog_app._input(
+            "Verify optional Server image-signing key",
+            "Compare this SHA-256 fingerprint with the one shown by the Server, then type it exactly. Leave no bypass if the key is present:\n" + server_fingerprint,
+        )
+        if expected_server_key != server_fingerprint:
+            raise PKIError("Server image-signing key fingerprint did not match")
+    has_recipients = os.path.lexists(age_recipients_bundle)
+    if has_recipients:
+        info = os.lstat(age_recipients_bundle)
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
+            raise PKIError("Server age recipient inventory must be a regular file, not a symlink")
+        with open(age_recipients_bundle, encoding="ascii") as recipient_stream:
+            recipients = [line.strip() for line in recipient_stream if line.strip()]
+        if not recipients or len(recipients) != len(set(recipients)) or any(
+            not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients
+        ):
+            raise PKIError("Server age recipient inventory is empty, duplicated or malformed")
+    age_identity = os.path.join(pki_directory, f"client-{client_id}.age")
+    has_age_identity = os.path.lexists(age_identity)
+    if has_age_identity:
+        age_info = os.lstat(age_identity)
+        if not stat.S_ISREG(age_info.st_mode) or stat.S_ISLNK(age_info.st_mode) or age_info.st_uid != 0:
+            raise PKIError("locally generated age identity must be a root-owned regular file")
+        os.chmod(age_identity, 0o600)
     installed = install_client_certificate(
         certificate, ca_file, local_key, pki_directory,
         f"URI:feclora-client-{client_id}", ca_expected,
     )
-    for path, label in ((server_public_key, "server.pub"), (age_recipients_bundle, "age recipient inventory")):
-        try:
-            info = os.lstat(path)
-        except OSError as exc:
-            raise PKIError(f"Server response bundle is missing {label}: {exc}") from exc
-        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
-            raise PKIError(f"Server response {label} must be a regular file, not a symlink")
-    with open(age_recipients_bundle, encoding="ascii") as recipient_stream:
-        recipients = [line.strip() for line in recipient_stream if line.strip()]
-    if not recipients or any(not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients):
-        raise PKIError("Server age recipient inventory is empty or malformed")
-    server_fingerprint = _sha256_file(server_public_key)
-    expected_server_key = dialog_app._input(
-        "Verify Server image-signing key",
-        "Compare this SHA-256 fingerprint with the one shown by the Server during CSR approval, then type it exactly:\n" + server_fingerprint,
-    )
-    if expected_server_key != server_fingerprint:
-        raise PKIError("Server image-signing key fingerprint did not match")
     installed_server_key = os.path.join(pki_directory, "server.pub")
-    shutil.copyfile(server_public_key, installed_server_key)
-    os.chmod(installed_server_key, 0o644)
     installed_recipients = os.path.join(pki_directory, "age-recipients.txt")
-    shutil.copyfile(age_recipients_bundle, installed_recipients)
-    os.chmod(installed_recipients, 0o600)
-    age_identity = os.path.join(pki_directory, f"client-{client_id}.age")
-    try:
-        age_info = os.lstat(age_identity)
-    except OSError as exc:
-        raise PKIError("locally generated age identity is missing; prepare enrollment on this Client first") from exc
-    if not stat.S_ISREG(age_info.st_mode) or stat.S_ISLNK(age_info.st_mode) or age_info.st_uid != 0:
-        raise PKIError("locally generated age identity must be a root-owned regular file")
-    os.chmod(age_identity, 0o600)
+    if has_server_key:
+        if os.path.lexists(installed_server_key):
+            raise PKIError("existing trusted Server minisign key already exists; inspect it before retrying")
+        shutil.copyfile(server_public_key, installed_server_key)
+        os.chmod(installed_server_key, 0o644)
+    if has_recipients:
+        if os.path.lexists(installed_recipients):
+            raise PKIError("existing age recipient inventory already exists; inspect it before retrying")
+        shutil.copyfile(age_recipients_bundle, installed_recipients)
+        os.chmod(installed_recipients, 0o600)
     repository = "/var/lib/feclora/images"
     os.makedirs(repository, mode=0o700, exist_ok=True)
     repository_info = os.lstat(repository)
@@ -254,18 +265,17 @@ def _client_enrollment_wizard(config_path: str) -> bool:
         "ca_file": installed["ca_file"],
         "certificate_file": installed["certificate_file"],
         "private_key_file": installed["private_key_file"],
-        "trusted_server_public_key": installed_server_key,
+        "trusted_server_public_key": installed_server_key if has_server_key else None,
         "local_minisign_secret_key": minisign_secret if os.path.exists(minisign_secret) else None,
         "local_minisign_public_key": minisign_public if os.path.exists(minisign_public) else None,
-        "age_identity_file": age_identity,
-        "age_recipients_file": installed_recipients,
+        "age_identity_file": age_identity if has_age_identity else None,
+        "age_recipients_file": installed_recipients if has_recipients else None,
         "repository": repository,
     }
     _write_client_config(config_path, config)
     dialog_app._message(
         "Client enrollment complete",
-        f"Client identity {config['local_identity']} is installed and trusted. This Client is configured for signed restore jobs. "
-        "To enable Client-side image capture later, provision a separate minisign signing keypair and enroll its public key on the Server.",
+        f"Client identity {config['local_identity']} is installed and trusted over mTLS. Optional age and minisign image-protection material is configured only when supplied. Unsigned images can be transferred over the authenticated TLS session.",
     )
     return True
 
