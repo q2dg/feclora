@@ -136,8 +136,8 @@ def validate_definition(value: Any) -> dict[str, Any]:
                 or any(part in {".", ".."} for part in remote.split("/"))):
             raise LocalOperationError("SFTP restore source directory must be absolute and normalized")
         for field in ("identity_credential", "known_hosts_credential"):
-            value = config.get(field)
-            if not isinstance(value, str) or not re.fullmatch(
+            credential_value = config.get(field)
+            if not isinstance(credential_value, str) or not re.fullmatch(
                 r"/etc/credstore\.encrypted/feclora/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.cred", value
             ):
                 raise LocalOperationError(f"SFTP restore source {field} must reference a registered encrypted credential")
@@ -168,8 +168,8 @@ def validate_definition(value: Any) -> dict[str, Any]:
             if not isinstance(config.get("remote_directory"), str) or not config["remote_directory"].startswith("/") or len(config["remote_directory"]) > 1024:
                 raise LocalOperationError("SFTP publication remote directory is invalid")
             for field in ("identity_credential", "known_hosts_credential"):
-                value = config.get(field)
-                if not isinstance(value, str) or not re.fullmatch(
+                credential_value = config.get(field)
+                if not isinstance(credential_value, str) or not re.fullmatch(
                     r"/etc/credstore\.encrypted/feclora/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.cred", value
                 ):
                     raise LocalOperationError(f"SFTP publication {field} must reference a registered encrypted credential")
