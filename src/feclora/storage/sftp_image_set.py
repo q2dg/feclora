@@ -116,6 +116,7 @@ def inspect_remote_image_set(
                  "compression": item.compression, "encryption": item.encryption}
                 for item in manifest.artifacts
             ],
+            "manifest_sha256": _digest(manifest_path)[1],
             "signature_verified": True,
         }
 
@@ -131,6 +132,7 @@ def fetch_image_set(
     known_hosts_credential: str,
     port: int = 22,
     expected_image_id: str | None = None,
+    expected_manifest_sha256: str | None = None,
     transfer: Callable[..., dict[str, Any]] = run_sftp_transfer,
     manager: Any = None,
 ) -> dict[str, Any]:
@@ -180,6 +182,11 @@ def fetch_image_set(
         _validate_manifest_filenames(manifest)
         if expected_image_id is not None and manifest.image_id != expected_image_id:
             raise SFTPImageSetError("authenticated remote image ID does not match the selected image")
+        if expected_manifest_sha256 is not None:
+            if not re.fullmatch(r"[0-9a-f]{64}", expected_manifest_sha256):
+                raise SFTPImageSetError("expected manifest SHA-256 is invalid")
+            if _digest(manifest_path)[1] != expected_manifest_sha256:
+                raise SFTPImageSetError("authenticated remote manifest changed after inspection")
 
         for artifact in manifest.artifacts:
             result = download(artifact.filename, artifact.sha256)
