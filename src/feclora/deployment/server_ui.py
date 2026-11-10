@@ -112,7 +112,6 @@ def _choose_job(
     enrolled = [
         (identity, f"{identity} -> {mac}")
         for identity, mac in sorted(config.client_identity_to_mac.items())
-        if operation != "save" or mac in config.client_minisign_public_keys
     ]
     if transport == "unicast":
         identity = dialog_app._menu(
