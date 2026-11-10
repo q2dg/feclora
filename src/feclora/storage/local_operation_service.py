@@ -157,6 +157,13 @@ def execute(operation_id: str) -> int:
                            "source", "bytes_copied", "verified", "signed", "encrypted"}
                 and isinstance(value, (str, int, bool, type(None)))
             }
+            if definition["action"] == "sftp_inventory":
+                manifests = result.get("manifests")
+                if (isinstance(manifests, list) and len(manifests) <= 1000
+                        and all(isinstance(name, str) and re.fullmatch(
+                            r"(?:manifest\\.json|[A-Za-z0-9][A-Za-z0-9._-]{0,127}\\.manifest\\.json)", name
+                        ) for name in manifests)):
+                    safe_result["manifests"] = manifests
             store.append(operation_id, "completed", safe_result)
         return 0
     except LocalOperationCancelled:
