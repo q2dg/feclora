@@ -1345,8 +1345,8 @@ class WebAPITests(unittest.TestCase):
                 "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
                 "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
             }
-            with patch("feclora.webapi._client_runtime_config", return_value=SimpleNamespace(trusted_server_public_key=str(key))), \\
-                 patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("inspect-123")), \\
+            with patch("feclora.webapi._client_runtime_config", return_value=SimpleNamespace(trusted_server_public_key=str(key))), \
+                 patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("inspect-123")), \
                  patch("feclora.storage.sftp_image_set.inspect_remote_image_set", return_value=expected) as inspect:
                 result = dispatch({"action": "inspect_sftp_image_set", "params": params})
             self.assertEqual(result, {"operation_id": "inspect-123", **expected})
