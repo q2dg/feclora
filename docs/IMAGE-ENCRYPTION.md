@@ -1,7 +1,6 @@
 # Image encryption and signatures
 
-feclora delegates encryption and signatures to the upstream `age` and
-`minisign` executables. It does not implement cryptographic primitives.
+Feclora delegates optional artifact encryption and detached signatures to the upstream `age` and `minisign` executables when an operator enables those integrations. It does not implement cryptographic primitives. Neither executable is a mandatory dependency for installing or using Feclora's ordinary local imaging workflows.
 
 ## Encryption model
 
@@ -43,16 +42,22 @@ the artifact names, encryption modes, sizes and SHA-256 digests.
 ## Current implementation boundary
 
 Capture UI exposes independent optional choices for age encryption and
-minisign signing. Restore detects age-encrypted artifacts and requests an
+minisign signing. Both are opt-in; selecting neither is a supported baseline path. Restore detects age-encrypted artifacts and requests an
 identity file; it verifies ciphertext SHA-256 before invoking age, then
 authenticates/decrypts to a private staging file before decompression or disk
 writes. When a detached signature is present, restore offers verification
 against an independently supplied trusted public key or an explicit
 unverified continuation. A caller can also require signature verification
-through the restore API.
+through the restore API. `minisign` is one supported signature mechanism, not
+a universal requirement. If signatures are not used, SHA-256 detects accidental
+corruption but does not authenticate an image against malicious substitution;
+for destructive fleet/unattended workflows, authenticate the manifest and
+bind its digest to a separately trusted deployment authorization mechanism.
 
 These flows have mocked unit coverage, but have not yet been exercised with
-the real age/minisign binaries on Fedora Live. Compression offers none, gzip,
+the real age/minisign binaries on Fedora Live. Their optional status must be
+preserved in packaging, capability detection and documentation; missing
+binaries should disable only the corresponding optional feature. Compression offers none, gzip,
 xz, zstd and lz4. gzip/xz use Python's standard library; zstd/lz4 use the
 Fedora system executables with bounded streaming. The selected level is
 recorded in the manifest.
