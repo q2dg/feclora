@@ -1,0 +1,4 @@
+# Optional image-security integrations.
+# Install only when operators choose these capabilities.
+age
+minisign
