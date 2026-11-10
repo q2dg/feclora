@@ -54,7 +54,7 @@ def build_systemd_transfer_argv(
 ) -> list[str]:
     """Build a transient service invocation; no plaintext secret is included."""
     if operation not in {"upload", "download", "inventory"}:
-        raise RepositoryManagerError("SFTP operation must be upload or download")
+        raise RepositoryManagerError("SFTP operation must be upload, download or inventory")
     if allow_unverified_metadata and (operation != "download" or expected_sha256 is not None):
         raise RepositoryManagerError("unverified metadata mode is only valid for digest-free downloads")
     if not isinstance(unit, str) or not re.fullmatch(r"feclora-sftp-[a-f0-9]{32}\.service", unit):
