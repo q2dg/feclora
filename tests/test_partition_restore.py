@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from types import SimpleNamespace
 from feclora.storage.partition_restore import PartitionRestoreCancelled, PartitionRestoreError, restore_partition
+from unittest.mock import patch
 
 
 class RecordingInput:
@@ -163,6 +164,40 @@ class PartitionRestoreTests(unittest.TestCase):
                 target_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=lambda *args, **kwargs: FakeProcess(),
             )
+
+    @patch("feclora.storage.partition_restore._partclone_supports_json_status", return_value=True)
+    def test_partclone_restore_prefers_native_json_block_progress(self, supports_json):
+        self.write_manifest("partclone", "ext4", len(self.payload))
+        progress = []
+        status_paths = []
+        proc = FakeProcess()
+        def factory(argv, **opts):
+            status_arg = next(arg for arg in argv if arg.startswith("--json-status="))
+            status_path = status_arg.split("=", 1)[1]
+            status_paths.append(status_path)
+            with open(status_path, "w", encoding="utf-8") as stream:
+                json.dump({
+                    "schema_version": 1,
+                    "partclone": {
+                        "block_size": 4096,
+                        "progress": {"copied_blocks": 5, "total_block": 10},
+                    },
+                }, stream)
+            self.calls.append((argv, opts))
+            return proc
+        restore_partition(
+            self.manifest, self.temp.name, "/dev/sda1",
+            confirmation="ERASE /dev/sda1",
+            executables={"lsblk": "lsblk", "partclone.ext4": "partclone.ext4", "e2fsck": "e2fsck"},
+            runner=self.runner, device_validator=lambda _path: True,
+            target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+            popen_factory=factory,
+            progress_callback=lambda done, total: progress.append((done, total)),
+        )
+        self.assertIn("--json-fresh=1", self.calls[0][0])
+        self.assertIn((50, 100), progress)
+        self.assertNotIn((25, 100), progress)
+        self.assertFalse(os.path.exists(status_paths[0]))
 
     def test_partclone_restore_reports_progress_from_stderr(self):
         self.write_manifest("partclone", "ext4", len(self.payload))
