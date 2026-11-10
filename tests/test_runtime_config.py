@@ -70,6 +70,16 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config.client_identity_to_mac["URI:feclora-client-01"], "52:54:00:12:34:56")
         self.assertEqual(config.client_minisign_public_keys["52:54:00:12:34:56"], "/pki/client.pub")
 
+    def test_server_tls_config_does_not_require_optional_minisign_key(self):
+        payload = self.server_config()
+        payload["server_minisign_public_key"] = None
+        payload["client_minisign_public_keys"] = {}
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.write_config(directory, payload)
+            with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
+                config = load_server_runtime_config(path)
+        self.assertIsNone(config.server_minisign_public_key)
+
     def test_server_config_allows_empty_allowlist_after_revoking_all_clients(self):
         payload = self.server_config()
         payload["client_identity_to_mac"] = {}
@@ -98,6 +108,18 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config.mac_address, "52:54:00:12:34:56")
         self.assertIsNone(config.age_identity_file)
         self.assertIsNone(config.age_recipients_file)
+
+    def test_client_tls_config_can_omit_optional_server_minisign_key(self):
+        payload = self.client_config()
+        payload["trusted_server_public_key"] = None
+        payload["local_minisign_secret_key"] = None
+        payload["local_minisign_public_key"] = None
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.write_config(directory, payload)
+            with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
+                config = load_client_runtime_config(path)
+        self.assertIsNone(config.trusted_server_public_key)
+        self.assertIsNone(config.local_minisign_secret_key)
 
     def test_restore_only_client_does_not_need_a_minisign_secret_key(self):
         payload = self.client_config()
