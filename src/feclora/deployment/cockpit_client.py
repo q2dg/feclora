@@ -335,7 +335,7 @@ def complete_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
     installed_server_key = os.path.join(PKI, "server.pub")
     installed_recipients = os.path.join(PKI, "age-recipients.txt")
     update_server_key = server_public is not None and expected_server is not None
-    destinations = [os.path.join(PKI, "client.crt"), os.path.join(PKI, "ca.crt"), config.private_key_file]
+    destinations = [os.path.join(PKI, "client.crt"), os.path.join(PKI, "ca.crt"), config.private_key_file, CONFIG]
     if update_server_key:
         destinations.append(installed_server_key)
     if recipients_file:
@@ -358,6 +358,12 @@ def complete_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
             _atomic_copy(server_public, installed_server_key, 0o644)
         if recipients_file:
             _atomic_copy(recipients_file, installed_recipients, 0o600)
+        runtime_value = json.loads(Path(CONFIG).read_text(encoding="utf-8"))
+        if update_server_key:
+            runtime_value["trusted_server_public_key"] = installed_server_key
+        if recipients_file:
+            runtime_value["age_recipients_file"] = installed_recipients
+        _write_config(CONFIG, runtime_value)
         updated = load_client_runtime_config(CONFIG)
     except Exception:
         for path, content in backups.items():
@@ -373,7 +379,7 @@ def complete_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
                         stream.write(content)
                         stream.flush()
                         os.fsync(stream.fileno())
-                    os.chmod(temporary, 0o600 if path in {config.private_key_file, installed_recipients} else 0o644)
+                    os.chmod(temporary, 0o600 if path in {config.private_key_file, installed_recipients, CONFIG} else 0o644)
                     os.replace(temporary, path)
                 except Exception:
                     try:
