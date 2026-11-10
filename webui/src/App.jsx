@@ -170,6 +170,7 @@ export default function App() {
   const [source, setSource] = useState("");
   const [target, setTarget] = useState("");
   const [imageId, setImageId] = useState("");
+  const [restoreFromSftp, setRestoreFromSftp] = useState(false);
   const [partitionId, setPartitionId] = useState("");
   const [compression, setCompression] = useState("zstd");
   const [confirmation, setConfirmation] = useState("");
@@ -243,6 +244,13 @@ export default function App() {
   const selectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId);
   const availableImages = selectedRepositoryId ? repositoryImages : images;
   const matchingImages = availableImages.filter((item) => item.image_type === (isDisk ? "disk" : "partition"));
+  const sftpInspectionMatchesCurrent = Boolean(sftpRemoteInspection?.connection
+    && sftpRemoteInspection.connection.host === sftpHost
+    && sftpRemoteInspection.connection.username === sftpUsername
+    && sftpRemoteInspection.connection.remote_directory === sftpRemoteDirectory
+    && sftpRemoteInspection.connection.port === Number(sftpPort)
+    && sftpRemoteInspection.connection.identity_credential === sftpIdentity
+    && sftpRemoteInspection.connection.known_hosts_credential === sftpKnownHosts);
   const expectedConfirmation = operation === "clone_partition"
     ? (source && target ? `ERASE ${target} FROM ${source}` : "")
     : (isRestore || operation.startsWith("clone_")) && target ? `ERASE ${target}` : "";
@@ -260,7 +268,18 @@ export default function App() {
       } : null;
       if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
-      else if (isRestore) params = { image_id: imageId, target, confirmation, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
+      else if (isRestore) {
+        const sftpSource = restoreFromSftp && sftpInspectionMatchesCurrent ? {
+          host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
+          port: Number(sftpPort), identity_credential: sftpIdentity,
+          known_hosts_credential: sftpKnownHosts
+        } : null;
+        if (restoreFromSftp && !sftpSource) throw new Error("Re-inspect the SFTP image after changing its connection settings.");
+        params = {
+          image_id: imageId, target, confirmation,
+          ...(sftpSource ? { sftp_source: sftpSource } : selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
+        };
+      }
       else params = { source, target, confirmation };
       const accepted = await callFeclora(operation, params);
       setNotice("Operation accepted by the durable worker. It will continue if Cockpit disconnects.");
@@ -334,7 +353,14 @@ export default function App() {
         port: Number(sftpPort), identity_credential: sftpIdentity,
         known_hosts_credential: sftpKnownHosts
       });
-      setSftpRemoteInspection(result);
+      setSftpRemoteInspection({
+        ...result,
+        connection: {
+          host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
+          port: Number(sftpPort), identity_credential: sftpIdentity,
+          known_hosts_credential: sftpKnownHosts
+        }
+      });
       setNotice("Remote image manifest signature verified for " + result.image_id + ".");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -934,10 +960,20 @@ export default function App() {
                       </Field>
                     </>}
                     {isRestore && <>
+                      <Field label="SFTP restore source">
+                        <label><input type="checkbox" checked={restoreFromSftp} disabled={busy || !sftpInspectionMatchesCurrent || sftpRemoteInspection?.image_type !== (isDisk ? "disk" : "partition") || Boolean(selectedRepositoryId)} onChange={(e) => {
+                          const enabled = e.target.checked;
+                          setRestoreFromSftp(enabled);
+                          if (enabled) { setImageId(sftpRemoteInspection.image_id); setRestoreLayoutPreview(null); }
+                        }} /> Fetch and verify the authenticated SFTP image before restoring it</label>
+                        {!sftpInspectionMatchesCurrent && <p>Inspect and verify a remote SFTP image in the Remote Repositories tab using the current connection settings first.</p>}
+                        {selectedRepositoryId && <p>Clear the mounted repository selection to restore directly from SFTP.</p>}
+                      </Field>
                       <Field label={isDisk ? "Disk image" : "Partition image"}>
-                        <select className="pf-v5-c-form-control" value={imageId} disabled={busy} onChange={(e) => { setImageId(e.target.value); if (isDisk) inspectRestoreLayout(e.target.value); else setRestoreLayoutPreview(null); }}>
+                        <select className="pf-v5-c-form-control" value={imageId} disabled={busy || restoreFromSftp} onChange={(e) => { setImageId(e.target.value); if (isDisk) inspectRestoreLayout(e.target.value); else setRestoreLayoutPreview(null); }}>
                           <option value="">Select an image…</option>
                           {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
+                          {sftpInspectionMatchesCurrent && sftpRemoteInspection.image_type === (isDisk ? "disk" : "partition") && <option value={sftpRemoteInspection.image_id}>{sftpRemoteInspection.image_id} · authenticated SFTP image</option>}
                         </select>
                       </Field>
                       <Field label={isDisk ? "Destination disk" : "Destination partition"}>
