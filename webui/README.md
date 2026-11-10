@@ -4,8 +4,8 @@ Feclora's React/PatternFly application is its primary operator interface.
 
 The Operations wizard exposes whole-disk and partition image capture,
 restoration, disk-to-disk cloning and partition-to-partition cloning. It
-supports device inventory, image selection, compression, local age encryption,
-minisign signatures, exact destructive confirmations and streamed progress.
+supports device inventory, image selection, compression, optional `age` encryption
+and optional `minisign` signatures, exact destructive confirmations and streamed progress.
 Other tabs provide storage inventory, image inventory, durable local operation
 history, Server identity and trusted-Client administration, removable-media
 Client enrollment and renewal, Server deployment-job authoring/lifecycle,
