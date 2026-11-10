@@ -139,10 +139,6 @@ class RemoteRepository:
             if self.port is not None:
                 options.append(f"port={self.port}")
             return [exe("mount"), "-t", "cifs", "-o", ",".join(options), source, self.mountpoint]
-        if self.provider == "webdav":
-            options += ["conf=/etc/davfs2/davfs2.conf"]
-            return [exe("mount.davfs"), "-o", ",".join(options),
-                    f"https://{self.host}{self.remote_path}", self.mountpoint]
         bucket_path = self.remote_path.lstrip("/")
         argv = [exe("rclone"), "--config", self.credential_file, "mount",
                 f"{self.rclone_remote}:{bucket_path}", self.mountpoint,
