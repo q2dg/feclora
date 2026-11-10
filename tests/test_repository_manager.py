@@ -2,6 +2,7 @@ import os
 import stat
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -43,6 +44,21 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
             "known_hosts_file": str(self.known_hosts), "port": 22,
             "read_only": True,
         }
+
+    def test_concurrent_adds_preserve_both_registry_entries(self):
+        definitions = [
+            ("images-a", dict(self.definition, host="nas-a.example.net")),
+            ("images-b", dict(self.definition, host="nas-b.example.net")),
+        ]
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(
+                lambda item: self.manager.add(item[0], item[1]), definitions,
+            ))
+        self.assertEqual({item["id"] for item in results}, {"images-a", "images-b"})
+        entries = self.manager._load()
+        self.assertEqual(set(entries), {"images-a", "images-b"})
+        self.assertEqual(entries["images-a"]["host"], "nas-a.example.net")
+        self.assertEqual(entries["images-b"]["host"], "nas-b.example.net")
 
     def test_add_persists_only_credential_references_and_creates_private_mountpoint(self):
         result = self.manager.add("images", self.definition)
