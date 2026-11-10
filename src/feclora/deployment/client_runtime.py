@@ -45,7 +45,7 @@ def execute_client_image_job(
     transfer_progress_callback: Callable[[int, int], None] | None = None,
     executables: dict[str, str | None] | None = None,
 ) -> tuple[bool, str]:
-    """Run one signed whole-disk image job after local, role-specific approval."""
+    """Run one TLS-authenticated whole-disk image job after local approval."""
     local_device_path = approval.device_path
     confirmation = approval.confirmation
     if not isinstance(local_device_path, str) or not local_device_path.startswith("/dev/"):
@@ -83,11 +83,6 @@ def execute_client_image_job(
         required = f"ERASE {local_device_path} FROM {server_identity}"
         if confirmation != required:
             raise ClientImageRuntimeError(f"explicit local restore confirmation required: {required}")
-        if not trusted_server_public_key:
-            raise ClientImageRuntimeError(
-                "image restore requires a configured trusted manifest verifier; "
-                "minisign is optional, but this deployment has no alternative verifier configured"
-            )
         try:
             offer = receive_control_message(tls_socket, expected_type="transfer_offer")
             if (set(offer) != {"type", "job_id", "image_id"}
@@ -99,12 +94,13 @@ def execute_client_image_job(
                 trusted_public_key=trusted_server_public_key,
                 progress_callback=transfer_progress_callback,
             )
+            signature_present = os.path.isfile(manifest_path + ".minisig")
             restore_function = restore_partition if job.target_type == "partition" else restore_disk
             restore_function(
                 manifest_path, repository, local_device_path,
                 confirmation=f"ERASE {local_device_path}",
-                minisign_public_key=trusted_server_public_key,
-                require_signature=True,
+                minisign_public_key=trusted_server_public_key if signature_present else None,
+                require_signature=signature_present,
                 age_identity_file=age_identity_file,
                 progress_callback=progress_callback,
                 executables=executables,
@@ -117,8 +113,6 @@ def execute_client_image_job(
         required = f"READ {local_device_path} TO {server_identity}"
         if confirmation != required:
             raise ClientImageRuntimeError(f"explicit local capture confirmation required: {required}")
-        if not local_minisign_secret_key or not local_minisign_public_key:
-            raise ClientImageRuntimeError("Client save requires its enrolled minisign signing key and matching public key")
         try:
             capture_disk(
                 local_device_path, job.image_id, repository,
@@ -139,7 +133,8 @@ def execute_client_image_job(
                 trusted_public_key=local_minisign_public_key,
                 progress_callback=transfer_progress_callback,
             )
-            return True, f"image {job.image_id} captured, signed and transferred"
+            signed = os.path.isfile(manifest_path + ".minisig")
+            return True, f"image {job.image_id} captured, " + ("signed and " if signed else "") + "transferred"
         except (ImageTransferError, DiskCaptureError, ImageSecurityError, OSError) as exc:
             raise ClientImageRuntimeError(f"capture/transfer failed: {exc}") from exc
 
