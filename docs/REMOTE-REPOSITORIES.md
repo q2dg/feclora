@@ -62,7 +62,9 @@ is trustworthy.
 
 The `verified` state shown by Cockpit means mount identity verification, not
 a live health check. It is derived from `findmnt` metadata and the saved
-provider definition; it must not be interpreted as proof that the remote
+provider definition. The identity query has a five-second subprocess timeout
+and fails closed on timeout or malformed output; this bounds metadata
+inspection only, not filesystem I/O. it must not be interpreted as proof that the remote
 service is currently reachable or that reads/writes will complete. The current
 manager deliberately does not issue filesystem `stat`/`statvfs` probes against
 potentially hard-mounted NFS paths, because such calls can block in the kernel
