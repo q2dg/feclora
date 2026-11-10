@@ -281,16 +281,43 @@ def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> Non
         return
     output_directory = dialog_app._input(
         "Enrollment response destination",
-        "Path to an existing removable-media directory where the signed certificate bundle will be written:",
+        "Path to an existing removable-media directory where the certificate bundle will be written:",
     )
     if not output_directory or not os.path.isdir(output_directory) or os.path.islink(output_directory):
         raise PKIError("enrollment response destination must be an existing real directory")
     client_id = identity.removeprefix("URI:feclora-client-")
+    pki_directory = os.path.dirname(config.ca_file)
+    recipient_candidates = [
+        os.path.join(os.path.dirname(csr), f"feclora-{client_id}.age-recipient"),
+        os.path.join(os.path.dirname(csr), f"feclora-{client_id}-renewal.age-recipient"),
+    ]
+    recipient_file = next((path for path in recipient_candidates if os.path.lexists(path)), None)
+    recipient = None
+    if recipient_file:
+        recipient_info = os.lstat(recipient_file)
+        if not stat.S_ISREG(recipient_info.st_mode) or stat.S_ISLNK(recipient_info.st_mode):
+            raise PKIError("Client age recipient export must be a regular file, not a symlink")
+        recipient = Path(recipient_file).read_text(encoding="ascii").strip()
+        if not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
+            raise PKIError("Client age public recipient is malformed")
+    signing_candidates = [
+        os.path.join(os.path.dirname(csr), f"feclora-{client_id}.minisign.pub"),
+        os.path.join(os.path.dirname(csr), f"feclora-{client_id}-renewal.minisign.pub"),
+    ]
+    signing_export = next((path for path in signing_candidates if os.path.lexists(path)), None)
+    if signing_export:
+        signing_info = os.lstat(signing_export)
+        if not stat.S_ISREG(signing_info.st_mode) or stat.S_ISLNK(signing_info.st_mode):
+            raise PKIError("Client minisign public-key export must be a regular file, not a symlink")
+    server_recipients = os.path.join(pki_directory, "age-recipients.txt")
+    exports = [os.path.join(output_directory, "ca.crt")]
+    if config.server_minisign_public_key:
+        exports.append(os.path.join(output_directory, "server.pub"))
+    if os.path.isfile(server_recipients):
+        exports.append(os.path.join(output_directory, "age-recipients.txt"))
     certificate = os.path.join(output_directory, f"feclora-{client_id}.crt")
-    for destination in (certificate, os.path.join(output_directory, "ca.crt"),
-                       os.path.join(output_directory, "server.pub"), os.path.join(output_directory, "age-recipients.txt")):
-        if os.path.lexists(destination):
-            raise PKIError("enrollment response file already exists; choose an empty destination directory")
+    if any(os.path.lexists(path) for path in [certificate, *exports]):
+        raise PKIError("enrollment response file already exists; choose an empty destination directory")
     confirmation = dialog_app._input(
         "Approve Client identity",
         f"CSR identity: {identity}\nMAC: {mac.lower()}\n\nType exactly: ISSUE {identity} {mac.lower()}",
@@ -299,37 +326,15 @@ def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> Non
         raise PKIError("Client CSR approval confirmation did not match")
     if os.path.realpath(config.ca_file) != os.path.realpath("/etc/feclora/pki/ca.crt"):
         raise PKIError("CSR signing is enabled only for the Feclora-managed CA; use external certificate import for an organization PKI")
-    issued = issue_client_certificate(csr, certificate, pki_directory=os.path.dirname(config.ca_file))
-    pki_directory = os.path.dirname(config.ca_file)
-    recipient_candidates = [
-        os.path.join(os.path.dirname(csr), f"feclora-{client_id}.age-recipient"),
-        os.path.join(os.path.dirname(csr), f"feclora-{client_id}-renewal.age-recipient"),
-    ]
-    recipient_file = next((path for path in recipient_candidates if os.path.lexists(path)), None)
-    if recipient_file is None:
-        raise PKIError("Client CSR bundle is missing its age public recipient; prepare enrollment with the current Feclora Client")
-    recipient_info = os.lstat(recipient_file)
-    if not stat.S_ISREG(recipient_info.st_mode) or stat.S_ISLNK(recipient_info.st_mode):
-        raise PKIError("Client age recipient export must be a regular file, not a symlink")
-    recipient = Path(recipient_file).read_text(encoding="ascii").strip()
-    if not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
-        raise PKIError("Client age public recipient is malformed")
+    issued = issue_client_certificate(csr, certificate, pki_directory=pki_directory)
     enroll_confirmation = dialog_app._input(
         "Add Client to trusted inventory",
         f"The certificate has been issued. Type exactly: ENROLL {issued} {mac.lower()}",
     )
     if enroll_confirmation != f"ENROLL {issued} {mac.lower()}":
         raise PKIError("certificate issued but not added to the Server allowlist; approve/enroll it explicitly later")
-    signing_candidates = [
-        os.path.join(os.path.dirname(csr), f"feclora-{client_id}.minisign.pub"),
-        os.path.join(os.path.dirname(csr), f"feclora-{client_id}-renewal.minisign.pub"),
-    ]
-    signing_export = next((path for path in signing_candidates if os.path.lexists(path)), None)
     signing_key_path = None
-    if signing_export is not None:
-        signing_info = os.lstat(signing_export)
-        if not stat.S_ISREG(signing_info.st_mode) or stat.S_ISLNK(signing_info.st_mode):
-            raise PKIError("Client minisign public-key export must be a regular file, not a symlink")
+    if signing_export:
         clients_directory = os.path.join(pki_directory, "clients")
         os.makedirs(clients_directory, mode=0o700, exist_ok=True)
         clients_info = os.lstat(clients_directory)
@@ -338,8 +343,8 @@ def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> Non
         os.chmod(clients_directory, 0o700)
         signing_key_path = os.path.join(clients_directory, client_id + ".pub")
         temporary_key = signing_key_path + ".tmp"
-        if os.path.lexists(temporary_key):
-            raise PKIError("stale temporary Client signing-key file exists")
+        if os.path.lexists(temporary_key) or os.path.lexists(signing_key_path):
+            raise PKIError("Client signing-key destination already exists")
         shutil.copyfile(signing_export, temporary_key)
         os.chmod(temporary_key, 0o644)
         os.replace(temporary_key, signing_key_path)
@@ -347,24 +352,28 @@ def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> Non
         config_path, certificate, mac, minisign_public_key=signing_key_path,
         confirmation=enroll_confirmation,
     )
-    register_age_recipient(pki_directory, issued, recipient)
-    recipients_path = os.path.join(pki_directory, "age-recipients.txt")
-    shutil.copyfile(config.ca_file, os.path.join(output_directory, "ca.crt"))
-    shutil.copyfile(config.server_minisign_public_key, os.path.join(output_directory, "server.pub"))
-    shutil.copyfile(recipients_path, os.path.join(output_directory, "age-recipients.txt"))
-    os.chmod(certificate, 0o644)
-    os.chmod(os.path.join(output_directory, "ca.crt"), 0o644)
-    os.chmod(os.path.join(output_directory, "server.pub"), 0o644)
-    os.chmod(os.path.join(output_directory, "age-recipients.txt"), 0o644)
-    server_key_digest = hashlib.sha256(Path(os.path.join(output_directory, "server.pub")).read_bytes()).hexdigest()
-    ca_digest = ca_fingerprint(config.ca_file)
-    dialog_app._message(
-        "Client certificate issued",
-        f"Identity: {issued}\nCertificate bundle: {output_directory}\n"
-        f"CA SHA-256: {ca_digest}\nServer image-signing key SHA-256: {server_key_digest}\n\n"
-        "Compare both fingerprints on the Client before installing. "
-        "The Client private key was generated locally and was never sent to the Server.",
+    if recipient:
+        register_age_recipient(pki_directory, issued, recipient)
+    shutil.copyfile(config.ca_file, exports[0])
+    os.chmod(exports[0], 0o644)
+    if config.server_minisign_public_key:
+        server_export = os.path.join(output_directory, "server.pub")
+        shutil.copyfile(config.server_minisign_public_key, server_export)
+        os.chmod(server_export, 0o644)
+    if os.path.isfile(server_recipients):
+        recipients_export = os.path.join(output_directory, "age-recipients.txt")
+        shutil.copyfile(server_recipients, recipients_export)
+        os.chmod(recipients_export, 0o600)
+    server_digest = (
+        hashlib.sha256(Path(config.server_minisign_public_key).read_bytes()).hexdigest()
+        if config.server_minisign_public_key else None
     )
+    ca_digest = ca_fingerprint(config.ca_file)
+    detail = f"Identity: {issued}\nCertificate bundle: {output_directory}\nCA SHA-256: {ca_digest}"
+    if server_digest:
+        detail += f"\nServer image-signing key SHA-256: {server_digest}"
+    detail += "\n\nCompare the CA fingerprint on the Client. Verify the optional Server image-signing fingerprint only if provided. The Client private key remains local."
+    dialog_app._message("Client certificate issued", detail)
 
 
 def _manage_client_enrollment(config_path: str) -> None:
