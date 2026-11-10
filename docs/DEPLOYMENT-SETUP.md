@@ -3,9 +3,11 @@
 The authenticated deployment runtime is opt-in. PXE services and the control
 listener do not start automatically at boot. On first Server use, Feclora
 creates a root-only local CA and Server TLS identity, then generates a default
-Server configuration. Optional minisign signing and age encryption material is
-initialized only when those features are enabled. Client TLS keys are generated
-locally during guided enrollment; age identities are optional.
+Server configuration. Optional age/minisign keys may be provisioned when the
+corresponding executables are installed, but their use is selected per image.
+Client TLS keys are generated locally during enrollment; age identities and
+minisign signing keys are optional. Missing image-security tools never block
+TLS enrollment or unsigned imaging over authenticated mTLS.
 External organizational PKI remains supported.
 
 See [Certificate management](CERTIFICATE-MANAGEMENT.md) for the USB-based CSR
@@ -74,7 +76,7 @@ The Server's **Trusted Clients** screen offers:
 - **Revoke:** remove the TLS identity/MAC authorization, optional Client minisign trust and the mapped age recipient from future image-encryption inventories.
 - **Export updated age recipient inventory:** export the current public recipient list to removable media. On existing Clients, choose **Refresh age recipient inventory** to update their local capture recipients.
 
-The Client warns within 30 days of certificate expiry and can prepare a renewal CSR using its existing TLS key. The Server must approve the renewal and the Client must install the returned bundle. CRL/OCSP checks and server-side expiry inventory are not implemented. Age recipients and minisign public keys are optional image-security material, not prerequisites for TLS enrollment; current Cockpit enrollment/renewal paths still need work to make those fields fully optional.
+The Client warns within 30 days of certificate expiry and can prepare a renewal CSR using its existing TLS key. The Server must approve the renewal and the Client must install the returned bundle. CA fingerprint verification is mandatory; the Server minisign fingerprint is optional and is required only when the response includes a Server image-signing key that the Client will trust. Age recipient inventories are installed only when supplied. CRL/OCSP checks and server-side expiry inventory are not implemented.
 
 The bind address must exactly match the IPv4 address selected in Server mode.
 The Server UI creates either a one-client unicast save/restore job or a multi-client multicast restore job and displays the job UUID. Each selected Client operator enters that UUID. The Server listener opens TCP/9443 only on the selected interface in Feclora's temporary firewalld zone. During multicast transfers it temporarily adds the UDPcast port pair and IGMP on that same interface. The listener and temporary firewall rules are removed when the job UI exits.
