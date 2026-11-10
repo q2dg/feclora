@@ -1605,6 +1605,50 @@ def _submit_local_operation(params: dict[str, Any]) -> dict[str, Any]:
     return {"operation_id": operation_id, "state": "queued", "unit": unit}
 
 
+def _cancel_local_operation(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"operation_id"} or not isinstance(params["operation_id"], str):
+        raise WebAPIError("cancel_local_operation requires one operation_id")
+    try:
+        store = _local_operation_store()
+        operation_id = params["operation_id"]
+        report = store.status(operation_id)
+        state = report["state"]
+        if state == "cancelled":
+            return {"operation_id": operation_id, "state": state, "requested": False}
+        if state in {"completed", "failed", "interrupted", "verifying"}:
+            raise WebAPIError(f"operation in state {state} cannot be cancelled")
+        if state == "queued":
+            try:
+                store.append(operation_id, "cancelled", {
+                    "reason": "cancelled before the worker started",
+                    "destination_may_be_partial": False,
+                })
+                return {"operation_id": operation_id, "state": "cancelled", "requested": True}
+            except Exception:
+                # The worker may have advanced to preflight between status and
+                # append. Re-read under the journal's own transition lock.
+                report = store.status(operation_id)
+                state = report["state"]
+                if state == "cancelled":
+                    return {"operation_id": operation_id, "state": state, "requested": False}
+        if state not in {"preflight", "running"}:
+            raise WebAPIError(f"operation in state {state} cannot be cancelled")
+        unit = f"feclora-local-operation@{operation_id}.service"
+        result = subprocess.run(
+            ["/usr/bin/systemctl", "stop", "--no-block", unit],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=10,
+        )
+        if result.returncode != 0:
+            message = (result.stderr or result.stdout or "systemd rejected the cancellation request").strip()[:384]
+            raise WebAPIError(f"cannot request operation cancellation: {message}")
+        return {"operation_id": operation_id, "state": state, "requested": True}
+    except WebAPIError:
+        raise
+    except Exception as exc:
+        raise WebAPIError(f"cannot cancel local operation: {exc}") from exc
+
+
 def _local_operation_status(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"operation_id"} or not isinstance(params["operation_id"], str):
         raise WebAPIError("local_operation_status requires one operation_id")
@@ -2664,6 +2708,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _submit_local_operation(params)
     if action == "local_operation_status":
         return _local_operation_status(params)
+    if action == "cancel_local_operation":
+        return _cancel_local_operation(params)
     if action == "local_operations":
         return _local_operations(params)
     if action in {"capture_disk", "capture_partition", "restore_disk", "restore_partition",
