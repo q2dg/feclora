@@ -7,12 +7,12 @@ the same repository API.
 
 ## Provider contract
 
-SFTP is intentionally not represented as a mounted filesystem provider. A future SFTP transfer adapter must implement bounded upload/download, resumable transfer, integrity verification and explicit credential handling; SSHFS mounts do not satisfy that contract.
+SFTP is intentionally not represented as a mounted filesystem provider. Feclora now has an initial standalone OpenSSH SFTP file-transfer adapter in `src/feclora/storage/sftp_transfer.py`: it requires key authentication and a pinned `known_hosts` file, runs batch-mode SFTP without loading user SSH configuration, stages uploads under random remote names before rename, and verifies downloaded bytes against an expected SHA-256 before local publication. This is a transfer primitive, not a Cockpit provider workflow. It is not yet connected to encrypted systemd credential provisioning, capture/restore job orchestration, progress reporting, resume/retry, or end-to-end artifact-set publication. SSHFS mounts do not satisfy the SFTP transfer contract.
 
 | Provider | Helper | Authentication material |
 |---|---|---|
 | SSH filesystem | sshfs | Dedicated SSH private key; verified host keys |
-| SFTP | Not implemented | Separate file-transfer provider; not equivalent to SSHFS |
+| SFTP | OpenSSH sftp batch adapter (initial primitive) | Root-owned private SSH key and pinned known_hosts paths; encrypted systemd credential integration pending |
 | NFS | mount.nfs, NFSv4.2 | Server/export policy |
 | SMB/CIFS | mount.cifs, SMB 3.1.1 | Protected credentials file |
 | WebDAV | mount.davfs over HTTPS | System-wide `/etc/davfs2/secrets` for root mounts; encrypted Feclora credential integration blocked |
@@ -261,3 +261,26 @@ this check; configure the export's ownership semantics accordingly. Cockpit
 image operations and multi-Client restore jobs can select mounted repository
 IDs. S3 remains read-only and is suitable for inventory/verification/restore,
 not image capture.
+
+
+## SFTP transfer adapter status
+
+The initial adapter provides `upload_file` and `download_file` for individual
+regular files. It uses OpenSSH SFTP in batch mode with `-F /dev/null`,
+`BatchMode=yes`, `IdentitiesOnly=yes`, `StrictHostKeyChecking=yes`, an
+explicit `UserKnownHostsFile`, and an explicit identity file. It does not
+accept passwords, invoke a shell, or consult the operator's SSH configuration.
+Upload first writes a random hidden staging name and then issues SFTP rename;
+download writes to a random sibling temporary file, checks the caller-supplied
+SHA-256 (normally obtained from a signed Feclora manifest), and publishes with
+a no-overwrite hard link.
+
+This is deliberately not marked as a complete SFTP repository provider.
+OpenSSH SFTP does not provide a portable server-side SHA-256 operation, so the
+upload adapter returns the locally computed digest and relies on the signed
+manifest verification when the artifact is later consumed. The current
+adapter has no resume protocol, artifact-set transaction, Cockpit form/API,
+credential import binding, operation-journal progress, or capture/restore
+routing. Those remain acceptance blockers. Do not select SSHFS when SFTP
+transfer semantics are required, and do not infer Cockpit SFTP support from
+the presence of this module.
