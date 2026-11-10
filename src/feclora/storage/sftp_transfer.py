@@ -90,7 +90,7 @@ def _run_batch(
         raise SFTPTransferError("SFTP timeout must be between 1 and 86400 seconds")
     try:
         result = runner(
-            argv, input="\n".join(commands) + "\n", stdin=None,
+            argv, input="\n".join(commands) + "\n",
             capture_output=True, text=True, check=False, timeout=timeout,
         )
     except (OSError, subprocess.SubprocessError) as exc:
@@ -163,8 +163,10 @@ def download_file(
     if destination.exists() or destination.is_symlink():
         raise SFTPTransferError("local SFTP destination already exists")
     destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    parent_info = os.lstat(destination.parent)
+    if not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode):
+        raise SFTPTransferError("local SFTP destination parent must be a real directory")
     temporary = destination.parent / f".{destination.name}.feclora-{secrets.token_hex(12)}.partial"
-    os.chmod(destination.parent, stat.S_IMODE(destination.parent.stat().st_mode) & 0o700)
     argv = build_sftp_argv(
         host=host, username=username, identity_file=identity_file,
         known_hosts_file=known_hosts_file, port=port,
