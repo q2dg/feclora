@@ -303,7 +303,11 @@ export default function App() {
       }
       else params = { source, target, confirmation };
       const accepted = await callFeclora(operation, params);
-      setNotice("Operation accepted by the durable worker. It will continue if Cockpit disconnects.");
+      setOperations((current) => [{
+        operation_id: accepted.operation_id, action: operation, state: "queued",
+        events: [{ state: "queued", timestamp: new Date().toISOString(), details: {} }]
+      }, ...current.filter((item) => item.operation_id !== accepted.operation_id)]);
+      setNotice("Operation accepted by the durable worker. It will continue if Cockpit disconnects. Use Operation log to request cancellation.");
       const result = await waitForLocalOperation(accepted.operation_id, (eventData) => {
         if (eventData.event === "progress") setProgress(eventData);
       });
