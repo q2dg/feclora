@@ -559,9 +559,9 @@ class DeploymentControlServer:
         repository: str,
         manifest_path: str,
         *,
-        trusted_public_key: str,
+        trusted_public_key: str | os.PathLike[str] | None = None,
     ) -> ImageManifest:
-        """Send the job's signed image set to one authenticated running restore client."""
+        """Send an image set to one mTLS-authenticated running restore client."""
         tls_socket = self._running_session(mac_address, "restore")
         try:
             tls_socket.settimeout(86400)
@@ -587,7 +587,7 @@ class DeploymentControlServer:
         *,
         trusted_public_key: str,
     ) -> str:
-        """Receive a signed image set from one authenticated running save client."""
+        """Receive an image set from one mTLS-authenticated running save client."""
         tls_socket = self._running_session(mac_address, "save")
         try:
             tls_socket.settimeout(86400)
