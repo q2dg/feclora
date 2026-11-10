@@ -70,9 +70,11 @@ def _verified_artifact_stream(repository: str, artifact: ImageArtifact,
         if not age_identity_file:
             raise DiskRestoreError("this image is age-encrypted; an identity file is required")
         try:
+            # The source repository may be a read-only remote mount. Keep
+            # authenticated plaintext in the local temporary filesystem instead.
             staged = decrypt_artifact_stream_to_temp(
                 stored, age_identity_file,
-                repository, age_executable=age_executable,
+                tempfile.gettempdir(), age_executable=age_executable,
             )
         except ImageSecurityError as exc:
             raise DiskRestoreError(f"image decryption/authentication failed: {exc}") from exc
