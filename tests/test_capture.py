@@ -2,12 +2,14 @@ import io
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from feclora.storage.capture import (
     CaptureCancelled,
     CaptureError,
     build_capture_plan,
     capture_partition,
+    _read_partclone_status,
 )
 
 
@@ -39,6 +41,53 @@ class CaptureTests(unittest.TestCase):
             plan.argv,
             ("/usr/sbin/partclone.ext4", "-c", "-s", "/dev/sda1"),
         )
+
+    def test_partclone_json_status_is_parsed_as_logical_data_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "status.json")
+            with open(path, "w", encoding="utf-8") as stream:
+                stream.write(
+                    '{"schema_version":1,"partclone":{"block_size":4096,'
+                    '"progress":{"copied_blocks":12,"total_block":30}}}'
+                )
+            self.assertEqual(_read_partclone_status(path), (49152, 122880))
+
+    def test_partclone_json_status_rejects_unsafe_or_invalid_documents(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "status.json")
+            with open(path, "w", encoding="utf-8") as stream:
+                stream.write('{"schema_version":1,"partclone":{"progress":{}}}')
+            self.assertIsNone(_read_partclone_status(path))
+            os.unlink(path)
+            os.symlink("/etc/passwd", path)
+            self.assertIsNone(_read_partclone_status(path))
+
+    @patch("feclora.storage.capture._partclone_supports_json_status", return_value=True)
+    def test_capture_uses_native_partclone_status_when_supported(self, supports_json):
+        with tempfile.TemporaryDirectory() as directory:
+            progress = []
+            payload = b"partclone stream"
+            def factory(argv, **kwargs):
+                status_arg = next(arg for arg in argv if arg.startswith("--json-status="))
+                status_path = status_arg.split("=", 1)[1]
+                with open(status_path, "w", encoding="utf-8") as stream:
+                    stream.write(
+                        '{"schema_version":1,"partclone":{"block_size":1024,'
+                        '"progress":{"copied_blocks":2,"total_block":4}}}'
+                    )
+                self.assertIn("--json-fresh=1", argv)
+                return FakeProcess(argv, payload)
+            artifact = capture_partition(
+                "/dev/fake1", "ext4", directory, "part.img", "1",
+                {"partclone.ext4": "/usr/bin/partclone.ext4"},
+                device_validator=lambda _path: True,
+                source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                progress_callback=lambda done, total: progress.append((done, total)),
+                popen_factory=factory,
+            )
+            self.assertEqual(progress, [(2048, 4096)])
+            self.assertEqual(artifact.format, "partclone")
+            self.assertEqual(os.listdir(directory), ["part.img"])
 
     def test_unknown_filesystem_uses_raw_dd(self):
         plan = build_capture_plan("/dev/sda1", "unknown", {"dd": "/usr/bin/dd"})
