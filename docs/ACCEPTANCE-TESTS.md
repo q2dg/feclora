@@ -101,8 +101,9 @@ querier behavior has been independently configured and checked.
 
 The hardware-independent repository-manager test suite also covers concurrent
 registry mutation: simultaneous additions for different IDs must preserve both
-entries, and a simulated registry-write failure during removal must leave the
-definition and its empty mountpoint intact. These tests protect Feclora's local
+entries, a symlink substituted for the registry lock must be rejected, and a
+simulated registry-write failure during removal must leave the definition and
+its empty mountpoint intact. These tests protect Feclora's local
 registry only; they are not tests of concurrent writes performed by independent
 clients against a remote service.
 
