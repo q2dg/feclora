@@ -398,12 +398,13 @@ def _manage_client_enrollment(config_path: str) -> None:
         return
     if choice == "fingerprints":
         ca_digest = ca_fingerprint(config.ca_file)
-        with open(config.server_minisign_public_key, "rb") as stream:
-            server_digest = hashlib.sha256(stream.read()).hexdigest()
-        dialog_app._message(
-            "Feclora trust fingerprints",
-            f"CA SHA-256: {ca_digest}\nServer minisign public key SHA-256: {server_digest}",
-        )
+        detail = f"CA SHA-256: {ca_digest}"
+        if config.server_minisign_public_key:
+            server_digest = hashlib.sha256(Path(config.server_minisign_public_key).read_bytes()).hexdigest()
+            detail += f"\nOptional Server minisign public key SHA-256: {server_digest}"
+        else:
+            detail += "\nServer image-signing key is not configured; TLS enrollment and unsigned image workflows remain available."
+        dialog_app._message("Feclora trust fingerprints", detail)
         return
     if choice == "export-age":
         output_directory = dialog_app._input(
