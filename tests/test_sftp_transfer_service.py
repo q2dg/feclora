@@ -163,6 +163,30 @@ class SFTPTransferServiceTests(unittest.TestCase):
         self.assertEqual(command[:2], ["/usr/bin/systemctl", "stop"])
         self.assertRegex(command[2], r"^feclora-sftp-[a-f0-9]{32}\.service$")
 
+    def test_local_operation_cancellation_is_not_reported_safe_if_sftp_child_stop_is_uncertain(self):
+        from feclora.storage.local_operation_service import LocalOperationCancelled
+
+        manager = FakeManager()
+        fake_store = SimpleNamespace(list=lambda: [
+            {"kind": "ssh-key", "name": "feclora-backup-ssh-key",
+             "path": "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred"},
+            {"kind": "known-hosts", "name": "feclora-backup-known-hosts",
+             "path": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred"},
+        ])
+        cancellation = LocalOperationCancelled("cancellation requested by operator")
+        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store), \\
+             patch("feclora.storage.sftp_transfer_service.subprocess.run",
+                   side_effect=subprocess.TimeoutExpired(["systemctl", "stop"], 20)):
+            with self.assertRaisesRegex(RepositoryManagerError, "state is uncertain"):
+                run_sftp_transfer(
+                    identity_credential="/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred",
+                    known_hosts_credential="/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred",
+                    operation="download", host="sftp.example.net", username="backup",
+                    remote_path="/images/disk.img", local_path="/var/lib/feclora/stage/disk.img",
+                    expected_sha256="a" * 64, manager=manager,
+                    runner=lambda *_args, **_kwargs: (_ for _ in ()).throw(cancellation),
+                )
+
     def test_unverified_download_mode_is_explicit_and_limited_to_download(self):
         bindings = [
             ("feclora-backup-ssh-key", "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred"),
