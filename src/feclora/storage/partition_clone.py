@@ -13,6 +13,7 @@ from typing import Any, Callable
 
 from .privilege import PrivilegeError, privileged_argv
 from .source_safety import SourceSafetyError, check_capture_source_safe
+from .process_control import stop_process
 
 
 class PartitionCloneError(RuntimeError):
@@ -76,13 +77,7 @@ def _backing_disks(path: str, lsblk: str, runner: Callable[..., Any]) -> set[str
 
 
 def _stop(process: Any) -> None:
-    if process is not None and process.poll() is None:
-        process.terminate()
-        try:
-            process.wait(timeout=5)
-        except (TypeError, subprocess.TimeoutExpired):
-            process.kill()
-            process.wait()
+    stop_process(process)
 
 
 def _read_digest(
