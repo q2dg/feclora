@@ -1453,8 +1453,8 @@ def _local_operations(params: dict[str, Any]) -> dict[str, Any]:
 
 def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
     operation_fields = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
@@ -1469,8 +1469,8 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
 
 def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]:
     operation_fields = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
