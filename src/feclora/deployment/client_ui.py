@@ -73,6 +73,41 @@ def _generate_client_minisign_keypair(pki_directory: str, export_directory: str,
     return secret, public
 
 
+
+def _capture_image_security_options(config: ClientRuntimeConfig) -> tuple[str | None, str | None] | None:
+    """Ask for per-image protection; expose only modes whose local keys/tools exist."""
+    age_ready = bool(
+        config.age_recipients_file
+        and os.path.isfile(config.age_recipients_file)
+        and shutil.which("age")
+    )
+    sign_ready = bool(
+        config.local_minisign_secret_key
+        and config.local_minisign_public_key
+        and os.path.isfile(config.local_minisign_secret_key)
+        and os.path.isfile(config.local_minisign_public_key)
+        and shutil.which("minisign")
+    )
+    choices = [("none", "Neither encryption nor signature")]
+    if age_ready:
+        choices.append(("age", "Encrypt this image with age"))
+    if sign_ready:
+        choices.append(("minisign", "Sign this image with minisign"))
+    if age_ready and sign_ready:
+        choices.append(("both", "Encrypt with age and sign with minisign"))
+    selected = dialog_app._menu(
+        "Image security",
+        "Choose protection for this image only. No protection is the default; unavailable tools or keys are not required.",
+        choices,
+    )
+    if selected is None:
+        return None
+    return (
+        config.age_recipients_file if selected in {"age", "both"} else None,
+        config.local_minisign_secret_key if selected in {"minisign", "both"} else None,
+    )
+
+
 def _write_client_config(path: str, value: dict[str, Any]) -> None:
     directory = os.path.dirname(path)
     os.makedirs(directory, mode=0o700, exist_ok=True)
@@ -486,11 +521,16 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             if job.operation == "save":
                 compression_choice = dialog_app._menu(
                     "Capture compression", "Choose whole-disk image compression.",
-                    [("none", "None"), ("gzip", "gzip (balanced)"), ("xz", "xz (smaller, slower)")],
+                    [("none", "None"), ("gzip", "gzip (balanced)"), ("xz", "xz (smaller, slower)"),
+                     ("zstd", "zstd (fast, balanced)"), ("lz4", "lz4 (fastest)")],
                 )
                 if compression_choice is None:
                     raise DeploymentControlError("capture compression selection cancelled")
                 state["compression"] = compression_choice
+                security = _capture_image_security_options(config)
+                if security is None:
+                    raise DeploymentControlError("image security selection cancelled")
+                state["age_recipients_file"], state["minisign_secret_key"] = security
             state["device_path"] = path
             state["confirmation"] = phrase
             return LocalTargetApproval(path, description, phrase)
@@ -517,17 +557,26 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 level = None
             elif compression == "gzip":
                 level = 6
-            else:
+            elif compression == "xz":
                 level = 6
+            elif compression == "zstd":
+                level = 3
+            elif compression == "lz4":
+                level = 3
+            else:
+                level = None
             operation = lambda progress: execute_client_image_job(
                 job, tls_socket, approval,
                 server_identity=config.server_identity,
                 repository=config.repository,
                 trusted_server_public_key=config.trusted_server_public_key,
-                local_minisign_secret_key=config.local_minisign_secret_key,
-                local_minisign_public_key=config.local_minisign_public_key,
+                local_minisign_secret_key=state.get("minisign_secret_key"),
+                local_minisign_public_key=(
+                    config.local_minisign_public_key
+                    if state.get("minisign_secret_key") else None
+                ),
                 age_identity_file=config.age_identity_file,
-                age_recipients_file=config.age_recipients_file,
+                age_recipients_file=state.get("age_recipients_file"),
                 compression=compression,
                 compression_level=level,
                 progress_callback=progress,
@@ -538,7 +587,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                     operation,
                 )
             return dialog_app._run_capture_gauge(
-                "Network disk capture", "Capturing, signing and transferring the selected disk image.",
+                "Network disk capture", "Capturing, optionally encrypting/signing and transferring the selected disk image.",
                 operation,
             )
 
