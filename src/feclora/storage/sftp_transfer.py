@@ -117,9 +117,9 @@ def list_image_manifests(
 ) -> list[str]:
     """List only Feclora image-manifest filenames in a pinned SFTP directory.
 
-    The server's listing is untrusted input. Return only normalized manifest
-    basenames matching the Feclora image-id grammar; never interpret entries
-    as paths or commands.
+    The server's listing is untrusted input. Return only the fixed Feclora
+    manifest marker or normalized image-id manifest basenames; never interpret
+    entries as paths or commands.
     """
     if (not isinstance(remote_directory, str) or not _REMOTE.fullmatch(remote_directory)
             or remote_directory.startswith("//")
