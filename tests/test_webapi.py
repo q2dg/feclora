@@ -1354,5 +1354,43 @@ class WebAPITests(unittest.TestCase):
             self.assertEqual(inspect.call_args.kwargs["remote_directory"], "/images")
 
 
+    def test_restore_disk_fetches_authenticated_sftp_image_before_restore(self):
+        from contextlib import nullcontext
+        from feclora.webapi import _execute_operation
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = root / "gold.manifest.json"
+            manifest_path.write_text("{}", encoding="utf-8")
+            Path(str(manifest_path) + ".minisig").write_text("signature", encoding="utf-8")
+            manifest = SimpleNamespace(image_id="gold", image_type="disk", artifacts=[])
+            params = {
+                "image_id": "gold", "target": "/dev/sdb",
+                "confirmation": "ERASE /dev/sdb",
+                "sftp_source": {
+                    "host": "backup.example.net", "username": "backup",
+                    "remote_directory": "/images/gold",
+                    "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+                    "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+                },
+            }
+            with patch("feclora.webapi._repository", return_value=root), \\
+                 patch("feclora.webapi._client_runtime_config", return_value=None), \\
+                 patch("feclora.webapi._security_material", return_value={
+                     "age_decryption_available": False, "image_verification_available": True,
+                 }), \\
+                 patch("feclora.storage.sftp_image_set.fetch_image_set", return_value={"image_id": "gold"}) as fetch, \\
+                 patch("feclora.webapi._image_manifest", return_value=manifest_path), \\
+                 patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \\
+                 patch("feclora.storage.image_security.verify_manifest_signature"), \\
+                 patch("feclora.storage.disk_restore.restore_disk") as restore, \\
+                 patch("feclora.webapi._emit"):
+                result = _execute_operation("restore_disk", params, "restore-op")
+            fetch.assert_called_once()
+            self.assertEqual(fetch.call_args.kwargs["expected_image_id"], "gold")
+            restore.assert_called_once()
+            self.assertEqual(result["image_id"], "gold")
+            self.assertTrue(result["verified"])
+
+
 if __name__ == "__main__":
     unittest.main()
