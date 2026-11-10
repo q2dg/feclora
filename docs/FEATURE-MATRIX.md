@@ -1,5 +1,11 @@
 # Feature and compatibility matrix
 
+Remote-service boundary: SSH/SFTP, NFS, SMB/CIFS, WebDAV, S3-compatible
+storage and optional BitTorrent infrastructure are external systems operated
+by their owners. Feclora is a client only; its implementation covers outbound
+access, credentials, mounts/transfers, integrity and client-side failure
+handling. It does not deploy or administer those remote services.
+
 Status meanings:
 - **Implemented**: code path exists.
 - **Cockpit**: exposed through the primary web interface.
