@@ -47,8 +47,11 @@ The service must:
 - Treat service restart during destructive I/O as interruption. Never replay or
   automatically resume a write to a block device. Require inspection and a new
   explicitly authorized operation.
-- Restrict cancellation to states/phases where stopping is known to be safe.
-  Active destructive writes are not cancellable and are not rolled back.
+- Allow an operator to request cancellation while a worker is in preflight or running.
+  The worker handles systemd SIGTERM, lets its storage engine unwind, and bounds
+  child-process shutdown with terminate-then-kill. Cancellation is not rollback:
+  a running restore or clone may leave its destination partially written, which
+  must be inspected before reuse. Verification and terminal phases are not cancellable.
 - Expose only bounded, allowlisted operations over the existing privileged
   Cockpit/API boundary and a root-owned local IPC mechanism. Do not expose a
   shell, arbitrary executable, arbitrary argv or filesystem path API.
@@ -106,6 +109,20 @@ The latter is not claimed by unit tests or static checks.
 - All destructive actions are revalidated by the service immediately before
   execution and retain typed confirmation and authorization requirements.
 - Unit tests cover state transitions, persistence, restart recovery, lock
-  contention, duplicate submissions, journal integrity and cancellation boundaries.
+  contention, duplicate submissions, journal integrity, cancellation boundaries
+  and bounded child-process shutdown.
 - No ISO build, VM lab or physical-disk test is implied by this software design
   decision; operator acceptance remains separately documented.
+
+
+## Cancellation semantics
+
+Cockpit can cancel queued, preflight and running local operations. A queued job
+is marked cancelled in its journal before its worker starts. For an active job,
+Cockpit asks systemd to stop the template unit; the worker translates SIGTERM
+into a cancellation exception so Python cleanup paths run. Storage subprocesses
+are terminated, given a short grace period, and killed/reaped if they do not
+exit. systemd retains a final timeout as a hard-stop boundary. The journal
+records the cancellation reason and whether a running restore/clone may have
+partially modified its destination. A cancelled destination is never treated
+as rolled back or safe to reuse without inspection.
