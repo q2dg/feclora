@@ -53,7 +53,7 @@ def build_systemd_transfer_argv(
     allow_unverified_metadata: bool = False,
 ) -> list[str]:
     """Build a transient service invocation; no plaintext secret is included."""
-    if operation not in {"upload", "download"}:
+    if operation not in {"upload", "download", "inventory"}:
         raise RepositoryManagerError("SFTP operation must be upload or download")
     if allow_unverified_metadata and (operation != "download" or expected_sha256 is not None):
         raise RepositoryManagerError("unverified metadata mode is only valid for digest-free downloads")
@@ -128,6 +128,20 @@ def run_sftp_transfer(
     if result.returncode:
         detail = (result.stderr or result.stdout or "").strip()[:512]
         raise RepositoryManagerError("SFTP transfer failed" + (f": {detail}" if detail else ""))
+    if operation == "inventory":
+        try:
+            import json
+            payload = json.loads(result.stdout or "{}")
+            manifests = payload.get("manifests")
+            if not isinstance(manifests, list) or any(
+                not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\\.manifest\\.json", name)
+                for name in manifests
+            ):
+                raise ValueError("invalid inventory payload")
+        except (ValueError, TypeError) as exc:
+            raise RepositoryManagerError("SFTP inventory service returned invalid data") from exc
+        return {"operation": operation, "remote_path": remote_path, "completed": True,
+                "manifests": manifests}
     return {"operation": operation, "remote_path": remote_path, "completed": True,
             "verified": operation == "download" and expected_sha256 is not None}
 
@@ -153,7 +167,7 @@ def _credential_path(name: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="feclora-sftp-transfer")
-    parser.add_argument("operation", choices=("upload", "download"))
+    parser.add_argument("operation", choices=("upload", "download", "inventory"))
     parser.add_argument("--host", required=True)
     parser.add_argument("--username", required=True)
     parser.add_argument("--remote-path", required=True)
@@ -180,7 +194,16 @@ def main(argv: list[str] | None = None) -> int:
             host=args.host, username=args.username, identity_file=key,
             known_hosts_file=hosts, port=args.port,
         )
-        if args.operation == "upload":
+        if args.operation == "inventory":
+            if args.expected_sha256 is not None or args.allow_unverified_metadata:
+                raise SFTPTransferError("inventory does not accept download verification options")
+            import json
+            names = list_image_manifests(
+                args.remote_path, host=args.host, username=args.username,
+                identity_file=key, known_hosts_file=hosts, port=args.port,
+            )
+            print(json.dumps({"manifests": names}, separators=(",", ":")))
+        elif args.operation == "upload":
             upload_file(args.local_path, args.remote_path, **common)
         else:
             if args.allow_unverified_metadata:
