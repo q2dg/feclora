@@ -22,8 +22,8 @@ Status meanings:
 | Cloning | Local disk-to-disk | Implemented | Cockpit | Automated tests; operator validation |
 | Cloning | Local partition-to-partition | Implemented | Cockpit | Automated tests; operator validation |
 | Integrity | Manifest and SHA-256 | Implemented | Cockpit inventory/restore | Automated tests |
-| Integrity | minisign signatures | Implemented | Cockpit local key setup/capture; extracted partition manifests signed when key available | Automated tests |
-| Encryption | age artifact encryption | Implemented | Cockpit local key setup/capture | Automated tests |
+| Integrity | Optional detached signatures (`minisign` implementation) | Implemented as optional integration; absence must not block baseline local imaging | Cockpit capture/verification when configured | Automated tests; real Fedora Live acceptance pending |
+| Encryption | Optional artifact encryption (`age` implementation) | Implemented as optional integration; absence must not block baseline local imaging | Cockpit capture/restore when configured | Automated tests; real Fedora Live acceptance pending |
 | Compression | none, gzip, zstd, lz4 | Implemented | Cockpit basic choices | Automated tests/CI |
 | Filesystems | Partclone-supported filesystems | Implemented with raw fallback; native current/total block progress is consumed from stderr on legacy builds and native JSON byte counters are used when the installed Partclone advertises `--json-status` | Cockpit | Automated tests; operator validation |
 | Storage layers | LVM, LUKS, Btrfs, Stratis | Inventory/safety support varies; full-aware imaging incomplete | Inventory only | Automated tests; operator validation |
@@ -36,7 +36,7 @@ Status meanings:
 | Remote deployment | mTLS unicast save/restore | Persistent Server/Client services, READY/ARM gating, durable journals | Cockpit workflows | Automated tests; operator validation |
 | Remote deployment | UDPcast multicast restore | Engine and Server/Client receiver lifecycle integrated; job supports multiple enrolled READY Clients; image source may be local or selected verified managed repository; switch IGMP remains external | Cockpit workflows | Automated tests; operator validation |
 | Remote clone | mTLS disk-to-disk protocol | Direct whole-disk clone integrated into existing persistent Server/Client job lifecycle and Cockpit; reuses enrolled mTLS session and durable job journal | Cockpit job workflow | Automated tests; two-machine hardware validation pending |
-| Repositories | Remote provider command construction | SSHFS, NFS, SMB/CIFS, WebDAV and S3/rclone mount argv builders; initial standalone OpenSSH SFTP file-transfer adapter | Cockpit uses SSHFS/NFS/SMB | Implemented as argv builders; provider-specific credential lifecycle remains partial | Unit tests |
+| Repositories | Remote provider command construction | SSHFS, NFS, SMB/CIFS, WebDAV and S3/rclone mount argv builders; OpenSSH SFTP transfer adapter | Cockpit uses SSHFS/NFS/SMB; WebDAV and S3 credential/publication gaps remain | Partial; WebDAV per-repository credentials and writable S3 publication remain incomplete | Unit tests |
 | Repositories | Remote mount lifecycle | Root-only registry, private mountpoints, SSHFS/NFS/SMB mount/unmount/remove, findmnt plus provider/source/type/access-mode verification | Cockpit remote-repository tab | Partial: Cockpit supports add/edit while unmounted, explicit current-mount identity checks, mount/unmount/remove and mounted-vs-verified status; free-space telemetry, provider connectivity probes and recovery automation remain pending | Unit tests added; no live remote-server acceptance |
 | Repositories | Image-engine integration | Cockpit selects a mounted, verified repository; backend exposes its manifest inventory and routes whole-disk/partition capture, restore, verification, layout inspection and partition extraction through the verified mount. Writes require read/write mounts; local repository remains the default | Cockpit image workflow and repository inventory | API/unit tests; remote-server round-trip and NFS root-squash acceptance remain pending |
 | Repositories | Protected credential lifecycle | Host-bound systemd-creds store; Cockpit imports root-owned private source files, lists/removes encrypted references, and selects SSH key/known_hosts, SMB and rclone credentials for repository definitions; plaintext never enters browser/API responses | Cockpit encrypted credential inventory/import/removal and repository selection | Partial: SFTP adapter, synchronous systemd credential runner and signed image-set publish/fetch primitives exist (minisign before artifact retrieval, SHA-256/size verification and manifest-last no-overwrite import into the native local image-repository layout); SFTP exposes one-shot Cockpit/API signed-image import/publication and optional automatic post-capture publication for signed disk/partition captures, using encrypted SSH-key/known_hosts references and local signing trust; Cockpit can list validated manifest markers and authenticate/preview the signed manifest metadata in one configured remote directory before artifact import; direct restore-job routing is now integrated with authenticated manifest ID/SHA-256 binding and artifact verification before restore; saved named SFTP endpoint definitions with encrypted credential references are integrated; multi-directory discovery, transfer progress/cancel/retry/resume and full provider acceptance remain pending; WebDAV per-repository credentials and live provider acceptance remain pending | Unit tests added; not executed in this work session |
@@ -49,3 +49,12 @@ Status meanings:
 Do not infer support from a package being installed. Hardware, firmware,
 filesystem and network support must be verified on the actual target. ISO
 creation and laboratory validation are operator-owned steps.
+
+
+## Optional distribution transports
+
+| Area | Capability | Implementation | Cockpit | Verification |
+|---|---|---|---|---|
+| Distribution | BitTorrent peer-to-peer artifact delivery | Planned optional transport only; must reuse a maintained client and verify trusted manifest plus SHA-256 before restore | Not implemented | Not run; not a release dependency |
+
+`age` and `minisign` are optional integrations, not mandatory runtime packages or release gates. WebDAV and S3 remain required repository types with the credential/publication limitations stated above; S3's current rclone mount is read-only. Do not mark a provider complete based solely on an argv builder or mount primitive.
