@@ -154,7 +154,7 @@ class NetworkProfileApplyExecutionTests(unittest.TestCase):
         self.assertEqual(result["address"], "192.0.2.20/24")
         self.assertIn("CheckpointCreate", calls[1])
         self.assertIn("CheckpointDestroy", calls[-1])
-        self.assertIn("Destroy", calls[-1])
+        self.assertIn("CheckpointDestroy", calls[-1])
 
     def test_verification_failure_requests_rollback(self):
         from types import SimpleNamespace
