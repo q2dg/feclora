@@ -1003,6 +1003,20 @@ class WebAPITests(unittest.TestCase):
             "/usr/bin/systemctl", "start", "feclora-client@" + job_id + ".service",
         ])
 
+    def test_start_client_job_rejects_image_protection_flags_for_restore(self):
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        with patch("feclora.webapi._inspect_remote_job", return_value={
+            "host": "192.0.2.10", "server_identity": "URI:server",
+            "job": {"job_id": job_id, "operation": "restore", "target_type": "disk", "transport": "unicast"},
+        }):
+            with self.assertRaisesRegex(WebAPIError, "valid only for Client save jobs"):
+                dispatch({"action": "start_client_job", "params": {
+                    "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
+                    "confirmation": "ERASE /dev/sda FROM URI:server", "compression": "gzip",
+                    "network_interface": "enp1s0", "source_address": "192.0.2.20",
+                    "igmp_confirmed": False, "image_encrypt": True,
+                }})
+
     def test_start_client_job_preflights_and_persists_multicast_interface(self):
         import stat
         import tempfile
