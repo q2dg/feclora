@@ -683,7 +683,7 @@ export default function App() {
       const result = await callFeclora("complete_client_enrollment", {
         client_id: clientId, host: clientHost, mac_address: clientMacInput,
         bundle_directory: clientBundleDirectory, ca_fingerprint: clientCaFingerprint,
-        server_minisign_sha256: clientServerFingerprint
+        ...(clientServerFingerprint.trim() ? { server_minisign_sha256: clientServerFingerprint.trim() } : {})
       });
       setClientCompleted(result); setNotice(result.message);
       await refresh();
@@ -707,7 +707,7 @@ export default function App() {
       const result = await callFeclora("complete_client_renewal", {
         bundle_directory: clientRenewalBundleDirectory,
         ca_fingerprint: clientCaFingerprint,
-        server_minisign_sha256: clientServerFingerprint
+        ...(clientServerFingerprint.trim() ? { server_minisign_sha256: clientServerFingerprint.trim() } : {})
       });
       setClientRenewalCompleted(result); setNotice(result.message);
       await refresh();
@@ -723,7 +723,7 @@ export default function App() {
         minisign_public_path: clientMinisignPath || null, renewal: csrRenewal
       });
       setCsrReview(result);
-      setNotice(csrRenewal ? "Renewal CSR inspected; existing trust mappings remain unchanged until the new certificate is installed." : "CSR signature, Client identity and age recipient inspected. No trust changes have been made.");
+      setNotice(csrRenewal ? "Renewal CSR inspected; existing trust mappings remain unchanged until the new certificate is installed." : "CSR signature and Client identity inspected. Optional image-security material is checked only when supplied. No trust changes have been made.");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -1536,7 +1536,7 @@ export default function App() {
                 <Field label="Client CSR file" help="Absolute path under /run/media, /media or /mnt.">
                   <input className="pf-v5-c-form-control" value={csrPath} onChange={(e) => { setCsrPath(e.target.value); setCsrReview(null); }} />
                 </Field>
-                <Field label="Client age recipient file">
+                <Field label="Client age recipient file (optional)">
                   <input className="pf-v5-c-form-control" value={ageRecipientPath} onChange={(e) => { setAgeRecipientPath(e.target.value); setCsrReview(null); }} placeholder="/run/media/.../feclora-client.age-recipient" />
                 </Field>
                 <Field label="Client unicast MAC address">
@@ -1545,14 +1545,14 @@ export default function App() {
                 <Field label="Client minisign public key (optional)" help="Provide only if this Client may capture images for the Server.">
                   <input className="pf-v5-c-form-control" value={clientMinisignPath} onChange={(e) => { setClientMinisignPath(e.target.value); setCsrReview(null); }} placeholder="/run/media/.../client.minisign.pub" />
                 </Field>
-                <label><input type="checkbox" checked={csrRenewal} onChange={(event) => { setCsrRenewal(event.target.checked); setCsrReview(null); setCsrConfirmation(""); }} /> This CSR renews an already-enrolled Client certificate (preserve its MAC, age identity and image-signing trust)</label>
-                <Button variant="secondary" onClick={inspectClientCSR} isLoading={busy} isDisabled={busy || !csrPath || !ageRecipientPath || !clientMac}>Inspect {csrRenewal ? "renewal" : "enrollment"} request</Button>
+                <label><input type="checkbox" checked={csrRenewal} onChange={(event) => { setCsrRenewal(event.target.checked); setCsrReview(null); setCsrConfirmation(""); }} /> This CSR renews an already-enrolled Client certificate (preserve its MAC and any configured optional image-security material)</label>
+                <Button variant="secondary" onClick={inspectClientCSR} isLoading={busy} isDisabled={busy || !csrPath || !clientMac}>Inspect {csrRenewal ? "renewal" : "enrollment"} request</Button>
                 {csrApprovalResult && <Card className="pf-v5-u-mt-md"><CardBody>
                   <Alert variant="success" title={csrApprovalResult.renewal ? "Client certificate renewed" : "Client enrolled"} isInline>{csrApprovalResult.message}</Alert>
                   <p>Identity: {csrApprovalResult.identity} · MAC: {csrApprovalResult.mac_address}</p>
                   <p>Response bundle: {csrApprovalResult.bundle_directory}</p>
                   <p>Feclora CA SHA-256 fingerprint (verify on Client):</p><code>{csrApprovalResult.ca_fingerprint}</code>
-                  <p>Server minisign public-key SHA-256 fingerprint (verify on Client):</p><code>{csrApprovalResult.server_minisign_sha256}</code>
+                  {csrApprovalResult.server_minisign_sha256 && <><p>Optional Server minisign public-key SHA-256 fingerprint (verify on Client):</p><code>{csrApprovalResult.server_minisign_sha256}</code></>}
                   <p>Client image capture: {csrApprovalResult.image_capture_enabled ? "authorized" : "not authorized"}</p>
                 </CardBody></Card>}
                 {csrReview && <Card className="pf-v5-u-mt-md"><CardBody>
@@ -1616,8 +1616,8 @@ export default function App() {
                 {clientRenewalPrepared && <Alert variant="success" title="Renewal request prepared" isInline>{clientRenewalPrepared.message}<p>Identity: {clientRenewalPrepared.identity}</p><p>CSR: {clientRenewalPrepared.csr_file}</p><p>Age recipient: {clientRenewalPrepared.age_recipient_file}</p>{clientRenewalPrepared.minisign_public_file && <p>Existing public minisign key: {clientRenewalPrepared.minisign_public_file}</p>}</Alert>}
                 <Field label="Mounted Server renewal response bundle directory"><input className="pf-v5-c-form-control" value={clientRenewalBundleDirectory} onChange={(event) => setClientRenewalBundleDirectory(event.target.value)} placeholder="/run/media/liveuser/USB" /></Field>
                 <Field label="Feclora CA SHA-256 fingerprint"><input className="pf-v5-c-form-control" value={clientCaFingerprint} onChange={(event) => setClientCaFingerprint(event.target.value)} /></Field>
-                <Field label="Server minisign public-key SHA-256 fingerprint"><input className="pf-v5-c-form-control" value={clientServerFingerprint} onChange={(event) => setClientServerFingerprint(event.target.value)} /></Field>
-                <Button variant="danger" onClick={completeClientRenewal} isLoading={busy} isDisabled={busy || !clientRenewalBundleDirectory || !clientCaFingerprint || !clientServerFingerprint}>Verify and install renewed certificate</Button>
+                <Field label="Server minisign public-key SHA-256 fingerprint (optional)" help="Leave blank when image-signature verification is not configured."><input className="pf-v5-c-form-control" value={clientServerFingerprint} onChange={(event) => setClientServerFingerprint(event.target.value)} /></Field>
+                <Button variant="danger" onClick={completeClientRenewal} isLoading={busy} isDisabled={busy || !clientRenewalBundleDirectory || !clientCaFingerprint}>Verify and install renewed certificate</Button>
                 {clientRenewalCompleted && <Alert variant="success" title="Client certificate renewed" isInline>{clientRenewalCompleted.message}</Alert>}
               </CardBody></Card></StackItem> : <>
                 <StackItem>
@@ -1643,8 +1643,8 @@ export default function App() {
                   <Field label="This Client unicast MAC address"><input className="pf-v5-c-form-control" value={clientMacInput} onChange={(e) => setClientMacInput(e.target.value)} placeholder="02:11:22:33:44:55" /></Field>
                   <Field label="Mounted Server response bundle directory"><input className="pf-v5-c-form-control" value={clientBundleDirectory} onChange={(e) => setClientBundleDirectory(e.target.value)} placeholder="/run/media/liveuser/USB" /></Field>
                   <Field label="Feclora CA SHA-256 fingerprint" help="Copy the fingerprint displayed in the Server approval result."><input className="pf-v5-c-form-control" value={clientCaFingerprint} onChange={(e) => setClientCaFingerprint(e.target.value)} /></Field>
-                  <Field label="Server minisign public-key SHA-256 fingerprint" help="Copy the fingerprint displayed in the Server approval result."><input className="pf-v5-c-form-control" value={clientServerFingerprint} onChange={(e) => setClientServerFingerprint(e.target.value)} /></Field>
-                  <Button variant="primary" onClick={completeClientEnrollment} isLoading={busy} isDisabled={busy || !clientId || !clientHost || !clientMacInput || !clientBundleDirectory || !clientCaFingerprint || !clientServerFingerprint}>Verify and install Client identity</Button>
+                  <Field label="Server minisign public-key SHA-256 fingerprint (optional)" help="Copy the fingerprint only when the Server provides server.pub. Leave blank otherwise."><input className="pf-v5-c-form-control" value={clientServerFingerprint} onChange={(e) => setClientServerFingerprint(e.target.value)} /></Field>
+                  <Button variant="primary" onClick={completeClientEnrollment} isLoading={busy} isDisabled={busy || !clientId || !clientHost || !clientMacInput || !clientBundleDirectory || !clientCaFingerprint}>Verify and install Client identity</Button>
                   {clientCompleted && <Alert variant="success" title="Client enrollment complete" isInline>{clientCompleted.message} Identity: {clientCompleted.identity}. Image capture: {clientCompleted.image_capture_enabled ? "authorized" : "not authorized"}.</Alert>}
                 </StackItem>
               </>}
