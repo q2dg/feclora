@@ -78,6 +78,7 @@ export default function App() {
   const [credentialSourceFile, setCredentialSourceFile] = useState("");
   const [credentialReplace, setCredentialReplace] = useState(false);
   const [repositoryId, setRepositoryId] = useState("");
+  const [repositoryEditing, setRepositoryEditing] = useState(false);
   const [selectedRepositoryId, setSelectedRepositoryId] = useState("");
   const [repositoryImages, setRepositoryImages] = useState([]);
   const [repositoryProvider, setRepositoryProvider] = useState("sshfs");
@@ -299,7 +300,7 @@ export default function App() {
   const saveRemoteRepository = async (event) => {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
-      await callFeclora("add_remote_repository", {
+      await callFeclora(repositoryEditing ? "update_remote_repository" : "add_remote_repository", {
         id: repositoryId, provider: repositoryProvider, host: repositoryHost,
         remote_path: repositoryPath,
         username: repositoryProvider === "sshfs" || repositoryProvider === "smb" ? repositoryUsername || null : null,
@@ -309,18 +310,38 @@ export default function App() {
         port: repositoryProvider === "sshfs" || repositoryProvider === "smb" ? (repositoryPort ? Number(repositoryPort) : null) : null,
         rclone_remote: repositoryProvider === "s3" ? repositoryRcloneRemote : null, read_only: repositoryProvider === "s3" ? true : repositoryReadOnly
       });
-      setNotice("Repository definition saved; no mount was started.");
-      setRepositoryId(""); await refresh();
+      setNotice(repositoryEditing ? "Repository definition updated; no mount was started." : "Repository definition saved; no mount was started.");
+      setRepositoryId(""); setRepositoryEditing(false); await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
+  };
+
+  const editRemoteRepository = (repo) => {
+    if (repo.mounted) return;
+    setRepositoryId(repo.id); setRepositoryEditing(true);
+    setRepositoryProvider(repo.provider); setRepositoryHost(repo.host);
+    setRepositoryPath(repo.remote_path); setRepositoryUsername(repo.username || "");
+    setRepositoryIdentity(repo.identity_file || ""); setRepositoryKnownHosts(repo.known_hosts_file || "");
+    setRepositoryCredentials(repo.credential_file || ""); setRepositoryRcloneRemote(repo.rclone_remote || "");
+    setRepositoryPort(repo.port ? String(repo.port) : ""); setRepositoryReadOnly(Boolean(repo.read_only));
+  };
+
+  const resetRemoteRepositoryForm = () => {
+    setRepositoryId(""); setRepositoryEditing(false); setRepositoryProvider("sshfs");
+    setRepositoryHost(""); setRepositoryPath("/images"); setRepositoryUsername("");
+    setRepositoryIdentity(""); setRepositoryKnownHosts(""); setRepositoryCredentials("");
+    setRepositoryRcloneRemote(""); setRepositoryPort("22"); setRepositoryReadOnly(true);
   };
 
   const runRemoteRepositoryAction = async (action, id) => {
     setBusy(true); setError(""); setNotice("");
     try {
-      await callFeclora(action, { id });
+      const actionResult = await callFeclora(action, { id });
       setNotice(action === "remove_remote_repository" ? `Removed repository ${id}.`
-        : action === "mount_remote_repository" ? `Mounted repository ${id}.` : `Unmounted repository ${id}.`);
+        : action === "mount_remote_repository" ? `Mounted repository ${id}.`
+        : action === "unmount_remote_repository" ? `Unmounted repository ${id}.`
+        : action === "check_remote_repository" ? `Repository ${id}: ${actionResult.verified ? "mount verified" : actionResult.mounted ? "mounted but unverified" : "not mounted"}.`
+        : `Repository ${id} updated.`);
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -1075,7 +1096,7 @@ export default function App() {
                 <Alert variant="warning" title="Provider scope" isInline>Cockpit currently exposes SSHFS, NFS, SMB/CIFS and read-only S3/rclone. WebDAV remains hidden until per-repository encrypted credentials are supported; SFTP is a separate transfer provider and is not implemented. S3 is read-only until Feclora has a safe object-publication protocol; use it for inventory, verification and restore, not capture.</Alert>
               </StackItem>
               <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
-                <Field label="Repository ID"><input className="pf-v5-c-form-control" value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
+                <Field label="Repository ID"><input className="pf-v5-c-form-control" value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} readOnly={repositoryEditing} required /></Field>
                 <Field label="Provider"><select className="pf-v5-c-form-control" value={repositoryProvider} onChange={(e) => { setRepositoryProvider(e.target.value); setRepositoryPort(e.target.value === "sshfs" ? "22" : ""); }}>
                   <option value="sshfs">SSHFS (remote filesystem over SSH)</option><option value="nfs">NFS</option><option value="smb">SMB/CIFS</option><option value="s3">S3-compatible object storage (rclone)</option>
                 </select></Field>
@@ -1092,7 +1113,7 @@ export default function App() {
                 <Field label="Mount access"><select className="pf-v5-c-form-control" value={repositoryReadOnly ? "ro" : "rw"} onChange={(e) => setRepositoryReadOnly(e.target.value === "ro")}>
                   <option value="ro">Read-only</option><option value="rw" disabled={repositoryProvider === "s3"}>Read/write (image capture)</option>
                 </select></Field>
-                <Button type="submit" variant="primary" isDisabled={busy || !repositoryId || !repositoryHost || !repositoryPath}>Save repository definition</Button>
+                <Button type="submit" variant="primary" isDisabled={busy || !repositoryId || !repositoryHost || !repositoryPath}>{repositoryEditing ? "Update repository definition" : "Save repository definition"}</Button>{" "}{repositoryEditing && <Button type="button" variant="link" onClick={resetRemoteRepositoryForm} isDisabled={busy}>Cancel edit</Button>}
               </form></CardBody></Card></StackItem>
                             <StackItem><Title headingLevel="h2" size="lg">Encrypted repository credentials</Title>
                 <p>Import a root-owned private source file (mode 0600, no symlinks or hard links). Cockpit submits only its path; the API encrypts its contents with systemd-creds and never returns secret material. The source file remains in place and must be protected or securely removed by the operator.</p>
@@ -1111,6 +1132,8 @@ export default function App() {
               <StackItem><Title headingLevel="h2" size="lg">Configured repositories</Title>
                 <Table aria-label="Remote image repositories" variant="compact"><Thead><Tr><Th>ID</Th><Th>Provider</Th><Th>Remote location</Th><Th>Access</Th><Th>Mount state</Th><Th>Actions</Th></Tr></Thead><Tbody>
                   {remoteRepositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.provider}</Td><Td>{repo.host}:{repo.remote_path}<br />{repo.mountpoint}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td>{repo.mounted ? (repo.verified ? <Label color="green">Mounted · verified</Label> : <><Label color="red">Mounted · unverified</Label>{repo.mount_error && <div className="pf-v5-u-color-danger pf-v5-u-font-size-sm">{repo.mount_error}</div>}</>) : <Label color="grey">Unmounted</Label>}</Td><Td>
+                    <Button size="sm" variant="secondary" isDisabled={busy || repo.mounted} onClick={() => editRemoteRepository(repo)}>Edit</Button>{" "}
+                    <Button size="sm" variant="secondary" isDisabled={busy} onClick={() => runRemoteRepositoryAction("check_remote_repository", repo.id)}>Check</Button>{" "}
                     <Button size="sm" variant="secondary" isDisabled={busy || repo.mounted} onClick={() => runRemoteRepositoryAction("mount_remote_repository", repo.id)}>Mount</Button>{" "}
                     <Button size="sm" variant="secondary" isDisabled={busy || !repo.mounted} onClick={() => runRemoteRepositoryAction("unmount_remote_repository", repo.id)}>Unmount</Button>{" "}
                     <Button size="sm" variant="danger" isDisabled={busy || repo.mounted} onClick={() => runRemoteRepositoryAction("remove_remote_repository", repo.id)}>Remove</Button>
