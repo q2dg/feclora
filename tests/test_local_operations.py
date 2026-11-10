@@ -194,7 +194,7 @@ class LocalOperationStoreTests(unittest.TestCase):
             self.assertEqual(report["state"], "cancelled")
             self.assertFalse(report["events"][-1]["details"]["destination_may_be_partial"])
 
-    def test_running_destructive_write_cannot_be_cancelled(self):
+    def test_running_destructive_write_records_possible_partial_destination_on_cancel(self):
         with tempfile.TemporaryDirectory() as root:
             store = LocalOperationStore(os.path.join(root, "jobs"))
             identifier = store.submit("restore_disk", {
@@ -203,8 +203,13 @@ class LocalOperationStoreTests(unittest.TestCase):
             })
             store.append(identifier, "preflight")
             store.append(identifier, "running")
-            with self.assertRaisesRegex(LocalOperationError, "invalid operation transition"):
-                store.append(identifier, "cancelled")
+            store.append(identifier, "cancelled", {
+                "reason": "operator requested cancellation",
+                "destination_may_be_partial": True,
+            })
+            report = store.status(identifier)
+            self.assertEqual(report["state"], "cancelled")
+            self.assertTrue(report["events"][-1]["details"]["destination_may_be_partial"])
 
     def test_list_returns_durable_operation_status(self):
         with tempfile.TemporaryDirectory() as root:
