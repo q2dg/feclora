@@ -19,6 +19,36 @@ class LocalOperationStoreTests(unittest.TestCase):
             self.assertEqual(status["events"][0]["sequence"], 1)
             self.assertEqual(store.definition(operation_id)["params"]["source"], "/dev/sda")
 
+    def test_sftp_inventory_is_a_valid_durable_operation(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000001",
+            "action": "sftp_inventory",
+            "params": {
+                "host": "backup.example.net", "username": "backup",
+                "remote_directory": "/", "port": 22,
+                "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+                "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+            },
+        }
+        validated = validate_definition(definition)
+        self.assertEqual(validated["action"], "sftp_inventory")
+
+    def test_sftp_inventory_rejects_path_traversal(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000001",
+            "action": "sftp_inventory",
+            "params": {
+                "host": "backup.example.net", "username": "backup",
+                "remote_directory": "/images/../escape", "port": 22,
+                "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+                "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+            },
+        }
+        with self.assertRaisesRegex(LocalOperationError, "absolute and normalized"):
+            validate_definition(definition)
+
     def test_capture_can_include_encrypted_sftp_publication_settings(self):
         definition = {
             "schema_version": 1,
