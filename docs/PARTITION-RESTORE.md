@@ -7,8 +7,10 @@ Before starting a writer it:
 - requires the exact confirmation `ERASE /dev/PARTITION`;
 - validates the manifest and requires exactly one partition-image artifact;
 - verifies the stored artifact size and SHA-256;
-- fully decompresses the image into a temporary file on the image repository
-  filesystem, validating gzip/xz framing or zstd/lz4 process exit status before any target write;
+- fully decompresses the image into a private temporary file on the local
+  temporary filesystem, validating gzip/xz framing or zstd/lz4 process exit
+  status before any target write. Encrypted artifacts are first authenticated
+  and decrypted into a separate local temporary file;
 - checks that the destination is a real block device of type `part`, large
   enough for the source geometry, and has the same logical sector size;
 - rejects mounted, active-swap, busy, device-mapper-held, or Live-root backing
@@ -20,7 +22,7 @@ Raw partition artifacts are written with `dd`. Partclone artifacts use the
 filesystem-specific `partclone.* -r` executable recorded in the manifest.
 The image stream is fully staged and verified before either writer starts.
 Partclone is invoked with forced one-second progress updates; its stderr
-percentage reports are forwarded to the Local rescue gauge. Closing the gauge
+percentage reports are forwarded to the Cockpit operation progress display. Cancelling the operation
 terminates the active restore process. Raw restores report byte progress.
 
 After a raw restore, feclora reads the exact source byte count back from the
