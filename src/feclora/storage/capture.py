@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import json
 import os
 import re
+from .process_control import stop_process
 import shutil
 import stat
 import subprocess
@@ -359,9 +360,7 @@ def capture_partition(
                     filesystem=plan.filesystem,
                 )
             except ArtifactWriteError as exc:
-                if process.poll() is None:
-                    process.terminate()
-                process.wait()
+                stop_process(process)
                 raise CaptureError(f"could not store capture stream: {exc}") from exc
             finally:
                 process.stdout.close()
@@ -403,9 +402,7 @@ def capture_partition(
         raise CaptureError(f"capture failed: {exc}") from exc
     finally:
         if process is not None:
-            if process.poll() is None:
-                process.terminate()
-                process.wait()
+            stop_process(process)
             for stream_name in ("stdout", "stderr"):
                 stream = getattr(process, stream_name, None)
                 if stream is not None:
