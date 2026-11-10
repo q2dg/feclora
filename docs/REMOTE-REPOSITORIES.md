@@ -270,7 +270,7 @@ regular files. It uses OpenSSH SFTP in batch mode with `-F /dev/null`,
 `BatchMode=yes`, `IdentitiesOnly=yes`, `StrictHostKeyChecking=yes`, an
 explicit `UserKnownHostsFile`, and an explicit identity file. It does not
 accept passwords, invoke a shell, or consult the operator's SSH configuration.
-Upload first writes a random hidden staging name and then issues SFTP rename;
+Upload first writes a random hidden staging name and then creates the final name with the OpenSSH SFTP hard-link extension (which fails if the destination exists), removing the staging name only after success;
 download writes to a random sibling temporary file, checks the caller-supplied
 SHA-256 (normally obtained from a signed Feclora manifest), and publishes with
 a no-overwrite hard link.
@@ -297,8 +297,9 @@ against the signed manifest. It then uploads each artifact, followed by
 the publication marker: a consumer must not accept a set without downloading
 and verifying both metadata files and independently checking every artifact.
 
-Each individual upload retains the adapter's random staging name and remote
-rename/no-overwrite behavior. This is not a multi-file atomic transaction:
+Each individual upload retains the adapter's random staging name and uses the
+OpenSSH hard-link extension for atomic no-overwrite publication; servers that
+do not support that extension fail closed. This is not a multi-file atomic transaction:
 failed publication can leave unreferenced remote artifacts or a manifest
 without its signature. Such a set is incomplete and must be rejected. The
 publisher does not yet implement remote inventory/garbage collection,
