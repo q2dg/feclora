@@ -87,7 +87,7 @@ def execute_multicast_restore(
     *,
     server_identity: str,
     repository: str | os.PathLike[str],
-    trusted_server_public_key: str | os.PathLike[str],
+    trusted_server_public_key: str | os.PathLike[str] | None,
     firewall: Any,
     network_interface: str | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
@@ -119,8 +119,11 @@ def execute_multicast_restore(
         signature_bytes = base64.b64decode(offer["signature_b64"], validate=True)
     except (ValueError, TypeError) as exc:
         raise MulticastDeploymentError("multicast manifest offer contains invalid base64") from exc
-    if not manifest_bytes or len(manifest_bytes) > 8 * 1024 or not signature_bytes or len(signature_bytes) > 2048:
-        raise MulticastDeploymentError("multicast signed manifest exceeds the control-plane size limit")
+    if not manifest_bytes or len(manifest_bytes) > 8 * 1024 or len(signature_bytes) > 2048:
+        raise MulticastDeploymentError("multicast manifest exceeds the control-plane size limit")
+    signature_present = bool(signature_bytes)
+    if signature_present and not trusted_server_public_key:
+        raise MulticastDeploymentError("signed multicast image requires an independently trusted Server minisign key")
     root = os.path.abspath(os.fspath(repository))
     try:
         root_info = os.lstat(root)
@@ -130,17 +133,16 @@ def execute_multicast_restore(
         os.chmod(workdir, 0o700)
         manifest_path = os.path.join(workdir, job.image_id + ".manifest.json")
         _write_private(manifest_path, manifest_bytes)
-        _write_private(manifest_path + ".minisig", signature_bytes)
-        verify_manifest_signature(manifest_path, trusted_server_public_key)
+        if signature_present:
+            _write_private(manifest_path + ".minisig", signature_bytes)
+            verify_manifest_signature(manifest_path, trusted_server_public_key)
         manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
         if manifest.image_id != job.image_id:
             raise MulticastDeploymentError("signed image manifest does not match the job image identifier")
         if manifest.image_type != job.target_type:
             raise MulticastDeploymentError("signed image type does not match the locally approved deployment target type")
-        if not manifest.artifacts or any(artifact.encryption != "age" for artifact in manifest.artifacts):
-            raise MulticastDeploymentError("multicast restore requires every artifact to be age-encrypted")
-        if not age_identity_file:
-            raise MulticastDeploymentError("multicast restore requires this Client age identity")
+        if not manifest.artifacts:
+            raise MulticastDeploymentError("multicast image manifest contains no artifacts")
         required_bytes = sum(item.size_bytes for item in manifest.artifacts)
         if shutil.disk_usage(workdir).free < required_bytes:
             raise MulticastDeploymentError("insufficient Client staging space for the complete signed image set")
@@ -158,14 +160,14 @@ def execute_multicast_restore(
             verify_staged_multicast_artifact(
                 destination, manifest_path, trusted_server_public_key, artifact.filename,
             )
-        # The restore function re-verifies the signature and every artifact
-        # before opening the selected block device for writing.
+        # The restore function re-verifies any signature, artifact hashes and
+        # optional age decryption before opening the selected block device.
         restore_function = restore_partition if manifest.image_type == "partition" else restore_disk
         restore_function(
             manifest_path, workdir, approval.device_path,
             confirmation=f"ERASE {approval.device_path}",
-            minisign_public_key=trusted_server_public_key,
-            require_signature=True,
+            minisign_public_key=trusted_server_public_key if signature_present else None,
+            require_signature=signature_present,
             age_identity_file=age_identity_file,
             progress_callback=progress_callback,
             executables=executables,
