@@ -87,8 +87,13 @@ access mode. This is an identity/configuration check only: it does not probe
 remote read/write connectivity, latency, free space, quota or service health.
 A verified mount can still be stale or unable to complete I/O after a network
 failure. Cockpit exposes add/edit/check/mount/unmount/remove and never receives
-credential contents. Existing registry entries created before the
-rclone_remote field was introduced remain readable.
+credential contents. Registry mutations (`add`, `update` and `remove`) are serialized across
+processes with a separate root-owned, mode-0600 lock file. `update` and
+`remove` reload the registry after acquiring that lock, so concurrent changes
+to different repository IDs are not lost through stale read-modify-write
+snapshots. Per-repository usage leases remain separate and continue to protect
+active restore jobs. Existing registry entries created before the
+`rclone_remote` field was introduced remain readable.
 
 WebDAV is currently unavailable in the repository manager. The earlier
 root-invoked davfs2 integration did not provide safe per-repository credential
