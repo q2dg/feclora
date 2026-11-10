@@ -29,7 +29,7 @@ class SFTPTransferTests(unittest.TestCase):
                     identity_file=str(key), known_hosts_file=str(known),
                 )
             self.assertIn("-b", argv)
-            self.assertIn("StrictHostKeyChecking=yes", argv)
+            self.assertIn("-oStrictHostKeyChecking=yes", argv)
             self.assertIn("-oGlobalKnownHostsFile=/dev/null", argv)
             self.assertIn("-oPasswordAuthentication=no", argv)
             self.assertIn("-oPreferredAuthentications=publickey", argv)
