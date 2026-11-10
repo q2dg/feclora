@@ -58,6 +58,14 @@ def _partclone_supports_json_status(executable: str) -> bool:
     return "--json-status" in (result.stdout or "") + (result.stderr or "")
 
 
+def _read_partclone_percent(path: str) -> int | None:
+    """Return Partclone's completed-block percentage from its native snapshot."""
+    progress = _read_partclone_status(path)
+    if progress is None or progress[1] <= 0:
+        return None
+    return max(0, min(100, int(progress[0] * 100 / progress[1])))
+
+
 def _read_partclone_status(path: str) -> tuple[int, int] | None:
     """Read a bounded, no-follow Partclone status snapshot as logical data bytes."""
     try:
