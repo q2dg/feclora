@@ -225,6 +225,7 @@ export default function App() {
   useEffect(() => { refresh(); }, [refresh]);
 
   const cancelLocalOperation = async (operationId) => {
+    if (!window.confirm("Request cancellation of this operation? A running restore or clone cannot be rolled back and may leave its destination partially written.")) return;
     setCancellingOperationId(operationId); setError(""); setNotice("");
     try {
       const result = await callFeclora("cancel_local_operation", { operation_id: operationId });
@@ -1384,7 +1385,7 @@ export default function App() {
           </Tab>
           <Tab eventKey="operation-log" title="Operation log">
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Local operation history</Title><p>Durable local operation definitions and state history, including worker progress and terminal diagnostics. Interrupted writes require operator inspection and are never resumed automatically.</p><Title headingLevel="h2" size="xl">Local operation history</Title><p>Durable local operation definitions and state history, including worker progress and terminal diagnostics. Cancelled or interrupted restores and clones may have partially modified their destination; inspect the target before reusing it. Cancel requests are orderly but can take time to stop child processes.</p></StackItem>
-              <StackItem><Table aria-label="Local operation history" variant="compact"><Thead><Tr><Th>Timestamp</Th><Th>Operation</Th><Th>Target</Th><Th>Image</Th><Th>Status</Th><Th>Progress</Th><Th>Operation ID</Th><Th>Failure detail</Th><Th>Control</Th></Tr></Thead><Tbody>
+              <StackItem><Table aria-label="Local operation history" variant="compact"><Thead><Tr><Th>Timestamp</Th><Th>Operation</Th><Th>Target</Th><Th>Image</Th><Th>Status</Th><Th>Progress</Th><Th>Operation ID</Th><Th>Details</Th><Th>Control</Th></Tr></Thead><Tbody>
                 {operations.map((item) => {
                   const events = item.events || [];
                   const latest = events[events.length - 1] || {};
@@ -1396,7 +1397,7 @@ export default function App() {
                     <Td>{details.target || details.source || "—"}</Td><Td>{details.image_id || "—"}</Td>
                     <Td><Label color={item.state === "completed" ? "green" : ["failed", "cancelled", "interrupted"].includes(item.state) ? "red" : "orange"}>{item.state || "unknown"}</Label></Td>
                     <Td>{progress ? formatBytes(progressDetails.bytes_done || 0) + (progressDetails.bytes_total !== null && progressDetails.bytes_total !== undefined ? " / " + formatBytes(progressDetails.bytes_total) : " processed") : "—"}</Td>
-                    <Td>{item.operation_id}</Td><Td>{details.error ? <><strong>{details.error_type || "Operation error"}:</strong> {details.error}</> : details.reason || "—"}</Td>
+                    <Td>{item.operation_id}</Td><Td>{details.destination_may_be_partial ? <><strong>Destination may be partially written.</strong> {details.reason || "Inspect it before reuse."}</> : details.error ? <><strong>{details.error_type || "Operation error"}:</strong> {details.error}</> : details.reason || "—"}</Td>
                     <Td>{["queued", "preflight", "running"].includes(item.state) ? <Button size="sm" variant="danger" isDisabled={cancellingOperationId === item.operation_id} onClick={() => cancelLocalOperation(item.operation_id)}>{cancellingOperationId === item.operation_id ? "Requesting…" : "Cancel"}</Button> : "—"}</Td>
                   </Tr>;
                 })}
