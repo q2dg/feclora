@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import replace
 import hashlib
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -51,14 +52,31 @@ def preflight_image_security(
 ) -> None:
     """Validate selected optional image-security inputs before a long capture."""
     if age_recipients_file is not None:
-        _regular_file(age_recipients_file, "age recipients file")
+        recipients_path = _regular_file(age_recipients_file, "age recipients file")
+        try:
+            if os.path.getsize(recipients_path) > 64 * 1024:
+                raise ImageSecurityError("age recipients file exceeds the 64 KiB limit")
+            recipients = [
+                line.strip() for line in open(recipients_path, encoding="ascii").read().splitlines()
+                if line.strip()
+            ]
+        except (OSError, UnicodeError) as exc:
+            raise ImageSecurityError(f"cannot read age recipients file: {exc}") from exc
+        if (not recipients or len(recipients) != len(set(recipients))
+                or any(not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients)):
+            raise ImageSecurityError("age recipients file is empty, duplicated or contains malformed recipients")
         executable = age_executable or shutil.which("age")
         if not executable:
             raise ImageSecurityError("age executable is required for image encryption")
         if not os.path.isfile(executable) or not os.access(executable, os.X_OK):
             raise ImageSecurityError("configured age executable is unavailable or not executable")
     if minisign_secret_key is not None:
-        _regular_file(minisign_secret_key, "minisign secret key")
+        secret_path = _regular_file(minisign_secret_key, "minisign secret key")
+        secret_info = os.stat(secret_path)
+        if secret_info.st_mode & 0o077:
+            raise ImageSecurityError("minisign secret key must not be accessible by group or other users")
+        if secret_info.st_size == 0 or secret_info.st_size > 64 * 1024:
+            raise ImageSecurityError("minisign secret key size is outside the permitted range")
         executable = minisign_executable or shutil.which("minisign")
         if not executable:
             raise ImageSecurityError("minisign executable is required for manifest signing")
