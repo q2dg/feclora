@@ -94,14 +94,16 @@ querier behavior has been independently configured and checked.
 
 ## 3. Remote repository provider acceptance
 
-Run this procedure independently for each configured SSHFS, NFS, SMB/CIFS and
-WebDAV endpoint. Use a dedicated test account/export/share and a disposable
-image. Do not reuse production credentials.
+Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS
+endpoint. WebDAV is currently rejected by the repository manager until its
+per-repository encrypted credential lifecycle is implemented; do not attempt
+to enable it by writing `/etc/davfs2/secrets`. Use a dedicated test
+account/export/share and a disposable image. Do not reuse production credentials.
 
 1. Prepare the provider endpoint and provision credentials using the
    provider's root-protected mechanism. Verify SSH host keys for SSHFS, NFS
-   export ownership/mapping, SMB share permissions, or HTTPS certificate and
-   WebDAV secrets as appropriate.
+   export ownership/mapping or SMB share permissions as appropriate. WebDAV
+   HTTPS and isolated-credential acceptance must wait for its implementation.
 2. Add the repository in Cockpit with the correct provider, endpoint/share,
    remote path and access mode. Credential contents must never be pasted into
    Cockpit fields or stored in ordinary project configuration.
