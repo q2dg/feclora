@@ -218,6 +218,9 @@ class RemoteRepositoryManager:
             item = {
                 "id": identifier, "provider": definition["provider"],
                 "host": definition["host"], "remote_path": definition["remote_path"],
+                "username": definition.get("username"), "credential_file": definition.get("credential_file"),
+                "identity_file": definition.get("identity_file"), "known_hosts_file": definition.get("known_hosts_file"),
+                "port": definition.get("port"), "rclone_remote": definition.get("rclone_remote"),
                 "read_only": definition["read_only"], "mountpoint": mountpoint,
                 "credential_refs": [
                     value for key in ("credential_file", "identity_file", "known_hosts_file")
@@ -244,6 +247,39 @@ class RemoteRepositoryManager:
             return path.is_absolute() and path.parent == self.credential_root and path.name.endswith(".cred")
         except (TypeError, ValueError):
             return False
+
+    def check(self, identifier: str) -> dict[str, Any]:
+        """Report the current mount and source verification state for one repository."""
+        for item in self.list():
+            if item["id"] == identifier:
+                return item
+        raise RepositoryManagerError("unknown repository ID")
+
+    def update(self, identifier: str, definition: dict[str, Any]) -> dict[str, Any]:
+        """Replace a repository definition only while it is unmounted and unused."""
+        entries = self._load()
+        if identifier not in entries:
+            raise RepositoryManagerError("unknown repository ID")
+        if not isinstance(definition, dict):
+            raise RepositoryManagerError("repository definition must be an object")
+        repo = _repository(identifier, definition, owner_uid=self.owner_uid)
+        lock_fd = self._acquire_usage_lock(identifier, exclusive=True)
+        try:
+            mountpoint = self.mount_root / identifier
+            _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
+            if self._is_mounted(str(mountpoint)):
+                raise RepositoryManagerError("unmount the repository before editing its definition")
+            entries[identifier] = {
+                "provider": repo.provider, "host": repo.host, "remote_path": repo.remote_path,
+                "username": repo.username, "credential_file": repo.credential_file,
+                "identity_file": repo.identity_file, "known_hosts_file": repo.known_hosts_file,
+                "port": repo.port, "rclone_remote": repo.rclone_remote,
+                "read_only": repo.read_only,
+            }
+            _write_registry(entries, self.registry, owner_uid=self.owner_uid)
+            return {"id": identifier, "updated": True, "provider": repo.provider}
+        finally:
+            os.close(lock_fd)
 
     def credential_is_referenced(self, credential_path: str) -> bool:
         """Return whether any saved repository definition references this credential."""
