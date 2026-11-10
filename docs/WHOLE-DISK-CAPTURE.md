@@ -26,3 +26,14 @@ byte-based progress and supports cancellation; a cancelled capture removes its
 staging data and does not publish a manifest. Power-loss recovery for a crash
 between individual hard-link operations remains pending. The manifest-last convention lets readers
 ignore incomplete image sets without a manifest.
+
+## Local rescue UI procedure
+
+1. Open **Capture whole disk** and select the source disk. The operation is read-only.
+2. Enter a unique image identifier.
+3. Choose compression (`none`, `gzip`, `xz`, `zstd` or `lz4`) and, when applicable, its level.
+4. Choose image protection independently: neither, age encryption, minisign signature, or both. Supply only the public age recipients file and/or the minisign secret key requested by the selected mode.
+5. Review the source and wait for the progress gauge to complete. Closing the gauge cancels capture; an incomplete set is not published as a valid image.
+6. Confirm that the manifest appears in the image repository before using or transferring the image.
+
+The UI currently uses the text-mode `dialog` interface. **Screenshots are intentionally not embedded yet**: they must be captured from a real, version-matched Fedora Live session. Add them under `docs/assets/screenshots/` with the same step numbers before claiming visual validation.
