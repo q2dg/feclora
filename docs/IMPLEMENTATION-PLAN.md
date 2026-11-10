@@ -266,7 +266,8 @@ pre-existing files are preserved.
 - [x] Add safe Cockpit remote manifest-marker listing and authenticated signed-manifest metadata inspection before artifact retrieval; multi-directory catalog discovery remains pending.
 - [x] Connect authenticated SFTP fetch/import to a journaled Cockpit API action and local image inventory.
 - [x] Connect signed-image publication to disk/partition capture and existing Cockpit upload actions.
-- [x] Add bounded retries for transient SFTP download and inventory transport failures; never retry uploads automatically when publication outcome may be ambiguous.\n- [ ] Add transfer byte progress, operator cancellation, resume and complete recovery semantics.
+- [x] Add bounded retries for transient SFTP download and inventory transport failures; never retry uploads automatically when publication outcome may be ambiguous.
+- [ ] Add transfer byte progress, operator cancellation, resume and complete recovery semantics.
 - [x] Expose one-shot Cockpit SFTP image import and signed-image publication forms with encrypted SSH-key/known_hosts selection and local signing trust.
 - [x] Add a private root-owned registry and Cockpit save/select/remove controls for named SFTP endpoints with encrypted credential references.
 - [ ] Add multi-directory inventory/discovery and provider health checks.
