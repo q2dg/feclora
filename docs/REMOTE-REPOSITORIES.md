@@ -331,8 +331,18 @@ results explicitly report digest verification. The destination root must
 already exist and must not contain symlinked path components. The remote
 directory must already exist on the SFTP server.
 
-This provides a signed, integrity-checked image-set transfer primitive in both
-directions. It still does not discover remote image IDs, list SFTP repositories,
-integrate with Cockpit, operation journals, or capture/restore orchestration.
-It is not yet an accepted end-user SFTP workflow. The new unit tests have not
-been executed in this implementation session.
+Cockpit now exposes a one-shot **Fetch, verify and import image** form. The
+operator selects an encrypted SSH private-key reference and a pinned
+`known_hosts` reference; the API resolves those references through the
+systemd credential inventory and runs the transfer in a transient service.
+The import uses the local `/etc/feclora/pki/server.pub` as its independent
+minisign trust anchor and writes into the native local image repository. The
+operation is recorded in the local operation journal. No plaintext SSH
+material is sent through Cockpit.
+
+This is only the SFTP restore-side import path. There is no saved SFTP
+repository definition, remote image listing/discovery, Cockpit capture/upload
+path, durable byte-level transfer progress, retry/resume or cancellation.
+The synchronous import operation does not yet expose transfer progress in the
+Cockpit UI. A complete provider workflow and operator acceptance remain
+pending. Unit tests have been added but have not been executed in this session.
