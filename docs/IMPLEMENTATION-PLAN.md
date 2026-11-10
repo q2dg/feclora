@@ -43,6 +43,8 @@ Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS ke
 - [x] Add a root-owned, atomic CA trust-bundle builder that validates CA constraints, certificate-signing usage, unique SHA-256 fingerprints and bounded PEM inputs. (Local building block only; authenticated package distribution remains pending.)
 - [x] Validate Client leaf certificates against any explicitly fingerprinted CA anchor in an imported PEM bundle and retain the complete bundle as the Client trust file.
 - [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
+- [ ] Make age identity/recipient provisioning conditional throughout enrollment, renewal, backup and deployment; no baseline workflow may require age.
+- [ ] Introduce a configurable manifest/profile signature-verifier interface. Keep minisign as an optional implementation, but remove hard dependencies from unattended restore, multicast, SFTP and save/restore paths before claiming those workflows support a minisign-free deployment.
 - [ ] If configured, specify and implement signing-key rotation and age recipient/identity rotation separately from TLS PKI. These optional integrations must not block the baseline product or release.
 - [x] Add encrypted offline CA backup to mounted removable media using an independently supplied age recipient; private CA material remains in root-only staging until encrypted.
 - [x] Add non-destructive Cockpit backup inspection: age decryption, strict archive/manifest validation, CA fingerprint and key-pair checks; never installs material.
