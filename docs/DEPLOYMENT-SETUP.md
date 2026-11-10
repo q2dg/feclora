@@ -69,7 +69,7 @@ The Server writes a private hash-chained job journal under /var/lib/feclora/depl
 For an interrupted job, the startup review offers an explicit operator reconciliation action. First inspect every Client and destination disk out of band; then select the acknowledgement and type exactly `RECONCILE <job-UUID>`. This appends a durable `operator_reconciled` event and closes the journal as failed, not successful. It does not retry, roll back, resume, or access any block device. Leaving the action pending is safe and prevents any implicit assumption about partial writes; Server refuses to create/arm another deployment until every interrupted journal has been reconciled.
 
 The Server's **Trusted Clients** screen offers:
-- **Approve Client CSR:** validate the Client-generated CSR, review the URI identity and MAC, issue a 90-day certificate, enroll the identity and add its age recipient to the Server inventory. The response bundle includes the CA certificate, Server minisign public key and current age recipients.
+- **Approve Client CSR:** validate the Client-generated CSR, review the URI identity and MAC, and issue a 90-day certificate. If age encryption is enabled, optionally register its age recipient. The response bundle includes the CA certificate and any configured public image-authentication material/recipient inventory.
 - **Import external certificate:** verify an organization-issued certificate for TLS client use, then bind its identity to the approved MAC.
 - **Revoke:** remove the TLS identity/MAC authorization, optional Client minisign trust and the mapped age recipient from future image-encryption inventories.
 - **Export updated age recipient inventory:** export the current public recipient list to removable media. On existing Clients, choose **Refresh age recipient inventory** to update their local capture recipients.
@@ -167,7 +167,7 @@ destructive job command in DHCP, TFTP, HTTP or the iPXE script.
    its local target checks pass.
 5. The Server operator reviews the complete READY set and types the exact
    job-specific ARM confirmation. Unicast sends the signed image to one
-   Client; multicast sends the same signed, age-encrypted artifacts to all
+   Client; multicast sends the same artifacts, with optional age encryption where configured to all
    authorized READY Clients on the multicast segment.
 6. Each Client stages and verifies the artifact before invoking its normal
    protected restore engine. The Server collects an independent terminal
