@@ -219,6 +219,7 @@ class SFTPImageSetTests(unittest.TestCase):
         self.assertTrue(result["signature_verified"])
         self.assertEqual(result["image_id"], "test-image")
         self.assertEqual(result["image_type"], "partition")
+        self.assertEqual(result["manifest_sha256"], hashlib.sha256(self.manifest.read_bytes()).hexdigest())
         self.assertEqual(result["artifacts"][0]["sha256"], self.digest)
 
     def test_inspect_remote_image_set_rejects_bad_signature(self):
