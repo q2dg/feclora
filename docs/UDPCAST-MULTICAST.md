@@ -66,10 +66,15 @@ integrated.
   selects it locally, verifies capacity and safety constraints, and requires
   explicit typed authorization. Feclora does not create, resize or repartition
   targets.
-- Every multicast artifact must be age-encrypted for the authorized recipient
-  inventory. The signed manifest authenticates the exact ciphertext; age
-  authenticates ciphertext integrity during decryption. This does not add
-  per-datagram authentication to UDPcast and cannot prevent denial of service.
+- `age` encryption is optional and must not be required for ordinary Feclora
+  operation. When enabled, artifacts are encrypted for the configured recipient
+  inventory. When disabled, UDPcast provides no payload confidentiality; use a
+  trusted isolated network or another configured encryption layer.
+- Manifest authenticity is required before destructive restore, but `minisign`
+  is only the current implementation. The verifier must become configurable so
+  another trusted signature mechanism can be used without making minisign mandatory.
+  This does not add per-datagram authentication to UDPcast and cannot prevent
+  denial of service.
 - Sender and receiver check local interface UP/MULTICAST flags, IPv4 address,
   kernel route to the multicast group and required UDPcast executable. Switch
   IGMP snooping and querier state cannot be proven from an endpoint and remains
