@@ -1553,10 +1553,10 @@ export default function App() {
                   <p>Response bundle: {csrApprovalResult.bundle_directory}</p>
                   <p>Feclora CA SHA-256 fingerprint (verify on Client):</p><code>{csrApprovalResult.ca_fingerprint}</code>
                   {csrApprovalResult.server_minisign_sha256 && <><p>Optional Server minisign public-key SHA-256 fingerprint (verify on Client):</p><code>{csrApprovalResult.server_minisign_sha256}</code></>}
-                  <p>Client image signing: {csrApprovalResult.image_signing_enabled ? "authorized" : "not authorized"}</p>
+                  <p>Client image signing: {csrApprovalResult.image_signing_enabled ? "enrolled" : "not enrolled"}</p>
                 </CardBody></Card>}
                 {csrReview && <Card className="pf-v5-u-mt-md"><CardBody>
-                  <Alert variant="warning" title={csrReview.renewal === "true" ? "Review Client certificate renewal" : "Review this identity before enrollment"} isInline>Identity: {csrReview.identity} · MAC: {csrReview.mac_address}. Minisign signing key: {csrReview.image_signing_enabled === "true" ? "enabled" : "not granted"}. {csrReview.renewal === "true" ? "Only the TLS certificate will be renewed; existing trust mappings remain unchanged." : "No enrollment has occurred yet."}</Alert>
+                  <Alert variant="warning" title={csrReview.renewal === "true" ? "Review Client certificate renewal" : "Review this identity before enrollment"} isInline>Identity: {csrReview.identity} · MAC: {csrReview.mac_address}. Minisign signing key: {csrReview.image_signing_enabled === "true" ? "enrolled" : "not requested"}. {csrReview.renewal === "true" ? "Only the TLS certificate will be renewed; existing trust mappings remain unchanged." : "No enrollment has occurred yet."}</Alert>
                   <p>To approve, type this exact phrase:</p><code>{csrReview.confirmation_phrase}</code>
                   <Field label="Explicit enrollment confirmation">
                     <input className="pf-v5-c-form-control" value={csrConfirmation} onChange={(e) => setCsrConfirmation(e.target.value)} />
@@ -1645,7 +1645,7 @@ export default function App() {
                   <Field label="Feclora CA SHA-256 fingerprint" help="Copy the fingerprint displayed in the Server approval result."><input className="pf-v5-c-form-control" value={clientCaFingerprint} onChange={(e) => setClientCaFingerprint(e.target.value)} /></Field>
                   <Field label="Server minisign public-key SHA-256 fingerprint (optional)" help="Copy the fingerprint only when the Server provides server.pub. Leave blank otherwise."><input className="pf-v5-c-form-control" value={clientServerFingerprint} onChange={(e) => setClientServerFingerprint(e.target.value)} /></Field>
                   <Button variant="primary" onClick={completeClientEnrollment} isLoading={busy} isDisabled={busy || !clientId || !clientHost || !clientMacInput || !clientBundleDirectory || !clientCaFingerprint}>Verify and install Client identity</Button>
-                  {clientCompleted && <Alert variant="success" title="Client enrollment complete" isInline>{clientCompleted.message} Identity: {clientCompleted.identity}. Image signing: {clientCompleted.image_signing_enabled ? "authorized" : "not authorized"}.</Alert>}
+                  {clientCompleted && <Alert variant="success" title="Client enrollment complete" isInline>{clientCompleted.message} Identity: {clientCompleted.identity}. Image signing: {clientCompleted.image_signing_enabled ? "enrolled" : "not enrolled"}.</Alert>}
                 </StackItem>
               </>}
             </Stack>
