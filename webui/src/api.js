@@ -64,12 +64,13 @@ export async function waitForLocalOperation(operationId, onUpdate = () => {}, in
     if (progress) onUpdate({ event: "progress", ...progress.details });
     onUpdate({ event: "state", state: status.state, operation_id: operationId });
     if (["completed", "failed", "cancelled", "interrupted"].includes(status.state)) {
-      if (status.state !== "completed") {
-        const terminal = events[events.length - 1];
-        const reason = terminal?.details?.error || terminal?.details?.reason || status.state;
-        throw new Error("Local operation " + status.state + ": " + reason);
-      }
-      return { operation_id: operationId, result: events[events.length - 1]?.details || {} };
+      const terminal = events[events.length - 1];
+      return {
+        operation_id: operationId,
+        state: status.state,
+        result: status.state === "completed" ? (terminal?.details || {}) : {},
+        details: terminal?.details || {}
+      };
     }
     await new Promise((resolve) => window.setTimeout(resolve, intervalMs));
   }
