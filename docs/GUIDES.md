@@ -77,6 +77,8 @@ not an operator procedure. The release-wide acceptance contract is in
 
 ## Related technical documentation
 
+- [Tool reuse, repository types and optional transports](TOOLING-AND-TRANSPORTS.html)
+
 - [Feature and compatibility matrix](FEATURE-MATRIX.html)
 - [Remote repository architecture and security requirements](REMOTE-REPOSITORIES.html)
 - [Unattended restore profiles and current limits](RESTORE-PROFILES.html)
