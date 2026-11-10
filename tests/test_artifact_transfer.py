@@ -90,6 +90,38 @@ class ImageTransferTests(unittest.TestCase):
                 self.assertEqual(stream.read(), b"table")
             self.assertFalse(any(name.startswith(".feclora-transfer-") for name in os.listdir(target)))
 
+
+    def test_unsigned_image_set_transfers_over_authenticated_tls_without_minisign(self):
+        with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
+            manifest_path = make_image_set(source)
+            os.unlink(manifest_path + ".minisig")
+            left, right = socket.socketpair()
+            errors = []
+            def sender():
+                try:
+                    send_image_set(left, source, manifest_path, expected_image_id="golden")
+                except Exception as exc:
+                    errors.append(exc)
+                finally:
+                    left.close()
+            thread = threading.Thread(target=sender, daemon=True)
+            thread.start()
+            received_manifest = receive_image_set(right, target, expected_image_id="golden")
+            thread.join(5)
+            right.close()
+            self.assertFalse(thread.is_alive())
+            self.assertEqual(errors, [])
+            self.assertTrue(os.path.isfile(received_manifest))
+            self.assertFalse(os.path.lexists(received_manifest + ".minisig"))
+            self.assertTrue(os.path.isfile(os.path.join(target, "disk.raw")))
+
+    def test_signed_image_transfer_without_trusted_key_fails_before_network_write(self):
+        with tempfile.TemporaryDirectory() as source:
+            manifest_path = make_image_set(source)
+            fake = type("Sink", (), {"sendall": lambda self, data: self.fail("unexpected network write")})()
+            with self.assertRaisesRegex(ImageTransferError, "independently trusted minisign public key"):
+                send_image_set(fake, source, manifest_path, expected_image_id="golden")
+
     def test_sender_rejects_artifact_digest_mismatch_before_network_write(self):
         with tempfile.TemporaryDirectory() as source:
             manifest_path = make_image_set(source)
