@@ -231,3 +231,28 @@ signed-set publication sequence.
 This checkpoint is not an end-user SFTP provider. The upload publisher is a
 primitive only; it does not make SFTP selectable in Cockpit or enable SFTP
 restore. Unit tests were added but not executed in this work session.
+
+
+### SFTP authenticated image-set retrieval checkpoint
+
+The standalone fetch primitive now downloads manifest and detached signature
+into a private staging directory without treating either as trusted. It checks
+metadata size limits, validates manifest v1 and verifies minisign against an
+independently trusted public key before requesting artifacts. Each artifact
+download is checked against the signed SHA-256 and byte count. Only a complete
+set is made visible, using Linux atomic no-replace directory rename; if that
+primitive is unavailable or the image ID already exists, publication fails
+closed.
+
+- [x] Add restricted transient-service mode for unverified manifest/signature downloads.
+- [x] Verify signed manifest before downloading any image artifacts.
+- [x] Download and verify every artifact against signed size and SHA-256.
+- [x] Atomically publish the complete local image directory without overwriting an existing image.
+- [x] Test metadata-first ordering, bad signature rejection, digest mismatch and staging cleanup.
+- [ ] Add remote image-set inventory/discovery and safe listing.
+- [ ] Connect publisher/fetcher to capture and restore orchestration, durable progress and failure reporting.
+- [ ] Expose SFTP repository and encrypted credential selection in Cockpit.
+- [ ] Add operational guide and current screenshots after Cockpit workflow acceptance.
+
+Tests were added but not executed in this session. This remains a transfer
+primitive rather than a complete SFTP repository workflow.
