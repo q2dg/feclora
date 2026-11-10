@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from feclora.storage.repository import RemoteRepository
+from feclora.storage.repository import RemoteRepository, RepositoryError
 from feclora.storage.repository_mount_service import build_mount_argv
 from feclora.storage.repository_manager import RemoteRepositoryManager, RepositoryManagerError
 
