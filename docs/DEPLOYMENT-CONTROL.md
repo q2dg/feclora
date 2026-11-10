@@ -10,7 +10,7 @@ The managed local CA and Server identity bootstrap are documented in [Certificat
 - The Server maps an exact client certificate SAN identity (URI, DNS, IP or EMAIL) or SHA-256 certificate fingerprint to one enrolled Client MAC.
 - The MAC is checked against the job allowlist only after certificate authentication. A MAC address, DHCP lease, PXE UUID or source IP is never an authentication factor.
 - The Client pins the expected Server SAN identity or SHA-256 certificate fingerprint after CA validation.
-- Server-side primitives support CA-verified Client CSR inspection, certificate issuance/import, renewal, rotation and allowlist revocation. Age recipient and Client minisign public-key registration are optional image-security features. Protect CA private keys and endpoint private keys outside the repository; never place them in PXE/TFTP/HTTP boot assets.
+- Server-side primitives support CA-verified Client CSR inspection, certificate issuance/import, renewal, rotation and allowlist revocation. Age recipient registration and Client minisign public-key registration are optional image-security features. A missing Client signing key does not prevent unsigned save jobs. Protect CA private keys and endpoint private keys outside the repository; never place them in PXE/TFTP/HTTP boot assets.
 
 ## Framing and lifecycle
 
