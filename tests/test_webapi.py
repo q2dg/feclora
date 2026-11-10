@@ -1647,7 +1647,7 @@ class WebAPITests(unittest.TestCase):
             repository="/repo",
         )
         with tempfile.TemporaryDirectory() as directory, patch(
-            "feclora.webapi.load_server_runtime_config", return_value=config
+            "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
         ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
             "feclora.webapi._image_manifest", return_value=Path(directory) / "optional-crypto-image.manifest.json"
         ), patch("pathlib.Path.read_text", return_value="{}"), patch(
@@ -1673,7 +1673,7 @@ class WebAPITests(unittest.TestCase):
             repository="/repo",
         )
         with tempfile.TemporaryDirectory() as directory, patch(
-            "feclora.webapi.load_server_runtime_config", return_value=config
+            "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
         ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
             "feclora.webapi._images", return_value=[]
         ), patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), patch(
@@ -1752,7 +1752,7 @@ class WebAPITests(unittest.TestCase):
             repository="/repo",
         )
         with tempfile.TemporaryDirectory() as directory, patch(
-            "feclora.webapi.load_server_runtime_config", return_value=config
+            "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
         ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
             "feclora.webapi._image_manifest", return_value=Path(directory) / "optional-crypto-image.manifest.json"
         ), patch("pathlib.Path.read_text", return_value="{}"), patch(
@@ -1778,7 +1778,7 @@ class WebAPITests(unittest.TestCase):
             repository="/repo",
         )
         with tempfile.TemporaryDirectory() as directory, patch(
-            "feclora.webapi.load_server_runtime_config", return_value=config
+            "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
         ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
             "feclora.webapi._images", return_value=[]
         ), patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), patch(
