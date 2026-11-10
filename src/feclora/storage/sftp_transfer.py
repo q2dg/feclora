@@ -174,8 +174,14 @@ def download_file(
         raise SFTPTransferError("local SFTP destination already exists")
     destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     parent_info = os.lstat(destination.parent)
-    if not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode):
-        raise SFTPTransferError("local SFTP destination parent must be a real directory")
+    if (not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode)
+            or parent_info.st_mode & 0o077):
+        raise SFTPTransferError("local SFTP destination parent must be a private real directory")
+    try:
+        if destination.parent.resolve(strict=True) != destination.parent:
+            raise SFTPTransferError("local SFTP destination path must not traverse symlinked directories")
+    except OSError as exc:
+        raise SFTPTransferError("local SFTP destination parent is unavailable") from exc
     temporary = destination.parent / f".{destination.name}.feclora-{secrets.token_hex(12)}.partial"
     argv = build_sftp_argv(
         host=host, username=username, identity_file=identity_file,
