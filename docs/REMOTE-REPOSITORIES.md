@@ -7,7 +7,7 @@ the same repository API.
 
 ## Provider contract
 
-SFTP is intentionally not represented as a mounted filesystem provider. Feclora now exposes one-shot signed image-set import and publication actions in Cockpit, using pinned host keys and encrypted systemd credential references. The workflow transfers an already captured, signed local image to an existing SFTP directory, or fetches and verifies a remote image into the local repository. It is not yet a complete provider: saved definitions, remote inventory, capture-job integration, durable byte progress, cancellation, retry/resume and full provider acceptance remain pending. SSHFS mounts do not satisfy the SFTP transfer contract.
+SFTP is intentionally not represented as a mounted filesystem provider. Feclora now exposes one-shot signed image-set import and publication actions in Cockpit, using pinned host keys and encrypted systemd credential references. The workflow transfers an already captured, signed local image to an existing SFTP directory, or fetches and verifies a remote image into the local repository. It is not yet a complete provider: saved definitions, remote inventory, restore-job routing, durable byte progress, cancellation, retry/resume and full provider acceptance remain pending. SSHFS mounts do not satisfy the SFTP transfer contract.
 
 | Provider | Helper | Authentication material |
 |---|---|---|
