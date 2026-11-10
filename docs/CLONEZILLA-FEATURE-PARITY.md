@@ -19,7 +19,7 @@ hardware verification.
 | Clone partition to partition | Implemented | Implemented | Unit tests | Operator |
 | Extract a partition from a disk image | Implemented in storage layer | Not exposed yet | Unit tests | Operator |
 | Compression (none/gzip/zstd/lz4 and engine codecs) | Implemented | Basic choices exposed | Unit tests and CI | Operator |
-| age encryption and minisign signatures | Implemented | Local key setup and capture controls | Unit tests | Operator |
+| Optional age encryption and minisign signatures | Implemented as optional integrations | Local key setup/capture controls when configured | Unit tests | Operator |
 | Image manifest and SHA-256 integrity | Implemented | Inventory and guarded restore | Unit tests | Operator |
 | Larger-destination layout growth | Partial / conservative GPT handling | Not exposed | Unit tests | Operator |
 | LVM/LUKS/Stratis/Btrfs-aware backup and restore | Inventory and selected safety checks only | Inventory only | Unit tests | Operator |
@@ -71,3 +71,9 @@ unit tests and frontend compilation are expected in CI. Building the ISO,
 booting BIOS/UEFI/PXE guests, and performing real restoration/deployment
 acceptance on disposable laboratory machines are operator-owned tasks and are
 not claimed by this document.
+
+
+The age/minisign row describes optional integrations, not mandatory Feclora
+installation requirements. Current unattended and some deployment workflows
+still have minisign-specific requirements; see the completion plan and tooling
+strategy for the work needed to make those paths verifier-configurable.
