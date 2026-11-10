@@ -1373,16 +1373,16 @@ class WebAPITests(unittest.TestCase):
                     "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
                 },
             }
-            with patch("feclora.webapi._repository", return_value=root), \\
-                 patch("feclora.webapi._client_runtime_config", return_value=None), \\
+            with patch("feclora.webapi._repository", return_value=root), \
+                 patch("feclora.webapi._client_runtime_config", return_value=None), \
                  patch("feclora.webapi._security_material", return_value={
                      "age_decryption_available": False, "image_verification_available": True,
-                 }), \\
-                 patch("feclora.storage.sftp_image_set.fetch_image_set", return_value={"image_id": "gold"}) as fetch, \\
-                 patch("feclora.webapi._image_manifest", return_value=manifest_path), \\
-                 patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \\
-                 patch("feclora.storage.image_security.verify_manifest_signature"), \\
-                 patch("feclora.storage.disk_restore.restore_disk") as restore, \\
+                 }), \
+                 patch("feclora.storage.sftp_image_set.fetch_image_set", return_value={"image_id": "gold"}) as fetch, \
+                 patch("feclora.webapi._image_manifest", return_value=manifest_path), \
+                 patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
+                 patch("feclora.storage.image_security.verify_manifest_signature"), \
+                 patch("feclora.storage.disk_restore.restore_disk") as restore, \
                  patch("feclora.webapi._emit"):
                 result = _execute_operation("restore_disk", params, "restore-op")
             fetch.assert_called_once()
