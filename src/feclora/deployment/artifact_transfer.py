@@ -41,9 +41,9 @@ def _recv_exact(sock: Any, count: int) -> bytes:
     return bytes(data)
 
 
-def _read_length(sock: Any, maximum: int, label: str) -> int:
+def _read_length(sock: Any, maximum: int, label: str, *, allow_zero: bool = False) -> int:
     value = struct.unpack("!I", _recv_exact(sock, 4))[0]
-    if value <= 0 or value > maximum:
+    if (value < 0 if allow_zero else value <= 0) or value > maximum:
         raise ImageTransferError(f"{label} length is outside the permitted range")
     return value
 
@@ -84,10 +84,16 @@ def send_image_set(
     manifest_path: str | os.PathLike[str],
     *,
     expected_image_id: str,
-    trusted_public_key: str | os.PathLike[str],
+    trusted_public_key: str | os.PathLike[str] | None = None,
+    require_signature: bool = False,
     progress_callback: Callable[[int, int], None] | None = None,
 ) -> ImageManifest:
-    """Verify and send one complete signed image set to an authenticated peer."""
+    """Send a complete image set over an authenticated TLS session.
+
+    A detached signature is verified when present. Unsigned images are allowed
+    only when the caller has an authenticated transport-level trust decision.
+    """
+
     repo = os.path.abspath(os.fspath(repository))
     if not stat.S_ISDIR(os.lstat(repo).st_mode):
         raise ImageTransferError("image repository must be a real directory")
@@ -115,28 +121,35 @@ def send_image_set(
         if any(item.filename in reserved_names for item in manifest.artifacts):
             raise ImageTransferError("artifact filename collides with the manifest commit marker")
         signature_path = manifest_file + ".minisig"
-        signature_fd, signature_info = _open_regular(signature_path)
-        if not 1 <= signature_info.st_size <= _MAX_SIGNATURE_BYTES:
-            raise ImageTransferError("manifest signature size is outside the permitted range")
-        signature = os.read(signature_fd, _MAX_SIGNATURE_BYTES + 1)
-        if len(signature) != signature_info.st_size:
-            raise ImageTransferError("manifest signature changed while being read")
-        with tempfile.TemporaryDirectory(prefix="feclora-send-manifest-") as verify_dir:
-            os.chmod(verify_dir, 0o700)
-            verify_manifest = os.path.join(verify_dir, "manifest.json")
-            verify_signature = verify_manifest + ".minisig"
-            for verify_path, payload in ((verify_manifest, manifest_bytes), (verify_signature, signature)):
-                fd = os.open(verify_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-                with os.fdopen(fd, "wb") as stream:
-                    stream.write(payload)
-                    stream.flush()
-                    os.fsync(stream.fileno())
-            try:
-                verify_manifest_signature(
-                    verify_manifest, trusted_public_key, signature_path=verify_signature,
-                )
-            except (ImageSecurityError, OSError) as exc:
-                raise ImageTransferError(f"source manifest signature is invalid: {exc}") from exc
+        signature = b""
+        signature_present = os.path.lexists(signature_path)
+        if signature_present:
+            signature_fd, signature_info = _open_regular(signature_path)
+            if not 1 <= signature_info.st_size <= _MAX_SIGNATURE_BYTES:
+                raise ImageTransferError("manifest signature size is outside the permitted range")
+            signature = os.read(signature_fd, _MAX_SIGNATURE_BYTES + 1)
+            if len(signature) != signature_info.st_size:
+                raise ImageTransferError("manifest signature changed while being read")
+            if trusted_public_key is None:
+                raise ImageTransferError("signed image transfer requires an independently trusted minisign public key")
+            with tempfile.TemporaryDirectory(prefix="feclora-send-manifest-") as verify_dir:
+                os.chmod(verify_dir, 0o700)
+                verify_manifest = os.path.join(verify_dir, "manifest.json")
+                verify_signature = verify_manifest + ".minisig"
+                for verify_path, payload in ((verify_manifest, manifest_bytes), (verify_signature, signature)):
+                    fd = os.open(verify_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                    with os.fdopen(fd, "wb") as stream:
+                        stream.write(payload)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                try:
+                    verify_manifest_signature(
+                        verify_manifest, trusted_public_key, signature_path=verify_signature,
+                    )
+                except (ImageSecurityError, OSError) as exc:
+                    raise ImageTransferError(f"source manifest signature is invalid: {exc}") from exc
+        elif require_signature:
+            raise ImageTransferError("a signed image is required for this transfer")
 
         total_bytes = 0
         for artifact in manifest.artifacts:
@@ -188,10 +201,12 @@ def receive_image_set(
     repository: str | os.PathLike[str],
     *,
     expected_image_id: str,
-    trusted_public_key: str | os.PathLike[str],
+    trusted_public_key: str | os.PathLike[str] | None = None,
+    require_signature: bool = False,
     progress_callback: Callable[[int, int], None] | None = None,
 ) -> str:
-    """Receive, verify and atomically publish an image set; returns manifest path."""
+    """Receive and atomically publish an image set over authenticated TLS."""
+
     repo = os.path.abspath(os.fspath(repository))
     try:
         repo_info = os.lstat(repo)
@@ -210,7 +225,7 @@ def receive_image_set(
             raise ImageTransferError("peer did not send a Feclora image-set header")
         manifest_length = _read_length(tls_socket, _MAX_MANIFEST_BYTES, "manifest")
         manifest_bytes = _recv_exact(tls_socket, manifest_length)
-        signature_length = _read_length(tls_socket, _MAX_SIGNATURE_BYTES, "signature")
+        signature_length = _read_length(tls_socket, _MAX_SIGNATURE_BYTES, "signature", allow_zero=True)
         signature = _recv_exact(tls_socket, signature_length)
         try:
             manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
@@ -225,18 +240,27 @@ def receive_image_set(
             raise ImageTransferError("artifact filename collides with the manifest commit marker")
         manifest_stage = os.path.join(stage, expected_image_id + ".manifest.json")
         signature_stage = manifest_stage + ".minisig"
-        for path, payload in ((manifest_stage, manifest_bytes), (signature_stage, signature)):
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        fd = os.open(manifest_stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(manifest_bytes)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if signature:
+            if trusted_public_key is None:
+                raise ImageTransferError("received signed image requires an independently trusted minisign public key")
+            fd = os.open(signature_stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, "wb") as stream:
-                stream.write(payload)
+                stream.write(signature)
                 stream.flush()
                 os.fsync(stream.fileno())
-        try:
-            verify_manifest_signature(
-                manifest_stage, trusted_public_key, signature_path=signature_stage,
-            )
-        except (ImageSecurityError, OSError) as exc:
-            raise ImageTransferError(f"received manifest signature is invalid: {exc}") from exc
+            try:
+                verify_manifest_signature(
+                    manifest_stage, trusted_public_key, signature_path=signature_stage,
+                )
+            except (ImageSecurityError, OSError) as exc:
+                raise ImageTransferError(f"received manifest signature is invalid: {exc}") from exc
+        elif require_signature:
+            raise ImageTransferError("received image is unsigned but this transfer requires a signature")
 
         total_bytes = 0
         staged_artifacts: list[tuple[str, str]] = []
@@ -291,10 +315,12 @@ def receive_image_set(
             published.append(destination)
         final_manifest = os.path.join(repo, expected_image_id + ".manifest.json")
         final_signature = final_manifest + ".minisig"
+        if signature:
+            os.link(signature_stage, final_signature, follow_symlinks=False)
+            published.append(final_signature)
+        # Publish the manifest last; it is the image-set commit marker.
         os.link(manifest_stage, final_manifest, follow_symlinks=False)
         published.append(final_manifest)
-        os.link(signature_stage, final_signature, follow_symlinks=False)
-        published.append(final_signature)
         directory_fd = os.open(repo, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
             os.fsync(directory_fd)
