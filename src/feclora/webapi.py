@@ -373,6 +373,60 @@ def _fetch_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
 
 
 
+
+def _publish_captured_image_to_sftp(image_id: str, repository: Path, config: dict[str, Any]) -> dict[str, Any]:
+    required = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential"}
+    if not isinstance(config, dict) or set(config) not in (required, required | {"port"}):
+        raise WebAPIError("SFTP post-capture publication configuration is invalid")
+    host = _text(config, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
+    if host.endswith(".") or ".." in host:
+        raise WebAPIError("SFTP host is invalid")
+    username = _text(config, "username", pattern=r"[A-Za-z0-9._-]{1,64}")
+    remote_directory = _text(config, "remote_directory", maximum=1024)
+    identity = _text(config, "identity_credential", maximum=512)
+    known_hosts = _text(config, "known_hosts_credential", maximum=512)
+    port = config.get("port", 22)
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        raise WebAPIError("SFTP port must be an integer between 1 and 65535")
+    client_config = _client_runtime_config()
+    if client_config:
+        signing_key = client_config.local_minisign_secret_key
+        public_key = Path(client_config.local_minisign_public_key) if client_config.local_minisign_public_key else None
+    else:
+        signing_key = "/etc/feclora/pki/server.minisign.key"
+        public_key = Path("/etc/feclora/pki/server.pub")
+    if not signing_key or public_key is None:
+        raise WebAPIError("this machine has no local image-signing keypair for SFTP publication")
+    for key_path, label, private in (
+        (Path(signing_key), "local minisign secret key", True),
+        (public_key, "local minisign public key", False),
+    ):
+        try:
+            info = os.lstat(key_path)
+        except OSError as exc:
+            raise WebAPIError(f"{label} is unavailable") from exc
+        if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != 0 or (info.st_mode & 0o077 if private else info.st_mode & 0o022)):
+            raise WebAPIError(f"{label} has unsafe ownership or permissions")
+    manifest_path = _image_manifest(image_id, repository)
+    signature_path = Path(str(manifest_path) + ".minisig")
+    try:
+        signature_info = os.lstat(signature_path)
+    except OSError as exc:
+        raise WebAPIError("captured image has no detached minisign signature") from exc
+    if (not stat.S_ISREG(signature_info.st_mode) or stat.S_ISLNK(signature_info.st_mode)
+            or signature_info.st_uid != 0 or signature_info.st_mode & 0o022):
+        raise WebAPIError("captured image signature has unsafe ownership or permissions")
+    from feclora.storage.sftp_image_set import publish_image_set
+    return publish_image_set(
+        manifest_path=manifest_path, signature_path=signature_path,
+        public_key=public_key, artifact_directory=repository,
+        remote_directory=remote_directory, host=host, username=username,
+        identity_credential=identity, known_hosts_credential=known_hosts,
+        port=port,
+    )
+
+
 def _publish_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
     required = {
         "image_id", "host", "username", "remote_directory",
@@ -1056,8 +1110,8 @@ def _approve_client_csr(params: dict[str, Any]) -> dict[str, Any]:
 
 def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
@@ -1089,6 +1143,12 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             minisign_secret_key=signing_key if sign else None,
         )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
+        if "sftp_publish" in params:
+            if not sign:
+                raise WebAPIError("SFTP post-capture publication requires a signed image manifest")
+            result["sftp_publication"] = _publish_captured_image_to_sftp(
+                manifest.image_id, _operation_repository(params, write=True), params["sftp_publish"],
+            )
     elif action == "capture_partition":
         from feclora.storage.partition_image_capture import capture_partition_image
         source = _device(params["source"], "source")
@@ -1111,6 +1171,12 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             minisign_secret_key=signing_key if sign else None,
         )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
+        if "sftp_publish" in params:
+            if not sign:
+                raise WebAPIError("SFTP post-capture publication requires a signed image manifest")
+            result["sftp_publication"] = _publish_captured_image_to_sftp(
+                manifest.image_id, _operation_repository(params, write=True), params["sftp_publish"],
+            )
     elif action == "extract_partition_image":
         from feclora.storage.disk_image_partition import extract_partition_image
         from feclora.storage.image_security import verify_manifest_signature
