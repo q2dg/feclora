@@ -272,26 +272,34 @@ def _rotate_server_keypair(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 def _initialize_security() -> dict[str, Any]:
+    """Initialize TLS identity and opportunistically provision image-security keys.
+
+    age and minisign are optional image-protection integrations. Their absence
+    must never prevent Server TLS bootstrap or ordinary imaging workflows.
+    """
     from feclora.deployment.managed_pki import initialize_server_pki
 
-    before = _security_material()
-    created = not all(before.values())
     pki = Path("/etc/feclora/pki")
+    tls_paths = (pki / "ca.key", pki / "ca.crt", pki / "server.key", pki / "server.crt")
+    tls_created = not all(path.exists() for path in tls_paths)
     initialize_server_pki(pki)
+    created = tls_created
+
     age_identity = pki / "server.age"
     age_recipients = pki / "age-recipients.txt"
     if age_identity.exists() != age_recipients.exists():
         raise WebAPIError("partial age identity exists; refusing to regenerate trust material")
-    if not age_identity.exists():
+    age_keygen = shutil.which("age-keygen")
+    if not age_identity.exists() and age_keygen:
         generated = subprocess.run(
-            ["/usr/bin/age-keygen", "-o", str(age_identity)],
+            [age_keygen, "-o", str(age_identity)],
             stdin=subprocess.DEVNULL, capture_output=True, text=True,
             check=False, timeout=60,
         )
         if generated.returncode != 0:
-            raise WebAPIError("age-keygen failed while creating the local image identity")
+            raise WebAPIError("age-keygen failed while creating the optional local image identity")
         public = subprocess.run(
-            ["/usr/bin/age-keygen", "-y", str(age_identity)],
+            [age_keygen, "-y", str(age_identity)],
             stdin=subprocess.DEVNULL, capture_output=True, text=True,
             check=False, timeout=30,
         )
@@ -304,21 +312,35 @@ def _initialize_security() -> dict[str, Any]:
             stream.flush()
             os.fsync(stream.fileno())
         os.chmod(age_identity, 0o600)
+        created = True
+
     signing_secret = pki / "server.minisign.key"
     signing_public = pki / "server.pub"
     if signing_secret.exists() != signing_public.exists():
         raise WebAPIError("partial minisign keypair exists; refusing to regenerate trust material")
-    if not signing_secret.exists():
+    minisign = shutil.which("minisign")
+    if not signing_secret.exists() and minisign:
         generated = subprocess.run(
-            ["/usr/bin/minisign", "-G", "-s", str(signing_secret), "-p", str(signing_public), "-W"],
+            [minisign, "-G", "-s", str(signing_secret), "-p", str(signing_public), "-W"],
             stdin=subprocess.DEVNULL, capture_output=True, text=True,
             check=False, timeout=60,
         )
         if generated.returncode != 0:
-            raise WebAPIError("minisign failed while creating the local image-signing key")
+            raise WebAPIError("minisign failed while creating the optional local image-signing key")
         os.chmod(signing_secret, 0o600)
         os.chmod(signing_public, 0o644)
-    return {"created": created, **_security_material()}
+        created = True
+
+    security = _security_material()
+    unavailable = []
+    if not age_keygen:
+        unavailable.append("age-keygen")
+    if not minisign:
+        unavailable.append("minisign")
+    message = "TLS identity is ready."
+    if unavailable:
+        message += " Optional image protection unavailable because these tools are not installed: " + ", ".join(unavailable) + ". Ordinary imaging remains available."
+    return {"created": created, **security, "message": message}
 
 
 
