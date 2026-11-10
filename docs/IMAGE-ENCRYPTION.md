@@ -42,13 +42,15 @@ the artifact names, encryption modes, sizes and SHA-256 digests.
 ## Current implementation boundary
 
 Capture UI exposes independent optional choices for age encryption and
-minisign signing. Both are opt-in; selecting neither is a supported baseline path. Restore detects age-encrypted artifacts and requests an
+minisign signing. Both are opt-in; selecting neither is a supported baseline path. Restore detects age-encrypted artifacts and requires an
 identity file; it verifies ciphertext SHA-256 before invoking age, then
 authenticates/decrypts to a private staging file before decompression or disk
-writes. When a detached signature is present, restore offers verification
-against an independently supplied trusted public key or an explicit
-unverified continuation. A caller can also require signature verification
-through the restore API. `minisign` is one supported signature mechanism, not
+writes. When a detached signature is present, restore must verify it against an
+independently provisioned trusted public key before any target-device write.
+There is no unverified continuation for a signed image. If the signature is
+missing, invalid, or cannot be checked because minisign or a trusted key is
+unavailable, restoration stops before writing. A caller may require signatures
+for workflows where unsigned images are not acceptable. `minisign` is one supported signature mechanism, not
 a universal requirement. If signatures are not used, SHA-256 detects accidental
 corruption but does not authenticate an image against malicious substitution;
 for destructive fleet/unattended workflows, authenticate the manifest and
