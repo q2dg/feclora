@@ -105,9 +105,9 @@ def capture_partition_image(
 
     safe_partition_id = partition_id.replace("+", "_")
     stem = f"{image_id}_{safe_partition_id}"
-    suffix = {"none": "", "gzip": ".gz", "xz": ".xz"}.get(compression)
+    suffix = {"none": "", "gzip": ".gz", "xz": ".xz", "zstd": ".zst", "lz4": ".lz4"}.get(compression)
     if suffix is None:
-        raise PartitionImageCaptureError("compression must be none, gzip or xz")
+        raise PartitionImageCaptureError("compression must be none, gzip, xz, zstd or lz4")
     artifact_name = f"{stem}.img{suffix}"
     manifest_name = f"{image_id}.manifest.json"
     stage = tempfile.mkdtemp(prefix=".feclora-partition-set-", dir=repo)
