@@ -7,7 +7,9 @@ The detailed, dependency-ordered implementation backlog and acceptance criteria 
 
 ## Maintainer's end-user target
 
-The release target is a bootable Cockpit-first Live system covering six end-to-end workflows: local disk/partition cloning; remote disk/partition cloning with DHCP/static networking; image capture to SSHFS, SFTP, NFS, SMB/CIFS, WebDAV and writable S3; restore from those repositories to one local target; multi-Client restore with manual Feclora or PXE boot; and unattended multi-Client restore. Measurable acceptance gates, security requirements and guide requirements are maintained in [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md).
+The release target is a bootable Cockpit-first Live system covering six end-to-end workflows: local disk/partition cloning; remote disk/partition cloning with DHCP/static networking; image capture to SSHFS, SFTP, NFS, SMB/CIFS, WebDAV and S3-compatible object storage (with provider-specific write capability); restore from those repositories to one local target; multi-Client restore with manual Feclora or PXE boot; and unattended multi-Client restore. Measurable acceptance gates, security requirements and guide requirements are maintained in [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md).
+
+BitTorrent is also in scope as an optional peer-to-peer distribution transport for immutable, verified image artifacts; it is not a general writable repository. `age` and `minisign` are optional integrations and must not be mandatory installation or release requirements. Their absence must not prevent ordinary local imaging or deployment where another configured trust/integrity mechanism is used.
 
 The present implementation is a foundation, not completion of that target. In particular, do not equate S3 read-only access with capture support, SSHFS with SFTP, PXE service lifecycle with PXE job handoff, or signed-profile primitives with unattended fleet deployment. Only advertise a workflow as available when its Cockpit path, backend/runtime, authorization, error handling, tests and published operator guide are complete.
 
@@ -18,7 +20,7 @@ The present implementation is a foundation, not completion of that target. In pa
 - [x] Manifest-backed whole-disk and partition capture.
 - [x] Verified whole-disk and partition restore engines.
 - [x] Direct local disk-to-disk and partition-to-partition clone engines.
-- [x] Compression, SHA-256 artifact verification, age encryption and minisign signing.
+- [x] Compression and SHA-256 artifact verification; optional `age` encryption and `minisign` signing integrations exist.
 - [x] Source-safety checks, target geometry checks and explicit destructive confirmations.
 - [x] Local managed CA/TLS identity bootstrap and Client CSR enrollment primitives.
 - [x] Authenticated unicast deployment engine and UDPcast multicast restore engine.
@@ -39,7 +41,7 @@ The present implementation is a foundation, not completion of that target. In pa
 
 ## Remaining implementation work
 
-See [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) for task-level checklists and acceptance criteria. Immediate priorities are repository credential/provider lifecycle, remote-clone disconnect/restart fault injection, consistent operation telemetry and Server-side artifact-transfer progress. Broader CA rotation and trust migration are explicitly deferred; the supported PKI scope remains managed CA bootstrap, enrollment/renewal, trust inventory/revocation, Server leaf renewal and Server TLS keypair rotation under the existing CA. CA backup does not provide CA rotation or compromise recovery. Durable local operations now have a root-owned systemd worker, persistent queue/journal, Cockpit status/history and boot-time interrupted-job recovery; live systemd and hardware acceptance remain outstanding. Storage growth and volume-aware workflows, PXE unattended orchestration, documentation and release governance follow. Remote-clone two-machine hardware and real network/storage-provider acceptance are operator-run procedures documented in [ACCEPTANCE-TESTS.md](ACCEPTANCE-TESTS.md). Automated fault-injection and recovery checks remain software test responsibilities.
+See [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) for task-level checklists and acceptance criteria. Immediate priorities are repository credential/provider lifecycle across SSHFS, SFTP, NFS, SMB/CIFS, WebDAV and S3; remote-clone disconnect/restart fault injection; consistent operation telemetry; and Server-side artifact-transfer progress. Optional BitTorrent distribution requires a separate design and maintained client evaluation. Broader CA rotation and trust migration are explicitly deferred; the supported PKI scope remains managed CA bootstrap, enrollment/renewal, trust inventory/revocation, Server leaf renewal and Server TLS keypair rotation under the existing CA. CA backup does not provide CA rotation or compromise recovery. Durable local operations now have a root-owned systemd worker, persistent queue/journal, Cockpit status/history and boot-time interrupted-job recovery; live systemd and hardware acceptance remain outstanding. Storage growth and volume-aware workflows, PXE unattended orchestration, documentation and release governance follow. Remote-clone two-machine hardware and real network/storage-provider acceptance are operator-run procedures documented in [ACCEPTANCE-TESTS.md](ACCEPTANCE-TESTS.md). Automated fault-injection and recovery checks remain software test responsibilities.
 
 ## Operator-owned validation (optional, not a software completion gate)
 
