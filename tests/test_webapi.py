@@ -1422,5 +1422,27 @@ class WebAPITests(unittest.TestCase):
         registry.remove.assert_called_once_with("offsite-backup")
 
 
+    def test_durable_worker_accepts_sftp_restore_source(self):
+        from contextlib import nullcontext
+        from feclora.webapi import _run_operation_locked
+        params = {
+            "image_id": "gold", "target": "/dev/sdb",
+            "confirmation": "ERASE /dev/sdb",
+            "sftp_source": {
+                "host": "backup.example.net", "username": "backup",
+                "remote_directory": "/images/gold", "port": 2222,
+                "expected_manifest_sha256": "a" * 64,
+                "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+                "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+            },
+        }
+        expected = {"image_id": "gold", "target": "/dev/sdb", "verified": True}
+        with patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("restore-op")), \
+             patch("feclora.webapi._execute_operation", return_value=expected) as execute:
+            result = _run_operation_locked("restore_disk", params)
+        self.assertEqual(result, expected)
+        execute.assert_called_once_with("restore_disk", params, "restore-op")
+
+
 if __name__ == "__main__":
     unittest.main()
