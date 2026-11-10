@@ -195,16 +195,16 @@ class PartitionRestoreTests(unittest.TestCase):
             progress_callback=lambda done, total: progress.append((done, total)),
         )
         self.assertIn("--json-fresh=1", self.calls[0][0])
-        self.assertIn((50, 100), progress)
-        self.assertNotIn((25, 100), progress)
+        self.assertIn((20480, 40960), progress)
+        self.assertNotIn((10240, 40960), progress)
         self.assertFalse(os.path.exists(status_paths[0]))
 
     def test_partclone_restore_reports_progress_from_stderr(self):
         self.write_manifest("partclone", "ext4", len(self.payload))
         progress = []
         self.restore(progress_callback=lambda done, total: progress.append((done, total)))
-        self.assertIn((25, 100), progress)
-        self.assertIn((75, 100), progress)
+        self.assertIn((len(self.payload) * 25 // 100, len(self.payload)), progress)
+        self.assertIn((len(self.payload) * 75 // 100, len(self.payload)), progress)
         self.assertIn("-F", self.calls[0][0])
         self.assertIn("1", self.calls[0][0])
 
