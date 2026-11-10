@@ -1,5 +1,6 @@
 import io
 import os
+import subprocess
 import unittest
 from contextlib import redirect_stdout
 from types import SimpleNamespace
@@ -91,7 +92,7 @@ class SFTPTransferServiceTests(unittest.TestCase):
 
 
     def test_stop_transient_unit_reports_uncertain_state_when_kill_times_out(self):
-        timeout = __import__("subprocess").TimeoutExpired(["systemctl", "kill"], 5)
+        timeout = subprocess.TimeoutExpired(["systemctl", "kill"], 5)
         with patch("feclora.storage.sftp_transfer_service.subprocess.run", side_effect=[
             timeout, timeout,
         ]) as run:
