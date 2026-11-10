@@ -7,7 +7,8 @@ The whole disk is captured with generic `dd if=DEVICE bs=4M status=none`.
 This deliberately does not use Partclone: Partclone is filesystem-aware and
 is used for individual supported partitions, while a raw disk stream preserves
 partition tables, boot sectors, gaps and all remaining sectors. Compression
-may be none, gzip or xz.
+may be none, gzip, xz, zstd or lz4. zstd and lz4 use the installed system
+executables; the selected compression level is recorded in the manifest.
 
 Disk geometry and partition-table type are read from `lsblk`; table contents
 come from `sfdisk --dump`. If no table is reported, an explanatory metadata
