@@ -1587,11 +1587,10 @@ class WebAPITests(unittest.TestCase):
             first_stage.write_text("first key", encoding="ascii")
             second_stage.write_text("second key", encoding="ascii")
             second_final.write_text("pre-existing", encoding="ascii")
-            with patch("feclora.webapi.os.fstat", return_value=SimpleNamespace(st_mode=0o40700, st_uid=0)):
-                with self.assertRaisesRegex(WebAPIError, "atomically publish"):
-                    _publish_generated_keypair(
-                        (first_stage, second_stage), (first_final, second_final),
-                    )
+            with self.assertRaisesRegex(WebAPIError, "atomically publish"):
+                _publish_generated_keypair(
+                    (first_stage, second_stage), (first_final, second_final),
+                )
             self.assertFalse(first_final.exists())
             self.assertEqual(second_final.read_text(encoding="ascii"), "pre-existing")
 
@@ -1606,8 +1605,7 @@ class WebAPITests(unittest.TestCase):
             final = (pki / "secret", pki / "public")
             staged[0].write_text("secret", encoding="ascii")
             staged[1].write_text("public", encoding="ascii")
-            with patch("feclora.webapi.os.fstat", return_value=SimpleNamespace(st_mode=0o40700, st_uid=0)):
-                _publish_generated_keypair(staged, final)
+            _publish_generated_keypair(staged, final)
             self.assertEqual(final[0].read_text(encoding="ascii"), "secret")
             self.assertEqual(final[1].read_text(encoding="ascii"), "public")
 
