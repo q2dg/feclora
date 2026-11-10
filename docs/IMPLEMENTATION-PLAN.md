@@ -55,7 +55,7 @@ Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS ke
 Acceptance: no cutover strands enrolled clients without recovery; private material never enters logs/browser state; stages are auditable and idempotent.
 
 ## P0 — Remote repositories and credentials
-Repository-related abstractions/tests already exist; inspect and extend them rather than creating a second implementation.
+Repository-related abstractions/tests already exist; inspect and extend them rather than creating a second implementation. Architectural boundary: every SSH/SFTP, NFS, SMB/CIFS, WebDAV, S3 and optional BitTorrent service is external and independently administered. Feclora implements client-side connection, credential handling, mount/transfer, integrity, lifecycle of its own client processes, and failure reporting only; it does not deploy or configure remote servers, exports, shares, buckets, trackers or peers.
 - [x] Inventory current repository code and reconcile the feature matrix.
 - [x] Define a provider interface independent of transport.
 - [x] Add root-managed SSHFS/NFS/SMB mount lifecycle and Cockpit actions; keep this separate from image-engine integration.
