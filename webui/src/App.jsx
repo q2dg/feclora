@@ -231,7 +231,8 @@ export default function App() {
       setNotice(result.requested
         ? "Cancellation requested. Feclora is stopping the worker and its child processes; the operation log will show the final state."
         : "This operation is already cancelled.");
-      await refresh();
+      const history = await callFeclora("local_operations");
+      setOperations(history.operations || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setCancellingOperationId(""); }
   };
