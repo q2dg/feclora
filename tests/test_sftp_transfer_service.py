@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from feclora.storage.repository_manager import RemoteRepositoryManager, RepositoryManagerError
 from feclora.storage.sftp_transfer_service import (
-    build_systemd_transfer_argv, credential_bindings, run_sftp_transfer,
+    _stop_transient_unit, build_systemd_transfer_argv, credential_bindings, run_sftp_transfer,
 )
 
 
@@ -89,6 +89,25 @@ class SFTPTransferServiceTests(unittest.TestCase):
         self.assertIn("--pipe", calls[0][0])
         self.assertEqual(calls[0][1]["timeout"], 86430)
 
+
+    def test_stop_transient_unit_reports_uncertain_state_when_kill_times_out(self):
+        timeout = __import__("subprocess").TimeoutExpired(["systemctl", "kill"], 5)
+        with patch("feclora.storage.sftp_transfer_service.subprocess.run", side_effect=[
+            timeout, timeout,
+        ]) as run:
+            with self.assertRaisesRegex(RepositoryManagerError, "state is uncertain"):
+                _stop_transient_unit("/usr/bin/systemctl", "feclora-sftp-" + "a" * 32 + ".service")
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_args_list[1].args[0][1], "kill")
+
+    def test_stop_transient_unit_reports_uncertain_state_when_kill_fails(self):
+        timeout = __import__("subprocess").TimeoutExpired(["systemctl", "stop"], 20)
+        with patch("feclora.storage.sftp_transfer_service.subprocess.run", side_effect=[
+            timeout, SimpleNamespace(returncode=1, stdout="", stderr="failed"),
+        ]) as run:
+            with self.assertRaisesRegex(RepositoryManagerError, "state is uncertain"):
+                _stop_transient_unit("/usr/bin/systemctl", "feclora-sftp-" + "b" * 32 + ".service")
+        self.assertEqual(run.call_count, 2)
 
     def test_interrupted_wait_stops_the_named_transient_service(self):
         manager = FakeManager()
