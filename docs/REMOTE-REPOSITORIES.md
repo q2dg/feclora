@@ -340,9 +340,9 @@ minisign trust anchor and writes into the native local image repository. The
 operation is recorded in the local operation journal. No plaintext SSH
 material is sent through Cockpit.
 
-The SFTP Cockpit workflow now supports one-shot import and publication of existing signed images, plus optional post-capture publication. The transfer adapter now also has a pinned-host-key directory-inventory primitive that returns only validated Feclora `*.manifest.json` basenames and ignores all other server-controlled listing entries. This is a low-level primitive only: it is not yet invoked by the Cockpit API, does not parse or authenticate remote manifests, and does not provide saved SFTP repository definitions or remote image selection in Cockpit.
+The SFTP Cockpit workflow now supports one-shot import and publication of existing signed images, optional post-capture publication, and a **List remote image manifests** action. Inventory runs through a transient systemd service with encrypted SSH-key and pinned `known_hosts` credentials. It returns only validated Feclora manifest marker basenames (including the publisher's `manifest.json`) and discards other server-controlled listing entries. It does not download or authenticate the manifest; signature and artifact verification still occur during the subsequent import action.
 
-The SFTP workflow still lacks Cockpit inventory integration, direct restore-job routing from a remote image, durable byte-level progress, cancellation, retry/resume and end-to-end provider acceptance. The synchronous transfer actions do not expose transfer progress in Cockpit. Unit tests have been added for the inventory parser but have not been executed in this session.
+The SFTP workflow still lacks saved SFTP repository definitions, direct restore-job routing from a remote image, durable byte-level progress, cancellation, retry/resume and end-to-end provider acceptance. Inventory currently lists manifest markers in the configured directory; it is not a multi-directory catalog or automatic remote restore selector. The synchronous transfer actions do not expose transfer progress in Cockpit. Unit tests have been added but have not been executed in this session.
 
 
 ### Automatic SFTP publication after capture
