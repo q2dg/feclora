@@ -89,6 +89,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
 
     def test_check_reports_verified_mount_and_unknown_id(self):
         self.manager.add("images", self.definition)
+        self.manager._is_mounted = lambda _path: True
         self.manager._mount_record = lambda _path: (
             "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime",
         )
