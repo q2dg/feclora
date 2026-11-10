@@ -92,6 +92,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
+        "sftp_inventory": {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "port"},
     }
     if not isinstance(action, str) or action not in fields or not isinstance(params, dict):
         raise LocalOperationError("unsupported local storage operation")
@@ -119,6 +120,27 @@ def validate_definition(value: Any) -> dict[str, Any]:
     if "repository_id" in params and (not isinstance(params["repository_id"], str)
             or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", params["repository_id"])):
         raise LocalOperationError("repository_id is invalid")
+    if action == "sftp_inventory":
+        config = params
+        if (not isinstance(config.get("host"), str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}", config["host"])
+                or config["host"].endswith(".") or ".." in config["host"]):
+            raise LocalOperationError("SFTP inventory host is invalid")
+        if not isinstance(config.get("username"), str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", config["username"]):
+            raise LocalOperationError("SFTP inventory username is invalid")
+        remote = config.get("remote_directory")
+        if (not isinstance(remote, str) or not re.fullmatch(r"/[A-Za-z0-9._/-]{0,1024}", remote)
+                or remote.startswith("//") or posixpath.normpath(remote) != remote
+                or (remote != "/" and any(part in {"", ".", ".."} for part in remote.split("/")[1:]))):
+            raise LocalOperationError("SFTP inventory directory must be absolute and normalized")
+        for field in ("identity_credential", "known_hosts_credential"):
+            credential_value = config.get(field)
+            if not isinstance(credential_value, str) or not re.fullmatch(
+                r"/etc/credstore\\.encrypted/feclora/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\\.cred", credential_value
+            ):
+                raise LocalOperationError(f"SFTP inventory {field} must reference a registered encrypted credential")
+        port = config.get("port")
+        if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+            raise LocalOperationError("SFTP inventory port is invalid")
     if "sftp_source" in params:
         config = params["sftp_source"]
         required_sftp = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "expected_manifest_sha256"}
