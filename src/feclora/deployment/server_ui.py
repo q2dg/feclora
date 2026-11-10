@@ -35,7 +35,9 @@ from feclora.ui import dialog_app
 CONFIG_PATH = "/etc/feclora/deployment-server.json"
 
 
-def _available_images(repository: str) -> list[tuple[str, ImageManifest]]:
+def _available_images(
+    repository: str, trusted_public_key: str | None,
+) -> list[tuple[str, ImageManifest]]:
     found = []
     for path in sorted(Path(repository).glob("*.manifest.json")):
         try:
@@ -43,7 +45,7 @@ def _available_images(repository: str) -> list[tuple[str, ImageManifest]]:
         except (OSError, UnicodeError, ManifestValidationError):
             continue
         signature_present = os.path.lexists(str(path) + ".minisig")
-        if not signature_present or config.server_minisign_public_key:
+        if not signature_present or trusted_public_key:
             found.append((path.name, manifest))
     return found
 
@@ -76,7 +78,7 @@ def _choose_job(
         raise DeploymentControlError("job creation cancelled")
     manifest_path = None
     if operation == "restore":
-        images = _available_images(config.repository)
+        images = _available_images(config.repository, config.server_minisign_public_key)
         if transport == "multicast":
             images = [
                 entry for entry in images
