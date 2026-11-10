@@ -43,6 +43,11 @@ def parse_connection_profiles(payload: str) -> list[dict[str, Any]]:
             addresses = [addresses] if addresses else []
         if not isinstance(addresses, list) or any(not isinstance(v, str) for v in addresses):
             addresses = []
+        dns = row.get("ipv4.dns", row.get("IP4.DNS", []))
+        if isinstance(dns, str):
+            dns = [dns] if dns else []
+        if not isinstance(dns, list) or any(not isinstance(v, str) for v in dns):
+            dns = []
         profiles.append({
             "uuid": uuid, "name": name, "type": kind,
             "device": row.get("DEVICE") if isinstance(row.get("DEVICE"), str) else None,
