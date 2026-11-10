@@ -1335,7 +1335,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
     _emit({"event": "started", "operation_id": operation_id, "operation": action})
     if action == "sftp_inventory":
         from feclora.storage.sftp_transfer_service import run_sftp_transfer
-        return run_sftp_transfer(
+        result = run_sftp_transfer(
             operation="inventory", host=_text(params, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}"),
             username=_text(params, "username", pattern=r"[A-Za-z0-9._-]{1,64}"),
             remote_path=_text(params, "remote_directory", maximum=1024),
@@ -1343,7 +1343,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             known_hosts_credential=_text(params, "known_hosts_credential", maximum=512),
             port=params.get("port", 22),
         )
-    if action == "capture_disk":
+    elif action == "capture_disk":
         from feclora.storage.disk_capture import capture_disk
         source = _device(params["source"], "source")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
