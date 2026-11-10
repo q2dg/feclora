@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from feclora.storage.sftp_transfer import (
-    SFTPTransferError, build_sftp_argv, download_file, upload_file,
+    SFTPTransferError, build_sftp_argv, download_file, list_image_manifests, upload_file,
 )
 
 
@@ -124,6 +124,30 @@ class SFTPTransferTests(unittest.TestCase):
                 )
             self.assertFalse(result["verified"])
             self.assertEqual(destination.read_bytes(), payload)
+
+
+    def test_lists_only_safe_feclora_manifest_basenames(self):
+        def runner(_argv, **kwargs):
+            self.assertIn('ls -1 "/images"', kwargs["input"])
+            return SimpleNamespace(
+                returncode=0,
+                stdout="image-01.manifest.json\\n../escape.manifest.json\\nsubdir/evil.manifest.json\\nnotes.txt\\nother.manifest.json\\n",
+                stderr="",
+            )
+        with patch("feclora.storage.sftp_transfer.build_sftp_argv", return_value=["sftp"]):
+            names = list_image_manifests(
+                "/images", host="sftp.example.net", username="backup",
+                identity_file="/key", known_hosts_file="/known", runner=runner,
+            )
+        self.assertEqual(names, ["image-01.manifest.json", "other.manifest.json"])
+
+    def test_manifest_inventory_rejects_traversal_directory(self):
+        with self.assertRaises(SFTPTransferError):
+            list_image_manifests(
+                "/images/../other", host="sftp.example.net", username="backup",
+                identity_file="/key", known_hosts_file="/known",
+                runner=lambda *_args, **_kwargs: self.fail("must not connect"),
+            )
 
 
 if __name__ == "__main__":
