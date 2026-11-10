@@ -65,6 +65,7 @@ lvm2
 stratisd
 stratis-cli
 cryptsetup
+# Bundled for compatibility with current enrollment paths; image crypto use is opt-in.
 age
 minisign
 nvme-cli
