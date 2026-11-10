@@ -191,8 +191,8 @@ network isolation.
 The Server setup tab now includes **Trusted Clients · Approve CSR**. On a
 Client, prepare the enrollment request on removable media. An age recipient
 is included only when the optional age-encryption feature is enabled. Optionally
-include image-signing public material only when the Client is authorized to
-capture images for the Server.
+include image-signing public material only when the Client should sign its
+captured images. Unsigned capture remains available without that key.
 
 On the Server, provide the CSR path, optional age-recipient path and Client
 unicast MAC. Paths must refer to regular files on mounted media under
