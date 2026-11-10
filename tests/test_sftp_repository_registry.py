@@ -33,7 +33,8 @@ class SFTPRepositoryRegistryTests(unittest.TestCase):
             saved = self.registry.save(self.definition)
             self.assertEqual(saved, self.definition)
             listed = self.registry.list()
-            self.assertEqual(listed, [self.definition])
+            expected = {key: value for key, value in self.definition.items() if key != "id"}
+            self.assertEqual(listed, [expected])
             updated = dict(self.definition, remote_directory="/images/releases")
             self.registry.save(updated)
             self.assertEqual(self.registry.list()[0]["remote_directory"], "/images/releases")
