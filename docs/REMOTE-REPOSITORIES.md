@@ -313,12 +313,17 @@ The same module now includes `fetch_image_set()`. It downloads only
 metadata mode into a new private staging directory. It enforces metadata size
 limits, parses the existing manifest schema and verifies minisign against an
 independently trusted public key before requesting any image artifact.
-Artifacts are downloaded with their signed SHA-256 values, checked again for
-byte count and digest, and the complete directory is published under the
-manifest image ID using Linux `renameat2(RENAME_NOREPLACE)`. If atomic
-no-replace directory publication is unavailable, the operation fails closed.
-An existing image ID is never overwritten. Failed or invalid retrievals remove
-the private staging directory.
+Artifacts are downloaded with their signed SHA-256 values and checked
+again for byte count and digest. The verified set is then imported into the
+native Feclora repository layout: artifact files, followed by
+`<image_id>.manifest.json.minisig`, followed by
+`<image_id>.manifest.json` as the final commit marker expected by the
+existing Cockpit inventory and restore code. Each file is published with a
+no-overwrite hard link. If any destination already exists, import fails
+without replacing it and removes files created earlier in that attempt.
+This is a manifest-last multi-file publication, not a single atomic directory
+transaction; readers must treat the manifest as the visibility/commit marker.
+Failed or invalid retrievals remove the private staging directory.
 
 The metadata download mode is restricted by the transient-service CLI to the
 two metadata filenames; it never marks them as verified. Artifact download
