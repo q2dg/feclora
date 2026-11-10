@@ -322,8 +322,8 @@ class ClientDeploymentService:
                         f" Multicast staging preflight passed: {required_bytes} bytes required, "
                         f"{free_bytes} bytes free, {reserve_bytes} bytes reserved."
                     )
-                elif network_interface is not None or igmp_confirmed is not False:
-                    raise DeploymentControlError("unicast Client job must not specify multicast interface or IGMP acknowledgement")
+                elif igmp_confirmed is not False:
+                    raise DeploymentControlError("unicast Client job must not specify an IGMP acknowledgement")
                 if job.operation == "save" and job.target_type != "disk":
                     raise DeploymentControlError("Client capture currently supports whole-disk jobs only")
                 if job.operation == "save" and (
