@@ -30,6 +30,26 @@ class WebAPITests(unittest.TestCase):
         with patch("feclora.webapi._images", return_value=[{"image_id": "base"}]):
             self.assertEqual(dispatch({"action": "images"}), {"images": [{"image_id": "base"}]})
 
+    def test_durable_sftp_inventory_dispatches_through_transfer_service(self):
+        params = {
+            "host": "backup.example.net", "username": "backup",
+            "remote_directory": "/images", "port": 22,
+            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+        }
+        expected = {"operation": "inventory", "completed": True, "manifests": []}
+        with patch("feclora.storage.sftp_transfer_service.run_sftp_transfer", return_value=expected) as transfer:
+            from feclora.webapi import _execute_operation
+            result = _execute_operation("sftp_inventory", params, "job-1")
+        self.assertEqual(result, expected)
+        transfer.assert_called_once_with(
+            operation="inventory", host="backup.example.net", username="backup",
+            remote_path="/images",
+            identity_credential="/etc/credstore.encrypted/feclora/key.cred",
+            known_hosts_credential="/etc/credstore.encrypted/feclora/hosts.cred",
+            port=22,
+        )
+
     def test_operations_action_returns_durable_local_history(self):
         expected = [{"operation": "capture_disk", "status": "completed"}]
         with patch("feclora.webapi._operations", return_value=expected):
