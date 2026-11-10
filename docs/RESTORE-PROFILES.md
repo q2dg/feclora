@@ -21,7 +21,7 @@ Profiles contain choices only. They must never contain age identity contents, pr
 
 - **interactive:** load the choices but ask the operator before destructive actions.
 - **confirm:** perform preflight automatically and require a final typed confirmation before writing.
-- **unattended:** require a detached minisign signature verified against a separately configured trusted public key, a timezone-qualified expiry, a single-use profile, exact stable target identity matching, and mandatory post-write verification. A failed or incomplete preflight must stop before the first write.
+- **unattended:** require an authenticated profile and image manifest verified against an independently configured trust anchor, a timezone-qualified expiry, a single-use profile, exact stable target identity matching, and mandatory post-write verification. `minisign` is one optional signature implementation, not a product-wide dependency. The current executor is minisign-specific; replacing that hard dependency with a configurable trust/verifier interface is outstanding. A failed or incomplete preflight must stop before the first write.
 
 The signature sidecar is named PROFILE.json.minisig. The trusted public key is configured outside the profile. The profile ID must be recorded in a persistent consumption ledger before the first destructive write so a single-use profile cannot be replayed. Until that ledger and the restore orchestrator are integrated, the profile model is a validation foundation, not an unattended execution switch.
 
@@ -30,7 +30,7 @@ The signature sidecar is named PROFILE.json.minisig. The trusted public key is c
 - **preserve:** retain source partition boundaries and leave additional target capacity unallocated, repairing secondary GPT metadata where required.
 - **proportional:** redistribute partition capacity proportionally. This is not equivalent to merely editing GPT end sectors: moving or expanding partitions can overwrite subsequent data. It requires a partition-aware restore plan and filesystem-aware growth, with preflight validation for every partition/filesystem combination. The raw whole-disk clone path does not silently apply this policy.
 
-The profile model and unattended whole-disk executor are implemented in src/feclora/storage/restore_profile.py and src/feclora/storage/profile_executor.py. They strictly validate schema fields, reject duplicate JSON keys and path traversal, match WWN/serial identities, verify minisign signatures, and atomically consume single-use authorization immediately before the first write. UI-based profile authoring, automatic startup/systemd enablement and proportional layout execution remain pending.
+The profile model and unattended whole-disk executor are implemented in src/feclora/storage/restore_profile.py and src/feclora/storage/profile_executor.py. They strictly validate schema fields, reject duplicate JSON keys and path traversal, match WWN/serial identities, verify minisign signatures, and atomically consume single-use authorization immediately before the first write. **Current limitation:** this executor currently requires minisign for profile and image authentication. The project policy is that minisign must remain optional; a configurable verifier/trust interface (with an equally strong alternative authentication path) is still required before unattended restore can satisfy that policy without minisign. UI-based profile authoring, automatic startup/systemd enablement and proportional layout execution remain pending.
 
 
 ## Running an unattended disk restore
@@ -85,7 +85,7 @@ feclora-restore-profile \
   --operation-log /mnt/restore-media/audit/operations.jsonl
 ```
 
-For age-encrypted images, additionally pass `--age-identity` with a protected
+For images encrypted with the optional age integration, additionally pass `--age-identity` with a protected
 identity file supplied outside the profile. Use a Linux filesystem with POSIX ownership, permissions, locking and hard-link support (for example ext4, XFS or Btrfs); FAT/exFAT volumes may not provide the required semantics. The command verifies that the consumption ledger and operation journal reside on a dedicated persistent mounted filesystem (not the Live overlay, tmpfs or root filesystem). It rechecks the WWN and serial immediately
 before writing, after artifact and target preflight. It atomically consumes
 the profile ID in the durable ledger at that same pre-write boundary. A consumed profile cannot be replayed from the same persistent
@@ -131,7 +131,7 @@ sudo chown root:feclora /etc/feclora/restore-profile.env
 ```
 
    Ensure the profile, image manifest, detached signatures, public keys,
-   age identity (if used), audit directory and mount are readable/writable
+   age identity (only if the image uses age), audit directory and mount are readable/writable
    as appropriate by the live `feclora` account.
 4. Enable the service explicitly with
    `systemctl enable feclora-restore-profile.service`.
