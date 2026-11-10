@@ -145,7 +145,14 @@ def execute_client_image_job(
                 progress_callback=transfer_progress_callback,
             )
             signed = os.path.isfile(manifest_path + ".minisig")
-            return True, f"image {job.image_id} captured, " + ("signed and " if signed else "") + "transferred"
+            protections = [
+                label for enabled, label in (
+                    (encrypt_image, "age-encrypted"),
+                    (signed, "minisign-signed"),
+                ) if enabled
+            ]
+            protection_detail = " (" + ", ".join(protections) + ")" if protections else " (unsigned, unencrypted)"
+            return True, f"image {job.image_id} captured{protection_detail} and transferred"
         except (ImageTransferError, DiskCaptureError, ImageSecurityError, OSError) as exc:
             raise ClientImageRuntimeError(f"capture/transfer failed: {exc}") from exc
 
