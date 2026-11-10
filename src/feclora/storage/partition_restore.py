@@ -319,10 +319,13 @@ def restore_partition(
     except (OSError, UnicodeError, ManifestValidationError) as exc:
         raise PartitionRestoreError(f"cannot load valid partition manifest: {exc}") from exc
     signature_path = manifest_file + ".minisig"
-    if require_signature and not os.path.isfile(signature_path):
+    signature_present = os.path.lexists(signature_path)
+    if require_signature and not signature_present:
         raise PartitionRestoreError("a minisign signature is required but this image has none")
+    if signature_present and minisign_public_key is None:
+        raise PartitionRestoreError("image is signed; a trusted minisign public key is required before restore")
     if minisign_public_key is not None:
-        if not os.path.isfile(signature_path):
+        if not signature_present:
             raise PartitionRestoreError("minisign public key supplied but image signature is missing")
         try:
             verify_manifest_signature(manifest_file, minisign_public_key, signature_path=signature_path, minisign_executable=(executables or {}).get("minisign"))
