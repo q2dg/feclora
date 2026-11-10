@@ -79,6 +79,7 @@ export default function App() {
   const [sftpPort, setSftpPort] = useState("22");
   const [sftpIdentity, setSftpIdentity] = useState("");
   const [sftpKnownHosts, setSftpKnownHosts] = useState("");
+  const [sftpPublishImageId, setSftpPublishImageId] = useState("");
   const [credentialId, setCredentialId] = useState("");
   const [credentialKind, setCredentialKind] = useState("ssh-key");
   const [credentialSourceFile, setCredentialSourceFile] = useState("");
@@ -312,6 +313,20 @@ export default function App() {
         known_hosts_credential: sftpKnownHosts
       });
       setNotice("Imported and verified SFTP image " + result.image_id + " (" + result.artifact_count + " artifacts).");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const publishSftpImageSet = async (event) => {
+    event.preventDefault(); setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("publish_sftp_image_set", {
+        image_id: sftpPublishImageId, host: sftpHost, username: sftpUsername,
+        remote_directory: sftpRemoteDirectory, port: Number(sftpPort),
+        identity_credential: sftpIdentity, known_hosts_credential: sftpKnownHosts
+      });
+      setNotice("Published signed SFTP image " + result.image_id + " (" + result.artifact_count + " artifacts).");
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -1159,6 +1174,22 @@ export default function App() {
                   <Field label="Encrypted SSH private-key credential"><select className="pf-v5-c-form-control" value={sftpIdentity} onChange={(e) => setSftpIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
                   <Field label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={sftpKnownHosts} onChange={(e) => setSftpKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
                   <Button type="submit" variant="primary" isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Fetch, verify and import image</Button>
+                </form></CardBody></Card>
+              </StackItem>
+              <StackItem><Title headingLevel="h2" size="lg">Publish a signed image set to SFTP</Title>
+                <p>Publishes an already captured and signed image from the local repository. The local minisign public key is used to verify the manifest before transfer. The remote directory must already exist and be empty for these filenames; existing remote files are never overwritten.</p>
+                <Card><CardBody><form onSubmit={publishSftpImageSet}>
+                  <Field label="Local signed image"><select className="pf-v5-c-form-control" value={sftpPublishImageId} onChange={(e) => setSftpPublishImageId(e.target.value)} required>
+                    <option value="">Select a signed local image…</option>
+                    {images.filter((item) => item.signed).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {item.image_type}</option>)}
+                  </select></Field>
+                  <Field label="SFTP host"><input className="pf-v5-c-form-control" value={sftpHost} onChange={(e) => setSftpHost(e.target.value)} maxLength={253} required /></Field>
+                  <Field label="SSH username"><input className="pf-v5-c-form-control" value={sftpUsername} onChange={(e) => setSftpUsername(e.target.value)} maxLength={64} required /></Field>
+                  <Field label="Remote image directory"><input className="pf-v5-c-form-control" value={sftpRemoteDirectory} onChange={(e) => setSftpRemoteDirectory(e.target.value)} maxLength={1024} required /></Field>
+                  <Field label="SSH port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={sftpPort} onChange={(e) => setSftpPort(e.target.value)} required /></Field>
+                  <Field label="Encrypted SSH private-key credential"><select className="pf-v5-c-form-control" value={sftpIdentity} onChange={(e) => setSftpIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
+                  <Field label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={sftpKnownHosts} onChange={(e) => setSftpKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
+                  <Button type="submit" variant="primary" isDisabled={busy || !sftpPublishImageId || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Publish signed image set</Button>
                 </form></CardBody></Card>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Configured repositories</Title>
