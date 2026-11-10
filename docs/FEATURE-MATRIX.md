@@ -25,7 +25,7 @@ Status meanings:
 | Integrity | minisign signatures | Implemented | Cockpit local key setup/capture; extracted partition manifests signed when key available | Automated tests |
 | Encryption | age artifact encryption | Implemented | Cockpit local key setup/capture | Automated tests |
 | Compression | none, gzip, zstd, lz4 | Implemented | Cockpit basic choices | Automated tests/CI |
-| Filesystems | Partclone-supported filesystems | Implemented with raw fallback | Cockpit | Automated tests; operator validation |
+| Filesystems | Partclone-supported filesystems | Implemented with raw fallback; native JSON block/byte progress is enabled when the installed Partclone advertises `--json-status`, with legacy progress fallback on older builds | Cockpit | Automated tests; operator validation |
 | Storage layers | LVM, LUKS, Btrfs, Stratis | Inventory/safety support varies; full-aware imaging incomplete | Inventory only | Automated tests; operator validation |
 | Deployment identity | Managed CA and Server mTLS identity bootstrap | Implemented | Cockpit initial bootstrap | Automated tests; operator validation |
 | Deployment trust | Client inventory, MAC/signing authorization, exact-confirmation revocation | Implemented | Cockpit | Automated tests |
