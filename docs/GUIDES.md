@@ -25,9 +25,11 @@ not an operator procedure. The release-wide acceptance contract is in
 ## Remote repositories and disk imaging
 
 - [Remote repository administration and provider constraints](REMOTE-REPOSITORIES.html) — **Partial; check provider limits**
-  SSHFS, NFS and SMB/CIFS have Cockpit mount/inventory integration. WebDAV and
-  S3 have incomplete provider/credential workflows; S3 is read-only in the
-  current image integration. Do not infer capture support for every provider.
+  SSHFS, NFS and SMB/CIFS have partial Cockpit mount/inventory integration.
+  SFTP is a distinct transfer workflow. WebDAV and S3 have incomplete
+  provider/credential workflows; S3 is currently read-only in the image
+  integration. BitTorrent is a proposed optional distribution transport, not
+  an implemented repository provider. Do not infer capture support for every provider.
 
 - [Whole-disk capture](WHOLE-DISK-CAPTURE.html) and
   [partition capture](PARTITION-CAPTURE.html) — **Available**
