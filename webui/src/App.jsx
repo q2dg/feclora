@@ -311,6 +311,11 @@ export default function App() {
       setNotice("Operation accepted by the durable worker. It will continue if Cockpit disconnects. Use Operation log to request cancellation.");
       const result = await waitForLocalOperation(accepted.operation_id, (eventData) => {
         if (eventData.event === "progress") setProgress(eventData);
+        if (eventData.event === "state") {
+          setOperations((current) => current.map((item) => item.operation_id === accepted.operation_id
+            ? { ...item, state: eventData.state }
+            : item));
+        }
       });
       if (result.state === "completed") {
         setOperationResult(result.result);
