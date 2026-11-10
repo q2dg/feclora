@@ -15,7 +15,7 @@ from typing import Callable, Mapping
 from .artifact_writer import ArtifactWriteError, write_artifact
 from .capture import CaptureError, _is_block_device
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
-from .image_security import ImageSecurityError, encrypt_artifact, sign_manifest
+from .image_security import ImageSecurityError, encrypt_artifact, preflight_image_security, sign_manifest
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 
@@ -113,6 +113,15 @@ def capture_disk(
     except SourceSafetyError as exc:
         raise DiskCaptureError(f"unsafe capture source: {exc}") from exc
     available = executables or {}
+    try:
+        preflight_image_security(
+            age_recipients_file=age_recipients_file,
+            minisign_secret_key=minisign_secret_key,
+            age_executable=available.get("age"),
+            minisign_executable=available.get("minisign"),
+        )
+    except ImageSecurityError as exc:
+        raise DiskCaptureError(f"image security preflight failed: {exc}") from exc
     dd = available.get("dd") or shutil.which("dd")
     sfdisk = available.get("sfdisk") or shutil.which("sfdisk")
     lsblk = available.get("lsblk") or shutil.which("lsblk")
