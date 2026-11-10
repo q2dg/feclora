@@ -35,4 +35,4 @@ ignore incomplete image sets without a manifest.
 5. Review the operation summary and start capture. Monitor streamed progress. Cancelling prevents publication of a valid manifest; do not use a partial artifact set.
 6. Confirm that the manifest appears in the image inventory before using or transferring the image.
 
-**Screenshots are pending.** The repository currently has no validated Cockpit screenshot set. Capture each step from a real, version-matched Fedora Live build and store it under `docs/assets/screenshots/`; do not use mockups or screenshots from a different UI revision.
+**Screenshots are pending.** Follow the [Cockpit screenshot capture plan](assets/screenshots/README.md). The repository currently has no validated Cockpit screenshot set. Capture each step from a real, version-matched Fedora Live build and store it under `docs/assets/screenshots/`; do not use mockups or screenshots from a different UI revision.
