@@ -18,6 +18,7 @@ from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 from .compression import CompressionError, ExternalDecompressionStream
 from .capture import _partclone_supports_json_status, _read_partclone_percent
+from .process_control import stop_process
 
 class PartitionRestoreError(RuntimeError):
     """A partition restore was rejected or failed."""
@@ -190,16 +191,7 @@ _FILESYSTEM_CHECKS = {
 
 
 def _stop_process(process: Any) -> None:
-    if process is None or process.poll() is not None:
-        return
-    process.terminate()
-    try:
-        process.wait(timeout=5)
-    except TypeError:
-        process.wait()
-    except subprocess.TimeoutExpired:
-        process.kill()
-        process.wait()
+    stop_process(process)
 
 
 def _verify_raw_readback(
