@@ -101,8 +101,9 @@ def fetch_image_set(
         root_info = os.lstat(root)
     except OSError as exc:
         raise SFTPImageSetError("image destination root is unavailable") from exc
-    if not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode):
-        raise SFTPImageSetError("image destination root must be a real directory")
+    if (not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode)
+            or Path(root).resolve(strict=True) != Path(root)):
+        raise SFTPImageSetError("image destination root must be a real directory without symlinked path components")
 
     staging = tempfile.mkdtemp(prefix=".feclora-sftp-incoming-", dir=root)
     os.chmod(staging, 0o700)
@@ -142,8 +143,8 @@ def fetch_image_set(
             size, digest = _digest(local)
             if size != artifact.size_bytes or digest != artifact.sha256:
                 raise SFTPImageSetError(f"downloaded artifact {artifact.filename} does not match signed manifest")
-            if result.get("verified") is False:
-                raise SFTPImageSetError(f"downloaded artifact {artifact.filename} was not digest-verified")
+            if result.get("verified") is not True:
+                raise SFTPImageSetError(f"downloaded artifact {artifact.filename} was not digest-verified by the SFTP service")
 
         final_path = os.path.join(root, manifest.image_id)
         _publish_directory_noreplace(staging, final_path)
