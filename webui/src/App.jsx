@@ -251,6 +251,10 @@ export default function App() {
     && sftpRemoteInspection.connection.port === Number(sftpPort)
     && sftpRemoteInspection.connection.identity_credential === sftpIdentity
     && sftpRemoteInspection.connection.known_hosts_credential === sftpKnownHosts);
+  useEffect(() => {
+    if (!sftpInspectionMatchesCurrent) setRestoreFromSftp(false);
+  }, [sftpInspectionMatchesCurrent]);
+
   const expectedConfirmation = operation === "clone_partition"
     ? (source && target ? `ERASE ${target} FROM ${source}` : "")
     : (isRestore || operation.startsWith("clone_")) && target ? `ERASE ${target}` : "";
@@ -347,7 +351,7 @@ export default function App() {
   };
 
   const inspectSftpImageSet = async () => {
-    setBusy(true); setError(""); setNotice(""); setSftpRemoteInspection(null);
+    setBusy(true); setError(""); setNotice(""); setSftpRemoteInspection(null); setRestoreFromSftp(false);
     try {
       const result = await callFeclora("inspect_sftp_image_set", {
         host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
