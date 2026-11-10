@@ -1329,7 +1329,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         accepted_params = (allowed_params, allowed_params - {"repository_id"},
                            allowed_params - {"sftp_publish"},
                            allowed_params - {"repository_id", "sftp_publish"})
-    if set(params) not in accepted_params or ("sftp_source" in params and "repository_id" in params):
+    if (set(params) not in accepted_params and not (action == "sftp_inventory" and set(params) == allowed_params - {"port"})) or ("sftp_source" in params and "repository_id" in params):
         raise WebAPIError("operation parameters do not match the selected operation")
     started = time.monotonic()
     _emit({"event": "started", "operation_id": operation_id, "operation": action})
@@ -1341,7 +1341,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             remote_path=_text(params, "remote_directory", maximum=1024),
             identity_credential=_text(params, "identity_credential", maximum=512),
             known_hosts_credential=_text(params, "known_hosts_credential", maximum=512),
-            port=params["port"],
+            port=params.get("port", 22),
         )
     if action == "capture_disk":
         from feclora.storage.disk_capture import capture_disk
