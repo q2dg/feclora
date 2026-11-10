@@ -73,6 +73,12 @@ export default function App() {
   const [operations, setOperations] = useState([]);
   const [remoteRepositories, setRemoteRepositories] = useState([]);
   const [systemdCredentials, setSystemdCredentials] = useState([]);
+  const [sftpHost, setSftpHost] = useState("");
+  const [sftpUsername, setSftpUsername] = useState("");
+  const [sftpRemoteDirectory, setSftpRemoteDirectory] = useState("/images");
+  const [sftpPort, setSftpPort] = useState("22");
+  const [sftpIdentity, setSftpIdentity] = useState("");
+  const [sftpKnownHosts, setSftpKnownHosts] = useState("");
   const [credentialId, setCredentialId] = useState("");
   const [credentialKind, setCredentialKind] = useState("ssh-key");
   const [credentialSourceFile, setCredentialSourceFile] = useState("");
@@ -292,6 +298,20 @@ export default function App() {
     try {
       await callFeclora("remove_systemd_credential", { id: credential.id, kind: credential.kind });
       setNotice("Removed encrypted credential " + credential.id + " (" + credential.kind + ").");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const fetchSftpImageSet = async (event) => {
+    event.preventDefault(); setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("fetch_sftp_image_set", {
+        host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
+        port: Number(sftpPort), identity_credential: sftpIdentity,
+        known_hosts_credential: sftpKnownHosts
+      });
+      setNotice("Imported and verified SFTP image " + result.image_id + " (" + result.artifact_count + " artifacts).");
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -1092,8 +1112,8 @@ export default function App() {
           <Tab eventKey="repositories" title="Remote repositories">
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Remote image repositories</Title>
-                <p>Manage remote repository mounts. SSHFS, NFS and SMB/CIFS are filesystem providers; S3/rclone is currently read-only for image inventory and restore. SFTP transfers and WebDAV credential management are not yet supported as complete Cockpit workflows.</p>
-                <Alert variant="warning" title="Provider scope" isInline>Cockpit currently exposes SSHFS, NFS, SMB/CIFS and read-only S3/rclone. WebDAV remains hidden until per-repository encrypted credentials are supported; SFTP is a separate transfer provider and is not implemented. S3 is read-only until Feclora has a safe object-publication protocol; use it for inventory, verification and restore, not capture.</Alert>
+                <p>Manage filesystem repository mounts and import authenticated image sets from SFTP. SSHFS, NFS and SMB/CIFS are filesystem providers; S3/rclone is currently read-only for image inventory and restore. SFTP capture/upload, remote inventory and saved SFTP repository definitions remain pending.</p>
+                <Alert variant="warning" title="Provider scope" isInline>Cockpit exposes SSHFS, NFS, SMB/CIFS and read-only S3/rclone mounts. SFTP now supports one-shot signed image import using encrypted SSH-key and pinned known_hosts references; SFTP capture/upload, saved repository management and remote inventory discovery are not yet implemented. WebDAV remains hidden until its encrypted credential lifecycle is supported. S3 remains read-only.</Alert>
               </StackItem>
               <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
                 <Field label="Repository ID"><input className="pf-v5-c-form-control" value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} readOnly={repositoryEditing} required /></Field>
@@ -1128,6 +1148,18 @@ export default function App() {
                   {systemdCredentials.map((credential) => <Tr key={credential.name}><Td>{credential.id}</Td><Td>{credential.kind}</Td><Td>{credential.path}</Td><Td><Button size="sm" variant="danger" isDisabled={busy || remoteRepositories.some((repo) => (repo.credential_refs || []).includes(credential.path))} onClick={() => removeSystemdCredential(credential)}>Remove</Button></Td></Tr>)}
                   {!systemdCredentials.length && <Tr><Td colSpan={4}>No encrypted credentials imported.</Td></Tr>}
                 </Tbody></Table>
+              </StackItem>
+              <StackItem><Title headingLevel="h2" size="lg">Import a signed image set from SFTP</Title>
+                <p>The remote directory must contain manifest.json, manifest.json.minisig and every artifact named by the signed manifest. The manifest is verified with the local Feclora Server public key before artifact download. Imported files become visible in the local image inventory.</p>
+                <Card><CardBody><form onSubmit={fetchSftpImageSet}>
+                  <Field label="SFTP host"><input className="pf-v5-c-form-control" value={sftpHost} onChange={(e) => setSftpHost(e.target.value)} maxLength={253} required /></Field>
+                  <Field label="SSH username"><input className="pf-v5-c-form-control" value={sftpUsername} onChange={(e) => setSftpUsername(e.target.value)} maxLength={64} required /></Field>
+                  <Field label="Remote image directory"><input className="pf-v5-c-form-control" value={sftpRemoteDirectory} onChange={(e) => setSftpRemoteDirectory(e.target.value)} maxLength={1024} required /></Field>
+                  <Field label="SSH port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={sftpPort} onChange={(e) => setSftpPort(e.target.value)} required /></Field>
+                  <Field label="Encrypted SSH private-key credential"><select className="pf-v5-c-form-control" value={sftpIdentity} onChange={(e) => setSftpIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
+                  <Field label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={sftpKnownHosts} onChange={(e) => setSftpKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
+                  <Button type="submit" variant="primary" isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Fetch, verify and import image</Button>
+                </form></CardBody></Card>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Configured repositories</Title>
                 <Table aria-label="Remote image repositories" variant="compact"><Thead><Tr><Th>ID</Th><Th>Provider</Th><Th>Remote location</Th><Th>Access</Th><Th>Mount state</Th><Th>Actions</Th></Tr></Thead><Tbody>
