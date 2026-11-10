@@ -143,7 +143,9 @@ class CockpitClientTests(unittest.TestCase):
             st_mode=stat.S_IFREG | 0o600, st_uid=0
         )), patch("feclora.deployment.cockpit_client.install_client_certificate", return_value={
             "certificate_file": "/etc/feclora/pki/client.crt",
-        }) as install, patch("feclora.deployment.cockpit_client._atomic_copy") as copy:
+        }) as install, patch("feclora.deployment.cockpit_client._atomic_copy") as copy, patch(
+            "feclora.deployment.cockpit_client._write_config"
+        ):
             result = complete_client_renewal({
                 "bundle_directory": "/run/media/test/USB",
                 "ca_fingerprint": "a" * 64,
