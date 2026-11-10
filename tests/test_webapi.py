@@ -1017,6 +1017,48 @@ class WebAPITests(unittest.TestCase):
                     "igmp_confirmed": False, "image_encrypt": True,
                 }})
 
+    def test_start_client_save_persists_explicit_per_image_security_choices(self):
+        import stat
+        import tempfile
+        from pathlib import Path
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        config = SimpleNamespace(
+            age_recipients_file="/pki/recipients.txt",
+            local_minisign_secret_key="/pki/client.minisign.key",
+            local_minisign_public_key="/pki/client.minisign.pub",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
+            real_lstat = os.lstat
+            with patch("feclora.webapi._inspect_remote_job", return_value={
+                "host": "192.0.2.10", "server_identity": "URI:server",
+                "job": {"job_id": job_id, "operation": "save", "target_type": "disk", "transport": "unicast"},
+            }), patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config), patch(
+                "feclora.webapi.os.path.isfile", return_value=True
+            ), patch("feclora.webapi.shutil.which", return_value="/usr/bin/tool"), patch(
+                "feclora.webapi._client_job_directory", return_value=root
+            ), patch("feclora.storage.inventory.collect_inventory", return_value={
+                "devices": [{"type": "disk", "path": "/dev/sda", "children": []}],
+            }), patch(
+                "feclora.webapi.os.lstat",
+                side_effect=lambda path: block_info if os.fspath(path) == "/dev/sda" else real_lstat(path),
+            ), patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+                returncode=0, stdout="", stderr="",
+            )), patch("feclora.webapi._client_job_status", return_value={
+                "job_id": job_id, "phase": "connecting",
+            }):
+                result = dispatch({"action": "start_client_job", "params": {
+                    "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
+                    "confirmation": "READ /dev/sda TO URI:server", "compression": "gzip",
+                    "network_interface": "enp1s0", "source_address": "192.0.2.20",
+                    "igmp_confirmed": False, "image_encrypt": True, "image_sign": True,
+                }})
+            request = json.loads((root / (job_id + ".request.json")).read_text(encoding="utf-8"))
+        self.assertEqual(result["phase"], "connecting")
+        self.assertTrue(request["image_encrypt"])
+        self.assertTrue(request["image_sign"])
+
     def test_start_client_job_preflights_and_persists_multicast_interface(self):
         import stat
         import tempfile
