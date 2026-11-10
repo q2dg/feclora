@@ -137,7 +137,7 @@ def list_image_manifests(
     names: set[str] = set()
     for raw in (result.stdout or "").splitlines():
         name = raw.strip()
-        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\\.manifest\\.json", name):
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.manifest\.json", name):
             names.add(name)
     return sorted(names)
 
