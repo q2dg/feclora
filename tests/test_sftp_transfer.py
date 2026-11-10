@@ -38,7 +38,7 @@ class SFTPTransferTests(unittest.TestCase):
             self.assertIn("-F", argv)
             self.assertEqual(argv[-1], "backup@sftp.example.net")
 
-    def test_upload_uses_random_staging_name_then_remote_rename(self):
+    def test_upload_uses_random_staging_name_then_no_overwrite_hard_link(self):
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary) / "image.part"
             source.write_bytes(b"image-data")
@@ -57,7 +57,9 @@ class SFTPTransferTests(unittest.TestCase):
             commands = calls[0][1]["input"].splitlines()
             self.assertTrue(commands[0].startswith('put "'))
             self.assertIn(".feclora-", commands[0])
+            self.assertTrue(commands[1].startswith("ln "))
             self.assertEqual(commands[1].split()[-1], '"/images/disk.img"')
+            self.assertTrue(commands[2].startswith("rm "))
             self.assertEqual(calls[0][0], ["sftp"])
 
     def test_upload_rejects_parent_traversal(self):
