@@ -1124,6 +1124,24 @@ class WebAPITests(unittest.TestCase):
         manager.unmount.assert_called_once_with("images")
         manager.remove.assert_called_once_with("images")
 
+    def test_remote_repository_update_and_check_dispatch(self):
+        manager = Mock()
+        manager.update.return_value = {"id": "images", "updated": True}
+        manager.check.return_value = {"id": "images", "mounted": True, "verified": True}
+        definition = {
+            "id": "images", "provider": "nfs", "host": "nas.example.net",
+            "remote_path": "/exports/images", "username": None,
+            "credential_file": None, "identity_file": None, "known_hosts_file": None,
+            "port": None, "rclone_remote": None, "read_only": True,
+        }
+        with patch("feclora.webapi._remote_repository_manager", return_value=manager):
+            self.assertEqual(dispatch({"action": "update_remote_repository", "params": definition}),
+                             {"id": "images", "updated": True})
+            self.assertEqual(dispatch({"action": "check_remote_repository", "params": {"id": "images"}}),
+                             {"id": "images", "mounted": True, "verified": True})
+        manager.update.assert_called_once_with("images", {key: value for key, value in definition.items() if key != "id"})
+        manager.check.assert_called_once_with("images")
+
     def test_remote_repository_add_rejects_extra_fields(self):
         with patch("feclora.webapi._remote_repository_manager"):
             with self.assertRaisesRegex(WebAPIError, "missing or unknown fields"):
