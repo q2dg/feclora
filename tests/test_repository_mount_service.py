@@ -27,16 +27,22 @@ class RepositoryMountServiceTests(unittest.TestCase):
 
     def test_ssh_known_hosts_uses_private_systemd_credential(self):
         encrypted = "/etc/credstore.encrypted/feclora/feclora-nas-known-hosts.cred"
+        identity = "/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred"
         repo = RemoteRepository(
             provider="sshfs", host="nas.example.net", remote_path="/images",
             mountpoint="/var/lib/feclora/repositories/nas", username="backup",
-            credential_file=None, identity_file="/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred",
+            credential_file=None, identity_file=identity,
             known_hosts_file=encrypted, port=22, read_only=True,
         )
         argv = build_mount_argv(
-            repo, [("feclora-nas-known-hosts", encrypted)], "/run/credentials/unit",
+            repo, [
+                ("feclora-nas-ssh-key", identity),
+                ("feclora-nas-known-hosts", encrypted),
+            ], "/run/credentials/unit",
         )
+        self.assertIn("IdentityFile=/run/credentials/unit/feclora-nas-ssh-key", " ".join(argv))
         self.assertIn("UserKnownHostsFile=/run/credentials/unit/feclora-nas-known-hosts", " ".join(argv))
+        self.assertNotIn(identity, " ".join(argv))
         self.assertNotIn(encrypted, " ".join(argv))
 
     def test_smb_credentials_path_is_replaced_in_mount_options(self):
