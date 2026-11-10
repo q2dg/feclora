@@ -39,6 +39,8 @@ def execute_client_image_job(
     local_minisign_public_key: str | os.PathLike[str] | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
     age_recipients_file: str | os.PathLike[str] | None = None,
+    encrypt_image: bool = False,
+    sign_image: bool = False,
     compression: str = "gzip",
     compression_level: int | None = 6,
     progress_callback: Callable[[int, int | None], None] | None = None,
@@ -110,6 +112,14 @@ def execute_client_image_job(
             raise ClientImageRuntimeError(f"restore failed: {exc}") from exc
 
     if job.operation == "save":
+        if not isinstance(encrypt_image, bool) or not isinstance(sign_image, bool):
+            raise ClientImageRuntimeError("per-image encryption/signing choices must be boolean")
+        if encrypt_image and (not age_recipients_file or not shutil.which("age")):
+            raise ClientImageRuntimeError("age encryption was selected but no usable recipient inventory or age executable is available")
+        if sign_image and (
+            not local_minisign_secret_key or not local_minisign_public_key or not shutil.which("minisign")
+        ):
+            raise ClientImageRuntimeError("minisign signing was selected but no usable signing keypair or minisign executable is available")
         required = f"READ {local_device_path} TO {server_identity}"
         if confirmation != required:
             raise ClientImageRuntimeError(f"explicit local capture confirmation required: {required}")
@@ -117,8 +127,8 @@ def execute_client_image_job(
             capture_disk(
                 local_device_path, job.image_id, repository,
                 compression=compression, compression_level=compression_level,
-                minisign_secret_key=local_minisign_secret_key,
-                age_recipients_file=age_recipients_file,
+                minisign_secret_key=local_minisign_secret_key if sign_image else None,
+                age_recipients_file=age_recipients_file if encrypt_image else None,
                 progress_callback=progress_callback,
                 executables=executables,
             )
