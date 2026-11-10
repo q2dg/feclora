@@ -138,7 +138,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         for field in ("identity_credential", "known_hosts_credential"):
             credential_value = config.get(field)
             if not isinstance(credential_value, str) or not re.fullmatch(
-                r"/etc/credstore\.encrypted/feclora/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.cred", value
+                r"/etc/credstore\.encrypted/feclora/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.cred", credential_value
             ):
                 raise LocalOperationError(f"SFTP restore source {field} must reference a registered encrypted credential")
         port = config.get("port", 22)
@@ -170,7 +170,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
             for field in ("identity_credential", "known_hosts_credential"):
                 credential_value = config.get(field)
                 if not isinstance(credential_value, str) or not re.fullmatch(
-                    r"/etc/credstore\.encrypted/feclora/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.cred", value
+                    r"/etc/credstore\.encrypted/feclora/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.cred", credential_value
                 ):
                     raise LocalOperationError(f"SFTP publication {field} must reference a registered encrypted credential")
             port = config.get("port", 22)
