@@ -23,7 +23,7 @@ Partclone.
   writer. Standard error goes to a temporary file to avoid pipe deadlocks. A progress
 callback counts bytes read; raw capture reports a percentage when source size
 is known, while Partclone capture reports bytes without guessing its final size.
-Closing the progress dialog cancels the producer and prevents publication.
+Cancelling the Cockpit operation stops the producer and prevents publication.
 - Output is first written in a private staging directory beneath the repository.
   A non-zero producer exit prevents publication and staging data is discarded.
 - A successful artifact is hard-linked into its final name; an existing name
@@ -46,14 +46,15 @@ table or whole-disk boot areas, create a destination partition, resize a
 filesystem, or provide a coordinated multi-device Btrfs snapshot. Multi-device
 Btrfs sources are rejected rather than partially imaged.
 
-In the Local rescue UI, choose **Capture partition**, select the source, enter
-a unique image identifier, choose compression and optional image protection,
-and wait for the progress gauge. The source is read-only. Closing the gauge
-cancels the producer and prevents publication. Verify that the manifest is
-present before attempting restore.
+In Cockpit's **Operations** workflow, choose partition capture, select the
+source partition, enter a unique image identifier, choose compression and
+optional image protection, and review the operation summary. The source is
+read-only. Monitor streamed progress; cancelling stops the producer and
+prevents publication. Verify that the manifest appears in image inventory
+before attempting restore.
 
-The UI is text-mode `dialog`. Real screenshots are pending a version-matched
-Fedora Live capture; do not substitute mockups. Store validated captures under
-`docs/assets/screenshots/` and reference them here with numbered captions.
+**Screenshots are pending.** Capture the workflow from a real, version-matched
+Fedora Live build and store the images under `docs/assets/screenshots/`. Do not
+substitute mockups or screenshots from a different UI revision.
 
 Partclone and dd command semantics are based on the upstream Partclone usage documentation.
