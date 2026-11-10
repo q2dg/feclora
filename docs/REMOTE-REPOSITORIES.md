@@ -15,7 +15,7 @@ SFTP is intentionally not represented as a mounted filesystem provider. Feclora 
 | SFTP | OpenSSH SFTP batch adapter; signed image-set import and publication from Cockpit | Registered encrypted SSH key and known_hosts references loaded by transient systemd credentials; one-shot local-repository transfer actions |
 | NFS | mount.nfs, NFSv4.2 | Server/export policy |
 | SMB/CIFS | mount.cifs, SMB 3.1.1 | Protected credentials file |
-| WebDAV | davfs2 over HTTPS | Safe per-repository credentials are a required gap; never use the global secrets file as a shortcut |
+| WebDAV | Disabled in the repository manager | No mount is accepted until per-repository encrypted credentials and isolated davfs2 service configuration are implemented |
 | S3 | rclone for read/mount; provider-aware object API for writes | Protected per-repository rclone/API credentials; writable publication only with conditional create and read-back guarantees |
 
 The provider definitions in src/feclora/storage/repository.py validate
