@@ -50,10 +50,13 @@ def build_systemd_transfer_argv(
     bindings: list[tuple[str, str]], operation: str,
     host: str, username: str, remote_path: str, local_path: str,
     port: int = 22, expected_sha256: str | None = None,
+    allow_unverified_metadata: bool = False,
 ) -> list[str]:
     """Build a transient service invocation; no plaintext secret is included."""
     if operation not in {"upload", "download"}:
         raise RepositoryManagerError("SFTP operation must be upload or download")
+    if allow_unverified_metadata and (operation != "download" or expected_sha256 is not None):
+        raise RepositoryManagerError("unverified metadata mode is only valid for digest-free downloads")
     if not isinstance(unit, str) or not re.fullmatch(r"feclora-sftp-[a-f0-9]{32}\.service", unit):
         raise RepositoryManagerError("SFTP transient unit name is invalid")
     if len(bindings) != 2:
@@ -84,6 +87,8 @@ def build_systemd_transfer_argv(
     ])
     if expected_sha256 is not None:
         command.extend(["--expected-sha256", expected_sha256])
+    if allow_unverified_metadata:
+        command.append("--allow-unverified-metadata")
     return command
 
 
@@ -91,6 +96,7 @@ def run_sftp_transfer(
     *, identity_credential: str, known_hosts_credential: str,
     operation: str, host: str, username: str, remote_path: str,
     local_path: str, port: int = 22, expected_sha256: str | None = None,
+    allow_unverified_metadata: bool = False,
     manager: RemoteRepositoryManager | None = None,
     runner: Callable[..., Any] = subprocess.run,
 ) -> dict[str, Any]:
@@ -110,6 +116,7 @@ def run_sftp_transfer(
         operation=operation, host=host, username=username,
         remote_path=remote_path, local_path=local_path, port=port,
         expected_sha256=expected_sha256,
+        allow_unverified_metadata=allow_unverified_metadata,
     )
     try:
         result = runner(
@@ -154,6 +161,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--identity-credential-name", required=True)
     parser.add_argument("--known-hosts-credential-name", required=True)
     parser.add_argument("--expected-sha256")
+    parser.add_argument("--allow-unverified-metadata", action="store_true")
     args = parser.parse_args(argv)
     try:
         directory = os.environ.get("CREDENTIALS_DIRECTORY", "")
@@ -174,8 +182,14 @@ def main(argv: list[str] | None = None) -> int:
         if args.operation == "upload":
             upload_file(args.local_path, args.remote_path, **common)
         else:
-            if not args.expected_sha256:
-                raise SFTPTransferError("download requires the manifest SHA-256")
+            if args.allow_unverified_metadata:
+                from pathlib import PurePosixPath
+                if (args.expected_sha256 is not None
+                        or PurePosixPath(args.remote_path).name not in {"manifest.json", "manifest.json.minisig"}
+                        or PurePosixPath(args.local_path).name not in {"manifest.json", "manifest.json.minisig"}):
+                    raise SFTPTransferError("unverified download is restricted to manifest metadata files")
+            elif not args.expected_sha256:
+                raise SFTPTransferError("download requires a manifest SHA-256")
             download_file(
                 args.remote_path, args.local_path,
                 expected_sha256=args.expected_sha256, **common,
