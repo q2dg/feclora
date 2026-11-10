@@ -1150,7 +1150,7 @@ export default function App() {
                 </Tbody></Table>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Import a signed image set from SFTP</Title>
-                <p>The remote directory must contain manifest.json, manifest.json.minisig and every artifact named by the signed manifest. The manifest is verified with the local Feclora Server public key before artifact download. Imported files become visible in the local image inventory.</p>
+                <p>The remote directory must contain manifest.json, manifest.json.minisig and every artifact named by the signed manifest. The manifest is verified with the locally trusted Feclora Server public key before artifact download. Imported files become visible in the local image inventory.</p>
                 <Card><CardBody><form onSubmit={fetchSftpImageSet}>
                   <Field label="SFTP host"><input className="pf-v5-c-form-control" value={sftpHost} onChange={(e) => setSftpHost(e.target.value)} maxLength={253} required /></Field>
                   <Field label="SSH username"><input className="pf-v5-c-form-control" value={sftpUsername} onChange={(e) => setSftpUsername(e.target.value)} maxLength={64} required /></Field>
