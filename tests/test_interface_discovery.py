@@ -153,7 +153,7 @@ class NetworkProfileApplyExecutionTests(unittest.TestCase):
         )
         self.assertEqual(result["address"], "192.0.2.20/24")
         self.assertIn("CheckpointCreate", calls[1])
-        self.assertIn("Checkpoint", calls[-1])
+        self.assertIn("CheckpointDestroy", calls[-1])
         self.assertIn("Destroy", calls[-1])
 
     def test_verification_failure_requests_rollback(self):
@@ -176,4 +176,4 @@ class NetworkProfileApplyExecutionTests(unittest.TestCase):
                 prefix_length=24, gateway="192.0.2.1",
                 nmcli="/usr/bin/nmcli", busctl="/usr/bin/busctl", runner=runner,
             )
-        self.assertIn("Rollback", calls[-1])
+        self.assertIn("CheckpointRollback", calls[-1])
