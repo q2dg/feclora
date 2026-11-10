@@ -1456,7 +1456,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         if client_config:
             if client_config.age_identity_file:
                 identity_paths.append(Path(client_config.age_identity_file))
-            trusted_keys.insert(0, Path(client_config.trusted_server_public_key))
+            if client_config.trusted_server_public_key:
+                trusted_keys.insert(0, Path(client_config.trusted_server_public_key))
         if encrypted and not identity_paths:
             raise WebAPIError("age-encrypted image requires an enrolled Client or local Feclora age identity")
         trusted_key = None
