@@ -1487,5 +1487,39 @@ class WebAPITests(unittest.TestCase):
         execute.assert_called_once_with("restore_disk", params, "restore-op")
 
 
+    def test_unsigned_restore_handles_client_without_optional_trusted_key(self):
+        from feclora.webapi import _execute_operation
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = root / "plain.manifest.json"
+            manifest_path.write_text("{}", encoding="utf-8")
+            manifest = SimpleNamespace(
+                image_id="plain", image_type="disk", artifacts=[],
+            )
+            client = SimpleNamespace(
+                age_identity_file=None, trusted_server_public_key=None,
+            )
+            params = {
+                "image_id": "plain", "target": "/dev/sdb",
+                "confirmation": "ERASE /dev/sdb",
+            }
+            with patch("feclora.webapi._repository", return_value=root), \
+                 patch("feclora.webapi._operation_repository", return_value=root), \
+                 patch("feclora.webapi._image_manifest", return_value=manifest_path), \
+                 patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
+                 patch("feclora.webapi._security_material", return_value={
+                     "age_decryption_available": False,
+                     "image_verification_available": False,
+                 }), \
+                 patch("feclora.webapi._client_runtime_config", return_value=client), \
+                 patch("feclora.storage.disk_restore.restore_disk") as restore, \
+                 patch("feclora.webapi._emit"):
+                result = _execute_operation("restore_disk", params, "restore-plain")
+            restore.assert_called_once()
+            self.assertIsNone(restore.call_args.kwargs["minisign_public_key"])
+            self.assertFalse(restore.call_args.kwargs["require_signature"])
+            self.assertTrue(result["verified"])
+
+
 if __name__ == "__main__":
     unittest.main()
