@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from feclora.storage.image_security import ImageSecurityError
 from feclora.storage.sftp_image_set import SFTPImageSetError, publish_image_set
 
 
@@ -81,7 +82,7 @@ class SFTPImageSetTests(unittest.TestCase):
         self.assertEqual(calls, [])
 
     @patch("feclora.storage.sftp_image_set.verify_manifest_signature",
-           side_effect=RuntimeError("bad signature"))
+           side_effect=ImageSecurityError("bad signature"))
     def test_rejects_unverified_signature_before_upload(self, verify):
         calls = []
         with self.assertRaises(SFTPImageSetError):
