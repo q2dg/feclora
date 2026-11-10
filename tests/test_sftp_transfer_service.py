@@ -175,5 +175,62 @@ class SFTPTransferServiceTests(unittest.TestCase):
                 )
 
 
+    def test_download_retries_transient_transport_failure_with_new_unit(self):
+        manager = FakeManager()
+        fake_store = SimpleNamespace(list=lambda: [
+            {"kind": "ssh-key", "name": "feclora-backup-ssh-key",
+             "path": "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred"},
+            {"kind": "known-hosts", "name": "feclora-backup-known-hosts",
+             "path": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred"},
+        ])
+        calls = []
+        def runner(argv, **_kwargs):
+            calls.append(argv)
+            if len(calls) == 1:
+                return SimpleNamespace(returncode=1, stdout="", stderr="Connection timed out")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store), \\
+             patch("feclora.storage.sftp_transfer_service.time.sleep") as pause:
+            result = run_sftp_transfer(
+                identity_credential="/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred",
+                known_hosts_credential="/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred",
+                operation="download", host="sftp.example.net", username="backup",
+                remote_path="/images/disk.img", local_path="/var/lib/feclora/stage/disk.img",
+                expected_sha256="a" * 64, manager=manager, runner=runner,
+            )
+        self.assertTrue(result["completed"])
+        self.assertEqual(len(calls), 2)
+        self.assertNotEqual(
+            next(arg for arg in calls[0] if arg.startswith("--unit=")),
+            next(arg for arg in calls[1] if arg.startswith("--unit=")),
+        )
+        pause.assert_called_once_with(0.25)
+
+    def test_upload_does_not_retry_ambiguous_publication_failure(self):
+        manager = FakeManager()
+        fake_store = SimpleNamespace(list=lambda: [
+            {"kind": "ssh-key", "name": "feclora-backup-ssh-key",
+             "path": "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred"},
+            {"kind": "known-hosts", "name": "feclora-backup-known-hosts",
+             "path": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred"},
+        ])
+        calls = []
+        def runner(argv, **_kwargs):
+            calls.append(argv)
+            return SimpleNamespace(returncode=1, stdout="", stderr="Connection reset by peer")
+        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store), \\
+             patch("feclora.storage.sftp_transfer_service.time.sleep") as pause:
+            with self.assertRaisesRegex(RepositoryManagerError, "SFTP transfer failed"):
+                run_sftp_transfer(
+                    identity_credential="/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred",
+                    known_hosts_credential="/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred",
+                    operation="upload", host="sftp.example.net", username="backup",
+                    remote_path="/images/disk.img", local_path="/var/lib/feclora/stage/disk.img",
+                    manager=manager, runner=runner,
+                )
+        self.assertEqual(len(calls), 1)
+        pause.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
