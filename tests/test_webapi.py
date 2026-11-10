@@ -1521,5 +1521,29 @@ class WebAPITests(unittest.TestCase):
             self.assertTrue(result["verified"])
 
 
+    def test_security_initialization_does_not_require_optional_image_tools(self):
+        from feclora.webapi import _initialize_security
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            availability = {
+                "age_encryption_available": False,
+                "age_decryption_available": False,
+                "image_signing_available": False,
+                "image_verification_available": False,
+            }
+            with patch("feclora.webapi.Path", side_effect=lambda _value: root), \
+                 patch("feclora.deployment.managed_pki.initialize_server_pki") as initialize_tls, \
+                 patch("feclora.webapi._security_material", return_value=availability), \
+                 patch("feclora.webapi.shutil.which", return_value=None), \
+                 patch("feclora.webapi.subprocess.run") as run:
+                result = _initialize_security()
+            initialize_tls.assert_called_once_with(root)
+            run.assert_not_called()
+            self.assertTrue(result["created"])
+            self.assertFalse(result["age_encryption_available"])
+            self.assertFalse(result["image_signing_available"])
+            self.assertIn("Ordinary imaging remains available", result["message"])
+
+
 if __name__ == "__main__":
     unittest.main()
