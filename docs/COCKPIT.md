@@ -49,8 +49,8 @@ The Operations wizard provides:
 - device discovery, image selection, compression selection and typed
   destructive confirmation;
 - streamed byte-progress events from the storage engine;
-- local age identity and minisign key initialization, optional age encryption
-  and manifest signing on capture;
+- optional image-security key initialization, age encryption and manifest
+  signing when those features are configured;
 - durable local operation history, with a Cancel control for queued,
   preflight and running jobs.
 
@@ -67,9 +67,10 @@ allowlist of actions. Requests are bounded JSON on stdin; device paths,
 operation parameters, image identifiers and typed confirmations are
 validated again by the backend. No shell or arbitrary command execution is
 exposed through the API. Local image keys are generated once and kept under
-`/etc/feclora/pki`; back up private keys securely and offline. Losing the age
-identity makes encrypted local images unrecoverable, and losing the signing
-key prevents future signatures with the same identity.
+`/etc/feclora/pki`; back up private keys securely and offline. Losing an optional age identity makes
+images encrypted to it unrecoverable; losing an optional signing key prevents
+future signatures with that identity. Neither key type is required for basic
+local imaging.
 
 ## Current scope and limitations
 
@@ -78,8 +79,9 @@ inventory, image inventory, deployment journal summaries and system status.
 Cockpit now includes an initial Server identity bootstrap step. It discovers
 active IPv4 interface addresses, warns when NetworkManager reports an existing
 DHCP server, verifies the selected address is still assigned to the interface,
-and initializes or validates the managed CA, mTLS Server identity, age
-recipient and minisign signing material without enabling DHCP/PXE services.
+and initializes or validates the managed CA and mTLS Server identity, plus any
+optional age recipient/signing material configured by the operator, without
+enabling DHCP/PXE services.
 
 The Server setup tab also provides a PXE network-profile preflight. It
 validates ProxyDHCP or explicitly confirmed isolated DHCP, checks pool bounds,
@@ -117,7 +119,8 @@ unavailable capacity check prevents READY; the runtime repeats a capacity check
 before receiving artifacts. This is a point-in-time preflight, so operators must
 avoid concurrent use of the staging filesystem during deployment.
 The Server arms only when every authorized Client is READY; each Client stages
-and verifies every age-encrypted artifact before writing its local disk.
+and verifies every artifact's manifest/digest and any configured encryption
+or signature before writing its local disk.
 Confirm switch IGMP snooping and an active querier on the same VLAN before
 arming. UDPcast data packets themselves are not encrypted or authenticated;
 mTLS protects the control channel, not the multicast payload. Multicast
@@ -149,7 +152,7 @@ starting disk I/O. Cockpit can inspect the Client's phase, target description,
 byte progress and terminal result after the browser disconnects.
 
 The Cockpit Client service supports unicast whole-disk capture, whole-disk
-and partition restore, plus multicast restore of age-encrypted images. A host
+and partition restore, plus multicast restore of images using the configured artifact-security policy. A host
 runs only one storage/deployment job at a time across Server, Client and local
 Cockpit operations.
 Interrupted Client services are marked for inspection and are never
@@ -353,3 +356,20 @@ policy are not configured here.
 ## Remote repository credentials
 
 See [Remote image repositories](REMOTE-REPOSITORIES.md) for the Cockpit encrypted-credential import, selection, rotation and removal workflow.
+
+
+## Optional image security and repository transports
+
+`age` encryption and `minisign` signatures are optional image-security
+integrations, not mandatory Feclora dependencies. SHA-256 is used for artifact
+integrity; it does not authenticate the publisher. Any destructive or
+unattended workflow must authenticate the manifest through the configured
+independent trust mechanism and bind its digest to the authorized job/profile.
+
+Remote repository types in the intended scope are SSHFS, SFTP, NFS, SMB/CIFS,
+WebDAV and S3-compatible object storage. WebDAV requires isolated per-repository
+credentials; the global davfs2 secrets file is not an acceptable workaround.
+S3's current rclone mount is read-only until a safe provider-aware publisher
+exists. BitTorrent is a planned optional peer-to-peer distribution transport,
+not a writable repository; if implemented it must use a maintained client and
+verify manifest authenticity and artifact digests before restore.
