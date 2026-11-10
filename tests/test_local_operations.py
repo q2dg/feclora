@@ -98,6 +98,7 @@ class LocalOperationStoreTests(unittest.TestCase):
                 "sftp_source": {
                     "host": "backup.example.net", "username": "backup",
                     "remote_directory": "/images/gold", "port": 2222,
+                    "expected_manifest_sha256": "a" * 64,
                     "identity_credential": "/etc/credstore.encrypted/feclora/backup-key.cred",
                     "known_hosts_credential": "/etc/credstore.encrypted/feclora/backup-hosts.cred",
                 },
@@ -116,7 +117,7 @@ class LocalOperationStoreTests(unittest.TestCase):
                 "confirmation": "ERASE /dev/sdb", "repository_id": "archive",
                 "sftp_source": {
                     "host": "backup.example.net", "username": "backup",
-                    "remote_directory": "/images",
+                    "remote_directory": "/images", "expected_manifest_sha256": "a" * 64,
                     "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
                     "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
                 },
@@ -135,7 +136,7 @@ class LocalOperationStoreTests(unittest.TestCase):
                 "confirmation": "ERASE /dev/sdb",
                 "sftp_source": {
                     "host": "backup.example.net", "username": "backup",
-                    "remote_directory": "/images/../escape",
+                    "remote_directory": "/images/../escape", "expected_manifest_sha256": "a" * 64,
                     "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
                     "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
                 },
