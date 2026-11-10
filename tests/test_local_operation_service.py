@@ -2,10 +2,11 @@ import json
 import os
 import tempfile
 import unittest
+from contextlib import nullcontext
 from unittest.mock import Mock, patch
 
 from feclora.storage.local_operations import LocalOperationStore
-from feclora.storage.local_operation_service import _ProgressForwarder, _cancel_on_sigterm, LocalOperationCancelled, recover_interrupted
+from feclora.storage.local_operation_service import _ProgressForwarder, _cancel_on_sigterm, LocalOperationCancelled, execute, recover_interrupted
 
 
 class LocalOperationWorkerTests(unittest.TestCase):
@@ -33,6 +34,24 @@ class LocalOperationWorkerTests(unittest.TestCase):
     def test_sigterm_handler_requests_orderly_worker_cancellation(self):
         with self.assertRaisesRegex(LocalOperationCancelled, "cancellation requested"):
             _cancel_on_sigterm(15, None)
+
+    def test_worker_records_cancelled_state_and_partial_restore_warning(self):
+        store = Mock()
+        store.definition.return_value = {
+            "action": "restore_disk",
+            "params": {"image_id": "gold", "target": "/dev/sdb", "confirmation": "ERASE /dev/sdb"},
+        }
+        store.status.side_effect = [{"state": "queued"}, {"state": "running"}]
+        with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \
+             patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store), \
+             patch("feclora.storage.local_operation_service._device_lock_fds", return_value=[]), \
+             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \
+             patch("feclora.webapi._execute_operation", side_effect=LocalOperationCancelled("stop")):
+            with self.assertRaises(LocalOperationCancelled):
+                execute("00000000-0000-4000-8000-000000000001")
+        self.assertEqual(store.append.call_args_list[-1].args[1], "cancelled")
+        details = store.append.call_args_list[-1].args[2]
+        self.assertTrue(details["destination_may_be_partial"])
 
     def test_recovery_continues_after_one_damaged_journal(self):
         store = Mock()
