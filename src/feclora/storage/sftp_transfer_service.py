@@ -54,7 +54,7 @@ def build_systemd_transfer_argv(
     """Build a transient service invocation; no plaintext secret is included."""
     if operation not in {"upload", "download"}:
         raise RepositoryManagerError("SFTP operation must be upload or download")
-    if not isinstance(unit, str) or not re.fullmatch(r"feclora-sftp-[a-f0-9]{32}\\.service", unit):
+    if not isinstance(unit, str) or not re.fullmatch(r"feclora-sftp-[a-f0-9]{32}\.service", unit):
         raise RepositoryManagerError("SFTP transient unit name is invalid")
     if len(bindings) != 2:
         raise RepositoryManagerError("SFTP requires exactly two encrypted credentials")
