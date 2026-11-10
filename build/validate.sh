@@ -46,10 +46,12 @@ if [[ -f "$ROOT_DIR/src/feclora/data/feclora-restore-profile-env" ]]; then
   bash -n "$ROOT_DIR/src/feclora/data/feclora-restore-profile-env" || fail "Unattended restore environment wrapper has invalid Bash syntax."
 fi
 
-if ! grep -q 'network_interfaces|bootstrap_server' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+if ! grep -q 'network_interfaces|' "$ROOT_DIR/kickstart/feclora-live.ks" \
+   || ! grep -q 'bootstrap_server|' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Kickstart Cockpit API wrapper does not allow the Server identity bootstrap actions."
 fi
-if ! grep -q '"network_interfaces", "bootstrap_server"' "$ROOT_DIR/webui/src/api.js"; then
+if ! grep -q '"network_interfaces"' "$ROOT_DIR/webui/src/api.js" \
+   || ! grep -q '"bootstrap_server"' "$ROOT_DIR/webui/src/api.js"; then
   fail "Cockpit API client does not allow the Server identity bootstrap actions."
 fi
 if ! grep -q 'def _bootstrap_server' "$ROOT_DIR/src/feclora/webapi.py"; then
