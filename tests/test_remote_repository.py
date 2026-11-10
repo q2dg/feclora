@@ -41,12 +41,12 @@ class RemoteRepositoryTests(unittest.TestCase):
         self.assertIn("prefixpath=feclora", argv[4])
         self.assertEqual(argv[-2], "//nas.example.net/images")
 
-    def test_webdav_uses_https(self):
-        repo = RemoteRepository(
-            provider="webdav", host="dav.example.net", remote_path="/images",
-            mountpoint="/mnt/images", credential_file="/etc/davfs2/secrets",
-        )
-        self.assertIn("https://dav.example.net/images", repo.mount_argv())
+    def test_webdav_rejects_global_davfs2_secrets(self):
+        with self.assertRaisesRegex(RepositoryError, "global davfs2 secrets file is not accepted"):
+            RemoteRepository(
+                provider="webdav", host="dav.example.net", remote_path="/images",
+                mountpoint="/mnt/images", credential_file="/etc/davfs2/secrets",
+            )
 
     def test_s3_uses_rclone_alias_and_vfs_cache(self):
         repo = RemoteRepository(
