@@ -54,7 +54,7 @@ class SFTPTransferTests(unittest.TestCase):
                 )
             self.assertEqual(result["sha256"], hashlib.sha256(b"image-data").hexdigest())
             self.assertTrue(result["published"])
-            commands = calls[0][1]["input"].splitlines()
+            commands = [call[1]["input"].strip() for call in calls]
             self.assertTrue(commands[0].startswith('put "'))
             self.assertIn(".feclora-", commands[0])
             self.assertTrue(commands[1].startswith("ln "))
