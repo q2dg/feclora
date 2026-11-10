@@ -97,6 +97,15 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         with self.assertRaisesRegex(RepositoryManagerError, "unknown repository"):
             self.manager.check("missing")
 
+    def test_active_restore_lease_blocks_repository_mount(self):
+        self.manager.add("images", self.definition)
+        lease = self.manager.acquire_usage_lock("images")
+        try:
+            with self.assertRaisesRegex(RepositoryManagerError, "active deployment restore"):
+                self.manager.mount("images")
+        finally:
+            os.close(lease)
+
     def test_mount_uses_argv_and_requires_verified_mount_state(self):
         self.manager.add("images", self.definition)
         with self.assertRaisesRegex(RepositoryManagerError, "not mounted"):
