@@ -240,11 +240,14 @@ run the interactive rclone configuration wizard.
 
 Remaining engineering work: add edit/test and health/free-space workflows,
 credential provisioning/rotation and recovery, safe per-repository WebDAV
-credentials, provider-aware S3 artifact publication, SFTP inventory/progress/
-retry/resume, and automated coverage for every provider lifecycle. Physical
-tests against SSHFS, NFS, SMB, WebDAV and S3 endpoints are operator acceptance
-tests. SFTP file transfer is distinct from SSHFS and is not a separate mounted
-filesystem provider.
+credentials, provider-aware S3 artifact publication, SFTP byte-level progress,
+operator cancellation, resume, multi-directory discovery and live provider
+acceptance, plus automated coverage for every provider lifecycle. Bounded
+transport retries are implemented for read-only SFTP downloads and inventory;
+publication uploads remain non-retrying because their outcome can be ambiguous.
+Physical tests against SSHFS, NFS, SMB, WebDAV and S3 endpoints are operator
+acceptance tests. SFTP file transfer is distinct from SSHFS and is not a
+separate mounted filesystem provider.
 
 ## Optional BitTorrent artifact distribution
 
