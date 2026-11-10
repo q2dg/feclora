@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from feclora.storage.image_security import ImageSecurityError
-from feclora.storage.sftp_image_set import SFTPImageSetError, publish_image_set
+from feclora.storage.sftp_image_set import SFTPImageSetError, fetch_image_set, publish_image_set
 
 
 class SFTPImageSetTests(unittest.TestCase):
@@ -118,7 +118,7 @@ class SFTPImageSetTests(unittest.TestCase):
             calls.append((filename, kwargs["expected_sha256"], kwargs["allow_unverified_metadata"]))
             Path(kwargs["local_path"]).write_bytes(remote[filename])
             return {"verified": kwargs["expected_sha256"] is not None}
-        result = __import__("feclora.storage.sftp_image_set", fromlist=["fetch_image_set"]).fetch_image_set(
+        result = fetch_image_set(
             remote_directory="/images/test-image",
             destination_root=self.root,
             public_key=self.public_key,
@@ -147,7 +147,7 @@ class SFTPImageSetTests(unittest.TestCase):
             calls.append(filename)
             Path(kwargs["local_path"]).write_bytes(remote[filename])
             return {"verified": False}
-        fetch = __import__("feclora.storage.sftp_image_set", fromlist=["fetch_image_set"]).fetch_image_set
+        fetch = fetch_image_set
         with self.assertRaises(SFTPImageSetError):
             fetch(
                 remote_directory="/images/test-image", destination_root=self.root,
