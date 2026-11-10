@@ -1,5 +1,15 @@
 # Remote image repositories
 
+**All remote services are external to Feclora.** SSH/SFTP servers, NFS exports,
+SMB shares, WebDAV endpoints, S3-compatible object stores, BitTorrent trackers
+and peers are provisioned, operated, patched, backed up and authorized by their
+respective administrators. Feclora is only a client: it stores access
+references, establishes outbound connections, mounts or transfers data,
+verifies remote content and reports failures. It must not install, configure,
+start, stop, administer or claim ownership of any remote server, export, share,
+bucket, tracker or peer. Feclora may stop its own client-side mount/transfer
+processes and release its own sessions; that is not remote-server management.
+
 feclora keeps its image engines independent of transport by using ordinary
 filesystem paths as repository roots. Provider adapters mount remote storage;
 manifests, compression, encryption, checksums and restore code continue to use
