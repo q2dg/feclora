@@ -88,8 +88,8 @@ remote read/write connectivity, latency, free space, quota or service health.
 A verified mount can still be stale or unable to complete I/O after a network
 failure. Cockpit exposes add/edit/check/mount/unmount/remove and never receives
 credential contents. Registry mutations (`add`, `update` and `remove`) are serialized across
-processes with a separate root-owned, mode-0600 lock file. `update` and
-`remove` reload the registry after acquiring that lock, so concurrent changes
+processes with a separate root-owned, mode-0600 lock file opened without
+following symlinks. `update` and `remove` reload the registry after acquiring that lock, so concurrent changes
 to different repository IDs are not lost through stale read-modify-write
 snapshots. Per-repository usage leases remain separate and continue to protect
 active restore jobs. If definition removal cannot commit its registry update
