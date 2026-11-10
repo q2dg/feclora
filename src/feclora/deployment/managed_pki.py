@@ -545,9 +545,9 @@ def create_client_csr(
     runner: Callable[..., Any] | None = None,
     openssl: str = "/usr/bin/openssl",
     reuse_existing_key: bool = False,
-    age_keygen: str | None = "/usr/bin/age-keygen",
+    age_keygen: str | None = None,
 ) -> tuple[str, str, str]:
-    """Generate a Client key locally, or reuse it for renewal, and export only its CSR."""
+    """Generate a Client TLS key/CSR; create an age identity only when age-keygen is available."""
     if not isinstance(client_id, str) or not _CLIENT_ID.fullmatch(client_id):
         raise PKIError("Client identifier must contain 1-48 lowercase letters, digits or hyphens")
     root = _root_only_directory(pki_directory)
