@@ -121,6 +121,17 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
             self.manager.mount("images")
         self.assertTrue(any(call[0] == "/usr/bin/sshfs" for call in self.calls))
 
+    def test_mount_reports_success_only_after_matching_mount_verification(self):
+        self.manager.add("images", self.definition)
+        record = ("fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime")
+        records = iter([None, record, record])
+        self.manager._mount_record = lambda _path: next(records)
+        result = self.manager.mount("images")
+        self.assertEqual(result, {
+            "id": "images", "mounted": True,
+            "mountpoint": str(self.mount_root / "images"),
+        })
+
     def test_mount_rejects_wrong_filesystem_even_when_mountpoint_is_occupied(self):
         self.manager.add("images", self.definition)
         records = iter([
