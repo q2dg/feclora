@@ -43,7 +43,7 @@ DHCP and static IPv4 must be supported independently on Server and Client where 
 
 **Outcome:** Capture a whole disk or partition and publish the image, manifest and integrity metadata to a selected remote repository.
 
-Required providers: SSHFS (mounted filesystem), SFTP (file-transfer provider, distinct from SSHFS), NFS, SMB/CIFS, WebDAV and S3-compatible object storage.
+Required repository types: SSHFS (mounted filesystem), SFTP (file-transfer provider, distinct from SSHFS), NFS, SMB/CIFS, WebDAV and S3-compatible object storage. BitTorrent is an optional peer-to-peer distribution transport for immutable artifacts, not a mandatory repository type or a writable repository contract.
 
 - [ ] Cockpit can create, edit, test, connect/mount, inspect, disconnect/unmount and remove each provider advertised as supported.
 - [ ] Credentials/private keys use root-owned protected storage; secrets never enter browser storage, ordinary configuration, logs, journals or URLs.
@@ -53,7 +53,9 @@ Required providers: SSHFS (mounted filesystem), SFTP (file-transfer provider, di
 - [ ] Publication is atomic or staged/committed so interrupted uploads cannot appear complete. Handle concurrent writers and stale mounts safely.
 - [ ] Publish manifest, byte count, SHA-256, optional signature and encryption metadata for subsequent verification.
 - [ ] Provider tests cover success, bad credentials, permission denial, insufficient space/quota, disconnect, stale mount, interrupted publication and recovery.
-- [ ] S3 write/publication is required; read-only S3 inventory/restore alone does not meet this requirement.
+- [ ] S3 write/publication is required for the full writable-repository target; read-only S3 inventory/restore alone does not meet it. Provider-specific capability checks must fail closed when conditional create/no-overwrite and remote read-back guarantees are unavailable.
+- [ ] WebDAV uses HTTPS with certificate validation and safe per-repository credentials; never use davfs2's global secrets file as a shortcut for isolated repository secrets.
+- [ ] BitTorrent distribution, if enabled, verifies a trusted manifest and artifact digest before any restore; peer availability or torrent metadata is never an authenticity signal. Support cancellation, incomplete-download cleanup, bandwidth/peer policy and seeding controls.
 - [ ] Publish a capture guide per provider, distinguishing SSHFS from SFTP and documenting server-side setup.
 
 ## 4. Restore a remote image to one local disk
@@ -62,7 +64,7 @@ Required providers: SSHFS (mounted filesystem), SFTP (file-transfer provider, di
 
 - [ ] Cockpit connects to each supported provider and browses inventory without showing an underlying empty mountpoint as if it were the remote repository.
 - [ ] Support whole-disk and partition restore with explicit image and destination selection.
-- [ ] Verify manifest, configured signature, encryption authentication, compression stream, artifact sizes and hashes before destructive writes wherever possible.
+- [ ] Verify manifest and artifact hashes, compression integrity and any configured encryption authentication/signature before destructive writes wherever possible. `age` and `minisign` are optional integrations; deployments that do not use them must still establish manifest authenticity through an independently trusted mechanism before unattended/destructive use.
 - [ ] Preflight destination geometry, sector size, capacity, partition layout and supported storage layers; summarize before confirmation.
 - [ ] Destructive confirmation binds to the exact target and image.
 - [ ] Progress, verification, operation journal and failure reason appear in Cockpit.
@@ -75,7 +77,7 @@ Required providers: SSHFS (mounted filesystem), SFTP (file-transfer provider, di
 **Outcome:** Select one verified image and restore it to multiple remote Clients in one managed deployment. Each Client can boot Feclora manually or by PXE/iPXE, as configured on the Server.
 
 - [ ] Cockpit supports explicit Client selection and named/stable-identity groups; freeze and display the recipient set before authorization.
-- [ ] Select one image from any repository whose read/restore path is supported.
+- [ ] Select one image from any repository or enabled distribution transport whose read/restore path is supported, including optional BitTorrent staging only after independent authenticity and digest verification.
 - [ ] Each Client independently reports identity, boot mode, network, target, capacity, sector size, safety checks and READY state.
 - [ ] Do not start until every required Client is accounted for and independently authorizes its exact destination; missing, duplicate or unexpected Clients block or require explicit resolution.
 - [ ] Unicast and multicast modes show eligibility, network requirements and per-Client status. Multicast acceptance includes switch IGMP snooping/querier behavior.
@@ -92,7 +94,7 @@ Required providers: SSHFS (mounted filesystem), SFTP (file-transfer provider, di
 
 - [ ] Cockpit supports profile authoring, review, signing, activation, expiry and revocation.
 - [ ] A profile binds image digest, allowed Client identities/group, target-selection policy, supported geometry/layout policy, deployment identity, validity window and single-use/replay protection.
-- [ ] Profiles are signed by an explicitly trusted deployment key. Clients locally verify signature, trust, expiry, identity, image digest and target match before writing.
+- [ ] Profiles are authenticated by an explicitly trusted deployment mechanism (a signature implementation may be selected; `minisign` is optional, not mandatory). Clients locally verify signature, trust, expiry, identity, image digest and target match before writing.
 - [ ] Target policies are deterministic and fail closed on ambiguity, changed hardware, insufficient capacity, unsupported layout or mounted/in-use devices.
 - [ ] Integrate PXE boot-to-job handoff; boot alone is never sufficient authorization.
 - [ ] Consume single-use authorization atomically; retries/recovery cannot replay authorization or silently resume interrupted writes.
