@@ -12,12 +12,12 @@ membership, source IP or MAC address is never proof of identity.
 - strict IPv4 multicast/interface/port/TTL/bitrate/FEC configuration validation;
 - shell-free `udp-sender` and `udp-receiver` argv builders;
 - a sender gate requiring the deployment coordinator to be explicitly armed,
-  plus signed-manifest verification and source artifact size/SHA-256 checks;
+  plus optional manifest-signature verification and source artifact size/SHA-256 checks;
 - receiver staging into a private mode-0600 temporary file, with a free-space
   preflight and exact expected-size check;
-- a separate post-reception verification step that verifies the detached
-  configured manifest-authentication evidence (currently minisign), parses the
-  manifest and checks the complete staged artifact SHA-256 and byte count.
+- a separate post-reception verification step that verifies a detached signature when present and a trusted key is configured,
+  parses the manifest and checks the complete staged artifact SHA-256 and byte
+  count.
 
 The adapter does **not** write to block devices, select a restore target,
 authenticate clients, establish TLS, or mark a deployment client successful.
@@ -27,8 +27,9 @@ The caller must complete the TLS 1.3 mutual-authenticated control handshake,
 bind the peer certificate identity to an authorized job client, collect local
 target authorization/readiness, and call the coordinator before the sender
 function. On the receiver, the authenticated control service must deliver the
-expected signed manifest metadata and target authorization independently of
-UDPcast. Only after `verify_staged_multicast_artifact` succeeds may the
+expected manifest metadata and target authorization over the authenticated
+TLS channel independently of UDPcast. A present signature must verify before
+restore. Only after `verify_staged_multicast_artifact` succeeds may the
 existing protected restore workflow be called. Keep the staged file until the
 restore workflow has completed and recorded its per-client result.
 
@@ -57,7 +58,9 @@ and [upstream command-line documentation](https://www.udpcast.linux.lu/cmd.html)
 The authenticated control service, persistent job journal, Client-side
 whole-disk and partition restore dispatch, signed-manifest delivery, private
 staging, verified artifacts and per-client terminal results are
-integrated.
+integrated. Unsigned manifests are accepted when delivered through the
+authenticated mTLS control channel; detached minisign signatures are verified
+when present and require an independently trusted key.
 
 - The deployment job binds `target_type` to the signed manifest's
   `image_type`. A disk job cannot be paired with a partition manifest or vice
