@@ -30,7 +30,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
         repo = RemoteRepository(
             provider="sshfs", host="nas.example.net", remote_path="/images",
             mountpoint="/var/lib/feclora/repositories/nas", username="backup",
-            credential_file=None, identity_file=None,
+            credential_file=None, identity_file="/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred",
             known_hosts_file=encrypted, port=22, read_only=True,
         )
         argv = build_mount_argv(
@@ -155,7 +155,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
             repo = RemoteRepository(
                 provider="webdav", host="dav.example.net", remote_path="/images",
                 mountpoint=str(root / "mounts" / "dav"), username="backup",
-                credential_file=str(encrypted), identity_file=None,
+                credential_file="/etc/davfs2/secrets", identity_file=None,
                 known_hosts_file=None, port=None, read_only=True,
             )
             manager = RemoteRepositoryManager(
