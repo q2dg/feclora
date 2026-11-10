@@ -1887,10 +1887,6 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError(f"could not inspect authenticated Server job: {exc}") from exc
     if job.operation == "save" and job.target_type != "disk":
         raise WebAPIError("Client-side capture currently supports whole-disk jobs only")
-    if job.operation == "save" and not config.local_minisign_secret_key:
-        raise WebAPIError("this Client has no enrolled image-signing key and cannot capture images")
-    if job.transport == "multicast" and (not config.age_identity_file or not config.age_recipients_file):
-        raise WebAPIError("multicast restore requires this Client's enrolled age identity and recipient inventory")
     return {
         "host": host,
         "port": config.port,
@@ -2367,9 +2363,6 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     if job.operation == "save":
         if job.image_id in {item["image_id"] for item in _images()}:
             raise WebAPIError("capture image identifier already exists")
-        missing_keys = set(job.authorized_clients) - set(config.client_minisign_public_keys)
-        if missing_keys:
-            raise WebAPIError("every Client in a capture job must have an enrolled minisign public key")
     elif job.operation == "clone":
         source = _device(job.source_device, "source_device")
         inventory = collect_inventory()
@@ -2397,12 +2390,14 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
             expected_type = "disk" if job.target_type == "disk" else "partition"
             if manifest.image_type != expected_type:
                 raise WebAPIError(f"selected image is not a {expected_type} image")
-            if job.transport == "multicast" and (
-                not manifest.artifacts or any(item.encryption != "age" for item in manifest.artifacts)
-            ):
-                raise WebAPIError("multicast restore requires every image artifact to be age-encrypted")
-            from feclora.storage.image_security import verify_manifest_signature
-            verify_manifest_signature(manifest_path, config.server_minisign_public_key)
+            signature_path = Path(str(manifest_path) + ".minisig")
+            if os.path.lexists(signature_path):
+                if not config.server_minisign_public_key:
+                    raise WebAPIError(
+                        "selected image is signed but no independently trusted Server minisign key is configured"
+                    )
+                from feclora.storage.image_security import verify_manifest_signature
+                verify_manifest_signature(manifest_path, config.server_minisign_public_key)
             if job.transport == "multicast":
                 job = replace(
                     job,
@@ -2411,7 +2406,7 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         except WebAPIError:
             raise
         except Exception as exc:
-            raise WebAPIError(f"restore image must have a valid Server signature: {exc}") from exc
+            raise WebAPIError(f"restore image manifest or present signature is invalid: {exc}") from exc
         if any(item.encryption == "age" for item in manifest.artifacts):
             pki = Path("/etc/feclora/pki")
             recipients_directory = pki / "age-recipients"
