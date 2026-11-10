@@ -21,19 +21,17 @@ fails, names created by this transaction are removed. Existing files are
 never replaced.
 
 This implementation is read-only with respect to the source device. It checks
-mounted/busy/root-backed sources and revalidates before reading. The TUI shows
-byte-based progress and supports cancellation; a cancelled capture removes its
-staging data and does not publish a manifest. Power-loss recovery for a crash
+mounted/busy/root-backed sources and revalidates before reading. The Cockpit Operations wizard shows byte-based progress and supports cancellation; a cancelled capture removes its staging data and does not publish a manifest. Power-loss recovery for a crash
 between individual hard-link operations remains pending. The manifest-last convention lets readers
 ignore incomplete image sets without a manifest.
 
-## Local rescue UI procedure
+## Cockpit operator procedure
 
-1. Open **Capture whole disk** and select the source disk. The operation is read-only.
-2. Enter a unique image identifier.
+1. Open Cockpit's **Operations** workflow and select whole-disk capture.
+2. Select the source disk and enter a unique image identifier. The operation reads the source; it does not modify it.
 3. Choose compression (`none`, `gzip`, `xz`, `zstd` or `lz4`) and, when applicable, its level.
-4. Choose image protection independently: neither, age encryption, minisign signature, or both. Supply only the public age recipients file and/or the minisign secret key requested by the selected mode.
-5. Review the source and wait for the progress gauge to complete. Closing the gauge cancels capture; an incomplete set is not published as a valid image.
-6. Confirm that the manifest appears in the image repository before using or transferring the image.
+4. Choose image protection independently: neither, age encryption, minisign signature, or both. Supply only the public age recipients file and/or the minisign secret key requested by the selected mode. These options are not prerequisites for ordinary capture.
+5. Review the operation summary and start capture. Monitor streamed progress. Cancelling prevents publication of a valid manifest; do not use a partial artifact set.
+6. Confirm that the manifest appears in the image inventory before using or transferring the image.
 
-The UI currently uses the text-mode `dialog` interface. **Screenshots are intentionally not embedded yet**: they must be captured from a real, version-matched Fedora Live session. Add them under `docs/assets/screenshots/` with the same step numbers before claiming visual validation.
+**Screenshots are pending.** The repository currently has no validated Cockpit screenshot set. Capture each step from a real, version-matched Fedora Live build and store it under `docs/assets/screenshots/`; do not use mockups or screenshots from a different UI revision.
