@@ -110,5 +110,45 @@ class SFTPTransferServiceTests(unittest.TestCase):
             )
 
 
+    def test_run_inventory_parses_only_valid_manifest_names_from_service(self):
+        manager = FakeManager()
+        fake_store = SimpleNamespace(list=lambda: [
+            {"kind": "ssh-key", "name": "feclora-backup-ssh-key",
+             "path": "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred"},
+            {"kind": "known-hosts", "name": "feclora-backup-known-hosts",
+             "path": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred"},
+        ])
+        def runner(_argv, **_kwargs):
+            return SimpleNamespace(returncode=0, stdout='{"manifests":["manifest.json"]}', stderr="")
+        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store):
+            result = run_sftp_transfer(
+                identity_credential="/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred",
+                known_hosts_credential="/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred",
+                operation="inventory", host="sftp.example.net", username="backup",
+                remote_path="/images", manager=manager, runner=runner,
+            )
+        self.assertEqual(result["manifests"], ["manifest.json"])
+        self.assertTrue(result["completed"])
+
+    def test_run_inventory_rejects_invalid_service_payload(self):
+        manager = FakeManager()
+        fake_store = SimpleNamespace(list=lambda: [
+            {"kind": "ssh-key", "name": "feclora-backup-ssh-key",
+             "path": "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred"},
+            {"kind": "known-hosts", "name": "feclora-backup-known-hosts",
+             "path": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred"},
+        ])
+        def runner(_argv, **_kwargs):
+            return SimpleNamespace(returncode=0, stdout='{"manifests":["../evil.manifest.json"]}', stderr="")
+        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store):
+            with self.assertRaisesRegex(RepositoryManagerError, "invalid data"):
+                run_sftp_transfer(
+                    identity_credential="/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred",
+                    known_hosts_credential="/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred",
+                    operation="inventory", host="sftp.example.net", username="backup",
+                    remote_path="/images", manager=manager, runner=runner,
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
