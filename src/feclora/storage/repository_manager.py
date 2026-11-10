@@ -384,6 +384,16 @@ class RemoteRepositoryManager:
                 mounted = self._is_mounted(str(mountpoint))
         if not mounted:
             raise RepositoryManagerError("mount command returned success but the selected mountpoint is not mounted")
+        # A mount appearing at the expected path is not sufficient: another
+        # filesystem may have raced the helper or a provider helper may have
+        # mounted an unexpected source/type/access mode. Never report success
+        # until the same identity checks used by image-engine resolution pass.
+        try:
+            self.resolve(identifier)
+        except RepositoryManagerError as exc:
+            raise RepositoryManagerError(
+                f"repository mount did not pass source/type/access-mode verification: {exc}"
+            ) from exc
         return {"id": identifier, "mounted": True, "mountpoint": str(mountpoint)}
 
     def _encrypted_credential_bindings(self, repo: RemoteRepository) -> list[tuple[str, str]]:
