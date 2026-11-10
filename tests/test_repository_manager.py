@@ -258,6 +258,17 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         with self.assertRaisesRegex(RepositoryManagerError, "read-only"):
             self.manager.resolve("objects", write=True)
 
+    def test_remove_restores_mountpoint_if_registry_commit_fails(self):
+        self.manager.add("images", self.definition)
+        mountpoint = self.mount_root / "images"
+        with patch("feclora.storage.repository_manager._write_registry",
+                   side_effect=OSError("simulated registry write failure")):
+            with self.assertRaisesRegex(OSError, "simulated registry write failure"):
+                self.manager.remove("images")
+        self.assertIn("images", self.manager._load())
+        self.assertTrue(mountpoint.is_dir())
+        self.assertEqual(mountpoint.stat().st_mode & 0o777, 0o700)
+
     def test_remove_refuses_mounted_repository(self):
         self.manager.add("images", self.definition)
         self.manager._is_mounted = lambda _path: True
