@@ -192,8 +192,9 @@ The Server setup tab now includes **Trusted Clients · Approve CSR**. On a
 Client, prepare the enrollment request on removable media. Choose independently whether to provision an age decryption identity and a
 minisign image-signing key. The age identity stays local and only its public
 recipient is exported; the signing secret also stays local and only its public
-key is exported. Both options can be left off for TLS-only enrollment and
-unsigned imaging.
+key is exported. Both options can be left off for TLS-only enrollment. These switches provision
+capabilities only; each capture still asks separately whether that image should
+be encrypted and/or signed.
 
 On the Server, provide the CSR path, optional age-recipient path and Client
 unicast MAC. Paths must refer to regular files on mounted media under
@@ -260,8 +261,10 @@ not overwritten. This wizard does not initiate a remote deployment job.
 
 The Server Cockpit API can validate and persist a deployment-job definition in the
 root-owned hash-chained journal. Creation verifies enrolled Client MACs, the
-selected interface, required per-Client signing keys for capture, and the
-Server signature and Client age-recipient registrations for encrypted restore.
+selected interface and image type, and verifies any manifest signature or
+age-encrypted artifact when present. Client signing keys and age recipient
+registrations are required only when the operator selects those protections
+for a specific image.
 Persisting a job does not contact Clients, arm the job, or start disk I/O.
 The persistent systemd service can now load a fresh definition, verify its
 journal/configuration, bind the TLS 1.3 mTLS listener and expose root-only local
