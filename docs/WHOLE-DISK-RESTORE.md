@@ -33,7 +33,7 @@ MBR and unpartitioned images retain their original layout; GPT repair is only
 performed after the source-sized byte range has passed read-back verification.
 
 The writer uses generic `dd of=TARGET bs=4M conv=fsync status=none`. Raw,
-gzip, xz, zstd and lz4 disk artifacts are supported. The TUI displays write
+gzip, xz, zstd and lz4 disk artifacts are supported. The Cockpit operation displays write
 progress and supports cancellation; a cancellation can leave a partially
 overwritten target. Read-back verification runs after a successful write.
 Capture/restore operation events are persisted in the append-only operation
@@ -48,7 +48,7 @@ Tests use mocked device I/O. No VM or hardware restore has been validated.
 Never test against a disk containing needed data.
 
 
-`age` encryption and `minisign` signatures are optional integrations. A missing
+Age decryption staging uses the local system temporary filesystem, not the source repository, so a read-only remote repository can be used. Ensure the local temporary filesystem has enough free space for the decrypted artifact. `age` encryption and `minisign` signatures are optional integrations. A missing
 age executable must not block restoration of unencrypted images. A missing
 minisign executable must not block unsigned/local baseline restores; if an
 image carries a signature, the verifier and an independently trusted public
