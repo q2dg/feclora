@@ -131,7 +131,7 @@ class SFTPTransferTests(unittest.TestCase):
             self.assertIn('ls -1 "/images"', kwargs["input"])
             return SimpleNamespace(
                 returncode=0,
-                stdout="image-01.manifest.json\n../escape.manifest.json\nsubdir/evil.manifest.json\nnotes.txt\nother.manifest.json\n",
+                stdout="manifest.json\nimage-01.manifest.json\n../escape.manifest.json\nsubdir/evil.manifest.json\nnotes.txt\nother.manifest.json\n",
                 stderr="",
             )
         with patch("feclora.storage.sftp_transfer.build_sftp_argv", return_value=["sftp"]):
@@ -139,7 +139,7 @@ class SFTPTransferTests(unittest.TestCase):
                 "/images", host="sftp.example.net", username="backup",
                 identity_file="/key", known_hosts_file="/known", runner=runner,
             )
-        self.assertEqual(names, ["image-01.manifest.json", "other.manifest.json"])
+        self.assertEqual(names, ["image-01.manifest.json", "manifest.json", "other.manifest.json"])
 
     def test_manifest_inventory_rejects_traversal_directory(self):
         with self.assertRaises(SFTPTransferError):
