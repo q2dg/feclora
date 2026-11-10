@@ -30,18 +30,17 @@ add/edit/check/mount/unmount/remove and never receives credential contents. Exis
 registry entries created before the rclone_remote field was introduced remain
 readable.
 
-WebDAV is a required remote repository type, but its current root-invoked
-davfs2 integration does not yet provide safe per-repository credential
-isolation. Do not place credentials in `/etc/davfs2/secrets` as a Feclora
-workaround: that global file can mix credentials for unrelated endpoints and
-breaks the required repository isolation. Implement a deliberate per-service
-configuration/credential model and validate HTTPS certificates. Until that
-exists, report WebDAV as partial/unavailable for authenticated mounts rather
-than claiming full support. See the [davfs2 configuration manual](https://manpages.debian.org/unstable/davfs2/davfs2.conf.5.en.html).
+WebDAV is currently unavailable in the repository manager. The earlier
+root-invoked davfs2 integration did not provide safe per-repository credential
+isolation, so Feclora now rejects WebDAV definitions rather than sharing
+credentials through `/etc/davfs2/secrets`. Re-enable it only after a
+per-repository encrypted credential and isolated service-configuration model
+is implemented and HTTPS certificate validation is covered by tests. See the
+[davfs2 configuration manual](https://manpages.debian.org/unstable/davfs2/davfs2.conf.5.en.html).
 
 S3-compatible object storage is a required repository type. The current
-rclone mount path is read-only, disables the VFS write cache, and requires an
-explicit bucket as the first remote-path component; a mounted FUSE filesystem
+rclone mount path is read-only, disables the VFS write cache, and requires a
+valid lowercase S3 bucket name followed only by normalized prefix components; a mounted FUSE filesystem
 is not a safe publication interface. Read/list/fetch may use a protected rclone remote
 configuration or supported credential chain. Writable capture requires a
 provider-aware object API publisher with server-enforced conditional
