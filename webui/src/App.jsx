@@ -223,6 +223,18 @@ export default function App() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  const cancelLocalOperation = async (operationId) => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("cancel_local_operation", { operation_id: operationId });
+      setNotice(result.requested
+        ? "Cancellation requested. Feclora is stopping the worker and its child processes; refresh the operation log to confirm the final state."
+        : "This operation is already cancelled.");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
   const devices = useMemo(() => {
     const flat = [];
     const visit = (items) => (items || []).forEach((item) => { flat.push(item); visit(item.children); });
@@ -1357,8 +1369,8 @@ export default function App() {
             </Stack>
           </Tab>
           <Tab eventKey="operation-log" title="Operation log">
-            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Local operation history</Title><p>Durable local operation definitions and state history, including worker progress and terminal diagnostics. Interrupted writes require operator inspection and are never resumed automatically.</p></StackItem>
-              <StackItem><Table aria-label="Local operation history" variant="compact"><Thead><Tr><Th>Timestamp</Th><Th>Operation</Th><Th>Target</Th><Th>Image</Th><Th>Status</Th><Th>Progress</Th><Th>Operation ID</Th><Th>Failure detail</Th></Tr></Thead><Tbody>
+            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Local operation history</Title><p>Durable local operation definitions and state history, including worker progress and terminal diagnostics. Interrupted writes require operator inspection and are never resumed automatically.</p><Title headingLevel="h2" size="xl">Local operation history</Title><p>Durable local operation definitions and state history, including worker progress and terminal diagnostics. Cancelled or interrupted restores and clones may have partially modified their destination; inspect the target before reusing it. Cancel requests are orderly but can take time to stop child processes.</p></StackItem>
+              <StackItem><Table aria-label="Local operation history" variant="compact"><Thead><Tr><Th>Timestamp</Th><Th>Operation</Th><Th>Target</Th><Th>Image</Th><Th>Status</Th><Th>Progress</Th><Th>Operation ID</Th><Th>Failure detail</Th><Th>Control</Th></Tr></Thead><Tbody>
                 {operations.map((item) => {
                   const events = item.events || [];
                   const latest = events[events.length - 1] || {};
@@ -1371,9 +1383,10 @@ export default function App() {
                     <Td><Label color={item.state === "completed" ? "green" : ["failed", "cancelled", "interrupted"].includes(item.state) ? "red" : "orange"}>{item.state || "unknown"}</Label></Td>
                     <Td>{progress ? formatBytes(progressDetails.bytes_done || 0) + (progressDetails.bytes_total !== null && progressDetails.bytes_total !== undefined ? " / " + formatBytes(progressDetails.bytes_total) : " processed") : "—"}</Td>
                     <Td>{item.operation_id}</Td><Td>{details.error ? <><strong>{details.error_type || "Operation error"}:</strong> {details.error}</> : details.reason || "—"}</Td>
+                    <Td>{["queued", "preflight", "running"].includes(item.state) ? <Button size="sm" variant="danger" isDisabled={busy} onClick={() => cancelLocalOperation(item.operation_id)}>Cancel</Button> : "—"}</Td>
                   </Tr>;
                 })}
-                {!operations.length && <Tr><Td colSpan={8}>No local operations recorded.</Td></Tr>}
+                {!operations.length && <Tr><Td colSpan={9}>No local operations recorded.</Td></Tr>}
               </Tbody></Table></StackItem>
             </Stack>
           </Tab>
