@@ -123,7 +123,8 @@ export default function App() {
   const [serverRotateResult, setServerRotateResult] = useState(null);
   const [clientId, setClientId] = useState("");
   const [clientExportDirectory, setClientExportDirectory] = useState("");
-  const [clientImageSigning, setClientImageCapture] = useState(false);
+  const [clientImageSigning, setClientImageSigning] = useState(false);
+  const [clientAgeEncryption, setClientAgeEncryption] = useState(false);
   const [clientPrepared, setClientPrepared] = useState(null);
   const [clientHost, setClientHost] = useState("");
   const [clientMacInput, setClientMacInput] = useState("");
@@ -670,7 +671,7 @@ export default function App() {
     setBusy(true); setError(""); setNotice(""); setClientPrepared(null);
     try {
       const result = await callFeclora("prepare_client_request", {
-        client_id: clientId, export_directory: clientExportDirectory, image_signing: clientImageSigning
+        client_id: clientId, export_directory: clientExportDirectory, image_signing: clientImageSigning, age_encryption: clientAgeEncryption
       });
       setClientPrepared(result); setNotice(result.message);
     } catch (err) { setError(err?.message || String(err)); }
@@ -1626,7 +1627,8 @@ export default function App() {
                   <Field label="Mounted removable-media directory" help="For example /run/media/liveuser/USB. The directory must be an actual mounted filesystem.">
                     <input className="pf-v5-c-form-control" value={clientExportDirectory} onChange={(e) => setClientExportDirectory(e.target.value)} placeholder="/run/media/liveuser/USB" />
                   </Field>
-                  <label><input type="checkbox" checked={clientImageSigning} onChange={(e) => setClientImageCapture(e.target.checked)} /> Enable this Client's minisign image-signing key. Unsigned image capture remains available without it.</label>
+                  <label><input type="checkbox" checked={clientImageSigning} onChange={(e) => setClientImageSigning(e.target.checked)} /> Enable this Client's minisign image-signing key. Unsigned image capture remains available without it.</label>
+                  <label><input type="checkbox" checked={clientAgeEncryption} onChange={(e) => setClientAgeEncryption(e.target.checked)} /> Enable age decryption on this Client (generates a local identity and registers its public recipient). Encrypted images remain optional per capture.</label>
                   <Button variant="primary" onClick={prepareClientRequest} isLoading={busy} isDisabled={busy || !clientId || !clientExportDirectory}>Prepare request</Button>
                   {clientPrepared && <Card className="pf-v5-u-mt-md"><CardBody>
                     <Alert variant="success" title="Enrollment request prepared" isInline>{clientPrepared.message}</Alert>
