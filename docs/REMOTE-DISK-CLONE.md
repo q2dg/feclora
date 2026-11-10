@@ -6,7 +6,7 @@ is the source and the Client is the receiver. This does not create a second
 daemon, listener, IPC protocol, or job journal.
 
 UDPcast is not the data plane for this operation. Feclora's UDPcast integration
-transfers image artifact files into private staging before signed-image
+transfers image artifact files into private staging before optional-signature
 multicast restore; it does not stream one block device directly into another.
 Remote clone therefore reuses the existing bounded block-stream engine over
 the already authenticated TLS 1.3 Client control socket after the job's START
