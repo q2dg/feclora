@@ -221,7 +221,7 @@ def upload_file(
 
 def download_file(
     remote_path: str, local_path: str | os.PathLike[str], *,
-    expected_sha256: str | None, host: str, username: str, identity_file:
+    expected_sha256: str | None, host: str, username: str, identity_file: str,
     known_hosts_file: str, port: int = 22, timeout: int = 86400,
     runner: Callable[..., Any] = subprocess.run,
 ) -> dict[str, Any]:
