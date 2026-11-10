@@ -122,6 +122,28 @@ class ClientImageRuntimeTests(unittest.TestCase):
         send.assert_called_once()
         self.assertIn(b"transfer_ready", bytes(tls.outgoing))
 
+    def test_save_defaults_to_unencrypted_unsigned_even_when_keys_are_configured(self):
+        tls = FakeTLS()
+        approval = LocalTargetApproval(
+            "/dev/vda", "Virtual disk 1",
+            "READ /dev/vda TO URI:feclora-server",
+        )
+        with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
+             patch("feclora.deployment.client_runtime.capture_disk") as capture, \
+             patch("feclora.deployment.client_runtime.send_image_set") as send:
+            result = execute_client_image_job(
+                make_job("save"), tls, approval,
+                server_identity="URI:feclora-server", repository="/repo",
+                trusted_server_public_key="/trusted/server.pub",
+                local_minisign_secret_key="/keys/client.key",
+                local_minisign_public_key="/keys/client.pub",
+                age_recipients_file="/keys/recipients.txt",
+            )
+        self.assertTrue(result[0])
+        self.assertIsNone(capture.call_args.kwargs["minisign_secret_key"])
+        self.assertIsNone(capture.call_args.kwargs["age_recipients_file"])
+        self.assertIsNone(send.call_args.kwargs["trusted_public_key"])
+
     def test_partition_restore_uses_partition_restore_engine(self):
         tls = FakeTLS(control_frame({
             "type": "transfer_offer", "job_id": JOB_ID, "image_id": "golden-image",
