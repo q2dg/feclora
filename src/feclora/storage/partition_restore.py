@@ -17,7 +17,7 @@ from .image_security import ImageSecurityError, decrypt_artifact_stream_to_temp,
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 from .compression import CompressionError, ExternalDecompressionStream
-from .capture import _partclone_supports_json_status, _read_partclone_percent
+from .capture import _partclone_supports_json_status, _read_partclone_status, _partclone_stderr_progress
 from .process_control import stop_process
 
 class PartitionRestoreError(RuntimeError):
@@ -440,7 +440,7 @@ def restore_partition(
                     # Prefer Partclone's own block counters; retain the legacy
                     # stderr percentage parser for older packaged versions.
                     progress_stream = getattr(process, "stderr", None)
-                    last_native_percent = None
+                    last_native_progress = None
                     if progress_stream is not None:
                         pending = bytearray()
                         while True:
@@ -450,29 +450,43 @@ def restore_partition(
                             stderr.write(char)
                             if char in (b"\r", b"\n"):
                                 if partclone_status_path is not None:
-                                    percent = _read_partclone_percent(partclone_status_path)
-                                    if percent is not None and percent != last_native_percent:
-                                        last_native_percent = percent
-                                        if progress_callback is not None:
-                                            progress_callback(percent, 100)
+                                    progress = _read_partclone_status(partclone_status_path)
                                 else:
-                                    line = pending.decode("utf-8", errors="replace")
-                                    match = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*%", line)
-                                    if match and progress_callback is not None:
-                                        progress_callback(max(0, min(100, int(float(match.group(1))))), 100)
+                                    line = bytes(pending)
+                                    progress = _partclone_stderr_progress(line, manifest.source_size_bytes)
+                                    if progress is None:
+                                        match = re.search(rb"([0-9]+(?:\.[0-9]+)?)\s*%", line)
+                                        if match:
+                                            percent = max(0, min(100, int(float(match.group(1)))))
+                                            progress = (
+                                                manifest.source_size_bytes * percent // 100,
+                                                manifest.source_size_bytes,
+                                            )
+                                if progress is not None and progress != last_native_progress:
+                                    last_native_progress = progress
+                                    if progress_callback is not None:
+                                        progress_callback(*progress)
                                 pending.clear()
                             else:
                                 pending.extend(char)
                                 if len(pending) > 4096:
                                     del pending[:-4096]
                         if pending and partclone_status_path is None:
-                            match = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*%", pending.decode("utf-8", errors="replace"))
-                            if match and progress_callback is not None:
-                                progress_callback(max(0, min(100, int(float(match.group(1))))), 100)
+                            progress = _partclone_stderr_progress(bytes(pending), manifest.source_size_bytes)
+                            if progress is None:
+                                match = re.search(rb"([0-9]+(?:\.[0-9]+)?)\s*%", bytes(pending))
+                                if match:
+                                    percent = max(0, min(100, int(float(match.group(1)))))
+                                    progress = (
+                                        manifest.source_size_bytes * percent // 100,
+                                        manifest.source_size_bytes,
+                                    )
+                            if progress is not None and progress != last_native_progress and progress_callback is not None:
+                                progress_callback(*progress)
                         if partclone_status_path is not None:
-                            percent = _read_partclone_percent(partclone_status_path)
-                            if percent is not None and percent != last_native_percent and progress_callback is not None:
-                                progress_callback(percent, 100)
+                            progress = _read_partclone_status(partclone_status_path)
+                            if progress is not None and progress != last_native_progress and progress_callback is not None:
+                                progress_callback(*progress)
                 return_code = process.wait()
                 if return_code != 0:
                     stderr.seek(0)
