@@ -339,12 +339,18 @@ def _fetch_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
     port = params.get("port", 22)
     if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
         raise WebAPIError("SFTP port must be an integer between 1 and 65535")
-    public_key = Path("/etc/feclora/pki/server.pub")
+    client_config = _client_runtime_config()
+    public_key = (
+        Path(client_config.trusted_server_public_key)
+        if client_config and client_config.trusted_server_public_key
+        else Path("/etc/feclora/pki/server.pub")
+    )
     try:
         info = os.lstat(public_key)
     except OSError as exc:
-        raise WebAPIError("initialize Feclora image-signing trust before importing SFTP images") from exc
-    if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+        raise WebAPIError("trusted Feclora image-signing public key is unavailable") from exc
+    if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+            or info.st_uid != 0 or info.st_mode & 0o022):
         raise WebAPIError("trusted Feclora minisign public key has unsafe ownership or permissions")
     from feclora.storage.sftp_image_set import fetch_image_set
     from feclora.storage.operation_log import operation_record
