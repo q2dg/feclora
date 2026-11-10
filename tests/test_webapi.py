@@ -1222,12 +1222,12 @@ class WebAPITests(unittest.TestCase):
             "known_hosts_credential": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred",
         }
         expected = {"image_id": "golden", "image_type": "disk", "artifact_count": 2, "published": True}
-        with patch("feclora.webapi._client_runtime_config", return_value=None), \\
+        with patch("feclora.webapi._client_runtime_config", return_value=None), \
              patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(
                  st_mode=stat.S_IFREG | 0o600, st_uid=0,
-             )), patch("feclora.webapi._repository", return_value=Path("/var/lib/feclora/images")), \\
-             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \\
-             patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("op-456")), \\
+             )), patch("feclora.webapi._repository", return_value=Path("/var/lib/feclora/images")), \
+             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \
+             patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("op-456")), \
              patch("feclora.storage.sftp_image_set.publish_image_set", return_value=expected) as publish:
             result = dispatch({"action": "publish_sftp_image_set", "params": params})
         self.assertEqual(result, {"operation_id": "op-456", **expected})
@@ -1307,7 +1307,7 @@ class WebAPITests(unittest.TestCase):
         }
         expected = {"operation": "inventory", "remote_path": "/images/golden",
                     "completed": True, "manifests": ["manifest.json"]}
-        with patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("op-789")), \\
+        with patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("op-789")), \
              patch("feclora.storage.sftp_transfer_service.run_sftp_transfer", return_value=expected) as inventory:
             result = dispatch({"action": "list_sftp_image_manifests", "params": params})
         self.assertEqual(result, {"operation_id": "op-789", **expected})
