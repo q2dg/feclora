@@ -106,5 +106,23 @@ class SFTPTransferTests(unittest.TestCase):
             self.assertFalse(destination.exists())
 
 
+    def test_download_can_stage_untrusted_metadata_without_claiming_verification(self):
+        payload = b'{"schema_version":1}'
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary) / "manifest.json"
+            def runner(_argv, **kwargs):
+                command = shlex.split(kwargs["input"].strip())
+                Path(command[2]).write_bytes(payload)
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            with patch("feclora.storage.sftp_transfer.build_sftp_argv", return_value=["sftp"]):
+                result = download_file(
+                    "/images/manifest.json", destination, expected_sha256=None,
+                    host="sftp.example.net", username="backup",
+                    identity_file="/key", known_hosts_file="/known", runner=runner,
+                )
+            self.assertFalse(result["verified"])
+            self.assertEqual(destination.read_bytes(), payload)
+
+
 if __name__ == "__main__":
     unittest.main()
