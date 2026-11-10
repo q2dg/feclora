@@ -236,10 +236,11 @@ signed-set publication sequence.
 - [x] Integrate authenticated SFTP image selection with durable disk/partition restore jobs, binding the inspected image ID and manifest digest before artifact retrieval.
 - [ ] Add transfer progress, cancellation, retry/resume and recovery semantics.
 - [x] Expose one-shot SFTP endpoint and encrypted SSH-key/known_hosts credential selection through Cockpit.
-- [ ] Add reusable saved repository definitions and provider health checks.
+- [x] Add reusable saved SFTP endpoint definitions and encrypted credential references.
+- [ ] Add provider health checks and multi-directory inventory/discovery.
 - [ ] Add operator guide and screenshots after the complete workflow exists.
 
-SFTP is now selectable in Cockpit for one-shot signed-image publication, import and direct disk/partition restore. It is not yet a reusable saved repository provider, and its synchronous transfer path has no byte progress, cancellation, retry or resume. Unit tests were added but not executed in this work session.
+SFTP is available in Cockpit for one-shot signed-image publication, import and direct disk/partition restore. Named endpoint definitions and encrypted credential references are saved in a root-owned registry. Its synchronous transfer path still has no byte progress, operator cancellation, retry or resume. Unit tests exist; live provider acceptance remains outstanding.
 
 
 ### SFTP authenticated image-set retrieval checkpoint
