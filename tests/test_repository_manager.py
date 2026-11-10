@@ -174,19 +174,13 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         with self.assertRaisesRegex(RepositoryManagerError, "mode 0600"):
             self.manager.add("images", self.definition)
 
-    def test_add_accepts_webdav_with_root_owned_system_secrets(self):
-        secrets = Path(self.temp.name) / "dav-secrets"
-        secrets.write_text("https://dav.example.net/images user password\\n", encoding="utf-8")
-        secrets.chmod(0o600)
+    def test_add_rejects_webdav_until_isolated_credentials_exist(self):
         definition = {**self.definition, "provider": "webdav", "host": "dav.example.net",
                       "remote_path": "/images", "username": None,
-                      "credential_file": str(secrets), "identity_file": None,
+                      "credential_file": "/etc/davfs2/secrets", "identity_file": None,
                       "known_hosts_file": None, "port": None}
-        # davfs2 only reads its system secrets path; the manager rejects alternate paths.
-        definition["credential_file"] = "/etc/davfs2/secrets"
-        with patch("feclora.storage.repository_manager._check_secret_reference"):
-            result = self.manager.add("images", definition)
-        self.assertEqual(result["provider"], "webdav")
+        with self.assertRaisesRegex(RepositoryManagerError, "global davfs2 secrets file is not accepted"):
+            self.manager.add("images", definition)
 
     def test_add_accepts_s3_with_protected_rclone_config(self):
         config = Path(self.temp.name) / "rclone.conf"
@@ -200,23 +194,13 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         result = self.manager.add("images", definition)
         self.assertEqual(result["provider"], "s3")
 
-    def test_resolve_verifies_webdav_source_and_fuse_type(self):
+    def test_resolve_rejects_webdav_until_isolated_credentials_exist(self):
         definition = {**self.definition, "provider": "webdav", "host": "dav.example.net",
                       "remote_path": "/images", "username": None,
                       "credential_file": "/etc/davfs2/secrets", "identity_file": None,
                       "known_hosts_file": None, "port": None}
-        with patch("feclora.storage.repository_manager._check_secret_reference"):
+        with self.assertRaisesRegex(RepositoryManagerError, "global davfs2 secrets file is not accepted"):
             self.manager.add("dav", definition)
-        self.manager._mount_record = lambda _path: (
-            "fuse.davfs", "https://dav.example.net/images", "ro,relatime",
-        )
-        with patch("feclora.storage.repository_manager._check_secret_reference"):
-            self.assertEqual(self.manager.resolve("dav"), str(self.mount_root / "dav"))
-            self.manager._mount_record = lambda _path: (
-                "fuse.davfs", "https://evil.example/other", "ro,relatime",
-            )
-            with self.assertRaisesRegex(RepositoryManagerError, "does not match"):
-                self.manager.resolve("dav")
 
     def test_resolve_verifies_s3_remote_and_enforces_read_only(self):
         config = Path(self.temp.name) / "rclone.conf"
