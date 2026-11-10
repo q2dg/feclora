@@ -577,6 +577,8 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 ),
                 age_identity_file=config.age_identity_file,
                 age_recipients_file=state.get("age_recipients_file"),
+                encrypt_image=bool(state.get("age_recipients_file")),
+                sign_image=bool(state.get("minisign_secret_key")),
                 compression=compression,
                 compression_level=level,
                 progress_callback=progress,
