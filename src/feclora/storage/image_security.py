@@ -41,6 +41,31 @@ def _digest_file(path: str) -> tuple[int, str]:
     return size, digest.hexdigest()
 
 
+
+def preflight_image_security(
+    *,
+    age_recipients_file: str | os.PathLike[str] | None = None,
+    minisign_secret_key: str | os.PathLike[str] | None = None,
+    age_executable: str | None = None,
+    minisign_executable: str | None = None,
+) -> None:
+    """Validate selected optional image-security inputs before a long capture."""
+    if age_recipients_file is not None:
+        _regular_file(age_recipients_file, "age recipients file")
+        executable = age_executable or shutil.which("age")
+        if not executable:
+            raise ImageSecurityError("age executable is required for image encryption")
+        if not os.path.isfile(executable) or not os.access(executable, os.X_OK):
+            raise ImageSecurityError("configured age executable is unavailable or not executable")
+    if minisign_secret_key is not None:
+        _regular_file(minisign_secret_key, "minisign secret key")
+        executable = minisign_executable or shutil.which("minisign")
+        if not executable:
+            raise ImageSecurityError("minisign executable is required for manifest signing")
+        if not os.path.isfile(executable) or not os.access(executable, os.X_OK):
+            raise ImageSecurityError("configured minisign executable is unavailable or not executable")
+
+
 def encrypt_artifact(
     artifact_path: str | os.PathLike[str],
     artifact: ImageArtifact,
