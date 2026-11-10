@@ -33,6 +33,16 @@ a different frontend revision.
 | `07-restore-verification.png` | Signature / encryption verification status |
 | `08-restore-target-confirmation.png` | Destination summary and exact destructive confirmation |
 | `09-restore-progress.png` | Restore progress and verification state |
+| `10-server-client-enrollment.png` | Server Trusted Clients: CSR review, TLS identity and optional image-key enrollment |
+| `11-client-enrollment-review.png` | Client verifies the CA fingerprint and reviews optional age/minisign material before installation |
+| `12-remote-job-server-setup.png` | Server remote-job wizard: operation, image, enrolled Clients, interface and transport |
+| `13-client-remote-job-inspection.png` | Client verifies the Server over mTLS and reviews the job before selecting a local device |
+| `14-client-remote-save-security.png` | Per-image age/minisign choices for a remote Client save; both default off |
+| `15-client-remote-target-confirmation.png` | Client's exact local target confirmation and READY wait state |
+| `16-server-multicast-ready-arm.png` | Server confirms all authorized receivers READY before the job-specific ARM action |
+| `17-remote-job-progress-results.png` | Server and Client terminal state, per-Client progress and verification result |
+| `18-remote-repository-setup.png` | Remote repository provider, endpoint and access-mode configuration |
+| `19-remote-repository-verified.png` | Mounted/verified provider identity and repository image inventory |
 
 Screenshots are intentionally absent until the above procedure can be run
 against a real, version-matched Fedora Live build. The table is a capture plan,
