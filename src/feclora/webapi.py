@@ -1358,7 +1358,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             source = params["sftp_source"]
             required_source = {
                 "host", "username", "remote_directory",
-                "identity_credential", "known_hosts_credential",
+                "identity_credential", "known_hosts_credential", "expected_manifest_sha256",
             }
             if not isinstance(source, dict) or set(source) not in (required_source, required_source | {"port"}):
                 raise WebAPIError("SFTP restore source settings are invalid")
@@ -1369,6 +1369,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             remote_directory = _text(source, "remote_directory", maximum=1024)
             identity = _text(source, "identity_credential", maximum=512)
             known_hosts = _text(source, "known_hosts_credential", maximum=512)
+            expected_manifest_sha256 = _text(source, "expected_manifest_sha256", pattern=r"[0-9a-f]{64}", maximum=64)
             port = source.get("port", 22)
             if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
                 raise WebAPIError("SFTP restore source port is invalid")
@@ -1395,6 +1396,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                     public_key=public_key, host=host, username=username,
                     identity_credential=identity, known_hosts_credential=known_hosts,
                     port=port, expected_image_id=image_id,
+                    expected_manifest_sha256=expected_manifest_sha256,
                 )
             except Exception as exc:
                 raise WebAPIError(f"authenticated SFTP image fetch failed: {exc}") from exc
