@@ -42,7 +42,7 @@ the artifact names, encryption modes, sizes and SHA-256 digests.
 ## Current implementation boundary
 
 Capture UI exposes independent optional choices for age encryption and
-minisign signing. Both are opt-in; selecting neither is a supported baseline path. When either option is selected, capture preflights the corresponding key file and executable before starting the disk or partition read, so a missing optional tool fails early rather than after a long capture. Restore detects age-encrypted artifacts and requires an
+minisign signing. Both are opt-in; selecting neither is a supported baseline path. When either option is selected, capture preflights the corresponding key file and executable before starting the disk or partition read, so a missing optional tool fails early rather than after a long capture. During first Server security initialization, optional age and minisign keypairs are generated in private staging directories and published without overwriting existing files; a failed publication rolls back any first half rather than leaving a misleading partial keypair. Restore detects age-encrypted artifacts and requires an
 identity file; it verifies ciphertext SHA-256 before invoking age, then
 authenticates/decrypts to a private staging file before decompression or disk
 writes. When a detached signature is present, restore must verify it against an
