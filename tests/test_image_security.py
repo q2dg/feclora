@@ -24,7 +24,7 @@ class ImageSecurityTests(unittest.TestCase):
         self.public = os.path.join(self.root, "minisign.pub")
         for path, data in (
             (self.source, b"compressed bytes"),
-            (self.recipients, b"age1example\n"),
+            (self.recipients, ("age1" + "a" * 40 + "\n").encode("ascii")),
             (self.identity, b"AGE-SECRET-KEY-1EXAMPLE\n"),
             (self.manifest, b'{"schema_version":1}\n'),
             (self.secret, b"untrusted test key placeholder"),
@@ -32,6 +32,7 @@ class ImageSecurityTests(unittest.TestCase):
         ):
             with open(path, "wb") as stream:
                 stream.write(data)
+        os.chmod(self.secret, 0o600)
         self.artifact = ImageArtifact(
             filename="disk.raw.gz", role="disk-image", format="raw",
             compression="gzip", size_bytes=len(b"compressed bytes"),
@@ -108,6 +109,22 @@ class ImageSecurityTests(unittest.TestCase):
                 preflight_image_security(age_recipients_file=self.recipients)
             with self.assertRaisesRegex(ImageSecurityError, "minisign executable is required"):
                 preflight_image_security(minisign_secret_key=self.secret)
+
+
+    def test_preflight_rejects_malformed_age_recipient_before_capture(self):
+        with open(self.recipients, "w", encoding="ascii") as stream:
+            stream.write("not-an-age-recipient\n")
+        with self.assertRaisesRegex(ImageSecurityError, "malformed recipients"):
+            preflight_image_security(
+                age_recipients_file=self.recipients, age_executable="/usr/bin/age",
+            )
+
+    def test_preflight_rejects_group_readable_minisign_secret(self):
+        os.chmod(self.secret, 0o640)
+        with self.assertRaisesRegex(ImageSecurityError, "must not be accessible"):
+            preflight_image_security(
+                minisign_secret_key=self.secret, minisign_executable="/usr/bin/minisign",
+            )
 
     def test_preflight_rejects_missing_selected_key_file(self):
         with self.assertRaisesRegex(ImageSecurityError, "age recipients file is unavailable"):
