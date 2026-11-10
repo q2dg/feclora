@@ -529,5 +529,6 @@ def complete_client_enrollment(params: dict[str, Any]) -> dict[str, Any]:
         "identity": config["local_identity"], "host": host, "mac_address": normalized_mac,
         "image_signing_enabled": bool(config["local_minisign_secret_key"]),
         "age_encryption_enabled": bool(config["age_recipients_file"]),
+        "age_decryption_enabled": bool(config["age_identity_file"]),
         "message": "Client TLS certificate installed. Optional age and minisign image-protection material was installed only when provided and independently verified.",
     }
