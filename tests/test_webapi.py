@@ -1,9 +1,10 @@
 import json
 import os
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 from feclora.webapi import WebAPIError, dispatch, _device, _server_trusted_clients, _revoke_server_client, _certificate_status, _renew_server_certificate
 from feclora.deployment.job import DeploymentJob
@@ -1312,7 +1313,7 @@ class WebAPITests(unittest.TestCase):
             )
         self.assertTrue(result["sftp_publication"]["published"])
         capture.assert_called_once()
-        publish.assert_called_once_with("captured", repository, params["sftp_publish"])
+        publish.assert_called_once_with("captured", repository, params["sftp_publish"], progress_callback=ANY)
 
     def test_publish_sftp_image_set_api_rejects_invalid_port_before_transfer(self):
         params = {
