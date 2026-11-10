@@ -111,7 +111,7 @@ the Cockpit Server/Client services. Cockpit multicast restore now uses the
 persistent Client service: each Client selects its own receive interface and
 local destination, passes interface/route/udp-receiver preflight, approves
 the exact destructive target, and reports READY only after those checks.
-The Server derives the total staging requirement from the verified signed
+The Server derives the total staging requirement from the verified
 manifest and includes it in the authenticated job offer. Before reporting READY,
 each Client compares that requirement with free space in its configured image
 repository and requires an additional 64 MiB safety reserve. A failed or
