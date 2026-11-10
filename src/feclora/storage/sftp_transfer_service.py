@@ -92,6 +92,34 @@ def build_systemd_transfer_argv(
     return command
 
 
+def _stop_transient_unit(systemctl: str, unit: str) -> None:
+    """Wait for a transient transfer to stop before its caller cleans staging files."""
+    try:
+        result = subprocess.run(
+            [systemctl, "stop", unit], stdin=subprocess.DEVNULL,
+            capture_output=True, text=True, check=False, timeout=20,
+        )
+    except subprocess.TimeoutExpired:
+        killed = subprocess.run(
+            [systemctl, "kill", "--kill-who=all", "--signal=SIGKILL", unit],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=5,
+        )
+        if killed.returncode != 0:
+            raise RepositoryManagerError("could not force-stop the transient SFTP transfer")
+        result = subprocess.run(
+            [systemctl, "stop", unit], stdin=subprocess.DEVNULL,
+            capture_output=True, text=True, check=False, timeout=10,
+        )
+    if result.returncode != 0:
+        active = subprocess.run(
+            [systemctl, "is-active", unit], stdin=subprocess.DEVNULL,
+            capture_output=True, text=True, check=False, timeout=5,
+        )
+        if active.returncode == 0:
+            raise RepositoryManagerError("transient SFTP transfer is still active after cancellation")
+
+
 def run_sftp_transfer(
     *, identity_credential: str, known_hosts_credential: str,
     operation: str, host: str, username: str, remote_path: str,
@@ -128,14 +156,7 @@ def run_sftp_transfer(
         # stop the transient service. Explicitly stop the uniquely named unit
         # so a cancelled local restore cannot leave an orphaned SFTP fetch.
         systemctl = store_manager.which("systemctl") or "/usr/bin/systemctl"
-        try:
-            subprocess.run(
-                [systemctl, "stop", "--no-block", unit],
-                stdin=subprocess.DEVNULL, capture_output=True,
-                text=True, check=False, timeout=10,
-            )
-        except (OSError, subprocess.SubprocessError):
-            pass
+        _stop_transient_unit(systemctl, unit)
         if isinstance(exc, (OSError, subprocess.SubprocessError)):
             raise RepositoryManagerError(f"SFTP transient service could not complete: {exc}") from exc
         raise
