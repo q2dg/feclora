@@ -402,7 +402,15 @@ def capture_partition(
     except OSError as exc:
         raise CaptureError(f"capture failed: {exc}") from exc
     finally:
-        if process is not None and process.poll() is None:
-            process.terminate()
-            process.wait()
+        if process is not None:
+            if process.poll() is None:
+                process.terminate()
+                process.wait()
+            for stream_name in ("stdout", "stderr"):
+                stream = getattr(process, stream_name, None)
+                if stream is not None:
+                    try:
+                        stream.close()
+                    except OSError:
+                        pass
         shutil.rmtree(stage_dir, ignore_errors=True)
