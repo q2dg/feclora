@@ -542,7 +542,7 @@ def run_deployment_server_ui(
                 "Ensure switch IGMP snooping has a working querier, multicast is not filtered "
                 "by Wi-Fi/client isolation, and the selected interface is correct. "
                 "Cross-VLAN multicast routing is not supported by this TTL=1 profile. "
-                "Multicast is restricted to age-encrypted artifacts. The signed manifest authenticates the exact ciphertext and age verifies ciphertext integrity on decryption; this is artifact-level protection, not per-datagram authentication. UDPcast still exposes transfer metadata and an on-path attacker can cause denial of service. "
+                "Age encryption is optional and should be enabled when artifact confidentiality is required. The mTLS control session authenticates the manifest; any detached signature is additionally checked when present, and every received artifact is checked against its manifest digest. UDPcast itself does not encrypt or authenticate datagrams, so an on-path attacker can still observe metadata or cause denial of service. "
                 "Feclora will temporarily open only the two UDPcast ports and IGMP on this interface.",
             )
             confirmation = dialog_app._input(
