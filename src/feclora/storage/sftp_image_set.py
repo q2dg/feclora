@@ -12,6 +12,7 @@ import ctypes
 import hashlib
 import os
 import posixpath
+import re
 import shutil
 import stat
 import tempfile
@@ -50,8 +51,8 @@ def _digest(path: str) -> tuple[int, str]:
 
 
 def _remote_directory(value: str) -> str:
-    if (not isinstance(value, str) or not value.startswith("/")
-            or posixpath.normpath(value) != value
+    if (not isinstance(value, str) or not re.fullmatch(r"/[A-Za-z0-9._/-]{0,1024}", value)
+            or value.startswith("//") or posixpath.normpath(value) != value
             or any(part in {".", ".."} for part in value.split("/"))):
         raise SFTPImageSetError("remote image-set directory must be an absolute normalized path")
     return value.rstrip("/") or "/"
