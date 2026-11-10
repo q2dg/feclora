@@ -24,7 +24,7 @@ Status meanings:
 | Integrity | Manifest and SHA-256 | Implemented | Cockpit inventory/restore | Automated tests |
 | Integrity | Optional detached signatures (`minisign` implementation) | Implemented as optional integration; absence must not block baseline local imaging | Cockpit capture/verification when configured | Automated tests; real Fedora Live acceptance pending |
 | Encryption | Optional artifact encryption (`age` implementation) | Implemented as optional integration; absence must not block baseline local imaging | Cockpit capture/restore when configured | Automated tests; real Fedora Live acceptance pending |
-| Compression | none, gzip, zstd, lz4 | Implemented | Cockpit basic choices | Automated tests/CI |
+| Compression | none, gzip, xz, zstd, lz4 | Implemented | Cockpit basic choices | Automated tests/CI |
 | Filesystems | Partclone-supported filesystems | Implemented with raw fallback; native current/total block progress is consumed from stderr on legacy builds and native JSON byte counters are used when the installed Partclone advertises `--json-status` | Cockpit | Automated tests; operator validation |
 | Storage layers | LVM, LUKS, Btrfs, Stratis | Inventory/safety support varies; full-aware imaging incomplete | Inventory only | Automated tests; operator validation |
 | Deployment identity | Managed CA and Server mTLS identity bootstrap | Implemented | Cockpit initial bootstrap | Automated tests; operator validation |
