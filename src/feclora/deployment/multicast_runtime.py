@@ -1,9 +1,9 @@
-"""Authenticated, signed-manifest UDPcast restore runtime for multiple Clients.
+"""Authenticated UDPcast restore runtime for multiple Clients.
 
-The mTLS channel distributes only the signed manifest and coordinates the job.
-UDPcast carries artifact bytes to private Client staging files. Every artifact
-is verified against the signed manifest before the existing restore path may
-write to the locally selected disk.
+The mTLS channel distributes the manifest and coordinates the job. A detached
+signature is verified when present. UDPcast carries artifact bytes to private
+Client staging files. Every artifact is verified against the manifest before
+the existing restore path may write to the locally selected disk.
 """
 from __future__ import annotations
 
@@ -138,14 +138,14 @@ def execute_multicast_restore(
             verify_manifest_signature(manifest_path, trusted_server_public_key)
         manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
         if manifest.image_id != job.image_id:
-            raise MulticastDeploymentError("signed image manifest does not match the job image identifier")
+            raise MulticastDeploymentError("image manifest does not match the job image identifier")
         if manifest.image_type != job.target_type:
-            raise MulticastDeploymentError("signed image type does not match the locally approved deployment target type")
+            raise MulticastDeploymentError("image type does not match the locally approved deployment target type")
         if not manifest.artifacts:
             raise MulticastDeploymentError("multicast image manifest contains no artifacts")
         required_bytes = sum(item.size_bytes for item in manifest.artifacts)
         if shutil.disk_usage(workdir).free < required_bytes:
-            raise MulticastDeploymentError("insufficient Client staging space for the complete signed image set")
+            raise MulticastDeploymentError("insufficient Client staging space for the complete image set")
         config = udpcast_config_for_job(
             job, min_receivers=len(job.authorized_clients),
             network_interface=network_interface,
