@@ -607,7 +607,7 @@ def run_deployment_server_ui(
                     trusted_key = (
                         config.server_minisign_public_key
                         if job.operation == "restore"
-                        else config.client_minisign_public_keys[selected_mac]
+                        else config.client_minisign_public_keys.get(selected_mac)
                     )
                     results = control.run_one_client_job(
                         config.repository,
