@@ -80,7 +80,7 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [ ] Integrate Fedora `oo7-daemon` Secret Service with interactive operator-session workflows where a user bus is available; never make unattended Server jobs depend on that session.
 - [ ] Design and implement a safe per-repository WebDAV credential lifecycle compatible with davfs2's root-mount semantics; do not use or mutate the global `/etc/davfs2/secrets` as a multi-repository workaround. Extend encrypted service credentials to other long-running Server jobs; migrate existing plaintext credential references and remove the legacy plaintext store/CLI only after compatibility and recovery paths are covered.
 - [x] Add Cockpit import/removal of protected local credential files into systemd-creds storage, read-only encrypted-reference inventory, and credential selection for SSHFS, SMB and S3 repositories.
-- [x] Add Cockpit repository definition editing while unmounted, explicit health inspection of mount/source/type/access-mode verification, and safe reference-preserving credential removal.
+- [x] Add Cockpit repository definition editing while unmounted, explicit mount-identity inspection (findmnt source/type/access-mode comparison only; not a live health or I/O probe), and safe reference-preserving credential removal.
 - [ ] Add safe WebDAV per-repository encrypted credentials and isolated davfs2 service configuration; provider-aware S3 object publication; and automated mount-lifecycle coverage. WebDAV is rejected by validation and is not a supported managed provider today.
 - [ ] Handle stale mounts, network loss, interrupted publication, concurrent writers and cleanup.
 - [ ] Add integration tests with local test services where practical.
