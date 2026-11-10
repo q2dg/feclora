@@ -81,6 +81,15 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.assertEqual(self.manager.list()[0]["host"], "nas-new.example.net")
         self.assertEqual(self.manager.list()[0]["remote_path"], "/archive")
 
+    def test_active_restore_lease_blocks_repository_update(self):
+        self.manager.add("images", self.definition)
+        lease = self.manager.acquire_usage_lock("images")
+        try:
+            with self.assertRaisesRegex(RepositoryManagerError, "active deployment restore"):
+                self.manager.update("images", dict(self.definition, remote_path="/archive"))
+        finally:
+            os.close(lease)
+
     def test_update_refuses_mounted_repository(self):
         self.manager.add("images", self.definition)
         self.manager._is_mounted = lambda _path: True
