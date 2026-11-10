@@ -167,9 +167,7 @@ Use `python3 -m feclora.storage.credential_cli remove --id nas --kind ssh-key`
 to remove it. The command prints only the resulting reference path, never the
 secret. Cockpit's `remote_credentials` API action lists validated references
 only; it never accepts or returns secret contents. Cockpit selection and
-repository editing is available only while unmounted; the check action verifies the current mount identity but does not probe provider write access, latency or free space. WebDAV continues to
-use the separately managed `/etc/davfs2/secrets` file. Existing repository
-definitions must be updated to reference the resulting protected file paths.
+repository editing is available only while unmounted; the check action verifies the current mount identity but does not probe provider write access, latency or free space. WebDAV must not use `/etc/davfs2/secrets` as a Feclora multi-repository credential workaround. A safe per-repository credential model remains pending. Existing repository definitions must be updated to reference supported protected credential paths.
 
 ## Host dependencies
 
