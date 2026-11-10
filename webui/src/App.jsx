@@ -1187,7 +1187,7 @@ export default function App() {
                       <option value="">Select read-only source disk…</option>
                       {(inventory?.devices || []).filter((item) => item.type === "disk" && item.read_only === true).map((item) => <option key={item.path} value={item.path}>{item.path} · {item.model || "Disk"} · {formatBytes(item.size_bytes)}</option>)}
                     </select>
-                  </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing signed image." : "New identifier for the image captured from Clients."}>
+                  </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing disk or partition image. Signed images are verified; unsigned images are accepted only through the authenticated mTLS job session." : "New identifier for the image captured from Clients."}>
                     {remoteOperation === "restore" ? <select className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)}>
                       <option value="">Select image…</option>
                       {availableImages.filter((item) => item.image_type === remoteTargetType).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {item.signed ? "signed" : "unsigned"}</option>)}
