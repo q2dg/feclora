@@ -276,7 +276,8 @@ export default function App() {
         const sftpSource = restoreFromSftp && sftpInspectionMatchesCurrent ? {
           host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
           port: Number(sftpPort), identity_credential: sftpIdentity,
-          known_hosts_credential: sftpKnownHosts
+          known_hosts_credential: sftpKnownHosts,
+          expected_manifest_sha256: sftpRemoteInspection.manifest_sha256
         } : null;
         if (restoreFromSftp && !sftpSource) throw new Error("Re-inspect the SFTP image after changing its connection settings.");
         params = {
