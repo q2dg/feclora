@@ -1021,7 +1021,7 @@ export default function App() {
                         <label><input type="checkbox" checked={encrypt} disabled={!security.age_encryption_available} onChange={(e) => setEncrypt(e.target.checked)} /> Encrypt artifacts with age</label>
                         <br />
                         <label><input type="checkbox" checked={sign} disabled={!security.image_signing_available || publishAfterCapture} onChange={(e) => setSign(e.target.checked)} /> Sign manifest with minisign</label>
-                        {!security.age_encryption_available || !security.image_signing_available ? <p className="pf-v5-u-color-200">Initialize local security keys from the System tab to enable these options.</p> : null}
+                        {!security.age_encryption_available || !security.image_signing_available ? <p className="pf-v5-u-color-200">Optional image protection is provisioned during Server setup when the relevant tools are installed. Without them, ordinary capture and restore remain available.</p> : null}
                       </Field>
                       <Field label="SFTP post-capture publication">
                         <label><input type="checkbox" checked={publishAfterCapture} disabled={busy || !sign} onChange={(e) => setPublishAfterCapture(e.target.checked)} /> Publish this image set to SFTP after capture and local signature verification</label>
@@ -1449,7 +1449,7 @@ export default function App() {
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem>
                 <Title headingLevel="h2" size="xl">Initialize deployment Server identity</Title>
-                <p>Select an IPv4 address currently assigned to the management interface. Feclora will initialize its managed CA, mTLS Server certificate, age recipient identity and minisign signing keys.</p>
+                <p>Select an IPv4 address currently assigned to the management interface. Feclora will initialize its managed CA and mTLS Server certificate. If age-keygen or minisign are installed, it will also provision those optional image-protection keys.</p>
                 <Alert variant="info" title="This is the identity bootstrap step only" isInline>
                   It does not enable DHCP/ProxyDHCP, configure PXE boot services, open firewall ports or start a deployment. Client enrollment is a separate, explicit removable-media trust ceremony below.
                 </Alert>
