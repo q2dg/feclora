@@ -119,7 +119,7 @@ encrypted blob path, and the mount service receives it through
 `LoadCredentialEncrypted=`. NFS does not require credentials. WebDAV remains
 unavailable through the Cockpit/API path until a per-repository encrypted
 credential design is implemented; the global `/etc/davfs2/secrets` file is not
-used as a workaround. SFTP remains a separate transfer provider: Cockpit can publish an existing signed local image or import a signed remote image, but capture-job integration, remote inventory and durable transfer controls remain pending.
+used as a workaround. SFTP remains a separate transfer provider: Cockpit can publish/import signed image sets and optionally publish immediately after a disk/partition capture; remote inventory, restore-job routing and durable transfer controls remain pending.
 Existing plaintext
 `CredentialStore` and CLI paths remain temporarily supported for migration;
 they are not the target architecture.
