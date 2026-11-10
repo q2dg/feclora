@@ -198,10 +198,13 @@ def restore_disk(
         raise DiskRestoreError(f"cannot load valid image manifest: {exc}") from exc
 
     signature_path = manifest_file + ".minisig"
-    if require_signature and not os.path.isfile(signature_path):
+    signature_present = os.path.lexists(signature_path)
+    if require_signature and not signature_present:
         raise DiskRestoreError("a minisign signature is required but this image has none")
+    if signature_present and minisign_public_key is None:
+        raise DiskRestoreError("image is signed; a trusted minisign public key is required before restore")
     if minisign_public_key is not None:
-        if not os.path.isfile(signature_path):
+        if not signature_present:
             raise DiskRestoreError("minisign public key supplied but image signature is missing")
         staged_manifest = None
         try:
