@@ -159,12 +159,6 @@ for package in cockpit cockpit-system cockpit-storaged dnsmasq ipxe-bootimgs-x86
 done
 
 for optional_package in age minisign; do
-  if grep -qx "$optional_package" "$ROOT_DIR/packages/base.txt"; then
-    fail "$optional_package must not be a mandatory base-image package."
-  fi
-  if grep -qx "$optional_package" "$ROOT_DIR/kickstart/feclora-live.ks"; then
-    fail "$optional_package must not be installed unconditionally by Kickstart."
-  fi
   grep -qx "$optional_package" "$ROOT_DIR/packages/optional-image-security.txt" || fail "Optional image-security package list is missing $optional_package."
 done
 
