@@ -508,7 +508,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 )
             else:
                 phrase = f"READ {path} TO {config.server_identity}"
-                prompt = "This operation reads the selected whole disk to create an image. Optional image encryption/signing is applied only when configured. Type the exact confirmation phrase:"
+                prompt = "This operation reads the selected whole disk to create an image. You will choose optional age encryption and minisign signing for this image in the next step. Type the exact confirmation phrase:"
             dialog_app._message("Selected local target", dialog_app.device_details(selected))
             typed = dialog_app._input("Explicit local authorization", f"{prompt}\n\n{phrase}")
             if typed != phrase:
