@@ -1895,6 +1895,18 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
         "client_network_interface": network_interface,
         "client_source_address": source_address,
         "server_identity": config.server_identity,
+        "image_security": {
+            "age_encryption_available": bool(
+                config.age_recipients_file and os.path.isfile(config.age_recipients_file)
+                and shutil.which("age")
+            ),
+            "image_signing_available": bool(
+                config.local_minisign_secret_key and config.local_minisign_public_key
+                and os.path.isfile(config.local_minisign_secret_key)
+                and os.path.isfile(config.local_minisign_public_key)
+                and shutil.which("minisign")
+            ),
+        },
         "job": job.to_dict(),
     }
 
@@ -1983,15 +1995,13 @@ def _read_client_job_status(job_id: str) -> dict[str, Any]:
 
 def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
     required = {"host", "job_id", "device_path", "confirmation", "compression"}
-    allowed = {
-        frozenset(required),
-        frozenset(required | {"network_interface"}),
-        frozenset(required | {"network_interface", "igmp_confirmed"}),
-        frozenset(required | {"network_interface", "source_address"}),
-        frozenset(required | {"network_interface", "source_address", "igmp_confirmed"}),
-    }
-    if frozenset(params) not in allowed:
-        raise WebAPIError("start_client_job requires host, job_id, device_path, confirmation, compression and optional multicast acknowledgements")
+    optional = {"network_interface", "source_address", "igmp_confirmed", "image_encrypt", "image_sign"}
+    if not required.issubset(params) or set(params) - required - optional:
+        raise WebAPIError("start_client_job requires host, job_id, device_path, confirmation and compression, with optional network and per-image security choices")
+    image_encrypt = params.get("image_encrypt", False)
+    image_sign = params.get("image_sign", False)
+    if not isinstance(image_encrypt, bool) or not isinstance(image_sign, bool):
+        raise WebAPIError("per-image encryption and signing choices must be boolean")
     network_interface = params.get("network_interface")
     source_address = params.get("source_address")
     if source_address is not None and network_interface is None:
@@ -2001,6 +2011,20 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
         inspection_params.update(network_interface=network_interface, source_address=source_address)
     inspection = _inspect_remote_job(inspection_params)
     job = inspection["job"]
+    if job["operation"] != "save" and (image_encrypt or image_sign):
+        raise WebAPIError("per-image encryption/signing choices are valid only for Client save jobs")
+    if image_encrypt:
+        from feclora.deployment.runtime_config import load_client_runtime_config
+        config = load_client_runtime_config("/etc/feclora/deployment-client.json")
+        if not config.age_recipients_file or not os.path.isfile(config.age_recipients_file) or not shutil.which("age"):
+            raise WebAPIError("age encryption was selected but this Client has no usable age recipient inventory or age executable")
+    if image_sign:
+        from feclora.deployment.runtime_config import load_client_runtime_config
+        config = load_client_runtime_config("/etc/feclora/deployment-client.json")
+        if (not config.local_minisign_secret_key or not config.local_minisign_public_key
+                or not os.path.isfile(config.local_minisign_secret_key)
+                or not os.path.isfile(config.local_minisign_public_key) or not shutil.which("minisign")):
+            raise WebAPIError("minisign signing was selected but this Client has no usable signing keypair or minisign executable")
     igmp_confirmed = params.get("igmp_confirmed", False)
     multicast_preflight = None
     if job["transport"] == "unicast" and (network_interface is None or source_address is None):
@@ -2072,6 +2096,7 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
         "device_path": device_path, "confirmation": confirmation,
         "compression": compression, "network_interface": network_interface,
         "source_address": source_address, "igmp_confirmed": igmp_confirmed,
+        "image_encrypt": image_encrypt, "image_sign": image_sign,
     })
     unit = "feclora-client@" + params["job_id"] + ".service"
     try:
