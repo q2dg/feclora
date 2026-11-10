@@ -103,6 +103,8 @@ class RemoteRepository:
                 raise RepositoryError("S3 requires a protected rclone configuration file")
             if not self.read_only:
                 raise RepositoryError("S3 repositories are read-only until provider-aware artifact publication is implemented")
+            if self.remote_path.startswith("//") or not self.remote_path[1:].split("/", 1)[0]:
+                raise RepositoryError("S3 remote_path must identify a bucket as its first path component")
             if self.port is not None:
                 raise RepositoryError("S3 endpoint and port must be configured in the protected rclone remote")
         elif self.provider == "nfs" and (self.username or self.credential_file or self.identity_file):
@@ -142,7 +144,7 @@ class RemoteRepository:
         bucket_path = self.remote_path.lstrip("/")
         argv = [exe("rclone"), "--config", self.credential_file, "mount",
                 f"{self.rclone_remote}:{bucket_path}", self.mountpoint,
-                "--vfs-cache-mode", "writes", "--dir-cache-time", "5m",
+                "--vfs-cache-mode", "off", "--dir-cache-time", "5m",
                 "--daemon", "--daemon-wait", "60s"]
         if self.read_only:
             argv.append("--read-only")
