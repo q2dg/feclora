@@ -381,7 +381,9 @@ class ManagedPKITests(unittest.TestCase):
             with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), patch(
                 "feclora.deployment.managed_pki._run", side_effect=fake_run,
             ):
-                identity, private_key, exported = create_client_csr(root, export, "lab-01")
+                identity, private_key, exported = create_client_csr(
+                    root, export, "lab-01", age_keygen="/usr/bin/age-keygen",
+                )
             self.assertEqual(identity, "URI:feclora-client-lab-01")
             self.assertTrue(os.path.isfile(private_key))
             self.assertTrue(os.path.isfile(exported))
