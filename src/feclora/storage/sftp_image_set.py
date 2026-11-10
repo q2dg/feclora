@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import posixpath
 import stat
 from pathlib import Path
 from typing import Any, Callable
@@ -93,7 +94,8 @@ def publish_image_set(
     _, manifest_digest = _digest(manifest_file)
     _, signature_digest = _digest(signature_file)
     prefix = remote_directory.rstrip("/")
-    if not prefix.startswith("/") or any(part in {".", ".."} for part in prefix.split("/")):
+    if (not prefix.startswith("/") or posixpath.normpath(prefix) != prefix
+            or any(part in {".", ".."} for part in prefix.split("/"))):
         raise SFTPImageSetError("remote image-set directory must be an absolute normalized path")
 
     def upload(local_path: str, filename: str) -> None:
@@ -101,7 +103,7 @@ def publish_image_set(
             identity_credential=identity_credential,
             known_hosts_credential=known_hosts_credential,
             operation="upload", host=host, username=username,
-            remote_path=f"{prefix}/{filename}", local_path=local_path,
+            remote_path=f"{prefix.rstrip(chr(47))}/{filename}", local_path=local_path,
             port=port, manager=manager,
         )
 
