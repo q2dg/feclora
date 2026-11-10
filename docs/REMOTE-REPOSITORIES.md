@@ -60,6 +60,15 @@ partial writes or cleanup. No transport may automatically resume a destructive
 write after interruption. Recovery must first establish whether the destination
 is trustworthy.
 
+The `verified` state shown by Cockpit means mount identity verification, not
+a live health check. It is derived from `findmnt` metadata and the saved
+provider definition; it must not be interpreted as proof that the remote
+service is currently reachable or that reads/writes will complete. The current
+manager deliberately does not issue filesystem `stat`/`statvfs` probes against
+potentially hard-mounted NFS paths, because such calls can block in the kernel
+when a server is unavailable. Provider-aware bounded health probes and stale
+mount recovery remain unimplemented.
+
 The provider definitions in src/feclora/storage/repository.py validate
 provider inputs, reject unsafe path characters and parent traversal, and
 build argument vectors without invoking a shell. The root-only lifecycle in
@@ -72,8 +81,13 @@ reported successful merely because a mount appears at the expected path:
 after the helper starts, the manager re-runs the same source/type/access-mode
 verification used by repository resolution. A mismatched or unrelated
 filesystem therefore fails closed and is never returned as a trusted
-repository. Cockpit exposes add/edit/check/mount/unmount/remove and never
-receives credential contents. Existing registry entries created before the
+repository. The Cockpit **Check mount identity** action reports whether the
+mountpoint is occupied by the expected provider source, filesystem type and
+access mode. This is an identity/configuration check only: it does not probe
+remote read/write connectivity, latency, free space, quota or service health.
+A verified mount can still be stale or unable to complete I/O after a network
+failure. Cockpit exposes add/edit/check/mount/unmount/remove and never receives
+credential contents. Existing registry entries created before the
 rclone_remote field was introduced remain readable.
 
 WebDAV is currently unavailable in the repository manager. The earlier
