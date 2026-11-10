@@ -339,7 +339,7 @@ def capture_partition(
                 raise CaptureError(f"could not start {plan.executable}: {exc}") from exc
             if process.stdout is None:
                 raise CaptureError("capture process did not provide a stdout pipe")
-            progress_total = expected_size_bytes if plan.image_format == "raw" else None
+            progress_total = expected_size_bytes
             counted = _CountingReader(
                 process.stdout, progress_callback, progress_total,
                 partclone_status_path=partclone_status_path,
