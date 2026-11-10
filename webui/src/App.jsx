@@ -888,7 +888,7 @@ export default function App() {
                       <Field label="Image security">
                         <label><input type="checkbox" checked={encrypt} disabled={!security.age_encryption_available} onChange={(e) => setEncrypt(e.target.checked)} /> Encrypt artifacts with age</label>
                         <br />
-                        <label><input type="checkbox" checked={sign} disabled={!security.image_signing_available} onChange={(e) => setSign(e.target.checked)} /> Sign manifest with minisign</label>
+                        <label><input type="checkbox" checked={sign} disabled={!security.image_signing_available || publishAfterCapture} onChange={(e) => setSign(e.target.checked)} /> Sign manifest with minisign</label>
                         {!security.age_encryption_available || !security.image_signing_available ? <p className="pf-v5-u-color-200">Initialize local security keys from the System tab to enable these options.</p> : null}
                       </Field>
                       <Field label="SFTP post-capture publication">
