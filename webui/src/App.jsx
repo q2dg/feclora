@@ -1402,7 +1402,7 @@ export default function App() {
                     <Td>{details.target || details.source || "—"}</Td><Td>{details.image_id || "—"}</Td>
                     <Td><Label color={item.state === "completed" ? "green" : ["failed", "cancelled", "interrupted"].includes(item.state) ? "red" : "orange"}>{item.state || "unknown"}</Label></Td>
                     <Td>{progress ? formatBytes(progressDetails.bytes_done || 0) + (progressDetails.bytes_total !== null && progressDetails.bytes_total !== undefined ? " / " + formatBytes(progressDetails.bytes_total) : " processed") : "—"}</Td>
-                    <Td>{item.operation_id}</Td><Td>{details.destination_may_be_partial ? <><strong>Destination may be partially written.</strong> {details.reason || "Inspect it before reuse."}</> : details.error ? <><strong>{details.error_type || "Operation error"}:</strong> {details.error}</> : details.reason || "—"}</Td>
+                    <Td>{item.operation_id}</Td><Td>{details.destination_may_be_partial ? <><strong>Destination may be partially written.</strong> {details.reason || "Inspect it before reuse."}</> : details.error ? <><strong>{details.error_type || "Operation error"}:</strong> {details.error}</> : Array.isArray(details.manifests) ? (details.manifests.length ? "Found: " + details.manifests.join(", ") : "No manifest markers found.") : details.reason || "—"}</Td>
                     <Td>{["queued", "preflight", "running"].includes(item.state) ? <Button size="sm" variant="danger" isDisabled={cancellingOperationId === item.operation_id} onClick={() => cancelLocalOperation(item.operation_id)}>{cancellingOperationId === item.operation_id ? "Requesting…" : "Cancel"}</Button> : "—"}</Td>
                   </Tr>;
                 })}
