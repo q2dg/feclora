@@ -98,24 +98,29 @@ def _regular_file(path: str, label: str) -> os.stat_result:
 
 def _load_signed_manifest(
     manifest_path: str,
-    public_key_path: str,
+    public_key_path: str | None,
     *,
     minisign_executable: str | None = None,
 ) -> ImageManifest:
     _regular_file(manifest_path, "Image manifest")
-    _regular_file(public_key_path, "Trusted minisign public key")
     try:
-        verify_manifest_signature(
-            manifest_path, public_key_path, minisign_executable=minisign_executable,
-        )
+        signature_path = manifest_path + ".minisig"
+        if os.path.lexists(signature_path):
+            if not public_key_path:
+                raise UDPcastError("signed image requires an independently trusted minisign public key")
+            verify_manifest_signature(
+                manifest_path, public_key_path, minisign_executable=minisign_executable,
+            )
         with open(manifest_path, "r", encoding="utf-8") as stream:
             return ImageManifest.from_json(stream.read())
+    except UDPcastError:
+        raise
     except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError) as exc:
         raise UDPcastError(f"Image manifest signature or schema validation failed: {exc}") from exc
 
 
 def verify_artifact_file(path: str, artifact: ImageArtifact) -> None:
-    """Check the exact stored bytes described by a signed manifest artifact."""
+    """Check the exact stored bytes described by a manifest artifact."""
     _regular_file(path, "Image artifact")
     digest = hashlib.sha256()
     try:
@@ -247,7 +252,7 @@ def send_multicast_artifact(
     coordinator: DeploymentCoordinator,
     source_path: str,
     manifest_path: str,
-    public_key_path: str,
+    public_key_path: str | None,
     config: UDPcastConfig,
     *,
     udp_sender: str | None = None,
@@ -256,7 +261,7 @@ def send_multicast_artifact(
     cancel_check: Callable[[], bool] | None = None,
     firewall: Any,
 ) -> None:
-    """Send a single artifact only after the deployment coordinator is armed."""
+    """Send one artifact only after the deployment coordinator is armed."""
     job = coordinator.job
     if coordinator.state not in {JobState.ARMED, JobState.RUNNING}:
         raise UDPcastError("Deployment job must be explicitly armed before multicast transmission")
@@ -342,12 +347,12 @@ def receive_multicast_artifact_to_staging(
 def verify_staged_multicast_artifact(
     staged_path: str,
     manifest_path: str,
-    public_key_path: str,
+    public_key_path: str | None,
     artifact_filename: str,
     *,
     minisign_executable: str | None = None,
 ) -> ImageArtifact:
-    """Authenticate manifest and payload before any restore code may consume staging."""
+    """Verify any manifest signature and the artifact digest before restore."""
     manifest = _load_signed_manifest(
         manifest_path, public_key_path, minisign_executable=minisign_executable,
     )
