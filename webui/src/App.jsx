@@ -789,17 +789,6 @@ export default function App() {
     finally { setBusy(false); }
   };
 
-  const initializeSecurity = async () => {
-    setBusy(true); setError(""); setNotice("");
-    try {
-      const result = await callFeclora("initialize_security");
-      setSecurity(result);
-      setEncrypt(true); setSign(true);
-      setNotice("Local encryption and signing keys are ready.");
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
   const deploymentArmPhrase = (job) => {
     if (job.transport === "multicast") return "ARM MULTICAST " + job.job_id + " IGMP-VERIFIED";
     if (job.operation === "clone") {
