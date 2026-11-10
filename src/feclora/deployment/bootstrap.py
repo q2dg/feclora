@@ -7,6 +7,7 @@ import os
 import stat
 import subprocess
 import tempfile
+import shutil
 from pathlib import Path
 from typing import Any, Callable
 
@@ -58,7 +59,7 @@ def ensure_server_deployment_config(
     repository: str = "/var/lib/feclora/images",
     runner: Callable[..., Any] | None = None,
     openssl: str = "/usr/bin/openssl",
-    minisign: str = "/usr/bin/minisign",
+    minisign: str | None = None,
 ) -> bool:
     """Create secure default TLS and image-signing material on first Server use.
 
@@ -80,24 +81,28 @@ def ensure_server_deployment_config(
             raise BootstrapError("existing Server deployment config must be root-owned mode 0600")
         return False
     pki = initialize_server_pki(pki_directory, runner=runner, openssl=openssl)
+    # age and minisign are optional image-security integrations. TLS/PKI
+    # bootstrap must work when either executable is absent.
     age_identity = os.path.join(pki_directory, "server.age")
     age_recipients = os.path.join(pki_directory, "age-recipients.txt")
+    age_keygen = shutil.which("age-keygen")
     if not os.path.exists(age_identity):
         if os.path.lexists(age_recipients):
             raise BootstrapError("Server age recipient inventory exists without its identity; refusing to overwrite it")
-        execute = runner or subprocess.run
-        try:
-            result = execute(["/usr/bin/age-keygen", "-o", age_identity], stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=60)
-            if result.returncode != 0:
-                raise BootstrapError("age-keygen failed while creating Server recipient identity")
-            public = execute(["/usr/bin/age-keygen", "-y", age_identity], stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=30)
-            if public.returncode != 0 or not public.stdout.strip().startswith("age1"):
-                raise BootstrapError("age-keygen did not return a valid Server recipient")
-            Path(age_recipients).write_text(public.stdout.strip() + "\n", encoding="ascii")
-            os.chmod(age_identity, 0o600)
-            os.chmod(age_recipients, 0o600)
-        except (OSError, subprocess.SubprocessError) as exc:
-            raise BootstrapError(f"could not create Server age identity: {exc}") from exc
+        if age_keygen:
+            execute = runner or subprocess.run
+            try:
+                result = execute([age_keygen, "-o", age_identity], stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=60)
+                if result.returncode != 0:
+                    raise BootstrapError("age-keygen failed while creating optional Server recipient identity")
+                public = execute([age_keygen, "-y", age_identity], stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=30)
+                if public.returncode != 0 or not public.stdout.strip().startswith("age1"):
+                    raise BootstrapError("age-keygen did not return a valid Server recipient")
+                Path(age_recipients).write_text(public.stdout.strip() + "\n", encoding="ascii")
+                os.chmod(age_identity, 0o600)
+                os.chmod(age_recipients, 0o600)
+            except (OSError, subprocess.SubprocessError) as exc:
+                raise BootstrapError(f"could not create optional Server age identity: {exc}") from exc
     else:
         info = os.lstat(age_identity)
         if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
@@ -107,31 +112,30 @@ def ensure_server_deployment_config(
         recipients_info = os.lstat(age_recipients)
         if not stat.S_ISREG(recipients_info.st_mode) or recipients_info.st_uid != 0 or recipients_info.st_mode & 0o077:
             raise BootstrapError("Server age recipient inventory must be root-owned and private")
+
     signing_secret = os.path.join(pki_directory, "server.minisign.key")
     signing_public = os.path.join(pki_directory, "server.pub")
     if os.path.exists(signing_secret) != os.path.exists(signing_public):
         raise BootstrapError("partial minisign keypair exists; refusing to overwrite it")
-    if not os.path.exists(signing_secret):
+    minisign_executable = minisign or shutil.which("minisign")
+    if not os.path.exists(signing_secret) and minisign_executable:
         execute = runner or subprocess.run
         try:
-            result = execute(
-                [minisign, "-G", "-s", signing_secret, "-p", signing_public, "-W"],
-                stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                check=False, timeout=60,
-            )
+            result = execute([minisign_executable, "-G", "-s", signing_secret, "-p", signing_public, "-W"], stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=60)
         except (OSError, subprocess.SubprocessError) as exc:
-            raise BootstrapError(f"could not generate Server image-signing key: {exc}") from exc
+            raise BootstrapError(f"could not generate optional Server image-signing key: {exc}") from exc
         if result.returncode != 0:
             detail = (result.stderr or result.stdout or "").strip()[:512]
-            raise BootstrapError("minisign key generation failed" + (f": {detail}" if detail else ""))
+            raise BootstrapError("optional minisign key generation failed" + (f": {detail}" if detail else ""))
         os.chmod(signing_secret, 0o600)
         os.chmod(signing_public, 0o644)
-    for path in (signing_secret, signing_public):
-        info = os.lstat(path)
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
-            raise BootstrapError("Server minisign key files must be root-owned regular files")
-    if os.stat(signing_secret).st_mode & 0o077:
-        raise BootstrapError("Server minisign secret key must be mode 0600 or stricter")
+    if os.path.exists(signing_secret):
+        for key_path in (signing_secret, signing_public):
+            info = os.lstat(key_path)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
+                raise BootstrapError("Server minisign key files must be root-owned regular files")
+        if os.stat(signing_secret).st_mode & 0o077:
+            raise BootstrapError("Server minisign secret key must be mode 0600 or stricter")
     _ensure_directory(repository, 0o700)
     config = {
         "schema_version": 1,
@@ -143,7 +147,7 @@ def ensure_server_deployment_config(
         "private_key_file": pki["server_key"],
         "client_identity_to_mac": {},
         "client_minisign_public_keys": {},
-        "server_minisign_public_key": signing_public,
+        "server_minisign_public_key": signing_public if os.path.exists(signing_public) else None,
         "repository": repository,
     }
     _write_json(config_path, config)
