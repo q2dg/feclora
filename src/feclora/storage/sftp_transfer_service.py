@@ -134,7 +134,7 @@ def run_sftp_transfer(
             payload = json.loads(result.stdout or "{}")
             manifests = payload.get("manifests")
             if not isinstance(manifests, list) or any(
-                not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.manifest\.json", name)
+                not isinstance(name, str) or not (name == "manifest.json" or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.manifest\.json", name))
                 for name in manifests
             ):
                 raise ValueError("invalid inventory payload")
