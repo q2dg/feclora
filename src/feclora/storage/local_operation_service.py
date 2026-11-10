@@ -126,6 +126,7 @@ def _device_lock_fds(params: dict[str, Any]) -> list[int]:
 def execute(operation_id: str) -> int:
     if os.geteuid() != 0:
         raise LocalOperationError("local storage worker must run as root")
+    previous_sigterm_handler = signal.getsignal(signal.SIGTERM)
     signal.signal(signal.SIGTERM, _cancel_on_sigterm)
     store = LocalOperationStore()
     definition = store.definition(operation_id)
@@ -177,6 +178,7 @@ def execute(operation_id: str) -> int:
             pass
         raise
     finally:
+        signal.signal(signal.SIGTERM, previous_sigterm_handler)
         for fd in reversed(fds):
             os.close(fd)
 
