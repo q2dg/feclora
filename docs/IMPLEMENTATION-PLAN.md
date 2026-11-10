@@ -226,7 +226,8 @@ signed-set publication sequence.
 - [x] Add unit coverage for ordering, digest mismatch, signature failure and interrupted upload.
 - [x] Fetch manifest/signature into a private staging set and enforce metadata size limits.
 - [x] Verify downloaded manifest signature before fetching listed artifacts; verify size and SHA-256 for every artifact.
-- [x] Integrate SFTP image-set publication with disk/partition capture operations, retaining durable capture-job tracking and requiring signed manifests.\n- [ ] Integrate SFTP import with restore-job selection and add transfer progress, cancellation and recovery semantics.
+- [x] Integrate SFTP image-set publication with disk/partition capture operations, retaining durable capture-job tracking and requiring signed manifests.
+- [ ] Integrate SFTP import with restore-job selection and add transfer progress, cancellation and recovery semantics.
 - [ ] Expose repository and credential selection through Cockpit with role-aware validation and actionable errors.
 - [ ] Add operator guide and screenshots after the complete workflow exists.
 
