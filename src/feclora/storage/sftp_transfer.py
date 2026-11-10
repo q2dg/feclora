@@ -128,11 +128,11 @@ def upload_file(
     host: str, username: str, identity_file: str, known_hosts_file: str,
     port: int = 22, timeout: int = 86400, runner: Callable[..., Any] = subprocess.run,
 ) -> dict[str, Any]:
-    """Upload one regular file to a new remote name using staged rename.
+    """Upload one regular file to a new remote name using a staged hard link that fails if the destination exists.
 
     SFTP v3 has no portable remote SHA-256 operation. The local source is
-    hashed before transfer; remote publication uses rename only after put
-    succeeds. Callers must still verify the published artifact via Feclora's
+    hashed before transfer; remote publication creates a hard link only after put succeeds; the
+    server must support the OpenSSH hard-link extension. Callers must still verify the published artifact via Feclora's
     signed manifest when it is later consumed.
     """
     local, size, digest = _local_regular(local_path)
@@ -148,7 +148,8 @@ def upload_file(
     try:
         _run_batch(argv, [
             f"put {_batch_quote(local)} {_batch_quote(staged)}",
-            f"rename {_batch_quote(staged)} {_batch_quote(target)}",
+            f"ln {_batch_quote(staged)} {_batch_quote(target)}",
+            f"rm {_batch_quote(staged)}",
         ], runner=runner, timeout=timeout)
     except SFTPTransferError:
         try:
