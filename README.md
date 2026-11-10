@@ -112,7 +112,7 @@ operation journals, streamed progress, and optional artifact encryption/signing 
 The underlying Python storage engines include safety checks, manifest-backed
 artifact publication, compression, integrity verification, and restore
 preflight. The remote deployment stack includes persistent Server/Client
-services, mTLS enrollment and authorization, signed unicast image transfer,
+services, mTLS enrollment and authorization, mTLS-authenticated unicast image transfer with optional minisign signatures,
 UDPcast multicast restore, and direct whole-disk remote cloning. Cockpit
 exposes Server/Client lifecycle and job workflows, per-client status, initial
 Server identity bootstrap, and PXE network-profile preflight/activation for
