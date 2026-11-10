@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from feclora.storage.image_security import ImageSecurityError
-from feclora.storage.sftp_image_set import SFTPImageSetError, fetch_image_set, publish_image_set
+from feclora.storage.sftp_image_set import SFTPImageSetError, fetch_image_set, inspect_remote_image_set, publish_image_set
 
 
 class SFTPImageSetTests(unittest.TestCase):
@@ -199,6 +199,40 @@ class SFTPImageSetTests(unittest.TestCase):
             )
         self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
         self.assertEqual(list(self.root.glob(".feclora-sftp-incoming-*")), [])
+
+
+    def test_inspect_remote_image_set_verifies_signature_before_returning_metadata(self):
+        calls = []
+        def transfer(**kwargs):
+            calls.append(kwargs["remote_path"])
+            source = self.manifest if kwargs["remote_path"].endswith("manifest.json") and not kwargs["remote_path"].endswith(".minisig") else self.signature
+            Path(kwargs["local_path"]).write_bytes(source.read_bytes())
+            return {"verified": False}
+        with patch("feclora.storage.sftp_image_set.verify_manifest_signature") as verify:
+            result = inspect_remote_image_set(
+                remote_directory="/images/test-image", public_key=self.public_key,
+                host="backup.example", username="backup", identity_credential="key-ref",
+                known_hosts_credential="hosts-ref", transfer=transfer,
+            )
+        verify.assert_called_once()
+        self.assertEqual(calls, ["/images/test-image/manifest.json", "/images/test-image/manifest.json.minisig"])
+        self.assertTrue(result["signature_verified"])
+        self.assertEqual(result["image_id"], "test-image")
+        self.assertEqual(result["image_type"], "partition")
+        self.assertEqual(result["artifacts"][0]["sha256"], self.digest)
+
+    def test_inspect_remote_image_set_rejects_bad_signature(self):
+        def transfer(**kwargs):
+            source = self.manifest if kwargs["remote_path"].endswith("manifest.json") and not kwargs["remote_path"].endswith(".minisig") else self.signature
+            Path(kwargs["local_path"]).write_bytes(source.read_bytes())
+            return {"verified": False}
+        with patch("feclora.storage.sftp_image_set.verify_manifest_signature", side_effect=ImageSecurityError("bad signature")):
+            with self.assertRaisesRegex(SFTPImageSetError, "signature or schema validation failed"):
+                inspect_remote_image_set(
+                    remote_directory="/images/test-image", public_key=self.public_key,
+                    host="backup.example", username="backup", identity_credential="key-ref",
+                    known_hosts_credential="hosts-ref", transfer=transfer,
+                )
 
 
 if __name__ == "__main__":
