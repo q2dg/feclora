@@ -8,6 +8,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+from .process_control import stop_process
 from pathlib import Path
 from typing import Callable, Mapping
 
@@ -194,9 +195,7 @@ def capture_disk(
                     )
                     disk_filename = disk_artifact.filename
             except ArtifactWriteError as exc:
-                if process.poll() is None:
-                    process.terminate()
-                process.wait()
+                stop_process(process)
                 raise DiskCaptureError(f"could not store disk stream: {exc}") from exc
             finally:
                 process.stdout.close()
@@ -258,9 +257,7 @@ def capture_disk(
     except (ArtifactWriteError, ImageSecurityError, ManifestValidationError, OSError) as exc:
         raise DiskCaptureError(f"whole-disk capture failed: {exc}") from exc
     finally:
-        if process is not None and process.poll() is None:
-            process.terminate()
-            process.wait()
+        stop_process(process)
         if published and not committed:
             for name in reversed(published):
                 try:
