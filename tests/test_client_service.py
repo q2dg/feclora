@@ -37,7 +37,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
                 "device_path": DEVICE,
                 "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
-                "compression": "gzip", "network_interface": "enp1s0", "source_address": "192.0.2.20", "igmp_confirmed": False,
+                "compression": "gzip", "network_interface": "enp1s0", "source_address": "192.0.2.20", "igmp_confirmed": False, "image_encrypt": False, "image_sign": False,
             }), encoding="utf-8")
             request.chmod(0o600)
             service = ClientDeploymentService(JOB_ID)
@@ -73,7 +73,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                      "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
                      "device_path": DEVICE,
                      "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
-                     "compression": "gzip", "network_interface": "enp1s0", "source_address": "192.0.2.20", "igmp_confirmed": False,
+                     "compression": "gzip", "network_interface": "enp1s0", "source_address": "192.0.2.20", "igmp_confirmed": False, "image_encrypt": False, "image_sign": False,
                  }), \
                  mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
                  mock.patch("feclora.deployment.client_service.create_mutual_tls_context", return_value=object()), \
