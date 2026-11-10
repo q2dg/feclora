@@ -110,7 +110,7 @@ class SFTPImageSetTests(unittest.TestCase):
         }
 
     @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
-    def test_fetch_verifies_metadata_before_artifacts_and_publishes_complete_directory(self, verify):
+    def test_fetch_verifies_metadata_before_artifacts_and_publishes_native_repository_files(self, verify):
         remote = self._remote_set()
         calls = []
         def transfer(**kwargs):
@@ -134,8 +134,11 @@ class SFTPImageSetTests(unittest.TestCase):
         self.assertTrue(calls[1][2])
         self.assertEqual(calls[2][1], self.digest)
         self.assertTrue(result["signature_verified"])
-        self.assertTrue((Path(result["repository_path"]) / "part-1.img").is_file())
-        self.assertTrue((Path(result["repository_path"]) / "manifest.json.minisig").is_file())
+        self.assertEqual(result["repository_path"], str(self.root / "test-image.manifest.json"))
+        self.assertTrue((self.root / "part-1.img").is_file())
+        self.assertTrue((self.root / "test-image.manifest.json").is_file())
+        self.assertTrue((self.root / "test-image.manifest.json.minisig").is_file())
+        self.assertEqual(len(list(self.root.glob(".feclora-sftp-incoming-*"))), 0)
 
     @patch("feclora.storage.sftp_image_set.verify_manifest_signature",
            side_effect=ImageSecurityError("bad signature"))
@@ -156,7 +159,7 @@ class SFTPImageSetTests(unittest.TestCase):
                 transfer=transfer,
             )
         self.assertEqual(calls, ["manifest.json", "manifest.json.minisig"])
-        self.assertFalse((self.root / "test-image").exists())
+        self.assertFalse((self.root / "test-image.manifest.json").exists())
 
     @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
     def test_fetch_rejects_artifact_digest_mismatch_and_cleans_staging(self, verify):
@@ -179,11 +182,9 @@ class SFTPImageSetTests(unittest.TestCase):
 
 
     @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
-    def test_fetch_never_overwrites_existing_image_directory(self, verify):
+    def test_fetch_never_overwrites_existing_repository_artifact(self, verify):
         remote = self._remote_set()
-        existing = self.root / "test-image"
-        existing.mkdir()
-        marker = existing / "operator-data"
+        marker = self.root / "part-1.img"
         marker.write_text("keep", encoding="utf-8")
         def transfer(**kwargs):
             filename = kwargs["remote_path"].rsplit("/", 1)[-1]
