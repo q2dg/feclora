@@ -59,7 +59,7 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Report mounted state separately from verified provider/source/type/access-mode identity in Cockpit.
 - [x] Add an initial standalone OpenSSH SFTP file-transfer primitive with pinned host keys, staged hard-link no-overwrite upload, and SHA-256-verified download; keep it separate from SSHFS mounts.
 - [x] Add systemd-creds-backed SFTP transfer execution and signed image-set publish/fetch primitives with minisign and artifact digest verification.
-- [ ] Complete the SFTP provider: saved repository definitions, remote inventory, restore-job routing, durable transfer progress, cancellation, retry/resume and provider acceptance.
+- [ ] Complete the SFTP provider: saved repository definitions, multi-directory inventory/discovery, durable transfer progress, cancellation, retry/resume and provider acceptance.
 - [x] Add optional repository-ID routing for whole-disk/partition capture, restore and partition extraction; resolve only mounted, verified repositories and enforce read-only mounts for writes. Local repository remains the backward-compatible default.
 - [x] Expose repository selection and per-repository image inventory in Cockpit; route capture, restore, verification, layout inspection and partition extraction to the selected verified mount.
 - Operator acceptance (documented in `ACCEPTANCE-TESTS.md`): run remote-server checks on SSHFS, NFS and SMB/CIFS, including NFS root-squash/ownership and failure/interruption cases. These physical/provider runs are not implementation blockers.
@@ -227,13 +227,13 @@ signed-set publication sequence.
 - [x] Fetch manifest/signature into a private staging set and enforce metadata size limits.
 - [x] Verify downloaded manifest signature before fetching listed artifacts; verify size and SHA-256 for every artifact.
 - [x] Integrate SFTP image-set publication with disk/partition capture operations, retaining durable capture-job tracking and requiring signed manifests.
-- [ ] Integrate SFTP import with restore-job selection and add transfer progress, cancellation and recovery semantics.
-- [ ] Expose repository and credential selection through Cockpit with role-aware validation and actionable errors.
+- [x] Integrate authenticated SFTP image selection with durable disk/partition restore jobs, binding the inspected image ID and manifest digest before artifact retrieval.
+- [ ] Add transfer progress, cancellation, retry/resume and recovery semantics.
+- [x] Expose one-shot SFTP endpoint and encrypted SSH-key/known_hosts credential selection through Cockpit.
+- [ ] Add reusable saved repository definitions and provider health checks.
 - [ ] Add operator guide and screenshots after the complete workflow exists.
 
-This checkpoint is not an end-user SFTP provider. The upload publisher is a
-primitive only; it does not make SFTP selectable in Cockpit or enable SFTP
-restore. Unit tests were added but not executed in this work session.
+SFTP is now selectable in Cockpit for one-shot signed-image publication, import and direct disk/partition restore. It is not yet a reusable saved repository provider, and its synchronous transfer path has no byte progress, cancellation, retry or resume. Unit tests were added but not executed in this work session.
 
 
 ### SFTP authenticated image-set retrieval checkpoint
@@ -257,7 +257,8 @@ pre-existing files are preserved.
 - [x] Test metadata-first ordering, bad signature rejection, digest mismatch, collision refusal and staging cleanup.
 - [x] Add safe Cockpit remote manifest-marker listing and authenticated signed-manifest metadata inspection before artifact retrieval; multi-directory catalog discovery remains pending.
 - [x] Connect authenticated SFTP fetch/import to a journaled Cockpit API action and local image inventory.
-- [ ] Connect publisher to capture/upload; add transfer byte progress, retry/resume, cancellation and complete restore orchestration.
+- [x] Connect signed-image publication to disk/partition capture and existing Cockpit upload actions.
+- [ ] Add transfer byte progress, retry/resume and cancellation.
 - [x] Expose one-shot Cockpit SFTP image import and signed-image publication forms with encrypted SSH-key/known_hosts selection and local signing trust.
 - [ ] Add saved SFTP repository definitions, multi-directory inventory/discovery and provider health checks.
 - [x] Add a Cockpit/API action to publish an existing locally signed image set to SFTP, verifying the local minisign signature and artifact digests before upload.
