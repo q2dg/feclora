@@ -131,7 +131,7 @@ class SFTPTransferTests(unittest.TestCase):
             self.assertIn('ls -1 "/images"', kwargs["input"])
             return SimpleNamespace(
                 returncode=0,
-                stdout="manifest.json\nimage-01.manifest.json\n../escape.manifest.json\nsubdir/evil.manifest.json\nnotes.txt\nother.manifest.json\n",
+                stdout="manifest.json\nimage-01.manifest.json\n../escape.manifest.json\nsubdir/evil.manifest.json\n manifest.json \nnotes.txt\nother.manifest.json\n",
                 stderr="",
             )
         with patch("feclora.storage.sftp_transfer.build_sftp_argv", return_value=["sftp"]):
