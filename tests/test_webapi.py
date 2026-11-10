@@ -1211,6 +1211,46 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(fetch.call_args.kwargs["known_hosts_credential"], params["known_hosts_credential"])
         self.assertEqual(fetch.call_args.kwargs["port"], 2222)
 
+    def test_publish_sftp_image_set_api_uses_local_signing_trust_and_encrypted_refs(self):
+        import stat
+        from contextlib import nullcontext
+        from pathlib import Path
+        params = {
+            "image_id": "golden", "host": "backup.example.net", "username": "backup",
+            "remote_directory": "/images/golden", "port": 2222,
+            "identity_credential": "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred",
+            "known_hosts_credential": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred",
+        }
+        expected = {"image_id": "golden", "image_type": "disk", "artifact_count": 2, "published": True}
+        with patch("feclora.webapi._client_runtime_config", return_value=None), \\
+             patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(
+                 st_mode=stat.S_IFREG | 0o600, st_uid=0,
+             )), patch("feclora.webapi._repository", return_value=Path("/var/lib/feclora/images")), \\
+             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \\
+             patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("op-456")), \\
+             patch("feclora.storage.sftp_image_set.publish_image_set", return_value=expected) as publish:
+            result = dispatch({"action": "publish_sftp_image_set", "params": params})
+        self.assertEqual(result, {"operation_id": "op-456", **expected})
+        self.assertEqual(publish.call_args.kwargs["manifest_path"], Path("/var/lib/feclora/images/golden.manifest.json"))
+        self.assertEqual(publish.call_args.kwargs["signature_path"], Path("/var/lib/feclora/images/golden.manifest.json.minisig"))
+        self.assertEqual(publish.call_args.kwargs["public_key"], Path("/etc/feclora/pki/server.pub"))
+        self.assertEqual(publish.call_args.kwargs["remote_directory"], params["remote_directory"])
+        self.assertEqual(publish.call_args.kwargs["identity_credential"], params["identity_credential"])
+        self.assertEqual(publish.call_args.kwargs["known_hosts_credential"], params["known_hosts_credential"])
+        self.assertEqual(publish.call_args.kwargs["port"], 2222)
+
+    def test_publish_sftp_image_set_api_rejects_invalid_port_before_transfer(self):
+        params = {
+            "image_id": "golden", "host": "backup.example.net", "username": "backup",
+            "remote_directory": "/images", "port": True,
+            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+        }
+        with patch("feclora.storage.sftp_image_set.publish_image_set") as publish:
+            with self.assertRaisesRegex(WebAPIError, "port must be an integer"):
+                dispatch({"action": "publish_sftp_image_set", "params": params})
+        publish.assert_not_called()
+
     def test_fetch_sftp_image_set_api_rejects_invalid_port_before_transfer(self):
         params = {
             "host": "backup.example.net", "username": "backup",
