@@ -63,6 +63,63 @@ def _validate_manifest_filenames(manifest: ImageManifest) -> None:
         raise SFTPImageSetError("manifest artifact filename collides with reserved metadata")
 
 
+def inspect_remote_image_set(
+    *,
+    remote_directory: str,
+    public_key: str | os.PathLike[str],
+    host: str,
+    username: str,
+    identity_credential: str,
+    known_hosts_credential: str,
+    port: int = 22,
+    transfer: Callable[..., dict[str, Any]] = run_sftp_transfer,
+    manager: Any = None,
+) -> dict[str, Any]:
+    """Download and authenticate only the signed metadata for one remote set."""
+    remote = _remote_directory(remote_directory)
+    key_file = _regular_file(public_key, "trusted minisign public key")
+    with tempfile.TemporaryDirectory(prefix="feclora-sftp-inspect-") as staging:
+        os.chmod(staging, 0o700)
+        for filename in ("manifest.json", "manifest.json.minisig"):
+            result = transfer(
+                identity_credential=identity_credential,
+                known_hosts_credential=known_hosts_credential,
+                operation="download", host=host, username=username,
+                remote_path=f"{remote}/{filename}" if remote != "/" else f"/{filename}",
+                local_path=os.path.join(staging, filename), port=port,
+                expected_sha256=None, allow_unverified_metadata=True,
+                manager=manager,
+            )
+            if result.get("verified") is not False:
+                raise SFTPImageSetError("remote metadata transfer must remain explicitly unverified until signature validation")
+        manifest_path = os.path.join(staging, "manifest.json")
+        signature_path = manifest_path + ".minisig"
+        if os.path.getsize(manifest_path) > 1024 * 1024:
+            raise SFTPImageSetError("remote manifest exceeds the 1 MiB size limit")
+        if os.path.getsize(signature_path) > 64 * 1024:
+            raise SFTPImageSetError("remote minisign signature exceeds the 64 KiB size limit")
+        try:
+            manifest = ImageManifest.from_json(Path(manifest_path).read_text(encoding="utf-8"))
+            verify_manifest_signature(manifest_path, key_file, signature_path=signature_path)
+        except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError) as exc:
+            raise SFTPImageSetError(f"remote manifest signature or schema validation failed: {exc}") from exc
+        _validate_manifest_filenames(manifest)
+        return {
+            "image_id": manifest.image_id,
+            "image_type": manifest.image_type,
+            "source_size_bytes": manifest.source_size_bytes,
+            "logical_sector_size": manifest.logical_sector_size,
+            "artifact_count": len(manifest.artifacts),
+            "artifacts": [
+                {"filename": item.filename, "role": item.role,
+                 "size_bytes": item.size_bytes, "sha256": item.sha256,
+                 "compression": item.compression, "encryption": item.encryption}
+                for item in manifest.artifacts
+            ],
+            "signature_verified": True,
+        }
+
+
 def fetch_image_set(
     *,
     remote_directory: str,
