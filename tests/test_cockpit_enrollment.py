@@ -114,7 +114,8 @@ class CockpitEnrollmentTests(unittest.TestCase):
             st_mode=stat.S_IFREG | 0o600, st_uid=0
         )), patch("feclora.deployment.cockpit_enrollment.load_server_runtime_config", return_value=config), patch(
             "feclora.deployment.cockpit_enrollment._verify_client_csr_pin"
-        ), patch("feclora.deployment.cockpit_enrollment.os.path.lexists", return_value=False
+        ), patch("feclora.deployment.cockpit_enrollment.os.path.isfile", return_value=True), patch(
+            "feclora.deployment.cockpit_enrollment.os.path.lexists", return_value=False
         ), patch("feclora.deployment.cockpit_enrollment.issue_client_certificate") as issue, patch(
             "feclora.deployment.cockpit_enrollment._atomic_copy"
         ) as copy, patch("feclora.deployment.cockpit_enrollment.ca_fingerprint", return_value="a" * 64), patch(
@@ -159,7 +160,8 @@ class CockpitEnrollmentTests(unittest.TestCase):
             return_value="age1" + "a" * 40 + "\n",
         ), patch("feclora.deployment.cockpit_enrollment.load_server_runtime_config",
                  return_value=config), patch(
-            "feclora.deployment.cockpit_enrollment.os.path.lexists", return_value=False
+            "feclora.deployment.cockpit_enrollment.os.path.isfile", return_value=True
+        ), patch("feclora.deployment.cockpit_enrollment.os.path.lexists", return_value=False
         ), patch("feclora.deployment.cockpit_enrollment.issue_client_certificate"), patch(
             "feclora.deployment.cockpit_enrollment.enroll_client_certificate"
         ) as enroll, patch(
