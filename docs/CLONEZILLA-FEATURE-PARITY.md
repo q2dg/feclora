@@ -74,6 +74,7 @@ not claimed by this document.
 
 
 The age/minisign row describes optional integrations, not mandatory Feclora
-installation requirements. Current unattended and some deployment workflows
-still have minisign-specific requirements; see the completion plan and tooling
-strategy for the work needed to make those paths verifier-configurable.
+installation requirements. The baseline mTLS deployment and local imaging
+paths accept unsigned images; the optional SFTP signed-image-set and signed
+unattended-profile workflows still use minisign-specific verification. See the
+completion plan and tooling strategy for those remaining integration gaps.
