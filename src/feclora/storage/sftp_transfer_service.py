@@ -48,7 +48,7 @@ def credential_bindings(
 def build_systemd_transfer_argv(
     *, systemd_run: str, python: str, unit: str,
     bindings: list[tuple[str, str]], operation: str,
-    host: str, username: str, remote_path: str, local_path: str,
+    host: str, username: str, remote_path: str, local_path: str = "/run/feclora-sftp-inventory-unused",
     port: int = 22, expected_sha256: str | None = None,
     allow_unverified_metadata: bool = False,
 ) -> list[str]:
