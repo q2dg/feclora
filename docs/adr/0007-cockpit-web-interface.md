@@ -1,6 +1,6 @@
 # ADR 0007: Cockpit as the primary operator interface
 
-- Status: Accepted; local imaging workflows integrated, remote deployment UI outstanding
+- Status: Accepted; Cockpit is the supported Live interface
 - Date: 2026-11-08
 
 ## Context
@@ -27,9 +27,12 @@ are exposed in the Operations wizard. The UI also provides inventory, image
 inventory, security-key setup, deployment journal summaries and system
 status. Cockpit Terminal is the supported general-purpose shell.
 
-Remote Server/Client configuration, certificate enrollment, PXE job
-management, remote clone and live per-client multicast monitoring remain
-incomplete until their workflows are exposed in Cockpit.
+Server/Client configuration, certificate enrollment, persistent unicast
+save/restore, multicast restore job setup, repository management and local
+network configuration are now exposed in Cockpit. Remote clone and PXE-to-job
+handoff still have incomplete acceptance coverage; live per-client multicast
+progress and results remain outstanding. Track exact scope in the feature
+matrix and implementation plan.
 
 ## Consequences
 
