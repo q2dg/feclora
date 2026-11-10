@@ -7,12 +7,12 @@ the same repository API.
 
 ## Provider contract
 
-SFTP is intentionally not represented as a mounted filesystem provider. Feclora has an initial OpenSSH SFTP file-transfer adapter with pinned host keys, encrypted systemd credential execution, no-overwrite hard-link publication, and signed image-set publish/fetch primitives. These are transfer primitives only: SFTP is not yet exposed as a Cockpit provider or connected to capture/restore job orchestration, durable progress, resume/retry or end-user repository discovery. SSHFS mounts do not satisfy the SFTP transfer contract.
+SFTP is intentionally not represented as a mounted filesystem provider. Feclora now exposes one-shot signed image-set import and publication actions in Cockpit, using pinned host keys and encrypted systemd credential references. The workflow transfers an already captured, signed local image to an existing SFTP directory, or fetches and verifies a remote image into the local repository. It is not yet a complete provider: saved definitions, remote inventory, capture-job integration, durable byte progress, cancellation, retry/resume and full provider acceptance remain pending. SSHFS mounts do not satisfy the SFTP transfer contract.
 
 | Provider | Helper | Authentication material |
 |---|---|---|
 | SSH filesystem | sshfs | Dedicated SSH private key; verified host keys |
-| SFTP | OpenSSH SFTP batch adapter and signed image-set transfer primitives | Registered encrypted SSH key and known_hosts references loaded by transient systemd credentials; Cockpit provider workflow pending |
+| SFTP | OpenSSH SFTP batch adapter; signed image-set import and publication from Cockpit | Registered encrypted SSH key and known_hosts references loaded by transient systemd credentials; one-shot local-repository transfer actions |
 | NFS | mount.nfs, NFSv4.2 | Server/export policy |
 | SMB/CIFS | mount.cifs, SMB 3.1.1 | Protected credentials file |
 | WebDAV | mount.davfs over HTTPS | System-wide `/etc/davfs2/secrets` for root mounts; encrypted Feclora credential integration blocked |
@@ -119,7 +119,7 @@ encrypted blob path, and the mount service receives it through
 `LoadCredentialEncrypted=`. NFS does not require credentials. WebDAV remains
 unavailable through the Cockpit/API path until a per-repository encrypted
 credential design is implemented; the global `/etc/davfs2/secrets` file is not
-used as a workaround. SFTP remains a separate transfer provider whose image-set primitives are not yet integrated into Cockpit capture/restore workflows.
+used as a workaround. SFTP remains a separate transfer provider: Cockpit can publish an existing signed local image or import a signed remote image, but capture-job integration, remote inventory and durable transfer controls remain pending.
 Existing plaintext
 `CredentialStore` and CLI paths remain temporarily supported for migration;
 they are not the target architecture.
@@ -340,9 +340,19 @@ minisign trust anchor and writes into the native local image repository. The
 operation is recorded in the local operation journal. No plaintext SSH
 material is sent through Cockpit.
 
-This is only the SFTP restore-side import path. There is no saved SFTP
+The SFTP Cockpit workflow now supports both one-shot import and publication of existing signed images. It does not provide saved SFTP
 repository definition, remote image listing/discovery, Cockpit capture/upload
 path, durable byte-level transfer progress, retry/resume or cancellation.
 The synchronous import operation does not yet expose transfer progress in the
 Cockpit UI. A complete provider workflow and operator acceptance remain
 pending. Unit tests have been added but have not been executed in this session.
+
+
+### Cockpit SFTP publication and import
+
+The Remote Repositories tab exposes two explicit operations:
+
+- **Publish a signed image set** selects an already captured, locally stored and signed image. The API chooses the local Server minisign keypair, or the enrolled Client's local signing keypair, validates ownership and permissions, verifies the detached signature and every artifact against the manifest, then uploads the artifacts, manifest and signature using encrypted SSH-key and pinned `known_hosts` credentials.
+- **Import a signed image set** fetches the manifest and detached signature first, verifies them against the trusted Feclora signing public key, then downloads and verifies each artifact before importing the files into the local repository.
+
+The destination directory must already exist. Remote files are never overwritten. A failed publication can leave unreferenced remote artifacts; because overwrite is refused, an operator may need to remove those orphaned files before retrying. These are synchronous one-shot actions: there is no byte-level progress, cancellation, resume, retry policy, saved SFTP repository registry or remote inventory discovery yet. Publication is limited to images signed by the local signing identity selected by the API; a different signer is rejected by signature verification.
