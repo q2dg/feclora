@@ -52,6 +52,31 @@ class LocalOperationWorkerTests(unittest.TestCase):
         details = store.append.call_args_list[-1].args[2]
         self.assertTrue(details["destination_may_be_partial"])
 
+    def test_worker_persists_validated_sftp_inventory_manifest_names(self):
+        store = Mock()
+        store.definition.return_value = {
+            "action": "sftp_inventory",
+            "params": {
+                "host": "backup.example.net", "username": "backup",
+                "remote_directory": "/images", "port": 22,
+                "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+                "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+            },
+        }
+        store.status.return_value = {"state": "queued"}
+        with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \\
+             patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store), \\
+             patch("feclora.storage.local_operation_service._device_lock_fds", return_value=[]), \\
+             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \\
+             patch("feclora.webapi._execute_operation", return_value={
+                 "operation": "inventory", "completed": True,
+                 "manifests": ["manifest.json", "daily.manifest.json"],
+             }):
+            self.assertEqual(execute("00000000-0000-4000-8000-000000000001"), 0)
+        self.assertEqual(store.append.call_args_list[-1].args[1], "completed")
+        self.assertEqual(store.append.call_args_list[-1].args[2]["manifests"],
+                         ["manifest.json", "daily.manifest.json"])
+
     def test_recovery_continues_after_one_damaged_journal(self):
         store = Mock()
         store.operation_ids.return_value = ["running-job", "damaged-job", "finished-job"]
