@@ -86,9 +86,11 @@ def _verified_artifact_stream(repository: str, artifact: Any,
         if not age_identity_file:
             raise PartitionRestoreError("this image is age-encrypted; an identity file is required")
         try:
+            # The source repository may be a read-only remote mount. Keep
+            # authenticated plaintext in the local temporary filesystem instead.
             staged = decrypt_artifact_stream_to_temp(
                 stored, age_identity_file,
-                repository, age_executable=age_executable,
+                tempfile.gettempdir(), age_executable=age_executable,
             )
         except ImageSecurityError as exc:
             raise PartitionRestoreError(f"image decryption/authentication failed: {exc}") from exc
@@ -378,7 +380,7 @@ def restore_partition(
         staged_path, decoded_size = _decompress_to_temp(
             image, artifact.compression,
             manifest.source_size_bytes if artifact.format == "raw" else None,
-            repo, available,
+            tempfile.gettempdir(), available,
         )
         try:
             # Validate the block-device role and safety again immediately before
