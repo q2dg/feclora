@@ -63,7 +63,7 @@ class CockpitEnrollmentTests(unittest.TestCase):
                  return_value=config):
             result = inspect_client_request(params)
         self.assertEqual(result["confirmation_phrase"], "ENROLL URI:feclora-client-lab-01 02:11:22:33:44:55")
-        self.assertEqual(result["image_capture_enabled"], "false")
+        self.assertEqual(result["image_signing_enabled"], "false")
 
     def test_inspection_recognizes_existing_identity_as_key_preserving_renewal(self):
         identity = "URI:feclora-client-lab-01"
@@ -177,7 +177,7 @@ class CockpitEnrollmentTests(unittest.TestCase):
         register.assert_called_once_with("/etc/feclora/pki", "URI:feclora-client-lab-01", "age1" + "a" * 40)
         self.assertEqual(copy.call_count, 3)
         store_pin.assert_called_once()
-        self.assertFalse(result["image_capture_enabled"])
+        self.assertFalse(result["image_signing_enabled"])
 
 
     def test_inspection_accepts_tls_only_csr_without_age_or_minisign_material(self):
@@ -198,7 +198,7 @@ class CockpitEnrollmentTests(unittest.TestCase):
             result = inspect_client_request(params)
         self.assertEqual(result["confirmation_phrase"], "ENROLL URI:feclora-client-lab-01 02:11:22:33:44:55")
         self.assertEqual(result["age_encryption_enabled"], "false")
-        self.assertEqual(result["image_capture_enabled"], "false")
+        self.assertEqual(result["image_signing_enabled"], "false")
 
     def test_approval_completes_tls_only_enrollment_without_optional_image_keys(self):
         config = SimpleNamespace(
@@ -231,7 +231,7 @@ class CockpitEnrollmentTests(unittest.TestCase):
         self.assertEqual(copy.call_count, 1)
         self.assertIsNone(result["server_minisign_sha256"])
         self.assertFalse(result["age_encryption_enabled"])
-        self.assertFalse(result["image_capture_enabled"])
+        self.assertFalse(result["image_signing_enabled"])
 
 
 if __name__ == "__main__":
