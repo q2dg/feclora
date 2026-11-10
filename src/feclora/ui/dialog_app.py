@@ -557,19 +557,14 @@ def _restore_security_options(manifest: ImageManifest, manifest_filename: str) -
     public_key = None
     require_signature = False
     if os.path.lexists(signature):
-        choice = _menu("Manifest signature", "This image has a detached minisign signature.", [
-            ("verify", "Verify with a trusted public key"),
-            ("skip", "Continue without signature verification"),
-        ])
-        if choice is None:
+        public_key = _input(
+            "Trusted minisign public key",
+            "This image is signed. Enter the path to an independently trusted public key. "
+            "Restore is blocked unless the signature verifies:",
+        )
+        if not public_key:
             return None
-        if choice == "verify":
-            public_key = _input("minisign public key", "Path to independently trusted minisign public key:")
-            if not public_key:
-                return None
-            require_signature = True
-        else:
-            _message("Signature not verified", "The image will be restored without establishing publisher authenticity.")
+        require_signature = True
     return identity, public_key, require_signature
 
 def _save_unattended_profile(filename: str, manifest: ImageManifest, target: dict[str, Any]) -> None:
