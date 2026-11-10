@@ -62,6 +62,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
             "type": "transfer_offer", "job_id": JOB_ID, "image_id": "golden-image",
         }))
         with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
+             patch("feclora.deployment.client_runtime.os.path.isfile", return_value=True), \
              patch("feclora.deployment.client_runtime.receive_image_set", return_value="/repo/golden-image.manifest.json") as receive, \
              patch("feclora.deployment.client_runtime.restore_disk") as restore:
             result = execute_client_image_job(
@@ -78,16 +79,21 @@ class ClientImageRuntimeTests(unittest.TestCase):
         self.assertTrue(restore.call_args.kwargs["require_signature"])
         self.assertEqual(restore.call_args.kwargs["confirmation"], "ERASE /dev/vda")
 
-    def test_restore_without_trusted_verifier_fails_before_network_read(self):
-        tls = FakeTLS()
-        with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device):
-            with self.assertRaisesRegex(ClientImageRuntimeError, "no alternative verifier configured"):
-                execute_client_image_job(
-                    make_job("restore"), tls, self.approval,
-                    server_identity="URI:feclora-server", repository="/repo",
-                    trusted_server_public_key=None,
-                )
-        self.assertEqual(bytes(tls.outgoing), b"")
+    def test_unsigned_restore_over_mtls_does_not_require_minisign(self):
+        tls = FakeTLS(control_frame({
+            "type": "transfer_offer", "job_id": JOB_ID, "image_id": "golden-image",
+        }))
+        with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
+             patch("feclora.deployment.client_runtime.receive_image_set", return_value="/repo/golden-image.manifest.json"), \
+             patch("feclora.deployment.client_runtime.restore_disk") as restore:
+            result = execute_client_image_job(
+                make_job("restore"), tls, self.approval,
+                server_identity="URI:feclora-server", repository="/repo",
+                trusted_server_public_key=None,
+            )
+        self.assertTrue(result[0])
+        self.assertIsNone(restore.call_args.kwargs["minisign_public_key"])
+        self.assertFalse(restore.call_args.kwargs["require_signature"])
 
     def test_save_captures_signs_then_announces_transfer(self):
         tls = FakeTLS()
