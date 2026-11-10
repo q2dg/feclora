@@ -108,7 +108,7 @@ class SFTPTransferServiceTests(unittest.TestCase):
         stop.assert_called_once()
         command = stop.call_args.args[0]
         self.assertEqual(command[:3], ["/usr/bin/systemctl", "stop", "--no-block"])
-        self.assertRegex(command[3], r"^feclora-sftp-[a-f0-9]{32}\\.service$")
+        self.assertRegex(command[3], r"^feclora-sftp-[a-f0-9]{32}\.service$")
 
     def test_unverified_download_mode_is_explicit_and_limited_to_download(self):
         bindings = [
