@@ -2,9 +2,10 @@
 
 The authenticated deployment runtime is opt-in. PXE services and the control
 listener do not start automatically at boot. On first Server use, Feclora
-creates a root-only local CA, Server TLS identity, minisign signing key and
-age identity, then generates a default Server configuration. Client TLS and
-age keys are generated locally during the guided enrollment workflow.
+creates a root-only local CA and Server TLS identity, then generates a default
+Server configuration. Optional minisign signing and age encryption material is
+initialized only when those features are enabled. Client TLS keys are generated
+locally during guided enrollment; age identities are optional.
 External organizational PKI remains supported.
 
 See [Certificate management](CERTIFICATE-MANAGEMENT.md) for the USB-based CSR
@@ -18,16 +19,18 @@ must remain root-owned and mode 0700. The Server creates
 configuration. Do not copy its CA private key to a Client.
 
 The JSON configuration files must be root-owned regular files with mode 0600.
-CA certificates, endpoint certificates and minisign public keys must be
-root-owned regular files. TLS private keys and minisign secret keys must also
-have no group/other permissions. Symlink paths are rejected.
+CA certificates and endpoint certificates must be root-owned regular files.
+TLS private keys must have no group/other permissions. If optional image
+signing/encryption is enabled, its public/private key material must be
+protected with equivalent least-privilege permissions. Symlink paths are rejected.
 
 For the Feclora-managed flow, use the Client mode **Prepare enrollment
 request** and the Server's **Trusted Clients → Approve Client CSR** screen.
 Private keys never leave their endpoint. The Server validates the CSR SAN,
 signs it for 90 days, maps its identity to the operator-approved MAC and
-registers the Client's age recipient. The Client verifies the CA fingerprint
-and Server minisign public-key fingerprint before installing the response.
+optionally registers the Client's age recipient when age encryption is enabled.
+The Client verifies the CA fingerprint and any configured image-signing trust
+material before installing the response.
 A restore-only Client does not need a minisign signing keypair. Do not put
 private keys or trust material in TFTP/HTTP boot assets.
 
@@ -76,10 +79,12 @@ The Client warns within 30 days of certificate expiry and can prepare a renewal 
 The bind address must exactly match the IPv4 address selected in Server mode.
 The Server UI creates either a one-client unicast save/restore job or a multi-client multicast restore job and displays the job UUID. Each selected Client operator enters that UUID. The Server listener opens TCP/9443 only on the selected interface in Feclora's temporary firewalld zone. During multicast transfers it temporarily adds the UDPcast port pair and IGMP on that same interface. The listener and temporary firewall rules are removed when the job UI exits.
 
-For restore, the Server selects a manifest in the repository with a detached
-minisign signature and verifies it with server.pub before sending. For save,
-the Server verifies the incoming Client image with the public key associated
-with that Client MAC before publishing it.
+For restore/save, Feclora verifies artifact hashes and any configured detached
+signature against independently provisioned trust. `minisign` is an optional
+implementation, not a mandatory deployment dependency. Where no signature is
+configured, SHA-256 alone is not proof of publisher authenticity; destructive
+or unattended jobs must bind the manifest digest to a separately trusted
+job/profile authorization.
 
 ## Client configuration
 
@@ -120,7 +125,7 @@ must independently approve the target before sending READY.
 - Multicast supports one-to-many **restore** of signed whole-disk or partition images to existing local targets on multiple authenticated Clients. The mTLS control plane authenticates every Client, obtains local target approval, distributes the signed manifest and records per-client results. Each Client stages privately and verifies the signed manifest, exact artifact size and SHA-256 before invoking the normal protected restore/read-back path. Partition targets are not created or resized.
 - Multicast uses an administratively scoped 239.0.0.0/8 data group, a derived separate rendezvous group, an even UDPcast port base (the base and base+1 UDP ports plus IGMP are opened temporarily), TTL 1 and a 100 Mbit/s default sender limit. Each Client selects its own local receive interface; it need not have the same interface name as the Server.
 - Multicast requires all selected Clients on the same multicast-enabled L2/VLAN segment, with switch IGMP snooping and a functioning querier. The current TTL=1 profile does not support routed cross-VLAN multicast. Use unicast when the network cannot meet these conditions.
-- Multicast jobs accept only artifacts encrypted with age for the enrolled recipient set. The detached minisign signature authenticates the manifest and binds the exact ciphertext; age's authenticated encryption detects ciphertext modification on decryption. This is artifact-level protection, not per-datagram authentication: UDPcast metadata remains visible and an on-path attacker can still disrupt a transfer. The Server and Client perform local interface/route/tool preflight; switch IGMP snooping and querier configuration must still be verified by the operator.
+- Multicast jobs verify the manifest and artifact digests and enforce the configured authenticity policy. Optional age encryption protects confidentiality for configured recipients; optional minisign signatures authenticate manifests when enabled. Neither age nor minisign is a mandatory dependency. If neither is used, the job must still receive an independently authenticated manifest/digest bound to the authorized deployment. This is artifact-level protection, not per-datagram authentication: UDPcast metadata remains visible and an on-path attacker can still disrupt a transfer. The Server and Client perform local interface/route/tool preflight; switch IGMP snooping and querier configuration must still be verified by the operator.
 - Multicast save, partition-image capture over the network, multi-client unicast, unattended target approval, automatic restart/resume of destructive writes, per-client live byte progress, Wake-on-LAN and post-job power policies are not implemented.
 - Save sources and restore targets must pass existing block-device safety
   checks. Restore verifies the signed manifest and all artifact digests before
