@@ -22,6 +22,8 @@ The supported operator interface is Cockpit. Screenshot sets will be added
 only from real, version-matched Fedora Live sessions; no illustrative or
 synthetic screenshot is presented as an actual application screen.
 
+Screenshot procedure and required filenames are listed in [the Cockpit screenshot capture plan](assets/screenshots/README.md). Images will be committed only after capture from a real, version-matched Live build.
+
 ## Cloning
 
 - [Local disk-to-disk cloning](GUIDE-LOCAL-DISK-CLONE.html) — **Available in Cockpit**
