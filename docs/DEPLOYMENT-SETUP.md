@@ -33,7 +33,10 @@ signs it for 90 days, maps its identity to the operator-approved MAC and
 optionally registers the Client's age recipient when age encryption is enabled.
 The Client verifies the CA fingerprint and any configured image-signing trust
 material before installing the response.
-A restore-only Client does not need a minisign signing keypair. Do not put
+A Client that does not sign images does not need a minisign keypair; it can
+still capture unsigned images and receive unsigned images over authenticated
+mTLS. Age decryption identity provisioning is a separate opt-in during
+Client enrollment. Do not put
 private keys or trust material in TFTP/HTTP boot assets.
 
 For an organization-issued CA, provision the endpoint TLS certificate/key
