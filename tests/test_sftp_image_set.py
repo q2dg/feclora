@@ -74,6 +74,16 @@ class SFTPImageSetTests(unittest.TestCase):
         self.assertEqual(result["publication_marker"], "manifest.json.minisig")
 
     @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
+    def test_publish_reports_completed_file_byte_progress(self, verify):
+        progress = []
+        self._publish(lambda **kwargs: {"completed": True},
+                      progress_callback=lambda done, total: progress.append((done, total)))
+        total = len(self.payload) + self.manifest.stat().st_size + self.signature.stat().st_size
+        self.assertEqual(progress[0], (0, total))
+        self.assertEqual(progress[-1], (total, total))
+        self.assertEqual([done for done, _ in progress], sorted(done for done, _ in progress))
+
+    @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
     def test_rejects_artifact_digest_mismatch_before_upload(self, verify):
         (self.artifacts / "part-1.img").write_bytes(b"tampered")
         calls = []
@@ -108,6 +118,22 @@ class SFTPImageSetTests(unittest.TestCase):
             "manifest.json.minisig": self.signature.read_bytes(),
             "part-1.img": self.payload,
         }
+
+    @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
+    def test_fetch_reports_artifact_progress_only_after_verification(self, verify):
+        remote = self._remote_set()
+        progress = []
+        def transfer(**kwargs):
+            filename = kwargs["remote_path"].rsplit("/", 1)[-1]
+            Path(kwargs["local_path"]).write_bytes(remote[filename])
+            return {"verified": kwargs["expected_sha256"] is not None}
+        fetch_image_set(
+            remote_directory="/images/test-image", destination_root=self.root,
+            public_key=self.public_key, host="backup.example", username="backup",
+            identity_credential="key-ref", known_hosts_credential="hosts-ref",
+            transfer=transfer, progress_callback=lambda done, total: progress.append((done, total)),
+        )
+        self.assertEqual(progress, [(0, len(self.payload)), (len(self.payload), len(self.payload))])
 
     @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
     def test_fetch_verifies_metadata_before_artifacts_and_publishes_native_repository_files(self, verify):
