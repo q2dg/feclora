@@ -63,7 +63,7 @@ class CaptureTests(unittest.TestCase):
                 err_r, err_w = os.pipe()
                 os.write(out_w, b"partclone stream")
                 os.close(out_w)
-                os.write(err_w, b"Current block: 25, Total block: 100, Complete: 25.00%\\r")
+                os.write(err_w, b"Current block: 25, Total block: 100, Complete: 25.00%\r")
                 os.close(err_w)
                 proc.stdout = os.fdopen(out_r, "rb")
                 proc.stderr = os.fdopen(err_r, "rb")
