@@ -26,6 +26,7 @@ On a graphical desktop:
 ```bash
 qemu-system-x86_64 \
   -enable-kvm -m 4096 -smp 4 \
+  -nic user,hostfwd=tcp::9090-:9090 \
   -cdrom out/feclora-live.iso -boot order=d
 ```
 
@@ -39,6 +40,7 @@ OVMF_DIR=/usr/share/edk2/ovmf
 cp "$OVMF_DIR/OVMF_VARS.fd" /tmp/feclora-OVMF_VARS.fd
 qemu-system-x86_64 \
   -enable-kvm -m 4096 -smp 4 \
+  -nic user,hostfwd=tcp::9090-:9090 \
   -drive if=pflash,format=raw,readonly=on,file="$OVMF_DIR/OVMF_CODE.fd" \
   -drive if=pflash,format=raw,file=/tmp/feclora-OVMF_VARS.fd \
   -cdrom out/feclora-live.iso -boot order=d
