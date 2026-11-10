@@ -146,18 +146,26 @@ def upload_file(
         known_hosts_file=known_hosts_file, port=port,
     )
     try:
-        _run_batch(argv, [
-            f"put {_batch_quote(local)} {_batch_quote(staged)}",
-            f"ln {_batch_quote(staged)} {_batch_quote(target)}",
-            f"rm {_batch_quote(staged)}",
-        ], runner=runner, timeout=timeout)
+        _run_batch(argv, [f"put {_batch_quote(local)} {_batch_quote(staged)}"],
+                   runner=runner, timeout=timeout)
+        _run_batch(argv, [f"ln {_batch_quote(staged)} {_batch_quote(target)}"],
+                   runner=runner, timeout=timeout)
     except SFTPTransferError:
         try:
             _run_batch(argv, [f"rm {_batch_quote(staged)}"], runner=runner, timeout=min(timeout, 30))
         except SFTPTransferError:
             pass
         raise
-    return {"remote_path": target, "size_bytes": size, "sha256": digest, "published": True}
+    staging_removed = True
+    try:
+        _run_batch(argv, [f"rm {_batch_quote(staged)}"], runner=runner, timeout=min(timeout, 30))
+    except SFTPTransferError:
+        # The final hard link is already published. A leftover hidden staging
+        # name is harmless and must not turn a successful publication into a
+        # reported failure that would make retries collide with the final name.
+        staging_removed = False
+    return {"remote_path": target, "size_bytes": size, "sha256": digest,
+            "published": True, "staging_removed": staging_removed}
 
 
 def download_file(
