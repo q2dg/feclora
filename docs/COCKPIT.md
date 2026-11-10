@@ -189,34 +189,41 @@ network isolation.
 ## Trusted Client enrollment
 
 The Server setup tab now includes **Trusted Clients · Approve CSR**. On a
-Client, prepare the enrollment request and public age recipient on removable
-media. Optionally include its minisign public key only when that Client is
-authorized to capture images for the Server.
+Client, prepare the enrollment request on removable media. An age recipient
+is included only when the optional age-encryption feature is enabled. Optionally
+include image-signing public material only when the Client is authorized to
+capture images for the Server.
 
-On the Server, provide the CSR path, age-recipient path and Client unicast MAC.
-Paths must refer to regular files on mounted media under `/run/media`,
-`/media` or `/mnt`. Inspect the request first; Cockpit verifies the CSR
-signature and its single Feclora Client URI SAN, validates the age recipient,
-and displays the identity/MAC confirmation phrase. The approval action requires
-typing that exact phrase. It then issues and enrolls the certificate and
-exports `feclora-<id>.crt`, `ca.crt`, `server.pub` and
-`age-recipients.txt` alongside the CSR. Existing bundle files are never
-overwritten.
+On the Server, provide the CSR path, optional age-recipient path and Client
+unicast MAC. Paths must refer to regular files on mounted media under
+`/run/media`, `/media` or `/mnt`. Inspect the request first; Cockpit verifies
+the CSR signature and its Feclora Client URI SAN, validates any supplied
+optional public material, and displays the identity/MAC confirmation phrase.
+The approval action requires typing that exact phrase. It then issues and
+enrolls the certificate and exports the CA/certificate bundle plus any
+configured public image-authentication material or recipient inventory.
+Existing bundle files are never overwritten.
 
-Only public enrollment material is copied to removable media. TLS and age
-private keys remain on the Client. Each enrolled Client must use a unique age
-recipient: the Server rejects reuse so revoking one Client cannot accidentally
-remove another Client's ability to decrypt future captures. The Client-side
+Only public enrollment material is copied to removable media. TLS and any
+optional age/signing private keys remain on the Client. When age encryption is
+enabled, each enrolled Client must use a unique age recipient so revocation
+does not accidentally remove another Client's future decryption capability.
+
+**Current implementation gap:** some enrollment and renewal API paths still
+expect age-recipient and minisign material. The project requirement is that
+neither tool be mandatory. Those paths must be made conditional/configurable;
+this paragraph describes the target policy, not a claim that every current
+Cockpit path already supports omission. The Client-side
 preparation and response-import stages are also integrated in Cockpit; no
 dialog workflow is required for enrollment.
 
 The Server setup tab also exposes the enrolled Client trust inventory. It shows
-each stable TLS URI identity, its authorized unicast MAC and whether image
-capture is authorized by a Client minisign key. Revocation requires typing the
-exact `REVOKE <identity>` phrase. The backend removes the identity-to-MAC
-authorization, associated image-signing trust and the Client's age recipient
-from the Server inventory used for future captures. The updated age recipient
-inventory must then be exported and refreshed on remaining Clients.
+each stable TLS URI identity, its authorized unicast MAC and any configured
+optional image-signing trust. Revocation requires typing the exact
+`REVOKE <identity>` phrase. The backend removes the identity-to-MAC
+authorization and any associated optional image-signing/age-recipient material
+from future operations. When age encryption is enabled, refresh the remaining
+Clients' recipient inventory.
 
 This is an authorization and future-encryption change, not a retroactive
 network revocation: established TLS sessions are not forcibly terminated,
@@ -231,15 +238,18 @@ through the existing removable-media process.
 The **Client enrollment** tab provides both stages of the removable-media
 ceremony. On a not-yet-enrolled Client, prepare a request by choosing a stable
 Client ID and a mounted media directory. The Client creates its TLS private key
-and age identity locally; only the CSR and public age recipient are exported.
-Optionally enable image capture to create a separate local minisign keypair
-and export only its public key.
+locally. It creates an age identity and/or image-signing key only when the
+corresponding optional feature is enabled, and exports public material only.
 
 After the Server approves the CSR, return the media and provide the Server
-address, Client unicast MAC, response bundle directory, CA SHA-256 fingerprint
-and Server minisign public-key SHA-256 fingerprint. Cockpit verifies both
-fingerprints, the CA chain, the certificate SAN and private-key match, then
-installs the identity and writes the Client runtime configuration. Existing
+address, Client unicast MAC, response bundle directory and CA SHA-256
+fingerprint. Verify any configured optional image-authentication fingerprints
+as well. Cockpit verifies the CA chain, certificate SAN and private-key match,
+then installs the identity and writes the Client runtime configuration.
+
+**Current implementation gap:** current renewal/enrollment code still has
+minisign-specific and age-specific fields. These must become conditional so
+that neither executable/key type is required for baseline TLS enrollment. Existing
 Client configuration or partial identity files are not overwritten. This
 wizard does not initiate a remote deployment job.
 
@@ -304,9 +314,9 @@ validation. UDPcast multicast data is not encrypted or authenticated; only
 the control plane uses mTLS.
 
 
-## Age recipient inventory refresh
+## Optional age recipient inventory refresh
 
-The Server trust panel exports the current public `age-recipients.txt` to a mounted removable-media directory without overwriting an existing file. On each remaining Client, the Cockpit Client enrollment panel verifies that the inventory includes its own age identity before atomically refreshing the local recipient list. Private age identities remain local. Existing encrypted images are unchanged.
+When age encryption is enabled, the Server trust panel can export the current public `age-recipients.txt` to mounted removable media without overwriting an existing file. Each remaining Client verifies that the inventory includes its own age identity before refreshing the local recipient list. Private identities remain local. This workflow is optional; deployments that do not use age do not need recipient inventories.
 
 
 ## Partition extraction
@@ -318,7 +328,7 @@ Disk restore also presents a read-only layout preview after selecting a signed/u
 
 Cockpit image inventory provides an on-demand read-only verification report for every artifact. It verifies any present minisign signature against local trust, stored artifact SHA-256 and size, age authentication, compression integrity and decoded whole-disk size. Unsigned images are explicitly reported as unsigned.
 
-Client certificate renewal is available from the Cockpit Client enrollment tab. The Client reuses its existing TLS private key and age identity, verifies that the retained TLS key matches the active Client configuration, and exports only a renewal CSR and public age/minisign material. On the Server, select the renewal mode, inspect the CSR and require the exact `RENEW URI:feclora-client-...` confirmation. Renewal is restricted to the already-enrolled identity and exact existing MAC; the Server also compares the CSR public-key fingerprint with the root-owned pin recorded at initial Cockpit enrollment. The age recipient and minisign public key must remain unchanged. Clients enrolled before Server-side key pinning was introduced have no continuity pin and must be explicitly re-enrolled before Cockpit can safely renew them. The Server exports a distinct renewal response bundle without changing enrollment mappings. Back on the same Client, verify the CA and Server signing-key fingerprints, verify that the bundle still contains the Client's own age recipient, and install the renewed certificate. The Client's existing private keys never leave the endpoint.
+Client certificate renewal is available from the Cockpit Client enrollment tab. The Client reuses its existing TLS private key and exports only a renewal CSR plus any configured optional public age/signing material. On the Server, select the renewal mode, inspect the CSR and require the exact `RENEW URI:feclora-client-...` confirmation. Renewal is restricted to the already-enrolled identity and exact existing MAC; the Server also compares the CSR public-key fingerprint with the root-owned pin recorded at initial Cockpit enrollment. Any configured age recipient and minisign public key must remain unchanged. Clients enrolled before Server-side key pinning was introduced have no continuity pin and must be explicitly re-enrolled before Cockpit can safely renew them. The Server exports a distinct renewal response bundle without changing enrollment mappings. Back on the same Client, verify the CA and Server signing-key fingerprints, verify that the bundle still contains the Client's own age recipient, and install the renewed certificate. The Client's existing private keys never leave the endpoint.
 
 Cockpit also reports the local managed Server and/or Client TLS certificate expiry and the associated deployment CA expiry. Certificates with 30 days or fewer remaining are flagged for renewal; expired leaf certificates or CA certificates and configuration/inspection errors are surfaced as critical status. This is read-only and does not rotate certificates automatically.
 
