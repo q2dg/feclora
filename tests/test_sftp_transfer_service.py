@@ -189,7 +189,7 @@ class SFTPTransferServiceTests(unittest.TestCase):
             if len(calls) == 1:
                 return SimpleNamespace(returncode=1, stdout="", stderr="Connection timed out")
             return SimpleNamespace(returncode=0, stdout="", stderr="")
-        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store), \\
+        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store), \
              patch("feclora.storage.sftp_transfer_service.time.sleep") as pause:
             result = run_sftp_transfer(
                 identity_credential="/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred",
@@ -218,7 +218,7 @@ class SFTPTransferServiceTests(unittest.TestCase):
         def runner(argv, **_kwargs):
             calls.append(argv)
             return SimpleNamespace(returncode=1, stdout="", stderr="Connection reset by peer")
-        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store), \\
+        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store), \
              patch("feclora.storage.sftp_transfer_service.time.sleep") as pause:
             with self.assertRaisesRegex(RepositoryManagerError, "SFTP transfer failed"):
                 run_sftp_transfer(
