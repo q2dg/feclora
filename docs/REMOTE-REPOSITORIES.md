@@ -284,3 +284,24 @@ credential import binding, operation-journal progress, or capture/restore
 routing. Those remain acceptance blockers. Do not select SSHFS when SFTP
 transfer semantics are required, and do not infer Cockpit SFTP support from
 the presence of this module.
+
+
+### Signed SFTP image-set publication primitive
+
+`sftp_image_set.py` adds a standalone publisher for the existing manifest v1
+format. Before any network transfer it parses the manifest, verifies the
+detached minisign signature against a separately supplied trusted public key,
+and checks every local artifact's regular-file type, byte count and SHA-256
+against the signed manifest. It then uploads each artifact, followed by
+`manifest.json`, and uploads `manifest.json.minisig` last. The signature is
+the publication marker: a consumer must not accept a set without downloading
+and verifying both metadata files and independently checking every artifact.
+
+Each individual upload retains the adapter's random staging name and remote
+rename/no-overwrite behavior. This is not a multi-file atomic transaction:
+failed publication can leave unreferenced remote artifacts or a manifest
+without its signature. Such a set is incomplete and must be rejected. The
+publisher does not yet implement remote inventory/garbage collection,
+download-side manifest discovery, operation-journal progress, Cockpit actions,
+or capture/restore routing. It is an integration primitive, not end-user SFTP
+support; SFTP remains outside the complete provider acceptance gate.
