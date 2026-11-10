@@ -62,6 +62,7 @@ class SFTPRepositoryRegistry:
         if self.effective_uid() != 0:
             raise SFTPRepositoryRegistryError("SFTP repository registry requires root")
         try:
+            self.path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
             info = os.lstat(self.path.parent)
         except OSError as exc:
             raise SFTPRepositoryRegistryError("SFTP repository registry directory is unavailable") from exc
@@ -111,7 +112,16 @@ class SFTPRepositoryRegistry:
                 or not isinstance(value.get("repositories"), dict)
                 or len(value["repositories"]) > 128):
             raise SFTPRepositoryRegistryError("SFTP repository registry schema is invalid")
-        return value["repositories"]
+        repositories = value["repositories"]
+        required_fields = {
+            "host", "username", "remote_directory", "port",
+            "identity_credential", "known_hosts_credential",
+        }
+        for identifier, definition in repositories.items():
+            if (not isinstance(identifier, str) or not _ID.fullmatch(identifier)
+                    or not isinstance(definition, dict) or set(definition) != required_fields):
+                raise SFTPRepositoryRegistryError("SFTP repository registry contains an invalid definition")
+        return repositories
 
     def _write(self, repositories: dict[str, dict[str, Any]]) -> None:
         fd, temporary = tempfile.mkstemp(prefix=".sftp-repositories-", dir=self.path.parent)
