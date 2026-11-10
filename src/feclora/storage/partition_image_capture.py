@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 from .capture import CaptureCancelled, CaptureError, capture_partition
 from .image_manifest import ImageManifest, ManifestValidationError
-from .image_security import ImageSecurityError, encrypt_artifact, sign_manifest
+from .image_security import ImageSecurityError, encrypt_artifact, preflight_image_security, sign_manifest
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .btrfs_inventory import BtrfsInventoryError, collect_btrfs_topology
 
@@ -44,6 +44,15 @@ def capture_partition_image(
     except OSError as exc:
         raise PartitionImageCaptureError("repository directory is unavailable") from exc
     available = executables or {}
+    try:
+        preflight_image_security(
+            age_recipients_file=age_recipients_file,
+            minisign_secret_key=minisign_secret_key,
+            age_executable=available.get("age"),
+            minisign_executable=available.get("minisign"),
+        )
+    except ImageSecurityError as exc:
+        raise PartitionImageCaptureError(f"image security preflight failed: {exc}") from exc
     lsblk = available.get("lsblk") or shutil.which("lsblk")
     if not lsblk:
         raise PartitionImageCaptureError("lsblk is required for partition metadata")
