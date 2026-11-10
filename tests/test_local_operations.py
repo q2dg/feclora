@@ -177,6 +177,23 @@ class LocalOperationStoreTests(unittest.TestCase):
             store.append(identifier, "completed")
             self.assertEqual(store.status(identifier)["state"], "completed")
 
+    def test_running_operation_can_transition_to_cancelled(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            identifier = store.submit("capture_disk", {
+                "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                "encrypt": False, "sign": False,
+            })
+            store.append(identifier, "preflight")
+            store.append(identifier, "running")
+            store.append(identifier, "cancelled", {
+                "reason": "operator requested cancellation",
+                "destination_may_be_partial": False,
+            })
+            report = store.status(identifier)
+            self.assertEqual(report["state"], "cancelled")
+            self.assertFalse(report["events"][-1]["details"]["destination_may_be_partial"])
+
     def test_running_destructive_write_cannot_be_cancelled(self):
         with tempfile.TemporaryDirectory() as root:
             store = LocalOperationStore(os.path.join(root, "jobs"))
