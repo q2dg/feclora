@@ -42,7 +42,8 @@ def _available_images(repository: str) -> list[tuple[str, ImageManifest]]:
             manifest = ImageManifest.from_json(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, ManifestValidationError):
             continue
-        if os.path.isfile(str(path) + ".minisig"):
+        signature_present = os.path.lexists(str(path) + ".minisig")
+        if not signature_present or config.server_minisign_public_key:
             found.append((path.name, manifest))
     return found
 
@@ -61,11 +62,11 @@ def _choose_job(
     if transport is None:
         raise DeploymentControlError("transport selection cancelled")
     operation_choices = (
-        [("restore", "Restore a signed disk or partition image to multiple Clients")]
+        [("restore", "Restore a disk or partition image to multiple Clients")]
         if transport == "multicast" else
         [
-            ("restore", "Restore a signed image to one Client disk"),
-            ("save", "Capture one Client disk and store a signed image"),
+            ("restore", "Restore an image to one Client disk"),
+            ("save", "Capture one Client disk and store an image"),
         ]
     )
     operation = dialog_app._menu(
@@ -80,14 +81,13 @@ def _choose_job(
             images = [
                 entry for entry in images
                 if entry[1].image_type in {"disk", "partition"}
-                and all(artifact.encryption == "age" for artifact in entry[1].artifacts)
             ]
         choices = [
             (manifest.image_id, f"{manifest.image_id} | {manifest.image_type} | {manifest.source_size_bytes:,} bytes")
             for _filename, manifest in images
         ]
         image_id = dialog_app._menu(
-            "Select signed image", "Only images with a detached signature are listed.", choices,
+            "Select image", "Signed images are listed only when a trusted Server verification key is configured.", choices,
         )
         if image_id is None:
             raise DeploymentControlError("image selection cancelled")
