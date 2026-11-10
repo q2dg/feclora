@@ -289,9 +289,14 @@ def _publish_generated_keypair(staged_paths: tuple[Path, ...], final_paths: tupl
         if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
             raise WebAPIError("Feclora PKI directory is unsafe for image-security key publication")
         for staged, final in zip(staged_paths, final_paths):
-            staged_info = os.lstat(staged)
-            if not stat.S_ISREG(staged_info.st_mode):
-                raise WebAPIError("generated image-security key must be a regular non-symlink file")
+            staged_fd = os.open(staged, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            try:
+                staged_info = os.fstat(staged_fd)
+                if not stat.S_ISREG(staged_info.st_mode) or staged_info.st_size <= 0:
+                    raise WebAPIError("generated image-security key must be a non-empty regular non-symlink file")
+                os.fsync(staged_fd)
+            finally:
+                os.close(staged_fd)
             os.link(staged, final.name, dst_dir_fd=directory_fd, follow_symlinks=False)
             published.append(final.name)
         os.fsync(directory_fd)
