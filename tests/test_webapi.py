@@ -1545,5 +1545,35 @@ class WebAPITests(unittest.TestCase):
             self.assertIn("Ordinary imaging remains available", result["message"])
 
 
+    def test_verify_image_rejects_raw_partition_decoded_size_mismatch(self):
+        import io
+        from contextlib import nullcontext
+        from pathlib import Path
+        artifact = SimpleNamespace(
+            filename="partition.img", role="partition-image", size_bytes=3,
+            sha256="c" * 64, encryption="none", compression="none", format="raw",
+        )
+        manifest = SimpleNamespace(
+            image_id="wrong-partition-size", image_type="partition", source_size_bytes=4,
+            artifacts=[artifact],
+        )
+        with patch("feclora.webapi._image_manifest", return_value=Path("/repo/wrong-partition-size.manifest.json")), patch(
+            "pathlib.Path.read_text", return_value="{}"
+        ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
+            "feclora.webapi.os.path.isfile", return_value=False
+        ), patch("feclora.webapi._security_material", return_value={
+            "image_verification_available": False, "age_decryption_available": False,
+        }), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
+            "feclora.webapi._operation_repository", return_value=Path("/repo")
+        ), patch(
+            "feclora.storage.disk_restore._verified_artifact_stream",
+            return_value=nullcontext(io.BytesIO(b"bad")),
+        ), patch("feclora.storage.disk_restore._decoded_stream", side_effect=lambda stream, _compression: stream):
+            with self.assertRaisesRegex(Exception, "decoded raw partition artifact size mismatch"):
+                __import__("feclora.webapi", fromlist=["_verify_image"])._verify_image(
+                    {"image_id": "wrong-partition-size"}
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
