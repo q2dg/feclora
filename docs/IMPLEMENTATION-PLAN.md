@@ -208,3 +208,26 @@ inactive profile selection, and the full Server/Client enrollment and remote
 clone workflow. The current verifier checks profile activation and address;
 gateway reachability, DNS resolution and end-to-end remote connectivity are
 not yet acceptance-tested.
+
+
+## SFTP image-set integration checkpoint
+
+A standalone `sftp_image_set.py` publisher now validates the v1 manifest,
+verifies its minisign signature with an independently trusted public key,
+checks each artifact's size and SHA-256, then uploads artifacts, manifest and
+detached signature in that order. The signature is the final publication
+marker. A failed transfer may leave orphan files, but cannot complete the
+signed-set publication sequence.
+
+- [x] Validate the existing signed manifest and every local artifact before transfer.
+- [x] Publish artifact files before manifest metadata and detached signature.
+- [x] Add unit coverage for ordering, digest mismatch, signature failure and interrupted upload.
+- [ ] Implement remote manifest/signature discovery and safe download into a private staging set.
+- [ ] Verify downloaded manifest signature before fetching its listed artifacts; verify size and SHA-256 before making the set visible to restore.
+- [ ] Integrate SFTP image-set publish/fetch with capture and restore operation orchestration, durable progress and cancellation semantics.
+- [ ] Expose repository and credential selection through Cockpit with role-aware validation and actionable errors.
+- [ ] Add operator guide and screenshots after the complete workflow exists.
+
+This checkpoint is not an end-user SFTP provider. The upload publisher is a
+primitive only; it does not make SFTP selectable in Cockpit or enable SFTP
+restore. Unit tests were added but not executed in this work session.
