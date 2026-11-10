@@ -66,6 +66,13 @@ example path and identity):
 }
 ~~~
 
+The `client_minisign_public_keys` map and `server_minisign_public_key` field
+are optional. Omit them or use an empty map when image signing is not used.
+Client runtime configuration may likewise leave `trusted_server_public_key`,
+`local_minisign_secret_key`, `local_minisign_public_key`, `age_identity_file`
+and `age_recipients_file` unset. TLS CA/certificate/private-key fields remain
+mandatory for network deployment.
+
 The Server writes a private hash-chained job journal under /var/lib/feclora/deployments; the directory is created root-owned with mode 0700. On startup, verified journals reconstruct the last job/client states for operator review. This is audit-only recovery: live sessions are not recreated and destructive jobs are never resumed automatically.
 
 For an interrupted job, the startup review offers an explicit operator reconciliation action. First inspect every Client and destination disk out of band; then select the acknowledgement and type exactly `RECONCILE <job-UUID>`. This appends a durable `operator_reconciled` event and closes the journal as failed, not successful. It does not retry, roll back, resume, or access any block device. Leaving the action pending is safe and prevents any implicit assumption about partial writes; Server refuses to create/arm another deployment until every interrupted journal has been reconciled.
