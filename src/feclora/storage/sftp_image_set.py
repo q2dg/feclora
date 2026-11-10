@@ -302,16 +302,16 @@ def publish_image_set(
         raise SFTPImageSetError(f"manifest validation or signature verification failed: {exc}") from exc
     _validate_manifest_filenames(manifest)
 
-    files: list[tuple[str, str]] = []
+    files: list[tuple[str, str, int]] = []
     for artifact in manifest.artifacts:
         local = _regular_file(os.path.join(root, artifact.filename), f"artifact {artifact.filename}")
         size, digest = _digest(local)
         if size != artifact.size_bytes or digest != artifact.sha256:
             raise SFTPImageSetError(f"artifact {artifact.filename} does not match the signed manifest")
-        files.append((local, artifact.filename))
+        files.append((local, artifact.filename, size))
 
-    _, manifest_digest = _digest(manifest_file)
-    _, signature_digest = _digest(signature_file)
+    manifest_size, manifest_digest = _digest(manifest_file)
+    signature_size, signature_digest = _digest(signature_file)
     prefix = _remote_directory(remote_directory)
 
     def upload(local_path: str, filename: str) -> None:
@@ -323,23 +323,23 @@ def publish_image_set(
             local_path=local_path, port=port, manager=manager,
         )
 
-    bytes_total = sum(_digest(local)[0] for local, _filename in files)
-    bytes_total += _digest(manifest_file)[0] + _digest(signature_file)[0]
+    bytes_total = sum(size for _local, _filename, size in files)
+    bytes_total += manifest_size + signature_size
     bytes_done = 0
     if progress_callback is not None:
         progress_callback(bytes_done, bytes_total)
     try:
-        for local, filename in files:
+        for local, filename, size in files:
             upload(local, filename)
-            bytes_done += _digest(local)[0]
+            bytes_done += size
             if progress_callback is not None:
                 progress_callback(bytes_done, bytes_total)
         upload(manifest_file, "manifest.json")
-        bytes_done += _digest(manifest_file)[0]
+        bytes_done += manifest_size
         if progress_callback is not None:
             progress_callback(bytes_done, bytes_total)
         upload(signature_file, "manifest.json.minisig")
-        bytes_done += _digest(signature_file)[0]
+        bytes_done += signature_size
         if progress_callback is not None:
             progress_callback(bytes_done, bytes_total)
     except (SFTPTransferError, RuntimeError, OSError) as exc:
