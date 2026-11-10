@@ -10,7 +10,8 @@ Before starting a writer it:
 - fully decompresses the image into a private temporary file on the local
   temporary filesystem, validating gzip/xz framing or zstd/lz4 process exit
   status before any target write. Encrypted artifacts are first authenticated
-  and decrypted into a separate local temporary file;
+  and decrypted into a separate local temporary file. This keeps read-only
+  remote repositories usable as restore sources;
 - checks that the destination is a real block device of type `part`, large
   enough for the source geometry, and has the same logical sector size;
 - rejects mounted, active-swap, busy, device-mapper-held, or Live-root backing
@@ -22,8 +23,8 @@ Raw partition artifacts are written with `dd`. Partclone artifacts use the
 filesystem-specific `partclone.* -r` executable recorded in the manifest.
 The image stream is fully staged and verified before either writer starts.
 Partclone is invoked with forced one-second progress updates; its stderr
-percentage reports are forwarded to the Cockpit operation progress display. Cancelling the operation
-terminates the active restore process. Raw restores report byte progress.
+percentage reports are forwarded to the Cockpit operation progress display.
+Cancelling the operation terminates the active restore process. Raw restores report byte progress.
 
 After a raw restore, feclora reads the exact source byte count back from the
 destination with dd and compares SHA-256 against the staged image. After a
