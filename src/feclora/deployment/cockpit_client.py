@@ -252,10 +252,11 @@ def prepare_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
     if public_key(retained_key) != public_key(config.private_key_file):
         raise CockpitEnrollmentError("retained renewal key does not match the active Client TLS identity")
     retained_age_identity = os.path.join(PKI, f"client-{client_id}.age")
-    if os.path.realpath(config.age_identity_file) != os.path.realpath(retained_age_identity):
-        raise CockpitEnrollmentError("configured age identity does not match the managed Client identity; refusing renewal")
-    if not os.path.lexists(retained_age_identity):
-        raise CockpitEnrollmentError("Client age identity is missing; renewal cannot preserve the current recipient")
+    if config.age_identity_file:
+        if os.path.realpath(config.age_identity_file) != os.path.realpath(retained_age_identity):
+            raise CockpitEnrollmentError("configured age identity does not match the managed Client identity; refusing renewal")
+        if not os.path.lexists(retained_age_identity):
+            raise CockpitEnrollmentError("Client age identity is missing; renewal cannot preserve the current recipient")
     identity, _key, exported_csr = create_client_csr(
         PKI, export, client_id, reuse_existing_key=True,
         age_keygen=shutil.which("age-keygen"),
@@ -284,9 +285,10 @@ def prepare_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def complete_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
-    required = {"bundle_directory", "ca_fingerprint", "server_minisign_sha256"}
-    if set(params) != required:
-        raise CockpitEnrollmentError("complete_client_renewal requires bundle_directory and both verified fingerprints")
+    required = {"bundle_directory", "ca_fingerprint"}
+    optional = {"server_minisign_sha256"}
+    if set(params) - required - optional or not required.issubset(params):
+        raise CockpitEnrollmentError("complete_client_renewal requires a response bundle and CA fingerprint; image-security fingerprints are optional")
     config = load_client_runtime_config(CONFIG)
     prefix = "URI:feclora-client-"
     if not config.local_identity.startswith(prefix):
@@ -297,34 +299,48 @@ def complete_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
     bundle = _mounted_media_directory(params["bundle_directory"])
     certificate = _bundle_file(bundle, f"feclora-{client_id}-renewal.crt")
     ca_file = _bundle_file(bundle, "ca-renewal.crt")
-    server_public = _bundle_file(bundle, "server-renewal.pub")
-    recipients_file = _bundle_file(bundle, "age-recipients-renewal.txt")
+    server_public_path = os.path.join(bundle, "server-renewal.pub")
+    recipients_path = os.path.join(bundle, "age-recipients-renewal.txt")
+    server_public = _bundle_file(bundle, "server-renewal.pub") if os.path.lexists(server_public_path) else None
+    recipients_file = _bundle_file(bundle, "age-recipients-renewal.txt") if os.path.lexists(recipients_path) else None
     expected_ca = params["ca_fingerprint"]
-    expected_server = params["server_minisign_sha256"]
     if not isinstance(expected_ca, str) or not re.fullmatch(r"(?:[0-9a-fA-F]{2}:?){32}", expected_ca):
         raise CockpitEnrollmentError("CA fingerprint must be a 64-digit SHA-256 hexadecimal value")
-    if not isinstance(expected_server, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected_server):
-        raise CockpitEnrollmentError("Server minisign fingerprint must be a 64-digit SHA-256 hexadecimal value")
-    if hashlib.sha256(Path(server_public).read_bytes()).hexdigest() != expected_server.lower():
-        raise CockpitEnrollmentError("Server minisign public-key fingerprint does not match the value verified from the Server")
-    recipients = [line.strip() for line in Path(recipients_file).read_text(encoding="ascii").splitlines() if line.strip()]
-    if not recipients or any(not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients):
-        raise CockpitEnrollmentError("Server age recipient inventory is empty or malformed")
-    age_identity = config.age_identity_file
-    age_result = subprocess.run(
-        ["/usr/bin/age-keygen", "-y", age_identity],
-        stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=15,
-    )
-    own_recipient = age_result.stdout.strip()
-    if age_result.returncode != 0 or own_recipient not in recipients:
-        raise CockpitEnrollmentError("renewal response does not retain this Client's current age recipient")
+    expected_server = params.get("server_minisign_sha256")
+    if expected_server is not None:
+        if not isinstance(expected_server, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected_server):
+            raise CockpitEnrollmentError("Server minisign fingerprint must be a 64-digit SHA-256 hexadecimal value")
+        if server_public is None:
+            raise CockpitEnrollmentError("Server minisign fingerprint was supplied but server-renewal.pub is missing")
+        if hashlib.sha256(Path(server_public).read_bytes()).hexdigest() != expected_server.lower():
+            raise CockpitEnrollmentError("Server minisign public-key fingerprint does not match the value verified from the Server")
+    recipients = []
+    if recipients_file:
+        recipients = [line.strip() for line in Path(recipients_file).read_text(encoding="ascii").splitlines() if line.strip()]
+        if not recipients or len(recipients) != len(set(recipients)) or any(
+            not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients
+        ):
+            raise CockpitEnrollmentError("Server age recipient inventory is empty, duplicated or malformed")
+        if config.age_identity_file:
+            age_keygen = shutil.which("age-keygen")
+            if not age_keygen:
+                raise CockpitEnrollmentError("age-keygen is required to validate this Client's configured age identity")
+            age_result = subprocess.run(
+                [age_keygen, "-y", config.age_identity_file],
+                stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=15,
+            )
+            own_recipient = age_result.stdout.strip()
+            if age_result.returncode != 0 or own_recipient not in recipients:
+                raise CockpitEnrollmentError("renewal response does not retain this Client's current age recipient")
     installed_server_key = os.path.join(PKI, "server.pub")
     installed_recipients = os.path.join(PKI, "age-recipients.txt")
+    update_server_key = server_public is not None and expected_server is not None
+    destinations = [os.path.join(PKI, "client.crt"), os.path.join(PKI, "ca.crt"), config.private_key_file]
+    if update_server_key:
+        destinations.append(installed_server_key)
+    if recipients_file:
+        destinations.append(installed_recipients)
     backups: dict[str, bytes | None] = {}
-    destinations = (
-        os.path.join(PKI, "client.crt"), os.path.join(PKI, "ca.crt"),
-        config.private_key_file, installed_server_key, installed_recipients,
-    )
     for path in destinations:
         try:
             info = os.lstat(path)
@@ -338,8 +354,10 @@ def complete_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
             certificate, ca_file, config.private_key_file, PKI,
             config.local_identity, expected_ca,
         )
-        _atomic_copy(server_public, installed_server_key, 0o644)
-        _atomic_copy(recipients_file, installed_recipients, 0o600)
+        if update_server_key:
+            _atomic_copy(server_public, installed_server_key, 0o644)
+        if recipients_file:
+            _atomic_copy(recipients_file, installed_recipients, 0o600)
         updated = load_client_runtime_config(CONFIG)
     except Exception:
         for path, content in backups.items():
@@ -366,7 +384,7 @@ def complete_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
     return {
         "identity": updated.local_identity, "certificate_file": installed["certificate_file"],
         "image_capture_enabled": bool(updated.local_minisign_secret_key),
-        "message": "Renewed TLS certificate installed and validated. Existing Client TLS key, age identity, MAC authorization and image-signing key were preserved.",
+        "message": "Renewed TLS certificate installed and validated. Existing TLS identity is preserved; optional age and minisign material is refreshed only when supplied and verified.",
     }
 
 
