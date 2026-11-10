@@ -16,7 +16,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 from feclora.storage.repository_manager import RemoteRepositoryManager, RepositoryManagerError
-from feclora.storage.sftp_transfer import SFTPTransferError, upload_file, download_file
+from feclora.storage.sftp_transfer import (
+    SFTPTransferError, download_file, list_image_manifests, upload_file,
+)
 
 
 def credential_bindings(
