@@ -365,7 +365,7 @@ def _fetch_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
                     remote_directory=remote_directory, destination_root=repository,
                     public_key=public_key, host=host, username=username,
                     identity_credential=identity, known_hosts_credential=known_hosts,
-                    port=port,
+                    port=port, progress_callback=_progress,
                 )
                 return {"operation_id": operation_id, **result}
     except Exception as exc:
@@ -485,7 +485,8 @@ def _list_sftp_image_manifests(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError(f"SFTP remote inventory failed: {exc}") from exc
 
 
-def _publish_captured_image_to_sftp(image_id: str, repository: Path, config: dict[str, Any]) -> dict[str, Any]:
+def _publish_captured_image_to_sftp(image_id: str, repository: Path, config: dict[str, Any], *,
+                                    progress_callback: Callable[[int, int | None], None] | None = None) -> dict[str, Any]:
     required = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential"}
     if not isinstance(config, dict) or set(config) not in (required, required | {"port"}):
         raise WebAPIError("SFTP post-capture publication configuration is invalid")
@@ -534,7 +535,7 @@ def _publish_captured_image_to_sftp(image_id: str, repository: Path, config: dic
         public_key=public_key, artifact_directory=repository,
         remote_directory=remote_directory, host=host, username=username,
         identity_credential=identity, known_hosts_credential=known_hosts,
-        port=port,
+        port=port, progress_callback=progress_callback,
     )
 
 
@@ -1270,6 +1271,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 raise WebAPIError("SFTP post-capture publication requires a signed image manifest")
             result["sftp_publication"] = _publish_captured_image_to_sftp(
                 manifest.image_id, _operation_repository(params, write=True), params["sftp_publish"],
+                progress_callback=_progress,
             )
     elif action == "capture_partition":
         from feclora.storage.partition_image_capture import capture_partition_image
@@ -1298,6 +1300,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 raise WebAPIError("SFTP post-capture publication requires a signed image manifest")
             result["sftp_publication"] = _publish_captured_image_to_sftp(
                 manifest.image_id, _operation_repository(params, write=True), params["sftp_publish"],
+                progress_callback=_progress,
             )
     elif action == "extract_partition_image":
         from feclora.storage.disk_image_partition import extract_partition_image
@@ -1427,6 +1430,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                     identity_credential=identity, known_hosts_credential=known_hosts,
                     port=port, expected_image_id=image_id,
                     expected_manifest_sha256=expected_manifest_sha256,
+                    progress_callback=_progress,
                 )
             except Exception as exc:
                 raise WebAPIError(f"authenticated SFTP image fetch failed: {exc}") from exc
