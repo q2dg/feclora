@@ -80,6 +80,7 @@ export default function App() {
   const [sftpIdentity, setSftpIdentity] = useState("");
   const [sftpKnownHosts, setSftpKnownHosts] = useState("");
   const [sftpPublishImageId, setSftpPublishImageId] = useState("");
+  const [sftpRemoteInventory, setSftpRemoteInventory] = useState(null);
   const [publishAfterCapture, setPublishAfterCapture] = useState(false);
   const [credentialId, setCredentialId] = useState("");
   const [credentialKind, setCredentialKind] = useState("ssh-key");
@@ -306,6 +307,20 @@ export default function App() {
       await callFeclora("remove_systemd_credential", { id: credential.id, kind: credential.kind });
       setNotice("Removed encrypted credential " + credential.id + " (" + credential.kind + ").");
       await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const listSftpImageManifests = async () => {
+    setBusy(true); setError(""); setNotice(""); setSftpRemoteInventory(null);
+    try {
+      const result = await callFeclora("list_sftp_image_manifests", {
+        host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
+        port: Number(sftpPort), identity_credential: sftpIdentity,
+        known_hosts_credential: sftpKnownHosts
+      });
+      setSftpRemoteInventory(result.manifests || []);
+      setNotice("SFTP inventory completed: " + (result.manifests || []).length + " manifest marker(s) found.");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -1190,8 +1205,11 @@ export default function App() {
                   <Field label="SSH port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={sftpPort} onChange={(e) => setSftpPort(e.target.value)} required /></Field>
                   <Field label="Encrypted SSH private-key credential"><select className="pf-v5-c-form-control" value={sftpIdentity} onChange={(e) => setSftpIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
                   <Field label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={sftpKnownHosts} onChange={(e) => setSftpKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
+                  <Button type="button" variant="secondary" onClick={listSftpImageManifests} isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>List remote image manifests</Button>{" "}
                   <Button type="submit" variant="primary" isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Fetch, verify and import image</Button>
-                </form></CardBody></Card>
+                </form>
+                {sftpRemoteInventory !== null && <div className="pf-v5-u-mt-md"><strong>Remote manifest markers</strong>{sftpRemoteInventory.length ? <ul>{sftpRemoteInventory.map((name) => <li key={name}>{name}</li>)}</ul> : <p>No Feclora image manifest marker was found in this directory.</p>}</div>}
+                </CardBody></Card>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Publish a signed image set to SFTP</Title>
                 <p>Publishes an already captured and signed image from the local repository. The local minisign public key is used to verify the manifest before transfer. The remote directory must already exist and be empty for these filenames; existing remote files are never overwritten.</p>
