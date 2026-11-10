@@ -321,6 +321,51 @@ def _initialize_security() -> dict[str, Any]:
     return {"created": created, **_security_material()}
 
 
+
+def _fetch_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
+    required = {
+        "host", "username", "remote_directory", "identity_credential",
+        "known_hosts_credential",
+    }
+    if set(params) not in (required, required | {"port"}):
+        raise WebAPIError("fetch_sftp_image_set requires host, username, remote_directory and encrypted SSH credential references")
+    host = _text(params, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
+    if host.endswith(".") or ".." in host:
+        raise WebAPIError("SFTP host is invalid")
+    username = _text(params, "username", pattern=r"[A-Za-z0-9._-]{1,64}")
+    remote_directory = _text(params, "remote_directory", maximum=1024)
+    identity = _text(params, "identity_credential", maximum=512)
+    known_hosts = _text(params, "known_hosts_credential", maximum=512)
+    port = params.get("port", 22)
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        raise WebAPIError("SFTP port must be an integer between 1 and 65535")
+    public_key = Path("/etc/feclora/pki/server.pub")
+    try:
+        info = os.lstat(public_key)
+    except OSError as exc:
+        raise WebAPIError("initialize Feclora image-signing trust before importing SFTP images") from exc
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+        raise WebAPIError("trusted Feclora minisign public key has unsafe ownership or permissions")
+    from feclora.storage.sftp_image_set import fetch_image_set
+    from feclora.storage.operation_log import operation_record
+    repository = _repository(create=True)
+    try:
+        with _storage_operation_lock():
+            with operation_record(
+                "fetch_sftp_image_set", f"{host}:{remote_directory}",
+                log_path="/var/log/feclora/operations.jsonl",
+            ) as operation_id:
+                result = fetch_image_set(
+                    remote_directory=remote_directory, destination_root=repository,
+                    public_key=public_key, host=host, username=username,
+                    identity_credential=identity, known_hosts_credential=known_hosts,
+                    port=port,
+                )
+                return {"operation_id": operation_id, **result}
+    except Exception as exc:
+        raise WebAPIError(f"SFTP image import failed: {exc}") from exc
+
+
 def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
     path = _operation_repository({"repository_id": repository_id}, write=False) if repository_id else _repository()
     if not path.exists():
@@ -2211,6 +2256,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise WebAPIError("images does not accept parameters")
         return {"images": _images()}
+    if action == "fetch_sftp_image_set":
+        return _fetch_sftp_image_set(params)
     if action == "repository_images":
         if set(params) != {"repository_id"}:
             raise WebAPIError("repository_images requires repository_id")
