@@ -73,6 +73,8 @@ export default function App() {
   const [operations, setOperations] = useState([]);
   const [remoteRepositories, setRemoteRepositories] = useState([]);
   const [systemdCredentials, setSystemdCredentials] = useState([]);
+  const [sftpRepositories, setSftpRepositories] = useState([]);
+  const [sftpRepositoryId, setSftpRepositoryId] = useState("");
   const [sftpHost, setSftpHost] = useState("");
   const [sftpUsername, setSftpUsername] = useState("");
   const [sftpRemoteDirectory, setSftpRemoteDirectory] = useState("/images");
@@ -211,10 +213,10 @@ export default function App() {
   const refresh = useCallback(async () => {
     setBusy(true); setError("");
     try {
-      const [s, i, j, op, inv, net, profiles, pxe, remote, clients, repositories, credentials] = await Promise.all([
-        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("network_connection_profiles"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("server_trusted_clients"), callFeclora("remote_repositories"), callFeclora("systemd_credentials")
+      const [s, i, j, op, inv, net, profiles, pxe, remote, clients, repositories, credentials, sftpSaved] = await Promise.all([
+        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("network_connection_profiles"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("server_trusted_clients"), callFeclora("remote_repositories"), callFeclora("systemd_credentials"), callFeclora("sftp_repositories")
       ]);
-      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setNetworkProfiles(profiles.profiles || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setTrustedClients(clients.clients || []); setRemoteRepositories(repositories.repositories || []); setSystemdCredentials(credentials.credentials || []);
+      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setNetworkProfiles(profiles.profiles || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setTrustedClients(clients.clients || []); setRemoteRepositories(repositories.repositories || []); setSystemdCredentials(credentials.credentials || []); setSftpRepositories(sftpSaved.repositories || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   }, []);
@@ -332,6 +334,42 @@ export default function App() {
     try {
       await callFeclora("remove_systemd_credential", { id: credential.id, kind: credential.kind });
       setNotice("Removed encrypted credential " + credential.id + " (" + credential.kind + ").");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const selectSftpRepository = (identifier) => {
+    setSftpRepositoryId(identifier);
+    const saved = sftpRepositories.find((item) => item.id === identifier);
+    if (!saved) return;
+    setSftpHost(saved.host); setSftpUsername(saved.username);
+    setSftpRemoteDirectory(saved.remote_directory); setSftpPort(String(saved.port));
+    setSftpIdentity(saved.identity_credential); setSftpKnownHosts(saved.known_hosts_credential);
+    setSftpRemoteInspection(null); setSftpRemoteInventory(null); setRestoreFromSftp(false);
+  };
+
+  const saveSftpRepository = async () => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("save_sftp_repository", {
+        id: sftpRepositoryId, host: sftpHost, username: sftpUsername,
+        remote_directory: sftpRemoteDirectory, port: Number(sftpPort),
+        identity_credential: sftpIdentity, known_hosts_credential: sftpKnownHosts
+      });
+      setNotice("Saved SFTP repository " + result.repository.id + ".");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const removeSftpRepository = async () => {
+    if (!sftpRepositoryId) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await callFeclora("remove_sftp_repository", { id: sftpRepositoryId });
+      setNotice("Removed saved SFTP repository " + sftpRepositoryId + ".");
+      setSftpRepositoryId("");
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -1264,6 +1302,16 @@ export default function App() {
               <StackItem><Title headingLevel="h2" size="lg">Import a signed image set from SFTP</Title>
                 <p>The remote directory must contain manifest.json, manifest.json.minisig and every artifact named by the signed manifest. The manifest is verified with the locally trusted Feclora Server public key before artifact download. Imported files become visible in the local image inventory.</p>
                 <Card><CardBody><form onSubmit={fetchSftpImageSet}>
+                  <Field label="Saved SFTP repository">
+                    <select className="pf-v5-c-form-control" value={sftpRepositoryId} onChange={(e) => selectSftpRepository(e.target.value)}>
+                      <option value="">Use one-time connection details…</option>
+                      {sftpRepositories.map((item) => <option key={item.id} value={item.id}>{item.id} · {item.username}@{item.host}:{item.port}{item.remote_directory}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Saved repository ID"><input className="pf-v5-c-form-control" value={sftpRepositoryId} onChange={(e) => setSftpRepositoryId(e.target.value)} maxLength={48} placeholder="e.g. offsite-backup" /></Field>
+                  <p>Saved definitions contain only the SFTP endpoint and encrypted credential references. Private-key and known_hosts contents remain in systemd credentials.</p>
+                  <Button type="button" variant="secondary" onClick={saveSftpRepository} isDisabled={busy || !sftpRepositoryId || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Save connection</Button>{" "}
+                  <Button type="button" variant="secondary" onClick={removeSftpRepository} isDisabled={busy || !sftpRepositoryId || !sftpRepositories.some((item) => item.id === sftpRepositoryId)}>Remove saved connection</Button>
                   <Field label="SFTP host"><input className="pf-v5-c-form-control" value={sftpHost} onChange={(e) => setSftpHost(e.target.value)} maxLength={253} required /></Field>
                   <Field label="SSH username"><input className="pf-v5-c-form-control" value={sftpUsername} onChange={(e) => setSftpUsername(e.target.value)} maxLength={64} required /></Field>
                   <Field label="Remote image directory"><input className="pf-v5-c-form-control" value={sftpRemoteDirectory} onChange={(e) => setSftpRemoteDirectory(e.target.value)} maxLength={1024} required /></Field>
