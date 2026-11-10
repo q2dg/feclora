@@ -123,8 +123,22 @@ def run_sftp_transfer(
             command, stdin=subprocess.DEVNULL, capture_output=True,
             text=True, check=False, timeout=86430,
         )
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise RepositoryManagerError(f"SFTP transient service could not complete: {exc}") from exc
+    except BaseException as exc:
+        # systemd-run --wait is only a client: killing that client does not
+        # stop the transient service. Explicitly stop the uniquely named unit
+        # so a cancelled local restore cannot leave an orphaned SFTP fetch.
+        systemctl = store_manager.which("systemctl") or "/usr/bin/systemctl"
+        try:
+            subprocess.run(
+                [systemctl, "stop", "--no-block", unit],
+                stdin=subprocess.DEVNULL, capture_output=True,
+                text=True, check=False, timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError):
+            pass
+        if isinstance(exc, (OSError, subprocess.SubprocessError)):
+            raise RepositoryManagerError(f"SFTP transient service could not complete: {exc}") from exc
+        raise
     if result.returncode:
         detail = (result.stderr or result.stdout or "").strip()[:512]
         raise RepositoryManagerError("SFTP transfer failed" + (f": {detail}" if detail else ""))
