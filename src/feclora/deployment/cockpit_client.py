@@ -168,13 +168,21 @@ def refresh_client_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
-    if set(params) != {"client_id", "export_directory", "image_signing"}:
-        raise CockpitEnrollmentError("prepare_client_request requires client_id, export_directory and image_signing")
+    if set(params) != {"client_id", "export_directory", "image_signing", "age_encryption"}:
+        raise CockpitEnrollmentError(
+            "prepare_client_request requires client_id, export_directory, image_signing and age_encryption"
+        )
     client_id = params["client_id"]
     if not isinstance(client_id, str) or not _CLIENT_ID.fullmatch(client_id):
         raise CockpitEnrollmentError("Client identifier must contain 1-48 lowercase letters, digits or hyphens")
-    if not isinstance(params["image_signing"], bool):
-        raise CockpitEnrollmentError("image_signing must be boolean")
+    if not isinstance(params["image_signing"], bool) or not isinstance(params["age_encryption"], bool):
+        raise CockpitEnrollmentError("image_signing and age_encryption must be boolean")
+    age_keygen = shutil.which("age-keygen") if params["age_encryption"] else None
+    if params["age_encryption"] and not age_keygen:
+        raise CockpitEnrollmentError("age-keygen is required only when age decryption is enabled for this Client")
+    minisign = shutil.which("minisign") if params["image_signing"] else None
+    if params["image_signing"] and not minisign:
+        raise CockpitEnrollmentError("minisign is required only when image signing is enabled for this Client")
     if os.path.lexists(CONFIG):
         raise CockpitEnrollmentError("Client is already configured; use the renewal workflow")
     export = _mounted_media_directory(params["export_directory"])
@@ -194,11 +202,11 @@ def prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
         raise CockpitEnrollmentError("Client identity material or removable-media export already exists")
     try:
         identity, private_key, exported_csr = create_client_csr(
-            PKI, export, client_id, age_keygen=shutil.which("age-keygen"),
+            PKI, export, client_id, age_keygen=age_keygen,
         )
         if params["image_signing"]:
             result = subprocess.run(
-                ["/usr/bin/minisign", "-G", "-s", secret, "-p", public, "-W"],
+                [minisign, "-G", "-s", secret, "-p", public, "-W"],
                 stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=60,
             )
             if result.returncode != 0:
