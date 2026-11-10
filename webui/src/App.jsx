@@ -81,6 +81,7 @@ export default function App() {
   const [sftpKnownHosts, setSftpKnownHosts] = useState("");
   const [sftpPublishImageId, setSftpPublishImageId] = useState("");
   const [sftpRemoteInventory, setSftpRemoteInventory] = useState(null);
+  const [sftpRemoteInspection, setSftpRemoteInspection] = useState(null);
   const [publishAfterCapture, setPublishAfterCapture] = useState(false);
   const [credentialId, setCredentialId] = useState("");
   const [credentialKind, setCredentialKind] = useState("ssh-key");
@@ -321,6 +322,20 @@ export default function App() {
       });
       setSftpRemoteInventory(result.manifests || []);
       setNotice("SFTP inventory completed: " + (result.manifests || []).length + " manifest marker(s) found.");
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const inspectSftpImageSet = async () => {
+    setBusy(true); setError(""); setNotice(""); setSftpRemoteInspection(null);
+    try {
+      const result = await callFeclora("inspect_sftp_image_set", {
+        host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
+        port: Number(sftpPort), identity_credential: sftpIdentity,
+        known_hosts_credential: sftpKnownHosts
+      });
+      setSftpRemoteInspection(result);
+      setNotice("Remote image manifest signature verified for " + result.image_id + ".");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -1206,9 +1221,11 @@ export default function App() {
                   <Field label="Encrypted SSH private-key credential"><select className="pf-v5-c-form-control" value={sftpIdentity} onChange={(e) => setSftpIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
                   <Field label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={sftpKnownHosts} onChange={(e) => setSftpKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
                   <Button type="button" variant="secondary" onClick={listSftpImageManifests} isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>List remote image manifests</Button>{" "}
+                  <Button type="button" variant="secondary" onClick={inspectSftpImageSet} isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Verify signed remote image metadata</Button>{" "}
                   <Button type="submit" variant="primary" isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Fetch, verify and import image</Button>
                 </form>
-                {sftpRemoteInventory !== null && <div className="pf-v5-u-mt-md"><strong>Remote manifest markers</strong>{sftpRemoteInventory.length ? <ul>{sftpRemoteInventory.map((name) => <li key={name}>{name}</li>)}</ul> : <p>No Feclora image manifest marker was found in this directory.</p>}</div>}
+                {sftpRemoteInventory !== null && <div className="pf-v5-c-content pf-v5-u-mt-md"><strong>Remote manifest markers</strong>{sftpRemoteInventory.length ? <ul>{sftpRemoteInventory.map((name) => <li key={name}>{name}</li>)}</ul> : <p>No Feclora image manifest marker was found in this directory.</p>}</div>}
+                {sftpRemoteInspection && <div className="pf-v5-c-content pf-v5-u-mt-md"><strong>Authenticated remote image</strong><p>{sftpRemoteInspection.image_id} · {sftpRemoteInspection.image_type} · {sftpRemoteInspection.artifact_count} artifacts · {sftpRemoteInspection.source_size_bytes} bytes</p><p>Manifest signature verified against the configured Feclora trust key. Artifact bytes have not yet been downloaded or verified.</p><ul>{sftpRemoteInspection.artifacts.map((item) => <li key={item.filename}>{item.filename} · {item.role} · {item.size_bytes} bytes · {item.encryption}</li>)}</ul></div>}
                 </CardBody></Card>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Publish a signed image set to SFTP</Title>
