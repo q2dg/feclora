@@ -9,9 +9,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
+import select
 import tempfile
 from typing import Callable, Mapping
 
@@ -98,32 +100,114 @@ def _read_partclone_status(path: str) -> tuple[int, int] | None:
         return None
 
 
+def _partclone_stderr_progress(line: bytes, expected_size_bytes: int | None) -> tuple[int, int] | None:
+    """Convert Partclone's native current/total block counters to partition bytes."""
+    if not isinstance(expected_size_bytes, int) or isinstance(expected_size_bytes, bool) or expected_size_bytes <= 0:
+        return None
+    match = re.search(rb"Current block:\s*([0-9,]+).*?Total block:\s*([0-9,]+)", line, re.IGNORECASE)
+    if not match:
+        return None
+    current = int(match.group(1).replace(b",", b""))
+    total = int(match.group(2).replace(b",", b""))
+    if total <= 0 or current < 0:
+        return None
+    return min(expected_size_bytes, current * expected_size_bytes // total), expected_size_bytes
+
+
 class _CountingReader:
     def __init__(self, stream, progress_callback=None, expected_size_bytes=None,
-                 partclone_status_path=None):
+                 partclone_status_path=None, stderr_stream=None, stderr_capture=None):
         self.stream = stream
         self.bytes_read = 0
         self.progress_callback = progress_callback
         self.expected_size_bytes = expected_size_bytes
         self.partclone_status_path = partclone_status_path
+        self.stderr_stream = stderr_stream
+        self.stderr_capture = stderr_capture
         self.last_partclone_progress = None
+        self.last_legacy_progress = None
+        self.stderr_pending = bytearray()
+        self.stdout_eof = False
 
     def _emit_partclone_progress(self) -> None:
-        if self.partclone_status_path is None or self.progress_callback is None:
+        if self.progress_callback is None:
             return
-        progress = _read_partclone_status(self.partclone_status_path)
-        if progress is not None and progress != self.last_partclone_progress:
-            self.last_partclone_progress = progress
-            self.progress_callback(*progress)
+        if self.partclone_status_path is not None:
+            progress = _read_partclone_status(self.partclone_status_path)
+            if progress is not None and progress != self.last_partclone_progress:
+                self.last_partclone_progress = progress
+                self.progress_callback(*progress)
+
+    def _consume_stderr(self, chunk: bytes) -> None:
+        if self.stderr_capture is not None and chunk:
+            self.stderr_capture.write(chunk)
+        self.stderr_pending.extend(chunk)
+        while b"\r" in self.stderr_pending or b"\n" in self.stderr_pending:
+            positions = [p for p in (self.stderr_pending.find(b"\r"), self.stderr_pending.find(b"\n")) if p >= 0]
+            end = min(positions)
+            line = bytes(self.stderr_pending[:end])
+            del self.stderr_pending[:end + 1]
+            if self.partclone_status_path is None and self.progress_callback is not None:
+                progress = _partclone_stderr_progress(line, self.expected_size_bytes)
+                if progress is not None and progress != self.last_legacy_progress:
+                    self.last_legacy_progress = progress
+                    self.progress_callback(*progress)
+        if len(self.stderr_pending) > 8192:
+            del self.stderr_pending[:-8192]
+
+    def _drain_stderr(self, timeout: float) -> bool:
+        if self.stderr_stream is None:
+            return False
+        try:
+            fd = self.stderr_stream.fileno()
+            ready, _, _ = select.select([fd], [], [], timeout)
+            if not ready:
+                return False
+            chunk = os.read(fd, 8192)
+        except (AttributeError, OSError, ValueError, TypeError):
+            self.stderr_stream = None
+            return False
+        if chunk:
+            self._consume_stderr(chunk)
+        else:
+            self.stderr_stream = None
+            if self.stderr_pending and self.partclone_status_path is None and self.progress_callback is not None:
+                progress = _partclone_stderr_progress(bytes(self.stderr_pending), self.expected_size_bytes)
+                if progress is not None and progress != self.last_legacy_progress:
+                    self.last_legacy_progress = progress
+                    self.progress_callback(*progress)
+            self.stderr_pending.clear()
+        return True
 
     def read(self, size=-1):
         self._emit_partclone_progress()
-        # read1 returns currently available pipe data instead of waiting to fill
-        # the whole buffer, allowing the native status file to be polled promptly.
         read = getattr(self.stream, "read1", self.stream.read)
+        if self.stderr_stream is not None:
+            try:
+                stdout_fd = self.stream.fileno()
+                stderr_fd = self.stderr_stream.fileno()
+                while True:
+                    ready, _, _ = select.select(
+                        [fd for fd in (stdout_fd, stderr_fd) if fd >= 0], [], [], 0.5,
+                    )
+                    if stderr_fd in ready:
+                        self._drain_stderr(0)
+                        self._emit_partclone_progress()
+                    if stdout_fd in ready:
+                        chunk = read(size)
+                        if not chunk:
+                            self.stdout_eof = True
+                        else:
+                            self.bytes_read += len(chunk)
+                            self._emit_partclone_progress()
+                            return chunk
+                    if self.stdout_eof and self.stderr_stream is None:
+                        return b""
+            except (AttributeError, OSError, ValueError, TypeError):
+                self.stderr_stream = None
         chunk = read(size)
         self.bytes_read += len(chunk)
-        if chunk and self.progress_callback is not None and self.partclone_status_path is None:
+        if chunk and self.progress_callback is not None and self.partclone_status_path is None and self.stderr_stream is None:
             self.progress_callback(self.bytes_read, self.expected_size_bytes)
         self._emit_partclone_progress()
         return chunk
@@ -155,7 +239,7 @@ def build_capture_plan(
     if partclone_path:
         return CapturePlan(
             executable=partclone_path,
-            argv=(partclone_path, "-c", "-s", source_path),
+            argv=(partclone_path, "-c", "-s", source_path, "-F", "-f", "1"),
             image_format="partclone",
             filesystem=recorded_filesystem,
         )
@@ -247,7 +331,7 @@ def capture_partition(
                     command,
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.PIPE,
-                    stderr=stderr_file,
+                    stderr=subprocess.PIPE if plan.image_format == "partclone" else stderr_file,
                     close_fds=True,
                 )
             except (OSError, PrivilegeError) as exc:
@@ -258,6 +342,8 @@ def capture_partition(
             counted = _CountingReader(
                 process.stdout, progress_callback, progress_total,
                 partclone_status_path=partclone_status_path,
+                stderr_stream=getattr(process, "stderr", None) if plan.image_format == "partclone" else None,
+                stderr_capture=stderr_file if plan.image_format == "partclone" else None,
             )
             try:
                 artifact = write_artifact(
