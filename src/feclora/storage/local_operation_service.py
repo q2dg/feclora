@@ -159,21 +159,25 @@ def execute(operation_id: str) -> int:
             }
             store.append(operation_id, "completed", safe_result)
         return 0
+    except LocalOperationCancelled:
+        current = store.status(operation_id)["state"]
+        if current not in TERMINAL_STATES:
+            destructive = definition["action"].startswith(("restore_", "clone_"))
+            store.append(operation_id, "cancelled", {
+                "reason": "operator requested cancellation; worker and child processes were stopped",
+                "destination_may_be_partial": bool(destructive and current == "running"),
+            })
+        # A controlled cancellation is a normal terminal outcome for systemd,
+        # not a failed service invocation. ExecStopPost remains idempotent.
+        return 0
     except BaseException as exc:
         try:
             current = store.status(operation_id)["state"]
             if current not in TERMINAL_STATES:
-                if isinstance(exc, LocalOperationCancelled):
-                    destructive = definition["action"].startswith(("restore_", "clone_"))
-                    store.append(operation_id, "cancelled", {
-                        "reason": "operator requested cancellation; worker and child processes were stopped",
-                        "destination_may_be_partial": bool(destructive and current == "running"),
-                    })
-                else:
-                    store.append(operation_id, "failed", {
-                        "error_type": type(exc).__name__,
-                        "error": str(exc)[:512],
-                    })
+                store.append(operation_id, "failed", {
+                    "error_type": type(exc).__name__,
+                    "error": str(exc)[:512],
+                })
         except Exception:
             pass
         raise
