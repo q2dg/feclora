@@ -69,7 +69,10 @@ network. Multicast additionally requires a network whose IGMP snooping and
 querier behavior has been independently configured and checked.
 
 1. Verify the image manifest and every referenced artifact in Cockpit before
-   creating the deployment.
+   creating the deployment. A present signature must verify against an
+   independently trusted key; an encrypted artifact must decrypt/authenticate
+   with the configured age identity. Do not treat SHA-256 alone as publisher
+   authentication.
 2. Record each Client's target disk identity, capacity, sector size and
    existing partition layout. Confirm all targets are disposable.
 3. For unicast, create a restore job for one enrolled Client and complete the
