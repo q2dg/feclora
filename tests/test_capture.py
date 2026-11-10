@@ -39,8 +39,47 @@ class CaptureTests(unittest.TestCase):
         self.assertEqual(plan.image_format, "partclone")
         self.assertEqual(
             plan.argv,
-            ("/usr/sbin/partclone.ext4", "-c", "-s", "/dev/sda1"),
+            ("/usr/sbin/partclone.ext4", "-c", "-s", "/dev/sda1", "-F", "-f", "1"),
         )
+
+    def test_partclone_legacy_block_counters_map_to_partition_bytes(self):
+        from feclora.storage.capture import _partclone_stderr_progress
+        self.assertEqual(
+            _partclone_stderr_progress(
+                b"Current block: 25, Total block: 100, Complete: 25.00%", 8192,
+            ),
+            (2048, 8192),
+        )
+        self.assertIsNone(_partclone_stderr_progress(b"no progress yet", 8192))
+
+    def test_capture_uses_partclone_legacy_stderr_block_progress(self):
+        with tempfile.TemporaryDirectory() as directory:
+            progress = []
+            proc = FakeProcess(["partclone.ext4"], b"partclone stream")
+            def factory(argv, **kwargs):
+                self.assertIn("-F", argv)
+                self.assertIn("-f", argv)
+                out_r, out_w = os.pipe()
+                err_r, err_w = os.pipe()
+                os.write(out_w, b"partclone stream")
+                os.close(out_w)
+                os.write(err_w, b"Current block: 25, Total block: 100, Complete: 25.00%\\r")
+                os.close(err_w)
+                proc.stdout = os.fdopen(out_r, "rb")
+                proc.stderr = os.fdopen(err_r, "rb")
+                return proc
+            with patch("feclora.storage.capture._partclone_supports_json_status", return_value=False):
+                capture_partition(
+                    "/dev/fake1", "ext4", directory, "part.img", "1",
+                    {"partclone.ext4": "/usr/bin/partclone.ext4"},
+                    device_validator=lambda _path: True,
+                    source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                    expected_size_bytes=8192,
+                    progress_callback=lambda done, total: progress.append((done, total)),
+                    popen_factory=factory,
+                )
+            self.assertIn((2048, 8192), progress)
+            self.assertEqual(os.listdir(directory), ["part.img"])
 
     def test_partclone_json_status_is_parsed_as_logical_data_bytes(self):
         with tempfile.TemporaryDirectory() as directory:
