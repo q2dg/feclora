@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import stat
+import shutil
 from typing import Any, Callable
 
 from feclora.deployment.artifact_transfer import ImageTransferError, receive_image_set, send_image_set
