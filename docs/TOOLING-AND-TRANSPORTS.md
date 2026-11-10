@@ -54,12 +54,13 @@ resuming, deleting or concurrent writers.
   authenticity mechanism is still required before destructive or unattended
   actions; SHA-256 alone detects corruption but does not authenticate the
   publisher.
-- Current unattended-profile, SFTP and some deployment/multicast code paths
-  still have minisign-specific requirements, and enrollment/recipient flows
-  still have age-specific fields. Those are implementation gaps against the
-  optional-tool policy. Do not claim minisign-free or age-free support for
-  those particular paths until the verifier/configuration interfaces and
-  optional enrollment flows are implemented and tested.
+- The baseline TLS enrollment, renewal, unicast and multicast deployment paths
+  accept absent age/minisign material. The remaining minisign-specific paths are
+  the SFTP signed-image-set workflow and signed unattended restore profiles;
+  they are optional features, not baseline installation requirements. A
+  configurable verifier or an explicitly documented SSH-host/root-owned-local
+  trust policy is still needed before those features can be used without
+  minisign.
 - TLS/X.509 identity, mTLS peer authentication and Feclora job authorization
   are separate from optional image encryption/signing. Never substitute one
   key type or security role for another.
