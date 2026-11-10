@@ -1346,6 +1346,7 @@ class WebAPITests(unittest.TestCase):
                 "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
             }
             with patch("feclora.webapi._client_runtime_config", return_value=SimpleNamespace(trusted_server_public_key=str(key))), \
+                 patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(st_mode=0o100600, st_uid=0)), \
                  patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("inspect-123")), \
                  patch("feclora.storage.sftp_image_set.inspect_remote_image_set", return_value=expected) as inspect:
                 result = dispatch({"action": "inspect_sftp_image_set", "params": params})
@@ -1374,6 +1375,7 @@ class WebAPITests(unittest.TestCase):
                 },
             }
             with patch("feclora.webapi._repository", return_value=root), \
+                 patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(st_mode=0o100600, st_uid=0)), \
                  patch("feclora.webapi._client_runtime_config", return_value=None), \
                  patch("feclora.webapi._security_material", return_value={
                      "age_decryption_available": False, "image_verification_available": True,
