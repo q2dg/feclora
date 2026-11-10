@@ -38,6 +38,30 @@ class LocalOperationStoreTests(unittest.TestCase):
         validated = validate_definition(definition)
         self.assertEqual(validated["params"]["sftp_publish"]["port"], 2222)
 
+    def test_capture_rejects_sftp_publication_path_traversal_before_queueing(self):
+        for remote_directory in (
+            "/images/../escape", "/images/./daily", "/images//daily",
+            "//backup/images", "/images/../../etc", "/images/space name",
+        ):
+            with self.subTest(remote_directory=remote_directory):
+                definition = {
+                    "schema_version": 1,
+                    "operation_id": "00000000-0000-4000-8000-000000000001",
+                    "action": "capture_disk",
+                    "params": {
+                        "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                        "encrypt": False, "sign": True,
+                        "sftp_publish": {
+                            "host": "backup.example.net", "username": "backup",
+                            "remote_directory": remote_directory,
+                            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+                            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+                        },
+                    },
+                }
+                with self.assertRaisesRegex(LocalOperationError, "absolute and normalized"):
+                    validate_definition(definition)
+
     def test_capture_sftp_publication_requires_signed_manifest(self):
         definition = {
             "schema_version": 1,
