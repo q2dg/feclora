@@ -52,7 +52,8 @@ class CockpitClientTests(unittest.TestCase):
         )) as create:
             result = prepare_client_renewal({"export_directory": "/run/media/test/USB"})
         create.assert_called_once_with(
-            "/etc/feclora/pki", "/run/media/test/USB", "lab-01", reuse_existing_key=True,
+            "/etc/feclora/pki", "/run/media/test/USB", "lab-01",
+            reuse_existing_key=True, age_keygen=None,
         )
         self.assertEqual(result["identity"], config.local_identity)
         self.assertIsNone(result["minisign_public_file"])
