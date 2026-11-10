@@ -155,24 +155,14 @@ class RepositoryMountServiceTests(unittest.TestCase):
     def test_webdav_rejects_encrypted_credentials_until_davfs2_user_config_design(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            credential_root = root / "encrypted"
-            credential_root.mkdir(mode=0o700)
-            encrypted = credential_root / "feclora-webdav-password.cred"
-            repo = RemoteRepository(
-                provider="webdav", host="dav.example.net", remote_path="/images",
-                mountpoint=str(root / "mounts" / "dav"), username="backup",
-                credential_file="/etc/davfs2/secrets", identity_file=None,
-                known_hosts_file=None, port=None, read_only=True,
-            )
-            manager = RemoteRepositoryManager(
-                registry=root / "etc" / "repositories.json",
-                mount_root=root / "mounts", credential_root=credential_root,
-                effective_uid=lambda: 0, owner_uid=os.getuid(),
-            )
-            with self.assertRaisesRegex(
-                RepositoryManagerError, "WebDAV encrypted credentials are not supported yet"
-            ):
-                manager._encrypted_credential_bindings(repo)
+            encrypted = root / "feclora-webdav-password.cred"
+            with self.assertRaisesRegex(RepositoryError, "root-managed /etc/davfs2/secrets"):
+                RemoteRepository(
+                    provider="webdav", host="dav.example.net", remote_path="/images",
+                    mountpoint=str(root / "mounts" / "dav"), username="backup",
+                    credential_file=str(encrypted), identity_file=None,
+                    known_hosts_file=None, port=None, read_only=True,
+                )
 
 
 
