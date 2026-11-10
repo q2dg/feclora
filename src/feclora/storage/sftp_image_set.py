@@ -8,7 +8,6 @@ published without replacing an existing image.
 """
 from __future__ import annotations
 
-import ctypes
 import hashlib
 import os
 import posixpath
@@ -56,22 +55,6 @@ def _remote_directory(value: str) -> str:
             or any(part in {".", ".."} for part in value.split("/"))):
         raise SFTPImageSetError("remote image-set directory must be an absolute normalized path")
     return value.rstrip("/") or "/"
-
-
-def _publish_directory_noreplace(source: str, destination: str) -> None:
-    """Atomically rename a directory without replacing an existing image."""
-    libc = ctypes.CDLL(None, use_errno=True)
-    renameat2 = getattr(libc, "renameat2", None)
-    if renameat2 is None:
-        raise SFTPImageSetError("atomic no-replace directory publication is unavailable")
-    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
-    renameat2.restype = ctypes.c_int
-    result = renameat2(-100, os.fsencode(source), -100, os.fsencode(destination), 1)
-    if result != 0:
-        error = ctypes.get_errno()
-        if error == 17:
-            raise SFTPImageSetError("an image with this ID already exists; refusing to overwrite it")
-        raise SFTPImageSetError(f"could not atomically publish verified image set (errno {error})")
 
 
 def _validate_manifest_filenames(manifest: ImageManifest) -> None:
