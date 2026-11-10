@@ -5,15 +5,15 @@ This document is the dependency-ordered implementation backlog and acceptance co
 
 ## Product target: bootable Live system with six Cockpit workflows
 
-The maintainer's end-user requirements and measurable release gates are defined in [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md). That document is authoritative for the six workflows: (1) local disk/partition clone, (2) remote disk/partition clone with DHCP/static networking, (3) capture to SSHFS/SFTP/NFS/SMB/WebDAV/S3, (4) restore from those repositories to one local target, (5) multi-Client restore with manual Feclora boot or PXE, and (6) unattended multi-Client restore. It also defines the Cockpit-first operating modes, security invariants, documentation gates and operator ISO acceptance.
+The maintainer's end-user requirements and measurable release gates are defined in [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md). That document is authoritative for the six workflows: (1) local disk/partition clone, (2) remote disk/partition clone with DHCP/static networking, (3) capture to SSHFS/SFTP/NFS/SMB/WebDAV/S3, (4) restore from those repositories to one local target, (5) multi-Client restore with manual Feclora boot or PXE, and (6) unattended multi-Client restore. BitTorrent is an optional distribution transport for immutable artifacts, not a writable repository or a required provider. It also defines the Cockpit-first operating modes, security invariants, documentation gates and operator ISO acceptance.
 
 Do not mark a workflow complete because an engine, command builder, protocol primitive or operator acceptance recipe exists. Completion requires an end-to-end Cockpit path, backend/runtime integration, safe authorization and failure handling, progress/results, automated software tests, operator acceptance procedure and a matching published step-by-step guide. In particular, S3 read-only support does not satisfy image capture; SFTP is distinct from SSHFS; current PXE service activation does not equal PXE job handoff; and signed restore-profile primitives do not equal unattended fleet restore.
 
 ## Delivery principles
-1. Reuse existing engines and security primitives; inspect current code before creating parallel implementations.
+1. Reuse existing engines and mature system tools; inspect current code before creating parallel implementations. Prefer Partclone for supported filesystems, UDPcast for multicast, NetworkManager for network configuration/checkpoints, OpenSSL for TLS/X.509 operations, systemd for services/workers/credentials, and established SSH/SFTP, NFS, SMB, davfs2 and rclone implementations for transport/storage. Evaluate a maintained BitTorrent client rather than implementing the protocol.
 2. A feature is complete only when runtime, privileged API, Cockpit workflow, failure handling, automated tests and documentation agree.
 3. Destructive operations fail closed, require explicit authorization and verify results.
-4. Never persist passwords, private keys, age identities or minisign secret keys in profiles, journals, logs or browser storage.
+4. Never persist passwords, private keys, `age` identities or `minisign` secret keys in profiles, journals, logs or browser storage. `age` and `minisign` are optional integrations, not mandatory packages or release gates; preserve a safe non-age/non-minisign workflow and document the configured authenticity mechanism.
 5. Interrupted writes are never silently resumed; affected destinations remain untrusted until verified or restored.
 6. Keep local rescue and Server/Client fleet orchestration separate while sharing storage engines.
 7. Never claim hardware/PXE/switch acceptance from unit tests alone.
@@ -43,7 +43,7 @@ Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS ke
 - [x] Add a root-owned, atomic CA trust-bundle builder that validates CA constraints, certificate-signing usage, unique SHA-256 fingerprints and bounded PEM inputs. (Local building block only; authenticated package distribution remains pending.)
 - [x] Validate Client leaf certificates against any explicitly fingerprinted CA anchor in an imported PEM bundle and retain the complete bundle as the Client trust file.
 - [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
-- [ ] Specify and implement minisign signing-key rotation and age recipient/identity rotation separately from TLS PKI.
+- [ ] If configured, specify and implement signing-key rotation and age recipient/identity rotation separately from TLS PKI. These optional integrations must not block the baseline product or release.
 - [x] Add encrypted offline CA backup to mounted removable media using an independently supplied age recipient; private CA material remains in root-only staging until encrypted.
 - [x] Add non-destructive Cockpit backup inspection: age decryption, strict archive/manifest validation, CA fingerprint and key-pair checks; never installs material.
 - [ ] Implement verified CA backup restore and compromise recovery; no manual overwrite of a live PKI directory.
@@ -60,6 +60,9 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Add an initial standalone OpenSSH SFTP file-transfer primitive with pinned host keys, staged hard-link no-overwrite upload, and SHA-256-verified download; keep it separate from SSHFS mounts.
 - [x] Add systemd-creds-backed SFTP transfer execution and signed image-set publish/fetch primitives with minisign and artifact digest verification.
 - [ ] Complete the SFTP provider: multi-directory inventory/discovery, durable transfer progress, cancellation, retry/resume, provider health checks and operational acceptance.
+- [ ] Complete safe WebDAV per-repository credential isolation and provider lifecycle; do not depend on the global davfs2 secrets file.
+- [ ] Complete S3-compatible provider-aware publication only where conditional no-overwrite creation, multipart completion semantics and remote read-back are guaranteed; otherwise expose read-only capabilities accurately.
+- [ ] Design optional BitTorrent artifact distribution using a maintained implementation, trusted manifest/digest verification, authorized job binding, cancellation, cleanup, peer/bandwidth policy and acceptance tests. Do not present it as a writable repository.
 - [x] Add optional repository-ID routing for whole-disk/partition capture, restore and partition extraction; resolve only mounted, verified repositories and enforce read-only mounts for writes. Local repository remains the backward-compatible default.
 - [x] Expose repository selection and per-repository image inventory in Cockpit; route capture, restore, verification, layout inspection and partition extraction to the selected verified mount.
 - Operator acceptance (documented in `ACCEPTANCE-TESTS.md`): run remote-server checks on SSHFS, NFS and SMB/CIFS, including NFS root-squash/ownership and failure/interruption cases. These physical/provider runs are not implementation blockers.
