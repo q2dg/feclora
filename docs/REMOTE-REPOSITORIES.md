@@ -348,6 +348,10 @@ Cockpit UI. A complete provider workflow and operator acceptance remain
 pending. Unit tests have been added but have not been executed in this session.
 
 
+### Automatic SFTP publication after capture
+
+The disk and partition capture forms also provide an optional **SFTP post-capture publication** setting. When enabled, the capture definition stores only the host, remote directory and encrypted credential references in the root-owned durable operation record. The capture must be signed; unsigned capture plus SFTP publication is rejected during job validation. After the native capture completes, the worker verifies the newly written manifest signature and each artifact digest, then publishes the set through the same no-overwrite SFTP image-set publisher. The capture job is reported failed if publication fails, but the successfully captured local image remains in the repository and can be published manually or retried after the remote conflict/connectivity issue is resolved. SFTP upload still has no byte-level progress, cancellation, resume or automatic retry.
+
 ### Cockpit SFTP publication and import
 
 The Remote Repositories tab exposes two explicit operations:
