@@ -296,6 +296,7 @@ export default function App() {
 
   const selectImageRepository = async (id) => {
     setSelectedRepositoryId(id); setRepositoryImages([]); setImageVerification({});
+    if (id) setRestoreFromSftp(false);
     setExtractLayout(null); setExtractPartitionSelector(""); setExtractPartitionResult(null);
     setRestoreLayoutPreview(null);
     if (!id) return;
@@ -921,7 +922,7 @@ export default function App() {
                 <Card><CardBody>
                   <form onSubmit={runOperation}>
                     <Field label="Operation">
-                      <select className="pf-v5-c-form-control" value={operation} onChange={(e) => { setOperation(e.target.value); setSource(""); setTarget(""); setImageId(""); setPartitionId(""); setRestoreLayoutPreview(null); setConfirmation(""); setOperationResult(null); }}>
+                      <select className="pf-v5-c-form-control" value={operation} onChange={(e) => { setOperation(e.target.value); setSource(""); setTarget(""); setImageId(""); setRestoreFromSftp(false); setPartitionId(""); setRestoreLayoutPreview(null); setConfirmation(""); setOperationResult(null); }}>
                         {Object.entries(OPERATION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                       </select>
                     </Field>
@@ -970,7 +971,15 @@ export default function App() {
                         {selectedRepositoryId && <p>Clear the mounted repository selection to restore directly from SFTP.</p>}
                       </Field>
                       <Field label={isDisk ? "Disk image" : "Partition image"}>
-                        <select className="pf-v5-c-form-control" value={imageId} disabled={busy || restoreFromSftp} onChange={(e) => { setImageId(e.target.value); if (isDisk) inspectRestoreLayout(e.target.value); else setRestoreLayoutPreview(null); }}>
+                        <select className="pf-v5-c-form-control" value={imageId} disabled={busy || restoreFromSftp} onChange={(e) => {
+                          const value = e.target.value;
+                          if (sftpInspectionMatchesCurrent && value === sftpRemoteInspection.image_id) {
+                            setRestoreFromSftp(true); setImageId(value); setRestoreLayoutPreview(null);
+                          } else {
+                            setRestoreFromSftp(false); setImageId(value);
+                            if (isDisk) inspectRestoreLayout(value); else setRestoreLayoutPreview(null);
+                          }
+                        }}>
                           <option value="">Select an image…</option>
                           {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                           {sftpInspectionMatchesCurrent && sftpRemoteInspection.image_type === (isDisk ? "disk" : "partition") && <option value={sftpRemoteInspection.image_id}>{sftpRemoteInspection.image_id} · authenticated SFTP image</option>}
