@@ -24,7 +24,6 @@ def credential_bindings(
     """Resolve exactly one encrypted ssh-key and known-hosts reference."""
     store_manager = manager or RemoteRepositoryManager()
     try:
-        inventory = store_manager._load()
         from feclora.storage.systemd_credential_store import SystemdCredentialStore
         store = SystemdCredentialStore(
             store_manager.credential_root,
@@ -56,14 +55,12 @@ def build_systemd_transfer_argv(
         raise RepositoryManagerError("SFTP operation must be upload or download")
     if not unit.startswith("feclora-sftp-") or not unit.endswith(".service"):
         raise RepositoryManagerError("SFTP transient unit name is invalid")
-    if len(bindings) != 2 or {name for name, _ in bindings} != {
-        "feclora-" + Path(bindings[0][1]).stem.removesuffix("-ssh-key") + "-ssh-key",
-        "feclora-" + Path(bindings[1][1]).stem.removesuffix("-known-hosts") + "-known-hosts",
-    }:
-        # The store validates names and kinds; this guard only rejects malformed
-        # or duplicated binding lists before constructing systemd properties.
-        if len({name for name, _ in bindings}) != 2:
-            raise RepositoryManagerError("SFTP requires distinct key and known_hosts credentials")
+    if len(bindings) != 2:
+        raise RepositoryManagerError("SFTP requires exactly two encrypted credentials")
+    key_binding = next((item for item in bindings if item[0].endswith("-ssh-key")), None)
+    hosts_binding = next((item for item in bindings if item[0].endswith("-known-hosts")), None)
+    if key_binding is None or hosts_binding is None or key_binding == hosts_binding:
+        raise RepositoryManagerError("SFTP requires distinct ssh-key and known-hosts credentials")
     command = [
         systemd_run, f"--unit={unit}", "--wait", "--pipe", "--collect",
         "--property=User=root", "--property=Group=root",
@@ -76,6 +73,8 @@ def build_systemd_transfer_argv(
         python, "-m", "feclora.storage.sftp_transfer_service", operation,
         "--host", host, "--username", username, "--remote-path", remote_path,
         "--local-path", local_path, "--port", str(port),
+        "--identity-credential-name", key_binding[0],
+        "--known-hosts-credential-name", hosts_binding[0],
     ])
     if expected_sha256 is not None:
         command.extend(["--expected-sha256", expected_sha256])
@@ -87,8 +86,17 @@ def _credential_path(name: str) -> str:
     if not directory or not os.path.isabs(directory):
         raise SFTPTransferError("systemd credential directory is unavailable")
     path = Path(directory) / name
-    if not path.is_file() or path.is_symlink():
-        raise SFTPTransferError("required SFTP service credential is unavailable")
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as exc:
+        raise SFTPTransferError("required SFTP service credential is unavailable") from exc
+    try:
+        import stat
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+            raise SFTPTransferError("systemd SFTP credential has unsafe ownership or permissions")
+    finally:
+        os.close(fd)
     return str(path)
 
 
@@ -100,6 +108,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--remote-path", required=True)
     parser.add_argument("--local-path", required=True)
     parser.add_argument("--port", type=int, default=22)
+    parser.add_argument("--identity-credential-name", required=True)
+    parser.add_argument("--known-hosts-credential-name", required=True)
     parser.add_argument("--expected-sha256")
     args = parser.parse_args(argv)
     try:
@@ -108,8 +118,8 @@ def main(argv: list[str] | None = None) -> int:
             raise SFTPTransferError("SFTP transfer must run with systemd credentials")
         # Credential names are fixed by the registered store reference IDs
         # passed as environment-free service arguments by the unit wrapper.
-        identity = os.environ.get("FECLORA_SFTP_IDENTITY_NAME", "")
-        known_hosts = os.environ.get("FECLORA_SFTP_KNOWN_HOSTS_NAME", "")
+        identity = args.identity_credential_name
+        known_hosts = args.known_hosts_credential_name
         if not identity or not known_hosts or identity == known_hosts:
             raise SFTPTransferError("SFTP credential references are missing")
         key = _credential_path(identity)
