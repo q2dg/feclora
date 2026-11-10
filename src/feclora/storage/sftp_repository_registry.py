@@ -121,6 +121,21 @@ class SFTPRepositoryRegistry:
             if (not isinstance(identifier, str) or not _ID.fullmatch(identifier)
                     or not isinstance(definition, dict) or set(definition) != required_fields):
                 raise SFTPRepositoryRegistryError("SFTP repository registry contains an invalid definition")
+            if (not isinstance(definition["host"], str) or not _HOST.fullmatch(definition["host"])
+                    or definition["host"].endswith(".") or ".." in definition["host"]
+                    or not isinstance(definition["username"], str) or not _USER.fullmatch(definition["username"])):
+                raise SFTPRepositoryRegistryError("SFTP repository registry contains invalid endpoint fields")
+            remote = definition["remote_directory"]
+            if (not isinstance(remote, str) or not _REMOTE.fullmatch(remote)
+                    or remote.startswith("//") or os.path.normpath(remote) != remote
+                    or any(part in {".", ".."} for part in remote.split("/"))):
+                raise SFTPRepositoryRegistryError("SFTP repository registry contains an invalid remote directory")
+            if (isinstance(definition["port"], bool) or not isinstance(definition["port"], int)
+                    or not 1 <= definition["port"] <= 65535):
+                raise SFTPRepositoryRegistryError("SFTP repository registry contains an invalid port")
+            if any(not isinstance(definition[field], str) or not _CREDENTIAL.fullmatch(definition[field])
+                   for field in ("identity_credential", "known_hosts_credential")):
+                raise SFTPRepositoryRegistryError("SFTP repository registry contains an invalid credential reference")
         return repositories
 
     def _write(self, repositories: dict[str, dict[str, Any]]) -> None:
