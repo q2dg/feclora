@@ -168,12 +168,12 @@ def refresh_client_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
-    if set(params) != {"client_id", "export_directory", "image_capture"}:
-        raise CockpitEnrollmentError("prepare_client_request requires client_id, export_directory and image_capture")
+    if set(params) != {"client_id", "export_directory", "image_signing"}:
+        raise CockpitEnrollmentError("prepare_client_request requires client_id, export_directory and image_signing")
     client_id = params["client_id"]
     if not isinstance(client_id, str) or not _CLIENT_ID.fullmatch(client_id):
         raise CockpitEnrollmentError("Client identifier must contain 1-48 lowercase letters, digits or hyphens")
-    if not isinstance(params["image_capture"], bool):
+    if not isinstance(params["image_signing"], bool):
         raise CockpitEnrollmentError("image_capture must be boolean")
     if os.path.lexists(CONFIG):
         raise CockpitEnrollmentError("Client is already configured; use the renewal workflow")
@@ -196,7 +196,7 @@ def prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
         identity, private_key, exported_csr = create_client_csr(
             PKI, export, client_id, age_keygen=shutil.which("age-keygen"),
         )
-        if params["image_capture"]:
+        if params["image_signing"]:
             result = subprocess.run(
                 ["/usr/bin/minisign", "-G", "-s", secret, "-p", public, "-W"],
                 stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=60,
@@ -396,7 +396,7 @@ def complete_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
         raise
     return {
         "identity": updated.local_identity, "certificate_file": installed["certificate_file"],
-        "image_capture_enabled": bool(updated.local_minisign_secret_key),
+        "image_signing_enabled": bool(updated.local_minisign_secret_key),
         "message": "Renewed TLS certificate installed and validated. Existing TLS identity is preserved; optional age and minisign material is refreshed only when supplied and verified.",
     }
 
@@ -519,7 +519,7 @@ def complete_client_enrollment(params: dict[str, Any]) -> dict[str, Any]:
         raise
     return {
         "identity": config["local_identity"], "host": host, "mac_address": normalized_mac,
-        "image_capture_enabled": bool(config["local_minisign_secret_key"]),
+        "image_signing_enabled": bool(config["local_minisign_secret_key"]),
         "age_encryption_enabled": bool(config["age_recipients_file"]),
         "message": "Client TLS certificate installed. Optional age and minisign image-protection material was installed only when provided and independently verified.",
     }
