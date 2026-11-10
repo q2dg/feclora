@@ -820,9 +820,13 @@ def _verify_image(params: dict[str, Any]) -> dict[str, Any]:
                 finally:
                     if decoded_stream is not verified_stream:
                         decoded_stream.close()
-            if artifact.role == "disk-image" and decoded_bytes != manifest.source_size_bytes:
+            if (
+                artifact.role == "disk-image"
+                or (artifact.role == "partition-image" and artifact.format == "raw")
+            ) and decoded_bytes != manifest.source_size_bytes:
+                label = "disk" if artifact.role == "disk-image" else "raw partition"
                 raise WebAPIError(
-                    f"decoded disk artifact size mismatch: expected {manifest.source_size_bytes}, got {decoded_bytes}"
+                    f"decoded {label} artifact size mismatch: expected {manifest.source_size_bytes}, got {decoded_bytes}"
                 )
             total_decoded += decoded_bytes
             artifact_reports.append({
