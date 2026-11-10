@@ -43,7 +43,7 @@ DHCP and static IPv4 must be supported independently on Server and Client where 
 
 **Outcome:** Capture a whole disk or partition and publish the image, manifest and integrity metadata to a selected remote repository.
 
-Required repository types: SSHFS (mounted filesystem), SFTP (file-transfer provider, distinct from SSHFS), NFS, SMB/CIFS, WebDAV and S3-compatible object storage. BitTorrent is an optional peer-to-peer distribution transport for immutable artifacts, not a mandatory repository type or a writable repository contract.
+Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer provider, distinct from SSHFS), NFS, SMB/CIFS, WebDAV and S3-compatible object storage. BitTorrent is an optional peer-to-peer distribution transport for immutable artifacts, not a mandatory repository type or a writable repository contract. Every endpoint/server/export/share/bucket/tracker/peer is external infrastructure administered independently of Feclora. Feclora only connects to it as a client; it must not deploy, configure or administer that infrastructure.
 
 - [ ] Cockpit can create, edit, test, connect/mount, inspect, disconnect/unmount and remove each provider advertised as supported.
 - [ ] Credentials/private keys use root-owned protected storage; secrets never enter browser storage, ordinary configuration, logs, journals or URLs.
