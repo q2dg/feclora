@@ -1670,7 +1670,7 @@ export default function App() {
                   <Field label="Remote job UUID">
                     <input className="pf-v5-c-form-control" value={clientRemoteJobId} onChange={(event) => { setClientRemoteJobId(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); }} placeholder="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" />
                   </Field>
-                  <Field label="Local Client network interface" help="Select the IPv4 address used as the source for the authenticated connection to the Server. The address is revalidated immediately before connection.">
+                  <Field label="Local multicast receive interface (also used for the authenticated Server connection)" help="Select the local IPv4 interface/address used for the authenticated Server connection and, for multicast jobs, the UDPcast receive interface. The address and interface are revalidated before connection or receive startup.">
                     <select className="pf-v5-c-form-control" value={clientRemoteInterface} onChange={(event) => { setClientRemoteInterface(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); setClientRemoteIgmpConfirmed(false); }}>
                       <option value="">Select Client interface/address…</option>
                       {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
