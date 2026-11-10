@@ -8,6 +8,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+from .process_control import stop_process
 import zlib
 from contextlib import contextmanager
 from typing import Any, Callable
@@ -314,9 +315,7 @@ def restore_disk(
                     decoded.finish()
                 process.stdin.close()
             except (BrokenPipeError, OSError, EOFError, lzma.LZMAError, zlib.error, CompressionError) as exc:
-                if process.poll() is None:
-                    process.terminate()
-                process.wait()
+                stop_process(process)
                 raise DiskRestoreError(f"failed while streaming image to dd: {exc}") from exc
             return_code = process.wait()
             if return_code != 0:
@@ -376,16 +375,12 @@ def restore_disk(
                                 f"image bytes were restored and read-back verified, but GPT relocation/verification failed: {exc}"
                             ) from exc
                 finally:
-                    if verify_process is not None and verify_process.poll() is None:
-                        verify_process.terminate()
-                        verify_process.wait()
+                    stop_process(verify_process)
                     verify_stderr.close()
             except (OSError, PrivilegeError, SourceSafetyError) as exc:
                 raise DiskRestoreError(f"read-back verification could not be completed: {exc}") from exc
         finally:
-            if process is not None and process.poll() is None:
-                process.terminate()
-                process.wait()
+            stop_process(process)
             if decoded is not image:
                 decoded.close()
             stderr_file.close()
