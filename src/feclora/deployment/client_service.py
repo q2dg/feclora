@@ -289,6 +289,8 @@ class ClientDeploymentService:
             self._set_status("connecting", detail="Connecting to the authenticated Server; no local disk operation has started.")
 
             def prepare_local_target(job):
+                if job.operation != "save" and (image_encrypt or image_sign):
+                    raise DeploymentControlError("per-image encryption/signing selections are valid only for a save job")
                 if job.job_id != self.job_id or job.transport not in {"unicast", "multicast"}:
                     raise DeploymentControlError("Server job does not match this Client service request or supported transport")
                 staging_detail = ""
