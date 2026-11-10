@@ -1,4 +1,4 @@
 # Optional image-security integrations.
-# Install only when operators choose these capabilities.
+# The default rescue ISO bundles these for offline availability; lean/custom builds may omit them.
 age
 minisign
