@@ -43,7 +43,7 @@ or synthetic screenshot is presented as an actual application screen.
   an implemented repository provider. Do not infer capture support for every provider.
 
 - [Whole-disk capture](WHOLE-DISK-CAPTURE.html) and
-  [partition capture](PARTITION-CAPTURE.html) — **Available**
+  [partition capture](PARTITION-CAPTURE.html) — **Available in Cockpit**
   Capture to the local repository or a selected active, verified remote
   repository with write access. S3 remains read-only.
 
