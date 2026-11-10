@@ -100,7 +100,7 @@ class ServerRuntimeConfig:
     private_key_file: str
     client_identity_to_mac: Mapping[str, str]
     client_minisign_public_keys: Mapping[str, str]
-    server_minisign_public_key: str
+    server_minisign_public_key: str | None
     repository: str
 
 
@@ -147,7 +147,7 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
         private_key_file=_secure_file(value["private_key_file"], "Server private key", private=True),
         client_identity_to_mac=normalized,
         client_minisign_public_keys=checked_client_keys,
-        server_minisign_public_key=_secure_file(value["server_minisign_public_key"], "Server minisign public key"),
+        server_minisign_public_key=(_secure_file(value["server_minisign_public_key"], "Server minisign public key") if value["server_minisign_public_key"] is not None else None),
         repository=_repository(value["repository"]),
     )
 
@@ -162,7 +162,7 @@ class ClientRuntimeConfig:
     ca_file: str
     certificate_file: str
     private_key_file: str
-    trusted_server_public_key: str
+    trusted_server_public_key: str | None
     local_minisign_secret_key: str | None
     local_minisign_public_key: str | None
     age_identity_file: str | None
@@ -208,7 +208,7 @@ def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
         ca_file=_secure_file(value["ca_file"], "deployment CA certificate"),
         certificate_file=_secure_file(value["certificate_file"], "Client certificate"),
         private_key_file=_secure_file(value["private_key_file"], "Client private key", private=True),
-        trusted_server_public_key=_secure_file(value["trusted_server_public_key"], "trusted Server minisign public key"),
+        trusted_server_public_key=(_secure_file(value["trusted_server_public_key"], "trusted Server minisign public key") if value["trusted_server_public_key"] is not None else None),
         local_minisign_secret_key=checked_minisign_secret,
         local_minisign_public_key=checked_minisign_public,
         age_identity_file=_secure_file(age_identity, "age identity file", private=True) if age_identity is not None else None,
