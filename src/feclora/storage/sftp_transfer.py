@@ -75,7 +75,7 @@ def build_sftp_argv(
     return [
         executable, "-F", "/dev/null", "-b", "-", "-P", str(port),
         "-oBatchMode=yes", "-oIdentitiesOnly=yes", "-oStrictHostKeyChecking=yes",
-        f"-oUserKnownHostsFile={known_hosts}", f"-oIdentityFile={key}",
+        "-oGlobalKnownHostsFile=/dev/null", f"-oUserKnownHostsFile={known_hosts}", f"-oIdentityFile={key}",
         "-oConnectTimeout=15", "-oServerAliveInterval=15",
         "-oServerAliveCountMax=3", "-oClearAllForwardings=yes",
         f"{username}@{host}",
@@ -108,6 +108,7 @@ def _local_regular(path: str | os.PathLike[str]) -> tuple[str, int, str]:
         fd = os.open(local, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         info = os.fstat(fd)
         if not stat.S_ISREG(info.st_mode):
+            os.close(fd)
             raise SFTPTransferError("local SFTP transfer source must be a regular file")
         digest = hashlib.sha256()
         size = 0
@@ -142,10 +143,17 @@ def upload_file(
         host=host, username=username, identity_file=identity_file,
         known_hosts_file=known_hosts_file, port=port,
     )
-    _run_batch(argv, [
-        f"put {_batch_quote(local)} {_batch_quote(staged)}",
-        f"rename {_batch_quote(staged)} {_batch_quote(target)}",
-    ], runner=runner, timeout=timeout)
+    try:
+        _run_batch(argv, [
+            f"put {_batch_quote(local)} {_batch_quote(staged)}",
+            f"rename {_batch_quote(staged)} {_batch_quote(target)}",
+        ], runner=runner, timeout=timeout)
+    except SFTPTransferError:
+        try:
+            _run_batch(argv, [f"rm {_batch_quote(staged)}"], runner=runner, timeout=min(timeout, 30))
+        except SFTPTransferError:
+            pass
+        raise
     return {"remote_path": target, "size_bytes": size, "sha256": digest, "published": True}
 
 
