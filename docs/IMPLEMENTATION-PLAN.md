@@ -262,7 +262,7 @@ pre-existing files are preserved.
 - [ ] Add saved SFTP repository definitions, multi-directory inventory/discovery and provider health checks.
 - [x] Add a Cockpit/API action to publish an existing locally signed image set to SFTP, verifying the local minisign signature and artifact digests before upload.
 - [x] Add optional automatic SFTP publication to durable disk/partition capture jobs, requiring a signed manifest and registered encrypted SSH-key/known_hosts credentials.
-- [x] Integrate authenticated SFTP image selection with durable disk/partition restore jobs; bind the requested image ID to the signed remote manifest and verify all artifacts before destructive restore starts.
+- [x] Integrate authenticated SFTP image selection with durable disk/partition restore jobs; bind the requested image ID and inspected manifest SHA-256 to the signed remote manifest, then verify all artifacts before destructive restore starts.
 - [ ] Implement transfer byte progress, cancellation, retry/resume and full provider acceptance for SFTP-backed restore jobs.
 - [ ] Add operational guide and current screenshots after Cockpit workflow acceptance.
 
