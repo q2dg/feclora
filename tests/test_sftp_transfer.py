@@ -21,19 +21,13 @@ class SFTPTransferTests(unittest.TestCase):
             known.write_text("host-key", encoding="ascii")
             key.chmod(0o600)
             known.chmod(0o644)
-            with patch("feclora.storage.sftp_transfer.os.fstat") as fstat:
-                real_fstat = os.fstat
-                def stat_fd(fd):
-                    result = real_fstat(fd)
-                    return result
-                fstat.side_effect = stat_fd
-                # The test host need not be root; ownership is exercised by
-                # the explicit credential guard tests in the repository suite.
-                with patch("feclora.storage.sftp_transfer._credential", side_effect=[str(key), str(known)]):
-                    argv = build_sftp_argv(
-                        host="sftp.example.net", username="backup",
-                        identity_file=str(key), known_hosts_file=str(known),
-                    )
+            # The test host need not be root; the path policy is covered by
+            # the manager credential-store tests. Here we exercise argv policy.
+            with patch("feclora.storage.sftp_transfer._credential", side_effect=[str(key), str(known)]):
+                argv = build_sftp_argv(
+                    host="sftp.example.net", username="backup",
+                    identity_file=str(key), known_hosts_file=str(known),
+                )
             self.assertIn("-b", argv)
             self.assertIn("StrictHostKeyChecking=yes", argv)
             self.assertIn(f"-oUserKnownHostsFile={known}", argv)
@@ -61,7 +55,7 @@ class SFTPTransferTests(unittest.TestCase):
             self.assertTrue(commands[0].startswith('put "'))
             self.assertIn(".feclora-", commands[0])
             self.assertEqual(commands[1].split()[-1], '"/images/disk.img"')
-            self.assertIn("Strict", " ".join(calls[0][0]) if calls[0][0] else "")
+            self.assertEqual(calls[0][0], ["sftp"])
 
     def test_upload_rejects_parent_traversal(self):
         with tempfile.TemporaryDirectory() as temporary:
