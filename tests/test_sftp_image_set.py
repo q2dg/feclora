@@ -166,7 +166,7 @@ class SFTPImageSetTests(unittest.TestCase):
             payload = b"tampered" if filename == "part-1.img" else remote[filename]
             Path(kwargs["local_path"]).write_bytes(payload)
             return {"verified": kwargs["expected_sha256"] is not None}
-        fetch = __import__("feclora.storage.sftp_image_set", fromlist=["fetch_image_set"]).fetch_image_set
+        fetch = fetch_image_set
         with self.assertRaises(SFTPImageSetError):
             fetch(
                 remote_directory="/images/test-image", destination_root=self.root,
