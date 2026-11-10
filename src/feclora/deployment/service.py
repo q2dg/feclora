@@ -250,6 +250,11 @@ class DeploymentService:
                 raise DeploymentServiceError(f"multicast Server interface preflight failed: {exc}") from exc
         self.repository_path = self.config.repository
         if self.job.operation == "restore":
+            if not self.config.server_minisign_public_key:
+                raise DeploymentServiceError(
+                    "this remote image-restore path currently requires a trusted minisign key; "
+                    "minisign is optional for Feclora, but no alternative verifier is configured here"
+                )
             if self.job.repository_id is not None:
                 from feclora.storage.repository_manager import RemoteRepositoryManager
                 try:
