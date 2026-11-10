@@ -126,6 +126,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         records = iter([
             None,
             ("nfs4", "other.example.net:/wrong", "ro,relatime"),
+            ("nfs4", "other.example.net:/wrong", "ro,relatime"),
         ])
         self.manager._mount_record = lambda _path: next(records)
         with self.assertRaisesRegex(RepositoryManagerError, "source/type/access-mode verification"):
