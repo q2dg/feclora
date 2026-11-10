@@ -130,7 +130,7 @@ def verify_artifact_file(path: str, artifact: ImageArtifact) -> None:
             if not stat.S_ISREG(info.st_mode):
                 raise UDPcastError("Image artifact changed type while opening")
             if info.st_size != artifact.size_bytes:
-                raise UDPcastError("Image artifact size does not match the signed manifest")
+                raise UDPcastError("Image artifact size does not match the manifest")
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(chunk)
     except UDPcastError:
@@ -138,7 +138,7 @@ def verify_artifact_file(path: str, artifact: ImageArtifact) -> None:
     except OSError as exc:
         raise UDPcastError(f"Cannot safely read image artifact: {exc}") from exc
     if digest.hexdigest() != artifact.sha256:
-        raise UDPcastError("Image artifact SHA-256 does not match the signed manifest")
+        raise UDPcastError("Image artifact SHA-256 does not match the manifest")
 
 
 def build_sender_argv(
@@ -352,7 +352,7 @@ def verify_staged_multicast_artifact(
     *,
     minisign_executable: str | None = None,
 ) -> ImageArtifact:
-    """Verify any manifest signature and the artifact digest before restore."""
+    """Verify any present manifest signature and the artifact digest before restore."""
     manifest = _load_signed_manifest(
         manifest_path, public_key_path, minisign_executable=minisign_executable,
     )
