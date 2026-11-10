@@ -180,5 +180,59 @@ class CockpitEnrollmentTests(unittest.TestCase):
         self.assertFalse(result["image_capture_enabled"])
 
 
+    def test_inspection_accepts_tls_only_csr_without_age_or_minisign_material(self):
+        config = SimpleNamespace(
+            client_identity_to_mac={}, client_minisign_public_keys={},
+        )
+        params = {
+            "csr_path": "/run/media/usb/client.csr",
+            "mac_address": "02:11:22:33:44:55",
+        }
+        with patch("feclora.deployment.cockpit_enrollment._media_file", side_effect=[
+            params["csr_path"], None, None,
+        ]), patch("feclora.deployment.cockpit_enrollment.inspect_client_csr",
+                 return_value="URI:feclora-client-lab-01"), patch(
+            "feclora.deployment.cockpit_enrollment.load_server_runtime_config",
+            return_value=config,
+        ):
+            result = inspect_client_request(params)
+        self.assertEqual(result["confirmation_phrase"], "ENROLL URI:feclora-client-lab-01 02:11:22:33:44:55")
+        self.assertEqual(result["age_encryption_enabled"], "false")
+        self.assertEqual(result["image_capture_enabled"], "false")
+
+    def test_approval_completes_tls_only_enrollment_without_optional_image_keys(self):
+        config = SimpleNamespace(
+            client_identity_to_mac={}, client_minisign_public_keys={},
+            ca_file="/etc/feclora/pki/ca.crt", server_minisign_public_key=None,
+        )
+        params = {
+            "csr_path": "/run/media/usb/client.csr",
+            "mac_address": "02:11:22:33:44:55",
+            "confirmation": "ENROLL URI:feclora-client-lab-01 02:11:22:33:44:55",
+        }
+        with patch("feclora.deployment.cockpit_enrollment._media_file", side_effect=[
+            params["csr_path"], None, None,
+        ]), patch("feclora.deployment.cockpit_enrollment.inspect_client_csr",
+                 return_value="URI:feclora-client-lab-01"), patch(
+            "feclora.deployment.cockpit_enrollment.load_server_runtime_config",
+            return_value=config,
+        ), patch("feclora.deployment.cockpit_enrollment.os.path.isfile", return_value=False), patch(
+            "feclora.deployment.cockpit_enrollment.os.path.lexists", return_value=False,
+        ), patch("feclora.deployment.cockpit_enrollment.issue_client_certificate"), patch(
+            "feclora.deployment.cockpit_enrollment._store_client_certificate_pin",
+        ), patch("feclora.deployment.cockpit_enrollment.register_age_recipient") as register, patch(
+            "feclora.deployment.cockpit_enrollment.enroll_client_certificate",
+        ) as enroll, patch("feclora.deployment.cockpit_enrollment._atomic_copy") as copy, patch(
+            "feclora.deployment.cockpit_enrollment.ca_fingerprint", return_value="a" * 64,
+        ):
+            result = approve_client_csr(params)
+        register.assert_not_called()
+        enroll.assert_called_once()
+        self.assertEqual(copy.call_count, 1)
+        self.assertIsNone(result["server_minisign_sha256"])
+        self.assertFalse(result["age_encryption_enabled"])
+        self.assertFalse(result["image_capture_enabled"])
+
+
 if __name__ == "__main__":
     unittest.main()
