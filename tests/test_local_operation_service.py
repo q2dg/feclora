@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from feclora.storage.local_operations import LocalOperationStore
-from feclora.storage.local_operation_service import _ProgressForwarder, recover_interrupted
+from feclora.storage.local_operation_service import _ProgressForwarder, _cancel_on_sigterm, LocalOperationCancelled, recover_interrupted
 
 
 class LocalOperationWorkerTests(unittest.TestCase):
@@ -29,6 +29,10 @@ class LocalOperationWorkerTests(unittest.TestCase):
             self.assertEqual(report["state"], "running")
             self.assertEqual(report["events"][-1]["details"]["bytes_done"], 4096)
             self.assertEqual(report["events"][-1]["details"]["bytes_total"], 8192)
+
+    def test_sigterm_handler_requests_orderly_worker_cancellation(self):
+        with self.assertRaisesRegex(LocalOperationCancelled, "cancellation requested"):
+            _cancel_on_sigterm(15, None)
 
     def test_recovery_continues_after_one_damaged_journal(self):
         store = Mock()
