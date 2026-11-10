@@ -271,6 +271,50 @@ def _rotate_server_keypair(params: dict[str, Any]) -> dict[str, Any]:
         "message": "Server TLS keypair rotated under the existing CA. Enrolled Clients retain CA trust and Server identity; the Server certificate and private key have both changed.",
     }
 
+
+def _publish_generated_keypair(staged_paths: tuple[Path, ...], final_paths: tuple[Path, ...]) -> None:
+    """Publish an optional keypair without leaving half of it on failure."""
+    if not staged_paths or len(staged_paths) != len(final_paths):
+        raise WebAPIError("generated image-security keypair is incomplete")
+    parent = final_paths[0].parent
+    if any(path.parent != parent for path in final_paths):
+        raise WebAPIError("generated image-security keypair must share one destination directory")
+    directory_fd = None
+    published: list[str] = []
+    try:
+        directory_fd = os.open(
+            parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
+        )
+        info = os.fstat(directory_fd)
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+            raise WebAPIError("Feclora PKI directory is unsafe for image-security key publication")
+        for staged, final in zip(staged_paths, final_paths):
+            staged_info = os.lstat(staged)
+            if not stat.S_ISREG(staged_info.st_mode):
+                raise WebAPIError("generated image-security key must be a regular non-symlink file")
+            os.link(staged, final.name, dst_dir_fd=directory_fd, follow_symlinks=False)
+            published.append(final.name)
+        os.fsync(directory_fd)
+    except Exception as exc:
+        if directory_fd is not None:
+            for name in reversed(published):
+                try:
+                    os.unlink(name, dir_fd=directory_fd)
+                except OSError:
+                    pass
+            try:
+                os.fsync(directory_fd)
+            except OSError:
+                pass
+        if isinstance(exc, WebAPIError):
+            raise
+        raise WebAPIError(f"could not atomically publish optional image-security keys: {exc}") from exc
+    finally:
+        if directory_fd is not None:
+            os.close(directory_fd)
+
+
+
 def _initialize_security() -> dict[str, Any]:
     """Initialize TLS identity and opportunistically provision image-security keys.
 
@@ -287,49 +331,61 @@ def _initialize_security() -> dict[str, Any]:
 
     age_identity = pki / "server.age"
     age_recipients = pki / "age-recipients.txt"
-    if age_identity.exists() != age_recipients.exists():
+    if os.path.lexists(age_identity) != os.path.lexists(age_recipients):
         raise WebAPIError("partial age identity exists; refusing to regenerate trust material")
     age_keygen = shutil.which("age-keygen")
-    if not age_identity.exists() and age_keygen:
-        generated = subprocess.run(
-            [age_keygen, "-o", str(age_identity)],
-            stdin=subprocess.DEVNULL, capture_output=True, text=True,
-            check=False, timeout=60,
-        )
-        if generated.returncode != 0:
-            raise WebAPIError("age-keygen failed while creating the optional local image identity")
-        public = subprocess.run(
-            [age_keygen, "-y", str(age_identity)],
-            stdin=subprocess.DEVNULL, capture_output=True, text=True,
-            check=False, timeout=30,
-        )
-        recipient = public.stdout.strip()
-        if public.returncode != 0 or not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
-            raise WebAPIError("age-keygen did not return a valid recipient")
-        fd = os.open(age_recipients, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, "w", encoding="ascii") as stream:
-            stream.write(recipient + "\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.chmod(age_identity, 0o600)
-        created = True
+    if not os.path.lexists(age_identity) and age_keygen:
+        with tempfile.TemporaryDirectory(prefix=".feclora-age-keys-", dir=pki) as staging:
+            staged_identity = Path(staging) / "server.age"
+            staged_recipients = Path(staging) / "age-recipients.txt"
+            generated = subprocess.run(
+                [age_keygen, "-o", str(staged_identity)],
+                stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                check=False, timeout=60,
+            )
+            if generated.returncode != 0 or not staged_identity.is_file():
+                raise WebAPIError("age-keygen failed while creating the optional local image identity")
+            public = subprocess.run(
+                [age_keygen, "-y", str(staged_identity)],
+                stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                check=False, timeout=30,
+            )
+            recipient = public.stdout.strip()
+            if public.returncode != 0 or not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
+                raise WebAPIError("age-keygen did not return a valid recipient")
+            fd = os.open(staged_recipients, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "w", encoding="ascii") as stream:
+                stream.write(recipient + "\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.chmod(staged_identity, 0o600)
+            _publish_generated_keypair(
+                (staged_identity, staged_recipients), (age_identity, age_recipients),
+            )
+            created = True
 
     signing_secret = pki / "server.minisign.key"
     signing_public = pki / "server.pub"
-    if signing_secret.exists() != signing_public.exists():
+    if os.path.lexists(signing_secret) != os.path.lexists(signing_public):
         raise WebAPIError("partial minisign keypair exists; refusing to regenerate trust material")
     minisign = shutil.which("minisign")
-    if not signing_secret.exists() and minisign:
-        generated = subprocess.run(
-            [minisign, "-G", "-s", str(signing_secret), "-p", str(signing_public), "-W"],
-            stdin=subprocess.DEVNULL, capture_output=True, text=True,
-            check=False, timeout=60,
-        )
-        if generated.returncode != 0:
-            raise WebAPIError("minisign failed while creating the optional local image-signing key")
-        os.chmod(signing_secret, 0o600)
-        os.chmod(signing_public, 0o644)
-        created = True
+    if not os.path.lexists(signing_secret) and minisign:
+        with tempfile.TemporaryDirectory(prefix=".feclora-minisign-keys-", dir=pki) as staging:
+            staged_secret = Path(staging) / "server.minisign.key"
+            staged_public = Path(staging) / "server.pub"
+            generated = subprocess.run(
+                [minisign, "-G", "-s", str(staged_secret), "-p", str(staged_public), "-W"],
+                stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                check=False, timeout=60,
+            )
+            if generated.returncode != 0 or not staged_secret.is_file() or not staged_public.is_file():
+                raise WebAPIError("minisign failed while creating the optional local image-signing key")
+            os.chmod(staged_secret, 0o600)
+            os.chmod(staged_public, 0o644)
+            _publish_generated_keypair(
+                (staged_secret, staged_public), (signing_secret, signing_public),
+            )
+            created = True
 
     security = _security_material()
     unavailable = []
