@@ -15,15 +15,19 @@ Before starting the writer it:
    with the same logical sector size;
 4. rejects mounted target trees and disks backing the running Live root;
 5. opens the artifact without following symlinks and verifies its stored byte
-   count and SHA-256 against the manifest;
-6. if a detached signature is present, verifies it with an independently trusted minisign public key; a signed image cannot be restored without successful verification. It also fully decompresses
-   the artifact before touching the target;
-7. repeats target identity and safety checks immediately before starting
+   count and SHA-256 against the manifest (for age images this is the ciphertext);
+6. if a detached signature is present, verifies it with an independently
+   trusted minisign public key; a signed image cannot be restored without
+   successful verification;
+7. if the artifact is age-encrypted, decrypts and authenticates it into private
+   local staging, then fully decompresses the authenticated stream before
+   touching the target;
+8. repeats target identity and safety checks immediately before starting
    `dd`;
-8. hashes the bytes sent to the writer, then reads the restored source-sized
+9. hashes the bytes sent to the writer, then reads the restored source-sized
    byte range back from the destination with `dd` and compares byte count and
    SHA-256;
-9. when the destination is larger and the source partition table is GPT,
+10. when the destination is larger and the source partition table is GPT,
    relocates the backup GPT header to the physical end of the destination
    with `sgdisk -e` and validates the table with `sgdisk -v`.
 
@@ -41,8 +45,9 @@ journal.
 
 **Destructive boundary:** once `dd` starts, a hardware or power failure can
 leave the target partially overwritten. SHA-256 detects accidental corruption;
-it does not authenticate who created the manifest. A configured signature verifier (currently minisign)
-establishes authenticity only when the public key is independently trusted.
+it does not authenticate who created the manifest. A detached signature verified with an independently trusted minisign public key
+establishes publisher authenticity. Age encryption provides confidentiality
+and ciphertext authentication, but does not identify the publisher.
 
 Tests use mocked device I/O. No VM or hardware restore has been validated.
 Never test against a disk containing needed data.
