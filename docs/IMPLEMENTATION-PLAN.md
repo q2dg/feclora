@@ -255,17 +255,16 @@ pre-existing files are preserved.
 - [x] Download and verify every artifact against signed size and SHA-256.
 - [x] Import verified files into the native local image repository, with signature and manifest published last and no-overwrite hard links.
 - [x] Test metadata-first ordering, bad signature rejection, digest mismatch, collision refusal and staging cleanup.
-- [ ] Add remote image-set inventory/discovery and safe listing.
+- [x] Add safe Cockpit remote manifest-marker listing and authenticated signed-manifest metadata inspection before artifact retrieval; multi-directory catalog discovery remains pending.
 - [x] Connect authenticated SFTP fetch/import to a journaled Cockpit API action and local image inventory.
 - [ ] Connect publisher to capture/upload; add transfer byte progress, retry/resume, cancellation and complete restore orchestration.
 - [x] Expose one-shot Cockpit SFTP image import and signed-image publication forms with encrypted SSH-key/known_hosts selection and local signing trust.
-- [ ] Add saved SFTP repository definitions, remote inventory/discovery and provider health checks.
+- [ ] Add saved SFTP repository definitions, multi-directory inventory/discovery and provider health checks.
 - [x] Add a Cockpit/API action to publish an existing locally signed image set to SFTP, verifying the local minisign signature and artifact digests before upload.
 - [x] Add optional automatic SFTP publication to durable disk/partition capture jobs, requiring a signed manifest and registered encrypted SSH-key/known_hosts credentials.
 - [ ] Integrate SFTP imports with restore-job selection and implement transfer progress, cancellation, retry/resume and full provider acceptance.
 - [ ] Add operational guide and current screenshots after Cockpit workflow acceptance.
 
-Tests were added but not executed in this session. This remains a restore-side import workflow rather than a complete SFTP
-repository provider: it is synchronous, has no remote inventory or upload
+Tests were added but not executed in this session. Cockpit can now preview remote image metadata only after verifying the detached minisign signature against the configured independent trust key. Artifact content is still fetched and digest-verified only by the import operation. This remains a restore-side import workflow rather than a complete SFTP repository provider: it is synchronous, has no remote inventory or upload
 integration, and does not yet expose byte-level progress, retry/resume or
 cancellation.
