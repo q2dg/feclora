@@ -137,7 +137,9 @@ def validate_definition(value: Any) -> dict[str, Any]:
                 raise LocalOperationError("SFTP publication remote directory is invalid")
             for field in ("identity_credential", "known_hosts_credential"):
                 value = config.get(field)
-                if not isinstance(value, str) or not value.startswith("/etc/credstore.encrypted/feclora/") or len(value) > 512:
+                if not isinstance(value, str) or not re.fullmatch(
+                    r"/etc/credstore\.encrypted/feclora/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.cred", value
+                ):
                     raise LocalOperationError(f"SFTP publication {field} must reference a registered encrypted credential")
             port = config.get("port", 22)
             if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
