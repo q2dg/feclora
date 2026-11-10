@@ -21,12 +21,12 @@ Control messages are length-prefixed JSON with a 16 KiB maximum frame, strict me
 3. Server sends the validated immutable job document.
 4. Client returns a LocalTargetApproval binding its selected /dev path to the exact typed confirmation (ERASE for restore, READ for save). Only a human-readable target description is sent to Server; the path and confirmation remain local.
 5. Server registers READY in DeploymentCoordinator. The operator explicitly arms the job; only then does Server send START.
-6. For restore, Server sends a transfer offer and signed image set. Client verifies the minisign signature and each artifact's exact size/SHA-256, stages the set privately, then invokes the protected whole-disk restore workflow with a local typed ERASE confirmation and destination read-back.
-7. For save, Client captures a locally selected disk without modifying it, signs its manifest, then sends the image set. Server verifies the enrolled Client minisign public key and every artifact before atomically publishing the set.
+6. For restore, Server sends a transfer offer and authenticated image set. Client verifies the manifest using the configured trust mechanism and each artifact's exact size/SHA-256, stages the set privately, then invokes the protected whole-disk restore workflow with a local typed ERASE confirmation and destination read-back. The current implementation uses minisign; the project requirement is to make that implementation replaceable/optional without weakening authentication.
+7. For save, Client captures a locally selected disk without modifying it, authenticates its manifest using the configured mechanism, then sends the image set. Server verifies the enrolled Client trust identity and every artifact before atomically publishing the set. Current save implementation is minisign-backed; configurable alternatives remain an implementation gap.
 8. Client returns a bounded per-client result. Server records the result in the coordinator.
 
-For multicast restore, every selected Client first completes the same mTLS HELLO/JOB/READY exchange and independently selects/authorizes its local disk and receive interface. Server refuses to arm unless every selected Client is READY. After explicit arming, Server sends the signed manifest and detached signature over the authenticated control channel; UDPcast then sends each artifact to all Clients using a 239.0.0.0/8 data group and a distinct derived rendezvous group. Each Client stages the full image set privately, verifies the signature and every size/SHA-256, then invokes the same protected restore/read-back path. UDPcast bytes are not treated as authenticated and are never written directly to a block device.
-UDPcast does not authenticate or encrypt the artifact data plane. Manifest signatures and SHA-256 digests provide integrity checks before disk writes, not confidentiality or receiver identity. Use a trusted isolated multicast segment and age-encrypt image artifacts when confidentiality is required.
+For multicast restore, every selected Client first completes the same mTLS HELLO/JOB/READY exchange and independently selects/authorizes its local disk and receive interface. Server refuses to arm unless every selected Client is READY. After explicit arming, Server sends the authenticated manifest and its configured trust evidence over the authenticated control channel; UDPcast then sends each artifact to all Clients using a 239.0.0.0/8 data group and a distinct derived rendezvous group. Each Client stages the full image set privately, verifies manifest authenticity and every size/SHA-256, then invokes the same protected restore/read-back path. UDPcast bytes are not treated as authenticated and are never written directly to a block device.
+UDPcast does not authenticate or encrypt the artifact data plane. Manifest signatures and SHA-256 digests provide integrity checks before disk writes, not confidentiality or receiver identity. Use a trusted isolated multicast segment. `age` encryption is optional and should be enabled when confidentiality is required; it must not be a mandatory dependency for ordinary Feclora operation.
 
 ## Local service IPC foundation
 
@@ -41,7 +41,7 @@ provide a shell or arbitrary method dispatch.
 The primitive is now used by `feclora.deployment.service`, installed as
 the non-boot-enabled systemd template `feclora-deployment@.service` and
 controlled through the Cockpit API. A service instance loads one fresh,
-verified job journal, validates the Server interface and signed restore image,
+verified job journal, validates the Server interface and restore image and its configured authenticity evidence,
 owns a single-job lock, starts the existing TLS control listener and exposes
 status/arm/cancel over the root-only socket. It can adopt the existing PXE
 firewall zone on the same interface so the deployment TCP port is added and
@@ -72,8 +72,8 @@ Implemented:
 - framed HELLO/JOB/READY/START/RESULT/CANCEL and transfer-offer/readiness messages;
 - coordinator registration, readiness, explicit arming, running and per-client result transitions, one-client unicast orchestration and multi-client UDPcast whole-disk restore orchestration;
 - private append-only SHA-256 hash-chained job journal; coordinator transitions are fsync-persisted before in-memory state changes, journal failures fail closed, verified journals can reconstruct the recorded coordinator/client state for audit, and interrupted jobs require explicit operator reconciliation. Reconstruction does not recreate TLS sessions, mark Clients READY, or resume storage work;
-- signed image-set transfer with manifest signature validation, exact artifact size/SHA-256 checks, private staging and no-overwrite publication;
-- Client whole-disk save/restore callback integration with capture_disk and restore_disk, local typed confirmations, trusted minisign keys and destination read-back;
+- image-set transfer with manifest authentication using the configured verifier (currently minisign-backed), exact artifact size/SHA-256 checks, private staging and no-overwrite publication;
+- Client whole-disk save/restore callback integration with capture_disk and restore_disk, local typed confirmations, configured trusted image-authentication material (currently minisign-backed) and destination read-back;
 - Server runtime is now exposed through the persistent Cockpit service for unicast save/restore and multi-client multicast restore. Client runtime now has a read-only mTLS job-inspection handshake and a persistent Cockpit-driven unicast service. Cockpit selects the local disk/partition, displays the exact Server-bound confirmation phrase, and starts a non-boot-enabled Client unit. The service rechecks the live block-device inventory and root/mount safety before READY, then waits for the Server's explicit ARM before I/O. It records byte progress and terminal/interrupted status without automatic reconnect or resume. Cockpit Client multicast receive remains pending; the existing Client runtime still handles multicast restore.
 - tests for framing, invalid messages, image transfer integrity, Client save/restore callbacks, scoped firewall lifecycle and a loopback TLS 1.3 client/server handshake using ephemeral test certificates.
 
@@ -84,3 +84,16 @@ Still required:
 ## PXE VM test lab
 
 See [tests/vm/README.md](../tests/vm/README.md) and [run-pxe-matrix.sh](../tests/vm/run-pxe-matrix.sh). The lab uses an isolated libvirt network without libvirt DHCP so Feclora can be the only DHCP/PXE authority. Never use authoritative DHCP on a shared network.
+
+## Optional cryptographic integrations and current gap
+
+TLS certificates and mTLS endpoint authorization are core deployment security;
+`age` and `minisign` are not substitutes for TLS and are not mandatory
+installation dependencies. `age` is an optional image-confidentiality layer.
+`minisign` is the current detached-manifest/profile signature implementation,
+but the project requirement is to support an equivalent configured trust
+mechanism without requiring that executable. Until the verifier abstraction
+exists, document which existing deployment actions still depend on minisign
+and do not claim those particular actions work when it is absent. SHA-256
+alone detects corruption but cannot authenticate a publisher or prevent
+malicious replacement.
