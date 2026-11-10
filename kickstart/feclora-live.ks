@@ -65,6 +65,8 @@ lvm2
 stratisd
 stratis-cli
 cryptsetup
+age
+minisign
 nvme-cli
 smartmontools
 e2fsprogs
