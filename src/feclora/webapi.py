@@ -682,7 +682,7 @@ def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
     from feclora.storage.disk_restore import DiskRestoreError, _open_artifact, _verify_stored_artifact
     from feclora.storage.partition_range import PartitionRangeError, parse_sfdisk_dump, partition_ranges
     try:
-        with _open_artifact(str(_repository()), table_artifact) as stream:
+        with _open_artifact(str(repository), table_artifact) as stream:
             _verify_stored_artifact(stream, table_artifact)
             raw = stream.read(1024 * 1024 + 1)
         if len(raw) > 1024 * 1024:
@@ -784,7 +784,7 @@ def _verify_image(params: dict[str, Any]) -> dict[str, Any]:
                 identity_file = identities[0] if artifact.encryption == "age" else None
             decoded_bytes = 0
             with _verified_artifact_stream(
-                str(_repository()), artifact, identity_file, "/usr/bin/age",
+                str(repository), artifact, identity_file, shutil.which("age"),
             ) as verified_stream:
                 decoded_stream = _decoded_stream(verified_stream, artifact.compression)
                 try:
