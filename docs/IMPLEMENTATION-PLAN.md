@@ -255,9 +255,13 @@ pre-existing files are preserved.
 - [x] Import verified files into the native local image repository, with signature and manifest published last and no-overwrite hard links.
 - [x] Test metadata-first ordering, bad signature rejection, digest mismatch, collision refusal and staging cleanup.
 - [ ] Add remote image-set inventory/discovery and safe listing.
-- [ ] Connect publisher/fetcher to capture and restore orchestration, durable progress and failure reporting.
-- [ ] Expose SFTP repository and encrypted credential selection in Cockpit.
+- [x] Connect authenticated SFTP fetch/import to a journaled Cockpit API action and local image inventory.
+- [ ] Connect publisher to capture/upload; add transfer byte progress, retry/resume, cancellation and complete restore orchestration.
+- [x] Expose a one-shot Cockpit SFTP image-import form with encrypted SSH-key/known_hosts selection and local Server minisign trust.
+- [ ] Add saved SFTP repository definitions, remote inventory/discovery and provider health checks.
 - [ ] Add operational guide and current screenshots after Cockpit workflow acceptance.
 
-Tests were added but not executed in this session. This remains a transfer
-primitive rather than a complete SFTP repository workflow.
+Tests were added but not executed in this session. This remains a restore-side import workflow rather than a complete SFTP
+repository provider: it is synchronous, has no remote inventory or upload
+integration, and does not yet expose byte-level progress, retry/resume or
+cancellation.
