@@ -1,6 +1,6 @@
 # ADR 0004: Single-ISO multi-mode architecture
 
-- Status: Accepted
+- Status: Accepted for single-ISO role architecture; startup dialog selector superseded by ADR 0007
 - Date: 2026-11-07
 - Scope: local rescue, server deployment and network client modes
 
@@ -60,10 +60,10 @@ orchestration. No separate Server ISO.
 
 ## Consequences
 
-The startup selector dispatches Local rescue to the storage UI, which
-currently exposes disk/partition capture, disk/partition restore and direct
-local disk-to-disk cloning. These operations have mocked tests but no booted
-ISO or device-level validation yet. Server and Client menu entries remain
-visible but report that their runtimes are not implemented. The next steps
-are to complete and validate local workflows, then implement the authenticated
-one-to-one remote clone and Server/Client runtimes inside the same ISO.
+**Supersession note (2026-11-10):** the original dialog startup selector and
+Local rescue menu were not retained in the supported Live image. [ADR 0007](0007-cockpit-web-interface.md)
+supersedes that operator-interface decision: Cockpit is the supported primary
+interface for local imaging and Server/Client administration. The single-ISO,
+shared-runtime and explicit-role-activation principles in this ADR remain in
+effect. Remote deployment and PXE feature completeness is tracked in the
+current feature matrix and implementation plan.
