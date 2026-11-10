@@ -193,7 +193,9 @@ def prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
     if any(os.path.lexists(item) for item in targets):
         raise CockpitEnrollmentError("Client identity material or removable-media export already exists")
     try:
-        identity, private_key, exported_csr = create_client_csr(PKI, export, client_id)
+        identity, private_key, exported_csr = create_client_csr(
+            PKI, export, client_id, age_keygen=shutil.which("age-keygen"),
+        )
         if params["image_capture"]:
             result = subprocess.run(
                 ["/usr/bin/minisign", "-G", "-s", secret, "-p", public, "-W"],
@@ -215,7 +217,8 @@ def prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
         raise
     return {
         "identity": identity, "csr_file": exported_csr,
-        "age_recipient_file": os.path.join(export, f"feclora-{client_id}.age-recipient"),
+        "age_recipient_file": (os.path.join(export, f"feclora-{client_id}.age-recipient")
+                              if os.path.isfile(os.path.join(export, f"feclora-{client_id}.age-recipient")) else None),
         "minisign_public_file": public_export,
         "private_key_stays_local": private_key,
         "message": "Enrollment request prepared. Only the CSR and public age/minisign material were exported.",
@@ -255,6 +258,7 @@ def prepare_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
         raise CockpitEnrollmentError("Client age identity is missing; renewal cannot preserve the current recipient")
     identity, _key, exported_csr = create_client_csr(
         PKI, export, client_id, reuse_existing_key=True,
+        age_keygen=shutil.which("age-keygen"),
     )
     recipient_file = os.path.join(export, f"feclora-{client_id}-renewal.age-recipient")
     exported_minisign = None
@@ -273,7 +277,7 @@ def prepare_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
         raise
     return {
         "identity": identity, "csr_file": exported_csr,
-        "age_recipient_file": recipient_file,
+        "age_recipient_file": recipient_file if os.path.isfile(recipient_file) else None,
         "minisign_public_file": exported_minisign,
         "message": "Renewal CSR prepared using the existing TLS private key. The private key, age identity and image-signing key remain local; only public request material was exported.",
     }
