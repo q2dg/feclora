@@ -99,6 +99,11 @@ querier behavior has been independently configured and checked.
 
 ## 3. Remote repository provider acceptance
 
+The hardware-independent repository-manager test suite also covers concurrent
+registry mutation: simultaneous additions for different IDs must preserve both
+entries. This protects Feclora's local registry only; it is not a test of
+concurrent writes performed by independent clients against a remote service.
+
 Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS
 endpoint. WebDAV is currently rejected by the repository manager until its
 per-repository encrypted credential lifecycle is implemented; do not attempt
