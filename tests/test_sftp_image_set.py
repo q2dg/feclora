@@ -236,6 +236,25 @@ class SFTPImageSetTests(unittest.TestCase):
                 )
 
 
+    def test_fetch_rejects_manifest_changed_since_inspection_before_artifacts(self):
+        requested = []
+        def transfer(**kwargs):
+            requested.append(kwargs["remote_path"])
+            source = self.manifest if kwargs["remote_path"].endswith("manifest.json") and not kwargs["remote_path"].endswith(".minisig") else self.signature
+            Path(kwargs["local_path"]).write_bytes(source.read_bytes())
+            return {"verified": False}
+        with patch("feclora.storage.sftp_image_set.verify_manifest_signature"):
+            with self.assertRaisesRegex(SFTPImageSetError, "changed after inspection"):
+                fetch_image_set(
+                    remote_directory="/images", destination_root=self.root,
+                    public_key=self.public_key, host="backup.example", username="backup",
+                    identity_credential="key-ref", known_hosts_credential="hosts-ref",
+                    expected_image_id="test-image", expected_manifest_sha256="0" * 64,
+                    transfer=transfer,
+                )
+        self.assertEqual(requested, ["/images/manifest.json", "/images/manifest.json.minisig"])
+        self.assertEqual(list(self.root.glob(".feclora-sftp-incoming-*")), [])
+
     def test_fetch_rejects_remote_image_id_mismatch_before_artifact_download(self):
         requested = []
         def transfer(**kwargs):
