@@ -3,7 +3,7 @@ const ACTIONS = new Set([
   "network_interfaces", "network_connection_profiles", "apply_network_profile", "bootstrap_server", "renew_server_certificate", "rotate_server_keypair", "approve_client_csr", "inspect_client_csr", "prepare_client_request", "complete_client_enrollment", "prepare_client_renewal", "complete_client_renewal", "validate_pxe_profile", "start_pxe_services", "stop_pxe_services", "pxe_service_status",
   "submit_local_operation", "local_operation_status", "local_operations", "capture_disk", "capture_partition", "restore_disk", "restore_partition",
   "clone_disk", "clone_partition", "extract_partition_image",
-  "systemd_credentials", "put_systemd_credential", "remove_systemd_credential", "remote_repositories", "repository_images", "add_remote_repository", "update_remote_repository", "check_remote_repository", "mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"
+  "systemd_credentials", "fetch_sftp_image_set", "put_systemd_credential", "remove_systemd_credential", "remote_repositories", "repository_images", "add_remote_repository", "update_remote_repository", "check_remote_repository", "mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"
 ]);
 
 export async function callFeclora(action, params = {}, onEvent = () => {}) {
