@@ -36,17 +36,17 @@ remain usable without certificates, a CA, Cockpit or a network service.
    displays the CA SHA-256 fingerprint. Record it and back up the CA key
    encrypted and offline.
 2. On a Client with no deployment config, choose **Prepare enrollment
-   request**. Feclora creates the Client TLS key and age identity locally,
-   then exports the CSR and, only when age encryption is enabled, the public age recipient to removable media. Private
-   keys remain on that Client.
+   request**. Feclora creates the Client TLS key locally and exports the CSR.
+   If age-keygen is available, it may also create an age identity locally and
+   export only its public recipient. Private keys remain on that Client.
 3. On the Server, choose **Trusted Clients → Approve Client CSR**. Review the
    CSR identity, assign its unicast MAC, and explicitly confirm issuance.
    Feclora signs the CSR, adds the Client to the TLS allowlist and optionally registers its age
    recipient, then exports the certificate and CA trust material plus any
    configured image-signing public key/recipient inventory.
 4. On the Client, choose **Complete enrollment**. Enter the Server address
-   and MAC, verify the CA fingerprint and the Server minisign-key SHA-256
-   fingerprint against the values displayed by the Server, then install the
+   and MAC, verify the CA fingerprint and the optional Server minisign-key SHA-256 fingerprint only when the Server
+   supplied that public key, then install the
    bundle. Feclora checks the CA chain, SAN identity and that the certificate
    matches the private key already held locally.
 5. The Client can now join authenticated deployment jobs. It warns when its
