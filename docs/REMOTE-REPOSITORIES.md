@@ -57,10 +57,14 @@ src/feclora/storage/repository_manager.py persists the currently implemented
 mounted-provider definitions in a mode-0600 registry, creates private mountpoints, checks
 root-owned credential references, invokes helpers without a shell, verifies
 the exact mountpoint with findmnt, and checks the mounted source, filesystem
-type and access mode against the saved definition. Cockpit exposes
-add/edit/check/mount/unmount/remove and never receives credential contents. Existing
-registry entries created before the rclone_remote field was introduced remain
-readable.
+type and access mode against the saved definition. A mount action is not
+reported successful merely because a mount appears at the expected path:
+after the helper starts, the manager re-runs the same source/type/access-mode
+verification used by repository resolution. A mismatched or unrelated
+filesystem therefore fails closed and is never returned as a trusted
+repository. Cockpit exposes add/edit/check/mount/unmount/remove and never
+receives credential contents. Existing registry entries created before the
+rclone_remote field was introduced remain readable.
 
 WebDAV is currently unavailable in the repository manager. The earlier
 root-invoked davfs2 integration did not provide safe per-repository credential
