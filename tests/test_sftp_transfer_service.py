@@ -87,6 +87,29 @@ class SFTPTransferServiceTests(unittest.TestCase):
         self.assertEqual(calls[0][1]["timeout"], 86430)
 
 
+    def test_interrupted_wait_stops_the_named_transient_service(self):
+        manager = FakeManager()
+        fake_store = SimpleNamespace(list=lambda: [
+            {"kind": "ssh-key", "name": "feclora-backup-ssh-key",
+             "path": "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred"},
+            {"kind": "known-hosts", "name": "feclora-backup-known-hosts",
+             "path": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred"},
+        ])
+        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store), \
+             patch("feclora.storage.sftp_transfer_service.subprocess.run") as stop:
+            with self.assertRaises(KeyboardInterrupt):
+                run_sftp_transfer(
+                    identity_credential="/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred",
+                    known_hosts_credential="/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred",
+                    operation="download", host="sftp.example.net", username="backup",
+                    remote_path="/images/disk.img", local_path="/var/lib/feclora/stage/disk.img",
+                    manager=manager, runner=lambda *_args, **_kwargs: (_ for _ in ()).throw(KeyboardInterrupt()),
+                )
+        stop.assert_called_once()
+        command = stop.call_args.args[0]
+        self.assertEqual(command[:3], ["/usr/bin/systemctl", "stop", "--no-block"])
+        self.assertRegex(command[3], r"^feclora-sftp-[a-f0-9]{32}\\.service$")
+
     def test_unverified_download_mode_is_explicit_and_limited_to_download(self):
         bindings = [
             ("feclora-backup-ssh-key", "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred"),
