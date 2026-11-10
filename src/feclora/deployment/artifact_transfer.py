@@ -315,6 +315,8 @@ def receive_image_set(
             published.append(destination)
         final_manifest = os.path.join(repo, expected_image_id + ".manifest.json")
         final_signature = final_manifest + ".minisig"
+        if not signature and os.path.lexists(final_signature):
+            raise ImageTransferError("an orphan signature already exists for this image identifier; refusing unsigned publication")
         if signature:
             os.link(signature_stage, final_signature, follow_symlinks=False)
             published.append(final_signature)
