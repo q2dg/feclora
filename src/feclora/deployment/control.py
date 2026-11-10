@@ -585,7 +585,7 @@ class DeploymentControlServer:
         mac_address: str,
         repository: str,
         *,
-        trusted_public_key: str,
+        trusted_public_key: str | os.PathLike[str] | None = None,
     ) -> str:
         """Receive an image set from one mTLS-authenticated running save client."""
         tls_socket = self._running_session(mac_address, "save")
@@ -626,7 +626,7 @@ class DeploymentControlServer:
         self,
         repository: str,
         *,
-        trusted_public_key: str,
+        trusted_public_key: str | os.PathLike[str] | None = None,
         manifest_path: str | None = None,
         result_timeout: float = 86400,
     ) -> dict[str, str]:
@@ -731,7 +731,7 @@ class DeploymentControlServer:
         udpcast_config: UDPcastConfig,
         result_timeout: float = 86400,
     ) -> dict[str, str]:
-        """Restore one signed image to all enrolled READY Clients over UDPcast."""
+        """Restore one image to authenticated READY Clients over UDPcast."""
         job = self.coordinator.job
         if job.transport != "multicast" or job.operation != "restore":
             raise DeploymentControlError("multicast runtime supports restore jobs only")
