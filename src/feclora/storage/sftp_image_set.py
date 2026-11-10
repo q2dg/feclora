@@ -130,6 +130,7 @@ def fetch_image_set(
     identity_credential: str,
     known_hosts_credential: str,
     port: int = 22,
+    expected_image_id: str | None = None,
     transfer: Callable[..., dict[str, Any]] = run_sftp_transfer,
     manager: Any = None,
 ) -> dict[str, Any]:
@@ -177,6 +178,8 @@ def fetch_image_set(
         except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError) as exc:
             raise SFTPImageSetError(f"remote manifest signature or schema validation failed: {exc}") from exc
         _validate_manifest_filenames(manifest)
+        if expected_image_id is not None and manifest.image_id != expected_image_id:
+            raise SFTPImageSetError("authenticated remote image ID does not match the selected image")
 
         for artifact in manifest.artifacts:
             result = download(artifact.filename, artifact.sha256)
