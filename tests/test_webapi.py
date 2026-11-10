@@ -1297,5 +1297,36 @@ class WebAPITests(unittest.TestCase):
         fetch.assert_not_called()
 
 
+    def test_list_sftp_image_manifests_api_uses_encrypted_credentials(self):
+        from contextlib import nullcontext
+        params = {
+            "host": "backup.example.net", "username": "backup",
+            "remote_directory": "/images/golden", "port": 2222,
+            "identity_credential": "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred",
+            "known_hosts_credential": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred",
+        }
+        expected = {"operation": "inventory", "remote_path": "/images/golden",
+                    "completed": True, "manifests": ["manifest.json"]}
+        with patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("op-789")), \\
+             patch("feclora.storage.sftp_transfer_service.run_sftp_transfer", return_value=expected) as inventory:
+            result = dispatch({"action": "list_sftp_image_manifests", "params": params})
+        self.assertEqual(result, {"operation_id": "op-789", **expected})
+        self.assertEqual(inventory.call_args.kwargs["operation"], "inventory")
+        self.assertEqual(inventory.call_args.kwargs["identity_credential"], params["identity_credential"])
+        self.assertEqual(inventory.call_args.kwargs["known_hosts_credential"], params["known_hosts_credential"])
+
+    def test_list_sftp_image_manifests_rejects_boolean_port(self):
+        params = {
+            "host": "backup.example.net", "username": "backup",
+            "remote_directory": "/images", "port": True,
+            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+        }
+        with patch("feclora.storage.sftp_transfer_service.run_sftp_transfer") as inventory:
+            with self.assertRaisesRegex(WebAPIError, "port must be an integer"):
+                dispatch({"action": "list_sftp_image_manifests", "params": params})
+        inventory.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
