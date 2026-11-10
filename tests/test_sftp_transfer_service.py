@@ -23,7 +23,7 @@ class SFTPTransferServiceTests(unittest.TestCase):
         ]
         argv = build_systemd_transfer_argv(
             systemd_run="/usr/bin/systemd-run", python="/usr/bin/python3",
-            unit="feclora-sftp-123.service", bindings=bindings,
+            unit="feclora-sftp-1234567890abcdef1234567890abcdef.service", bindings=bindings,
             operation="download", host="sftp.example.net", username="backup",
             remote_path="/images/disk.img", local_path="/var/lib/feclora/stage/disk.img",
             expected_sha256="a" * 64,
@@ -37,7 +37,7 @@ class SFTPTransferServiceTests(unittest.TestCase):
         with self.assertRaises(RepositoryManagerError):
             build_systemd_transfer_argv(
                 systemd_run="systemd-run", python="python3",
-                unit="feclora-sftp-123.service",
+                unit="feclora-sftp-1234567890abcdef1234567890abcdef.service",
                 bindings=[("feclora-backup-ssh-key", "/key")],
                 operation="upload", host="sftp.example.net", username="backup",
                 remote_path="/images/a", local_path="/tmp/a",
