@@ -280,5 +280,23 @@ class PartitionRestoreTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
 
 
+    def test_decompressed_partition_stages_outside_source_repository(self):
+        from feclora.storage import partition_restore
+        with tempfile.TemporaryDirectory() as local_stage:
+            original = partition_restore._decompress_to_temp
+            observed = {}
+
+            def recording_decompress(source, compression, expected_size, directory, executables=None):
+                observed["directory"] = directory
+                return original(source, compression, expected_size, directory, executables)
+
+            with patch("feclora.storage.partition_restore.tempfile.gettempdir", return_value=local_stage), patch(
+                "feclora.storage.partition_restore._decompress_to_temp", side_effect=recording_decompress
+            ):
+                self.restore()
+            self.assertEqual(observed["directory"], local_stage)
+            self.assertEqual(os.listdir(local_stage), [])
+
+
 if __name__ == "__main__":
     unittest.main()
