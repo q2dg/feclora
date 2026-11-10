@@ -29,10 +29,31 @@ Closing the progress dialog cancels the producer and prevents publication.
 - A successful artifact is hard-linked into its final name; an existing name
   is never replaced.
 
-## Scope
+## Manifest-backed image capture
 
-This is partition capture only. It does not yet capture partition tables,
-whole-disk boot areas, filesystem consistency snapshots, or a complete
-`ImageManifest`. It does not restore or clone to a target. Mounted/busy source checks and a final pre-capture revalidation are integrated.
-The Local rescue TUI exposes capture with progress and cancellation. Partclone and dd command semantics are
-based on the upstream Partclone usage documentation.
+`feclora.storage.partition_image_capture.capture_partition_image` wraps the
+capture engine and publishes a complete schema-v1 partition `ImageManifest`.
+It records source size, logical sector size, filesystem and the raw or
+Partclone artifact. It supports none, gzip, xz, zstd and lz4 outer compression.
+When requested, age encryption is applied after compression and minisign signs
+the completed manifest. Encryption and signing are independent optional
+choices; neither is required for an ordinary unsigned, unencrypted image.
+
+## Scope and operator procedure
+
+This workflow captures one partition only. It does not capture a partition
+table or whole-disk boot areas, create a destination partition, resize a
+filesystem, or provide a coordinated multi-device Btrfs snapshot. Multi-device
+Btrfs sources are rejected rather than partially imaged.
+
+In the Local rescue UI, choose **Capture partition**, select the source, enter
+a unique image identifier, choose compression and optional image protection,
+and wait for the progress gauge. The source is read-only. Closing the gauge
+cancels the producer and prevents publication. Verify that the manifest is
+present before attempting restore.
+
+The UI is text-mode `dialog`. Real screenshots are pending a version-matched
+Fedora Live capture; do not substitute mockups. Store validated captures under
+`docs/assets/screenshots/` and reference them here with numbered captions.
+
+Partclone and dd command semantics are based on the upstream Partclone usage documentation.
