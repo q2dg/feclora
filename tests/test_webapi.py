@@ -1387,6 +1387,7 @@ class WebAPITests(unittest.TestCase):
                 result = _execute_operation("restore_disk", params, "restore-op")
             fetch.assert_called_once()
             self.assertEqual(fetch.call_args.kwargs["expected_image_id"], "gold")
+            self.assertEqual(fetch.call_args.kwargs["expected_manifest_sha256"], "a" * 64)
             restore.assert_called_once()
             self.assertEqual(result["image_id"], "gold")
             self.assertTrue(result["verified"])
