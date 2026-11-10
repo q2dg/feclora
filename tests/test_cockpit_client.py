@@ -22,15 +22,65 @@ class CockpitClientTests(unittest.TestCase):
         }
         with patch("feclora.deployment.cockpit_client.os.path.lexists", return_value=False), patch(
             "feclora.deployment.cockpit_client._mounted_media_directory", return_value=params["export_directory"]
-        ), patch(
+        ), patch("feclora.deployment.cockpit_client.shutil.which", return_value="/usr/bin/age-keygen") as which, patch(
             "feclora.deployment.cockpit_client.create_client_csr",
             return_value=("URI:feclora-client-lab-01", "/etc/feclora/pki/client-lab-01.key",
                           "/run/media/test/USB/feclora-lab-01.csr"),
-        ):
+        ) as create:
             result = prepare_client_request(params)
+        which.assert_not_called()
+        create.assert_called_once_with(
+            "/etc/feclora/pki", params["export_directory"], "lab-01", age_keygen=None,
+        )
         self.assertEqual(result["identity"], "URI:feclora-client-lab-01")
         self.assertIsNone(result["minisign_public_file"])
         self.assertEqual(result["private_key_stays_local"], "/etc/feclora/pki/client-lab-01.key")
+
+    def test_prepare_client_request_provisions_age_only_when_explicitly_selected(self):
+        params = {
+            "client_id": "lab-03", "export_directory": "/run/media/test/USB",
+            "image_signing": False, "age_encryption": True,
+        }
+        with patch("feclora.deployment.cockpit_client.os.path.lexists", return_value=False), patch(
+            "feclora.deployment.cockpit_client._mounted_media_directory", return_value=params["export_directory"]
+        ), patch("feclora.deployment.cockpit_client.shutil.which", return_value="/usr/bin/age-keygen"), patch(
+            "feclora.deployment.cockpit_client.create_client_csr",
+            return_value=("URI:feclora-client-lab-03", "/etc/feclora/pki/client-lab-03.key",
+                          "/run/media/test/USB/feclora-lab-03.csr"),
+        ) as create:
+            prepare_client_request(params)
+        create.assert_called_once_with(
+            "/etc/feclora/pki", params["export_directory"], "lab-03",
+            age_keygen="/usr/bin/age-keygen",
+        )
+
+    def test_prepare_client_request_fails_early_if_requested_age_tool_is_missing(self):
+        params = {
+            "client_id": "lab-04", "export_directory": "/run/media/test/USB",
+            "image_signing": False, "age_encryption": True,
+        }
+        with patch("feclora.deployment.cockpit_client.os.path.lexists", return_value=False), patch(
+            "feclora.deployment.cockpit_client._mounted_media_directory", return_value=params["export_directory"]
+        ), patch("feclora.deployment.cockpit_client.shutil.which", return_value=None), patch(
+            "feclora.deployment.cockpit_client.create_client_csr"
+        ) as create:
+            with self.assertRaisesRegex(CockpitEnrollmentError, "age-keygen is required only"):
+                prepare_client_request(params)
+        create.assert_not_called()
+
+    def test_prepare_client_request_fails_early_if_requested_minisign_tool_is_missing(self):
+        params = {
+            "client_id": "lab-05", "export_directory": "/run/media/test/USB",
+            "image_signing": True, "age_encryption": False,
+        }
+        with patch("feclora.deployment.cockpit_client.os.path.lexists", return_value=False), patch(
+            "feclora.deployment.cockpit_client._mounted_media_directory", return_value=params["export_directory"]
+        ), patch("feclora.deployment.cockpit_client.shutil.which", return_value=None), patch(
+            "feclora.deployment.cockpit_client.create_client_csr"
+        ) as create:
+            with self.assertRaisesRegex(CockpitEnrollmentError, "minisign is required only"):
+                prepare_client_request(params)
+        create.assert_not_called()
 
     def test_prepare_client_renewal_reuses_existing_tls_key_and_exports_only_public_material(self):
         config = SimpleNamespace(
