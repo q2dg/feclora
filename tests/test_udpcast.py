@@ -89,7 +89,7 @@ class UDPcastConfigTests(unittest.TestCase):
                 with open(path, "wb") as stream:
                     stream.write(b"x")
             with (
-                patch("feclora.network.udpcast._load_signed_manifest", return_value=manifest),
+                patch("feclora.network.udpcast._load_manifest_with_optional_signature", return_value=manifest),
                 patch("feclora.network.udpcast.verify_artifact_file"),
                 patch("feclora.network.udpcast.shutil.which", return_value="/usr/bin/udp-sender"),
                 patch("feclora.network.udpcast.multicast_firewall_scope", return_value=nullcontext()),
