@@ -194,7 +194,7 @@ class WebAPITests(unittest.TestCase):
         expected = {"clients": [{
             "identity": "URI:feclora-client-lab",
             "mac_address": "52:54:00:12:34:56",
-            "image_capture": True,
+            "image_signing": True,
         }]}
         with patch("feclora.webapi._server_trusted_clients", return_value=expected) as inventory:
             self.assertEqual(dispatch({"action": "server_trusted_clients"}), expected)
@@ -234,8 +234,8 @@ class WebAPITests(unittest.TestCase):
             result = _server_trusted_clients()
         load.assert_called_once_with("/etc/feclora/deployment-server.json")
         self.assertEqual(result, {"clients": [
-            {"identity": "URI:feclora-client-a", "mac_address": "52:54:00:00:00:01", "image_capture": False},
-            {"identity": "URI:feclora-client-b", "mac_address": "52:54:00:00:00:02", "image_capture": True},
+            {"identity": "URI:feclora-client-a", "mac_address": "52:54:00:00:00:01", "image_signing": False},
+            {"identity": "URI:feclora-client-b", "mac_address": "52:54:00:00:00:02", "image_signing": True},
         ]})
         self.assertNotIn("private_key", repr(result))
 
