@@ -102,6 +102,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
             "READ /dev/vda TO URI:feclora-server",
         )
         with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
+             patch("feclora.deployment.client_runtime.shutil.which", return_value="/usr/bin/tool"), \
              patch("feclora.deployment.client_runtime.capture_disk") as capture, \
              patch("feclora.deployment.client_runtime.send_image_set") as send:
             result = execute_client_image_job(
@@ -110,11 +111,14 @@ class ClientImageRuntimeTests(unittest.TestCase):
                 trusted_server_public_key="/trusted/server.pub",
                 local_minisign_secret_key="/keys/client.key",
                 local_minisign_public_key="/keys/client.pub",
+                age_recipients_file="/keys/recipients.txt",
+                encrypt_image=True, sign_image=True,
                 transfer_progress_callback=lambda current, total: None,
             )
         self.assertTrue(result[0])
         capture.assert_called_once()
         self.assertEqual(capture.call_args.kwargs["minisign_secret_key"], "/keys/client.key")
+        self.assertEqual(capture.call_args.kwargs["age_recipients_file"], "/keys/recipients.txt")
         send.assert_called_once()
         self.assertIn(b"transfer_ready", bytes(tls.outgoing))
 
