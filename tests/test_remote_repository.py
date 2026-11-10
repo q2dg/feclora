@@ -49,9 +49,13 @@ class RemoteRepositoryTests(unittest.TestCase):
             )
 
     def test_s3_requires_bucket_scope_and_never_enables_write_cache(self):
-        for remote_path in ("/", "//bucket/images"):
+        for remote_path in (
+            "/", "//bucket/images", "/ab", "/UPPERCASE-bucket/images",
+            "/.", "/bucket//images", "/bucket/./images",
+            "/bucket/../images", "/192.168.1.1/images",
+        ):
             with self.subTest(remote_path=remote_path):
-                with self.assertRaisesRegex(RepositoryError, "must identify a bucket"):
+                with self.assertRaisesRegex(RepositoryError, "valid lowercase bucket name"):
                     RemoteRepository(
                         provider="s3", host="s3.example.net", remote_path=remote_path,
                         mountpoint="/mnt/images", rclone_remote="feclora_s3",
