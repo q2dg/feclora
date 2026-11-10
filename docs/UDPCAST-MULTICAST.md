@@ -16,7 +16,7 @@ membership, source IP or MAC address is never proof of identity.
 - receiver staging into a private mode-0600 temporary file, with a free-space
   preflight and exact expected-size check;
 - a separate post-reception verification step that verifies the detached
-  minisign signature against an independently trusted public key, parses the
+  configured manifest-authentication evidence (currently minisign), parses the
   manifest and checks the complete staged artifact SHA-256 and byte count.
 
 The adapter does **not** write to block devices, select a restore target,
@@ -56,7 +56,7 @@ and [upstream command-line documentation](https://www.udpcast.linux.lu/cmd.html)
 
 The authenticated control service, persistent job journal, Client-side
 whole-disk and partition restore dispatch, signed-manifest delivery, private
-staging, age-encrypted artifacts and per-client terminal results are
+staging, verified artifacts and per-client terminal results are
 integrated.
 
 - The deployment job binds `target_type` to the signed manifest's
@@ -79,3 +79,13 @@ integrated.
 - Sender/receiver behavior still needs automated integration execution and
   real BIOS/UEFI multi-VM acceptance. This document is not evidence that those
   tests passed.
+
+
+## Optional crypto policy
+
+UDPcast is a transport and does not encrypt/authenticate its data plane. Feclora
+must not require `age` or `minisign` as global installation dependencies.
+`age` may be enabled for confidentiality. A trusted manifest-authentication
+mechanism remains mandatory before destructive restore; the current code uses
+minisign and must gain a replaceable verifier interface to meet the project's
+optional-minisign policy. SHA-256 alone is not an authenticity mechanism.
