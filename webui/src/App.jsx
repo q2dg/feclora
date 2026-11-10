@@ -1014,7 +1014,7 @@ export default function App() {
                       {!isDisk && <Field label="Partition identifier"><input className="pf-v5-c-form-control" value={partitionId} onChange={(e) => setPartitionId(e.target.value)} maxLength={128} placeholder={imageId || "e.g. rootfs"} /></Field>}
                       <Field label="Compression">
                         <select className="pf-v5-c-form-control" value={compression} onChange={(e) => setCompression(e.target.value)}>
-                          <option value="zstd">Zstandard (recommended)</option><option value="lz4">LZ4 (fast)</option><option value="gzip">Gzip</option><option value="none">None</option>
+                          <option value="zstd">Zstandard (recommended)</option><option value="lz4">LZ4 (fast)</option><option value="gzip">Gzip</option><option value="xz">XZ</option><option value="none">None</option>
                         </select>
                       </Field>
                       <Field label="Image security">
