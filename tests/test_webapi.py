@@ -41,7 +41,11 @@ class WebAPITests(unittest.TestCase):
         with patch("feclora.storage.sftp_transfer_service.run_sftp_transfer", return_value=expected) as transfer:
             from feclora.webapi import _execute_operation
             result = _execute_operation("sftp_inventory", params, "job-1")
-        self.assertEqual(result, expected)
+        self.assertEqual(result["operation_id"], "job-1")
+        self.assertEqual(result["operation"], "inventory")
+        self.assertEqual(result["completed"], True)
+        self.assertEqual(result["manifests"], [])
+        self.assertIn("elapsed_seconds", result)
         transfer.assert_called_once_with(
             operation="inventory", host="backup.example.net", username="backup",
             remote_path="/images",
