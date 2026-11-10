@@ -168,9 +168,11 @@ destructive job command in DHCP, TFTP, HTTP or the iPXE script.
    the exact destructive confirmation. Each Client reports READY only after
    its local target checks pass.
 5. The Server operator reviews the complete READY set and types the exact
-   job-specific ARM confirmation. Unicast sends the authenticated image set to one
-   Client; multicast sends the same artifacts (optionally age-encrypted when
-   configured) to all authorized READY Clients on the multicast segment.
+   job-specific ARM confirmation. For a remote save, the Client operator
+   chooses compression and per-image protection (none, age, minisign or both)
+   before capture. Unicast sends the authenticated image set to one Client;
+   multicast sends the same artifacts to all authorized READY Clients on the
+   multicast segment. Age encryption is applied only when selected.
 6. Each Client stages and verifies the artifact before invoking its normal
    protected restore engine. The Server collects an independent terminal
    result for every Client.
