@@ -15,6 +15,7 @@ import stat
 import subprocess
 import tempfile
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable
 
@@ -207,6 +208,29 @@ class RemoteRepositoryManager:
         self._root()
         return _read_registry(self.registry, owner_uid=self.owner_uid)
 
+    @contextmanager
+    def _registry_lock(self):
+        """Serialize registry read-modify-write transactions across processes."""
+        self._root()
+        path = self.registry.parent / ".repositories.lock"
+        flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+        try:
+            fd = os.open(path, flags, 0o600)
+        except OSError as exc:
+            raise RepositoryManagerError(f"cannot open repository registry lock: {exc}") from exc
+        try:
+            info = os.fstat(fd)
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != self.owner_uid
+                    or info.st_mode & 0o077 or info.st_nlink != 1):
+                raise RepositoryManagerError("repository registry lock must be a private root-owned regular file")
+            os.fchmod(fd, 0o600)
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        except OSError as exc:
+            raise RepositoryManagerError(f"cannot acquire repository registry lock: {exc}") from exc
+        finally:
+            os.close(fd)
+
     def list(self) -> list[dict[str, Any]]:
         entries = self._load()
         result = []
@@ -255,27 +279,28 @@ class RemoteRepositoryManager:
 
     def update(self, identifier: str, definition: dict[str, Any]) -> dict[str, Any]:
         """Replace a repository definition only while it is unmounted and unused."""
-        entries = self._load()
-        if identifier not in entries:
-            raise RepositoryManagerError("unknown repository ID")
         if not isinstance(definition, dict):
             raise RepositoryManagerError("repository definition must be an object")
         repo = _repository(identifier, definition, owner_uid=self.owner_uid)
         lock_fd = self._acquire_usage_lock(identifier, exclusive=True)
         try:
-            mountpoint = self.mount_root / identifier
-            _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
-            if self._is_mounted(str(mountpoint)):
-                raise RepositoryManagerError("unmount the repository before editing its definition")
-            entries[identifier] = {
-                "provider": repo.provider, "host": repo.host, "remote_path": repo.remote_path,
-                "username": repo.username, "credential_file": repo.credential_file,
-                "identity_file": repo.identity_file, "known_hosts_file": repo.known_hosts_file,
-                "port": repo.port, "rclone_remote": repo.rclone_remote,
-                "read_only": repo.read_only,
-            }
-            _write_registry(entries, self.registry, owner_uid=self.owner_uid)
-            return {"id": identifier, "updated": True, "provider": repo.provider}
+            with self._registry_lock():
+                entries = self._load()
+                if identifier not in entries:
+                    raise RepositoryManagerError("unknown repository ID")
+                mountpoint = self.mount_root / identifier
+                _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
+                if self._is_mounted(str(mountpoint)):
+                    raise RepositoryManagerError("unmount the repository before editing its definition")
+                entries[identifier] = {
+                    "provider": repo.provider, "host": repo.host, "remote_path": repo.remote_path,
+                    "username": repo.username, "credential_file": repo.credential_file,
+                    "identity_file": repo.identity_file, "known_hosts_file": repo.known_hosts_file,
+                    "port": repo.port, "rclone_remote": repo.rclone_remote,
+                    "read_only": repo.read_only,
+                }
+                _write_registry(entries, self.registry, owner_uid=self.owner_uid)
+                return {"id": identifier, "updated": True, "provider": repo.provider}
         finally:
             os.close(lock_fd)
 
@@ -291,30 +316,31 @@ class RemoteRepositoryManager:
         )
 
     def add(self, identifier: str, definition: dict[str, Any]) -> dict[str, Any]:
-        entries = self._load()
         if not isinstance(identifier, str) or not _REPOSITORY_ID.fullmatch(identifier):
             raise RepositoryManagerError("repository ID must contain 1-48 lowercase letters, digits or hyphens")
-        if identifier in entries:
-            raise RepositoryManagerError("repository ID already exists")
         if not isinstance(definition, dict):
             raise RepositoryManagerError("repository definition must be an object")
         repo = _repository(identifier, definition, owner_uid=self.owner_uid)
         mountpoint = self.mount_root / identifier
-        if os.path.lexists(mountpoint):
-            raise RepositoryManagerError("repository mountpoint already exists outside the registry")
-        mountpoint.mkdir(mode=0o700)
-        entries[identifier] = {
-            "provider": repo.provider, "host": repo.host, "remote_path": repo.remote_path,
-            "username": repo.username, "credential_file": repo.credential_file,
-            "identity_file": repo.identity_file, "known_hosts_file": repo.known_hosts_file,
-            "port": repo.port, "rclone_remote": repo.rclone_remote,
-            "read_only": repo.read_only,
-        }
-        try:
-            _write_registry(entries, self.registry, owner_uid=self.owner_uid)
-        except Exception:
-            mountpoint.rmdir()
-            raise
+        with self._registry_lock():
+            entries = self._load()
+            if identifier in entries:
+                raise RepositoryManagerError("repository ID already exists")
+            if os.path.lexists(mountpoint):
+                raise RepositoryManagerError("repository mountpoint already exists outside the registry")
+            mountpoint.mkdir(mode=0o700)
+            entries[identifier] = {
+                "provider": repo.provider, "host": repo.host, "remote_path": repo.remote_path,
+                "username": repo.username, "credential_file": repo.credential_file,
+                "identity_file": repo.identity_file, "known_hosts_file": repo.known_hosts_file,
+                "port": repo.port, "rclone_remote": repo.rclone_remote,
+                "read_only": repo.read_only,
+            }
+            try:
+                _write_registry(entries, self.registry, owner_uid=self.owner_uid)
+            except Exception:
+                mountpoint.rmdir()
+                raise
         return {"id": identifier, "mountpoint": str(mountpoint), "provider": repo.provider}
 
     def mount(self, identifier: str) -> dict[str, Any]:
@@ -520,22 +546,23 @@ class RemoteRepositoryManager:
             os.close(lock_fd)
 
     def remove(self, identifier: str) -> dict[str, Any]:
-        entries = self._load()
-        if identifier not in entries:
-            raise RepositoryManagerError("unknown repository ID")
         # Definition removal must obey the same exclusive lease as unmount:
         # a restore may still need this registry entry even if the remote mount
         # disappeared unexpectedly while its service was active.
         lock_fd = self._acquire_usage_lock(identifier, exclusive=True)
         try:
-            mountpoint = self.mount_root / identifier
-            _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
-            if self._is_mounted(str(mountpoint)):
-                raise RepositoryManagerError("unmount the repository before removing its definition")
-            mountpoint.rmdir()
-            del entries[identifier]
-            _write_registry(entries, self.registry, owner_uid=self.owner_uid)
-            return {"id": identifier, "removed": True}
+            with self._registry_lock():
+                entries = self._load()
+                if identifier not in entries:
+                    raise RepositoryManagerError("unknown repository ID")
+                mountpoint = self.mount_root / identifier
+                _private_directory(mountpoint, create=False, owner_uid=self.owner_uid)
+                if self._is_mounted(str(mountpoint)):
+                    raise RepositoryManagerError("unmount the repository before removing its definition")
+                mountpoint.rmdir()
+                del entries[identifier]
+                _write_registry(entries, self.registry, owner_uid=self.owner_uid)
+                return {"id": identifier, "removed": True}
         finally:
             os.close(lock_fd)
 
