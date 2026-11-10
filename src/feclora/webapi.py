@@ -374,6 +374,40 @@ def _fetch_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
 
 
 
+def _list_sftp_image_manifests(params: dict[str, Any]) -> dict[str, Any]:
+    required = {
+        "host", "username", "remote_directory", "identity_credential",
+        "known_hosts_credential",
+    }
+    if set(params) not in (required, required | {"port"}):
+        raise WebAPIError("list_sftp_image_manifests requires connection details and encrypted SSH credential references")
+    host = _text(params, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
+    if host.endswith(".") or ".." in host:
+        raise WebAPIError("SFTP host is invalid")
+    username = _text(params, "username", pattern=r"[A-Za-z0-9._-]{1,64}")
+    remote_directory = _text(params, "remote_directory", maximum=1024)
+    identity = _text(params, "identity_credential", maximum=512)
+    known_hosts = _text(params, "known_hosts_credential", maximum=512)
+    port = params.get("port", 22)
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        raise WebAPIError("SFTP port must be an integer between 1 and 65535")
+    from feclora.storage.sftp_transfer_service import run_sftp_transfer
+    from feclora.storage.operation_log import operation_record
+    try:
+        with operation_record(
+            "list_sftp_image_manifests", f"{host}:{remote_directory}",
+            log_path="/var/log/feclora/operations.jsonl",
+        ) as operation_id:
+            result = run_sftp_transfer(
+                operation="inventory", host=host, username=username,
+                remote_path=remote_directory, identity_credential=identity,
+                known_hosts_credential=known_hosts, port=port,
+            )
+            return {"operation_id": operation_id, **result}
+    except Exception as exc:
+        raise WebAPIError(f"SFTP remote inventory failed: {exc}") from exc
+
+
 def _publish_captured_image_to_sftp(image_id: str, repository: Path, config: dict[str, Any]) -> dict[str, Any]:
     required = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential"}
     if not isinstance(config, dict) or set(config) not in (required, required | {"port"}):
@@ -2403,6 +2437,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise WebAPIError("images does not accept parameters")
         return {"images": _images()}
+    if action == "list_sftp_image_manifests":
+        return _list_sftp_image_manifests(params)
     if action == "fetch_sftp_image_set":
         return _fetch_sftp_image_set(params)
     if action == "publish_sftp_image_set":
