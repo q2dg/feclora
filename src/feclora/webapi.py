@@ -1354,7 +1354,52 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         expected = f"ERASE {target}"
         if params["confirmation"] != expected:
             raise WebAPIError(f"explicit confirmation required: {expected}")
-        repository = _operation_repository(params, write=False)
+        if "sftp_source" in params:
+            source = params["sftp_source"]
+            required_source = {
+                "host", "username", "remote_directory",
+                "identity_credential", "known_hosts_credential",
+            }
+            if not isinstance(source, dict) or set(source) not in (required_source, required_source | {"port"}):
+                raise WebAPIError("SFTP restore source settings are invalid")
+            host = _text(source, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
+            if host.endswith(".") or ".." in host:
+                raise WebAPIError("SFTP restore source host is invalid")
+            username = _text(source, "username", pattern=r"[A-Za-z0-9._-]{1,64}")
+            remote_directory = _text(source, "remote_directory", maximum=1024)
+            identity = _text(source, "identity_credential", maximum=512)
+            known_hosts = _text(source, "known_hosts_credential", maximum=512)
+            port = source.get("port", 22)
+            if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+                raise WebAPIError("SFTP restore source port is invalid")
+            if "repository_id" in params:
+                raise WebAPIError("SFTP restore cannot be combined with a mounted repository")
+            client_config = _client_runtime_config()
+            public_key = (
+                Path(client_config.trusted_server_public_key)
+                if client_config and client_config.trusted_server_public_key
+                else Path("/etc/feclora/pki/server.pub")
+            )
+            try:
+                key_info = os.lstat(public_key)
+            except OSError as exc:
+                raise WebAPIError("trusted Feclora image-signing public key is unavailable") from exc
+            if (not stat.S_ISREG(key_info.st_mode) or stat.S_ISLNK(key_info.st_mode)
+                    or key_info.st_uid != 0 or key_info.st_mode & 0o022):
+                raise WebAPIError("trusted Feclora minisign public key has unsafe ownership or permissions")
+            repository = _repository(create=True)
+            from feclora.storage.sftp_image_set import fetch_image_set
+            try:
+                fetch_image_set(
+                    remote_directory=remote_directory, destination_root=repository,
+                    public_key=public_key, host=host, username=username,
+                    identity_credential=identity, known_hosts_credential=known_hosts,
+                    port=port, expected_image_id=image_id,
+                )
+            except Exception as exc:
+                raise WebAPIError(f"authenticated SFTP image fetch failed: {exc}") from exc
+        else:
+            repository = _operation_repository(params, write=False)
         manifest_path = _image_manifest(image_id, repository)
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
         expected_type = "disk" if action == "restore_disk" else "partition"
