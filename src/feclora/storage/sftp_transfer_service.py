@@ -101,7 +101,7 @@ def _stop_transient_unit(systemctl: str, unit: str) -> None:
         )
     except subprocess.TimeoutExpired:
         killed = subprocess.run(
-            [systemctl, "kill", "--kill-who=all", "--signal=SIGKILL", unit],
+            [systemctl, "kill", "--kill-whom=all", "--signal=SIGKILL", unit],
             stdin=subprocess.DEVNULL, capture_output=True, text=True,
             check=False, timeout=5,
         )
