@@ -2473,7 +2473,7 @@ def _server_trusted_clients() -> dict[str, Any]:
         raise WebAPIError(f"cannot read Server trust configuration: {exc}") from exc
     return {"clients": [
         {"identity": identity, "mac_address": mac,
-         "image_capture": mac in config.client_minisign_public_keys}
+         "image_signing": mac in config.client_minisign_public_keys}
         for identity, mac in sorted(config.client_identity_to_mac.items())
     ]}
 
