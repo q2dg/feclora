@@ -261,7 +261,7 @@ pre-existing files are preserved.
 - [ ] Add saved SFTP repository definitions, remote inventory/discovery and provider health checks.
 - [x] Add a Cockpit/API action to publish an existing locally signed image set to SFTP, verifying the local minisign signature and artifact digests before upload.
 - [x] Add optional automatic SFTP publication to durable disk/partition capture jobs, requiring a signed manifest and registered encrypted SSH-key/known_hosts credentials.
-- [ ] Integrate SFTP publication automatically with capture jobs and imports with restore-job selection, progress, cancellation, retry/resume and full provider acceptance.
+- [ ] Integrate SFTP imports with restore-job selection and implement transfer progress, cancellation, retry/resume and full provider acceptance.
 - [ ] Add operational guide and current screenshots after Cockpit workflow acceptance.
 
 Tests were added but not executed in this session. This remains a restore-side import workflow rather than a complete SFTP
