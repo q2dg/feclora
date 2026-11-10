@@ -87,5 +87,28 @@ class SFTPTransferServiceTests(unittest.TestCase):
         self.assertEqual(calls[0][1]["timeout"], 86430)
 
 
+    def test_unverified_download_mode_is_explicit_and_limited_to_download(self):
+        bindings = [
+            ("feclora-backup-ssh-key", "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred"),
+            ("feclora-backup-known-hosts", "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred"),
+        ]
+        argv = build_systemd_transfer_argv(
+            systemd_run="/usr/bin/systemd-run", python="/usr/bin/python3",
+            unit="feclora-sftp-1234567890abcdef1234567890abcdef.service", bindings=bindings,
+            operation="download", host="sftp.example.net", username="backup",
+            remote_path="/images/manifest.json", local_path="/var/lib/feclora/stage/manifest.json",
+            allow_unverified_metadata=True,
+        )
+        self.assertIn("--allow-unverified-metadata", argv)
+        with self.assertRaises(RepositoryManagerError):
+            build_systemd_transfer_argv(
+                systemd_run="/usr/bin/systemd-run", python="/usr/bin/python3",
+                unit="feclora-sftp-1234567890abcdef1234567890abcdef.service", bindings=bindings,
+                operation="upload", host="sftp.example.net", username="backup",
+                remote_path="/images/manifest.json", local_path="/var/lib/feclora/stage/manifest.json",
+                allow_unverified_metadata=True,
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
