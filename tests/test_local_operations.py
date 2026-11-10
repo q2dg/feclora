@@ -232,7 +232,7 @@ class LocalOperationStoreTests(unittest.TestCase):
                       "encrypt": False, "sign": False}
             for _ in range(501):
                 store.submit("capture_disk", params)
-            self.assertEqual(len(store.list()), 500)
+            self.assertEqual(len(store.list(limit=500)), 500)
             self.assertEqual(len(store.list_all()), 501)
 
     def test_duplicate_submission_is_rejected(self):
