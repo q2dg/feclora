@@ -6,7 +6,8 @@ import os
 import tempfile
 import unittest
 from types import SimpleNamespace
-from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError, restore_disk
+from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError, restore_disk, _verified_artifact_stream
+from unittest.mock import patch
 
 
 class RecordingInput:
@@ -227,6 +228,39 @@ class DiskRestoreTests(unittest.TestCase):
         with self.assertRaisesRegex(DiskRestoreError, "trusted minisign public key"):
             self.restore()
         self.assertEqual(self.started, [])
+
+
+    def test_age_decryption_stages_on_local_temp_not_read_only_repository(self):
+        import contextlib
+        import hashlib
+        with tempfile.TemporaryDirectory() as repository, tempfile.TemporaryDirectory() as local_stage:
+            encrypted = b"ciphertext"
+            artifact_path = os.path.join(repository, "disk.raw.age")
+            with open(artifact_path, "wb") as stream:
+                stream.write(encrypted)
+            identity = os.path.join(repository, "identity.txt")
+            with open(identity, "w", encoding="ascii") as stream:
+                stream.write("AGE-SECRET-KEY-1TEST\n")
+            artifact = SimpleNamespace(
+                filename="disk.raw.age", size_bytes=len(encrypted),
+                sha256=hashlib.sha256(encrypted).hexdigest(), encryption="age",
+            )
+            observed = {}
+
+            def fake_decrypt(_stream, _identity, directory, **_kwargs):
+                observed["directory"] = directory
+                path = os.path.join(directory, "decrypted")
+                with open(path, "wb") as output:
+                    output.write(b"decrypted compressed bytes")
+                return path
+
+            with patch("feclora.storage.disk_restore.tempfile.gettempdir", return_value=local_stage), patch(
+                "feclora.storage.disk_restore.decrypt_artifact_stream_to_temp", side_effect=fake_decrypt
+            ):
+                with _verified_artifact_stream(repository, artifact, identity, "age") as plaintext:
+                    self.assertEqual(plaintext.read(), b"decrypted compressed bytes")
+            self.assertEqual(observed["directory"], local_stage)
+            self.assertEqual(os.listdir(local_stage), [])
 
 
 if __name__ == "__main__":
