@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from feclora.storage.image_manifest import ImageArtifact
 from feclora.storage.image_security import (
     ImageSecurityError, decrypt_artifact_to_temp, encrypt_artifact,
-    sign_manifest, verify_manifest_signature,
+    sign_manifest, verify_manifest_signature, preflight_image_security,
 )
 
 
@@ -99,6 +99,19 @@ class ImageSecurityTests(unittest.TestCase):
                    return_value=SimpleNamespace(returncode=1, stderr="signature mismatch", stdout="")):
             with self.assertRaisesRegex(ImageSecurityError, "invalid"):
                 verify_manifest_signature(self.manifest, self.public, minisign_executable="/usr/bin/minisign")
+
+
+    def test_preflight_checks_only_selected_optional_integrations(self):
+        with patch("feclora.storage.image_security.shutil.which", return_value=None):
+            preflight_image_security()
+            with self.assertRaisesRegex(ImageSecurityError, "age executable is required"):
+                preflight_image_security(age_recipients_file=self.recipients)
+            with self.assertRaisesRegex(ImageSecurityError, "minisign executable is required"):
+                preflight_image_security(minisign_secret_key=self.secret)
+
+    def test_preflight_rejects_missing_selected_key_file(self):
+        with self.assertRaisesRegex(ImageSecurityError, "age recipients file is unavailable"):
+            preflight_image_security(age_recipients_file=os.path.join(self.root, "missing-recipients"))
 
 
 if __name__ == "__main__":
