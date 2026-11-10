@@ -24,7 +24,7 @@ from feclora.storage.repository import RemoteRepository, RepositoryError, requir
 REGISTRY = Path("/etc/feclora/repositories.json")
 MOUNT_ROOT = Path("/var/lib/feclora/repositories")
 _REPOSITORY_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
-_SUPPORTED = {"sshfs", "nfs", "smb", "webdav", "s3"}
+_SUPPORTED = {"sshfs", "nfs", "smb", "s3"}
 
 
 class RepositoryManagerError(RuntimeError):
@@ -173,15 +173,13 @@ def _repository(identifier: str, definition: dict[str, Any], *, owner_uid: int =
         _check_secret_reference(repo.known_hosts_file, "SSH known_hosts", private=False, owner_uid=owner_uid)
     if repo.provider == "smb":
         _check_secret_reference(repo.credential_file, "SMB credentials file", owner_uid=owner_uid)
-    if repo.provider == "webdav":
-        _check_secret_reference(repo.credential_file, "WebDAV system secrets file", owner_uid=owner_uid)
     if repo.provider == "s3":
         _check_secret_reference(repo.credential_file, "rclone configuration file", owner_uid=owner_uid)
     return repo
 
 
 class RemoteRepositoryManager:
-    """Manage SSHFS, NFS, SMB, WebDAV and S3 mounts below Feclora private storage."""
+    """Manage supported SSHFS, NFS, SMB and read-only S3 mounts."""
 
     def __init__(
         self, *, registry: Path = REGISTRY, mount_root: Path = MOUNT_ROOT,
