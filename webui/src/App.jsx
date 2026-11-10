@@ -1189,8 +1189,8 @@ export default function App() {
                     </select>
                   </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing signed image." : "New identifier for the image captured from Clients."}>
                     {remoteOperation === "restore" ? <select className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)}>
-                      <option value="">Select signed image…</option>
-                      {availableImages.filter((item) => item.image_type === remoteTargetType && item.signed).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}</option>)}
+                      <option value="">Select image…</option>
+                      {availableImages.filter((item) => item.image_type === remoteTargetType).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {item.signed ? "signed" : "unsigned"}</option>)}
                     </select> : <input className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)} maxLength={128} required />}
                   </Field>}
                   {remoteOperation === "restore" && <Field label="Target type">
