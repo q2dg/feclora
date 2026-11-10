@@ -83,10 +83,13 @@ def extract_partition_image(
     if len(table_artifacts) != 1 or table_artifacts[0].format != "raw":
         raise DiskImagePartitionError("manifest must contain exactly one raw partition-table artifact")
     signature_path = manifest_file + ".minisig"
-    if require_signature and minisign_public_key is None:
-        raise DiskImagePartitionError("signature verification requires a trusted minisign public key")
+    signature_present = os.path.lexists(signature_path)
+    if require_signature and not signature_present:
+        raise DiskImagePartitionError("a minisign signature is required but this image has none")
+    if signature_present and minisign_public_key is None:
+        raise DiskImagePartitionError("image is signed; a trusted minisign public key is required before extraction")
     if minisign_public_key is not None:
-        if not os.path.isfile(signature_path):
+        if not signature_present:
             raise DiskImagePartitionError("minisign signature is missing")
         try:
             verify_manifest_signature(
