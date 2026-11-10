@@ -20,6 +20,7 @@ _HOST_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$")
 _REMOTE_PATH_RE = re.compile(r"^/[A-Za-z0-9._/@+,-]*(?:/[A-Za-z0-9._/@+,-]*)*$")
 _SAFE_USER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 _SAFE_SHARE_RE = re.compile(r"^[A-Za-z0-9._$-]{1,80}$")
+_S3_BUCKET_RE = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
 
 
 def _absolute_path(value: str, field: str) -> str:
@@ -103,8 +104,15 @@ class RemoteRepository:
                 raise RepositoryError("S3 requires a protected rclone configuration file")
             if not self.read_only:
                 raise RepositoryError("S3 repositories are read-only until provider-aware artifact publication is implemented")
-            if self.remote_path.startswith("//") or not self.remote_path[1:].split("/", 1)[0]:
-                raise RepositoryError("S3 remote_path must identify a bucket as its first path component")
+            parts = self.remote_path[1:].split("/")
+            bucket = parts[0] if parts else ""
+            if (self.remote_path.startswith("//") or not _S3_BUCKET_RE.fullmatch(bucket)
+                    or ".." in bucket or ".-" in bucket or "-." in bucket
+                    or re.fullmatch(r"\\d{1,3}(?:\\.\\d{1,3}){3}", bucket)
+                    or any(part in {"", ".", ".."} for part in parts[1:])):
+                raise RepositoryError(
+                    "S3 remote_path must contain a valid lowercase bucket name followed by normalized prefix components"
+                )
             if self.port is not None:
                 raise RepositoryError("S3 endpoint and port must be configured in the protected rclone remote")
         elif self.provider == "nfs" and (self.username or self.credential_file or self.identity_file):
