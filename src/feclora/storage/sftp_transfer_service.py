@@ -128,7 +128,8 @@ def run_sftp_transfer(
     if result.returncode:
         detail = (result.stderr or result.stdout or "").strip()[:512]
         raise RepositoryManagerError("SFTP transfer failed" + (f": {detail}" if detail else ""))
-    return {"operation": operation, "remote_path": remote_path, "completed": True}
+    return {"operation": operation, "remote_path": remote_path, "completed": True,
+            "verified": operation == "download" and expected_sha256 is not None}
 
 
 def _credential_path(name: str) -> str:
