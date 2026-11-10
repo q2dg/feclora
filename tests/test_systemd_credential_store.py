@@ -19,7 +19,7 @@ class SystemdCredentialStoreTests(unittest.TestCase):
         def runner(argv, **kwargs):
             self.calls.append((argv, kwargs))
             if argv[1] == "encrypt":
-                Path(argv[-1]).write_bytes(b"encrypted:" + kwargs["input"])
+                Path(argv[-1]).write_bytes(b"encrypted:opaque-ciphertext")
                 os.chmod(argv[-1], 0o600)
             return SimpleNamespace(returncode=0, stdout="", stderr="")
 
@@ -32,7 +32,7 @@ class SystemdCredentialStoreTests(unittest.TestCase):
         result = self.store.put("nas", "ssh-key", b"PRIVATE KEY")
         path = Path(result["path"])
         self.assertEqual(result["name"], "feclora-nas-ssh-key")
-        self.assertEqual(path.read_bytes(), b"encrypted:PRIVATE KEY")
+        self.assertEqual(path.read_bytes(), b"encrypted:opaque-ciphertext")
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         argv, kwargs = self.calls[0]
         self.assertEqual(argv[1:4], ["encrypt", "--name=feclora-nas-ssh-key", "--with-key=auto"])
@@ -44,7 +44,7 @@ class SystemdCredentialStoreTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemdCredentialStoreError, "explicit replacement"):
             self.store.put("nas", "smb", b"new")
         self.store.put("nas", "smb", b"new", replace=True)
-        self.assertEqual((self.root / "feclora-nas-smb.cred").read_bytes(), b"encrypted:new")
+        self.assertEqual((self.root / "feclora-nas-smb.cred").read_bytes(), b"encrypted:opaque-ciphertext")
 
     def test_list_returns_validated_metadata_only(self):
         self.store.put("nas", "rclone", b"secret")
