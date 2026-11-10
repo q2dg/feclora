@@ -1193,13 +1193,24 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
     allowed = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
-        "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
-        "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
+        "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
     }
-    if action not in allowed or set(params) not in (allowed[action], allowed[action] - {"repository_id"}, allowed[action] - {"sftp_publish"}, allowed[action] - {"repository_id", "sftp_publish"}):
+    if action not in allowed:
+        raise WebAPIError("operation parameters do not match the selected operation")
+    allowed_params = allowed[action]
+    if action.startswith("restore_"):
+        accepted_params = (allowed_params, allowed_params - {"repository_id"},
+                           allowed_params - {"sftp_source"},
+                           allowed_params - {"repository_id", "sftp_source"})
+    else:
+        accepted_params = (allowed_params, allowed_params - {"repository_id"},
+                           allowed_params - {"sftp_publish"},
+                           allowed_params - {"repository_id", "sftp_publish"})
+    if set(params) not in accepted_params or ("sftp_source" in params and "repository_id" in params):
         raise WebAPIError("operation parameters do not match the selected operation")
     started = time.monotonic()
     _emit({"event": "started", "operation_id": operation_id, "operation": action})
@@ -1542,7 +1553,18 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
     }
-    if action not in operation_fields or set(params) not in (operation_fields[action], operation_fields[action] - {"repository_id"}, operation_fields[action] - {"sftp_publish"}, operation_fields[action] - {"repository_id", "sftp_publish"}):
+    if action not in operation_fields:
+        raise WebAPIError("operation parameters do not match the selected operation")
+    allowed_params = operation_fields[action]
+    if action.startswith("restore_"):
+        accepted_params = (allowed_params, allowed_params - {"repository_id"},
+                           allowed_params - {"sftp_source"},
+                           allowed_params - {"repository_id", "sftp_source"})
+    else:
+        accepted_params = (allowed_params, allowed_params - {"repository_id"},
+                           allowed_params - {"sftp_publish"},
+                           allowed_params - {"repository_id", "sftp_publish"})
+    if set(params) not in accepted_params or ("sftp_source" in params and "repository_id" in params):
         raise WebAPIError("operation parameters do not match the selected operation")
     with _storage_operation_lock():
         return _run_operation_locked(action, params)
@@ -1558,13 +1580,18 @@ def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
     }
-    if action not in operation_fields or (
-        set(params) not in (
-            operation_fields[action], operation_fields[action] - {"repository_id"},
-            operation_fields[action] - {"sftp_publish"},
-            operation_fields[action] - {"repository_id", "sftp_publish"},
-        )
-    ):
+    if action not in operation_fields:
+        raise WebAPIError("operation parameters do not match the selected operation")
+    allowed_params = operation_fields[action]
+    if action.startswith("restore_"):
+        accepted_params = (allowed_params, allowed_params - {"repository_id"},
+                           allowed_params - {"sftp_source"},
+                           allowed_params - {"repository_id", "sftp_source"})
+    else:
+        accepted_params = (allowed_params, allowed_params - {"repository_id"},
+                           allowed_params - {"sftp_publish"},
+                           allowed_params - {"repository_id", "sftp_publish"})
+    if set(params) not in accepted_params or ("sftp_source" in params and "repository_id" in params):
         raise WebAPIError("operation parameters do not match the selected operation")
     from feclora.storage.operation_log import operation_record
 
