@@ -2077,7 +2077,7 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             if params:
                 raise WebAPIError("remote_repositories does not accept parameters")
             return {"repositories": _remote_repository_manager().list()}
-        if action == "add_remote_repository":
+        if action in {"add_remote_repository", "update_remote_repository"}:
             required = {
                 "id", "provider", "host", "remote_path", "username",
                 "credential_file", "identity_file", "known_hosts_file",
@@ -2104,7 +2104,13 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
                 raise WebAPIError("port must be null or an integer between 1 and 65535")
             if not isinstance(definition["read_only"], bool):
                 raise WebAPIError("read_only must be boolean")
-            return _remote_repository_manager().add(identifier, definition)
+            manager = _remote_repository_manager()
+            return manager.add(identifier, definition) if action == "add_remote_repository" else manager.update(identifier, definition)
+        if action == "check_remote_repository":
+            if set(params) != {"id"}:
+                raise WebAPIError("check_remote_repository requires exactly id")
+            identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
+            return _remote_repository_manager().check(identifier)
         if action in {"mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"}:
             if set(params) != {"id"}:
                 raise WebAPIError(f"{action} requires exactly id")
@@ -2141,7 +2147,7 @@ def dispatch(request: Any) -> dict[str, Any]:
         }
     if action in {"remote_credentials", "systemd_credentials", "put_systemd_credential", "remove_systemd_credential"}:
         return _remote_repository_action(action, params)
-    if action in {"remote_repositories", "add_remote_repository", "mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"}:
+    if action in {"remote_repositories", "add_remote_repository", "update_remote_repository", "check_remote_repository", "mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"}:
         return _remote_repository_action(action, params)
     if action == "server_trusted_clients":
         if params:
