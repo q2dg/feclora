@@ -33,7 +33,7 @@ def execute_client_image_job(
     *,
     server_identity: str,
     repository: str | os.PathLike[str],
-    trusted_server_public_key: str | os.PathLike[str],
+    trusted_server_public_key: str | os.PathLike[str] | None,
     local_identity: str | None = None,
     local_minisign_secret_key: str | os.PathLike[str] | None = None,
     local_minisign_public_key: str | os.PathLike[str] | None = None,
