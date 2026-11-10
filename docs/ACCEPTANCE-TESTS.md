@@ -101,8 +101,10 @@ querier behavior has been independently configured and checked.
 
 The hardware-independent repository-manager test suite also covers concurrent
 registry mutation: simultaneous additions for different IDs must preserve both
-entries. This protects Feclora's local registry only; it is not a test of
-concurrent writes performed by independent clients against a remote service.
+entries, and a simulated registry-write failure during removal must leave the
+definition and its empty mountpoint intact. These tests protect Feclora's local
+registry only; they are not tests of concurrent writes performed by independent
+clients against a remote service.
 
 Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS
 endpoint. WebDAV is currently rejected by the repository manager until its
