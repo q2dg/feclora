@@ -174,7 +174,7 @@ def prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(client_id, str) or not _CLIENT_ID.fullmatch(client_id):
         raise CockpitEnrollmentError("Client identifier must contain 1-48 lowercase letters, digits or hyphens")
     if not isinstance(params["image_signing"], bool):
-        raise CockpitEnrollmentError("image_capture must be boolean")
+        raise CockpitEnrollmentError("image_signing must be boolean")
     if os.path.lexists(CONFIG):
         raise CockpitEnrollmentError("Client is already configured; use the renewal workflow")
     export = _mounted_media_directory(params["export_directory"])
