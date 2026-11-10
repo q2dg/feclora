@@ -1368,7 +1368,7 @@ class WebAPITests(unittest.TestCase):
                 "confirmation": "ERASE /dev/sdb",
                 "sftp_source": {
                     "host": "backup.example.net", "username": "backup",
-                    "remote_directory": "/images/gold",
+                    "remote_directory": "/images/gold", "expected_manifest_sha256": "a" * 64,
                     "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
                     "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
                 },
