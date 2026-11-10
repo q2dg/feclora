@@ -1239,6 +1239,39 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(publish.call_args.kwargs["known_hosts_credential"], params["known_hosts_credential"])
         self.assertEqual(publish.call_args.kwargs["port"], 2222)
 
+    def test_capture_disk_publishes_signed_image_to_sftp_after_capture(self):
+        from pathlib import Path
+        manifest = SimpleNamespace(image_id="captured", image_type="disk")
+        repository = Path("/var/lib/feclora/images")
+        params = {
+            "source": "/dev/sda", "image_id": "captured", "compression": "zstd",
+            "encrypt": False, "sign": True,
+            "sftp_publish": {
+                "host": "backup.example.net", "username": "backup",
+                "remote_directory": "/images/captured", "port": 2222,
+                "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+                "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+            },
+        }
+        with patch("feclora.webapi._device", return_value="/dev/sda"), patch(
+            "feclora.webapi._security_material", return_value={
+                "age_encryption_available": False, "image_signing_available": True,
+            }
+        ), patch("feclora.webapi._capture_material", return_value=(None, Path("/etc/feclora/pki/server.minisign.key"))), patch(
+            "feclora.webapi._operation_repository", return_value=repository
+        ), patch(
+            "feclora.storage.disk_capture.capture_disk", return_value=manifest
+        ) as capture, patch(
+            "feclora.webapi._publish_captured_image_to_sftp",
+            return_value={"image_id": "captured", "published": True},
+        ) as publish:
+            result = __import__("feclora.webapi", fromlist=["_execute_operation"])._execute_operation(
+                "capture_disk", params, "operation-1"
+            )
+        self.assertTrue(result["sftp_publication"]["published"])
+        capture.assert_called_once()
+        publish.assert_called_once_with("captured", repository, params["sftp_publish"])
+
     def test_publish_sftp_image_set_api_rejects_invalid_port_before_transfer(self):
         params = {
             "image_id": "golden", "host": "backup.example.net", "username": "backup",
