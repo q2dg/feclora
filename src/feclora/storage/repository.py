@@ -108,7 +108,10 @@ class RemoteRepository:
             bucket = parts[0] if parts else ""
             if (self.remote_path.startswith("//") or not _S3_BUCKET_RE.fullmatch(bucket)
                     or ".." in bucket or ".-" in bucket or "-." in bucket
-                    or re.fullmatch(r"\\d{1,3}(?:\\.\\d{1,3}){3}", bucket)
+                    or (len(bucket.split(".")) == 4 and all(
+                        part.isdigit() and 0 <= int(part) <= 255
+                        for part in bucket.split(".")
+                    ))
                     or any(part in {"", ".", ".."} for part in parts[1:])):
                 raise RepositoryError(
                     "S3 remote_path must contain a valid lowercase bucket name followed by normalized prefix components"
