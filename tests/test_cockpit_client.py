@@ -58,6 +58,33 @@ class CockpitClientTests(unittest.TestCase):
         self.assertEqual(result["identity"], config.local_identity)
         self.assertIsNone(result["minisign_public_file"])
 
+    def test_prepare_client_renewal_does_not_enable_age_when_not_configured(self):
+        config = SimpleNamespace(
+            local_identity="URI:feclora-client-lab-02",
+            private_key_file="/etc/feclora/pki/client.key",
+            local_minisign_public_key=None,
+            age_identity_file=None,
+        )
+        with patch("feclora.deployment.cockpit_client.load_client_runtime_config", return_value=config), patch(
+            "feclora.deployment.cockpit_client._mounted_media_directory", return_value="/run/media/test/USB"
+        ), patch("feclora.deployment.cockpit_client.os.lstat", return_value=SimpleNamespace(
+            st_mode=stat.S_IFREG | 0o600, st_uid=0
+        )), patch("feclora.deployment.cockpit_client.os.path.lexists", return_value=False), patch(
+            "feclora.deployment.cockpit_client.subprocess.run", return_value=SimpleNamespace(
+                returncode=0, stdout=b"same-public-key"
+            )
+        ), patch("feclora.deployment.cockpit_client.shutil.which", return_value="/usr/bin/age-keygen"), patch(
+            "feclora.deployment.cockpit_client.create_client_csr", return_value=(
+                "URI:feclora-client-lab-02", config.private_key_file,
+                "/run/media/test/USB/feclora-lab-02-renewal.csr",
+            )
+        ) as create:
+            prepare_client_renewal({"export_directory": "/run/media/test/USB"})
+        create.assert_called_once_with(
+            "/etc/feclora/pki", "/run/media/test/USB", "lab-02",
+            reuse_existing_key=True, age_keygen=None,
+        )
+
     def test_prepare_rejects_invalid_client_identifier(self):
         with self.assertRaisesRegex(CockpitEnrollmentError, "identifier"):
             prepare_client_request({
