@@ -1,4 +1,4 @@
-"""Durable, append-only operation journal for the Local rescue UI."""
+"""Durable, append-only operation journal for Feclora storage and deployment work."""
 from __future__ import annotations
 
 import fcntl
