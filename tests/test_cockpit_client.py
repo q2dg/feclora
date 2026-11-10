@@ -132,6 +132,10 @@ class CockpitClientTests(unittest.TestCase):
         ), patch("feclora.deployment.cockpit_client._bundle_file", side_effect=bundle_paths), patch(
             "feclora.deployment.cockpit_client.Path.read_bytes", return_value=b"server public key"
         ), patch("feclora.deployment.cockpit_client.Path.read_text", return_value=recipient + "\n"), patch(
+            "feclora.deployment.cockpit_client.json.loads", return_value={
+                "trusted_server_public_key": None, "age_recipients_file": None,
+            }
+        ), patch("feclora.deployment.cockpit_client.shutil.which", return_value="/usr/bin/age-keygen"), patch(
             "feclora.deployment.cockpit_client.subprocess.run", return_value=SimpleNamespace(
                 returncode=0, stdout=recipient + "\n"
             )
