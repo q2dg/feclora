@@ -1375,6 +1375,7 @@ export default function App() {
                 </form></CardBody></Card>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Configured repositories</Title>
+                <p>“Identity verified” confirms only that findmnt reports the expected source, filesystem type and access mode. It does not test live network connectivity, read/write I/O, latency, free space or quota; use an actual repository operation to validate access.</p>
                 <Table aria-label="Remote image repositories" variant="compact"><Thead><Tr><Th>ID</Th><Th>Provider</Th><Th>Remote location</Th><Th>Access</Th><Th>Mount identity</Th><Th>Actions</Th></Tr></Thead><Tbody>
                   {remoteRepositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.provider}</Td><Td>{repo.host}:{repo.remote_path}<br />{repo.mountpoint}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td>{repo.mounted ? (repo.verified ? <Label color="green">Mounted · identity verified</Label> : <><Label color="red">Mounted · unverified</Label>{repo.mount_error && <div className="pf-v5-u-color-danger pf-v5-u-font-size-sm">{repo.mount_error}</div>}</>) : <Label color="grey">Unmounted</Label>}</Td><Td>
                     <Button size="sm" variant="secondary" isDisabled={busy || repo.mounted} onClick={() => editRemoteRepository(repo)}>Edit</Button>{" "}
