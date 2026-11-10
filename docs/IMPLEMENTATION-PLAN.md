@@ -224,8 +224,8 @@ signed-set publication sequence.
 - [x] Validate the existing signed manifest and every local artifact before transfer.
 - [x] Publish artifact files before manifest metadata and detached signature.
 - [x] Add unit coverage for ordering, digest mismatch, signature failure and interrupted upload.
-- [ ] Implement remote manifest/signature discovery and safe download into a private staging set.
-- [ ] Verify downloaded manifest signature before fetching its listed artifacts; verify size and SHA-256 before making the set visible to restore.
+- [x] Fetch manifest/signature into a private staging set and enforce metadata size limits.
+- [x] Verify downloaded manifest signature before fetching listed artifacts; verify size and SHA-256 for every artifact.
 - [ ] Integrate SFTP image-set publish/fetch with capture and restore operation orchestration, durable progress and cancellation semantics.
 - [ ] Expose repository and credential selection through Cockpit with role-aware validation and actionable errors.
 - [ ] Add operator guide and screenshots after the complete workflow exists.
@@ -237,20 +237,23 @@ restore. Unit tests were added but not executed in this work session.
 
 ### SFTP authenticated image-set retrieval checkpoint
 
-The standalone fetch primitive now downloads manifest and detached signature
-into a private staging directory without treating either as trusted. It checks
+The standalone fetch primitive downloads manifest and detached signature into
+a private staging directory without treating either as trusted. It checks
 metadata size limits, validates manifest v1 and verifies minisign against an
 independently trusted public key before requesting artifacts. Each artifact
-download is checked against the signed SHA-256 and byte count. Only a complete
-set is made visible, using Linux atomic no-replace directory rename; if that
-primitive is unavailable or the image ID already exists, publication fails
-closed.
+download is checked against the signed SHA-256 and byte count. It then imports
+artifacts into the native flat Feclora repository layout, publishes the
+signature, and publishes `<image_id>.manifest.json` last using no-overwrite
+hard links. This matches the current Cockpit inventory/restore filename
+contract. It is manifest-last multi-file publication, not one atomic
+transaction; on a collision, files created by the attempt are removed and
+pre-existing files are preserved.
 
 - [x] Add restricted transient-service mode for unverified manifest/signature downloads.
 - [x] Verify signed manifest before downloading any image artifacts.
 - [x] Download and verify every artifact against signed size and SHA-256.
-- [x] Atomically publish the complete local image directory without overwriting an existing image.
-- [x] Test metadata-first ordering, bad signature rejection, digest mismatch and staging cleanup.
+- [x] Import verified files into the native local image repository, with signature and manifest published last and no-overwrite hard links.
+- [x] Test metadata-first ordering, bad signature rejection, digest mismatch, collision refusal and staging cleanup.
 - [ ] Add remote image-set inventory/discovery and safe listing.
 - [ ] Connect publisher/fetcher to capture and restore orchestration, durable progress and failure reporting.
 - [ ] Expose SFTP repository and encrypted credential selection in Cockpit.
