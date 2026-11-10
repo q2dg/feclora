@@ -295,15 +295,9 @@ download writes to a random sibling temporary file, checks the caller-supplied
 SHA-256 (normally obtained from a signed Feclora manifest), and publishes with
 a no-overwrite hard link.
 
-The adapter now has a companion runner, `sftp_transfer_service.py`, which resolves the registered `ssh-key` and `known-hosts` encrypted credential references and executes the transfer in a synchronous transient systemd service using `LoadCredentialEncrypted=`. Plaintext credentials exist only in that service's private `CREDENTIALS_DIRECTORY`; the API-side invocation contains only encrypted blob paths and non-secret transfer parameters. This runner is callable as a Python service helper but is not yet exposed as a Cockpit action or wired into image capture/restore operation orchestration.\n\nThis is deliberately not marked as a complete SFTP repository provider.
-OpenSSH SFTP does not provide a portable server-side SHA-256 operation, so the
-upload adapter returns the locally computed digest and relies on the signed
-manifest verification when the artifact is later consumed. The current
-adapter has no resume protocol, artifact-set transaction, Cockpit form/API,
-credential import binding, operation-journal progress, or capture/restore
-routing. Those remain acceptance blockers. Do not select SSHFS when SFTP
-transfer semantics are required, and do not infer Cockpit SFTP support from
-the presence of this module.
+The adapter has a companion runner, `sftp_transfer_service.py`, which resolves registered `ssh-key` and `known-hosts` encrypted credential references and executes transfers in synchronous transient systemd services using `LoadCredentialEncrypted=`. Plaintext credentials exist only in the service's private `CREDENTIALS_DIRECTORY`; the API-side invocation contains only encrypted blob paths and non-secret transfer parameters. Cockpit exposes one-shot signed-image inventory/inspection, import and publication actions; named SFTP endpoints can be saved, and SFTP fetch is integrated with durable disk/partition restore jobs. Optional post-capture publication is also supported.
+
+This is still not a complete SFTP repository provider. OpenSSH SFTP does not provide a portable server-side SHA-256 operation, so upload returns the locally computed digest and relies on signed-manifest verification when the artifact is consumed. Transfers remain synchronous: there is no byte-level progress, operator cancellation, retry/resume protocol or multi-directory catalog discovery. A failed multi-file publication can leave unreferenced remote files; final names are no-overwrite, so an operator may need to remove those orphaned files before retrying. Unit tests exist, but live provider acceptance remains outstanding. Do not select SSHFS when SFTP file-transfer semantics are required.
 
 
 ### Signed SFTP image-set publication primitive
