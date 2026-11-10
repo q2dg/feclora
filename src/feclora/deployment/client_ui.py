@@ -549,7 +549,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 )
                 return dialog_app._run_restore_gauge(
                     "Multicast image restore",
-                    "Receiving signed image artifacts into private staging, verifying them, then restoring the locally approved target.",
+                    "Receiving image artifacts into private staging, verifying any signature and all digests, then restoring the locally approved target.",
                     operation,
                 )
             compression = state.get("compression", "gzip")
@@ -583,7 +583,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             )
             if job.operation == "restore":
                 return dialog_app._run_restore_gauge(
-                    "Network image restore", "Receiving and verifying the signed image, then restoring the selected target.",
+                    "Network image restore", "Receiving and verifying the image set, including any present signature, then restoring the selected target.",
                     operation,
                 )
             return dialog_app._run_capture_gauge(
