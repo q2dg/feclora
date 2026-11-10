@@ -15,7 +15,7 @@ Status meanings:
 | Imaging | Partition capture/restore | Implemented | Cockpit | Automated tests; operator validation |
 | Imaging | Extract partition from whole-disk image | Implemented; verified partition-table preview, age decrypt/re-encryption when source is encrypted, source signature verification and signed output when key is available | Cockpit | Automated tests |
 | Imaging | Whole-disk restore layout preview | Read-only source partition map and destination capacity comparison; no automatic growth | Cockpit | Automated tests; operator validation |
-| Imaging | On-demand image verification report | Manifest, trusted signature, stored SHA-256/size, age authentication, compression stream and decoded disk-size checks | Cockpit | Automated tests; operator validation |
+| Imaging | On-demand image verification report | Manifest, trusted signature, stored SHA-256/size, age authentication, compression stream and decoded raw disk/partition size checks | Cockpit | Automated tests; operator validation |
 | Deployment security | Client TLS certificate renewal | Reuses existing TLS key; exact Server approval; retains MAC, age and minisign trust; fingerprint-verified install | Cockpit + removable media | Automated tests; operator validation |
 | Deployment security | TLS certificate expiry monitoring | Read-only Server/Client leaf and CA expiry status with 30-day warning threshold | Cockpit | Automated tests; operator validation |
 | Deployment security | Server TLS certificate renewal | Existing CA/key retained; active deployment services block renewal; chain/SAN/key verified before atomic replacement | Cockpit | Automated tests; operator validation |
