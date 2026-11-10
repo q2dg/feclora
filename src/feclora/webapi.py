@@ -603,7 +603,7 @@ def _publish_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
                     public_key=public_key, artifact_directory=repository,
                     remote_directory=remote_directory, host=host, username=username,
                     identity_credential=identity, known_hosts_credential=known_hosts,
-                    port=port,
+                    port=port, progress_callback=_progress,
                 )
                 return {"operation_id": operation_id, **result}
     except Exception as exc:
