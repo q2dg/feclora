@@ -62,7 +62,7 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Report mounted state separately from verified provider/source/type/access-mode identity in Cockpit.
 - [x] Add an initial standalone OpenSSH SFTP file-transfer primitive with pinned host keys, staged hard-link no-overwrite upload, and SHA-256-verified download; keep it separate from SSHFS mounts.
 - [x] Add systemd-creds-backed SFTP transfer execution and signed image-set publish/fetch primitives with minisign and artifact digest verification.
-- [ ] Complete the SFTP provider: multi-directory inventory/discovery, durable transfer progress, cancellation, retry/resume, provider health checks and operational acceptance.
+- [ ] Complete the SFTP provider: multi-directory inventory/discovery, durable byte-level transfer progress, operator cancellation, resume, provider health checks and operational acceptance. Bounded retries for transient read-only transfers are implemented; upload retries remain deliberately disabled.
 - [ ] Complete safe WebDAV per-repository credential isolation and provider lifecycle; do not depend on the global davfs2 secrets file.
 - [ ] Complete S3-compatible provider-aware publication only where conditional no-overwrite creation, multipart completion semantics and remote read-back are guaranteed; otherwise expose read-only capabilities accurately.
 - [ ] Design optional BitTorrent artifact distribution using a maintained implementation, trusted manifest/digest verification, authorized job binding, cancellation, cleanup, peer/bandwidth policy and acceptance tests. Do not present it as a writable repository.
@@ -234,13 +234,14 @@ signed-set publication sequence.
 - [x] Verify downloaded manifest signature before fetching listed artifacts; verify size and SHA-256 for every artifact.
 - [x] Integrate SFTP image-set publication with disk/partition capture operations, retaining durable capture-job tracking and requiring signed manifests.
 - [x] Integrate authenticated SFTP image selection with durable disk/partition restore jobs, binding the inspected image ID and manifest digest before artifact retrieval.
-- [x] Add bounded retries for transient SFTP download and inventory transport failures; never retry uploads automatically when publication outcome may be ambiguous.\n- [ ] Add byte-level transfer progress, operator cancellation, resume and complete recovery semantics.
+- [x] Add bounded retries for transient SFTP download and inventory transport failures; never retry uploads automatically when publication outcome may be ambiguous.
+- [ ] Add byte-level transfer progress, operator cancellation, resume and complete recovery semantics.
 - [x] Expose one-shot SFTP endpoint and encrypted SSH-key/known_hosts credential selection through Cockpit.
 - [x] Add reusable saved SFTP endpoint definitions and encrypted credential references.
 - [ ] Add provider health checks and multi-directory inventory/discovery.
 - [ ] Add operator guide and screenshots after the complete workflow exists.
 
-SFTP is available in Cockpit for one-shot signed-image publication, import and direct disk/partition restore. Named endpoint definitions and encrypted credential references are saved in a root-owned registry. Its synchronous transfer path still has no byte progress, operator cancellation, retry or resume. Unit tests exist; live provider acceptance remains outstanding.
+SFTP is available in Cockpit for one-shot signed-image publication, import and direct disk/partition restore. Named endpoint definitions and encrypted credential references are saved in a root-owned registry. Its synchronous transfer path still has no byte-level progress, operator cancellation or resume. Transient read-only downloads and inventory retry connection faults up to twice; uploads are not automatically retried. Unit tests exist; live provider acceptance remains outstanding.
 
 
 ### SFTP authenticated image-set retrieval checkpoint
@@ -272,7 +273,7 @@ pre-existing files are preserved.
 - [x] Add a Cockpit/API action to publish an existing locally signed image set to SFTP, verifying the local minisign signature and artifact digests before upload.
 - [x] Add optional automatic SFTP publication to durable disk/partition capture jobs, requiring a signed manifest and registered encrypted SSH-key/known_hosts credentials.
 - [x] Integrate authenticated SFTP image selection with durable disk/partition restore jobs; bind the requested image ID and inspected manifest SHA-256 to the signed remote manifest, then verify all artifacts before destructive restore starts.
-- [ ] Implement transfer byte progress, cancellation, retry/resume and full provider acceptance for SFTP-backed restore jobs.
+- [ ] Implement transfer byte progress, operator cancellation, resume and full provider acceptance for SFTP-backed restore jobs. Bounded retry for transient read-only transfers is already implemented.
 - [ ] Add operational guide and current screenshots after Cockpit workflow acceptance.
 
-Tests were added but not executed in this session. Cockpit can preview remote image metadata only after verifying the detached minisign signature against the configured independent trust key. Both explicit import and direct restore fetch artifact content and verify signed sizes and SHA-256 values before the image is made available to the restore engine. SFTP publication is also integrated with manual Cockpit upload and optional post-capture publication. This is not yet a complete reusable SFTP provider: inventory is limited to one configured directory, transfers are synchronous, and byte-level progress, retry/resume, cancellation and multi-directory catalog discovery remain pending.
+Tests were added but not executed in this session. Cockpit can preview remote image metadata only after verifying the detached minisign signature against the configured independent trust key. Both explicit import and direct restore fetch artifact content and verify signed sizes and SHA-256 values before the image is made available to the restore engine. SFTP publication is also integrated with manual Cockpit upload and optional post-capture publication. This is not yet a complete reusable SFTP provider: inventory is limited to one configured directory, transfers are synchronous, and byte-level progress, resume, cancellation and multi-directory catalog discovery remain pending. Bounded retries apply only to transient read-only transport failures.
