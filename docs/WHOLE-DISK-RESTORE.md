@@ -16,7 +16,7 @@ Before starting the writer it:
 4. rejects mounted target trees and disks backing the running Live root;
 5. opens the artifact without following symlinks and verifies its stored byte
    count and SHA-256 against the manifest;
-6. verifies a detached minisign signature when requested and fully decompresses
+6. verifies a configured detached signature when requested (the current implementation supports minisign) and fully decompresses
    the artifact before touching the target;
 7. repeats target identity and safety checks immediately before starting
    `dd`;
@@ -41,8 +41,15 @@ journal.
 
 **Destructive boundary:** once `dd` starts, a hardware or power failure can
 leave the target partially overwritten. SHA-256 detects accidental corruption;
-it does not authenticate who created the manifest. Minisign verification
+it does not authenticate who created the manifest. A configured signature verifier (currently minisign)
 establishes authenticity only when the public key is independently trusted.
 
 Tests use mocked device I/O. No VM or hardware restore has been validated.
 Never test against a disk containing needed data.
+
+
+`age` encryption and `minisign` signatures are optional integrations. A missing
+age executable must not block restoration of unencrypted images. A missing
+minisign executable must not block unsigned/local baseline restores; when a
+signature is required by the caller or deployment policy, the configured
+verifier must be available. SHA-256 alone is not publisher authentication.
