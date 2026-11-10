@@ -413,13 +413,17 @@ export default function App() {
   const listSftpImageManifests = async () => {
     setBusy(true); setError(""); setNotice(""); setSftpRemoteInventory(null);
     try {
-      const result = await callFeclora("list_sftp_image_manifests", {
+      const operationParams = {
         host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
         port: Number(sftpPort), identity_credential: sftpIdentity,
         known_hosts_credential: sftpKnownHosts
+      };
+      const result = await callFeclora("submit_local_operation", {
+        operation: "sftp_inventory", operation_params: operationParams
       });
-      setSftpRemoteInventory(result.manifests || []);
-      setNotice("SFTP inventory completed: " + (result.manifests || []).length + " manifest marker(s) found.");
+      setNotice("SFTP inventory queued as durable operation " + result.operation_id + ". Follow its state and cancellation controls in Operation log.");
+      const history = await callFeclora("local_operations");
+      setOperations(history.operations || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
