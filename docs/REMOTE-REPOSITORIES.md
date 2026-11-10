@@ -92,7 +92,9 @@ processes with a separate root-owned, mode-0600 lock file. `update` and
 `remove` reload the registry after acquiring that lock, so concurrent changes
 to different repository IDs are not lost through stale read-modify-write
 snapshots. Per-repository usage leases remain separate and continue to protect
-active restore jobs. Existing registry entries created before the
+active restore jobs. If definition removal cannot commit its registry update
+after deleting the empty mountpoint, the manager recreates that mountpoint so
+the still-persisted definition is not left without its local directory. Existing registry entries created before the
 `rclone_remote` field was introduced remain readable.
 
 WebDAV is currently unavailable in the repository manager. The earlier
