@@ -286,7 +286,7 @@ def _publish_generated_keypair(staged_paths: tuple[Path, ...], final_paths: tupl
             parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
         )
         info = os.fstat(directory_fd)
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
             raise WebAPIError("Feclora PKI directory is unsafe for image-security key publication")
         for staged, final in zip(staged_paths, final_paths):
             staged_info = os.lstat(staged)
