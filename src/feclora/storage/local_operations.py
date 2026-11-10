@@ -84,8 +84,8 @@ def validate_definition(value: Any) -> dict[str, Any]:
         raise LocalOperationError("operation_id must use canonical UUID form")
     action, params = value["action"], value["params"]
     fields = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
@@ -95,7 +95,9 @@ def validate_definition(value: Any) -> dict[str, Any]:
     if not isinstance(action, str) or action not in fields or not isinstance(params, dict):
         raise LocalOperationError("unsupported local storage operation")
     allowed = fields[action]
-    if set(params) not in (allowed, allowed - {"repository_id"}):
+    accepted = (allowed, allowed - {"repository_id"}, allowed - {"sftp_publish"},
+                allowed - {"repository_id", "sftp_publish"})
+    if set(params) not in accepted:
         raise LocalOperationError("operation parameters do not match the selected operation")
     for key in ("source", "target"):
         if key in params:
@@ -121,6 +123,27 @@ def validate_definition(value: Any) -> dict[str, Any]:
             raise LocalOperationError("unsupported compression")
         if not all(isinstance(params.get(key), bool) for key in ("encrypt", "sign")):
             raise LocalOperationError("encrypt and sign must be boolean")
+        if "sftp_publish" in params:
+            config = params["sftp_publish"]
+            required_sftp = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential"}
+            if not isinstance(config, dict) or set(config) not in (required_sftp, required_sftp | {"port"}):
+                raise LocalOperationError("SFTP publication settings are invalid")
+            if (not isinstance(config.get("host"), str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}", config["host"])
+                    or config["host"].endswith(".") or ".." in config["host"]):
+                raise LocalOperationError("SFTP publication host is invalid")
+            if not isinstance(config.get("username"), str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", config["username"]):
+                raise LocalOperationError("SFTP publication username is invalid")
+            if not isinstance(config.get("remote_directory"), str) or not config["remote_directory"].startswith("/") or len(config["remote_directory"]) > 1024:
+                raise LocalOperationError("SFTP publication remote directory is invalid")
+            for field in ("identity_credential", "known_hosts_credential"):
+                value = config.get(field)
+                if not isinstance(value, str) or not value.startswith("/etc/credstore.encrypted/feclora/") or len(value) > 512:
+                    raise LocalOperationError(f"SFTP publication {field} must reference a registered encrypted credential")
+            port = config.get("port", 22)
+            if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+                raise LocalOperationError("SFTP publication port is invalid")
+            if not params.get("sign"):
+                raise LocalOperationError("SFTP publication requires a signed image manifest")
     if action == "extract_partition_image" and (
         not isinstance(params.get("selector"), str) or not params["selector"] or len(params["selector"]) > 256
     ):
