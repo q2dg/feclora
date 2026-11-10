@@ -17,6 +17,7 @@ from .image_security import ImageSecurityError, decrypt_artifact_stream_to_temp,
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 from .compression import CompressionError, ExternalDecompressionStream
+from .capture import _partclone_supports_json_status, _read_partclone_percent
 
 class PartitionRestoreError(RuntimeError):
     """A partition restore was rejected or failed."""
@@ -396,8 +397,14 @@ def restore_partition(
                 safety(target_path)
             except SourceSafetyError as exc:
                 raise PartitionRestoreError(f"restore target became unsafe: {exc}") from exc
+            partclone_status_path = None
             if artifact.format == "partclone":
                 argv = [executable, "-r", "-F", "-f", "1", "-s", staged_path, "-o", target_path]
+                if _partclone_supports_json_status(executable):
+                    partclone_status_path = staged_path + ".partclone-status.json"
+                    argv.extend((
+                        f"--json-status={partclone_status_path}", "--json-fresh=1",
+                    ))
                 stdin_mode = subprocess.DEVNULL
             else:
                 argv = [executable, f"of={target_path}", "bs=4M", "conv=fsync", "status=none"]
@@ -438,9 +445,10 @@ def restore_partition(
                     if written != manifest.source_size_bytes:
                         raise PartitionRestoreError("raw image byte count differs from manifest")
                 if artifact.format == "partclone":
-                    # Partclone writes progress to stderr; force periodic updates
-                    # so closing the UI can stop the writer promptly.
+                    # Prefer Partclone's own block counters; retain the legacy
+                    # stderr percentage parser for older packaged versions.
                     progress_stream = getattr(process, "stderr", None)
+                    last_native_percent = None
                     if progress_stream is not None:
                         pending = bytearray()
                         while True:
@@ -449,19 +457,30 @@ def restore_partition(
                                 break
                             stderr.write(char)
                             if char in (b"\r", b"\n"):
-                                line = pending.decode("utf-8", errors="replace")
+                                if partclone_status_path is not None:
+                                    percent = _read_partclone_percent(partclone_status_path)
+                                    if percent is not None and percent != last_native_percent:
+                                        last_native_percent = percent
+                                        if progress_callback is not None:
+                                            progress_callback(percent, 100)
+                                else:
+                                    line = pending.decode("utf-8", errors="replace")
+                                    match = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*%", line)
+                                    if match and progress_callback is not None:
+                                        progress_callback(max(0, min(100, int(float(match.group(1))))), 100)
                                 pending.clear()
-                                match = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*%", line)
-                                if match and progress_callback is not None:
-                                    progress_callback(max(0, min(100, int(float(match.group(1))))), 100)
                             else:
                                 pending.extend(char)
                                 if len(pending) > 4096:
                                     del pending[:-4096]
-                        if pending:
+                        if pending and partclone_status_path is None:
                             match = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*%", pending.decode("utf-8", errors="replace"))
                             if match and progress_callback is not None:
                                 progress_callback(max(0, min(100, int(float(match.group(1))))), 100)
+                        if partclone_status_path is not None:
+                            percent = _read_partclone_percent(partclone_status_path)
+                            if percent is not None and percent != last_native_percent and progress_callback is not None:
+                                progress_callback(percent, 100)
                 return_code = process.wait()
                 if return_code != 0:
                     stderr.seek(0)
@@ -493,6 +512,12 @@ def restore_partition(
                 _stop_process(process)
                 stderr.close()
         finally:
+            if 'partclone_status_path' in locals() and partclone_status_path is not None:
+                for status_file in (partclone_status_path, partclone_status_path + ".tmp"):
+                    try:
+                        os.unlink(status_file)
+                    except FileNotFoundError:
+                        pass
             try:
                 os.unlink(staged_path)
             except FileNotFoundError:
