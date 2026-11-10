@@ -178,5 +178,27 @@ class SFTPImageSetTests(unittest.TestCase):
         self.assertEqual(list(self.root.glob(".feclora-sftp-incoming-*")), [])
 
 
+    @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
+    def test_fetch_never_overwrites_existing_image_directory(self, verify):
+        remote = self._remote_set()
+        existing = self.root / "test-image"
+        existing.mkdir()
+        marker = existing / "operator-data"
+        marker.write_text("keep", encoding="utf-8")
+        def transfer(**kwargs):
+            filename = kwargs["remote_path"].rsplit("/", 1)[-1]
+            Path(kwargs["local_path"]).write_bytes(remote[filename])
+            return {"verified": kwargs["expected_sha256"] is not None}
+        with self.assertRaisesRegex(SFTPImageSetError, "refusing to overwrite"):
+            fetch_image_set(
+                remote_directory="/images/test-image", destination_root=self.root,
+                public_key=self.public_key, host="backup.example", username="backup",
+                identity_credential="key-ref", known_hosts_credential="hosts-ref",
+                transfer=transfer,
+            )
+        self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
+        self.assertEqual(list(self.root.glob(".feclora-sftp-incoming-*")), [])
+
+
 if __name__ == "__main__":
     unittest.main()
