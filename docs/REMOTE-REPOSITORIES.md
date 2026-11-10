@@ -18,6 +18,38 @@ SFTP is intentionally not represented as a mounted filesystem provider. Feclora 
 | WebDAV | Disabled in the repository manager | No mount is accepted until per-repository encrypted credentials and isolated davfs2 service configuration are implemented |
 | S3 | rclone for read/mount; provider-aware object API for writes | Protected per-repository rclone/API credentials; writable publication only with conditional create and read-back guarantees |
 
+## Provider capability and parity matrix
+
+This matrix describes implemented product paths, not merely installed helpers or
+command builders. A provider is not complete until its Cockpit workflow,
+authorization, failure handling, automated tests and operator acceptance cover
+the same image lifecycle.
+
+| Capability | SSHFS | NFS | SMB/CIFS | S3 | WebDAV | SFTP | BitTorrent |
+|---|---|---|---|---|---|---|---|
+| Connection / mount or transport | Integrated mount lifecycle | Integrated mount lifecycle | Integrated mount lifecycle | Read-only rclone mount | Disabled | OpenSSH batch transfer | Not implemented |
+| Protected credentials | SSH key + pinned host keys | Export/server policy | Encrypted SMB credential | Encrypted rclone config | Missing isolated per-repository model | Encrypted SSH key + pinned host keys | Not applicable yet |
+| Inventory / read / restore | Via verified mounted repository | Via verified mounted repository | Via verified mounted repository | Read-only inventory and restore | Unavailable | Signed manifest inventory and authenticated fetch/restore | Not implemented |
+| Capture / publish | Writable mount path exists; end-to-end provider acceptance pending | Writable mount path exists; root-squash/ownership acceptance pending | Writable mount path exists; provider acceptance pending | **Blocked** until conditional object creation, multipart guarantees and read-back verification | **Blocked** | Signed no-overwrite image-set publication exists; synchronous and not yet fully durable | Not applicable; immutable distribution only |
+| Durable Cockpit lifecycle | Local operation engine for image work; mount lifecycle is separate | Same | Same | Read-only image operations; writable publication unavailable | Unavailable | Inventory durable/cancellable; metadata inspection, import and publication still synchronous | Not implemented |
+| Byte progress / transfer resume | No provider-specific network telemetry or safe write resume acceptance | Same | Same | No provider-specific transfer telemetry or safe write resume acceptance | Unavailable | Byte progress and resume pending | Not implemented |
+| Health, interruption and recovery acceptance | Pending live server/network tests | Pending live server/network tests, including root-squash | Pending live server/network tests | Provider-aware write capability and outage tests pending | Pending design | Multi-directory discovery, health checks and live acceptance pending | Design and implementation pending |
+
+**Interpretation:** SSHFS, NFS and SMB share the mounted-filesystem integration
+but are not yet at production acceptance parity. S3 is intentionally read-only;
+it must not be advertised as a capture destination. WebDAV remains fail-closed.
+SFTP has richer signed file-transfer workflows than the mounted providers in
+some areas, but still lacks durable byte-level transfer controls. BitTorrent is
+a separate optional immutable-artifact distribution feature, not a repository
+mount or writable publication backend.
+
+For all mounted providers, Feclora's common image engine supplies manifest
+validation and artifact integrity checks; this does not replace provider-side
+testing for disconnects, stale mounts, concurrent writers, permissions,
+partial writes or cleanup. No transport may automatically resume a destructive
+write after interruption. Recovery must first establish whether the destination
+is trustworthy.
+
 The provider definitions in src/feclora/storage/repository.py validate
 provider inputs, reject unsafe path characters and parent traversal, and
 build argument vectors without invoking a shell. The root-only lifecycle in
@@ -121,7 +153,7 @@ encrypted blob path, and the mount service receives it through
 `LoadCredentialEncrypted=`. NFS does not require credentials. WebDAV remains
 unavailable through the Cockpit/API path until a per-repository encrypted
 credential design is implemented; the global `/etc/davfs2/secrets` file is not
-used as a workaround. SFTP remains a separate transfer provider: Cockpit can publish/import signed image sets and optionally publish immediately after a disk/partition capture; remote inventory, restore-job routing and durable transfer controls remain pending.
+used as a workaround. SFTP remains a separate transfer provider: Cockpit supports signed image-set publication/import, optional post-capture publication, authenticated direct disk/partition restore routing, and durable/cancellable manifest-marker inventory. Metadata inspection and artifact import/publication remain synchronous; byte-level transfer progress, resume and multi-directory discovery remain pending.
 Existing plaintext
 `CredentialStore` and CLI paths remain temporarily supported for migration;
 they are not the target architecture.
