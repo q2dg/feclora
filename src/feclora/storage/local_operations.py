@@ -10,6 +10,7 @@ import fcntl
 import hashlib
 import json
 import os
+import posixpath
 import re
 import stat
 import uuid
@@ -132,8 +133,8 @@ def validate_definition(value: Any) -> dict[str, Any]:
             raise LocalOperationError("SFTP restore source username is invalid")
         remote = config.get("remote_directory")
         if (not isinstance(remote, str) or not re.fullmatch(r"/[A-Za-z0-9._/-]{0,1024}", remote)
-                or remote.startswith("//") or os.path.normpath(remote) != remote
-                or any(part in {".", ".."} for part in remote.split("/"))):
+                or remote.startswith("//") or posixpath.normpath(remote) != remote
+                or any(part in {"", ".", ".."} for part in remote.split("/")[1:])):
             raise LocalOperationError("SFTP restore source directory must be absolute and normalized")
         for field in ("identity_credential", "known_hosts_credential"):
             credential_value = config.get(field)
@@ -165,8 +166,11 @@ def validate_definition(value: Any) -> dict[str, Any]:
                 raise LocalOperationError("SFTP publication host is invalid")
             if not isinstance(config.get("username"), str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", config["username"]):
                 raise LocalOperationError("SFTP publication username is invalid")
-            if not isinstance(config.get("remote_directory"), str) or not config["remote_directory"].startswith("/") or len(config["remote_directory"]) > 1024:
-                raise LocalOperationError("SFTP publication remote directory is invalid")
+            remote = config.get("remote_directory")
+            if (not isinstance(remote, str) or not re.fullmatch(r"/[A-Za-z0-9._/-]{0,1024}", remote)
+                    or remote.startswith("//") or posixpath.normpath(remote) != remote
+                    or any(part in {"", ".", ".."} for part in remote.split("/")[1:])):
+                raise LocalOperationError("SFTP publication remote directory must be absolute and normalized")
             for field in ("identity_credential", "known_hosts_credential"):
                 credential_value = config.get(field)
                 if not isinstance(credential_value, str) or not re.fullmatch(
