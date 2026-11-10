@@ -39,8 +39,7 @@ The Live image installs the `feclora-restore-profile` command. Store the
 profile, image repository, trust keys and audit files on storage that remains
 available to the Live session. The Live home directory and its logs may reside
 on a volatile overlay and are not suitable as a replay ledger across reboots.
-The profile and image each need their own detached minisign signature and
-separately trusted public key.
+The profile and image each need independently authenticated metadata. The current implementation requires separate detached minisign signatures and trusted public keys; this is an implementation-specific limitation, not a product-wide dependency. The target design must support another configured verifier so minisign remains optional.
 
 A profile JSON document has this shape (replace all example identities and
 timestamps with values collected from the actual target):
