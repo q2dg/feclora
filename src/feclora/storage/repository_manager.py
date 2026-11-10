@@ -562,7 +562,19 @@ class RemoteRepositoryManager:
                     raise RepositoryManagerError("unmount the repository before removing its definition")
                 mountpoint.rmdir()
                 del entries[identifier]
-                _write_registry(entries, self.registry, owner_uid=self.owner_uid)
+                try:
+                    _write_registry(entries, self.registry, owner_uid=self.owner_uid)
+                except Exception:
+                    # Keep the persisted definition usable if the atomic
+                    # registry replacement fails after the empty mountpoint
+                    # has been removed.
+                    try:
+                        mountpoint.mkdir(mode=0o700)
+                    except OSError as restore_exc:
+                        raise RepositoryManagerError(
+                            "registry update failed and the repository mountpoint could not be restored"
+                        ) from restore_exc
+                    raise
                 return {"id": identifier, "removed": True}
         finally:
             os.close(lock_fd)
