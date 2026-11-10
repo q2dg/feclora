@@ -59,7 +59,7 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Report mounted state separately from verified provider/source/type/access-mode identity in Cockpit.
 - [x] Add an initial standalone OpenSSH SFTP file-transfer primitive with pinned host keys, staged hard-link no-overwrite upload, and SHA-256-verified download; keep it separate from SSHFS mounts.
 - [x] Add systemd-creds-backed SFTP transfer execution and signed image-set publish/fetch primitives with minisign and artifact digest verification.
-- [ ] Complete the SFTP provider: saved repository definitions, remote inventory, automatic capture-job publication and restore-job routing, durable progress, cancellation, retry/resume and provider acceptance.
+- [ ] Complete the SFTP provider: saved repository definitions, remote inventory, restore-job routing, durable transfer progress, cancellation, retry/resume and provider acceptance.
 - [x] Add optional repository-ID routing for whole-disk/partition capture, restore and partition extraction; resolve only mounted, verified repositories and enforce read-only mounts for writes. Local repository remains the backward-compatible default.
 - [x] Expose repository selection and per-repository image inventory in Cockpit; route capture, restore, verification, layout inspection and partition extraction to the selected verified mount.
 - Operator acceptance (documented in `ACCEPTANCE-TESTS.md`): run remote-server checks on SSHFS, NFS and SMB/CIFS, including NFS root-squash/ownership and failure/interruption cases. These physical/provider runs are not implementation blockers.
