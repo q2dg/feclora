@@ -447,6 +447,48 @@ class WebAPITests(unittest.TestCase):
         execute.assert_called_once_with("extract_partition_image", params, "operation-123")
         self.assertEqual(result, {"image_id": "whole-disk-part-123"})
 
+    def test_cancel_local_operation_stops_active_worker_unit(self):
+        operation_id = "00000000-0000-4000-8000-000000000001"
+        store = Mock()
+        store.status.return_value = {"state": "running"}
+        stopped = SimpleNamespace(returncode=0, stdout="", stderr="")
+        with patch("feclora.webapi._local_operation_store", return_value=store), \
+             patch("feclora.webapi.subprocess.run", return_value=stopped) as run:
+            result = dispatch({"action": "cancel_local_operation", "params": {
+                "operation_id": operation_id,
+            }})
+        self.assertEqual(result, {
+            "operation_id": operation_id, "state": "running", "requested": True,
+        })
+        self.assertEqual(run.call_args.args[0], [
+            "/usr/bin/systemctl", "stop", "--no-block",
+            f"feclora-local-operation@{operation_id}.service",
+        ])
+
+    def test_cancel_local_operation_records_queued_job_without_starting_unit(self):
+        operation_id = "00000000-0000-4000-8000-000000000001"
+        store = Mock()
+        store.status.return_value = {"state": "queued"}
+        with patch("feclora.webapi._local_operation_store", return_value=store):
+            result = dispatch({"action": "cancel_local_operation", "params": {
+                "operation_id": operation_id,
+            }})
+        self.assertEqual(result["state"], "cancelled")
+        store.append.assert_called_once_with(operation_id, "cancelled", {
+            "reason": "cancelled before the worker started",
+            "destination_may_be_partial": False,
+        })
+
+    def test_cancel_local_operation_rejects_completed_job(self):
+        operation_id = "00000000-0000-4000-8000-000000000001"
+        store = Mock()
+        store.status.return_value = {"state": "completed"}
+        with patch("feclora.webapi._local_operation_store", return_value=store):
+            with self.assertRaisesRegex(WebAPIError, "cannot be cancelled"):
+                dispatch({"action": "cancel_local_operation", "params": {
+                    "operation_id": operation_id,
+                }})
+
     def test_partition_extraction_is_submitted_to_the_durable_worker(self):
         params = {"image_id": "whole-disk", "selector": "PARTUUID=abc"}
         accepted = {"operation_id": "00000000-0000-4000-8000-000000000001", "state": "queued"}
