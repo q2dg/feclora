@@ -96,7 +96,7 @@ def _regular_file(path: str, label: str) -> os.stat_result:
     return info
 
 
-def _load_signed_manifest(
+def _load_manifest_with_optional_signature(
     manifest_path: str,
     public_key_path: str | None,
     *,
@@ -275,7 +275,7 @@ def send_multicast_artifact(
     )
     if ready_count < config.min_receivers:
         raise UDPcastError("Not enough authenticated, ready/running clients for the configured receiver threshold")
-    manifest = _load_signed_manifest(
+    manifest = _load_manifest_with_optional_signature(
         manifest_path, public_key_path, minisign_executable=minisign_executable,
     )
     if manifest.image_id != job.image_id:
@@ -283,7 +283,7 @@ def send_multicast_artifact(
     artifact_name = os.path.basename(source_path)
     matches = [item for item in manifest.artifacts if item.filename == artifact_name]
     if len(matches) != 1:
-        raise UDPcastError("Source artifact is not uniquely listed in the signed manifest")
+        raise UDPcastError("Source artifact is not uniquely listed in the manifest")
     verify_artifact_file(source_path, matches[0])
     executable = udp_sender or shutil.which("udp-sender")
     if not executable:
@@ -353,12 +353,12 @@ def verify_staged_multicast_artifact(
     minisign_executable: str | None = None,
 ) -> ImageArtifact:
     """Verify any present manifest signature and the artifact digest before restore."""
-    manifest = _load_signed_manifest(
+    manifest = _load_manifest_with_optional_signature(
         manifest_path, public_key_path, minisign_executable=minisign_executable,
     )
     matches = [item for item in manifest.artifacts if item.filename == artifact_filename]
     if len(matches) != 1:
-        raise UDPcastError("Received artifact is not uniquely listed in the signed manifest")
+        raise UDPcastError("Received artifact is not uniquely listed in the manifest")
     verify_artifact_file(staged_path, matches[0])
     return matches[0]
 
