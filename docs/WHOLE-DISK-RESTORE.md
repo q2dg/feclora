@@ -33,7 +33,7 @@ MBR and unpartitioned images retain their original layout; GPT repair is only
 performed after the source-sized byte range has passed read-back verification.
 
 The writer uses generic `dd of=TARGET bs=4M conv=fsync status=none`. Raw,
-gzip, xz, zstd and lz4 disk artifacts are supported. The Cockpit operation displays write
+gzip, xz, zstd and lz4 disk artifacts are supported. The Cockpit Operations wizard displays write
 progress and supports cancellation; a cancellation can leave a partially
 overwritten target. Read-back verification runs after a successful write.
 Capture/restore operation events are persisted in the append-only operation
