@@ -275,7 +275,7 @@ download writes to a random sibling temporary file, checks the caller-supplied
 SHA-256 (normally obtained from a signed Feclora manifest), and publishes with
 a no-overwrite hard link.
 
-This is deliberately not marked as a complete SFTP repository provider.
+The adapter now has a companion runner, `sftp_transfer_service.py`, which resolves the registered `ssh-key` and `known-hosts` encrypted credential references and executes the transfer in a synchronous transient systemd service using `LoadCredentialEncrypted=`. Plaintext credentials exist only in that service's private `CREDENTIALS_DIRECTORY`; the API-side invocation contains only encrypted blob paths and non-secret transfer parameters. This runner is callable as a Python service helper but is not yet exposed as a Cockpit action or wired into image capture/restore operation orchestration.\n\nThis is deliberately not marked as a complete SFTP repository provider.
 OpenSSH SFTP does not provide a portable server-side SHA-256 operation, so the
 upload adapter returns the locally computed digest and relies on the signed
 manifest verification when the artifact is later consumed. The current
