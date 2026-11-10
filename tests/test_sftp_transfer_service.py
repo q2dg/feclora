@@ -146,7 +146,7 @@ class SFTPTransferServiceTests(unittest.TestCase):
              "path": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred"},
         ])
         cancellation = LocalOperationCancelled("cancellation requested by operator")
-        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store), \\
+        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store), \
              patch("feclora.storage.sftp_transfer_service.subprocess.run",
                    return_value=SimpleNamespace(returncode=0, stdout="", stderr="")) as stop:
             with self.assertRaisesRegex(LocalOperationCancelled, "cancellation requested"):
@@ -161,7 +161,7 @@ class SFTPTransferServiceTests(unittest.TestCase):
         stop.assert_called_once()
         command = stop.call_args.args[0]
         self.assertEqual(command[:2], ["/usr/bin/systemctl", "stop"])
-        self.assertRegex(command[2], r"^feclora-sftp-[a-f0-9]{32}\\.service$")
+        self.assertRegex(command[2], r"^feclora-sftp-[a-f0-9]{32}\.service$")
 
     def test_unverified_download_mode_is_explicit_and_limited_to_download(self):
         bindings = [
