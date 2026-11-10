@@ -13,14 +13,14 @@ not an operator procedure. The release-wide acceptance contract is in
 
 ## Local image capture and recovery
 
-- [Whole-disk capture](WHOLE-DISK-CAPTURE.html) — step-by-step local rescue UI procedure, compression and optional age/minisign protection.
-- [Partition capture](PARTITION-CAPTURE.html) — step-by-step local rescue UI procedure and supported Partclone/raw formats.
+- [Whole-disk capture](WHOLE-DISK-CAPTURE.html) — Cockpit operator procedure, compression and optional age/minisign protection.
+- [Partition capture](PARTITION-CAPTURE.html) — Cockpit operator procedure and supported Partclone/raw formats.
 - [Whole-disk restore](WHOLE-DISK-RESTORE.html) and [partition restore](PARTITION-RESTORE.html) — verification and destructive-write safeguards.
 - [Image encryption and signatures](IMAGE-ENCRYPTION.html) — key handling, trust requirements and restore behavior.
 
-The local rescue interface is text-mode. Screenshot sets are being added only
-from real Fedora Live sessions matching the documented version; no illustrative
-or synthetic screenshot is presented as an actual application screen.
+The supported operator interface is Cockpit. Screenshot sets will be added
+only from real, version-matched Fedora Live sessions; no illustrative or
+synthetic screenshot is presented as an actual application screen.
 
 ## Cloning
 
