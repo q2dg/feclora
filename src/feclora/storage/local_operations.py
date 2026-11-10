@@ -169,7 +169,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
             remote = config.get("remote_directory")
             if (not isinstance(remote, str) or not re.fullmatch(r"/[A-Za-z0-9._/-]{0,1024}", remote)
                     or remote.startswith("//") or posixpath.normpath(remote) != remote
-                    or any(part in {"", ".", ".."} for part in remote.split("/")[1:])):
+                    or (remote != "/" and any(part in {"", ".", ".."} for part in remote.split("/")[1:]))):
                 raise LocalOperationError("SFTP publication remote directory must be absolute and normalized")
             for field in ("identity_credential", "known_hosts_credential"):
                 credential_value = config.get(field)
