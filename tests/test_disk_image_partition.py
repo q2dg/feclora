@@ -125,5 +125,12 @@ class DiskImagePartitionTests(unittest.TestCase):
             extract_partition_image(self.manifest, self.temp.name, "aaaa-bbbb")
 
 
+    def test_signed_source_cannot_be_extracted_without_trusted_key(self):
+        with open(os.path.join(self.temp.name, self.manifest + ".minisig"), "wb") as signature:
+            signature.write(b"unverified")
+        with self.assertRaisesRegex(DiskImagePartitionError, "trusted minisign public key"):
+            extract_partition_image(self.manifest, self.temp.name, "aaaa-bbbb")
+
+
 if __name__ == "__main__":
     unittest.main()
