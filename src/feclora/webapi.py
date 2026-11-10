@@ -1249,7 +1249,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         from feclora.storage.disk_capture import capture_disk
         source = _device(params["source"], "source")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-        compression = _text(params, "compression", pattern=r"(?:none|gzip|zstd|lz4)")
+        compression = _text(params, "compression", pattern=r"(?:none|gzip|xz|zstd|lz4)")
         encrypt, sign = params["encrypt"], params["sign"]
         if not isinstance(encrypt, bool) or not isinstance(sign, bool):
             raise WebAPIError("encrypt and sign must be boolean values")
@@ -1278,7 +1278,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         source = _device(params["source"], "source")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         partition_id = _text(params, "partition_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-        compression = _text(params, "compression", pattern=r"(?:none|gzip|zstd|lz4)")
+        compression = _text(params, "compression", pattern=r"(?:none|gzip|xz|zstd|lz4)")
         encrypt, sign = params["encrypt"], params["sign"]
         if not isinstance(encrypt, bool) or not isinstance(sign, bool):
             raise WebAPIError("encrypt and sign must be boolean values")
