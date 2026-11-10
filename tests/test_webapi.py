@@ -1575,5 +1575,40 @@ class WebAPITests(unittest.TestCase):
                 )
 
 
+    def test_optional_image_keypair_publication_rolls_back_partial_pair(self):
+        from feclora.webapi import _publish_generated_keypair
+        with tempfile.TemporaryDirectory() as root:
+            pki = Path(root) / "pki"
+            staging = Path(root) / "staging"
+            pki.mkdir(mode=0o700)
+            staging.mkdir(mode=0o700)
+            first_stage, second_stage = staging / "first", staging / "second"
+            first_final, second_final = pki / "first", pki / "second"
+            first_stage.write_text("first key", encoding="ascii")
+            second_stage.write_text("second key", encoding="ascii")
+            second_final.write_text("pre-existing", encoding="ascii")
+            with self.assertRaisesRegex(WebAPIError, "atomically publish"):
+                _publish_generated_keypair(
+                    (first_stage, second_stage), (first_final, second_final),
+                )
+            self.assertFalse(first_final.exists())
+            self.assertEqual(second_final.read_text(encoding="ascii"), "pre-existing")
+
+    def test_optional_image_keypair_publication_commits_both_files(self):
+        from feclora.webapi import _publish_generated_keypair
+        with tempfile.TemporaryDirectory() as root:
+            pki = Path(root) / "pki"
+            staging = Path(root) / "staging"
+            pki.mkdir(mode=0o700)
+            staging.mkdir(mode=0o700)
+            staged = (staging / "secret", staging / "public")
+            final = (pki / "secret", pki / "public")
+            staged[0].write_text("secret", encoding="ascii")
+            staged[1].write_text("public", encoding="ascii")
+            _publish_generated_keypair(staged, final)
+            self.assertEqual(final[0].read_text(encoding="ascii"), "secret")
+            self.assertEqual(final[1].read_text(encoding="ascii"), "public")
+
+
 if __name__ == "__main__":
     unittest.main()
