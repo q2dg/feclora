@@ -16,7 +16,7 @@ class SFTPRepositoryRegistryTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.registry = SFTPRepositoryRegistry(
             self.root / "sftp-repositories.json",
-            owner_uid=os.geteuid(), effective_uid=os.geteuid,
+            owner_uid=os.getuid(), effective_uid=lambda: 0,
         )
         self.definition = {
             "id": "offsite-backup",
