@@ -268,6 +268,4 @@ pre-existing files are preserved.
 - [ ] Implement transfer byte progress, cancellation, retry/resume and full provider acceptance for SFTP-backed restore jobs.
 - [ ] Add operational guide and current screenshots after Cockpit workflow acceptance.
 
-Tests were added but not executed in this session. Cockpit can now preview remote image metadata only after verifying the detached minisign signature against the configured independent trust key. Artifact content is still fetched and digest-verified only by the import operation. This remains a restore-side import workflow rather than a complete SFTP repository provider: it is synchronous, has no remote inventory or upload
-integration, and does not yet expose byte-level progress, retry/resume or
-cancellation.
+Tests were added but not executed in this session. Cockpit can preview remote image metadata only after verifying the detached minisign signature against the configured independent trust key. Both explicit import and direct restore fetch artifact content and verify signed sizes and SHA-256 values before the image is made available to the restore engine. SFTP publication is also integrated with manual Cockpit upload and optional post-capture publication. This is not yet a complete reusable SFTP provider: inventory is limited to one configured directory, transfers are synchronous, and byte-level progress, retry/resume, cancellation and multi-directory catalog discovery remain pending.
