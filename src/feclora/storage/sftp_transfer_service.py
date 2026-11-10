@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -53,7 +54,7 @@ def build_systemd_transfer_argv(
     """Build a transient service invocation; no plaintext secret is included."""
     if operation not in {"upload", "download"}:
         raise RepositoryManagerError("SFTP operation must be upload or download")
-    if not unit.startswith("feclora-sftp-") or not unit.endswith(".service"):
+    if not isinstance(unit, str) or not re.fullmatch(r"feclora-sftp-[a-f0-9]{32}\\.service", unit):
         raise RepositoryManagerError("SFTP transient unit name is invalid")
     if len(bindings) != 2:
         raise RepositoryManagerError("SFTP requires exactly two encrypted credentials")
@@ -61,6 +62,11 @@ def build_systemd_transfer_argv(
     hosts_binding = next((item for item in bindings if item[0].endswith("-known-hosts")), None)
     if key_binding is None or hosts_binding is None or key_binding == hosts_binding:
         raise RepositoryManagerError("SFTP requires distinct ssh-key and known-hosts credentials")
+    for name, path in bindings:
+        if (not re.fullmatch(r"feclora-[a-z0-9][a-z0-9-]{0,47}-(?:ssh-key|known-hosts)", name)
+                or not os.path.isabs(path) or ":" in path or "\\n" in path
+                or Path(path).name != name + ".cred"):
+            raise RepositoryManagerError("SFTP encrypted credential binding is invalid")
     command = [
         systemd_run, f"--unit={unit}", "--wait", "--pipe", "--collect",
         "--property=User=root", "--property=Group=root",
