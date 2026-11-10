@@ -153,7 +153,7 @@ def _compression() -> tuple[str, int | None] | None:
 def _image_security_options() -> tuple[str | None, str | None] | None:
     mode = _menu(
         "Image security",
-        "Multicast restore requires BOTH age encryption and a minisign manifest signature.",
+        "Choose optional protection for this image. Restore will apply any protection recorded in its manifest.",
         [
             ("both", "Recommended for deployment: encrypt with age and sign with minisign"),
             ("age", "Encrypt with age only"),
