@@ -26,6 +26,7 @@ The project is organized around a Cockpit-first Live environment. The remaining 
 4. **Safe operations:** make destructive actions explicit, validate source and target devices, and provide dry-run or confirmation paths where feasible.
 5. **Reproducibility:** pin build inputs where practical and record package versions and build metadata.
 6. **Tested compatibility:** document filesystem, partition-table, encryption, transport, firmware, and hardware coverage rather than assuming parity.
+7. **Reuse mature system tools:** orchestrate Partclone, UDPcast, NetworkManager, OpenSSL, systemd, SSH/SFTP, NFS, SMB, davfs2 and rclone instead of reimplementing their capabilities. Add maintained optional transports such as BitTorrent only where they solve a concrete distribution need.
 
 ## Build and test
 
@@ -104,8 +105,7 @@ Feclora's primary operator interface is Cockpit (React + PatternFly); the old
 `dialog` local-rescue menu is no longer part of the Live package. The current
 web application provides local whole-disk and partition image capture,
 restoration, whole-disk and partition cloning, device and image inventories,
-operation journals, streamed progress, and optional age encryption plus
-minisign signatures using locally managed keys.
+operation journals, streamed progress, and optional artifact encryption/signing integrations. `age` encryption and `minisign` signatures are optional capabilities, not prerequisites for local imaging or Feclora installation.
 
 The underlying Python storage engines include safety checks, manifest-backed
 artifact publication, compression, integrity verification, and restore
