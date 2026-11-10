@@ -71,6 +71,7 @@ export default function App() {
   const [remoteInterface, setRemoteInterface] = useState("");
   const [remoteJobResult, setRemoteJobResult] = useState(null);
   const [operations, setOperations] = useState([]);
+  const [cancellingOperationId, setCancellingOperationId] = useState("");
   const [remoteRepositories, setRemoteRepositories] = useState([]);
   const [systemdCredentials, setSystemdCredentials] = useState([]);
   const [sftpRepositories, setSftpRepositories] = useState([]);
@@ -224,15 +225,15 @@ export default function App() {
   useEffect(() => { refresh(); }, [refresh]);
 
   const cancelLocalOperation = async (operationId) => {
-    setBusy(true); setError(""); setNotice("");
+    setCancellingOperationId(operationId); setError(""); setNotice("");
     try {
       const result = await callFeclora("cancel_local_operation", { operation_id: operationId });
       setNotice(result.requested
-        ? "Cancellation requested. Feclora is stopping the worker and its child processes; refresh the operation log to confirm the final state."
+        ? "Cancellation requested. Feclora is stopping the worker and its child processes; the operation log will show the final state."
         : "This operation is already cancelled.");
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
+    finally { setCancellingOperationId(""); }
   };
 
   const devices = useMemo(() => {
@@ -305,8 +306,16 @@ export default function App() {
       const result = await waitForLocalOperation(accepted.operation_id, (eventData) => {
         if (eventData.event === "progress") setProgress(eventData);
       });
-      setOperationResult(result.result);
-      setNotice("Operation completed successfully.");
+      if (result.state === "completed") {
+        setOperationResult(result.result);
+        setNotice("Operation completed successfully.");
+      } else if (result.state === "cancelled") {
+        setNotice(result.details?.destination_may_be_partial
+          ? "Operation cancelled. The destination may be partially written; inspect it before using it again."
+          : "Operation cancelled before completing.");
+      } else {
+        setError("Local operation " + result.state + ": " + (result.details?.error || result.details?.reason || "inspect the operation log."));
+      }
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -1383,7 +1392,7 @@ export default function App() {
                     <Td><Label color={item.state === "completed" ? "green" : ["failed", "cancelled", "interrupted"].includes(item.state) ? "red" : "orange"}>{item.state || "unknown"}</Label></Td>
                     <Td>{progress ? formatBytes(progressDetails.bytes_done || 0) + (progressDetails.bytes_total !== null && progressDetails.bytes_total !== undefined ? " / " + formatBytes(progressDetails.bytes_total) : " processed") : "—"}</Td>
                     <Td>{item.operation_id}</Td><Td>{details.error ? <><strong>{details.error_type || "Operation error"}:</strong> {details.error}</> : details.reason || "—"}</Td>
-                    <Td>{["queued", "preflight", "running"].includes(item.state) ? <Button size="sm" variant="danger" isDisabled={busy} onClick={() => cancelLocalOperation(item.operation_id)}>Cancel</Button> : "—"}</Td>
+                    <Td>{["queued", "preflight", "running"].includes(item.state) ? <Button size="sm" variant="danger" isDisabled={cancellingOperationId === item.operation_id} onClick={() => cancelLocalOperation(item.operation_id)}>{cancellingOperationId === item.operation_id ? "Requesting…" : "Cancel"}</Button> : "—"}</Td>
                   </Tr>;
                 })}
                 {!operations.length && <Tr><Td colSpan={9}>No local operations recorded.</Td></Tr>}
