@@ -141,7 +141,7 @@ def execute_client_image_job(
             send_image_set(
                 tls_socket, repository, manifest_path,
                 expected_image_id=job.image_id,
-                trusted_public_key=local_minisign_public_key,
+                trusted_public_key=local_minisign_public_key if sign_image else None,
                 progress_callback=transfer_progress_callback,
             )
             signed = os.path.isfile(manifest_path + ".minisig")
