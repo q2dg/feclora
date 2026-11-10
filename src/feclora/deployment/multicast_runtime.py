@@ -94,7 +94,7 @@ def execute_multicast_restore(
     progress_callback: Callable[[int, int | None], None] | None = None,
     executables: dict[str, str | None] | None = None,
 ) -> tuple[bool, str]:
-    """Receive all signed artifacts privately, verify them, then restore one local disk."""
+    """Receive artifacts privately, verify any signature and all digests, then restore one local target."""
     if job.transport != "multicast" or job.operation != "restore":
         raise MulticastDeploymentError("multicast runtime currently supports restore jobs only")
     if not network_interface:
