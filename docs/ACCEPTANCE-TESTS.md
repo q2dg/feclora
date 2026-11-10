@@ -1,11 +1,16 @@
 # Physical and remote-environment acceptance guide
 
 This document is an operator runbook for acceptance testing on disposable
-hardware and real remote-storage services. It does not describe new software
-features and does not make physical testing a prerequisite for continuing
-software development. Record the Feclora commit, host models, firmware mode,
-network topology, repository provider/version, test date and outcome for every
-run.
+hardware and independently operated remote-storage services. It does not
+describe new software features and does not make physical testing a
+prerequisite for continuing software development. All SSH/SFTP, NFS, SMB,
+WebDAV, S3 and BitTorrent infrastructure is external to Feclora: the operator
+or service owner provisions and administers it. Feclora tests only its client
+connection, authentication, authorization, transfer/mount behavior, integrity
+checks and failure handling. No test step asks Feclora to install or configure
+a remote server/export/share/bucket/tracker. Record the Feclora commit, host
+models, firmware mode, network topology, repository provider/version, test
+date and outcome for every run.
 
 ## Safety rules for every test
 
