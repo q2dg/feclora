@@ -40,8 +40,9 @@ exists, report WebDAV as partial/unavailable for authenticated mounts rather
 than claiming full support. See the [davfs2 configuration manual](https://manpages.debian.org/unstable/davfs2/davfs2.conf.5.en.html).
 
 S3-compatible object storage is a required repository type. The current
-rclone mount path is read-only; a mounted FUSE filesystem is not a safe
-publication interface. Read/list/fetch may use a protected rclone remote
+rclone mount path is read-only, disables the VFS write cache, and requires an
+explicit bucket as the first remote-path component; a mounted FUSE filesystem
+is not a safe publication interface. Read/list/fetch may use a protected rclone remote
 configuration or supported credential chain. Writable capture requires a
 provider-aware object API publisher with server-enforced conditional
 create-if-absent semantics (including multipart completion), unique staging
