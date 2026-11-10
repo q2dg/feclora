@@ -372,6 +372,78 @@ def _fetch_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError(f"SFTP image import failed: {exc}") from exc
 
 
+
+def _publish_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
+    required = {
+        "image_id", "host", "username", "remote_directory",
+        "identity_credential", "known_hosts_credential",
+    }
+    if set(params) not in (required, required | {"port"}):
+        raise WebAPIError("publish_sftp_image_set requires image_id, connection details and encrypted SSH credential references")
+    image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+    host = _text(params, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
+    if host.endswith(".") or ".." in host:
+        raise WebAPIError("SFTP host is invalid")
+    username = _text(params, "username", pattern=r"[A-Za-z0-9._-]{1,64}")
+    remote_directory = _text(params, "remote_directory", maximum=1024)
+    identity = _text(params, "identity_credential", maximum=512)
+    known_hosts = _text(params, "known_hosts_credential", maximum=512)
+    port = params.get("port", 22)
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        raise WebAPIError("SFTP port must be an integer between 1 and 65535")
+
+    client_config = _client_runtime_config()
+    if client_config:
+        signing_key = client_config.local_minisign_secret_key
+        public_key = Path(client_config.local_minisign_public_key) if client_config.local_minisign_public_key else None
+    else:
+        signing_key = "/etc/feclora/pki/server.minisign.key"
+        public_key = Path("/etc/feclora/pki/server.pub")
+    if not signing_key or public_key is None:
+        raise WebAPIError("this machine has no local image-signing keypair for SFTP publication")
+    for key_path, label, private in (
+        (Path(signing_key), "local minisign secret key", True),
+        (public_key, "local minisign public key", False),
+    ):
+        try:
+            info = os.lstat(key_path)
+        except OSError as exc:
+            raise WebAPIError(f"{label} is unavailable") from exc
+        if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != 0 or (info.st_mode & 0o077 if private else info.st_mode & 0o022)):
+            raise WebAPIError(f"{label} has unsafe ownership or permissions")
+
+    repository = _repository()
+    manifest_path = _image_manifest(image_id, repository)
+    signature_path = Path(str(manifest_path) + ".minisig")
+    try:
+        signature_info = os.lstat(signature_path)
+    except OSError as exc:
+        raise WebAPIError("selected image has no detached minisign signature") from exc
+    if (not stat.S_ISREG(signature_info.st_mode) or stat.S_ISLNK(signature_info.st_mode)
+            or signature_info.st_uid != 0 or signature_info.st_mode & 0o022):
+        raise WebAPIError("selected image signature has unsafe ownership or permissions")
+
+    from feclora.storage.sftp_image_set import publish_image_set
+    from feclora.storage.operation_log import operation_record
+    try:
+        with _storage_operation_lock():
+            with operation_record(
+                "publish_sftp_image_set", f"{host}:{remote_directory}",
+                image_id=image_id, log_path="/var/log/feclora/operations.jsonl",
+            ) as operation_id:
+                result = publish_image_set(
+                    manifest_path=manifest_path, signature_path=signature_path,
+                    public_key=public_key, artifact_directory=repository,
+                    remote_directory=remote_directory, host=host, username=username,
+                    identity_credential=identity, known_hosts_credential=known_hosts,
+                    port=port,
+                )
+                return {"operation_id": operation_id, **result}
+    except Exception as exc:
+        raise WebAPIError(f"SFTP image publication failed: {exc}") from exc
+
+
 def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
     path = _operation_repository({"repository_id": repository_id}, write=False) if repository_id else _repository()
     if not path.exists():
@@ -2264,6 +2336,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return {"images": _images()}
     if action == "fetch_sftp_image_set":
         return _fetch_sftp_image_set(params)
+    if action == "publish_sftp_image_set":
+        return _publish_sftp_image_set(params)
     if action == "repository_images":
         if set(params) != {"repository_id"}:
             raise WebAPIError("repository_images requires repository_id")
