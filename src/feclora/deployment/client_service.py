@@ -326,10 +326,6 @@ class ClientDeploymentService:
                     raise DeploymentControlError("unicast Client job must not specify an IGMP acknowledgement")
                 if job.operation == "save" and job.target_type != "disk":
                     raise DeploymentControlError("Client capture currently supports whole-disk jobs only")
-                if job.operation == "save" and (
-                    not config.local_minisign_secret_key or not config.local_minisign_public_key
-                ):
-                    raise DeploymentControlError("this Client has no enrolled image-signing key and cannot capture images")
                 selected = self._find_device(device_path, job.target_type)
                 try:
                     info = os.lstat(device_path)
