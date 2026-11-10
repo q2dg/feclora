@@ -7,6 +7,7 @@ artifact writer. It never restores data or opens a target block device.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import os
 import shutil
 import stat
@@ -45,17 +46,78 @@ _FILESYSTEM_TO_PARTCLONE = {
 }
 
 
+def _partclone_supports_json_status(executable: str) -> bool:
+    """Feature-detect Partclone's native JSON status option without assuming a distro version."""
+    try:
+        result = subprocess.run(
+            [executable, "--help"], stdin=subprocess.DEVNULL,
+            capture_output=True, text=True, check=False, timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return "--json-status" in (result.stdout or "") + (result.stderr or "")
+
+
+def _read_partclone_status(path: str) -> tuple[int, int] | None:
+    """Read a bounded, no-follow Partclone status snapshot as logical data bytes."""
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                     | getattr(os, "O_CLOEXEC", 0))
+        try:
+            info = os.fstat(fd)
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
+                    or info.st_mode & 0o022 or info.st_size > 64 * 1024):
+                return None
+            raw = os.read(fd, 64 * 1024 + 1)
+        finally:
+            os.close(fd)
+        if len(raw) > 64 * 1024:
+            return None
+        document = json.loads(raw.decode("utf-8"))
+        partclone = document.get("partclone") if isinstance(document, dict) else None
+        progress = partclone.get("progress") if isinstance(partclone, dict) else None
+        if (document.get("schema_version") != 1 or not isinstance(partclone, dict)
+                or not isinstance(progress, dict)):
+            return None
+        block_size = partclone.get("block_size")
+        copied = progress.get("copied_blocks")
+        total = progress.get("total_block")
+        if any(isinstance(value, bool) or not isinstance(value, int) or value < 0
+               for value in (block_size, copied, total)) or block_size < 1:
+            return None
+        return copied * block_size, total * block_size
+    except (OSError, UnicodeError, json.JSONDecodeError, AttributeError, TypeError):
+        return None
+
+
 class _CountingReader:
-    def __init__(self, stream, progress_callback=None, expected_size_bytes=None):
+    def __init__(self, stream, progress_callback=None, expected_size_bytes=None,
+                 partclone_status_path=None):
         self.stream = stream
         self.bytes_read = 0
         self.progress_callback = progress_callback
         self.expected_size_bytes = expected_size_bytes
+        self.partclone_status_path = partclone_status_path
+        self.last_partclone_progress = None
+
+    def _emit_partclone_progress(self) -> None:
+        if self.partclone_status_path is None or self.progress_callback is None:
+            return
+        progress = _read_partclone_status(self.partclone_status_path)
+        if progress is not None and progress != self.last_partclone_progress:
+            self.last_partclone_progress = progress
+            self.progress_callback(*progress)
+
     def read(self, size=-1):
-        chunk = self.stream.read(size)
+        self._emit_partclone_progress()
+        # read1 returns currently available pipe data instead of waiting to fill
+        # the whole buffer, allowing the native status file to be polled promptly.
+        read = getattr(self.stream, "read1", self.stream.read)
+        chunk = read(size)
         self.bytes_read += len(chunk)
-        if chunk and self.progress_callback is not None:
+        if chunk and self.progress_callback is not None and self.partclone_status_path is None:
             self.progress_callback(self.bytes_read, self.expected_size_bytes)
+        self._emit_partclone_progress()
         return chunk
 
 
@@ -163,8 +225,16 @@ def capture_partition(
             if initial_device_number is not None and os.stat(source_path).st_rdev != initial_device_number:
                 raise CaptureError("block-device identity changed before imaging")
             factory = popen_factory or subprocess.Popen
+            partclone_status_path = None
+            process_argv = list(plan.argv)
+            if (plan.image_format == "partclone"
+                    and _partclone_supports_json_status(plan.executable)):
+                partclone_status_path = os.path.join(stage_dir, "partclone-status.json")
+                process_argv.extend((
+                    f"--json-status={partclone_status_path}", "--json-fresh=1",
+                ))
             try:
-                command = privileged_argv(plan.argv, effective_uid=effective_uid)
+                command = privileged_argv(process_argv, effective_uid=effective_uid)
                 process = factory(
                     command,
                     stdin=subprocess.DEVNULL,
@@ -177,7 +247,10 @@ def capture_partition(
             if process.stdout is None:
                 raise CaptureError("capture process did not provide a stdout pipe")
             progress_total = expected_size_bytes if plan.image_format == "raw" else None
-            counted = _CountingReader(process.stdout, progress_callback, progress_total)
+            counted = _CountingReader(
+                process.stdout, progress_callback, progress_total,
+                partclone_status_path=partclone_status_path,
+            )
             try:
                 artifact = write_artifact(
                     stage_dir,
