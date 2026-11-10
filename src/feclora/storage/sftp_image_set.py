@@ -1,15 +1,20 @@
-"""Publish complete, signed image sets to an SFTP repository.
+"""Fetch and verify complete signed image sets from an SFTP repository.
 
-The detached signature is uploaded last and acts as the publication marker:
-consumers must reject a set unless both manifest and signature are present and
-the signature verifies against an independently trusted minisign public key.
+Untrusted manifest metadata is downloaded only into a private staging
+directory. Its detached signature is verified against an independently
+trusted key before any artifact is fetched. Artifacts are then checked against
+the signed size and SHA-256 values and the complete directory is atomically
+published without replacing an existing image.
 """
 from __future__ import annotations
 
+import ctypes
 import hashlib
 import os
 import posixpath
+import shutil
 import stat
+import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
@@ -20,7 +25,7 @@ from .sftp_transfer_service import run_sftp_transfer
 
 
 class SFTPImageSetError(RuntimeError):
-    """An image set could not be safely published to SFTP."""
+    """An image set could not be safely published to or fetched from SFTP."""
 
 
 def _regular_file(path: str | os.PathLike[str], label: str) -> str:
@@ -42,6 +47,125 @@ def _digest(path: str) -> tuple[int, str]:
             size += len(chunk)
             digest.update(chunk)
     return size, digest.hexdigest()
+
+
+def _remote_directory(value: str) -> str:
+    if (not isinstance(value, str) or not value.startswith("/")
+            or posixpath.normpath(value) != value
+            or any(part in {".", ".."} for part in value.split("/"))):
+        raise SFTPImageSetError("remote image-set directory must be an absolute normalized path")
+    return value.rstrip("/") or "/"
+
+
+def _publish_directory_noreplace(source: str, destination: str) -> None:
+    """Atomically rename a directory without replacing an existing image."""
+    libc = ctypes.CDLL(None, use_errno=True)
+    renameat2 = getattr(libc, "renameat2", None)
+    if renameat2 is None:
+        raise SFTPImageSetError("atomic no-replace directory publication is unavailable")
+    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    renameat2.restype = ctypes.c_int
+    result = renameat2(-100, os.fsencode(source), -100, os.fsencode(destination), 1)
+    if result != 0:
+        error = ctypes.get_errno()
+        if error == 17:
+            raise SFTPImageSetError("an image with this ID already exists; refusing to overwrite it")
+        raise SFTPImageSetError(f"could not atomically publish verified image set (errno {error})")
+
+
+def _validate_manifest_filenames(manifest: ImageManifest) -> None:
+    reserved = {"manifest.json", "manifest.json.minisig"}
+    if any(item.filename in reserved for item in manifest.artifacts):
+        raise SFTPImageSetError("manifest artifact filename collides with reserved metadata")
+
+
+def fetch_image_set(
+    *,
+    remote_directory: str,
+    destination_root: str | os.PathLike[str],
+    public_key: str | os.PathLike[str],
+    host: str,
+    username: str,
+    identity_credential: str,
+    known_hosts_credential: str,
+    port: int = 22,
+    transfer: Callable[..., dict[str, Any]] = run_sftp_transfer,
+    manager: Any = None,
+) -> dict[str, Any]:
+    """Fetch metadata, authenticate it, fetch artifacts and publish atomically."""
+    remote = _remote_directory(remote_directory)
+    key_file = _regular_file(public_key, "trusted minisign public key")
+    root = os.path.abspath(os.fspath(destination_root))
+    try:
+        root_info = os.lstat(root)
+    except OSError as exc:
+        raise SFTPImageSetError("image destination root is unavailable") from exc
+    if not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode):
+        raise SFTPImageSetError("image destination root must be a real directory")
+
+    staging = tempfile.mkdtemp(prefix=".feclora-sftp-incoming-", dir=root)
+    os.chmod(staging, 0o700)
+
+    def download(filename: str, expected_sha256: str | None) -> dict[str, Any]:
+        return transfer(
+            identity_credential=identity_credential,
+            known_hosts_credential=known_hosts_credential,
+            operation="download", host=host, username=username,
+            remote_path=f"{remote}/{filename}" if remote != "/" else f"/{filename}",
+            local_path=os.path.join(staging, filename), port=port,
+            expected_sha256=expected_sha256,
+            allow_unverified_metadata=expected_sha256 is None,
+            manager=manager,
+        )
+
+    try:
+        # These two files are untrusted until minisign verification succeeds.
+        download("manifest.json", None)
+        download("manifest.json.minisig", None)
+        manifest_path = os.path.join(staging, "manifest.json")
+        signature_path = manifest_path + ".minisig"
+        if os.path.getsize(manifest_path) > 1024 * 1024:
+            raise SFTPImageSetError("remote manifest exceeds the 1 MiB size limit")
+        if os.path.getsize(signature_path) > 64 * 1024:
+            raise SFTPImageSetError("remote minisign signature exceeds the 64 KiB size limit")
+        try:
+            manifest = ImageManifest.from_json(Path(manifest_path).read_text(encoding="utf-8"))
+            verify_manifest_signature(manifest_path, key_file, signature_path=signature_path)
+        except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError) as exc:
+            raise SFTPImageSetError(f"remote manifest signature or schema validation failed: {exc}") from exc
+        _validate_manifest_filenames(manifest)
+
+        for artifact in manifest.artifacts:
+            result = download(artifact.filename, artifact.sha256)
+            local = os.path.join(staging, artifact.filename)
+            size, digest = _digest(local)
+            if size != artifact.size_bytes or digest != artifact.sha256:
+                raise SFTPImageSetError(f"downloaded artifact {artifact.filename} does not match signed manifest")
+            if result.get("verified") is False:
+                raise SFTPImageSetError(f"downloaded artifact {artifact.filename} was not digest-verified")
+
+        final_path = os.path.join(root, manifest.image_id)
+        _publish_directory_noreplace(staging, final_path)
+        directory_fd = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+        staging = ""
+        return {
+            "image_id": manifest.image_id,
+            "image_type": manifest.image_type,
+            "artifact_count": len(manifest.artifacts),
+            "repository_path": final_path,
+            "signature_verified": True,
+            "artifacts_verified": True,
+            "published": True,
+        }
+    except (SFTPTransferError, OSError) as exc:
+        raise SFTPImageSetError(f"SFTP image-set retrieval failed: {exc}") from exc
+    finally:
+        if staging:
+            shutil.rmtree(staging, ignore_errors=True)
 
 
 def publish_image_set(
@@ -81,11 +205,11 @@ def publish_image_set(
         verify_manifest_signature(manifest_file, key_file, signature_path=signature_file)
     except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError) as exc:
         raise SFTPImageSetError(f"manifest validation or signature verification failed: {exc}") from exc
+    _validate_manifest_filenames(manifest)
 
     files: list[tuple[str, str]] = []
     for artifact in manifest.artifacts:
-        local = os.path.join(root, artifact.filename)
-        local = _regular_file(local, f"artifact {artifact.filename}")
+        local = _regular_file(os.path.join(root, artifact.filename), f"artifact {artifact.filename}")
         size, digest = _digest(local)
         if size != artifact.size_bytes or digest != artifact.sha256:
             raise SFTPImageSetError(f"artifact {artifact.filename} does not match the signed manifest")
@@ -93,18 +217,15 @@ def publish_image_set(
 
     _, manifest_digest = _digest(manifest_file)
     _, signature_digest = _digest(signature_file)
-    prefix = remote_directory.rstrip("/")
-    if (not prefix.startswith("/") or posixpath.normpath(prefix) != prefix
-            or any(part in {".", ".."} for part in prefix.split("/"))):
-        raise SFTPImageSetError("remote image-set directory must be an absolute normalized path")
+    prefix = _remote_directory(remote_directory)
 
     def upload(local_path: str, filename: str) -> None:
         transfer(
             identity_credential=identity_credential,
             known_hosts_credential=known_hosts_credential,
             operation="upload", host=host, username=username,
-            remote_path=f"{prefix.rstrip(chr(47))}/{filename}", local_path=local_path,
-            port=port, manager=manager,
+            remote_path=f"{prefix}/{filename}" if prefix != "/" else f"/{filename}",
+            local_path=local_path, port=port, manager=manager,
         )
 
     try:
