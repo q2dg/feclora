@@ -237,7 +237,9 @@ class ClientDeploymentService:
             recover_stale_runtime_artifacts(lock_held=True)
             request = _read_private_json(self.request_path)
             expected = {"schema_version", "job_id", "host", "device_path", "confirmation", "compression", "network_interface", "igmp_confirmed"}
-            if set(request) not in (expected, expected | {"source_address"}) or request.get("schema_version") != 1 or request.get("job_id") != self.job_id:
+            optional = {"source_address", "image_encrypt", "image_sign"}
+            if (not expected.issubset(request) or set(request) - expected - optional
+                    or request.get("schema_version") != 1 or request.get("job_id") != self.job_id):
                 raise ClientJobServiceError("Client job request has an invalid schema or job identifier")
             host = request["host"]
             device_path = request["device_path"]
@@ -246,6 +248,10 @@ class ClientDeploymentService:
             network_interface = request["network_interface"]
             source_address = request.get("source_address")
             igmp_confirmed = request["igmp_confirmed"]
+            image_encrypt = request.get("image_encrypt", False)
+            image_sign = request.get("image_sign", False)
+            if not isinstance(image_encrypt, bool) or not isinstance(image_sign, bool):
+                raise ClientJobServiceError("per-image encryption/signing choices must be boolean")
             if not isinstance(igmp_confirmed, bool):
                 raise ClientJobServiceError("IGMP network acknowledgement must be boolean")
             if (not isinstance(host, str) or not host or len(host) > 253
@@ -422,10 +428,12 @@ class ClientDeploymentService:
                     local_identity=config.local_identity,
                     repository=config.repository,
                     trusted_server_public_key=config.trusted_server_public_key,
-                    local_minisign_secret_key=config.local_minisign_secret_key,
-                    local_minisign_public_key=config.local_minisign_public_key,
+                    local_minisign_secret_key=config.local_minisign_secret_key if image_sign else None,
+                    local_minisign_public_key=config.local_minisign_public_key if image_sign else None,
                     age_identity_file=config.age_identity_file,
-                    age_recipients_file=config.age_recipients_file,
+                    age_recipients_file=config.age_recipients_file if image_encrypt else None,
+                    encrypt_image=image_encrypt,
+                    sign_image=image_sign,
                     compression=compression,
                     compression_level=level,
                     progress_callback=progress,
