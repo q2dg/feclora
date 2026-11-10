@@ -209,13 +209,14 @@ optional age/signing private keys remain on the Client. When age encryption is
 enabled, each enrolled Client must use a unique age recipient so revocation
 does not accidentally remove another Client's future decryption capability.
 
-**Current implementation gap:** some enrollment and renewal API paths still
-expect age-recipient and minisign material. The project requirement is that
-neither tool be mandatory. Those paths must be made conditional/configurable;
-this paragraph describes the target policy, not a claim that every current
-Cockpit path already supports omission. The Client-side
-preparation and response-import stages are also integrated in Cockpit; no
-dialog workflow is required for enrollment.
+Enrollment and renewal accept TLS-only requests: age recipient files and
+minisign public keys are optional inputs. When supplied, the Server registers
+only the corresponding public image-security material. The Client's TLS
+private key remains local. Age identities are provisioned only when the
+optional age tooling is available; a TLS-only renewal does not create a new
+age identity when none is configured. The encrypted CA-backup action is a
+separate optional workflow and asks for an age recipient because encryption
+is its purpose.
 
 The Server setup tab also exposes the enrolled Client trust inventory. It shows
 each stable TLS URI identity, its authorized unicast MAC and any configured
@@ -247,11 +248,11 @@ fingerprint. Verify any configured optional image-authentication fingerprints
 as well. Cockpit verifies the CA chain, certificate SAN and private-key match,
 then installs the identity and writes the Client runtime configuration.
 
-**Current implementation gap:** current renewal/enrollment code still has
-minisign-specific and age-specific fields. These must become conditional so
-that neither executable/key type is required for baseline TLS enrollment. Existing
-Client configuration or partial identity files are not overwritten. This
-wizard does not initiate a remote deployment job.
+The renewal and enrollment forms carry optional age-recipient and minisign
+public-key material only when those capabilities are configured. Neither
+`age` nor `minisign` is required to issue, renew or install the TLS
+certificate. Existing Client configuration and partial identity files are
+not overwritten. This wizard does not initiate a remote deployment job.
 
 
 ## Cockpit deployment-job API
