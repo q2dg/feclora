@@ -56,10 +56,8 @@ def preflight_image_security(
         try:
             if os.path.getsize(recipients_path) > 64 * 1024:
                 raise ImageSecurityError("age recipients file exceeds the 64 KiB limit")
-            recipients = [
-                line.strip() for line in open(recipients_path, encoding="ascii").read().splitlines()
-                if line.strip()
-            ]
+            with open(recipients_path, encoding="ascii") as stream:
+                recipients = [line.strip() for line in stream if line.strip()]
         except (OSError, UnicodeError) as exc:
             raise ImageSecurityError(f"cannot read age recipients file: {exc}") from exc
         if (not recipients or len(recipients) != len(set(recipients))
