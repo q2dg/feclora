@@ -55,12 +55,33 @@ independent test run. Remove the temporary copy after the test.
 - [ ] ISO boots in UEFI mode.
 - [ ] Live session reaches the expected tty1 feclora shell.
 - [ ] `sudo -n true` succeeds in this explicitly privileged rescue image.
-- [ ] `/usr/local/bin/feclora-ui` exists and is executable.
 - [ ] `/usr/share/feclora/python/feclora` contains the application payload.
-- [ ] The launcher starts the Local rescue / Server / Client mode selector.
-- [ ] Local rescue opens the dialog-based storage and imaging interface.
+- [ ] `/usr/share/cockpit/feclora/index.html` exists and is non-empty.
+- [ ] `cockpit.socket` is enabled and active.
+- [ ] The live user can set a password with `sudo passwd feclora`.
+- [ ] Cockpit is reachable from the host through the forwarded port and accepts the live-user login.
+- [ ] The Feclora Cockpit app opens and displays the Operations wizard.
+- [ ] The legacy `dialog` package and `/usr/local/bin/feclora-ui` are absent from the supported Live image.
 - [ ] Kernel command line and boot logs are captured.
 - [ ] ISO checksum and VM firmware details are recorded.
+
+## Cockpit login and screenshot capture
+
+After the Live VM reaches the console, set a temporary password for the live operator:
+
+```bash
+sudo passwd feclora
+```
+
+From the host, open `https://localhost:9090` and accept the expected self-signed
+certificate warning for this disposable test environment. Sign in as `feclora`,
+open the Feclora application and verify the Operations workflow. Do not expose
+port 9090 beyond the host-only QEMU user network.
+
+For visual documentation, capture the real browser screens from this VM and
+follow the [Cockpit screenshot capture plan](../docs/assets/screenshots/README.md).
+Record the ISO's source commit and Fedora release with each screenshot set; redact
+VM-generated hostnames, addresses and device identifiers before committing.
 
 ## Hardware discovery
 
