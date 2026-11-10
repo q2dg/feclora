@@ -19,6 +19,44 @@ class LocalOperationStoreTests(unittest.TestCase):
             self.assertEqual(status["events"][0]["sequence"], 1)
             self.assertEqual(store.definition(operation_id)["params"]["source"], "/dev/sda")
 
+    def test_capture_can_include_encrypted_sftp_publication_settings(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000001",
+            "action": "capture_disk",
+            "params": {
+                "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                "encrypt": False, "sign": True,
+                "sftp_publish": {
+                    "host": "backup.example.net", "username": "backup",
+                    "remote_directory": "/images/daily", "port": 2222,
+                    "identity_credential": "/etc/credstore.encrypted/feclora/backup-key.cred",
+                    "known_hosts_credential": "/etc/credstore.encrypted/feclora/backup-hosts.cred",
+                },
+            },
+        }
+        validated = validate_definition(definition)
+        self.assertEqual(validated["params"]["sftp_publish"]["port"], 2222)
+
+    def test_capture_sftp_publication_requires_signed_manifest(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000001",
+            "action": "capture_disk",
+            "params": {
+                "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                "encrypt": False, "sign": False,
+                "sftp_publish": {
+                    "host": "backup.example.net", "username": "backup",
+                    "remote_directory": "/images/daily",
+                    "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+                    "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+                },
+            },
+        }
+        with self.assertRaisesRegex(LocalOperationError, "requires a signed image"):
+            validate_definition(definition)
+
     def test_enforces_state_machine_and_hash_chain(self):
         with tempfile.TemporaryDirectory() as root:
             store = LocalOperationStore(os.path.join(root, "jobs"))
