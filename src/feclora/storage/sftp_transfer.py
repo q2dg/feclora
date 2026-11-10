@@ -142,21 +142,27 @@ def list_image_manifests(
     return sorted(names)
 
 
-def _local_regular(path: str | os.PathLike[str]) -> tuple[str, int, str]:
+def _local_regular(path: str | os.PathLike[str]) -> tuple[str, int, str, tuple[int, int, int, int, int]]:
+    """Hash a regular file and capture metadata that detects replacement or mutation."""
     local = os.path.abspath(os.fspath(path))
     try:
-        fd = os.open(local, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode):
-            os.close(fd)
-            raise SFTPTransferError("local SFTP transfer source must be a regular file")
-        digest = hashlib.sha256()
-        size = 0
+        fd = os.open(local, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0))
         with os.fdopen(fd, "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if not stat.S_ISREG(before.st_mode):
+                raise SFTPTransferError("local SFTP transfer source must be a regular file")
+            digest = hashlib.sha256()
+            size = 0
             while chunk := stream.read(1024 * 1024):
                 size += len(chunk)
                 digest.update(chunk)
-        return local, size, digest.hexdigest()
+            after = os.fstat(stream.fileno())
+        identity = lambda info: (
+            info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns,
+        )
+        if identity(before) != identity(after) or size != after.st_size:
+            raise SFTPTransferError("local SFTP transfer source changed while it was being hashed")
+        return local, size, digest.hexdigest(), identity(after)
     except OSError as exc:
         raise SFTPTransferError(f"cannot safely read local transfer file: {exc}") from exc
 
@@ -173,7 +179,7 @@ def upload_file(
     server must support the OpenSSH hard-link extension. Callers must still verify the published artifact via Feclora's
     signed manifest when it is later consumed.
     """
-    local, size, digest = _local_regular(local_path)
+    local, size, digest, source_identity = _local_regular(local_path)
     target = _remote_path(remote_path)
     parent, name = target.rsplit("/", 1)
     if not name:
@@ -186,6 +192,13 @@ def upload_file(
     try:
         _run_batch(argv, [f"put {_batch_quote(local)} {_batch_quote(staged)}"],
                    runner=runner, timeout=timeout)
+        # OpenSSH reopens the local pathname after our initial hash. Re-hash
+        # and compare inode/timestamps before publishing the remote hard link,
+        # so a replaced or modified source cannot be published under a stale
+        # digest. A failed check leaves only a removable staging name.
+        _local_after, size_after, digest_after, identity_after = _local_regular(local_path)
+        if (size_after, digest_after, identity_after) != (size, digest, source_identity):
+            raise SFTPTransferError("local SFTP transfer source changed during upload")
         _run_batch(argv, [f"ln {_batch_quote(staged)} {_batch_quote(target)}"],
                    runner=runner, timeout=timeout)
     except SFTPTransferError:
