@@ -84,10 +84,10 @@ def build_sftp_argv(
     ]
 
 
-def _run_batch(
+def _run_batch_result(
     argv: list[str], commands: list[str], *, runner: Callable[..., Any],
     timeout: int,
-) -> None:
+) -> Any:
     if isinstance(timeout, bool) or not isinstance(timeout, int) or not 1 <= timeout <= 86400:
         raise SFTPTransferError("SFTP timeout must be between 1 and 86400 seconds")
     try:
@@ -98,10 +98,48 @@ def _run_batch(
     except (OSError, subprocess.SubprocessError) as exc:
         raise SFTPTransferError(f"SFTP process could not complete: {exc}") from exc
     if result.returncode:
-        # OpenSSH diagnostics can contain server-controlled text; bound and
-        # label it as diagnostic data rather than exposing command contents.
         detail = (result.stderr or "").strip().replace("\n", " ")[:512]
-        raise SFTPTransferError(f"SFTP transfer failed (exit {result.returncode}): {detail}")
+        raise SFTPTransferError(f"SFTP operation failed (exit {result.returncode}): {detail}")
+    return result
+
+
+def _run_batch(
+    argv: list[str], commands: list[str], *, runner: Callable[..., Any],
+    timeout: int,
+) -> None:
+    _run_batch_result(argv, commands, runner=runner, timeout=timeout)
+
+
+def list_image_manifests(
+    remote_directory: str, *, host: str, username: str,
+    identity_file: str, known_hosts_file: str, port: int = 22,
+    timeout: int = 120, runner: Callable[..., Any] = subprocess.run,
+) -> list[str]:
+    """List only Feclora image-manifest filenames in a pinned SFTP directory.
+
+    The server's listing is untrusted input. Return only normalized manifest
+    basenames matching the Feclora image-id grammar; never interpret entries
+    as paths or commands.
+    """
+    if (not isinstance(remote_directory, str) or not _REMOTE.fullmatch(remote_directory)
+            or remote_directory.startswith("//")
+            or ".." in PurePosixPath(remote_directory).parts
+            or str(PurePosixPath(remote_directory)) != remote_directory):
+        raise SFTPTransferError("remote SFTP directory must be absolute and normalized")
+    argv = build_sftp_argv(
+        host=host, username=username, identity_file=identity_file,
+        known_hosts_file=known_hosts_file, port=port,
+    )
+    result = _run_batch_result(
+        argv, [f"ls -1 {_batch_quote(remote_directory)}"],
+        runner=runner, timeout=timeout,
+    )
+    names: set[str] = set()
+    for raw in (result.stdout or "").splitlines():
+        name = raw.strip()
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\\.manifest\\.json", name):
+            names.add(name)
+    return sorted(names)
 
 
 def _local_regular(path: str | os.PathLike[str]) -> tuple[str, int, str]:
