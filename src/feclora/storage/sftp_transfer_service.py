@@ -98,29 +98,55 @@ def build_systemd_transfer_argv(
 def _stop_transient_unit(systemctl: str, unit: str) -> None:
     """Wait for a transient transfer to stop before its caller cleans staging files."""
     try:
-        result = subprocess.run(
-            [systemctl, "stop", unit], stdin=subprocess.DEVNULL,
-            capture_output=True, text=True, check=False, timeout=20,
-        )
-    except subprocess.TimeoutExpired:
-        killed = subprocess.run(
-            [systemctl, "kill", "--kill-whom=all", "--signal=SIGKILL", unit],
-            stdin=subprocess.DEVNULL, capture_output=True, text=True,
-            check=False, timeout=5,
-        )
-        if killed.returncode != 0:
-            raise RepositoryManagerError("could not force-stop the transient SFTP transfer")
-        result = subprocess.run(
-            [systemctl, "stop", unit], stdin=subprocess.DEVNULL,
-            capture_output=True, text=True, check=False, timeout=10,
-        )
-    if result.returncode != 0:
-        active = subprocess.run(
-            [systemctl, "is-active", unit], stdin=subprocess.DEVNULL,
-            capture_output=True, text=True, check=False, timeout=5,
-        )
-        if active.returncode == 0:
-            raise RepositoryManagerError("transient SFTP transfer is still active after cancellation")
+        try:
+            result = subprocess.run(
+                [systemctl, "stop", unit], stdin=subprocess.DEVNULL,
+                capture_output=True, text=True, check=False, timeout=20,
+            )
+        except subprocess.TimeoutExpired:
+            try:
+                killed = subprocess.run(
+                    [systemctl, "kill", "--kill-whom=all", "--signal=SIGKILL", unit],
+                    stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                    check=False, timeout=5,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                raise RepositoryManagerError(
+                    "could not force-stop the transient SFTP transfer; its state is uncertain"
+                ) from exc
+            if killed.returncode != 0:
+                raise RepositoryManagerError(
+                    "could not force-stop the transient SFTP transfer; its state is uncertain"
+                )
+            try:
+                result = subprocess.run(
+                    [systemctl, "stop", unit], stdin=subprocess.DEVNULL,
+                    capture_output=True, text=True, check=False, timeout=10,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                raise RepositoryManagerError(
+                    "could not verify that the transient SFTP transfer stopped"
+                ) from exc
+        if result.returncode != 0:
+            try:
+                active = subprocess.run(
+                    [systemctl, "is-active", unit], stdin=subprocess.DEVNULL,
+                    capture_output=True, text=True, check=False, timeout=5,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                raise RepositoryManagerError(
+                    "could not verify whether the transient SFTP transfer is still active"
+                ) from exc
+            if active.returncode == 0:
+                raise RepositoryManagerError(
+                    "transient SFTP transfer is still active after cancellation"
+                )
+    except RepositoryManagerError:
+        raise
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RepositoryManagerError(
+            "could not verify that the transient SFTP transfer stopped"
+        ) from exc
 
 
 def _retryable_transport_failure(detail: str) -> bool:
