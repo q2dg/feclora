@@ -1,8 +1,11 @@
+import hashlib
 import io
 import os
 import tempfile
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
+from feclora.storage.image_manifest import ImageArtifact
 from feclora.storage.partition_image_capture import PartitionImageCaptureError, capture_partition_image
 
 
@@ -88,6 +91,37 @@ class PartitionImageCaptureTests(unittest.TestCase):
             )
             self.assertEqual(manifest.artifacts[0].format, "partclone")
             self.assertEqual(manifest.artifacts[0].filesystem, "ext4")
+
+
+    def test_zstd_and_lz4_use_supported_partition_suffixes(self):
+        for codec, suffix in (("zstd", ".zst"), ("lz4", ".lz4")):
+            with self.subTest(codec=codec), tempfile.TemporaryDirectory() as directory:
+                def runner(command, **kwargs):
+                    return SimpleNamespace(stdout="4096 512 part unknown\n")
+
+                def fake_capture(source, filesystem, stage, filename, partition_id,
+                                 executables, **kwargs):
+                    stored = b"compressed partition payload"
+                    with open(os.path.join(stage, filename), "wb") as output:
+                        output.write(stored)
+                    return ImageArtifact(
+                        filename=filename, role="partition-image", format="raw",
+                        compression=codec, size_bytes=len(stored),
+                        sha256=hashlib.sha256(stored).hexdigest(),
+                        partition_id=partition_id, compression_level=3,
+                    )
+
+                with patch("feclora.storage.partition_image_capture.capture_partition",
+                           side_effect=fake_capture):
+                    manifest = capture_partition_image(
+                        "/dev/fake1", "codec-part", "fake1", directory,
+                        compression=codec, compression_level=3,
+                        executables={"lsblk": "lsblk"},
+                        runner=runner, device_validator=lambda _path: True,
+                        source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                    )
+                self.assertTrue(os.path.isfile(os.path.join(directory, "codec-part_fake1.img" + suffix)))
+                self.assertEqual(manifest.artifacts[0].compression, codec)
 
 
 if __name__ == "__main__":
