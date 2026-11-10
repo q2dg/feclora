@@ -1328,5 +1328,31 @@ class WebAPITests(unittest.TestCase):
         inventory.assert_not_called()
 
 
+    def test_inspect_sftp_image_set_api_returns_authenticated_manifest_summary(self):
+        from contextlib import nullcontext
+        with tempfile.TemporaryDirectory() as directory:
+            key = Path(directory) / "trusted.pub"
+            key.write_text("trusted key", encoding="utf-8")
+            os.chmod(key, 0o600)
+            expected = {
+                "image_id": "remote-image", "image_type": "disk",
+                "source_size_bytes": 1024, "logical_sector_size": 512,
+                "artifact_count": 2, "artifacts": [], "signature_verified": True,
+            }
+            params = {
+                "host": "backup.example.net", "username": "backup",
+                "remote_directory": "/images", "port": 22,
+                "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+                "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+            }
+            with patch("feclora.webapi._client_runtime_config", return_value=SimpleNamespace(trusted_server_public_key=str(key))), \\
+                 patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("inspect-123")), \\
+                 patch("feclora.storage.sftp_image_set.inspect_remote_image_set", return_value=expected) as inspect:
+                result = dispatch({"action": "inspect_sftp_image_set", "params": params})
+            self.assertEqual(result, {"operation_id": "inspect-123", **expected})
+            self.assertEqual(inspect.call_args.kwargs["public_key"], key)
+            self.assertEqual(inspect.call_args.kwargs["remote_directory"], "/images")
+
+
 if __name__ == "__main__":
     unittest.main()
