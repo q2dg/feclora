@@ -86,8 +86,8 @@ def validate_definition(value: Any) -> dict[str, Any]:
     fields = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
-        "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
-        "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
+        "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
@@ -95,10 +95,16 @@ def validate_definition(value: Any) -> dict[str, Any]:
     if not isinstance(action, str) or action not in fields or not isinstance(params, dict):
         raise LocalOperationError("unsupported local storage operation")
     allowed = fields[action]
-    accepted = (allowed, allowed - {"repository_id"}, allowed - {"sftp_publish"},
-                allowed - {"repository_id", "sftp_publish"})
+    if action.startswith("restore_"):
+        accepted = (allowed, allowed - {"repository_id"}, allowed - {"sftp_source"},
+                    allowed - {"repository_id", "sftp_source"})
+    else:
+        accepted = (allowed, allowed - {"repository_id"}, allowed - {"sftp_publish"},
+                    allowed - {"repository_id", "sftp_publish"})
     if set(params) not in accepted:
         raise LocalOperationError("operation parameters do not match the selected operation")
+    if "sftp_source" in params and "repository_id" in params:
+        raise LocalOperationError("SFTP restore source cannot be combined with a mounted repository")
     for key in ("source", "target"):
         if key in params:
             device = params[key]
@@ -112,6 +118,30 @@ def validate_definition(value: Any) -> dict[str, Any]:
     if "repository_id" in params and (not isinstance(params["repository_id"], str)
             or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", params["repository_id"])):
         raise LocalOperationError("repository_id is invalid")
+    if "sftp_source" in params:
+        config = params["sftp_source"]
+        required_sftp = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential"}
+        if not isinstance(config, dict) or set(config) not in (required_sftp, required_sftp | {"port"}):
+            raise LocalOperationError("SFTP restore source settings are invalid")
+        if (not isinstance(config.get("host"), str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}", config["host"])
+                or config["host"].endswith(".") or ".." in config["host"]):
+            raise LocalOperationError("SFTP restore source host is invalid")
+        if not isinstance(config.get("username"), str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", config["username"]):
+            raise LocalOperationError("SFTP restore source username is invalid")
+        remote = config.get("remote_directory")
+        if (not isinstance(remote, str) or not re.fullmatch(r"/[A-Za-z0-9._/-]{0,1024}", remote)
+                or remote.startswith("//") or os.path.normpath(remote) != remote
+                or any(part in {".", ".."} for part in remote.split("/"))):
+            raise LocalOperationError("SFTP restore source directory must be absolute and normalized")
+        for field in ("identity_credential", "known_hosts_credential"):
+            value = config.get(field)
+            if not isinstance(value, str) or not re.fullmatch(
+                r"/etc/credstore\\.encrypted/feclora/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\\.cred", value
+            ):
+                raise LocalOperationError(f"SFTP restore source {field} must reference a registered encrypted credential")
+        port = config.get("port", 22)
+        if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+            raise LocalOperationError("SFTP restore source port is invalid")
     if action.startswith("restore_") or action.startswith("clone_"):
         target = params.get("target")
         if params.get("confirmation") != f"ERASE {target}" and not (
