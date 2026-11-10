@@ -224,10 +224,11 @@ class RemoteRepositoryManager:
                     or info.st_mode & 0o077 or info.st_nlink != 1):
                 raise RepositoryManagerError("repository registry lock must be a private root-owned regular file")
             os.fchmod(fd, 0o600)
-            fcntl.flock(fd, fcntl.LOCK_EX)
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX)
+            except OSError as exc:
+                raise RepositoryManagerError(f"cannot acquire repository registry lock: {exc}") from exc
             yield
-        except OSError as exc:
-            raise RepositoryManagerError(f"cannot acquire repository registry lock: {exc}") from exc
         finally:
             os.close(fd)
 
