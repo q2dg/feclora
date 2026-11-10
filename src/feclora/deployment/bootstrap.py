@@ -5,9 +5,9 @@ import ipaddress
 import json
 import os
 import stat
+import shutil
 import subprocess
 import tempfile
-import shutil
 from pathlib import Path
 from typing import Any, Callable
 
@@ -61,10 +61,10 @@ def ensure_server_deployment_config(
     openssl: str = "/usr/bin/openssl",
     minisign: str | None = None,
 ) -> bool:
-    """Create secure default TLS and image-signing material on first Server use.
+    """Create TLS configuration and any available optional image-security keys.
 
-    Existing operator-managed configuration is never rewritten. Returns True
-    only when a new default configuration was created.
+    age and minisign are opportunistic integrations, not TLS bootstrap
+    requirements. Existing operator-managed configuration is never rewritten.
     """
     if os.geteuid() != 0:
         raise BootstrapError("Server deployment bootstrap requires root")
