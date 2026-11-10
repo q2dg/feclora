@@ -371,10 +371,10 @@ def complete_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def complete_client_enrollment(params: dict[str, Any]) -> dict[str, Any]:
-    required = {"client_id", "host", "mac_address", "bundle_directory",
-                "ca_fingerprint", "server_minisign_sha256"}
-    if set(params) != required:
-        raise CockpitEnrollmentError("complete_client_enrollment requires the complete Server response and trust-verification fields")
+    required = {"client_id", "host", "mac_address", "bundle_directory", "ca_fingerprint"}
+    optional = {"server_minisign_sha256"}
+    if set(params) - required - optional or not required.issubset(params):
+        raise CockpitEnrollmentError("complete_client_enrollment requires Client details and a verified CA fingerprint; image-security fingerprints are optional")
     client_id, host, mac = params["client_id"], params["host"], params["mac_address"]
     if not isinstance(client_id, str) or not _CLIENT_ID.fullmatch(client_id):
         raise CockpitEnrollmentError("Client identifier is invalid")
@@ -390,51 +390,69 @@ def complete_client_enrollment(params: dict[str, Any]) -> dict[str, Any]:
     bundle = _mounted_media_directory(params["bundle_directory"])
     certificate = _bundle_file(bundle, f"feclora-{client_id}.crt")
     ca_file = _bundle_file(bundle, "ca.crt")
-    server_public = _bundle_file(bundle, "server.pub")
-    recipients_file = _bundle_file(bundle, "age-recipients.txt")
+    server_public_path = os.path.join(bundle, "server.pub")
+    recipients_path = os.path.join(bundle, "age-recipients.txt")
+    server_public = _bundle_file(bundle, "server.pub") if os.path.lexists(server_public_path) else None
+    recipients_file = _bundle_file(bundle, "age-recipients.txt") if os.path.lexists(recipients_path) else None
     local_key = os.path.join(PKI, f"client-{client_id}.key")
     age_identity = os.path.join(PKI, f"client-{client_id}.age")
-    for path, label in ((local_key, "local TLS private key"), (age_identity, "local age identity")):
-        info = os.lstat(path)
+    info = os.lstat(local_key)
+    if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+        raise CockpitEnrollmentError("local TLS private key is not a protected root-owned file")
+    has_age_identity = os.path.lexists(age_identity)
+    if has_age_identity:
+        info = os.lstat(age_identity)
         if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
-            raise CockpitEnrollmentError(f"{label} is not a protected root-owned file")
+            raise CockpitEnrollmentError("local age identity is not a protected root-owned file")
     expected_ca = params["ca_fingerprint"]
-    expected_server = params["server_minisign_sha256"]
     if not isinstance(expected_ca, str) or not re.fullmatch(r"(?:[0-9a-fA-F]{2}:?){32}", expected_ca):
         raise CockpitEnrollmentError("CA fingerprint must be a 64-digit SHA-256 hexadecimal value")
-    if not isinstance(expected_server, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected_server):
-        raise CockpitEnrollmentError("Server minisign fingerprint must be a 64-digit SHA-256 hexadecimal value")
-    actual_server = hashlib.sha256(Path(server_public).read_bytes()).hexdigest()
-    if actual_server != expected_server.lower():
-        raise CockpitEnrollmentError("Server minisign public-key fingerprint does not match the value verified from the Server")
-    recipients = [line.strip() for line in Path(recipients_file).read_text(encoding="ascii").splitlines() if line.strip()]
-    if not recipients or any(not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients):
-        raise CockpitEnrollmentError("Server age recipient inventory is empty or malformed")
+    expected_server = params.get("server_minisign_sha256")
+    if expected_server is not None:
+        if not isinstance(expected_server, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected_server):
+            raise CockpitEnrollmentError("Server minisign fingerprint must be a 64-digit SHA-256 hexadecimal value")
+        if server_public is None:
+            raise CockpitEnrollmentError("Server minisign fingerprint was supplied but server.pub is missing from the bundle")
+        actual_server = hashlib.sha256(Path(server_public).read_bytes()).hexdigest()
+        if actual_server != expected_server.lower():
+            raise CockpitEnrollmentError("Server minisign public-key fingerprint does not match the value verified from the Server")
+    trusted_server_key = server_public if expected_server is not None else None
+    if recipients_file:
+        recipients = [line.strip() for line in Path(recipients_file).read_text(encoding="ascii").splitlines() if line.strip()]
+        if not recipients or len(recipients) != len(set(recipients)) or any(
+            not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients
+        ):
+            raise CockpitEnrollmentError("Server age recipient inventory is empty, duplicated or malformed")
     os.makedirs(REPOSITORY, mode=0o700, exist_ok=True)
     repo_info = os.lstat(REPOSITORY)
     if not stat.S_ISDIR(repo_info.st_mode) or stat.S_ISLNK(repo_info.st_mode) or repo_info.st_uid != 0 or repo_info.st_mode & 0o077:
         raise CockpitEnrollmentError("Client image repository must be a private root-owned directory")
     installed_server_key = os.path.join(PKI, "server.pub")
     installed_recipients = os.path.join(PKI, "age-recipients.txt")
-    if any(os.path.lexists(path) for path in (
-        os.path.join(PKI, "client.crt"), os.path.join(PKI, "client.key"),
-        os.path.join(PKI, "ca.crt"), installed_server_key, installed_recipients,
-    )):
+    destinations = [os.path.join(PKI, "client.crt"), os.path.join(PKI, "client.key"), os.path.join(PKI, "ca.crt")]
+    if trusted_server_key:
+        destinations.append(installed_server_key)
+    if recipients_file:
+        destinations.append(installed_recipients)
+    if any(os.path.lexists(path) for path in destinations):
         raise CockpitEnrollmentError("Partial Client enrollment files already exist; inspect them before retrying")
     installed = {
         "certificate_file": os.path.join(PKI, "client.crt"),
         "ca_file": os.path.join(PKI, "ca.crt"),
         "private_key_file": os.path.join(PKI, "client.key"),
     }
+    created_files = list(destinations)
     try:
         installed = install_client_certificate(
             certificate, ca_file, local_key, PKI,
             f"URI:feclora-client-{client_id}", expected_ca,
         )
-        shutil.copyfile(server_public, installed_server_key)
-        os.chmod(installed_server_key, 0o644)
-        shutil.copyfile(recipients_file, installed_recipients)
-        os.chmod(installed_recipients, 0o600)
+        if trusted_server_key:
+            shutil.copyfile(trusted_server_key, installed_server_key)
+            os.chmod(installed_server_key, 0o644)
+        if recipients_file:
+            shutil.copyfile(recipients_file, installed_recipients)
+            os.chmod(installed_recipients, 0o600)
         minisign_secret = os.path.join(PKI, f"client-{client_id}.minisign.key")
         minisign_public = os.path.join(PKI, f"client-{client_id}.minisign.pub")
         if os.path.exists(minisign_secret) != os.path.exists(minisign_public):
@@ -452,18 +470,17 @@ def complete_client_enrollment(params: dict[str, Any]) -> dict[str, Any]:
             "server_identity": "URI:feclora-server", "mac_address": normalized_mac,
             "ca_file": installed["ca_file"], "certificate_file": installed["certificate_file"],
             "private_key_file": installed["private_key_file"],
-            "trusted_server_public_key": installed_server_key,
+            "trusted_server_public_key": installed_server_key if trusted_server_key else None,
             "local_minisign_secret_key": minisign_secret if os.path.exists(minisign_secret) else None,
             "local_minisign_public_key": minisign_public if os.path.exists(minisign_public) else None,
-            "age_identity_file": age_identity, "age_recipients_file": installed_recipients,
+            "age_identity_file": age_identity if has_age_identity else None,
+            "age_recipients_file": installed_recipients if recipients_file else None,
             "repository": REPOSITORY,
         }
         _write_config(CONFIG, config)
         load_client_runtime_config(CONFIG)
     except Exception:
-        for path in (installed["certificate_file"], installed["ca_file"],
-                     installed["private_key_file"], installed_server_key,
-                     installed_recipients, CONFIG):
+        for path in created_files + [CONFIG]:
             try:
                 os.unlink(path)
             except OSError:
@@ -472,5 +489,6 @@ def complete_client_enrollment(params: dict[str, Any]) -> dict[str, Any]:
     return {
         "identity": config["local_identity"], "host": host, "mac_address": normalized_mac,
         "image_capture_enabled": bool(config["local_minisign_secret_key"]),
-        "message": "Client certificate and trust bundle installed and validated locally.",
+        "age_encryption_enabled": bool(config["age_recipients_file"]),
+        "message": "Client TLS certificate installed. Optional age and minisign image-protection material was installed only when provided and independently verified.",
     }
