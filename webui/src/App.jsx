@@ -142,6 +142,8 @@ export default function App() {
   const [clientRemoteTarget, setClientRemoteTarget] = useState("");
   const [clientRemoteConfirmation, setClientRemoteConfirmation] = useState("");
   const [clientRemoteCompression, setClientRemoteCompression] = useState("gzip");
+  const [clientRemoteEncrypt, setClientRemoteEncrypt] = useState(false);
+  const [clientRemoteSign, setClientRemoteSign] = useState(false);
   const [clientRemoteInterface, setClientRemoteInterface] = useState("");
   const [clientRemoteIgmpConfirmed, setClientRemoteIgmpConfirmed] = useState(false);
   const [clientRemoteJobStatus, setClientRemoteJobStatus] = useState(null);
@@ -909,6 +911,8 @@ export default function App() {
       setClientRemoteInspection(result);
       setClientRemoteTarget("");
       setClientRemoteConfirmation("");
+      setClientRemoteEncrypt(false);
+      setClientRemoteSign(false);
       setClientRemoteIgmpConfirmed(false);
       setNotice("Server reachability and authenticated TLS identity verified; job inspected. No Client registration or disk operation has started.");
     } catch (err) { setError(err?.message || String(err)); }
@@ -922,6 +926,8 @@ export default function App() {
         host: clientRemoteHost, job_id: clientRemoteInspection.job.job_id,
         device_path: clientRemoteTarget, confirmation: clientRemoteConfirmation,
         compression: clientRemoteCompression,
+        image_encrypt: clientRemoteEncrypt,
+        image_sign: clientRemoteSign,
         network_interface: networkInterfaces.find((item) => item.binding === clientRemoteInterface)?.interface || null,
         source_address: networkInterfaces.find((item) => item.binding === clientRemoteInterface)?.address || null,
         igmp_confirmed: clientRemoteJob.transport === "multicast" ? clientRemoteIgmpConfirmed : false,
@@ -1694,11 +1700,19 @@ export default function App() {
                           {clientRemoteDeviceOptions.map((device) => <option key={device.path} value={device.path}>{device.path} · {device.model || device.name || device.type} · {device.size_bytes || ""}</option>)}
                         </select>
                       </Field>
-                      {clientRemoteJob.operation === "save" && <Field label="Capture compression">
-                        <select className="pf-v5-c-form-control" value={clientRemoteCompression} onChange={(event) => setClientRemoteCompression(event.target.value)}>
-                          <option value="none">None</option><option value="gzip">gzip</option><option value="xz">xz</option>
-                        </select>
-                      </Field>}
+                      {clientRemoteJob.operation === "save" && <>
+                        <Field label="Capture compression">
+                          <select className="pf-v5-c-form-control" value={clientRemoteCompression} onChange={(event) => setClientRemoteCompression(event.target.value)}>
+                            <option value="none">None</option><option value="gzip">gzip</option><option value="xz">xz</option>
+                          </select>
+                        </Field>
+                        <Field label="Protect this image (optional)">
+                          <label><input type="checkbox" checked={clientRemoteEncrypt} disabled={!clientRemoteInspection.image_security?.age_encryption_available} onChange={(event) => setClientRemoteEncrypt(event.target.checked)} /> Encrypt this image with age</label>
+                          <br />
+                          <label><input type="checkbox" checked={clientRemoteSign} disabled={!clientRemoteInspection.image_security?.image_signing_available} onChange={(event) => setClientRemoteSign(event.target.checked)} /> Sign this image with minisign</label>
+                          {(!clientRemoteInspection.image_security?.age_encryption_available || !clientRemoteInspection.image_security?.image_signing_available) && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Unavailable options are disabled because this Client has no usable key material or executable. Leaving both unchecked creates a conventional unsigned, unencrypted image.</p>}
+                        </Field>
+                      </>}
                       {clientRemoteConfirmationPhrase && <Alert variant="warning" title="Type the exact local authorization phrase" isInline>{clientRemoteConfirmationPhrase}</Alert>}
                       <Field label="Local target confirmation">
                         <input className="pf-v5-c-form-control" value={clientRemoteConfirmation} onChange={(event) => setClientRemoteConfirmation(event.target.value)} placeholder="Type the phrase shown above exactly" />
