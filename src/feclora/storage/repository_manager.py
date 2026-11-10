@@ -320,6 +320,13 @@ class RemoteRepositoryManager:
         return {"id": identifier, "mountpoint": str(mountpoint), "provider": repo.provider}
 
     def mount(self, identifier: str) -> dict[str, Any]:
+        lock_fd = self._acquire_usage_lock(identifier, exclusive=True)
+        try:
+            return self._mount_locked(identifier)
+        finally:
+            os.close(lock_fd)
+
+    def _mount_locked(self, identifier: str) -> dict[str, Any]:
         entries = self._load()
         try:
             definition = entries[identifier]
