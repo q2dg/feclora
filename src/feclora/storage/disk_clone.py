@@ -9,6 +9,7 @@ import subprocess
 from typing import Any, Callable
 
 from .privilege import PrivilegeError, privileged_argv
+from .process_control import stop_process
 from .source_safety import SourceSafetyError, check_capture_source_safe
 
 
@@ -211,17 +212,11 @@ def clone_disk(
             except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
                 raise DiskCloneError(f"disk data copied but backup GPT relocation failed: {exc}") from exc
     except DiskCloneCancelled:
-        if process is not None and process.poll() is None:
-            process.terminate()
-            process.wait()
+        stop_process(process)
         raise
     except (BrokenPipeError, OSError) as exc:
-        if process is not None and process.poll() is None:
-            process.terminate()
-            process.wait()
+        stop_process(process)
         raise DiskCloneCancelled(f"disk clone progress UI closed; operation stopped: {exc}") from exc
     finally:
-        if process is not None and process.poll() is None:
-            process.terminate()
-            process.wait()
+        stop_process(process)
     return source_size
