@@ -1393,5 +1393,32 @@ class WebAPITests(unittest.TestCase):
             self.assertTrue(result["verified"])
 
 
+    def test_saved_sftp_repository_api_lists_saves_and_removes_references(self):
+        definition = {
+            "id": "offsite-backup", "host": "backup.example.net",
+            "username": "backup", "remote_directory": "/images", "port": 22,
+            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+        }
+        registry = Mock()
+        registry.save.return_value = definition
+        registry.list.return_value = [definition]
+        with patch("feclora.webapi._sftp_repository_registry", return_value=registry):
+            self.assertEqual(
+                dispatch({"action": "save_sftp_repository", "params": definition}),
+                {"repository": definition, "saved": True},
+            )
+            self.assertEqual(
+                dispatch({"action": "sftp_repositories"}),
+                {"repositories": [definition]},
+            )
+            self.assertEqual(
+                dispatch({"action": "remove_sftp_repository", "params": {"id": "offsite-backup"}}),
+                {"id": "offsite-backup", "removed": True},
+            )
+        registry.save.assert_called_once_with(definition)
+        registry.remove.assert_called_once_with("offsite-backup")
+
+
 if __name__ == "__main__":
     unittest.main()
