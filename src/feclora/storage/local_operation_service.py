@@ -22,6 +22,14 @@ RUNTIME = Path("/run/feclora")
 DEVICE_LOCKS = RUNTIME / "local-operation-locks"
 
 
+class LocalOperationCancelled(Exception):
+    """Raised by the worker after systemd requests an orderly stop."""
+
+
+def _cancel_on_sigterm(_signum: int, _frame: Any) -> None:
+    raise LocalOperationCancelled("cancellation requested by operator")
+
+
 class _ProgressForwarder:
     """Consume the existing operation engine's NDJSON and persist safe progress."""
 
@@ -118,7 +126,7 @@ def _device_lock_fds(params: dict[str, Any]) -> list[int]:
 def execute(operation_id: str) -> int:
     if os.geteuid() != 0:
         raise LocalOperationError("local storage worker must run as root")
-    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    signal.signal(signal.SIGTERM, _cancel_on_sigterm)
     store = LocalOperationStore()
     definition = store.definition(operation_id)
     status = store.status(operation_id)
@@ -154,10 +162,17 @@ def execute(operation_id: str) -> int:
         try:
             current = store.status(operation_id)["state"]
             if current not in TERMINAL_STATES:
-                store.append(operation_id, "failed", {
-                    "error_type": type(exc).__name__,
-                    "error": str(exc)[:512],
-                })
+                if isinstance(exc, LocalOperationCancelled):
+                    destructive = definition["action"].startswith(("restore_", "clone_"))
+                    store.append(operation_id, "cancelled", {
+                        "reason": "operator requested cancellation; worker and child processes were stopped",
+                        "destination_may_be_partial": bool(destructive and current == "running"),
+                    })
+                else:
+                    store.append(operation_id, "failed", {
+                        "error_type": type(exc).__name__,
+                        "error": str(exc)[:512],
+                    })
         except Exception:
             pass
         raise
