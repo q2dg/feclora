@@ -727,7 +727,7 @@ class DeploymentControlServer:
         repository: str,
         manifest_path: str,
         *,
-        trusted_public_key: str,
+        trusted_public_key: str | os.PathLike[str] | None,
         udpcast_config: UDPcastConfig,
         result_timeout: float = 86400,
     ) -> dict[str, str]:
@@ -748,20 +748,24 @@ class DeploymentControlServer:
             raise DeploymentControlError("UDPcast receiver threshold must equal the enrolled READY Client count")
         signature_path = manifest_path + ".minisig"
         try:
-            verify_manifest_signature(manifest_path, trusted_public_key)
             with open(manifest_path, "rb") as stream:
                 manifest_bytes = stream.read(8 * 1024 + 1)
-            with open(signature_path, "rb") as stream:
-                signature_bytes = stream.read(2048 + 1)
+            signature_bytes = b""
+            if os.path.lexists(signature_path):
+                if not trusted_public_key:
+                    raise DeploymentControlError("signed multicast image requires an independently trusted minisign public key")
+                verify_manifest_signature(manifest_path, trusted_public_key)
+                with open(signature_path, "rb") as stream:
+                    signature_bytes = stream.read(2048 + 1)
             if len(manifest_bytes) > 8 * 1024 or len(signature_bytes) > 2048:
-                raise DeploymentControlError("signed manifest exceeds the multicast control-plane size limit")
+                raise DeploymentControlError("manifest exceeds the multicast control-plane size limit")
             manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
             if manifest.image_id != job.image_id:
-                raise DeploymentControlError("signed manifest image identifier does not match the multicast job")
+                raise DeploymentControlError("manifest image identifier does not match the multicast job")
             if manifest.image_type != job.target_type:
-                raise DeploymentControlError("signed manifest image type does not match the multicast job target type")
-            if not manifest.artifacts or any(artifact.encryption != "age" for artifact in manifest.artifacts):
-                raise DeploymentControlError("multicast restore requires every artifact to be age-encrypted for the authorized Clients")
+                raise DeploymentControlError("manifest image type does not match the multicast job target type")
+            if not manifest.artifacts:
+                raise DeploymentControlError("multicast image manifest contains no artifacts")
             for artifact in manifest.artifacts:
                 verify_artifact_file(os.path.join(repository, artifact.filename), artifact)
         except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError, UDPcastError) as exc:
