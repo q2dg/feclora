@@ -147,14 +147,47 @@ def fetch_image_set(
             if result.get("verified") is not True:
                 raise SFTPImageSetError(f"downloaded artifact {artifact.filename} was not digest-verified by the SFTP service")
 
-        final_path = os.path.join(root, manifest.image_id)
-        _publish_directory_noreplace(staging, final_path)
-        directory_fd = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        # Existing Feclora repositories are flat: artifacts plus
+        # <image_id>.manifest.json and its adjacent .minisig. Publish the
+        # artifacts first, the signature next, and the manifest last so the
+        # manifest remains the visible commit marker expected by _images().
+        published: list[str] = []
+        manifest_name = f"{manifest.image_id}.manifest.json"
+        signature_name = manifest_name + ".minisig"
         try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
-        staging = ""
+            for artifact in manifest.artifacts:
+                source = os.path.join(staging, artifact.filename)
+                target = os.path.join(root, artifact.filename)
+                os.link(source, target, follow_symlinks=False)
+                published.append(target)
+            signature_target = os.path.join(root, signature_name)
+            os.link(signature_path, signature_target, follow_symlinks=False)
+            published.append(signature_target)
+            manifest_target = os.path.join(root, manifest_name)
+            os.link(manifest_path, manifest_target, follow_symlinks=False)
+            published.append(manifest_target)
+            directory_fd = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except FileExistsError as exc:
+            for target in reversed(published):
+                try:
+                    os.unlink(target)
+                except OSError:
+                    pass
+            raise SFTPImageSetError(
+                "an image artifact or manifest already exists; refusing to overwrite it"
+            ) from exc
+        except OSError:
+            for target in reversed(published):
+                try:
+                    os.unlink(target)
+                except OSError:
+                    pass
+            raise
+        final_path = os.path.join(root, manifest_name)
         return {
             "image_id": manifest.image_id,
             "image_type": manifest.image_type,
