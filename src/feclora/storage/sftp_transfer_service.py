@@ -81,6 +81,43 @@ def build_systemd_transfer_argv(
     return command
 
 
+def run_sftp_transfer(
+    *, identity_credential: str, known_hosts_credential: str,
+    operation: str, host: str, username: str, remote_path: str,
+    local_path: str, port: int = 22, expected_sha256: str | None = None,
+    manager: RemoteRepositoryManager | None = None,
+    runner: Callable[..., Any] = subprocess.run,
+) -> dict[str, Any]:
+    """Run one SFTP transfer in a synchronous transient systemd service."""
+    store_manager = manager or RemoteRepositoryManager()
+    bindings = credential_bindings(
+        identity_credential, known_hosts_credential, manager=store_manager,
+    )
+    systemd_run = store_manager.which("systemd-run")
+    python = store_manager.which("python3")
+    if not systemd_run or not python:
+        raise RepositoryManagerError("systemd-run and python3 are required for encrypted SFTP transfers")
+    import uuid
+    unit = f"feclora-sftp-{uuid.uuid4().hex}.service"
+    command = build_systemd_transfer_argv(
+        systemd_run=systemd_run, python=python, unit=unit, bindings=bindings,
+        operation=operation, host=host, username=username,
+        remote_path=remote_path, local_path=local_path, port=port,
+        expected_sha256=expected_sha256,
+    )
+    try:
+        result = runner(
+            command, stdin=subprocess.DEVNULL, capture_output=True,
+            text=True, check=False, timeout=86430,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RepositoryManagerError(f"SFTP transient service could not complete: {exc}") from exc
+    if result.returncode:
+        detail = (result.stderr or result.stdout or "").strip()[:512]
+        raise RepositoryManagerError("SFTP transfer failed" + (f": {detail}" if detail else ""))
+    return {"operation": operation, "remote_path": remote_path, "completed": True}
+
+
 def _credential_path(name: str) -> str:
     directory = os.environ.get("CREDENTIALS_DIRECTORY", "")
     if not directory or not os.path.isabs(directory):
