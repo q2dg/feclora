@@ -48,7 +48,9 @@ Tests use mocked device I/O. No VM or hardware restore has been validated.
 Never test against a disk containing needed data.
 
 
-Age decryption staging uses the local system temporary filesystem, not the source repository, so a read-only remote repository can be used. Ensure the local temporary filesystem has enough free space for the decrypted artifact. `age` encryption and `minisign` signatures are optional integrations. A missing
+Age decryption staging uses the local system temporary filesystem, not the source repository, so a read-only remote repository can be used. Ensure the local temporary filesystem has enough free space for the decrypted artifact.
+
+`age` encryption and `minisign` signatures are optional integrations. A missing
 age executable must not block restoration of unencrypted images. A missing
 minisign executable must not block unsigned/local baseline restores; if an
 image carries a signature, the verifier and an independently trusted public
