@@ -120,9 +120,11 @@ def validate_definition(value: Any) -> dict[str, Any]:
         raise LocalOperationError("repository_id is invalid")
     if "sftp_source" in params:
         config = params["sftp_source"]
-        required_sftp = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential"}
+        required_sftp = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "expected_manifest_sha256"}
         if not isinstance(config, dict) or set(config) not in (required_sftp, required_sftp | {"port"}):
             raise LocalOperationError("SFTP restore source settings are invalid")
+        if not isinstance(config.get("expected_manifest_sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", config["expected_manifest_sha256"]):
+            raise LocalOperationError("SFTP restore source must be bound to an inspected manifest SHA-256")
         if (not isinstance(config.get("host"), str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}", config["host"])
                 or config["host"].endswith(".") or ".." in config["host"]):
             raise LocalOperationError("SFTP restore source host is invalid")
