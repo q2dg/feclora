@@ -53,8 +53,9 @@ service's private credential directory.
   services for SSHFS, SMB and rclone mounts that reference registered
   encrypted blobs through `LoadCredentialEncrypted=`. The mount helper reads
   only from `$CREDENTIALS_DIRECTORY`; SSHFS/rclone stay foreground so the
-  service owns their lifetime. WebDAV still uses its system davfs2 secrets
-  file, and Cockpit provisioning/selection is not implemented. The mount
+  service owns their lifetime. WebDAV repository definitions are rejected
+  until a per-repository encrypted credential and isolated davfs2 service
+  design is implemented; the global secrets file is not accepted. The mount
   service deliberately avoids filesystem namespace isolation so its mounts
   propagate to the host; this limits sandboxing and must be revisited if a
   mount-propagation broker is introduced.
