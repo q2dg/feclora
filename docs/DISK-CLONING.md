@@ -2,8 +2,8 @@
 
 ## Local, one-machine operation
 
-Local rescue provides direct whole-disk cloning when both block devices are
-connected to the same running feclora system. It invokes GNU dd directly from
+Cockpit's Operations wizard provides direct whole-disk cloning when both block devices are
+connected to the same running Feclora Live system. It invokes GNU dd directly from
 the source disk to the destination disk; it does not create an intermediate
 image file. For GPT sources cloned to a larger target, feclora invokes
 sgdisk to relocate the backup GPT header to the end of the destination. If
