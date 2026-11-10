@@ -276,7 +276,10 @@ using root-squash may map files created by the client root user to an anonymous
 UID, causing Feclora's ownership check to reject the manifest. Do not weaken
 this check; configure the export's ownership semantics accordingly. Cockpit
 image operations and multi-Client restore jobs can select mounted repository
-IDs. S3 remains read-only and is suitable for inventory/verification/restore,
+IDs. Restore reads source artifacts from the selected mount but stages age
+decryption and partition decompression on the local temporary filesystem; a
+read-only remote mount is therefore not used as a scratch directory. Ensure
+local temporary storage has enough free space for the staged plaintext/image. S3 remains read-only and is suitable for inventory/verification/restore,
 not image capture.
 
 
