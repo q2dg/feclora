@@ -74,7 +74,7 @@ The Server's **Trusted Clients** screen offers:
 - **Revoke:** remove the TLS identity/MAC authorization, optional Client minisign trust and the mapped age recipient from future image-encryption inventories.
 - **Export updated age recipient inventory:** export the current public recipient list to removable media. On existing Clients, choose **Refresh age recipient inventory** to update their local capture recipients.
 
-The Client warns within 30 days of certificate expiry and can prepare a renewal CSR using its existing TLS key. The Server must approve the renewal and the Client must install the returned bundle. CRL/OCSP checks and server-side expiry inventory are not implemented.
+The Client warns within 30 days of certificate expiry and can prepare a renewal CSR using its existing TLS key. The Server must approve the renewal and the Client must install the returned bundle. CRL/OCSP checks and server-side expiry inventory are not implemented. Age recipients and minisign public keys are optional image-security material, not prerequisites for TLS enrollment; current Cockpit enrollment/renewal paths still need work to make those fields fully optional.
 
 The bind address must exactly match the IPv4 address selected in Server mode.
 The Server UI creates either a one-client unicast save/restore job or a multi-client multicast restore job and displays the job UUID. Each selected Client operator enters that UUID. The Server listener opens TCP/9443 only on the selected interface in Feclora's temporary firewalld zone. During multicast transfers it temporarily adds the UDPcast port pair and IGMP on that same interface. The listener and temporary firewall rules are removed when the job UI exits.
@@ -159,7 +159,7 @@ destructive job command in DHCP, TFTP, HTTP or the iPXE script.
    BIOS and UEFI clients chainload iPXE and boot that Live environment.
 3. In the Server's Remote jobs tab, create a restore job. Select the local
    Server image repository or a mounted, verified remote repository, choose
-   a signed image, select one Client for unicast or at least two for UDPcast
+   an image authenticated under the configured trust policy, select one Client for unicast or at least two for UDPcast
    multicast, and save the job definition.
 4. On each PXE-booted Client, enter Client mode in Cockpit, enter the job UUID,
    authenticate to the Server, select the local destination device and type
