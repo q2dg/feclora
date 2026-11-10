@@ -272,11 +272,14 @@ or resumes storage work after a service/process restart.
 ## Remote deployment job definitions
 
 The **Remote jobs** tab creates and lists validated Server-side job definitions.
-For restore, select an existing signed disk or partition image; for capture,
-choose a new image identifier. Select already enrolled Client MAC addresses,
-the Server interface and unicast or multicast restore transport. The backend
-revalidates enrollment, signing-key availability, image signature, image type
-and age-recipient registrations before persisting a hash-chained journal.
+For restore, select an existing disk or partition image; signed and unsigned
+images are both available. Select already enrolled Client MAC addresses, the
+Server interface and unicast or multicast restore transport. The backend
+revalidates enrollment and image type, verifies a detached signature when one
+is present, and checks registered age recipients only when the image is
+age-encrypted. Unsigned manifests are bound to the authorized Server through
+the mTLS control session. Client save jobs may also run unsigned; if a Client
+chooses to sign, its public key must be enrolled so the Server can verify it.
 
 The persisted-job table also shows each Client's last journaled state,
 the event count and whether a job was interrupted. After inspecting every
