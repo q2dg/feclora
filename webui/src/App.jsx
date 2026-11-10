@@ -1127,7 +1127,7 @@ export default function App() {
           <Tab eventKey="repositories" title="Remote repositories">
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Remote image repositories</Title>
-                <p>Manage filesystem repository mounts and import authenticated image sets from SFTP. SSHFS, NFS and SMB/CIFS are filesystem providers; S3/rclone is currently read-only for image inventory and restore. SFTP capture/upload, remote inventory and saved SFTP repository definitions remain pending.</p>
+                <p>Manage filesystem repository mounts and transfer signed image sets through SFTP. SSHFS, NFS and SMB/CIFS are filesystem providers; S3/rclone remains read-only. SFTP currently supports one-shot publication of existing local signed images and import of remote signed images; saved definitions, remote inventory and automatic capture-job integration remain pending.</p>
                 <Alert variant="warning" title="Provider scope" isInline>Cockpit exposes SSHFS, NFS, SMB/CIFS and read-only S3/rclone mounts. SFTP now supports one-shot signed image import using encrypted SSH-key and pinned known_hosts references; SFTP capture/upload, saved repository management and remote inventory discovery are not yet implemented. WebDAV remains hidden until its encrypted credential lifecycle is supported. S3 remains read-only.</Alert>
               </StackItem>
               <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
