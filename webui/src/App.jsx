@@ -80,6 +80,7 @@ export default function App() {
   const [sftpIdentity, setSftpIdentity] = useState("");
   const [sftpKnownHosts, setSftpKnownHosts] = useState("");
   const [sftpPublishImageId, setSftpPublishImageId] = useState("");
+  const [publishAfterCapture, setPublishAfterCapture] = useState(false);
   const [credentialId, setCredentialId] = useState("");
   const [credentialKind, setCredentialKind] = useState("ssh-key");
   const [credentialSourceFile, setCredentialSourceFile] = useState("");
@@ -250,8 +251,13 @@ export default function App() {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setProgress(null); setOperationResult(null);
     try {
       let params;
-      if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
-      else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
+      const sftpPublish = publishAfterCapture ? {
+        host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
+        port: Number(sftpPort), identity_credential: sftpIdentity,
+        known_hosts_credential: sftpKnownHosts
+      } : null;
+      if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
+      else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (isRestore) params = { image_id: imageId, target, confirmation, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else params = { source, target, confirmation };
       const accepted = await callFeclora(operation, params);
@@ -884,6 +890,17 @@ export default function App() {
                         <br />
                         <label><input type="checkbox" checked={sign} disabled={!security.image_signing_available} onChange={(e) => setSign(e.target.checked)} /> Sign manifest with minisign</label>
                         {!security.age_encryption_available || !security.image_signing_available ? <p className="pf-v5-u-color-200">Initialize local security keys from the System tab to enable these options.</p> : null}
+                      </Field>
+                      <Field label="SFTP post-capture publication">
+                        <label><input type="checkbox" checked={publishAfterCapture} disabled={busy || !sign} onChange={(e) => setPublishAfterCapture(e.target.checked)} /> Publish this image set to SFTP after capture and local signature verification</label>
+                        {publishAfterCapture && <>
+                          <Field label="SFTP host"><input className="pf-v5-c-form-control" value={sftpHost} onChange={(e) => setSftpHost(e.target.value)} maxLength={253} required /></Field>
+                          <Field label="SSH username"><input className="pf-v5-c-form-control" value={sftpUsername} onChange={(e) => setSftpUsername(e.target.value)} maxLength={64} required /></Field>
+                          <Field label="Remote image directory"><input className="pf-v5-c-form-control" value={sftpRemoteDirectory} onChange={(e) => setSftpRemoteDirectory(e.target.value)} maxLength={1024} required /></Field>
+                          <Field label="SSH port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={sftpPort} onChange={(e) => setSftpPort(e.target.value)} required /></Field>
+                          <Field label="Encrypted SSH private-key credential"><select className="pf-v5-c-form-control" value={sftpIdentity} onChange={(e) => setSftpIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
+                          <Field label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={sftpKnownHosts} onChange={(e) => setSftpKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
+                        </>}
                       </Field>
                     </>}
                     {isRestore && <>
