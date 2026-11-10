@@ -60,6 +60,16 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.assertEqual(entries["images-a"]["host"], "nas-a.example.net")
         self.assertEqual(entries["images-b"]["host"], "nas-b.example.net")
 
+    def test_registry_lock_rejects_symlink(self):
+        lock = self.registry.parent / ".repositories.lock"
+        target = Path(self.temp.name) / "attacker-lock"
+        target.write_text("", encoding="ascii")
+        target.chmod(0o600)
+        lock.symlink_to(target)
+        with self.assertRaisesRegex(RepositoryManagerError, "cannot open repository registry lock"):
+            self.manager.add("images", self.definition)
+        self.assertFalse((self.mount_root / "images").exists())
+
     def test_add_persists_only_credential_references_and_creates_private_mountpoint(self):
         result = self.manager.add("images", self.definition)
         self.assertEqual(result["mountpoint"], str(self.mount_root / "images"))
