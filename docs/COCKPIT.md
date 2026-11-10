@@ -51,7 +51,15 @@ The Operations wizard provides:
 - streamed byte-progress events from the storage engine;
 - local age identity and minisign key initialization, optional age encryption
   and manifest signing on capture;
-- durable local operation history.
+- durable local operation history, with a Cancel control for queued,
+  preflight and running jobs.
+
+The Operation history tab can request cancellation of queued, preflight or
+running local jobs. Feclora stops the worker and waits for its storage child
+processes to exit before completing cancellation. Cancellation does not roll
+back disk writes: a cancelled restore or clone may leave its destination
+partially written, and the history records this warning. Jobs in verification
+or terminal states cannot be cancelled.
 
 The browser calls the same Python storage engines as the rest of Feclora.
 The root-owned `/usr/libexec/feclora/cockpit-api` wrapper accepts a fixed
