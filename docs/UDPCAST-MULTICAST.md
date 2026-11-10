@@ -56,13 +56,13 @@ and [upstream command-line documentation](https://www.udpcast.linux.lu/cmd.html)
 ## Integrated behavior and remaining acceptance work
 
 The authenticated control service, persistent job journal, Client-side
-whole-disk and partition restore dispatch, signed-manifest delivery, private
+whole-disk and partition restore dispatch, manifest delivery with optional signatures, private
 staging, verified artifacts and per-client terminal results are
 integrated. Unsigned manifests are accepted when delivered through the
 authenticated mTLS control channel; detached minisign signatures are verified
 when present and require an independently trusted key.
 
-- The deployment job binds `target_type` to the signed manifest's
+- The deployment job binds `target_type` to the authenticated manifest's
   `image_type`. A disk job cannot be paired with a partition manifest or vice
   versa.
 - Partition restore targets an already existing local partition. The Client
@@ -73,9 +73,10 @@ when present and require an independently trusted key.
   operation. When enabled, artifacts are encrypted for the configured recipient
   inventory. When disabled, UDPcast provides no payload confidentiality; use a
   trusted isolated network or another configured encryption layer.
-- Manifest authenticity is required before destructive restore, but `minisign`
-  is only the current implementation. The verifier must become configurable so
-  another trusted signature mechanism can be used without making minisign mandatory.
+- The manifest is delivered over the authenticated mTLS control channel and
+  bound to the authorized Server identity. If a detached minisign signature is
+  present, it is additionally verified against an independently trusted key.
+  SHA-256 digests then bind each UDPcast payload to that authenticated manifest.
   This does not add per-datagram authentication to UDPcast and cannot prevent
   denial of service.
 - Sender and receiver check local interface UP/MULTICAST flags, IPv4 address,
@@ -93,7 +94,8 @@ when present and require an independently trusted key.
 
 UDPcast is a transport and does not encrypt/authenticate its data plane. Feclora
 must not require `age` or `minisign` as global installation dependencies.
-`age` may be enabled for confidentiality. A trusted manifest-authentication
-mechanism remains mandatory before destructive restore; the current code uses
-minisign and must gain a replaceable verifier interface to meet the project's
-optional-minisign policy. SHA-256 alone is not an authenticity mechanism.
+`age` may be enabled for confidentiality. The authenticated mTLS control channel provides manifest authenticity for
+deployment transfers. A detached minisign signature, when present, adds an
+independent verification layer and requires a separately trusted public key.
+SHA-256 alone is not an authenticity mechanism; it is safe here because the
+expected manifest digest metadata is delivered over the authenticated channel.
