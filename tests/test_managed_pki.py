@@ -599,5 +599,25 @@ class ManagedPKITests(unittest.TestCase):
                 ca_bundle_fingerprints(bundle)
 
 
+    def test_client_csr_can_be_created_without_age_keygen(self):
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as export:
+            def fake_run(argv, runner=None):
+                for option in ("-keyout", "-out"):
+                    if option in argv:
+                        Path(argv[argv.index(option) + 1]).write_text("test", encoding="ascii")
+                return SimpleNamespace(stdout="", stderr="", returncode=0)
+
+            with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), \
+                 patch("feclora.deployment.managed_pki._run", side_effect=fake_run):
+                identity, key, csr = create_client_csr(
+                    root, export, "lab-no-age", age_keygen=None,
+                )
+            self.assertEqual(identity, "URI:feclora-client-lab-no-age")
+            self.assertTrue(os.path.isfile(key))
+            self.assertTrue(os.path.isfile(csr))
+            self.assertFalse(os.path.exists(os.path.join(root, "client-lab-no-age.age")))
+            self.assertFalse(os.path.exists(os.path.join(export, "feclora-lab-no-age.age-recipient")))
+
+
 if __name__ == "__main__":
     unittest.main()
