@@ -169,6 +169,25 @@ class LocalOperationStoreTests(unittest.TestCase):
         with self.assertRaisesRegex(LocalOperationError, "cannot be combined"):
             validate_definition(definition)
 
+    def test_restore_allows_sftp_source_remote_root(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000001",
+            "action": "restore_disk",
+            "params": {
+                "image_id": "gold", "target": "/dev/sdb",
+                "confirmation": "ERASE /dev/sdb",
+                "sftp_source": {
+                    "host": "backup.example.net", "username": "backup",
+                    "remote_directory": "/", "expected_manifest_sha256": "a" * 64,
+                    "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+                    "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+                },
+            },
+        }
+        validated = validate_definition(definition)
+        self.assertEqual(validated["params"]["sftp_source"]["remote_directory"], "/")
+
     def test_restore_rejects_sftp_source_path_traversal(self):
         definition = {
             "schema_version": 1,
