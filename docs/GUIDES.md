@@ -11,6 +11,17 @@ the current Cockpit sequence and safety contract. A feature marked planned is
 not an operator procedure. The release-wide acceptance contract is in
 [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.html).
 
+## Local image capture and recovery
+
+- [Whole-disk capture](WHOLE-DISK-CAPTURE.html) — step-by-step local rescue UI procedure, compression and optional age/minisign protection.
+- [Partition capture](PARTITION-CAPTURE.html) — step-by-step local rescue UI procedure and supported Partclone/raw formats.
+- [Whole-disk restore](WHOLE-DISK-RESTORE.html) and [partition restore](PARTITION-RESTORE.html) — verification and destructive-write safeguards.
+- [Image encryption and signatures](IMAGE-ENCRYPTION.html) — key handling, trust requirements and restore behavior.
+
+The local rescue interface is text-mode. Screenshot sets are being added only
+from real Fedora Live sessions matching the documented version; no illustrative
+or synthetic screenshot is presented as an actual application screen.
+
 ## Cloning
 
 - [Local disk-to-disk cloning](GUIDE-LOCAL-DISK-CLONE.html) — **Available in Cockpit**
