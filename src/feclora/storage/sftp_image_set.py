@@ -135,6 +135,7 @@ def fetch_image_set(
     expected_manifest_sha256: str | None = None,
     transfer: Callable[..., dict[str, Any]] = run_sftp_transfer,
     manager: Any = None,
+    progress_callback: Callable[[int, int | None], None] | None = None,
 ) -> dict[str, Any]:
     """Fetch, authenticate and import a signed image set without overwriting files."""
     remote = _remote_directory(remote_directory)
@@ -188,6 +189,10 @@ def fetch_image_set(
             if _digest(manifest_path)[1] != expected_manifest_sha256:
                 raise SFTPImageSetError("authenticated remote manifest changed after inspection")
 
+        bytes_total = sum(item.size_bytes for item in manifest.artifacts)
+        bytes_done = 0
+        if progress_callback is not None:
+            progress_callback(bytes_done, bytes_total)
         for artifact in manifest.artifacts:
             result = download(artifact.filename, artifact.sha256)
             local = os.path.join(staging, artifact.filename)
@@ -196,6 +201,9 @@ def fetch_image_set(
                 raise SFTPImageSetError(f"downloaded artifact {artifact.filename} does not match signed manifest")
             if result.get("verified") is not True:
                 raise SFTPImageSetError(f"downloaded artifact {artifact.filename} was not digest-verified by the SFTP service")
+            bytes_done += size
+            if progress_callback is not None:
+                progress_callback(bytes_done, bytes_total)
 
         # Existing Feclora repositories are flat: artifacts plus
         # <image_id>.manifest.json and its adjacent .minisig. Publish the
@@ -268,6 +276,7 @@ def publish_image_set(
     port: int = 22,
     transfer: Callable[..., dict[str, Any]] = run_sftp_transfer,
     manager: Any = None,
+    progress_callback: Callable[[int, int | None], None] | None = None,
 ) -> dict[str, Any]:
     """Validate and publish artifacts, manifest, then signature.
 
@@ -314,11 +323,25 @@ def publish_image_set(
             local_path=local_path, port=port, manager=manager,
         )
 
+    bytes_total = sum(_digest(local)[0] for local, _filename in files)
+    bytes_total += _digest(manifest_file)[0] + _digest(signature_file)[0]
+    bytes_done = 0
+    if progress_callback is not None:
+        progress_callback(bytes_done, bytes_total)
     try:
         for local, filename in files:
             upload(local, filename)
+            bytes_done += _digest(local)[0]
+            if progress_callback is not None:
+                progress_callback(bytes_done, bytes_total)
         upload(manifest_file, "manifest.json")
+        bytes_done += _digest(manifest_file)[0]
+        if progress_callback is not None:
+            progress_callback(bytes_done, bytes_total)
         upload(signature_file, "manifest.json.minisig")
+        bytes_done += _digest(signature_file)[0]
+        if progress_callback is not None:
+            progress_callback(bytes_done, bytes_total)
     except (SFTPTransferError, RuntimeError, OSError) as exc:
         raise SFTPImageSetError(f"SFTP image-set publication failed: {exc}") from exc
 
