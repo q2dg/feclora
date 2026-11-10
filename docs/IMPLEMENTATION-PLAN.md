@@ -59,7 +59,7 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Report mounted state separately from verified provider/source/type/access-mode identity in Cockpit.
 - [x] Add an initial standalone OpenSSH SFTP file-transfer primitive with pinned host keys, staged hard-link no-overwrite upload, and SHA-256-verified download; keep it separate from SSHFS mounts.
 - [x] Add systemd-creds-backed SFTP transfer execution and signed image-set publish/fetch primitives with minisign and artifact digest verification.
-- [ ] Complete the SFTP provider: Cockpit/API repository and credential workflow, capture/restore routing, remote inventory, durable progress, retry/resume and provider acceptance.
+- [ ] Complete the SFTP provider: saved repository definitions, remote inventory, automatic capture-job publication and restore-job routing, durable progress, cancellation, retry/resume and provider acceptance.
 - [x] Add optional repository-ID routing for whole-disk/partition capture, restore and partition extraction; resolve only mounted, verified repositories and enforce read-only mounts for writes. Local repository remains the backward-compatible default.
 - [x] Expose repository selection and per-repository image inventory in Cockpit; route capture, restore, verification, layout inspection and partition extraction to the selected verified mount.
 - Operator acceptance (documented in `ACCEPTANCE-TESTS.md`): run remote-server checks on SSHFS, NFS and SMB/CIFS, including NFS root-squash/ownership and failure/interruption cases. These physical/provider runs are not implementation blockers.
@@ -257,8 +257,10 @@ pre-existing files are preserved.
 - [ ] Add remote image-set inventory/discovery and safe listing.
 - [x] Connect authenticated SFTP fetch/import to a journaled Cockpit API action and local image inventory.
 - [ ] Connect publisher to capture/upload; add transfer byte progress, retry/resume, cancellation and complete restore orchestration.
-- [x] Expose a one-shot Cockpit SFTP image-import form with encrypted SSH-key/known_hosts selection and local Server minisign trust.
+- [x] Expose one-shot Cockpit SFTP image import and signed-image publication forms with encrypted SSH-key/known_hosts selection and local signing trust.
 - [ ] Add saved SFTP repository definitions, remote inventory/discovery and provider health checks.
+- [x] Add a Cockpit/API action to publish an existing locally signed image set to SFTP, verifying the local minisign signature and artifact digests before upload.
+- [ ] Integrate SFTP publication automatically with capture jobs and imports with restore-job selection, progress, cancellation, retry/resume and full provider acceptance.
 - [ ] Add operational guide and current screenshots after Cockpit workflow acceptance.
 
 Tests were added but not executed in this session. This remains a restore-side import workflow rather than a complete SFTP
