@@ -9,7 +9,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from urllib.parse import urlsplit
 
 
 class RepositoryError(ValueError):
@@ -57,6 +56,11 @@ class RemoteRepository:
     def __post_init__(self) -> None:
         if self.provider not in _PROVIDERS:
             raise RepositoryError(f"provider must be one of {', '.join(sorted(_PROVIDERS))}")
+        if self.provider == "webdav":
+            raise RepositoryError(
+                "WebDAV repository mounts are disabled until isolated per-repository encrypted credentials are implemented; "
+                "the global davfs2 secrets file is not accepted"
+            )
         _host(self.host)
         _absolute_path(self.mountpoint, "mountpoint")
         if not isinstance(self.remote_path, str) or not self.remote_path.startswith("/") or not _REMOTE_PATH_RE.fullmatch(self.remote_path):
@@ -92,14 +96,6 @@ class RemoteRepository:
                 raise RepositoryError("SMB requires a protected credentials file")
             if not _SAFE_SHARE_RE.fullmatch(self.remote_path.strip("/").split("/")[0]):
                 raise RepositoryError("SMB remote_path must begin with a valid share name")
-        elif self.provider == "webdav":
-            parsed = urlsplit(self.remote_path)
-            if parsed.scheme or parsed.netloc:
-                raise RepositoryError("WebDAV remote_path must be a path; host is configured separately")
-            if self.credential_file != "/etc/davfs2/secrets":
-                raise RepositoryError("WebDAV requires the root-managed /etc/davfs2/secrets file")
-            if self.port is not None:
-                raise RepositoryError("WebDAV uses HTTPS port 443; configure a reverse proxy for non-standard ports")
         elif self.provider == "s3":
             if not isinstance(self.rclone_remote, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", self.rclone_remote):
                 raise RepositoryError("S3 requires a configured rclone remote alias")
@@ -161,8 +157,7 @@ def required_tools(provider: str) -> tuple[str, ...]:
     """Return executable dependencies for a provider."""
     mapping = {
         "sshfs": ("sshfs",), "nfs": ("mount", "mount.nfs"),
-        "smb": ("mount", "mount.cifs"), "webdav": ("mount.davfs",),
-        "s3": ("rclone",),
+        "smb": ("mount", "mount.cifs"), "s3": ("rclone",),
     }
     try:
         return mapping[provider]
