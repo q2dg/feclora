@@ -156,7 +156,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             encrypted = root / "feclora-webdav-password.cred"
-            with self.assertRaisesRegex(RepositoryError, "root-managed /etc/davfs2/secrets"):
+            with self.assertRaisesRegex(RepositoryError, "global davfs2 secrets file is not accepted"):
                 RemoteRepository(
                     provider="webdav", host="dav.example.net", remote_path="/images",
                     mountpoint=str(root / "mounts" / "dav"), username="backup",
