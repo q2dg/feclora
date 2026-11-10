@@ -31,9 +31,27 @@ metadata are rejected.
 Compression is declared per artifact: none, gzip, zstd, xz or lz4. The writer
 must record the actual stored-file size and SHA-256 of the stored bytes. Restore paths verify the complete stored artifact and decompression stream before opening a target block device.
 
-## Important limitations
+## Integrity, signatures and encryption
 
-Schema v1 is written by local partition and whole-disk capture. Both disk and partition restore paths consume manifests. Repository publication uses a manifest-last commit marker, but does not yet provide crash-recovery journaling, signatures, encryption, or full partition geometry maps. SHA-256 detects
-accidental corruption only; it does not authenticate the manifest. A later
-signed manifest and authenticated repository protocol are required before
-untrusted network images can be accepted.
+Schema v1 is written by local whole-disk and partition capture. Both disk and
+partition restore paths consume manifests. Repository publication uses the
+manifest as its final commit marker.
+
+SHA-256 covers the exact stored bytes of each artifact. For an age-encrypted
+artifact, this is the ciphertext digest: restore verifies the stored size and
+digest first, then age authenticates and decrypts into private local staging
+before decompression or target writes.
+
+A detached `.minisig` file may sign the completed manifest. When present,
+restore must verify it against a public key trusted independently of the image
+repository; a present but unverifiable signature blocks restoration. Unsigned
+images remain supported for local workflows and authenticated mTLS deployment
+sessions. In those cases, the manifest's authenticity comes from the
+independently authenticated local operator/repository or TLS control session,
+not from SHA-256 alone.
+
+SHA-256 detects artifact corruption but does not authenticate a manifest or
+its publisher. Do not accept an unsigned manifest from an untrusted source
+without a separate authenticated channel or trust decision. Full partition
+geometry maps and crash-recovery journaling for repository publication remain
+outside schema v1.
