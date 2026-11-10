@@ -83,6 +83,11 @@ def execute_client_image_job(
         required = f"ERASE {local_device_path} FROM {server_identity}"
         if confirmation != required:
             raise ClientImageRuntimeError(f"explicit local restore confirmation required: {required}")
+        if not trusted_server_public_key:
+            raise ClientImageRuntimeError(
+                "image restore requires a configured trusted manifest verifier; "
+                "minisign is optional, but this deployment has no alternative verifier configured"
+            )
         try:
             offer = receive_control_message(tls_socket, expected_type="transfer_offer")
             if (set(offer) != {"type", "job_id", "image_id"}
