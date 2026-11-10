@@ -7,12 +7,12 @@ the same repository API.
 
 ## Provider contract
 
-SFTP is intentionally not represented as a mounted filesystem provider. Feclora now has an initial standalone OpenSSH SFTP file-transfer adapter in `src/feclora/storage/sftp_transfer.py`: it requires key authentication and a pinned `known_hosts` file, runs batch-mode SFTP without loading user SSH configuration, stages uploads under random remote names before rename, and verifies downloaded bytes against an expected SHA-256 before local publication. This is a transfer primitive, not a Cockpit provider workflow. It is not yet connected to encrypted systemd credential provisioning, capture/restore job orchestration, progress reporting, resume/retry, or end-to-end artifact-set publication. SSHFS mounts do not satisfy the SFTP transfer contract.
+SFTP is intentionally not represented as a mounted filesystem provider. Feclora has an initial OpenSSH SFTP file-transfer adapter with pinned host keys, encrypted systemd credential execution, no-overwrite hard-link publication, and signed image-set publish/fetch primitives. These are transfer primitives only: SFTP is not yet exposed as a Cockpit provider or connected to capture/restore job orchestration, durable progress, resume/retry or end-user repository discovery. SSHFS mounts do not satisfy the SFTP transfer contract.
 
 | Provider | Helper | Authentication material |
 |---|---|---|
 | SSH filesystem | sshfs | Dedicated SSH private key; verified host keys |
-| SFTP | OpenSSH sftp batch adapter (initial primitive) | Root-owned private SSH key and pinned known_hosts paths; encrypted systemd credential integration pending |
+| SFTP | OpenSSH SFTP batch adapter and signed image-set transfer primitives | Registered encrypted SSH key and known_hosts references loaded by transient systemd credentials; Cockpit provider workflow pending |
 | NFS | mount.nfs, NFSv4.2 | Server/export policy |
 | SMB/CIFS | mount.cifs, SMB 3.1.1 | Protected credentials file |
 | WebDAV | mount.davfs over HTTPS | System-wide `/etc/davfs2/secrets` for root mounts; encrypted Feclora credential integration blocked |
@@ -119,7 +119,7 @@ encrypted blob path, and the mount service receives it through
 `LoadCredentialEncrypted=`. NFS does not require credentials. WebDAV remains
 unavailable through the Cockpit/API path until a per-repository encrypted
 credential design is implemented; the global `/etc/davfs2/secrets` file is not
-used as a workaround. SFTP remains a separate, unimplemented transfer provider.
+used as a workaround. SFTP remains a separate transfer provider whose image-set primitives are not yet integrated into Cockpit capture/restore workflows.
 Existing plaintext
 `CredentialStore` and CLI paths remain temporarily supported for migration;
 they are not the target architecture.
