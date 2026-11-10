@@ -53,7 +53,7 @@ read-only. Monitor streamed progress; cancelling stops the producer and
 prevents publication. Verify that the manifest appears in image inventory
 before attempting restore.
 
-**Screenshots are pending.** Capture the workflow from a real, version-matched
+**Screenshots are pending.** Follow the [Cockpit screenshot capture plan](assets/screenshots/README.md). Capture the workflow from a real, version-matched
 Fedora Live build and store the images under `docs/assets/screenshots/`. Do not
 substitute mockups or screenshots from a different UI revision.
 
