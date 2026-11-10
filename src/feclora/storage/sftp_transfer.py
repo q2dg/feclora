@@ -45,7 +45,7 @@ def _credential(path: str, *, private: bool) -> str:
 
 
 def _remote_path(value: str) -> str:
-    if not isinstance(value, str) or not _REMOTE.fullmatch(value):
+    if not isinstance(value, str) or value.startswith("//") or not _REMOTE.fullmatch(value):
         raise SFTPTransferError("remote SFTP path must be absolute and contain only safe path characters")
     path = PurePosixPath(value)
     if ".." in path.parts or str(path) != value:
@@ -74,7 +74,9 @@ def build_sftp_argv(
     known_hosts = _credential(known_hosts_file, private=False)
     return [
         executable, "-F", "/dev/null", "-b", "-", "-P", str(port),
-        "-oBatchMode=yes", "-oIdentitiesOnly=yes", "-oStrictHostKeyChecking=yes",
+        "-oBatchMode=yes", "-oIdentitiesOnly=yes", "-oPubkeyAuthentication=yes",
+        "-oPasswordAuthentication=no", "-oKbdInteractiveAuthentication=no",
+        "-oPreferredAuthentications=publickey", "-oStrictHostKeyChecking=yes",
         "-oGlobalKnownHostsFile=/dev/null", f"-oUserKnownHostsFile={known_hosts}", f"-oIdentityFile={key}",
         "-oConnectTimeout=15", "-oServerAliveInterval=15",
         "-oServerAliveCountMax=3", "-oClearAllForwardings=yes",
