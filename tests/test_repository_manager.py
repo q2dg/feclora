@@ -141,6 +141,55 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         finally:
             os.close(lease)
 
+    def test_mount_identity_probe_uses_bounded_findmnt_timeout(self):
+        captured = {}
+
+        def runner(argv, **kwargs):
+            captured["argv"] = argv
+            captured.update(kwargs)
+            return SimpleNamespace(
+                returncode=0,
+                stdout=f"{self.mount_root / 'images'} fuse.sshfs backup@nas.example.net:/images ro,relatime\n",
+                stderr="",
+            )
+
+        manager = RemoteRepositoryManager(
+            registry=self.registry, mount_root=self.mount_root,
+            runner=runner, which=lambda name: "/usr/bin/" + name,
+            effective_uid=lambda: 0, owner_uid=os.getuid(),
+        )
+        record = manager._mount_record(str(self.mount_root / "images"))
+        self.assertEqual(record, (
+            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime",
+        ))
+        self.assertEqual(captured["timeout"], 5)
+        self.assertTrue(captured["argv"][0].endswith("findmnt"))
+        self.assertIn("--mountpoint", captured["argv"])
+
+    def test_mount_identity_probe_fails_closed_on_timeout(self):
+        def runner(_argv, **_kwargs):
+            raise TimeoutError("findmnt timed out")
+
+        manager = RemoteRepositoryManager(
+            registry=self.registry, mount_root=self.mount_root,
+            runner=runner, which=lambda name: "/usr/bin/" + name,
+            effective_uid=lambda: 0, owner_uid=os.getuid(),
+        )
+        with self.assertRaisesRegex(RepositoryManagerError, "cannot verify repository mount state"):
+            manager._mount_record(str(self.mount_root / "images"))
+
+    def test_mount_identity_probe_rejects_malformed_findmnt_output(self):
+        manager = RemoteRepositoryManager(
+            registry=self.registry, mount_root=self.mount_root,
+            runner=lambda _argv, **_kwargs: SimpleNamespace(
+                returncode=0, stdout="unexpected output\\n", stderr="",
+            ),
+            which=lambda name: "/usr/bin/" + name,
+            effective_uid=lambda: 0, owner_uid=os.getuid(),
+        )
+        with self.assertRaisesRegex(RepositoryManagerError, "unexpected mountpoint record"):
+            manager._mount_record(str(self.mount_root / "images"))
+
     def test_mount_uses_argv_and_requires_verified_mount_state(self):
         self.manager.add("images", self.definition)
         with self.assertRaisesRegex(RepositoryManagerError, "not mounted"):
