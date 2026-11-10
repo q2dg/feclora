@@ -221,5 +221,13 @@ class DiskRestoreTests(unittest.TestCase):
             )
 
 
+    def test_signed_image_cannot_be_restored_without_trusted_key(self):
+        with open(self.manifest + ".minisig", "wb") as signature:
+            signature.write(b"unverified")
+        with self.assertRaisesRegex(DiskRestoreError, "trusted minisign public key"):
+            self.restore()
+        self.assertEqual(self.started, [])
+
+
 if __name__ == "__main__":
     unittest.main()
