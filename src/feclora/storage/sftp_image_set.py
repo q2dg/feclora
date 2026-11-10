@@ -3,8 +3,8 @@
 Untrusted manifest metadata is downloaded only into a private staging
 directory. Its detached signature is verified against an independently
 trusted key before any artifact is fetched. Artifacts are then checked against
-the signed size and SHA-256 values and the complete directory is atomically
-published without replacing an existing image.
+the signed size and SHA-256 values and the verified set is imported into the native repository layout without
+replacing any existing file.
 """
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ def fetch_image_set(
     transfer: Callable[..., dict[str, Any]] = run_sftp_transfer,
     manager: Any = None,
 ) -> dict[str, Any]:
-    """Fetch metadata, authenticate it, fetch artifacts and publish atomically."""
+    """Fetch, authenticate and import a signed image set without overwriting files."""
     remote = _remote_directory(remote_directory)
     key_file = _regular_file(public_key, "trusted minisign public key")
     root = os.path.abspath(os.fspath(destination_root))
