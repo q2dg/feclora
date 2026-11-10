@@ -135,6 +135,20 @@ encryption and/or a minisign signature. Both choices default off and are
 validated against locally enrolled keys and installed executables; they apply
 only to that capture.
 
+## Cockpit walkthrough and screenshots
+
+The Server and Client Cockpit procedures are described above in operational
+order: enroll TLS identities, create a Server job, inspect it from each Client,
+approve each local target, wait for READY, and explicitly ARM the job on the
+Server. For a save job, the Client chooses compression and per-image age
+encryption/minisign signing before the local read begins.
+
+The step-by-step screenshot set is not yet published. Follow
+[the screenshot capture plan](assets/screenshots/README.md) to capture these
+screens from a real Fedora Live build matching the documented commit. The
+repository intentionally contains no synthetic UI images presented as actual
+screenshots.
+
 ## Scope and safety limits
 
 - Unicast supports one authenticated Client per job: whole-disk save, and whole-disk or existing-partition restore.
