@@ -144,9 +144,12 @@ def capture_disk(
         if not table_text.strip():
             table_text = "# No partition table reported by sfdisk; raw disk image preserves all sectors.\n"
 
-    disk_suffix = {"none": ".raw", "gzip": ".raw.gz", "xz": ".raw.xz"}.get(compression)
+    disk_suffix = {
+        "none": ".raw", "gzip": ".raw.gz", "xz": ".raw.xz",
+        "zstd": ".raw.zst", "lz4": ".raw.lz4",
+    }.get(compression)
     if disk_suffix is None:
-        raise DiskCaptureError("compression must be none, gzip or xz")
+        raise DiskCaptureError("compression must be none, gzip, xz, zstd or lz4")
     disk_filename = image_id + ".disk" + disk_suffix
     table_filename = image_id + ".sfdisk"
     manifest_filename = image_id + ".manifest.json"
