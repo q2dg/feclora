@@ -129,7 +129,11 @@ whole disk or existing target partition as specified by the job, and type the ex
 the phrase is ERASE /dev/DEVICE FROM URI:feclora-server. For save, it is
 READ /dev/DEVICE TO URI:feclora-server. The /dev path and confirmation remain
 local; only a human-readable disk description is sent to Server. The Client
-must independently approve the target before sending READY.
+must independently approve the target before sending READY. For a remote
+save job, the Client Cockpit form asks whether this image should use age
+encryption and/or a minisign signature. Both choices default off and are
+validated against locally enrolled keys and installed executables; they apply
+only to that capture.
 
 ## Scope and safety limits
 
