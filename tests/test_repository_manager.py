@@ -121,6 +121,17 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
             self.manager.mount("images")
         self.assertTrue(any(call[0] == "/usr/bin/sshfs" for call in self.calls))
 
+    def test_mount_rejects_wrong_filesystem_even_when_mountpoint_is_occupied(self):
+        self.manager.add("images", self.definition)
+        records = iter([
+            None,
+            ("nfs4", "other.example.net:/wrong", "ro,relatime"),
+        ])
+        self.manager._mount_record = lambda _path: next(records)
+        with self.assertRaisesRegex(RepositoryManagerError, "source/type/access-mode verification"):
+            self.manager.mount("images")
+        self.assertTrue(any(call[0] == "/usr/bin/sshfs" for call in self.calls))
+
     def test_encrypted_ssh_key_and_known_hosts_are_both_bound_to_mount_service(self):
         from feclora.storage.repository_manager import _repository
         encrypted_root = self.mount_root / "encrypted-bindings"
