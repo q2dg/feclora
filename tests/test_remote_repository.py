@@ -48,7 +48,17 @@ class RemoteRepositoryTests(unittest.TestCase):
                 mountpoint="/mnt/images", credential_file="/etc/davfs2/secrets",
             )
 
-    def test_s3_uses_rclone_alias_and_vfs_cache(self):
+    def test_s3_requires_bucket_scope_and_never_enables_write_cache(self):
+        for remote_path in ("/", "//bucket/images"):
+            with self.subTest(remote_path=remote_path):
+                with self.assertRaisesRegex(RepositoryError, "must identify a bucket"):
+                    RemoteRepository(
+                        provider="s3", host="s3.example.net", remote_path=remote_path,
+                        mountpoint="/mnt/images", rclone_remote="feclora_s3",
+                        credential_file="/etc/feclora/rclone.conf", read_only=True,
+                    )
+
+    def test_s3_uses_rclone_alias_and_read_only_mount_options(self):
         repo = RemoteRepository(
             provider="s3", host="s3.example.net", remote_path="/bucket/images",
             mountpoint="/mnt/images", rclone_remote="feclora_s3",
@@ -58,7 +68,10 @@ class RemoteRepositoryTests(unittest.TestCase):
         self.assertEqual(argv[1:4], ["--config", "/etc/feclora/rclone.conf", "mount"])
         self.assertIn("feclora_s3:bucket/images", argv)
         self.assertIn("--daemon", argv)
-        self.assertIn("writes", argv)
+        self.assertIn("--vfs-cache-mode", argv)
+        self.assertEqual(argv[argv.index("--vfs-cache-mode") + 1], "off")
+        self.assertIn("--read-only", argv)
+        self.assertNotIn("writes", argv)
         self.assertNotIn("--allow-other", argv)
 
     def test_rejects_shell_metacharacters_and_parent_paths(self):
