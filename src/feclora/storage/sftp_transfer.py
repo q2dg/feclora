@@ -161,13 +161,17 @@ def upload_file(
 
 def download_file(
     remote_path: str, local_path: str | os.PathLike[str], *,
-    expected_sha256: str, host: str, username: str, identity_file: str,
+    expected_sha256: str | None, host: str, username: str, identity_file:
     known_hosts_file: str, port: int = 22, timeout: int = 86400,
     runner: Callable[..., Any] = subprocess.run,
 ) -> dict[str, Any]:
-    """Download to a private sibling temporary file and publish after SHA-256."""
+    """Download privately; when supplied, require the expected SHA-256 before publication.
+
+Only callers handling untrusted manifest/signature metadata may omit the
+expected digest; they must authenticate that metadata before trusting it.
+"""
     target = _remote_path(remote_path)
-    if not isinstance(expected_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
+    if expected_sha256 is not None and (not isinstance(expected_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256)):
         raise SFTPTransferError("expected SHA-256 must be 64 lowercase hexadecimal characters")
     destination = Path(os.path.abspath(os.fspath(local_path)))
     if destination.exists() or destination.is_symlink():
@@ -199,7 +203,7 @@ def download_file(
             while chunk := stream.read(1024 * 1024):
                 size += len(chunk)
                 digest.update(chunk)
-        if digest.hexdigest() != expected_sha256:
+        if expected_sha256 is not None and digest.hexdigest() != expected_sha256:
             raise SFTPTransferError("downloaded SFTP artifact SHA-256 does not match its signed manifest")
         os.link(temporary, destination, follow_symlinks=False)
         os.unlink(temporary)
@@ -208,7 +212,7 @@ def download_file(
             os.fsync(directory_fd)
         finally:
             os.close(directory_fd)
-        return {"local_path": str(destination), "size_bytes": size, "sha256": digest.hexdigest(), "verified": True}
+        return {"local_path": str(destination), "size_bytes": size, "sha256": digest.hexdigest(), "verified": expected_sha256 is not None}
     except (OSError, SFTPTransferError) as exc:
         try:
             temporary.unlink()
