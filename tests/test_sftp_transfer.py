@@ -62,6 +62,28 @@ class SFTPTransferTests(unittest.TestCase):
             self.assertTrue(commands[2].startswith("rm "))
             self.assertEqual(calls[0][0], ["sftp"])
 
+    def test_upload_does_not_publish_if_source_changes_during_transfer(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "image.part"
+            source.write_bytes(b"original image")
+            calls = []
+            def runner(argv, **kwargs):
+                calls.append(kwargs["input"].strip())
+                if len(calls) == 1:
+                    source.write_bytes(b"replaced image")
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            with patch("feclora.storage.sftp_transfer.build_sftp_argv", return_value=["sftp"]):
+                with self.assertRaisesRegex(SFTPTransferError, "changed during upload"):
+                    upload_file(
+                        source, "/images/disk.img", host="sftp.example.net",
+                        username="backup", identity_file="/key", known_hosts_file="/known",
+                        runner=runner,
+                    )
+            self.assertEqual(len(calls), 2)
+            self.assertTrue(calls[0].startswith('put "'))
+            self.assertTrue(calls[1].startswith("rm "))
+            self.assertFalse(any(call.startswith("ln ") for call in calls))
+
     def test_upload_rejects_parent_traversal(self):
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary) / "source"
