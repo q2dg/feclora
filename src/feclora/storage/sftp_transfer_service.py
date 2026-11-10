@@ -95,7 +95,7 @@ def build_systemd_transfer_argv(
 def run_sftp_transfer(
     *, identity_credential: str, known_hosts_credential: str,
     operation: str, host: str, username: str, remote_path: str,
-    local_path: str, port: int = 22, expected_sha256: str | None = None,
+    local_path: str = "/run/feclora-sftp-inventory-unused", port: int = 22, expected_sha256: str | None = None,
     allow_unverified_metadata: bool = False,
     manager: RemoteRepositoryManager | None = None,
     runner: Callable[..., Any] = subprocess.run,
