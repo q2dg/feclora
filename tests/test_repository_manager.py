@@ -73,6 +73,29 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.assertFalse(self.manager.credential_is_referenced(str(encrypted_root / "unused.cred")))
         self.assertEqual(len(self.manager.list()[0]["credential_refs"]), 2)
 
+    def test_update_replaces_definition_only_when_unmounted(self):
+        self.manager.add("images", self.definition)
+        updated = dict(self.definition, host="nas-new.example.net", remote_path="/archive")
+        result = self.manager.update("images", updated)
+        self.assertEqual(result, {"id": "images", "updated": True, "provider": "sshfs"})
+        self.assertEqual(self.manager.list()[0]["host"], "nas-new.example.net")
+        self.assertEqual(self.manager.list()[0]["remote_path"], "/archive")
+
+    def test_update_refuses_mounted_repository(self):
+        self.manager.add("images", self.definition)
+        self.manager._is_mounted = lambda _path: True
+        with self.assertRaisesRegex(RepositoryManagerError, "unmount the repository"):
+            self.manager.update("images", dict(self.definition, remote_path="/archive"))
+
+    def test_check_reports_verified_mount_and_unknown_id(self):
+        self.manager.add("images", self.definition)
+        self.manager._mount_record = lambda _path: (
+            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime",
+        )
+        self.assertTrue(self.manager.check("images")["verified"])
+        with self.assertRaisesRegex(RepositoryManagerError, "unknown repository"):
+            self.manager.check("missing")
+
     def test_mount_uses_argv_and_requires_verified_mount_state(self):
         self.manager.add("images", self.definition)
         with self.assertRaisesRegex(RepositoryManagerError, "not mounted"):
