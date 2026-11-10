@@ -374,6 +374,36 @@ def _fetch_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
 
 
 
+def _sftp_repository_registry() -> Any:
+    from feclora.storage.sftp_repository_registry import SFTPRepositoryRegistry
+    return SFTPRepositoryRegistry()
+
+
+def _save_sftp_repository(params: dict[str, Any]) -> dict[str, Any]:
+    required = {
+        "id", "host", "username", "remote_directory",
+        "identity_credential", "known_hosts_credential",
+    }
+    if set(params) not in (required, required | {"port"}):
+        raise WebAPIError("save_sftp_repository requires an ID, endpoint and encrypted SSH credential references")
+    try:
+        saved = _sftp_repository_registry().save(params)
+        return {"repository": saved, "saved": True}
+    except Exception as exc:
+        raise WebAPIError(f"cannot save SFTP repository: {exc}") from exc
+
+
+def _remove_sftp_repository(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"id"}:
+        raise WebAPIError("remove_sftp_repository requires only a repository ID")
+    identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}")
+    try:
+        _sftp_repository_registry().remove(identifier)
+        return {"id": identifier, "removed": True}
+    except Exception as exc:
+        raise WebAPIError(f"cannot remove saved SFTP repository: {exc}") from exc
+
+
 def _inspect_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
     required = {
         "host", "username", "remote_directory", "identity_credential",
@@ -2558,6 +2588,17 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise WebAPIError("images does not accept parameters")
         return {"images": _images()}
+    if action == "sftp_repositories":
+        if params:
+            raise WebAPIError("sftp_repositories does not accept parameters")
+        try:
+            return {"repositories": _sftp_repository_registry().list()}
+        except Exception as exc:
+            raise WebAPIError(f"cannot list saved SFTP repositories: {exc}") from exc
+    if action == "save_sftp_repository":
+        return _save_sftp_repository(params)
+    if action == "remove_sftp_repository":
+        return _remove_sftp_repository(params)
     if action == "inspect_sftp_image_set":
         return _inspect_sftp_image_set(params)
     if action == "list_sftp_image_manifests":
