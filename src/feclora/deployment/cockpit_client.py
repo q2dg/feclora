@@ -257,9 +257,13 @@ def prepare_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
             raise CockpitEnrollmentError("configured age identity does not match the managed Client identity; refusing renewal")
         if not os.path.lexists(retained_age_identity):
             raise CockpitEnrollmentError("Client age identity is missing; renewal cannot preserve the current recipient")
+    # Renewal preserves age only when this Client already has an
+    # age identity configured. Do not silently enroll a new recipient just
+    # because age-keygen happens to be installed.
+    age_keygen = shutil.which("age-keygen") if config.age_identity_file else None
     identity, _key, exported_csr = create_client_csr(
         PKI, export, client_id, reuse_existing_key=True,
-        age_keygen=shutil.which("age-keygen"),
+        age_keygen=age_keygen,
     )
     recipient_file = os.path.join(export, f"feclora-{client_id}-renewal.age-recipient")
     exported_minisign = None
