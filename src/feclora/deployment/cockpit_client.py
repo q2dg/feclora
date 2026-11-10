@@ -323,15 +323,18 @@ def complete_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
             raise CockpitEnrollmentError("Server age recipient inventory is empty, duplicated or malformed")
         if config.age_identity_file:
             age_keygen = shutil.which("age-keygen")
-            if not age_keygen:
-                raise CockpitEnrollmentError("age-keygen is required to validate this Client's configured age identity")
-            age_result = subprocess.run(
-                [age_keygen, "-y", config.age_identity_file],
-                stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=15,
-            )
-            own_recipient = age_result.stdout.strip()
-            if age_result.returncode != 0 or own_recipient not in recipients:
-                raise CockpitEnrollmentError("renewal response does not retain this Client's current age recipient")
+            if age_keygen:
+                age_result = subprocess.run(
+                    [age_keygen, "-y", config.age_identity_file],
+                    stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=15,
+                )
+                own_recipient = age_result.stdout.strip()
+                if age_result.returncode != 0 or own_recipient not in recipients:
+                    raise CockpitEnrollmentError("renewal response does not retain this Client's current age recipient")
+            else:
+                # Preserve the existing recipient inventory rather than making
+                # TLS renewal depend on an optional age executable.
+                recipients_file = None
     installed_server_key = os.path.join(PKI, "server.pub")
     installed_recipients = os.path.join(PKI, "age-recipients.txt")
     update_server_key = server_public is not None and expected_server is not None
