@@ -292,7 +292,7 @@ def inspect_client_request(params: dict[str, object]) -> dict[str, str]:
         return {
             "identity": identity, "mac_address": mac.lower(),
             "confirmation_phrase": f"RENEW {identity}",
-            "image_capture_enabled": str(bool(existing_signing_key)).lower(),
+            "image_signing_enabled": str(bool(existing_signing_key)).lower(),
             "age_encryption_enabled": str(recipient is not None).lower(),
             "renewal": "true",
         }
@@ -304,7 +304,7 @@ def inspect_client_request(params: dict[str, object]) -> dict[str, str]:
         "identity": identity,
         "mac_address": mac.lower(),
         "confirmation_phrase": f"ENROLL {identity} {mac.lower()}",
-        "image_capture_enabled": str(bool(minisign_file)).lower(),
+        "image_signing_enabled": str(bool(minisign_file)).lower(),
         "age_encryption_enabled": str(recipient is not None).lower(),
         "renewal": "false",
     }
@@ -398,7 +398,7 @@ def approve_client_csr(params: dict[str, object]) -> dict[str, object]:
                 "certificate_file": certificate, "bundle_directory": export_dir,
                 "ca_fingerprint": ca_fingerprint(config.ca_file),
                 "server_minisign_sha256": server_digest,
-                "image_capture_enabled": bool(existing_signing_key), "renewal": True,
+                "image_signing_enabled": bool(existing_signing_key), "renewal": True,
                 "message": "Renewal certificate issued. Existing TLS identity is preserved; optional age and image-signing material is included only when configured.",
             }
         if identity in config.client_identity_to_mac:
@@ -476,7 +476,7 @@ def approve_client_csr(params: dict[str, object]) -> dict[str, object]:
             "certificate_file": certificate, "bundle_directory": export_dir,
             "ca_fingerprint": ca_fingerprint(config.ca_file),
             "server_minisign_sha256": server_digest,
-            "image_capture_enabled": bool(public_key_destination),
+            "image_signing_enabled": bool(public_key_destination),
             "age_encryption_enabled": recipient is not None,
             "message": "Client certificate issued. TLS enrollment is complete; optional age recipients and minisign trust were included only when configured.",
         }
