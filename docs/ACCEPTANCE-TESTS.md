@@ -120,7 +120,7 @@ account/export/share and a disposable image. Do not reuse production credentials
 2. Add the repository in Cockpit with the correct provider, endpoint/share,
    remote path and access mode. Credential contents must never be pasted into
    Cockpit fields or stored in ordinary project configuration.
-3. Mount it through Feclora. Confirm Cockpit reports mounted and **identity verified** and that provider source, filesystem type and access mode match the intended endpoint. This check reads mount metadata via `findmnt`; it is not a live connectivity, read/write, latency, free-space or quota health probe. A stale mount may still pass identity verification.
+3. Mount it through Feclora. Confirm Cockpit reports mounted and **identity verified** and that provider source, filesystem type and access mode match the intended endpoint. This check reads mount metadata via `findmnt` with a five-second subprocess timeout; timeout or malformed output is an error, not a successful check. It is not a live connectivity, read/write, latency, free-space or quota health probe. A stale mount may still pass identity verification.
 4. Exercise the remote path with a real inventory/read operation after identity verification. Confirm that it completes (not merely that the mount is listed as verified), then open the repository image inventory. Confirm it lists only images from the
    selected verified repository, not files from the local directory beneath
    an unmounted mountpoint.
