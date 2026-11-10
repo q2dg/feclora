@@ -69,6 +69,11 @@ fi
 if ! grep -q 'def _submit_local_operation' "$ROOT_DIR/src/feclora/webapi.py"; then
   fail "Cockpit API is missing durable local operation submission."
 fi
+if ! grep -q 'cancel_local_operation' "$ROOT_DIR/kickstart/feclora-live.ks" \
+   || ! grep -q '"cancel_local_operation"' "$ROOT_DIR/webui/src/api.js" \
+   || ! grep -q 'def _cancel_local_operation' "$ROOT_DIR/src/feclora/webapi.py"; then
+  fail "Cockpit local operation cancellation is not wired through the Live wrapper, client and backend."
+fi
 if ! grep -q 'def _validate_pxe_profile' "$ROOT_DIR/src/feclora/webapi.py"; then
   fail "Cockpit backend is missing PXE profile preflight."
 fi
