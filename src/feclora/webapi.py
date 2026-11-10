@@ -1624,8 +1624,8 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
     operation_fields = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
-        "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
-        "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
+        "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
