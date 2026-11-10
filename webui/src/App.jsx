@@ -123,7 +123,7 @@ export default function App() {
   const [serverRotateResult, setServerRotateResult] = useState(null);
   const [clientId, setClientId] = useState("");
   const [clientExportDirectory, setClientExportDirectory] = useState("");
-  const [clientImageCapture, setClientImageCapture] = useState(false);
+  const [clientImageSigning, setClientImageCapture] = useState(false);
   const [clientPrepared, setClientPrepared] = useState(null);
   const [clientHost, setClientHost] = useState("");
   const [clientMacInput, setClientMacInput] = useState("");
@@ -670,7 +670,7 @@ export default function App() {
     setBusy(true); setError(""); setNotice(""); setClientPrepared(null);
     try {
       const result = await callFeclora("prepare_client_request", {
-        client_id: clientId, export_directory: clientExportDirectory, image_capture: clientImageCapture
+        client_id: clientId, export_directory: clientExportDirectory, image_signing: clientImageSigning
       });
       setClientPrepared(result); setNotice(result.message);
     } catch (err) { setError(err?.message || String(err)); }
@@ -1461,9 +1461,9 @@ export default function App() {
                 <Title headingLevel="h2" size="xl">Trusted Client inventory and revocation</Title>
                 <p>Review enrolled TLS identities and their authorized MAC addresses. Revocation removes the identity-to-MAC authorization, image-signing trust and age recipient from future captures. It does not terminate established TLS sessions or invalidate old encrypted images.</p>
                 <Table aria-label="Trusted Feclora Clients" variant="compact">
-                  <Thead><Tr><Th>Client identity</Th><Th>Authorized MAC</Th><Th>Image capture</Th></Tr></Thead>
+                  <Thead><Tr><Th>Client identity</Th><Th>Authorized MAC</Th><Th>Minisign image signing</Th></Tr></Thead>
                   <Tbody>
-                    {trustedClients.map((client) => <Tr key={client.identity}><Td>{client.identity}</Td><Td>{client.mac_address}</Td><Td>{client.image_capture ? "Authorized" : "Restore only"}</Td></Tr>)}
+                    {trustedClients.map((client) => <Tr key={client.identity}><Td>{client.identity}</Td><Td>{client.mac_address}</Td><Td>{client.image_signing ? "Key enrolled" : "No key (unsigned capture allowed)"}</Td></Tr>)}
                     {!trustedClients.length && <Tr><Td colSpan={3}>No enrolled Clients.</Td></Tr>}
                   </Tbody>
                 </Table>
@@ -1553,10 +1553,10 @@ export default function App() {
                   <p>Response bundle: {csrApprovalResult.bundle_directory}</p>
                   <p>Feclora CA SHA-256 fingerprint (verify on Client):</p><code>{csrApprovalResult.ca_fingerprint}</code>
                   {csrApprovalResult.server_minisign_sha256 && <><p>Optional Server minisign public-key SHA-256 fingerprint (verify on Client):</p><code>{csrApprovalResult.server_minisign_sha256}</code></>}
-                  <p>Client image capture: {csrApprovalResult.image_capture_enabled ? "authorized" : "not authorized"}</p>
+                  <p>Client image signing: {csrApprovalResult.image_signing_enabled ? "authorized" : "not authorized"}</p>
                 </CardBody></Card>}
                 {csrReview && <Card className="pf-v5-u-mt-md"><CardBody>
-                  <Alert variant="warning" title={csrReview.renewal === "true" ? "Review Client certificate renewal" : "Review this identity before enrollment"} isInline>Identity: {csrReview.identity} · MAC: {csrReview.mac_address}. Image capture permission: {csrReview.image_capture_enabled === "true" ? "enabled" : "not granted"}. {csrReview.renewal === "true" ? "Only the TLS certificate will be renewed; existing trust mappings remain unchanged." : "No enrollment has occurred yet."}</Alert>
+                  <Alert variant="warning" title={csrReview.renewal === "true" ? "Review Client certificate renewal" : "Review this identity before enrollment"} isInline>Identity: {csrReview.identity} · MAC: {csrReview.mac_address}. Minisign signing key: {csrReview.image_signing_enabled === "true" ? "enabled" : "not granted"}. {csrReview.renewal === "true" ? "Only the TLS certificate will be renewed; existing trust mappings remain unchanged." : "No enrollment has occurred yet."}</Alert>
                   <p>To approve, type this exact phrase:</p><code>{csrReview.confirmation_phrase}</code>
                   <Field label="Explicit enrollment confirmation">
                     <input className="pf-v5-c-form-control" value={csrConfirmation} onChange={(e) => setCsrConfirmation(e.target.value)} />
@@ -1626,7 +1626,7 @@ export default function App() {
                   <Field label="Mounted removable-media directory" help="For example /run/media/liveuser/USB. The directory must be an actual mounted filesystem.">
                     <input className="pf-v5-c-form-control" value={clientExportDirectory} onChange={(e) => setClientExportDirectory(e.target.value)} placeholder="/run/media/liveuser/USB" />
                   </Field>
-                  <label><input type="checkbox" checked={clientImageCapture} onChange={(e) => setClientImageCapture(e.target.checked)} /> Authorize this Client to capture images and send them to the Server (generates a local minisign keypair)</label>
+                  <label><input type="checkbox" checked={clientImageSigning} onChange={(e) => setClientImageCapture(e.target.checked)} /> Enable this Client's minisign image-signing key. Unsigned image capture remains available without it.</label>
                   <Button variant="primary" onClick={prepareClientRequest} isLoading={busy} isDisabled={busy || !clientId || !clientExportDirectory}>Prepare request</Button>
                   {clientPrepared && <Card className="pf-v5-u-mt-md"><CardBody>
                     <Alert variant="success" title="Enrollment request prepared" isInline>{clientPrepared.message}</Alert>
@@ -1645,7 +1645,7 @@ export default function App() {
                   <Field label="Feclora CA SHA-256 fingerprint" help="Copy the fingerprint displayed in the Server approval result."><input className="pf-v5-c-form-control" value={clientCaFingerprint} onChange={(e) => setClientCaFingerprint(e.target.value)} /></Field>
                   <Field label="Server minisign public-key SHA-256 fingerprint (optional)" help="Copy the fingerprint only when the Server provides server.pub. Leave blank otherwise."><input className="pf-v5-c-form-control" value={clientServerFingerprint} onChange={(e) => setClientServerFingerprint(e.target.value)} /></Field>
                   <Button variant="primary" onClick={completeClientEnrollment} isLoading={busy} isDisabled={busy || !clientId || !clientHost || !clientMacInput || !clientBundleDirectory || !clientCaFingerprint}>Verify and install Client identity</Button>
-                  {clientCompleted && <Alert variant="success" title="Client enrollment complete" isInline>{clientCompleted.message} Identity: {clientCompleted.identity}. Image capture: {clientCompleted.image_capture_enabled ? "authorized" : "not authorized"}.</Alert>}
+                  {clientCompleted && <Alert variant="success" title="Client enrollment complete" isInline>{clientCompleted.message} Identity: {clientCompleted.identity}. Image signing: {clientCompleted.image_signing_enabled ? "authorized" : "not authorized"}.</Alert>}
                 </StackItem>
               </>}
             </Stack>
