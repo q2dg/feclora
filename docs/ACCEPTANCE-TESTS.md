@@ -63,7 +63,7 @@ confirm that Feclora rejects the target before writing.
 **Purpose:** verify the persistent Server/Client restore workflow with more
 than one physical receiver.
 
-Prerequisites: a verified signed image in the selected repository, at least
+Prerequisites: a verified image with its manifest authenticated through the configured trust mechanism in the selected repository, at least
 two disposable Client machines, enrolled identities, and a dedicated test
 network. Multicast additionally requires a network whose IGMP snooping and
 querier behavior has been independently configured and checked.
@@ -123,22 +123,29 @@ image. Do not reuse production credentials.
    throughput observations, and all failures. Never include secrets in the
    report.
 
-## 4. S3-compatible repository acceptance (read-only)
+## 4. S3-compatible repository acceptance
 
-S3 repositories are intentionally read-only. This test must not attempt
-capture, partition extraction, object overwrite or publication.
+Run read-only inventory/restore acceptance for every S3-compatible endpoint.
+Run write/publication acceptance only when a provider-aware publisher is
+implemented and its conditional no-overwrite and remote read-back guarantees
+have been verified. Never test overwrite.
 
-1. Provision a dedicated read-only S3-compatible bucket/prefix and a
-   root-owned rclone configuration referencing it.
+1. Provision a dedicated S3-compatible test bucket/prefix and a root-owned
+   rclone configuration referencing it. Start with read-only credentials; use
+   separate narrowly scoped write credentials only for a supported publisher.
 2. Add and mount the S3 repository in Feclora.
 3. Confirm Cockpit identifies the expected remote alias/bucket and reports
    read-only access.
 4. Browse image inventory, inspect manifests and verify image artifacts.
 5. Restore one verified image to a disposable local disk or use it as the
    source for a disposable multi-client restore.
-6. Confirm capture and partition-extraction operations cannot target this
-   repository.
-7. Confirm the bucket contains no new or modified objects after the test.
+6. For read-only configuration, confirm capture and partition-extraction
+   operations cannot target this repository and that no objects changed.
+7. If write publication is explicitly supported, test unique staging keys,
+   conditional create-if-absent for every final object and manifest, multipart
+   completion semantics, remote read-back digest/size verification, interrupted
+   upload cleanup and concurrent writers. A HEAD/list pre-check is not a safe
+   substitute for server-enforced conditional creation.
 8. Record service/vendor, API compatibility, rclone version and verification
    results. Do not infer safe publication support from the label
    S3-compatible.
@@ -209,3 +216,28 @@ For each run, record:
 - Links or protected locations for redacted logs and journal exports.
 - Outcome: **pass**, **fail**, or **not run**. Never mark a test passed from
   unit-test results alone.
+
+
+## 7. Optional BitTorrent distribution acceptance
+
+BitTorrent is an optional artifact-distribution transport, not a repository
+provider. This procedure applies only after a maintained client implementation
+has been integrated.
+
+1. Publish an immutable test artifact and its manifest through the normal
+   trusted repository workflow; record the expected manifest digest.
+2. Distribute the torrent metadata through an authenticated control channel.
+   Do not treat tracker/peer metadata or successful download completion as
+   authenticity.
+3. Download on disposable Clients, including a run with a disconnected peer
+   and a deliberately incomplete transfer.
+4. Verify the manifest using the configured independent trust mechanism and
+   verify every artifact's exact size and SHA-256 before making it available
+   to a restore job.
+5. Confirm the artifact is bound to the intended authorized job/profile and
+   that an altered manifest, substituted artifact or replayed authorization
+   is rejected before destructive I/O.
+6. Test cancellation, temporary-file cleanup, bandwidth limits, peer/network
+   restrictions, seeding policy and shutdown behavior.
+7. Record client implementation/version, peer topology, transfer result and
+   verification outcome. Mark not run until BitTorrent support is implemented.
