@@ -71,9 +71,6 @@ lvm2
 stratisd
 stratis-cli
 cryptsetup
-# Preinstalled for optional image protection; neither tool is required for TLS enrollment or baseline imaging.
-age
-minisign
 nvme-cli
 smartmontools
 e2fsprogs
