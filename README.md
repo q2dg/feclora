@@ -1,6 +1,6 @@
 # feclora
 
-**feclora** is an independent project to build a Fedora-based live system for disk imaging, cloning, and recovery, with a Cockpit-based web interface for local imaging, restoration, cloning and remote deployment management.
+**feclora** is an independent project to build a Fedora Server-based minimal Live appliance for disk imaging, cloning, and recovery. It boots directly into a locked-down Firefox kiosk displaying Cockpit and the Feclora web application; it does not include a general-purpose desktop environment.
 
 Project website: [https://q2dg.github.io/feclora/](https://q2dg.github.io/feclora/).
 
@@ -10,18 +10,18 @@ It is not a fork of Clonezilla and does not depend on its repository, branches, 
 
 - Fedora Linux 45 (released 3 November 2026)
 - x86_64
-- Rescue-style bootable live ISO
-- BIOS and UEFI boot support
-- Native Fedora package management and system integration
-- Imaging, cloning, restoration, and storage administration from Cockpit
-- Cockpit Terminal for system-level diagnostics and advanced administration
+- Bootable Live ISO for BIOS and UEFI
+- Fedora Server minimal userspace, without a general-purpose desktop environment
+- Minimal Wayland kiosk compositor (Cage) running Firefox in kiosk mode
+- Cockpit socket activation and the Feclora Cockpit application
+- Imaging, cloning, restoration, and remote deployment management through Cockpit
 
-The project is organized around a Cockpit-first Live environment. The remaining implementation and integration work is tracked in [the roadmap](docs/ROADMAP.md).
+The Live boot model, minimal server base and kiosk presentation are separate architectural layers. The remaining implementation and integration work is tracked in [the roadmap](docs/ROADMAP.md).
 
 ## Design principles
 
 1. **Independent implementation:** no upstream submodule, tracking branch, or automatic code synchronization.
-2. **Fedora-native build:** use Fedora tooling and RPM packages; the initial image pipeline uses Lorax `livemedia-creator`, Kickstart, and QEMU.
+2. **Fedora-native build:** use Fedora tooling and RPM packages; the Live image pipeline uses Fedora tooling, Kickstart, Lorax `livemedia-creator`, and QEMU.
 3. **Modular capabilities:** keep image orchestration, storage discovery, filesystem support, networking, boot integration, and user interfaces separable.
 4. **Safe operations:** make destructive actions explicit, validate source and target devices, and provide dry-run or confirmation paths where feasible.
 5. **Reproducibility:** pin build inputs where practical and record package versions and build metadata.
@@ -56,7 +56,7 @@ The repository is organized by runtime responsibility rather than by UI:
 feclora/
 ├── .github/
 │   └── workflows/          # CI, Python tests and GitHub Pages deployment
-├── build/                  # ISO, Cockpit frontend, host dependencies and validation
+├── build/                  # Live ISO, kiosk/Cockpit frontend, host dependencies and validation
 │   ├── build-iso.sh
 │   ├── build-webui.sh
 │   ├── install-host-deps.sh
@@ -64,7 +64,7 @@ feclora/
 │   └── validate.sh
 ├── docs/                   # Architecture, operator guides, feature matrix and ADRs
 │   └── adr/                # Architecture Decision Records
-├── kickstart/              # Fedora Live image Kickstart configuration
+├── kickstart/              # Fedora Server-based Live image Kickstart configuration
 ├── packages/               # Runtime and build-host RPM package manifests
 ├── src/feclora/             # Python application and privileged operation backend
 │   ├── data/               # systemd units and restore-profile environment
