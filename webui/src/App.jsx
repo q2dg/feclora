@@ -166,6 +166,10 @@ export default function App() {
   const [pxeAuthoritative, setPxeAuthoritative] = useState(false);
   const [pxePreflight, setPxePreflight] = useState(null);
   const [pxeProfile, setPxeProfile] = useState(null);
+  const [pxeRepositoryUrl, setPxeRepositoryUrl] = useState("");
+  const [pxeAnswerFile, setPxeAnswerFile] = useState(null);
+  const [pxeAnswerSignatureFile, setPxeAnswerSignatureFile] = useState(null);
+  const [pxeAnswerPublished, setPxeAnswerPublished] = useState(null);
   const [pxeStatus, setPxeStatus] = useState({ active: false, configured: false });
   const [security, setSecurity] = useState({});
   const [encrypt, setEncrypt] = useState(false);
@@ -780,6 +784,33 @@ export default function App() {
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
+  const publishPXEAnswer = async () => {
+    if (!pxeAnswerFile || !pxeAnswerSignatureFile || !pxeRepositoryUrl.trim()) return;
+    setBusy(true); setError(""); setNotice(""); setPxeAnswerPublished(null);
+    try {
+      if (pxeAnswerFile.size < 1 || pxeAnswerFile.size > 64 * 1024) throw new Error("The answer file must be between 1 byte and 64 KiB.");
+      if (pxeAnswerSignatureFile.size < 1 || pxeAnswerSignatureFile.size > 16 * 1024) throw new Error("The detached minisign signature must be between 1 byte and 16 KiB.");
+      const [answerBuffer, signatureBuffer] = await Promise.all([pxeAnswerFile.arrayBuffer(), pxeAnswerSignatureFile.arrayBuffer()]);
+      const encode = (buffer) => {
+        const bytes = new Uint8Array(buffer);
+        let binary = "";
+        for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+          binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+        }
+        return window.btoa(binary);
+      };
+      const result = await callFeclora("publish_pxe_answer", {
+        job_id: crypto.randomUUID(),
+        answer_base64: encode(answerBuffer),
+        signature_base64: encode(signatureBuffer),
+        repository_url: pxeRepositoryUrl.trim()
+      });
+      setPxeAnswerPublished(result);
+      setNotice(result.message);
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
   const validatePXEProfile = async () => {
     const selected = networkInterfaces.find((item) => item.binding === serverBinding);
     if (!selected) return;
@@ -1628,6 +1659,32 @@ export default function App() {
                 <Button variant="primary" onClick={validatePXEProfile} isLoading={busy} isDisabled={busy || !serverBinding || (pxeMode === "isolated" && (!pxePoolStart || !pxePoolEnd || !pxeAuthoritative))}>Run PXE preflight</Button>
               </StackItem>
               {pxeStatus.configured && <StackItem><Alert variant="warning" title="PXE runtime is configured" isInline>Stop the PXE services when network boot is no longer required, or if the service state is incomplete. <Button variant="danger" onClick={stopPXE} isLoading={busy} isDisabled={busy}>Stop PXE services and restore firewall</Button></Alert></StackItem>}
+              <StackItem>
+                <Card><CardBody>
+                  <Title headingLevel="h3" size="lg">Publish unattended PXE answer</Title>
+                  <p>Upload the prewritten JSON answer and its detached minisign signature. The repository URL below must exactly match the URL inside the signed JSON document; it is shown separately here for operator review. Credentials must be referenced separately and must not be embedded in the URL.</p>
+                  <Alert variant="warning" title="Destructive operation guard" isInline>The server verifies the signature against its configured trusted minisign public key before publishing. The Live-side signature verification and unattended restore executor are not implemented yet; publishing this file does not start a restore.</Alert>
+                  <Field label="Image repository URL" help="Accepted URL syntax includes SFTP/SSHFS, SMB/CIFS, NFS, WebDAV, HTTP(S), and BitTorrent. Syntax acceptance does not mean every transport adapter is implemented.">
+                    <input className="pf-v5-c-form-control" value={pxeRepositoryUrl} onChange={(event) => { setPxeRepositoryUrl(event.target.value); setPxeAnswerPublished(null); }} maxLength={2048} placeholder="sftp://repository.example/images" />
+                  </Field>
+                  <Field label="Prewritten answer file (JSON)">
+                    <input className="pf-v5-c-form-control" type="file" accept=".json,application/json" onChange={(event) => { setPxeAnswerFile(event.target.files?.[0] || null); setPxeAnswerPublished(null); }} />
+                    {pxeAnswerFile && <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{pxeAnswerFile.name} · {pxeAnswerFile.size} bytes</div>}
+                  </Field>
+                  <Field label="Detached signature (.minisig)">
+                    <input className="pf-v5-c-form-control" type="file" accept=".minisig" onChange={(event) => { setPxeAnswerSignatureFile(event.target.files?.[0] || null); setPxeAnswerPublished(null); }} />
+                    {pxeAnswerSignatureFile && <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{pxeAnswerSignatureFile.name} · {pxeAnswerSignatureFile.size} bytes</div>}
+                  </Field>
+                  <Button variant="primary" onClick={publishPXEAnswer} isLoading={busy} isDisabled={busy || !pxeStatus.active || !pxeRepositoryUrl.trim() || !pxeAnswerFile || !pxeAnswerSignatureFile}>Verify signature and publish answer</Button>
+                  {!pxeStatus.active && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Start PXE services first; publication is available only while the configured Caddy service is active.</p>}
+                  {pxeAnswerPublished && <Alert variant="success" title="Signed answer published" isInline className="pf-v5-u-mt-md">
+                    <p>Job: {pxeAnswerPublished.job_id}</p>
+                    <p>Answer: <a href={pxeAnswerPublished.answer_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.answer_url}</a></p>
+                    <p>Signature: <a href={pxeAnswerPublished.signature_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.signature_url}</a></p>
+                    <p>{pxeAnswerPublished.message}</p>
+                  </Alert>}
+                </CardBody></Card>
+              </StackItem>
               {pxePreflight && <StackItem><Card><CardBody>
                 <Alert variant="success" title="PXE preflight passed" isInline>{pxePreflight.message}</Alert>
                 <p>Interface: {pxePreflight.interface} · {pxePreflight.address}/{pxePreflight.prefix_length}</p>
