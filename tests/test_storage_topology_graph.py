@@ -44,7 +44,9 @@ class StorageTopologyGraphTests(unittest.TestCase):
         self.assertIn(("lvm-vg:fedora", "lvm-lv:lv-uuid", "contains_lv"), relations)
         self.assertIn(("lvm-lv:lv-uuid", "lvm-pv:pv-uuid", "allocated_on"), relations)
         self.assertTrue(any(n["id"] == "filesystem:fs-root" for n in graph["nodes"]))
-        self.assertEqual(graph["unresolved"], [])
+        self.assertIn({"layer": "lvm_lv", "path": "/dev/fedora/root",
+                       "reason": "lv_path_not_exactly_matched_to_lsblk"}, graph["unresolved"])
+        self.assertIn(("lvm-lv:lv-uuid", "lvm-pv:pv-uuid", "allocated_on"), relations)
 
     def test_reports_unmatched_device_paths_instead_of_guessing_aliases(self):
         graph = build_storage_graph({
