@@ -309,7 +309,7 @@ def _capture_partition(inventory: dict[str, Any]) -> None:
                 source["path"], image_id, partition_id, _repository(),
                 compression=compression, compression_level=compression_level,
                 age_recipients_file=recipients, minisign_secret_key=signing_key,
-                progress_callback=progress,
+                progress_callback=progress, inventory=inventory,
             ),
         ))
         _message("Capture completed", f"Partition image {manifest.image_id} captured.\nManifest: {manifest.image_id}.manifest.json")
