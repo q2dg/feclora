@@ -89,7 +89,11 @@ hardware, provider services or physical networks have passed acceptance.
    outstanding. Raw LUKS2 container restore to an existing partition is now
    implemented: it requires explicit encrypted-container provenance and a
    matching header-included UUID, writes raw bytes, verifies read-back and the
-   LUKS2 UUID/JSON header, and leaves the container closed. Opened-mapping
+   LUKS2 UUID/JSON header, and leaves the container closed. Unicast and
+   multicast Client restore runtimes now route `partition` jobs through this
+   same verified engine, so remote LUKS2 images inherit the same fail-closed
+   provenance and header checks; runtime dispatch tests cover both transports.
+   Real remote multi-client/block-device acceptance remains pending. Opened-mapping
    plaintext restore, LUKS2-on-LV, provisioning and rekeying remain unsupported.
    A disposable loop-device acceptance harness now checks wrong-key rejection,
    original-key unlock and plaintext equality; its execution is still pending.
