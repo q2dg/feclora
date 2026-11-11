@@ -2122,22 +2122,60 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError("local typed confirmation does not match the selected device and authenticated Server")
     from feclora.storage.inventory import collect_inventory
     inventory = collect_inventory()
-    expected_type = "disk" if job["target_type"] == "disk" else "part"
     matches = []
+    if job["target_type"] == "logical_volume":
+        topology = inventory.get("volume_topology", {})
+        if topology.get("status") != "available":
+            raise WebAPIError("local LVM topology is unavailable")
+        devices = []
 
-    def visit(items: list[dict[str, Any]]) -> None:
-        for item in items:
-            if item.get("path") == device_path and item.get("type") == expected_type:
-                matches.append(item)
-            children = item.get("children")
-            if isinstance(children, list):
-                visit(children)
+        def visit(items: list[dict[str, Any]]) -> None:
+            for item in items:
+                if isinstance(item, dict):
+                    devices.append(item)
+                    children = item.get("children")
+                    if isinstance(children, list):
+                        visit(children)
 
-    visit(inventory.get("devices", []))
+        visit(inventory.get("devices", []))
+        all_lvs = [
+            lv for group in topology.get("volume_groups", [])
+            for lv in group.get("logical_volumes", [])
+            if isinstance(lv, dict) and lv.get("major_minor")
+        ]
+        identity_counts = {}
+        for lv in all_lvs:
+            identity_counts[lv["major_minor"]] = identity_counts.get(lv["major_minor"], 0) + 1
+        for group in topology.get("volume_groups", []):
+            if group.get("status") != "healthy":
+                continue
+            for lv in group.get("logical_volumes", []):
+                if (not isinstance(lv, dict) or lv.get("path") != device_path
+                        or lv.get("segment_type") not in {"linear", "thin"}
+                        or lv.get("snapshot") or lv.get("hidden")
+                        or lv.get("health") not in (None, "", "-", "ok", "healthy")
+                        or not lv.get("major_minor")
+                        or identity_counts.get(lv["major_minor"]) != 1):
+                    continue
+                backing = [item for item in devices if item.get("major_minor") == lv["major_minor"]]
+                if len(backing) == 1 and backing[0].get("type") == "lvm":
+                    matches.append(lv)
+    else:
+        expected_type = "disk" if job["target_type"] == "disk" else "part"
+
+        def visit_devices(items: list[dict[str, Any]]) -> None:
+            for item in items:
+                if item.get("path") == device_path and item.get("type") == expected_type:
+                    matches.append(item)
+                children = item.get("children")
+                if isinstance(children, list):
+                    visit_devices(children)
+
+        visit_devices(inventory.get("devices", []))
     if len(matches) != 1:
         raise WebAPIError("selected target is not uniquely present in the current local block-device inventory")
     try:
-        device_info = os.lstat(device_path)
+        device_info = os.stat(device_path)
     except OSError as exc:
         raise WebAPIError(f"cannot inspect selected local target: {exc}") from exc
     if not stat.S_ISBLK(device_info.st_mode):
