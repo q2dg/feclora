@@ -101,19 +101,19 @@ Existing foundation: deployment journals, persistent Server service lifecycle, r
 - [ ] Keep `dialog`/ `zenity` out of the execution architecture; any future console UI must be a client of the same durable service. The legacy `dialog_app.py` still executes engines in its own process and is not safe to reactivate as-is.
 Acceptance: browser closure does not stop jobs; history survives Cockpit/API and worker service restarts; destructive jobs cannot race on one device; restart never silently resumes writes; all UI clients use the same validation and authorization boundary.
 
-## P1 — Storage topology and explicit growth
+## P1 — Storage discovery and image fidelity
+Scope clarification: this is an image-creation and restore-compatibility requirement, not a request for Feclora to administer storage stacks or provision LVM, Btrfs or LUKS. Feclora must discover and describe existing layers accurately, then capture the selected block-level or filesystem-level content without silently flattening or omitting them.
 Existing foundation: block inventory, read-only LVM reporting, Btrfs/Stratis inventory, restore profiles and whole-disk layout preview.
-- [ ] Normalize read-only topology: disk → partition → crypto mapping → PV/VG/LV → filesystem/subvolume/pool/device.
-- [ ] Represent unknown, degraded, missing and unsupported layers explicitly.
-- [ ] Add previewable policies: preserve, expand-last-compatible, fixed sizes, proportional and manual.
-- [ ] Validate alignment, sector size, geometry and EFI/BIOS/recovery partition roles.
-- [ ] Implement filesystem-aware growth only for explicitly supported combinations.
-- [ ] Add LUKS header backup and distinguish encrypted-container copy from decrypted migration.
-- [ ] Complete LVM capture/restore including PV/VG/LV and thin-provisioning constraints.
-- [ ] Complete Btrfs multi-device/profile/subvolume/snapshot handling and UUID collision strategy.
-- [ ] Complete Stratis pool/device/filesystem handling and recovery constraints.
-- [ ] Add Cockpit topology views and explicit restore plans.
-Acceptance: inventory never implies restore support; mutations have a read-only plan, explicit consent, compatibility checks and post-operation verification.
+- [ ] Normalize read-only topology for image planning: disk → partition → LUKS container/mapping → LVM PV/VG/LV → filesystem; include Btrfs devices, subvolumes and snapshots.
+- [ ] Detect and identify volume groups and logical volumes (VG/LV), including their PV membership, extents, thin-provisioning state and degraded/missing members.
+- [ ] Detect Btrfs snapshots and distinguish snapshots from ordinary subvolumes; record the selected snapshot/subvolume identity and required backing devices.
+- [ ] Detect LUKS1/LUKS2 containers and active device-mapper mappings; distinguish a raw encrypted-container image from a decrypted logical-volume/filesystem image. Never request or persist passphrases in ordinary profiles, logs or browser state.
+- [ ] Represent unknown, degraded, missing and unsupported layers explicitly; never present discovery as proof that capture or restore is supported.
+- [ ] Define capture choices and manifest metadata for whole-disk, partition, logical-volume, Btrfs snapshot/subvolume and encrypted-container images, with explicit source boundaries and dependencies.
+- [ ] Validate alignment, sector size, geometry and EFI/BIOS/recovery partition roles where a whole-disk restore is planned.
+- [ ] Complete capture/restore only for explicitly supported LVM layouts, Btrfs multi-device/profile/snapshot combinations and LUKS modes; reject unsupported combinations before writing.
+- [ ] Add Cockpit topology views and a read-only capture/restore compatibility preview. Feclora does not create/resize VGs or LVs, manage Btrfs snapshots, format LUKS devices, or otherwise administer those external storage stacks.
+Acceptance: inventory accurately identifies VG/LV, Btrfs snapshots and LUKS layers; capture plans state exactly what bytes and metadata are included; unsupported/degraded layouts fail closed before destructive work; successful restores verify the resulting topology and data.
 
 ## P1 — PXE and unattended fleet restore
 Existing foundation: PXE/iPXE lifecycle, unicast/multicast restore, signed profile model and single-use executor.
@@ -138,7 +138,7 @@ Publish task-oriented guides only when the exact workflow is implemented; mark f
 7. [ ] Unattended multi-client PXE restore.
 8. [ ] Initial Server/Client setup, enrollment and trust.
 9. [ ] Repository and credential administration.
-10. [ ] Advanced storage: LVM, LUKS, Btrfs and Stratis.
+10. [ ] Storage discovery and image fidelity: VG/LV, Btrfs snapshots and LUKS layers.
 11. [ ] Interrupted-operation and PKI recovery.
 
 The [guide index](GUIDES.md) distinguishes available procedures from planned
