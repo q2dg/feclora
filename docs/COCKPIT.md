@@ -84,7 +84,7 @@ The Operations wizard provides:
 - device discovery, image selection, compression selection and typed
   destructive confirmation;
 - streamed byte-progress events from the storage engine;
-- LVM capture is limited to active, uniquely identified logical volumes in healthy volume groups; hidden and snapshot LVs are excluded. LV images use a distinct manifest type and are not yet restorable by Feclora.
+- LVM capture and restore are limited to active, uniquely identified logical volumes in healthy volume groups; hidden, snapshot, RAID, striped, cache and unknown LV layouts are excluded. Restore overwrites data in an existing unmounted LV and does not create or resize LVM metadata. Raw LV images receive exact read-back verification; Partclone images receive a filesystem-specific read-only consistency check.
 - optional image-security key initialization, age encryption and manifest
   signing when those features are configured;
 - durable local operation history, with a Cancel control for queued,
