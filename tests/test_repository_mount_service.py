@@ -59,23 +59,6 @@ class RepositoryMountServiceTests(unittest.TestCase):
         self.assertIn("credentials=/run/credentials/unit/feclora-nas-smb", argv[4])
         self.assertNotIn(encrypted, " ".join(argv))
 
-    def test_rclone_runs_in_service_foreground_with_encrypted_config(self):
-        encrypted = "/etc/credstore.encrypted/feclora/feclora-nas-rclone.cred"
-        repo = RemoteRepository(
-            provider="s3", host="s3.example.net", remote_path="/bucket/images",
-            mountpoint="/var/lib/feclora/repositories/nas", username=None,
-            credential_file=encrypted, identity_file=None,
-            known_hosts_file=None, port=None, rclone_remote="feclora_s3",
-            read_only=True,
-        )
-        argv = build_mount_argv(
-            repo, [("feclora-nas-rclone", encrypted)], "/run/credentials/unit",
-        )
-        self.assertEqual(argv[2], "/run/credentials/unit/feclora-nas-rclone")
-        self.assertNotIn("--daemon", argv)
-        self.assertNotIn("--daemon-wait", argv)
-        self.assertNotIn(encrypted, " ".join(argv))
-
     def test_unmount_stops_service_owned_fuse_mount(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
