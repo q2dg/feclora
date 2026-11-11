@@ -47,8 +47,10 @@ and the Server operator explicitly ARMs the complete READY set.
   set it to null.
 - `target_type`: `disk`, `partition` or `logical_volume`. Logical-volume
   targets are valid only for restore jobs. Save and clone currently support
-  whole disks only. A Client selects its own existing LV locally; the job
-  never carries a Client device path.
+  whole disks only. A Client (interactive or persistent Cockpit mode) selects its own existing LV
+  locally; the job never carries a Client device path. The persistent service
+  and Cockpit API independently validate the selected LV against healthy local
+  LVM topology before reporting READY.
 - `authorized_clients`: non-empty allowlist of unique unicast MAC addresses.
   MAC is an inventory mapping key, not cryptographic authentication.
 - `target_bindings`: optional object for whole-disk restore jobs, keyed by an
