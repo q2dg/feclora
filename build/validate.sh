@@ -56,6 +56,8 @@ if [[ -f "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap-ready" ]]; then
 fi
 python3 -m json.tool "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" >/dev/null || fail "Firefox kiosk policy is not valid JSON."
 grep -Fq '@^server-product-environment' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not select Fedora Server."
+grep -Fq -- '-@container-management' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Minimal Server base must exclude container-management packages."
+grep -Fq -- '-@headless-management' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Minimal Server base must avoid duplicate headless-management packages."
 for package in cage firefox; do
   grep -qx "$package" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $package."
   grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."
