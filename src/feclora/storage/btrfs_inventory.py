@@ -132,6 +132,11 @@ def collect_btrfs_subvolumes(
     except subprocess.TimeoutExpired as exc:
         raise BtrfsInventoryError("Btrfs subvolume inspection timed out") from exc
     except subprocess.CalledProcessError as exc:
+        # findmnt returns 1 when the requested filesystem type has no matches.
+        # That is a valid empty inventory, not a failed Btrfs inspection.
+        command = [str(part) for part in (exc.cmd or [])]
+        if findmnt in command and exc.returncode == 1 and not (exc.stderr or "").strip():
+            return {"status": "available", "mounts": []}
         detail = (exc.stderr or "").strip()
         raise BtrfsInventoryError(detail or "Btrfs subvolume inspection failed") from exc
     except json.JSONDecodeError as exc:
