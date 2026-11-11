@@ -103,7 +103,8 @@ Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer pr
 - [x] Connect NFS repository URLs to a read-only mount; reject unsupported schemes rather than accepting syntax as implementation.
 - [ ] Connect remaining provider adapters and separately protected credential references.
 - [x] Resolve exactly one whole-disk target by WWN and/or serial, verify capacity and device safety through the existing restore engine, and recheck stable identity immediately before the first write.
-- [ ] Consume the job authorization atomically to prevent replay; define expiry and tie revocation to cancellation/expiry.
+- [x] Consume the job authorization atomically immediately before the first write to prevent replay during the current Live session.
+- [ ] Add cross-reboot expiry/replay protection and tie revocation to cancellation/expiry.
 - [x] Execute NFS-backed whole-disk restores through the existing restore engine with post-write read-back verification and a local operation journal.
 - [ ] Expose the PXE restore result in the normal Cockpit interface.
 - [ ] Ensure the interactive PXE boot opens the same Cockpit experience as ISO Live and does not require the answer file.
