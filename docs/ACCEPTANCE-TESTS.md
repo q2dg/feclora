@@ -227,6 +227,8 @@ in the target Feclora Live image. Record package versions and tool paths.
 | NTFS (including ntfs3 kernel FSTYPE) | partclone.ntfs | ntfsfix --no-action |
 | FAT12 / FAT16 / FAT32 / vfat | partclone.fat | fsck.fat -n |
 | exFAT | partclone.exfat | fsck.exfat -n |
+| F2FS | partclone.f2fs | fsck.f2fs -n |
+| Btrfs partition image | partclone.btrfs | btrfs check --readonly |
 
 For each row:
 
