@@ -10,6 +10,7 @@ User=root
 Group=root
 Environment=PYTHONPATH=/usr/share/feclora/python
 ExecStartPre=/usr/bin/install -d -o root -g root -m 0700 /run/feclora/pxe
+ExecStartPre=/usr/bin/install -d -o root -g root -m 0700 /var/lib/feclora/pxe
 ExecStart=/usr/bin/python3 -m feclora.network.pxe_answer_client
 TimeoutStartSec=30
 UMask=0077
@@ -22,7 +23,7 @@ ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
-ReadWritePaths=/run/feclora/pxe
+ReadWritePaths=/run/feclora/pxe /var/lib/feclora/pxe
 
 [Install]
 WantedBy=multi-user.target
