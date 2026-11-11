@@ -1,49 +1,54 @@
-# Cockpit screenshots
+# Cockpit screenshots and UI mockups
 
-This directory contains only screenshots captured from a real Feclora build.
-Do not add mockups, reconstructed UI, browser wireframes or screenshots from
-a different frontend revision.
+Documentation may use either:
 
-## Capture procedure
+1. screenshots captured from a real, version-matched Feclora build; or
+2. clearly labeled illustrative mockups when a real runtime capture is not
+   available.
 
-1. Build the ISO from the commit being documented and boot it in a disposable
-   VM with a blank virtual disk. Record the Feclora commit SHA and Fedora
-   release used for the capture.
-2. Open Cockpit on the management interface and sign in to the Live account.
-3. Use a disposable source disk with non-sensitive test data. Never expose
-   real serial numbers, WWNs, hostnames, IP addresses, usernames, credentials,
-   key material or customer data.
-4. Capture the screens below at their natural browser resolution. Keep the
-   full wizard context visible; crop only browser chrome, not labels, warnings
-   or confirmation text.
-5. Review every image for secrets and personal data before committing it.
-   Keep the screenshots synchronized with the UI revision; remove or replace
-   them when the corresponding flow changes.
+Never present a mockup as a real screenshot, and never imply that a depicted
+control or workflow is implemented merely because it appears in a mockup.
+Every mockup must carry a visible **ILLUSTRATIVE MOCKUP — NOT A LIVE SCREEN**
+label, preferably inside the image itself, and its surrounding caption must
+identify the feature status (implemented, partial or planned).
 
-## Planned screenshot set
+## Real screenshot procedure
 
-| File | Screen / purpose |
-|---|---|
-| `01-operations-overview.png` | Operations wizard and available image actions |
-| `02-capture-device-selection.png` | Whole-disk or partition source selection |
-| `03-capture-compression-security.png` | Compression and independent age/minisign options |
-| `04-capture-progress.png` | Live capture progress |
-| `05-image-inventory.png` | Newly created image and its protection metadata |
-| `06-restore-image-selection.png` | Selecting an image to restore |
-| `07-restore-verification.png` | Signature / encryption verification status |
-| `08-restore-target-confirmation.png` | Destination summary and exact destructive confirmation |
-| `09-restore-progress.png` | Restore progress and verification state |
-| `10-server-client-enrollment.png` | Server Trusted Clients: CSR review, TLS identity and optional image-key enrollment |
-| `11-client-enrollment-review.png` | Client verifies the CA fingerprint and reviews optional age/minisign material before installation |
-| `12-remote-job-server-setup.png` | Server remote-job wizard: operation, image, enrolled Clients, interface and transport |
-| `13-client-remote-job-inspection.png` | Client verifies the Server over mTLS and reviews the job before selecting a local device |
-| `14-client-remote-save-security.png` | Per-image age/minisign choices for a remote Client save; both default off |
-| `15-client-remote-target-confirmation.png` | Client's exact local target confirmation and READY wait state |
-| `16-server-multicast-ready-arm.png` | Server confirms all authorized receivers READY before the job-specific ARM action |
-| `17-remote-job-progress-results.png` | Server and Client terminal state, per-Client progress and verification result |
-| `18-remote-repository-setup.png` | Remote repository provider, endpoint and access-mode configuration |
-| `19-remote-repository-verified.png` | Mounted/verified provider identity and repository image inventory |
+1. Build and boot the commit being documented in a disposable VM.
+2. Record the Feclora commit SHA, Fedora release, browser resolution and
+   relevant test fixture.
+3. Use disposable disks and synthetic data only. Never expose real serial
+   numbers, WWNs, hostnames, IP addresses, usernames, credentials, key
+   material or customer data.
+4. Capture the complete relevant wizard context. Do not crop warnings,
+   confirmation phrases or status labels.
+5. Review every image for secrets and personal data. Replace or remove images
+   when the corresponding UI changes.
 
-Screenshots are intentionally absent until the above procedure can be run
-against a real, version-matched Fedora Live build. The table is a capture plan,
-not a claim that those screens have already been validated.
+## Mockup procedure
+
+- Base the layout and labels on the current React/PatternFly source.
+- Do not invent a completed workflow or imply backend behavior not present in
+  the code.
+- Keep destructive confirmation, source/target identity and safety warnings
+  visible where relevant.
+- Use synthetic device names, addresses and image identifiers.
+- Include the visible mockup disclaimer and a text caption describing what is
+  illustrative versus implemented.
+
+## Suggested visual set
+
+| File | Subject | Preferred representation |
+|---|---|---|
+| `01-operations-overview` | Operations wizard and available local actions | Mockup or real screenshot |
+| `02-storage-source-selection` | Disk, partition and supported LV source selection | Mockup or real screenshot |
+| `03-image-capture-options` | Compression and optional age/minisign settings | Mockup or real screenshot |
+| `04-operation-progress` | Progress and terminal status | Mockup or real screenshot |
+| `05-image-inventory` | Manifest, integrity and protection metadata | Mockup or real screenshot |
+| `06-restore-target-review` | Image, destination and destructive confirmation | Mockup or real screenshot |
+| `07-server-client-jobs` | Enrolled Clients, job and transport | Mockup or real screenshot |
+| `08-pxe-modes` | Interactive Live boot versus job-handoff menu | Clearly labeled mockup until VM-tested |
+| `09-unattended-pxe-boundary` | Handoff metadata versus authenticated job authorization | Architecture diagram, not a UI screenshot |
+
+No image is evidence of runtime acceptance. BIOS/UEFI, PXE, destructive
+storage and physical-network acceptance must be recorded separately.
