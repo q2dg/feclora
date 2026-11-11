@@ -79,7 +79,7 @@ LAN access is intentionally unavailable in this kiosk profile.
 
 The Operations wizard provides:
 - whole-disk, partition and active LVM logical-volume image capture;
-- whole-disk and partition image restoration;
+- whole-disk, partition and existing-LV image restoration;
 - whole-disk and partition-to-partition cloning;
 - device discovery, image selection, compression selection and typed
   destructive confirmation;
