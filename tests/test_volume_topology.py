@@ -18,17 +18,17 @@ def report(name, rows):
 class LvmTopologyTests(unittest.TestCase):
     def test_parses_lvm_report_rows(self):
         rows = [{"pv_name": "/dev/sda2", "vg_name": "vg0"}]
-        self.assertEqual(_report_rows(report("pvs", rows), "pvs"), rows)
+        self.assertEqual(_report_rows(report("pv", rows), "pvs"), rows)
 
     def test_rejects_invalid_report(self):
         with self.assertRaises(VolumeTopologyError):
-            _report_rows('{"report":[{"lvs":"not-a-list"}]}', "lvs")
+            _report_rows('{"report":[{"lv":"not-a-list"}]}', "lvs")
 
     def test_collects_all_three_read_only_reports(self):
         outputs = {
-            "pvs": report("pvs", [{"pv_name": "/dev/sda2", "vg_name": "vg0"}]),
-            "vgs": report("vgs", [{"vg_name": "vg0", "pv_count": "1"}]),
-            "lvs": report("lvs", [{"lv_path": "/dev/vg0/root", "vg_name": "vg0"}]),
+            "pvs": report("pv", [{"pv_name": "/dev/sda2", "vg_name": "vg0"}]),
+            "vgs": report("vg", [{"vg_name": "vg0", "pv_count": "1"}]),
+            "lvs": report("lv", [{"lv_path": "/dev/vg0/root", "vg_name": "vg0"}]),
         }
         calls = []
         def runner(argv, **kwargs):
