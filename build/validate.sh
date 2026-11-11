@@ -83,7 +83,7 @@ if ! grep -q 'Requires=feclora-cockpit-certificate.service' "$ROOT_DIR/kickstart
 fi
 if ! grep -q 'WebsiteFilter' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" \
    || ! grep -q '"<all_urls>"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" \
-   || ! grep -q '"https://localhost:9090/\\*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json"; then
+   || ! grep -q '"wss://localhost/\\*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json"; then
   fail "Firefox WebsiteFilter does not block all sites except the local Cockpit and setup origins."
 fi
 if ! grep -q 'Certificates' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" \
