@@ -93,6 +93,7 @@ class StorageCapturePlanTests(unittest.TestCase):
         self.assertTrue(plan["eligible_for_layer_aware_capture"])
         self.assertEqual(plan["manifest_storage"]["source_layer"], "btrfs_filesystem")
         self.assertEqual(plan["manifest_storage"]["btrfs_uuid"], "btrfs-uuid")
+        self.assertEqual(plan["manifest_storage"]["btrfs_device_count"], 1)
 
     def test_multi_device_btrfs_member_cannot_be_captured_as_standalone_partition(self):
         inventory = base_inventory({
