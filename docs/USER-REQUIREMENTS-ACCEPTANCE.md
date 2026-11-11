@@ -43,7 +43,7 @@ DHCP and static IPv4 must be supported independently on Server and Client where 
 
 **Outcome:** Capture a whole disk or partition and publish the image, manifest and integrity metadata to a selected remote repository.
 
-Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer provider, distinct from SSHFS), NFS, SMB/CIFS and WebDAV. BitTorrent is an optional peer-to-peer distribution transport for immutable artifacts, not a mandatory repository type or a writable repository contract. The distribution model is single-publisher / multi-reader across every transport: one Client publishes each image, while multiple Clients may concurrently read and restore it. Concurrent publishers for the same image are out of scope. Every endpoint/server/export/share/tracker/peer is external infrastructure administered independently of Feclora. Feclora only connects to it as a client; it must not deploy, configure or administer that infrastructure.
+Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer provider, distinct from SSHFS), NFS, SMB/CIFS and WebDAV. BitTorrent is a first-class peer-to-peer distribution transport for immutable artifacts, at the same priority as the other remote transports; it is not a mounted repository type or a writable repository contract. The distribution model is single-publisher / multi-reader across every transport: one Client publishes each image, while multiple Clients may concurrently read and restore it. Concurrent publishers for the same image are out of scope. Every endpoint/server/export/share/tracker/peer is external infrastructure administered independently of Feclora. Feclora only connects to it as a client; it must not deploy, configure or administer that infrastructure.
 
 - [ ] Cockpit can create, edit, test, connect/mount, inspect, disconnect/unmount and remove each provider advertised as supported.
 - [ ] Credentials/private keys use root-owned protected storage; secrets never enter browser storage, ordinary configuration, logs, journals or URLs.
@@ -54,7 +54,7 @@ Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer pr
 - [ ] Publish manifest, byte count, SHA-256, optional signature and encryption metadata for subsequent verification.
 - [ ] Provider tests cover success, bad credentials, permission denial, insufficient space/quota, disconnect, stale mount, interrupted publication and recovery.
 - [ ] WebDAV uses HTTPS with certificate validation and safe per-repository credentials; never use davfs2's global secrets file as a shortcut for isolated repository secrets.
-- [ ] BitTorrent distribution, if enabled, verifies a trusted manifest and artifact digest before any restore; peer availability or torrent metadata is never an authenticity signal. Support cancellation, incomplete-download cleanup, bandwidth/peer policy and seeding controls.
+- [ ] BitTorrent distribution verifies a trusted manifest and every artifact digest before any restore; peer availability or torrent metadata is never an authenticity signal. Support cancellation, incomplete-download cleanup, bandwidth/peer policy, explicit seeding controls and concurrent multi-Client restores.
 - [ ] Publish a capture guide per provider, distinguishing SSHFS from SFTP and documenting server-side setup.
 
 ## 4. Restore a remote image to one local disk
