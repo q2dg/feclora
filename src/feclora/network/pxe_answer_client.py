@@ -1,8 +1,9 @@
-"""Fetch and validate the shared HTTP PXE answer in the Fedora Live session.
+"""Fetch a shared HTTP PXE answer and run its supported unattended restore.
 
-This first Live-side stage deliberately performs no disk writes. It retrieves
-only the bounded declarative JSON, validates its schema, and stores it in a
-root-only runtime directory for the restore coordinator.
+The JSON is treated as operator-authorized because this deployment explicitly
+trusts its configured PXE HTTP server. The client still validates the schema,
+uses read-only NFS for repository access, resolves stable disk identity and
+delegates destructive writes to the existing verified restore engine.
 """
 from __future__ import annotations
 
