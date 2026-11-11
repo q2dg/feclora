@@ -322,7 +322,7 @@ orphan files, but cannot expose an incomplete set through inventory.
 - [ ] Add provider health checks and multi-directory inventory/discovery.
 - [ ] Add operator guide and screenshots or clearly labeled mockups after the complete workflow exists.
 
-SFTP is available in Cockpit for one-shot signed-image publication, import and direct disk/partition restore. Named endpoint definitions and encrypted credential references are saved in a root-owned registry. Remote manifest-marker inventory is now submitted as a durable local operation and can be cancelled from the existing Operation log. Metadata inspection and separate artifact import/publication remain synchronous; byte-level transfer progress and resume are still missing. Transient read-only downloads and inventory retry connection faults up to twice; uploads are not automatically retried. Unit tests exist; live provider acceptance remains outstanding.
+SFTP is available in Cockpit for signed-image publication, import and direct disk/partition restore. Named endpoint definitions and encrypted credential references are saved in a root-owned registry. Remote manifest-marker inventory, signed-image import and publication are submitted as durable local operations and can be cancelled from the Operation log. Import/publication progress is checkpointed at artifact boundaries; continuous byte-level progress within a file and resume are still missing. Transient read-only downloads and inventory retry connection faults up to twice; uploads are not automatically retried. Unit tests exist; live provider acceptance remains outstanding.
 
 
 ### SFTP authenticated image-set retrieval checkpoint
