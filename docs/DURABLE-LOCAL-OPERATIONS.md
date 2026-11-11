@@ -1,10 +1,12 @@
-# Durable local storage operations
+# Long-running local storage operations
 
 Cockpit remains the operator interface, but long-running local disk and
 partition operations are accepted into a durable queue and executed by a
 root-owned systemd worker. The HTTP/Cockpit request only validates and
 persists the request, asks systemd to start its job unit, and returns the
-operation identifier.
+operation identifier. Here, durable means independent of the browser, Cockpit
+API request and worker process lifetime while the Live session's filesystem
+remains available; it does not mean persistent across a Live reboot.
 
 ## Lifecycle
 
@@ -28,12 +30,15 @@ operation identifier.
 
 ## Recovery and cancellation
 
-The boot-time `feclora-local-operation-recovery.service` runs before the
-Cockpit socket and enumerates every persisted operation definition, not just
-the most recent history page. It marks every unfinished queued/preflight/
-running/verifying operation as `interrupted`. A damaged journal is reported
-for manual inspection without preventing recovery of other jobs. Recovery
-never replays a job or resumes block-device writes.
+The `feclora-local-operation-recovery.service` runs before the Cockpit socket
+and can classify unfinished operation definitions as `interrupted` when the
+state directory is present at boot (for example, in an environment that
+explicitly preserves that state). The default Feclora Live root is ephemeral:
+`/var/lib/feclora/local-operations` is lost on reboot, so the Live appliance
+does not promise to recover its previous session's queue or journal after a
+reboot. A reboot or power loss during a write may leave the target partially
+modified without a surviving journal; inspect that device before reuse.
+Recovery never replays a job or resumes block-device writes.
 
 Cockpit can request cancellation for queued, preflight and running operations.
 A queued job is atomically marked `cancelled` before its worker starts. For an
@@ -63,6 +68,7 @@ cleanup is recorded as interrupted/failed and still requires manual inspection.
 
 This implementation does not create an ISO and does not depend on a VM or
 physical-disk acceptance run. Its automated coverage is limited to focused
-unit tests and static checks. Hardware behavior, boot-time systemd ordering,
-Cockpit disconnect behavior on a live system, and real block-device safety
-still require a separately planned operator acceptance exercise.
+unit tests and static checks. Hardware behavior, same-session service restart, Cockpit disconnect behavior
+on a live system, and real block-device safety still require a separately
+planned operator acceptance exercise. Reboot persistence is not a requirement
+for the default Live appliance.
