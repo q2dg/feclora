@@ -124,9 +124,12 @@ configuration or supported credential chain. Writable capture requires a
 provider-aware object API publisher with server-enforced conditional
 create-if-absent semantics (including multipart completion), unique staging
 keys, remote read-back and digest/size verification, and manifest-last
-publication. If the provider cannot guarantee these semantics, Feclora must
-expose that endpoint as read-only. S3-compatible branding or a preceding
-HEAD/list request is not proof of safe no-overwrite behavior.
+publication. The product contract has one publishing Client per image; this
+is not a multi-writer coordination problem. Multiple Clients must be able to
+read and restore the committed image concurrently. If the provider cannot
+guarantee safe publication semantics, Feclora must expose that endpoint as
+read-only. S3-compatible branding or a preceding HEAD/list request is not
+proof of safe no-overwrite behavior.
 
 ## Cockpit credential workflow
 
