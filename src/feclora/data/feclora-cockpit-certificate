@@ -69,6 +69,12 @@ for file in "$CA_KEY" "$SERVER_KEY"; do
   }
 done
 "$OPENSSL" verify -CAfile "$CA_CERT" "$SERVER_CERT"
+ca_cert_pub=$("$OPENSSL" x509 -in "$CA_CERT" -pubkey -noout)
+ca_key_pub=$("$OPENSSL" pkey -in "$CA_KEY" -pubout)
+server_cert_pub=$("$OPENSSL" x509 -in "$SERVER_CERT" -pubkey -noout)
+server_key_pub=$("$OPENSSL" pkey -in "$SERVER_KEY" -pubout)
+[[ "$ca_cert_pub" == "$ca_key_pub" ]] || { echo "Local CA key does not match its certificate" >&2; exit 1; }
+[[ "$server_cert_pub" == "$server_key_pub" ]] || { echo "Cockpit key does not match its certificate" >&2; exit 1; }
 "$OPENSSL" x509 -in "$SERVER_CERT" -noout -checkhost localhost
 "$OPENSSL" x509 -in "$SERVER_CERT" -noout -checkip 127.0.0.1
 "$OPENSSL" x509 -in "$SERVER_CERT" -noout -checkip ::1
