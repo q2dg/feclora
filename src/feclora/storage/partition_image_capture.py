@@ -35,7 +35,7 @@ def capture_partition_image(
     progress_callback: Callable[[int, int | None], None] | None = None,
     age_recipients_file: str | os.PathLike[str] | None = None,
     minisign_secret_key: str | os.PathLike[str] | None = None,
-    inventory: Mapping[str, Any] | None = None,
+    inventory: Mapping[str, Any],
 ) -> ImageManifest:
     """Capture a partition and publish its data artifact and manifest marker."""
     if not isinstance(image_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
@@ -83,19 +83,6 @@ def capture_partition_image(
     if filesystem in {"", "-"}:
         filesystem = None
 
-    storage_metadata = None
-    if inventory is not None:
-        try:
-            capture_plan = plan_storage_capture(dict(inventory), source_path, "partition")
-        except CapturePlanError as exc:
-            raise PartitionImageCaptureError(f"storage-layer capture planning failed: {exc}") from exc
-        if capture_plan.get("blockers"):
-            raise PartitionImageCaptureError(
-                "partition source has unresolved storage dependencies: "
-                + "; ".join(capture_plan["blockers"])
-            )
-        storage_metadata = capture_plan.get("manifest_storage")
-
     if filesystem == "btrfs":
         btrfs_executable = available.get("btrfs") or shutil.which("btrfs")
         if not btrfs_executable:
@@ -129,6 +116,19 @@ def capture_partition_image(
             raise PartitionImageCaptureError(
                 "multi-device Btrfs capture is not supported; capture the complete filesystem as a coordinated set"
             )
+
+    storage_metadata = None
+    if inventory is not None:
+        try:
+            capture_plan = plan_storage_capture(dict(inventory), source_path, "partition")
+        except CapturePlanError as exc:
+            raise PartitionImageCaptureError(f"storage-layer capture planning failed: {exc}") from exc
+        if capture_plan.get("blockers"):
+            raise PartitionImageCaptureError(
+                "partition source has unresolved storage dependencies: "
+                + "; ".join(capture_plan["blockers"])
+            )
+        storage_metadata = capture_plan.get("manifest_storage")
 
     safe_partition_id = partition_id.replace("+", "_")
     stem = f"{image_id}_{safe_partition_id}"
