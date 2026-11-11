@@ -93,6 +93,37 @@ class LogicalVolumeImageCaptureTests(unittest.TestCase):
                     )
                 capture.assert_not_called()
 
+    def test_rejects_path_traversal_in_image_id(self):
+        with tempfile.TemporaryDirectory() as repository:
+            with self.assertRaisesRegex(LogicalVolumeImageCaptureError, "filename-compatible"):
+                capture_logical_volume_image(
+                    "/dev/vg/root", "../escape", repository, make_inventory(),
+                )
+
+    def test_geometry_uses_lsblk_alias_even_when_lvm_path_differs(self):
+        with tempfile.TemporaryDirectory() as repository:
+            inventory = make_inventory()
+            inventory["volume_topology"]["volume_groups"][0]["logical_volumes"][0]["path"] = "/dev/mapper/vg-root"
+            def capture(_source, _filesystem, stage, filename, *_args, **_kwargs):
+                with open(os.path.join(stage, filename), "wb") as stream:
+                    stream.write(b"image")
+                return ImageArtifact(
+                    filename=filename, role="logical-volume-image",
+                    format="raw", compression="none", size_bytes=5,
+                    sha256="a" * 64,
+                )
+            with patch(
+                "feclora.storage.logical_volume_image_capture.plan_storage_capture",
+                return_value=make_plan(),
+            ), patch(
+                "feclora.storage.logical_volume_image_capture.capture_logical_volume",
+                side_effect=capture,
+            ):
+                manifest = capture_logical_volume_image(
+                    "/dev/vg/root", "root-image", repository, inventory,
+                )
+            self.assertEqual(manifest.image_type, "logical_volume")
+
     def test_rejects_unknown_logical_sector_size(self):
         with tempfile.TemporaryDirectory() as repository:
             inventory = make_inventory()
