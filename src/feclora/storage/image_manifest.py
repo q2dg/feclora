@@ -1,7 +1,8 @@
-"""Validated, versioned metadata for a feclora disk/partition image set.
+"""Validated, versioned metadata for Feclora disk, partition and LV images.
 
-The manifest describes files and source geometry. It is not an instruction to
-write a target device and performs no filesystem or block-device I/O.
+The manifest describes artifacts, source geometry and optional storage-layer
+provenance. It is not an instruction to write a target device and performs no
+filesystem or block-device I/O.
 """
 
 from __future__ import annotations
@@ -226,7 +227,7 @@ class ImageManifest:
             "logical_sector_size", "partition_table", "artifacts", "storage",
         }
         unknown = set(value) - allowed
-        missing = allowed - set(value)
+        missing = allowed - set(value) - {"storage"}
         if unknown:
             raise ManifestValidationError(f"Unknown manifest fields: {', '.join(sorted(unknown))}")
         if missing:
