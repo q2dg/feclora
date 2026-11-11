@@ -207,6 +207,8 @@ Publish task-oriented guides only when the exact workflow is implemented; mark f
 4. [ ] Restore image from SSHFS to one disk.
 5. [ ] Restore image to multiple remote clients.
 6. [ ] Restore multiple clients using PXE. The boot tree now offers an interactive Live path and a separate unattended handoff path; the job-bound script builder plus atomic publish/revoke helpers and kernel-command-line parser handle non-secret job/Server parameters. Completed: the active Server restore-job lifecycle atomically publishes and revokes the job-bound iPXE script using the actual mTLS control port. Remaining: start the Client service automatically, provision/verify its per-device mTLS identity, authenticate the job/profile, report READY/progress/results, and exercise BIOS/UEFI PXE VMs.
+PXE security-flow and credential-provisioning constraints are documented in [docs/PXE-UNATTENDED.md](PXE-UNATTENDED.md).
+
 7. [ ] Unattended multi-client PXE restore. Bind signed/otherwise independently authenticated profiles to the deployment/job, Client certificate identity, image digest, expiry and stable WWN/serial target; integrate Server-side single-use replay state, dry-run, deterministic target checks and per-Client result reconciliation. Boot parameters alone never authorize writes.
 8. [ ] Initial Server/Client setup, enrollment and trust.
 9. [ ] Repository and credential administration.
