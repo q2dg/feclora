@@ -1,13 +1,12 @@
 # Remote image repositories
 
 **All remote services are external to Feclora.** SSH/SFTP servers, NFS exports,
-SMB shares, WebDAV endpoints, S3-compatible object stores, BitTorrent trackers
+SMB shares, WebDAV endpoints, BitTorrent trackers
 and peers are provisioned, operated, patched, backed up and authorized by their
 respective administrators. Feclora is only a client: it stores access
 references, establishes outbound connections, mounts or transfers data,
 verifies remote content and reports failures. It must not install, configure,
 start, stop, administer or claim ownership of any remote server, export, share,
-bucket, tracker or peer. Feclora may stop its own client-side mount/transfer
 processes and release its own sessions; that is not remote-server management.
 
 feclora keeps its image engines independent of transport by using ordinary
@@ -16,7 +15,7 @@ manifests, compression, encryption, checksums and restore code continue to use
 the same repository API.
 
 **Remote image distribution follows a single-publisher / multi-reader model
-across SSHFS, SFTP, NFS, SMB/CIFS, WebDAV, S3 and optional BitTorrent:** one
+across SSHFS, SFTP, NFS, SMB/CIFS, WebDAV and optional BitTorrent:** one
 Client publishes each image; any number of Clients may concurrently discover,
 fetch and restore that immutable published image. Concurrent remote publishers
 for the same image are outside the product contract. Publication still needs
@@ -34,7 +33,6 @@ SFTP is intentionally not represented as a mounted filesystem provider. Feclora 
 | NFS | mount.nfs, NFSv4.2 | Server/export policy |
 | SMB/CIFS | mount.cifs, SMB 3.1.1 | Protected credentials file |
 | WebDAV | Disabled in the repository manager | No mount is accepted until per-repository encrypted credentials and isolated davfs2 service configuration are implemented |
-| S3 | rclone for read/mount; provider-aware object API for writes | Protected per-repository rclone/API credentials; writable publication only with conditional create and read-back guarantees |
 
 ## Provider capability and parity matrix
 
@@ -43,19 +41,13 @@ command builders. A provider is not complete until its Cockpit workflow,
 authorization, failure handling, automated tests and operator acceptance cover
 the same image lifecycle.
 
-| Capability | SSHFS | NFS | SMB/CIFS | S3 | WebDAV | SFTP | BitTorrent |
 |---|---|---|---|---|---|---|---|
-| Connection / mount or transport | Integrated mount lifecycle | Integrated mount lifecycle | Integrated mount lifecycle | Read-only rclone mount | Disabled | OpenSSH batch transfer | Not implemented |
-| Protected credentials | SSH key + pinned host keys | Export/server policy | Encrypted SMB credential | Encrypted rclone config | Missing isolated per-repository model | Encrypted SSH key + pinned host keys | Not applicable yet |
-| Inventory / read / restore | Via verified mounted repository | Via verified mounted repository | Via verified mounted repository | Read-only inventory and restore | Unavailable | Signed manifest inventory and authenticated fetch/restore | Not implemented |
-| Capture / publish | Writable mount path exists; end-to-end provider acceptance pending | Writable mount path exists; root-squash/ownership acceptance pending | Writable mount path exists; provider acceptance pending | **Blocked** until conditional object creation, multipart guarantees and read-back verification | **Blocked** | Signed no-overwrite image-set publication exists; synchronous and not yet fully durable | Not applicable; immutable distribution only |
 | Durable Cockpit lifecycle | Local operation engine for image work; mount lifecycle is separate | Same | Same | Read-only image operations; writable publication unavailable | Unavailable | Inventory durable/cancellable; metadata inspection, import and publication still synchronous | Not implemented |
 | Byte progress / transfer resume | No provider-specific network telemetry or safe write resume acceptance | Same | Same | No provider-specific transfer telemetry or safe write resume acceptance | Unavailable | Byte progress and resume pending | Not implemented |
 | Health, interruption and recovery acceptance | Pending live server/network tests | Pending live server/network tests, including root-squash | Pending live server/network tests | Provider-aware write capability and outage tests pending | Pending design | Multi-directory discovery, health checks and live acceptance pending | Design and implementation pending |
 
 **Interpretation:** SSHFS, NFS and SMB share the mounted-filesystem integration
-but are not yet at production acceptance parity. S3 is intentionally read-only;
-it must not be advertised as a capture destination. WebDAV remains fail-closed.
+but are not yet at production acceptance parity. WebDAV remains fail-closed.
 SFTP has richer signed file-transfer workflows than the mounted providers in
 some areas, but still lacks durable byte-level transfer controls. BitTorrent is
 a separate optional immutable-artifact distribution feature, not a repository
@@ -105,9 +97,7 @@ to different repository IDs are not lost through stale read-modify-write
 snapshots. Per-repository usage leases remain separate and continue to protect
 active restore jobs. If definition removal cannot commit its registry update
 after deleting the empty mountpoint, the manager recreates that mountpoint so
-the still-persisted definition is not left without its local directory. Existing registry entries created before the
-`rclone_remote` field was introduced remain readable.
-
+the still-persisted definition is not left without its local directory. 
 WebDAV is currently unavailable in the repository manager. The earlier
 root-invoked davfs2 integration did not provide safe per-repository credential
 isolation, so Feclora now rejects WebDAV definitions rather than sharing
@@ -116,35 +106,6 @@ per-repository encrypted credential and isolated service-configuration model
 is implemented and HTTPS certificate validation is covered by tests. See the
 [davfs2 configuration manual](https://manpages.debian.org/unstable/davfs2/davfs2.conf.5.en.html).
 
-S3-compatible object storage is a required repository type. The current
-rclone mount path is read-only, disables the VFS write cache, and requires a
-valid lowercase S3 bucket name followed only by normalized prefix components; a mounted FUSE filesystem
-is not a safe publication interface. Read/list/fetch may use a protected rclone remote
-configuration or supported credential chain. Writable capture requires a
-provider-aware object API publisher with server-enforced conditional
-create-if-absent semantics (including multipart completion), unique staging
-keys, remote read-back and digest/size verification, and manifest-last
-publication.
-
-For AWS S3, the documented no-overwrite primitive is `If-None-Match: *` on
-`PutObject` and `CompleteMultipartUpload`, signed with AWS Signature Version 4.
-Multipart initiation and part-upload requests do not themselves accept that
-conditional header; the condition must be applied when completing the object.
-A `409 Conflict` from conditional multipart completion requires restarting
-the multipart upload, not retrying the same completion blindly. These AWS
-semantics are not assumed for every S3-compatible service: each endpoint must
-be qualified against its actual API implementation, including conditional
-completion, read-after-write visibility and object read-back. A provider that
-cannot demonstrate those guarantees remains read-only.
-
-The product contract has one publishing Client per image; this is not a
-multi-writer coordination problem and Feclora does not need a distributed
-writer lock. Conditional creation is still required to prevent accidental
-replacement and to make ambiguous upload outcomes safe. Multiple Clients
-must be able to read and restore the committed image concurrently. If the
-provider cannot guarantee safe publication semantics, Feclora must expose
-that endpoint as read-only. S3-compatible branding or a preceding HEAD/list
-request is not proof of safe no-overwrite behavior.
 ## Cockpit credential workflow
 
 1. Prepare each source file on the Feclora host. It must be a root-owned regular
@@ -152,14 +113,14 @@ request is not proof of safe no-overwrite behavior.
    This applies to `known_hosts` files too. Do not paste secret material into
    Cockpit fields or command arguments.
 2. In Cockpit, open **Remote repositories → Encrypted repository credentials**.
-   Enter a credential ID, select SSH private key, SSH `known_hosts`, SMB
-   credentials or rclone config, and enter the protected source-file path.
+   Enter a credential ID, select SSH private key, SSH `known_hosts` or SMB
+   credentials, and enter the protected source-file path.
    Import encrypts the file locally; the browser sends only the path and receives
    only metadata. Feclora leaves the source file in place.
 3. Create the repository definition and select the imported encrypted
    credential references in the provider-specific fields. SSHFS requires both
    a private key and pinned `known_hosts` entry; SMB requires an SMB file;
-   S3 requires protected provider credentials; current rclone mount is read-only unless a safe provider-aware publisher is available. NFS needs no credential.
+   NFS needs no credential.
 4. Mount and verify the repository. A credential cannot be removed while any
    saved repository references it. To rotate one, import with **Replace**, then
    unmount and remount each affected repository so its service loads the new
@@ -192,10 +153,10 @@ The `SystemdCredentialStore` writes host-bound encrypted blobs under
 `/etc/credstore.encrypted/feclora`, imports plaintext only over the
 `systemd-creds` stdin interface, and returns metadata/references rather than
 secret contents. The repository manager now detects registered encrypted
-credential paths for SSHFS identity keys and pinned `known_hosts` files, SMB credential
-files and rclone configurations. It launches a transient per-repository systemd service with
+credential paths for SSHFS identity keys and pinned `known_hosts` files and SMB credential
+files. It launches a transient per-repository systemd service with
 `LoadCredentialEncrypted=`; the mount helper reads the decrypted file only
-from that service's `$CREDENTIALS_DIRECTORY`. SSHFS and rclone stay in the
+from that service's `$CREDENTIALS_DIRECTORY`. SSHFS stays in the
 foreground under the service, and unmount stops the service before falling
 back to an explicit unmount where needed.
 
@@ -208,7 +169,7 @@ trade-off and should be revisited if a dedicated mount-namespace propagation
 design is introduced.
 
 This integration now exposes Cockpit import/removal and selection of encrypted
-SSH private keys, SSH `known_hosts`, SMB credentials and rclone configuration.
+SSH private keys, SSH `known_hosts` and SMB credentials.
 The operator supplies only a path to a root-owned private source file; the API
 reads it locally, encrypts it through `systemd-creds`, and returns metadata.
 The source file is not deleted by Feclora. Repository definitions reference the
@@ -234,7 +195,7 @@ sudo python3 -m feclora.storage.systemd_credential_cli remove \
 ```
 
 The command prints only the encrypted blob path. Use that path as the
-`identity_file` for SSHFS, or as `credential_file` for SMB and S3 repository
+`identity_file` for SSHFS, or as `credential_file` for SMB repository
 definitions. The manager derives the credential name from the validated
 inventory and supplies `LoadCredentialEncrypted=` to the transient mount
 service. The helper substitutes the corresponding
@@ -247,7 +208,7 @@ not expose plaintext or create/update credentials through Cockpit.
 
 `feclora.storage.credential_store.CredentialStore` provides a root-only
 administrative primitive for storing SSH private keys, SSH known-hosts files,
-SMB credential files and rclone configurations under
+SMB credential files under
 `/etc/feclora/credentials`. It writes atomically, defaults to create-only,
 requires an explicit replace operation to update an existing credential, and
 validates ownership, link count and permissions before replacement or removal.
@@ -273,24 +234,21 @@ optional and use a maintained Fedora-compatible client.
 On Fedora, install the helpers required by the providers you intend to use:
 
 ```bash
-sudo dnf install fuse-sshfs nfs-utils cifs-utils davfs2 rclone
+sudo dnf install fuse-sshfs nfs-utils cifs-utils davfs2
 ```
 
 Only the selected provider's helper is needed. The manager checks for the
-required executable before attempting a mount. The S3 rclone config must be
-created and provisioned separately; Feclora does not collect access keys or
-run the interactive rclone configuration wizard.
+required executable before attempting a mount. created and provisioned separately; Feclora does not collect access keys or
 
 ## Security and durability requirements
 
 - SSH host keys must be verified; never disable strict host-key checking.
-- SSH keys, SMB credentials, davfs2 secrets and rclone credentials must be
+- SSH keys, SMB credentials, davfs2 secrets must be
   stored outside image manifests and restore profiles with restrictive
   ownership and permissions. Cockpit accepts paths/aliases, never secret
   contents.
 - WebDAV requires HTTPS certificate validation and per-repository protected credentials; do not use the global davfs2 secrets file for Feclora-managed repository secrets.
-- S3 requires protected, non-interactive credentials scoped to the intended bucket/prefix. The current rclone mount is read-only; writable publication requires the provider-aware object API contract described above.
-- NFS/SMB/SSHFS/WebDAV/S3 are storage transports, not PXE deployment
+- NFS/SMB/SSHFS/WebDAV are storage transports, not PXE deployment
   transports. PXE Server/Client services remain explicit opt-in features.
 - Runtime resolves repository IDs through the manager and checks the
   expected mount source/type/access mode. A failed or mismatched mount never
@@ -304,20 +262,13 @@ run the interactive rclone configuration wizard.
   acquiring its lease, closing the race between job creation and service
   startup. Stop the restore service after the job reaches a terminal state
   before unmounting or removing the definition.
-- S3 remains read-only until a provider-aware staging/publish protocol with remote
-  read-back and conditional no-overwrite guarantees is implemented; do not enable capture or extraction on S3.
 - A mount failure must never fall back to the local directory underneath an
   unmounted mountpoint.
 - Image artifacts must be staged on the same filesystem and the manifest
   published last. A remote backend must demonstrate the required atomicity
   and durability semantics before it can be used for production captures.
-- S3 object storage must not be assumed to provide POSIX atomic rename or
-  fsync semantics merely because rclone exposes a mount. It needs a
   provider-aware staging and publish protocol with remote read-back.
-- A future S3 publisher must use the object API directly, not write through
-  the rclone FUSE mount. Each final artifact key must be created with a
   server-enforced create-if-absent precondition (for example, conditional
-  PutObject with If-None-Match: * where the provider documents support).
   A preceding HEAD/list check is not a substitute: it has a time-of-check /
   time-of-use race. Multipart uploads need an equivalent conditional
   completion guarantee; if the provider cannot guarantee it, Feclora must
@@ -329,18 +280,15 @@ run the interactive rclone configuration wizard.
   Failed publication may leave unreachable staging objects for later
   garbage collection, but must never expose a manifest referencing
   incomplete artifacts. Provider capability checks must be explicit and
-  fail closed; S3-compatible branding alone is not evidence of support.
 
 ## Remaining work
 
 Remaining engineering work: add edit/test and health/free-space workflows,
 credential provisioning/rotation and recovery, safe per-repository WebDAV
-credentials, provider-aware S3 artifact publication, SFTP byte-level progress,
 operator cancellation, resume, multi-directory discovery and live provider
 acceptance, plus automated coverage for every provider lifecycle. Bounded
 transport retries are implemented for read-only SFTP downloads and inventory;
 publication uploads remain non-retrying because their outcome can be ambiguous.
-Physical tests against SSHFS, NFS, SMB, WebDAV and S3 endpoints are operator
 acceptance tests. SFTP file transfer is distinct from SSHFS and is not a
 separate mounted filesystem provider.
 
@@ -377,7 +325,6 @@ image operations and multi-Client restore jobs can select mounted repository
 IDs. Restore reads source artifacts from the selected mount but stages age
 decryption and partition decompression on the local temporary filesystem; a
 read-only remote mount is therefore not used as a scratch directory. Ensure
-local temporary storage has enough free space for the staged plaintext/image. S3 remains read-only and is suitable for inventory/verification/restore,
 not image capture.
 
 
