@@ -140,9 +140,10 @@ def list_image_manifests(
         if name == "manifest.json"
         or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.manifest\.json", name)
     }
-    # A manifest is the inventory/commit marker only when its detached
-    # signature is also present. Publishers upload the manifest first and the
-    # signature last, so concurrent readers must hide the in-progress window.
+    # The manifest is the inventory/commit marker and is uploaded last.
+    # Requiring its detached signature also keeps inventory fail-closed for
+    # legacy or manually-created incomplete sets. Readers see no manifest
+    # until every artifact and the signature have been published.
     return sorted(
         name for name in manifests
         if name + ".minisig" in entries
