@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 
 from feclora.network.pxe_answer_store import (
-    PXEAnswerStoreError, publish_pxe_answer, revoke_pxe_answer,
+    PXEAnswerStoreError, clear_stale_pxe_answers, publish_pxe_answer, revoke_pxe_answer,
 )
 
 
@@ -60,6 +60,18 @@ class PXEAnswerStoreTests(unittest.TestCase):
                     tmp, str(uuid.UUID(self.JOB_ID)).upper(), self.answer(), b"signature",
                     verify_signature=lambda _raw, _sig: True, address="192.0.2.10",
                 )
+
+    def test_clears_all_stale_job_answer_directories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            os.chmod(tmp, 0o755)
+            for job_id in (self.JOB_ID, "f47ac10b-58cc-4372-a567-0e02b2c3d480"):
+                publish_pxe_answer(
+                    tmp, job_id, self.answer(), b"signature",
+                    verify_signature=lambda _raw, _sig: True, address="192.0.2.10",
+                )
+            self.assertEqual(clear_stale_pxe_answers(tmp), 2)
+            self.assertEqual(clear_stale_pxe_answers(tmp), 0)
+            self.assertFalse((Path(tmp) / "answers" / self.JOB_ID).exists())
 
     def test_refuses_to_replace_existing_job_answer(self):
         with tempfile.TemporaryDirectory() as tmp:
