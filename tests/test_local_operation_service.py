@@ -84,19 +84,26 @@ class LocalOperationWorkerTests(unittest.TestCase):
             "params": {"host": "backup.example.net"},
         }
         store.status.return_value = {"state": "queued"}
-        with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \
-             patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store), \
-             patch("feclora.storage.local_operation_service._device_lock_fds", return_value=[]), \
-             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \
-             patch("feclora.webapi._execute_operation", return_value={
-                 "image_id": "golden", "image_type": "disk", "artifact_count": 2,
-                 "signature_verified": True, "artifacts_verified": True, "published": True,
-             }):
+        def run_sftp(*_args):
+            print(json.dumps({"event": "progress", "bytes_done": 8192, "bytes_total": 8192}))
+            return {
+                "image_id": "golden", "image_type": "disk", "artifact_count": 2,
+                "signature_verified": True, "artifacts_verified": True, "published": True,
+            }
+        with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \\
+             patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store), \\
+             patch("feclora.storage.local_operation_service._device_lock_fds", return_value=[]), \\
+             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \\
+             patch("feclora.webapi._execute_operation", side_effect=run_sftp):
             self.assertEqual(execute("00000000-0000-4000-8000-000000000001"), 0)
+        progress = [call.args[2] for call in store.append.call_args_list if call.args[1] == "progress"]
+        self.assertEqual(progress[-1]["bytes_done"], 8192)
+        self.assertEqual(progress[-1]["bytes_total"], 8192)
         completed = store.append.call_args_list[-1].args[2]
         self.assertEqual(completed["artifact_count"], 2)
         self.assertTrue(completed["signature_verified"])
         self.assertTrue(completed["artifacts_verified"])
+
     def test_recovery_continues_after_one_damaged_journal(self):
         store = Mock()
         store.operation_ids.return_value = ["running-job", "damaged-job", "finished-job"]
