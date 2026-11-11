@@ -10,6 +10,7 @@ NetworkManager
 iproute
 firewalld
 openssl
+ca-certificates
 
 # Cockpit web UI (primary operator interface)
 cockpit
