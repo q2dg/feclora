@@ -102,7 +102,7 @@ def export_pxe_client_identity(params: dict[str, Any]) -> dict[str, Any]:
     export = _mounted_media_directory(params["export_directory"])
     root = Path(export)
     root_info = os.lstat(root)
-    if root_info.st_uid != 0 or root_info.st_mode & 0o022:
+    if root_info.st_uid != os.geteuid() or root_info.st_mode & 0o022:
         raise CockpitEnrollmentError("PXE identity media must be root-owned and not group/other-writable")
     identity_dir = root / "feclora-client-identity"
     if os.path.lexists(identity_dir):
@@ -130,7 +130,7 @@ def export_pxe_client_identity(params: dict[str, Any]) -> dict[str, Any]:
             except OSError as exc:
                 raise CockpitEnrollmentError(f"configured Client identity file is unavailable: {field}") from exc
             if (not stat.S_ISREG(source_info.st_mode) or stat.S_ISLNK(source_info.st_mode)
-                    or source_info.st_uid != 0 or (private and source_info.st_mode & 0o077)):
+                    or source_info.st_uid != os.geteuid() or (private and source_info.st_mode & 0o077)):
                 raise CockpitEnrollmentError(f"configured Client identity file is unsafe: {field}")
             source_fd = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
             destination = identity_dir / filename
@@ -138,7 +138,7 @@ def export_pxe_client_identity(params: dict[str, Any]) -> dict[str, Any]:
             target_fd = os.open(destination, flags, 0o600 if private else 0o644)
             try:
                 opened = os.fstat(source_fd)
-                if (not stat.S_ISREG(opened.st_mode) or opened.st_uid != 0
+                if (not stat.S_ISREG(opened.st_mode) or opened.st_uid != os.geteuid()
                         or (opened.st_dev, opened.st_ino) != (source_info.st_dev, source_info.st_ino)):
                     raise CockpitEnrollmentError(f"Client identity file changed during export: {field}")
                 while True:
