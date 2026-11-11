@@ -84,6 +84,8 @@ TLS validation. Cockpit listens on guest loopback only; no host port forwarding 
   the local setup and Cockpit origins.
 - [ ] Attempting an external URL is blocked; browser chrome and developer tools
   are unavailable in the kiosk session.
+- [ ] systemd cgroup IP filters deny non-loopback destinations for Firefox and
+  the bootstrap service while allowing Cockpit/setup loopback traffic.
 - [ ] Killing Firefox or Cage causes the systemd kiosk service to restart it.
 - [ ] getty@tty1–tty6 are masked and no autologin/passwordless-sudo setup exists.
 - [ ] The `feclora-kiosk` account has no login shell and is not in `wheel`.
