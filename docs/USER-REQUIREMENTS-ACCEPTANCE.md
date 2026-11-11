@@ -93,14 +93,13 @@ Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer pr
 
 ## 6. Unattended PXE restore from a shared answer file
 
-**Outcome:** An operator prepares one signed, declarative restore answer on the Server. Any compatible PXE-booted Feclora Live client can obtain the same deployment instructions without per-client identity, USB provisioning or enrollment.
+**Outcome:** An operator prepares one declarative restore answer on the Server. Any compatible PXE-booted Feclora Live client can obtain the same deployment instructions without per-client identity, USB provisioning or enrollment.
 
 - [x] Define a bounded, duplicate-key-rejecting JSON answer schema with operation, image ID, repository URL, stable WWN/serial target selector, explicit destructive confirmation and automatic-start intent.
-- [x] Provide Cockpit fields for the repository URL and answer-file upload; require exact equality between the field and the signed document.
-- [x] Sign uploaded answers with the protected Server minisign key, verify against the configured public key, publish answer and detached signature atomically through Caddy, and support explicit revocation.
-- [ ] Embed/provision the corresponding trusted public key independently in the Feclora Live image; never trust a key downloaded beside the answer.
-- [x] Publish an answer-specific iPXE entry that boots the same Fedora Live kernel, initramfs and squashfs as the ISO and passes only the job UUID and answer/signature URLs.
-- [ ] Download the answer and detached signature from Caddy in Live, verify the signature before parsing or acting, enforce schema/version/size limits, and fail closed on missing, expired, tampered or revoked content.
+- [x] Provide one Cockpit answer-file upload; the repository URL is embedded in the JSON.
+- [x] Validate uploaded answers and publish the JSON atomically through Caddy over HTTP; support explicit revocation. The operator-selected trust assumption is that the configured HTTP server supplies the intended answer; there is no cryptographic authenticity layer in this PXE flow.
+- [x] Publish an answer-specific iPXE entry that boots the same Fedora Live kernel, initramfs and squashfs as the ISO and passes only the job UUID and answer URL.
+- [ ] Download the answer from Caddy in Live, validate schema/version/size limits, and fail closed on missing, expired or revoked content.
 - [ ] Connect the repository URL to supported provider adapters and separately protected credential references; reject unsupported schemes rather than accepting syntax as implementation.
 - [ ] Resolve exactly one whole-disk target by WWN and/or serial, verify capacity and device safety, and recheck stable identity immediately before the first write.
 - [ ] Consume the job authorization atomically to prevent replay; define expiry and tie revocation to cancellation/expiry.
