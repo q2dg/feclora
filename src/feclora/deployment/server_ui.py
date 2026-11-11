@@ -57,7 +57,7 @@ def _choose_job(
 ) -> tuple[DeploymentJob, str | None, list[str]]:
     transport = dialog_app._menu(
         "Deployment transport",
-        "Choose authenticated unicast or one-to-many multicast restore. Multicast supports whole-disk and partition images.",
+        "Choose authenticated unicast or one-to-many multicast restore. Multicast supports whole-disk and partition images, including raw LUKS2 containers.",
         [
             ("unicast", "Unicast (one Client; save or restore)"),
             ("multicast", "Multicast (multiple Clients; restore only)"),
@@ -69,7 +69,7 @@ def _choose_job(
         [("restore", "Restore a disk or partition image to multiple Clients")]
         if transport == "multicast" else
         [
-            ("restore", "Restore an image to one Client disk"),
+            ("restore", "Restore an image to one Client disk or partition"),
             ("save", "Capture one Client disk and store an image"),
         ]
     )
