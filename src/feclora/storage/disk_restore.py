@@ -165,6 +165,9 @@ def restore_disk(
     """Restore a verified raw whole-disk image to a whole-disk block device.
 
     confirmation must equal the exact phrase ERASE followed by target_path.
+    ignore_signature explicitly skips an optional minisign sidecar and is
+    reserved for callers that use a different operator-selected trust model.
+    It cannot be combined with required or configured signature verification.
     """
     if not isinstance(target_path, str) or not target_path.startswith("/dev/"):
         raise DiskRestoreError("target must be an absolute /dev/ path")
