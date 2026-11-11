@@ -269,6 +269,8 @@ def restore_logical_volume(
 
             if not validator(target_path):
                 raise LogicalVolumeRestoreError("target identity changed before post-restore verification")
+            if initial_device_number is not None and os.stat(target_path).st_rdev != initial_device_number:
+                raise LogicalVolumeRestoreError("target block-device identity changed before post-restore verification")
             try:
                 safety(target_path)
             except SourceSafetyError as exc:
