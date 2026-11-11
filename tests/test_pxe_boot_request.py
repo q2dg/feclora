@@ -89,7 +89,7 @@ class PXEBootRequestTests(unittest.TestCase):
             self.assertIn(f"feclora.pxe_job_id={JOB_ID}", published.read_text())
             # Idempotent publication of the same job is safe.
             self.assertEqual(
-                publish_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 9443),
+                publish_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 8080, 9443),
                 path,
             )
 
@@ -101,7 +101,7 @@ class PXEBootRequestTests(unittest.TestCase):
             self.assertTrue(published.exists())
             self.assertTrue(revoke_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 8080, 9443))
             self.assertFalse(published.exists())
-            self.assertFalse(revoke_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 9443))
+            self.assertFalse(revoke_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 8080, 9443))
 
     def test_rejects_noncanonical_job_id_for_boot_script(self):
         with self.assertRaisesRegex(LiveBootAssetError, "canonical UUID"):
