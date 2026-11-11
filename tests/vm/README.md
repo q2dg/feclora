@@ -77,8 +77,8 @@ The script creates two sparse 160 MiB files in a private temporary directory,
 partitions them, attaches them only as loop devices, formats the source
 partition as LUKS2 with a temporary test key, writes a random plaintext payload
 through the source mapping, captures the raw encrypted partition, and calls
-Feclora's `restore_partition` engine against the second loop partition. It
-then opens the restored container using the original key and compares the
+Feclora's `restore_partition` engine against the second loop partition,
+including its mounted/busy/root-device safety checks. It then opens the restored container using the original key and compares the
 decrypted payload byte-for-byte. Temporary mappings, loop devices, key and
 files are removed by the exit trap.
 
