@@ -43,14 +43,14 @@ DHCP and static IPv4 must be supported independently on Server and Client where 
 
 **Outcome:** Capture a whole disk or partition and publish the image, manifest and integrity metadata to a selected remote repository.
 
-Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer provider, distinct from SSHFS), NFS, SMB/CIFS, WebDAV and S3-compatible object storage. BitTorrent is an optional peer-to-peer distribution transport for immutable artifacts, not a mandatory repository type or a writable repository contract. Every endpoint/server/export/share/bucket/tracker/peer is external infrastructure administered independently of Feclora. Feclora only connects to it as a client; it must not deploy, configure or administer that infrastructure.
+Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer provider, distinct from SSHFS), NFS, SMB/CIFS, WebDAV and S3-compatible object storage. BitTorrent is an optional peer-to-peer distribution transport for immutable artifacts, not a mandatory repository type or a writable repository contract. The distribution model is single-publisher / multi-reader across every transport: one Client publishes each image, while multiple Clients may concurrently read and restore it. Concurrent publishers for the same image are out of scope. Every endpoint/server/export/share/bucket/tracker/peer is external infrastructure administered independently of Feclora. Feclora only connects to it as a client; it must not deploy, configure or administer that infrastructure.
 
 - [ ] Cockpit can create, edit, test, connect/mount, inspect, disconnect/unmount and remove each provider advertised as supported.
 - [ ] Credentials/private keys use root-owned protected storage; secrets never enter browser storage, ordinary configuration, logs, journals or URLs.
 - [ ] SSH host keys are pinned/verified; HTTPS validates TLS certificates; S3 credentials/configuration are protected and scoped.
 - [ ] Verify provider identity, endpoint/share/bucket/prefix, protocol/filesystem type, access mode, health and free space/quota where available.
 - [ ] Cockpit allows selecting the repository and capturing a whole disk or partition into it.
-- [ ] Publication is atomic or staged/committed so interrupted uploads cannot appear complete. Handle concurrent writers and stale mounts safely.
+- [ ] Publication is staged/committed so interrupted uploads cannot appear complete; protect against accidental overwrite and stale mounts. Concurrent readers must see only committed, immutable image sets. Concurrent publishers for the same image are not required.
 - [ ] Publish manifest, byte count, SHA-256, optional signature and encryption metadata for subsequent verification.
 - [ ] Provider tests cover success, bad credentials, permission denial, insufficient space/quota, disconnect, stale mount, interrupted publication and recovery.
 - [ ] S3 write/publication is required for the full writable-repository target; read-only S3 inventory/restore alone does not meet it. Provider-specific capability checks must fail closed when conditional create/no-overwrite and remote read-back guarantees are unavailable.
