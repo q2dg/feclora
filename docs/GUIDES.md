@@ -80,12 +80,12 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
   address and mTLS control port. These values are metadata, not authorization.
   The Client does not yet automatically authenticate, inspect the job,
   select/verify its target, or enter the READY/ARM workflow from this boot.
-- **Unattended PXE restore** — **Not implemented end to end**. Each enrolled
-  Client can now export its mTLS identity to a dedicated removable medium;
-  the Live image has a read-only identity mount and a PXE-specific Client
-  service template. Automatic job startup, authenticated per-Client profile
-  delivery, replay protection, deterministic target selection and
-  per-Client unattended execution remain pending.
+- **Unattended PXE restore** — **Partially implemented**. Each enrolled
+  Client exports its mTLS identity to dedicated removable media; the Live
+  image mounts it read-only and automatically starts the Client for unattended
+  boots. Unicast whole-disk restore requires an exact per-Client WWN/serial
+  binding and retains the Server READY/ARM gate. Partition/multicast execution,
+  interrupted-job replay acceptance and BIOS/UEFI lab validation remain.
 
 PXE boot alone never authorizes a destructive write. Manual Client approval
 and the Server's explicit ARM remain required by the current deployment
