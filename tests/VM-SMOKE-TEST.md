@@ -55,8 +55,6 @@ independent test run. Remove the temporary copy after the test.
 
 - [ ] ISO boots in BIOS mode.
 - [ ] ISO boots in UEFI mode.
-- [ ] Current transitional Live session reaches the expected tty1 feclora shell.
-- [ ] `sudo -n true` succeeds in the current explicitly privileged rescue image; this must be removed for the target kiosk runtime.
 - [ ] `/usr/share/feclora/python/feclora` contains the application payload.
 - [ ] `/usr/share/cockpit/feclora/index.html` exists and is non-empty.
 - [ ] `cockpit.socket` is enabled and active.
