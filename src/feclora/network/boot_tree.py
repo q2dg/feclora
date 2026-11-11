@@ -234,8 +234,7 @@ def revoke_unattended_answer_ipxe_script(http_root: str, job_id: str) -> bool:
     if (not current.startswith("#!ipxe\n")
             or current.count(f"feclora.pxe_job_id={canonical_job_id}") != 1
             or "feclora.pxe_mode=unattended-answer" not in current
-            or f"/answers/{canonical_job_id}/answer.json" not in current
-            or f"/answers/{canonical_job_id}/answer.minisig" not in current):
+            or f"/answers/{canonical_job_id}/answer.json" not in current):
         raise LiveBootAssetError("unattended answer boot script belongs to a different job; refusing to revoke it")
     destination.unlink()
     directory_fd = os.open(target_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
