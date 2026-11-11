@@ -5,36 +5,53 @@ application is installed at `/usr/share/cockpit/feclora` and uses Cockpit's
 authenticated session and explicit superuser authorization for privileged
 operations.
 
-## Live kiosk startup and authentication
+## Live kiosk startup, bootstrap and authentication
 
-Feclora's target runtime is a Live appliance based on a minimal Fedora Server
-userspace. It does not provide a general-purpose desktop environment. A
-minimal Wayland kiosk compositor (Cage) launches Firefox in kiosk mode on the
-local display, with Cockpit at `https://localhost:9090/` as its fixed page.
-Cockpit is enabled through `cockpit.socket`; the kiosk session and Cockpit
-are started automatically during boot.
+The Live image uses Fedora's Server product environment with no general-purpose
+desktop. Cage is the minimal Wayland compositor; Firefox is the only local
+interactive application. `feclora-kiosk.service` starts it on tty1 under the
+dedicated `feclora-kiosk` account. The kiosk account has no login shell, is
+not a member of `wheel`, and cannot invoke the privileged Feclora API.
 
-Firefox is the only normal interactive application presented on the local
-display. The kiosk must not expose browser chrome, arbitrary navigation,
-application launchers or a desktop session. This is a presentation boundary,
-not a substitute for operating-system authorization: Cockpit continues to
-authenticate users and authorize privileged actions through its normal
-mechanisms. TTY switching, shell access, browser escape paths, service
-permissions and physical-console access must be addressed separately.
+The `feclora` administrator account is created as a member of `wheel`, but
+starts locked. On each fresh Live boot, Firefox opens the first-boot assistant
+at `http://127.0.0.1:8765/`. This service binds only to IPv4 loopback and
+checks the Host header, exact Origin and a short-lived CSRF token. It accepts
+a password of 14–128 characters, sends it to `chpasswd` through standard
+input (never command-line arguments or logs), marks setup complete for the
+current Live session, and redirects Firefox to `https://localhost:9090/`.
+There is no default/shared administrator password.
 
-The current Live Kickstart still contains a legacy console-oriented account
-setup (automatic tty1 login and passwordless wheel sudo). That policy is not
-an acceptable final kiosk security model and must not be copied into an
-installed Server deployment. The kiosk implementation is gated on a secure
-first-boot credential/bootstrap flow and a trusted local Cockpit TLS
-certificate: without those, Firefox would either have no usable Cockpit
-account or display a certificate interstitial instead of the Feclora
-assistant. These are explicit implementation tasks, not assumed solved.
+The Live filesystem is currently ephemeral: the administrator password,
+first-boot marker and generated local CA/private keys are lost on reboot.
+Consequently the setup assistant runs again on every fresh Live boot. A
+persistent configuration/credential store is a separate design requirement;
+Feclora must not silently choose one of the disks that may be a restore target
+as its persistence device.
 
-Cockpit's Terminal component remains an authenticated Cockpit feature for
-authorized administrators. Hiding the local terminal or browser controls
-does not remove the need to restrict Cockpit roles, system accounts and
-privileged API actions.
+Before Cockpit's socket is activated, a root-owned systemd oneshot generates
+a local CA and a server certificate with SANs for `localhost`,
+`127.0.0.1` and `::1`. The CA is installed in the Fedora system trust store
+and Firefox is configured to import enterprise roots. Cockpit receives the
+certificate and private key as separate files in
+`/etc/cockpit/ws-certs.d/50-feclora.cert` and
+`50-feclora.key`; private keys are root-only. Firefox does not bypass TLS
+warnings or accept an untrusted certificate interactively.
+
+Firefox runs with `--kiosk` and a managed enterprise policy. URL block/allow
+rules confine navigation to the loopback setup page and the local Cockpit
+origin; browser password storage, private browsing, developer tools and
+Firefox account features are disabled. The Cage/Firefox systemd service
+restarts after failure. getty services on tty1–tty6 are masked, so ordinary
+virtual-terminal switching does not expose a login shell.
+
+This is defense in depth, not a claim of tamper-proof physical kiosk
+security. Firmware/boot-menu access and hardware-level keyboard escape
+behavior still require operator testing. The authenticated Cockpit Terminal
+remains available to the administrator inside Cockpit; the kiosk account
+itself cannot log in to Cockpit as an administrator. Do not treat fullscreen
+browser mode as a substitute for Cockpit authentication or backend
+authorization.
 
 ## Build and package
 
@@ -44,11 +61,10 @@ On the Fedora 45 build host, install Node.js and npm with
 `webui/dist/`. The generated package is staged on the augmented installer
 media and installed at `/usr/share/cockpit/feclora`.
 
-The target Live image includes `cockpit`, `cockpit-system` and
-`cockpit-storaged`; `cockpit.socket` is enabled. The kiosk runtime will add
-Firefox and a minimal Wayland compositor, not a full desktop environment.
-The legacy console password instructions describe the current transitional
-image only and are not the target kiosk bootstrap experience.
+The target image includes `cockpit`, `cockpit-system`,
+`cockpit-storaged`, `cage` and `firefox`; it does not install a desktop
+environment. `cockpit.socket`, the certificate/bootstrap units and the kiosk
+unit are enabled by Kickstart.
 
 ## Storage workflows
 
