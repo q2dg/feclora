@@ -66,7 +66,7 @@ _SUBVOLUME = re.compile(
 
 
 def parse_subvolume_list(payload: str) -> list[dict[str, Any]]:
-    """Parse btrfs subvolume list -a -p -u -q output."""
+    """Parse btrfs subvolume list -a -p -u -q -R output."""
     subvolumes: list[dict[str, Any]] = []
     for line in payload.splitlines():
         if not line.strip():
@@ -75,7 +75,14 @@ def parse_subvolume_list(payload: str) -> list[dict[str, Any]]:
         if match is None:
             raise BtrfsInventoryError("Btrfs returned an unrecognized subvolume-list row")
         subvol_id, generation, parent_id, top_level, parent_uuid, received_uuid, uuid, path = match.groups()
-        is_snapshot = parent_uuid not in {"-", "0" * 36}
+        has_parent_uuid = parent_uuid not in {"-", "0" * 36}
+        has_received_uuid = received_uuid not in {"-", "0" * 36}
+        is_snapshot = has_parent_uuid or has_received_uuid
+        snapshot_kind = (
+            "received_snapshot" if has_received_uuid
+            else "snapshot" if has_parent_uuid
+            else "subvolume"
+        )
         subvolumes.append({
             "id": int(subvol_id),
             "generation": int(generation),
@@ -85,7 +92,7 @@ def parse_subvolume_list(payload: str) -> list[dict[str, Any]]:
             "received_uuid": None if received_uuid == "-" else received_uuid,
             "uuid": uuid,
             "path": path,
-            "kind": "snapshot" if is_snapshot else "subvolume",
+            "kind": snapshot_kind,
             "is_snapshot": is_snapshot,
         })
     return subvolumes
@@ -125,7 +132,7 @@ def collect_btrfs_subvolumes(
             if not isinstance(target, str) or not target.startswith("/"):
                 raise BtrfsInventoryError("findmnt returned an invalid Btrfs mountpoint")
             listed = runner(
-                [*prefix, btrfs, "subvolume", "list", "-a", "-p", "-u", "-q", target],
+                [*prefix, btrfs, "subvolume", "list", "-a", "-p", "-u", "-q", "-R", target],
                 check=True, capture_output=True, text=True, timeout=30,
             )
             mounts.append({"mountpoint": target, "subvolumes": parse_subvolume_list(listed.stdout)})
