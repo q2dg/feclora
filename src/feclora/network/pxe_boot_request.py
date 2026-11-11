@@ -35,7 +35,7 @@ def _answer_endpoint(value: str, job_id: str, filename: str) -> tuple[str, int]:
     except ValueError as exc:
         raise PXEBootRequestError("PXE answer URL must contain a valid IPv4 listener and port") from exc
     if (parsed.scheme != "http" or address.version != 4 or address.is_unspecified
-            or address.is_loopback or address.is_multicast or port is None
+            or address.is_loopback or address.is_multicast or port is None or not 1 <= port <= 65535
             or parsed.username is not None or parsed.password is not None
             or parsed.query or parsed.fragment):
         raise PXEBootRequestError("PXE answer URL must be plain HTTP to a usable unicast IPv4 listener")
