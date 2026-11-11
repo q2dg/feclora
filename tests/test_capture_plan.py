@@ -1,0 +1,90 @@
+import unittest
+
+from feclora.storage.capture_plan import CapturePlanError, plan_storage_capture
+
+
+def base_inventory(device, **extra):
+    return {
+        "devices": [device],
+        "storage_graph": {"status": "available", "nodes": [], "edges": []},
+        **extra,
+    }
+
+
+class StorageCapturePlanTests(unittest.TestCase):
+    def test_disk_capture_includes_partition_descendants(self):
+        inventory = base_inventory({
+            "path": "/dev/sda", "type": "disk", "size_bytes": 1000,
+            "children": [{"path": "/dev/sda1", "type": "part", "filesystem": "ext4", "children": []}],
+        })
+        plan = plan_storage_capture(inventory, "/dev/sda", "disk")
+        self.assertEqual(plan["capture_scope"], "whole_disk_bytes")
+        self.assertTrue(plan["eligible_for_layer_aware_capture"])
+
+    def test_luks_partition_is_explicitly_raw_encrypted_container(self):
+        inventory = base_inventory({
+            "path": "/dev/sda2", "type": "part", "filesystem": "crypto_LUKS",
+            "volume_features": ["luks", "luks_container"], "children": [],
+        }, luks_metadata={"containers": [{"device": "/dev/sda2", "uuid": "luks-uuid"}]})
+        plan = plan_storage_capture(inventory, "/dev/sda2", "partition")
+        self.assertEqual(plan["capture_scope"], "encrypted_container_bytes")
+        self.assertIn("luks2_container", plan["storage_layers"])
+        self.assertEqual(plan["dependencies"][0]["uuid"], "luks-uuid")
+
+    def test_open_crypt_mapping_is_not_misrepresented_as_luks_header_backup(self):
+        inventory = base_inventory({
+            "path": "/dev/mapper/secure", "type": "crypt", "filesystem": "ext4",
+            "volume_features": ["encrypted", "crypt_mapping"], "children": [],
+        })
+        plan = plan_storage_capture(inventory, "/dev/mapper/secure", "partition")
+        self.assertEqual(plan["capture_scope"], "decrypted_mapping_bytes")
+        self.assertTrue(any("not its LUKS header" in warning for warning in plan["warnings"]))
+
+    def test_multi_device_btrfs_member_cannot_be_captured_as_standalone_partition(self):
+        inventory = base_inventory({
+            "path": "/dev/sda2", "type": "part", "filesystem": "btrfs", "children": [],
+        }, btrfs_topology={"filesystems": [{
+            "uuid": "btrfs-uuid", "total_devices": 2,
+            "devices": [{"path": "/dev/sda2"}, {"path": "/dev/sdb2"}],
+        }]})
+        plan = plan_storage_capture(inventory, "/dev/sda2", "partition")
+        self.assertFalse(plan["eligible_for_layer_aware_capture"])
+        self.assertTrue(any("omits one or more devices" in item for item in plan["blockers"]))
+
+    def test_whole_disk_btrfs_is_complete_only_when_all_members_are_descendants(self):
+        inventory = base_inventory({
+            "path": "/dev/sda", "type": "disk", "children": [
+                {"path": "/dev/sda2", "type": "part", "filesystem": "btrfs", "children": []}
+            ],
+        }, btrfs_topology={"filesystems": [{
+            "uuid": "btrfs-uuid", "total_devices": 2,
+            "devices": [{"path": "/dev/sda2"}, {"path": "/dev/sdb2"}],
+        }]})
+        plan = plan_storage_capture(inventory, "/dev/sda", "disk")
+        self.assertFalse(plan["eligible_for_layer_aware_capture"])
+
+    def test_mounted_source_blocks_consistent_capture_plan(self):
+        inventory = base_inventory({
+            "path": "/dev/sda1", "type": "part", "filesystem": "xfs",
+            "mountpoints": ["/mnt/data"], "children": [],
+        })
+        plan = plan_storage_capture(inventory, "/dev/sda1", "partition")
+        self.assertFalse(plan["eligible_for_layer_aware_capture"])
+        self.assertTrue(any("mounted or in use" in item for item in plan["blockers"]))
+
+    def test_requires_exact_unique_source(self):
+        with self.assertRaises(CapturePlanError):
+            plan_storage_capture({"devices": []}, "/dev/sda", "disk")
+        with self.assertRaises(CapturePlanError):
+            plan_storage_capture({"devices": [
+                {"path": "/dev/sda", "type": "disk"},
+                {"path": "/dev/sda", "type": "disk"},
+            ]}, "/dev/sda", "disk")
+
+    def test_rejects_unknown_image_type(self):
+        with self.assertRaises(CapturePlanError):
+            plan_storage_capture({"devices": []}, "/dev/sda", "volume")
+
+
+if __name__ == "__main__":
+    unittest.main()
