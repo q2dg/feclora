@@ -5,7 +5,7 @@ After=network-online.target NetworkManager-wait-online.service
 ConditionKernelCommandLine=feclora.pxe_mode=unattended-answer
 
 [Service]
-Type=oneshot
+Type=simple
 RuntimeDirectory=feclora/pxe
 RuntimeDirectoryMode=0700
 RuntimeDirectoryPreserve=yes
