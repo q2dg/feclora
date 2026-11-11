@@ -42,6 +42,27 @@ class CaptureTests(unittest.TestCase):
             ("/usr/sbin/partclone.ext4", "-c", "-s", "/dev/sda1", "-F", "-f", "1"),
         )
 
+    def test_supported_filesystems_select_expected_partclone_tools(self):
+        from feclora.storage.capture import _FILESYSTEM_TO_PARTCLONE
+        expected = {
+            "ext2": "partclone.extfs", "ext3": "partclone.extfs",
+            "ext4": "partclone.ext4", "xfs": "partclone.xfs",
+            "ntfs": "partclone.ntfs", "ntfs3": "partclone.ntfs",
+            "fat": "partclone.fat", "fat12": "partclone.fat",
+            "fat16": "partclone.fat", "fat32": "partclone.fat",
+            "vfat": "partclone.fat", "exfat": "partclone.exfat",
+        }
+        for filesystem, executable in expected.items():
+            with self.subTest(filesystem=filesystem):
+                plan = build_capture_plan(
+                    "/dev/sda1", filesystem,
+                    {executable: "/usr/sbin/" + executable, "dd": "/usr/bin/dd"},
+                )
+                self.assertEqual(plan.image_format, "partclone")
+                self.assertEqual(plan.executable, "/usr/sbin/" + executable)
+                self.assertEqual(plan.filesystem, filesystem)
+        self.assertTrue(set(expected).issubset(_FILESYSTEM_TO_PARTCLONE))
+
     def test_partclone_legacy_block_counters_map_to_partition_bytes(self):
         from feclora.storage.capture import _partclone_stderr_progress
         self.assertEqual(
