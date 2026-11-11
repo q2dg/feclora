@@ -42,11 +42,9 @@ class PxeBootTreeTests(unittest.TestCase):
             job_answers = answers / "f47ac10b-58cc-4372-a567-0e02b2c3d479"
             job_answers.mkdir(parents=True, mode=0o755)
             (job_answers / "answer.json").write_bytes(b"{}")
-            (job_answers / "answer.minisig").write_bytes(b"signature")
             os.chmod(answers, 0o755)
             os.chmod(job_answers, 0o555)
             os.chmod(job_answers / "answer.json", 0o444)
-            os.chmod(job_answers / "answer.minisig", 0o444)
             with patch("feclora.network.pxe_boot.stage_ipxe_assets") as stage_tftp, patch(
                 "feclora.network.pxe_boot.stage_live_boot_assets"
             ) as stage_http:
