@@ -48,7 +48,16 @@ and the Server operator explicitly ARMs the complete READY set.
 - `target_type`: `disk`, `partition` or `logical_volume`. Logical-volume
   targets are valid only for restore jobs. Save and clone currently support
   whole disks only. A Client (interactive or persistent Cockpit mode) selects its own existing LV
-  locally; the job never carries a Client device path. The persistent service
+  locally; the job never carries a Client device path.
+  Raw LUKS2 container images use the same `partition` target type: unicast
+  and multicast Clients dispatch them to the partition restore engine, which
+  validates encrypted-container provenance and the included header UUID,
+  writes raw ciphertext/header/keyslot bytes, verifies read-back and the
+  resulting LUKS2 JSON metadata, and leaves the mapping closed. The Client
+  must have `cryptsetup`; age-encrypted artifacts additionally need its local
+  age identity. No passphrase or keyslot material is sent as a deployment
+  control field. Opened-mapping plaintext images and LUKS2-on-LV remain
+  unsupported. The persistent service
   and Cockpit API independently validate the selected LV against healthy local
   LVM topology before reporting READY.
 - `authorized_clients`: non-empty allowlist of unique unicast MAC addresses.
