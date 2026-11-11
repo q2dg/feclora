@@ -82,3 +82,5 @@ class StorageTopologyGraphTests(unittest.TestCase):
         self.assertEqual(by_uuid["subvol-2"]["parent_uuid"], "subvol-1")
         self.assertEqual(by_uuid["subvol-1"]["kind"], "btrfs_subvolume")
         self.assertEqual(by_uuid["subvol-1"]["subvolume_kind"], "subvolume")
+        relations = {(e["source"], e["target"], e["relation"]) for e in graph["edges"]}
+        self.assertIn(("btrfs-subvolume:subvol-2", "btrfs-subvolume:subvol-1", "snapshot_of"), relations)
