@@ -55,12 +55,15 @@ independent test run. Remove the temporary copy after the test.
 
 - [ ] ISO boots in BIOS mode.
 - [ ] ISO boots in UEFI mode.
+- [ ] Cage/Firefox kiosk starts automatically on tty1; no desktop or console login prompt is presented.
 - [ ] `/usr/share/feclora/python/feclora` contains the application payload.
 - [ ] `/usr/share/cockpit/feclora/index.html` exists and is non-empty.
 - [ ] `cockpit.socket` is enabled and active.
 - [ ] The local first-boot assistant accepts a new administrator password and redirects to Cockpit.
 - [ ] Cockpit presents no TLS warning; the localhost CA is trusted by Firefox.
 - [ ] The `feclora` account was locked before setup and accepts the password created in the assistant.
+- [ ] `cockpit.socket` listens only on `127.0.0.1:9090` and `[::1]:9090`.
+- [ ] Certificate, bootstrap and kiosk systemd units reach the expected states.
 - [ ] The Feclora Cockpit app opens and displays the Operations wizard.
 - [ ] The legacy `dialog` package and `/usr/local/bin/feclora-ui` are absent from the supported Live image.
 - [ ] Kernel command line and boot logs are captured.
