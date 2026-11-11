@@ -154,7 +154,7 @@ class StorageTopologyGraphTests(unittest.TestCase):
             }]},
         })
         relations = {(e["source"], e["target"], e["relation"]) for e in graph["edges"]}
-        self.assertIn(("lvm-lv:vg/root", "device:/dev/mapper/vg-root", "maps_to_block_device"), relations)
+        self.assertIn(("lvm-lv:/dev/mapper/vg-root", "device:/dev/mapper/vg-root", "maps_to_block_device"), relations)
 
     def test_major_minor_match_must_be_unique(self):
         graph = build_storage_graph({
