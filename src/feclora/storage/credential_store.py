@@ -15,7 +15,7 @@ from pathlib import Path
 
 DEFAULT_ROOT = Path("/etc/feclora/credentials")
 _IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
-_MODES = {"ssh-key": 0o600, "known-hosts": 0o644, "smb": 0o600, "rclone": 0o600}
+_MODES = {"ssh-key": 0o600, "known-hosts": 0o644, "smb": 0o600}
 
 
 class CredentialStoreError(RuntimeError):
