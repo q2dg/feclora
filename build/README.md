@@ -9,10 +9,12 @@ Cage Wayland kiosk running Firefox against Cockpit on localhost. The image
 build uses Lorax `livemedia-creator` with QEMU virtualization and deliberately
 avoids `--no-virt`, which bypasses the isolated virtualized build path.
 
-The current Kickstart is still transitional: it builds the older console-led
-Live image. The kiosk runtime, trusted local Cockpit certificate and secure
-first-boot account provisioning must be implemented and accepted before the
-image can be described as a completed kiosk appliance.
+The Kickstart now selects Fedora's Server product environment, installs Cage
+and Firefox, creates separate locked-administrator and unprivileged-kiosk
+accounts, generates/trusts the local Cockpit certificate, and enables the
+first-boot assistant and kiosk systemd services. This is source-level wiring;
+BIOS/UEFI boot, Firefox policy behavior and physical kiosk acceptance have not
+yet been run.
 
 ## Static validation and automated tests
 
@@ -54,12 +56,14 @@ directory before treating the build as successful.
 - The Kickstart and ISO pipeline are source-level build inputs, not a
   validated Live image. ISO generation and boot acceptance remain operator
   tasks.
-- The current transitional Live Kickstart still contains an automatically
-  logged-in `feclora` account with passwordless sudo. Anyone with physical
-  access who can boot that image can obtain root. This is not the target kiosk
-  security model and must be removed when secure first-boot provisioning and
-  administrator access are implemented. Do not reuse this policy on an
-  installed system.
+- The Live root filesystem is ephemeral. The first-boot administrator
+  password, completion marker and local CA/private key are regenerated on
+  every fresh boot. A persistent configuration/credential store remains to be
+  designed; Feclora must not select a potential restore target disk implicitly.
+- Cage disables ordinary VT switching by default; tty1–tty6 getty services
+  are masked. Physical firmware/boot-menu access and keyboard escape behavior
+  still require testing. The authenticated Cockpit Terminal remains an
+  administrator capability inside Cockpit.
 - BIOS and UEFI boot, Secure Boot, Cockpit login, device discovery and all
   destructive storage operations require testing in disposable virtual
   machines or on disposable media before release.
