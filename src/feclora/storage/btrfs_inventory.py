@@ -121,7 +121,7 @@ def collect_btrfs_subvolumes(
         prefix = [sudo_bin, "-n"]
     try:
         mounted = runner(
-            [*prefix, findmnt, "--json", "--list", "--types", "btrfs", "--output", "TARGET"],
+            [*prefix, findmnt, "--json", "--list", "--types", "btrfs", "--output", "TARGET,SOURCE,UUID"],
             check=True, capture_output=True, text=True, timeout=15,
         )
         payload = json.loads(mounted.stdout)
@@ -137,7 +137,12 @@ def collect_btrfs_subvolumes(
                 [*prefix, btrfs, "subvolume", "list", "-a", "-p", "-u", "-q", "-R", target],
                 check=True, capture_output=True, text=True, timeout=30,
             )
-            mounts.append({"mountpoint": target, "subvolumes": parse_subvolume_list(listed.stdout)})
+            mounts.append({
+                "mountpoint": target,
+                "source": entry.get("source"),
+                "uuid": entry.get("uuid"),
+                "subvolumes": parse_subvolume_list(listed.stdout),
+            })
     except subprocess.TimeoutExpired as exc:
         raise BtrfsInventoryError("Btrfs subvolume inspection timed out") from exc
     except subprocess.CalledProcessError as exc:
