@@ -17,13 +17,12 @@ when a maintained system tool already provides the required capability.
 | SSH and file transfer | OpenSSH SSH/SFTP | Pinned host keys, protected key references, non-interactive transfers and Feclora-level job orchestration |
 | Network filesystems | NFS utilities and mount helpers; CIFS/SMB utilities; SSHFS | Provider-specific mount lifecycle, credential isolation, mount identity verification and operation leases |
 | WebDAV | davfs2 or another maintained WebDAV client | HTTPS validation and isolated per-repository credentials; never repurpose the global davfs2 secrets file as a multi-repository secret store |
-| S3-compatible object storage | rclone for supported read/mount use; provider object APIs for safe writes | Capability detection, conditional no-overwrite publication, multipart completion guarantees and remote read-back verification |
 | Optional peer-to-peer distribution | A maintained BitTorrent client, if selected after Fedora-baseline evaluation | Immutable artifact distribution, trusted manifest/digest verification, authorized job binding, bandwidth/peer policy and cleanup |
 
 ## Repository types and capabilities
 
-The intended remote repository set is SSHFS, SFTP, NFS, SMB/CIFS, WebDAV and
-S3-compatible object storage. These are distinct providers with different
+The intended remote repository set is SSHFS, SFTP, NFS, SMB/CIFS and
+WebDAV. These are distinct providers with different
 capabilities; do not assume that every provider supports listing, publishing,
 resuming or deleting. Feclora uses a single-publisher / multi-reader model:
 one Client publishes an image and multiple Clients may read/restore that
@@ -39,11 +38,6 @@ not a product requirement.
 - **WebDAV** is a required provider, but safe per-repository credential
   isolation is not complete. Do not use the global `/etc/davfs2/secrets` file
   as a shortcut.
-- **S3** is a required object-storage provider. The current rclone mount path
-  is read-only. Writable image publication must use an object API with
-  server-enforced create-if-absent semantics, safe multipart completion,
-  unique staging keys and remote read-back digest/size verification. If a
-  provider cannot guarantee these semantics, keep it read-only.
 - **BitTorrent** is an optional distribution transport, not a repository or
   general-purpose writable storage backend. It is not yet implemented. If
   added, reuse a maintained client; never implement the protocol in Feclora.
