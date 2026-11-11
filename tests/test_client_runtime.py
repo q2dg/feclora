@@ -79,6 +79,26 @@ class ClientImageRuntimeTests(unittest.TestCase):
         self.assertTrue(restore.call_args.kwargs["require_signature"])
         self.assertEqual(restore.call_args.kwargs["confirmation"], "ERASE /dev/vda")
 
+    def test_logical_volume_restore_dispatches_to_local_lv_engine(self):
+        tls = FakeTLS(control_frame({
+            "type": "transfer_offer", "job_id": JOB_ID, "image_id": "golden-image",
+        }))
+        with (
+            patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device),
+            patch("feclora.deployment.client_runtime.receive_image_set", return_value="/repo/golden-image.manifest.json"),
+            patch("feclora.deployment.client_runtime.restore_logical_volume") as restore,
+        ):
+            result = execute_client_image_job(
+                make_job("restore", "logical_volume"), tls, self.approval,
+                server_identity="URI:feclora-server", repository="/repo",
+                trusted_server_public_key=None,
+            )
+        self.assertTrue(result[0])
+        restore.assert_called_once()
+        self.assertEqual(restore.call_args.args[2], "/dev/vda")
+        self.assertEqual(restore.call_args.kwargs["confirmation"], "ERASE /dev/vda")
+        self.assertTrue(callable(restore.call_args.kwargs["inventory_provider"]))
+
     def test_unsigned_restore_over_mtls_does_not_require_minisign(self):
         tls = FakeTLS(control_frame({
             "type": "transfer_offer", "job_id": JOB_ID, "image_id": "golden-image",
