@@ -11,6 +11,7 @@ import { callFeclora, waitForLocalOperation } from "./api.js";
 const OPERATION_LABELS = {
   capture_disk: "Create a whole-disk image",
   capture_partition: "Create a partition image",
+  capture_logical_volume: "Create a logical-volume image",
   restore_disk: "Restore a whole-disk image",
   restore_partition: "Restore a partition image",
   clone_disk: "Clone disk to disk",
@@ -249,6 +250,18 @@ export default function App() {
   const disks = devices.filter((d) => d.type === "disk" && d.path);
   const restoreTargetDevice = devices.find((device) => device.path === target);
   const partitions = devices.filter((d) => d.type === "part" && d.path);
+  const logicalVolumes = useMemo(() => {
+    const result = [];
+    for (const group of inventory?.volume_topology?.volume_groups || []) {
+      if (group.status !== "healthy") continue;
+      for (const lv of group.logical_volumes || []) {
+        if (lv.hidden || lv.snapshot || !lv.major_minor) continue;
+        const matches = devices.filter((device) => device.major_minor === lv.major_minor);
+        if (matches.length === 1) result.push({ ...matches[0], lvm_name: lv.name, lvm_path: lv.path });
+      }
+    }
+    return result;
+  }, [inventory, devices]);
   const clientRemoteJob = clientRemoteInspection?.job;
   const clientRemoteDeviceOptions = clientRemoteJob?.target_type === "partition" ? partitions : disks;
   const clientRemoteConfirmationPhrase = clientRemoteJob && clientRemoteTarget
@@ -259,7 +272,8 @@ export default function App() {
   const isCapture = operation.startsWith("capture_");
   const isRestore = operation.startsWith("restore_");
   const isDisk = operation.endsWith("_disk");
-  const deviceOptions = isDisk ? disks : partitions;
+  const isLogicalVolume = operation === "capture_logical_volume";
+  const deviceOptions = isDisk ? disks : isLogicalVolume ? logicalVolumes : partitions;
   const selectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId);
   const availableImages = selectedRepositoryId ? repositoryImages : images;
   const matchingImages = availableImages.filter((item) => item.image_type === (isDisk ? "disk" : "partition"));
@@ -291,6 +305,7 @@ export default function App() {
       } : null;
       if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
+      else if (operation === "capture_logical_volume") params = { source, image_id: imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (isRestore) {
         const sftpSource = restoreFromSftp && sftpInspectionMatchesCurrent ? {
           host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
@@ -1001,16 +1016,16 @@ export default function App() {
                       </select>
                     </Field>
                     {isCapture && <>
-                      <Field label={isDisk ? "Source disk" : "Source partition"}>
+                      <Field label={isDisk ? "Source disk" : isLogicalVolume ? "Source logical volume" : "Source partition"}>
                         <select className="pf-v5-c-form-control" value={source} onChange={(e) => setSource(e.target.value)}>
                           <option value="">Select a source device…</option>
-                          {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
+                          {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path}{d.lvm_name ? ` · ${d.lvm_name} (${d.lvm_path})` : ""} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
                         </select>
                       </Field>
                       <Field label="Image identifier" help="Use letters, numbers, dots, underscores or hyphens.">
                         <input className="pf-v5-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)} maxLength={128} required />
                       </Field>
-                      {!isDisk && <Field label="Partition identifier"><input className="pf-v5-c-form-control" value={partitionId} onChange={(e) => setPartitionId(e.target.value)} maxLength={128} placeholder={imageId || "e.g. rootfs"} /></Field>}
+                      {operation === "capture_partition" && <Field label="Partition identifier"><input className="pf-v5-c-form-control" value={partitionId} onChange={(e) => setPartitionId(e.target.value)} maxLength={128} placeholder={imageId || "e.g. rootfs"} /></Field>}
                       <Field label="Compression">
                         <select className="pf-v5-c-form-control" value={compression} onChange={(e) => setCompression(e.target.value)}>
                           <option value="zstd">Zstandard (recommended)</option><option value="lz4">LZ4 (fast)</option><option value="gzip">Gzip</option><option value="xz">XZ</option><option value="none">None</option>
