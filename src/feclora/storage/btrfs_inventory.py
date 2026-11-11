@@ -1,8 +1,8 @@
 """Read-only Btrfs multi-device inventory from btrfs-progs."""
 from __future__ import annotations
 
-import os
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -77,10 +77,12 @@ def parse_subvolume_list(payload: str) -> list[dict[str, Any]]:
         subvol_id, generation, parent_id, top_level, parent_uuid, received_uuid, uuid, path = match.groups()
         has_parent_uuid = parent_uuid not in {"-", "0" * 36}
         has_received_uuid = received_uuid not in {"-", "0" * 36}
-        is_snapshot = has_parent_uuid or has_received_uuid
+        # A received UUID proves receive provenance, not snapshot ancestry.
+        # Only parent_uuid is used to classify a snapshot.
+        is_snapshot = has_parent_uuid
         snapshot_kind = (
-            "received_snapshot" if has_received_uuid
-            else "snapshot" if has_parent_uuid
+            "snapshot" if has_parent_uuid
+            else "received_subvolume" if has_received_uuid
             else "subvolume"
         )
         subvolumes.append({
