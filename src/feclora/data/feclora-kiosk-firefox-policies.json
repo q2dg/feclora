@@ -1,29 +1,36 @@
 {
   "policies": {
     "Certificates": {
-      "ImportEnterpriseRoots": true
+      "Install": ["/usr/lib/mozilla/certificates/feclora-kiosk-ca.crt"]
     },
     "DisableAppUpdate": true,
     "DisableFirefoxAccounts": true,
     "DisableFirefoxStudies": true,
+    "DisableFirefoxScreenshots": true,
     "DisableFormHistory": true,
-    "DisablePasswordManager": true,
+    "PasswordManagerEnabled": false,
     "DisablePrivateBrowsing": true,
     "DisableTelemetry": true,
     "DisableDeveloperTools": true,
+    "DisableSafeMode": true,
+    "DisableSecurityBypass": true,
     "BlockAboutConfig": true,
     "BlockAboutProfiles": true,
     "BlockAboutSupport": true,
+    "BlockAboutAddons": true,
+    "DisableProfileImport": true,
     "Homepage": {
       "URL": "http://127.0.0.1:8765/",
       "Locked": true,
       "StartPage": "homepage"
     },
-    "URLBlocklist": ["*"],
-    "URLAllowlist": [
-      "http://127.0.0.1:8765/*",
-      "https://localhost:9090/*"
-    ],
+    "WebsiteFilter": {
+      "Block": ["<all_urls>"],
+      "Exceptions": [
+        "http://127.0.0.1:8765/*",
+        "https://localhost:9090/*"
+      ]
+    },
     "Preferences": {
       "browser.aboutConfig.showWarning": {
         "Value": false,
