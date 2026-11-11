@@ -385,7 +385,11 @@ and verifying both metadata files and independently checking every artifact.
 
 Each individual upload retains the adapter's random staging name and uses the
 OpenSSH hard-link extension for atomic no-overwrite publication; servers that
-do not support that extension fail closed. This is not a multi-file atomic transaction:
+do not support that extension fail closed. Artifact filenames are also barred
+from the native local repository's manifest-marker namespace
+(`manifest.json`, `manifest.json.minisig`, and
+`<image_id>.manifest.json[.minisig]`) so an artifact cannot collide with
+another image's discovery metadata during import. This is not a multi-file atomic transaction:
 failed publication can leave unreferenced remote artifacts or a manifest
 without its signature. Such a set is incomplete and must be rejected. The
 publisher does not yet implement remote inventory/garbage collection,
