@@ -69,7 +69,7 @@ class WebAPITests(unittest.TestCase):
             st_mode=stat.S_IFREG | 0o644, st_uid=0,
         )), patch("feclora.webapi._repository", return_value=Path("/var/lib/feclora/images")), \
              patch("feclora.webapi._client_runtime_config", return_value=None), \
-             patch("feclora.storage.sftp_image_set.fetch_image_set", return_value=expected) as fetch, \\
+             patch("feclora.storage.sftp_image_set.fetch_image_set", return_value=expected) as fetch, \
              patch("feclora.webapi._progress"):
             from feclora.webapi import _execute_operation
             result = _execute_operation("sftp_fetch", params, "job-fetch")
@@ -88,7 +88,7 @@ class WebAPITests(unittest.TestCase):
         }
         expected = {"image_id": "golden", "image_type": "disk", "artifact_count": 2, "published": True}
         with patch("feclora.webapi._repository", return_value="/var/lib/feclora/images"), \
-             patch("feclora.webapi._publish_captured_image_to_sftp", return_value=expected) as publish, \\
+             patch("feclora.webapi._publish_captured_image_to_sftp", return_value=expected) as publish, \
              patch("feclora.webapi._progress"):
             from feclora.webapi import _execute_operation
             result = _execute_operation("sftp_publish", params, "job-publish")
