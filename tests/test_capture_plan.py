@@ -25,7 +25,7 @@ class StorageCapturePlanTests(unittest.TestCase):
         inventory = base_inventory({
             "path": "/dev/sda2", "type": "part", "filesystem": "crypto_LUKS",
             "volume_features": ["luks", "luks_container"], "children": [],
-        }, luks_metadata={"containers": [{"device": "/dev/sda2", "uuid": "luks-uuid"}]})
+        }, luks_metadata={"containers": [{"device": "/dev/sda2", "uuid": "luks-uuid", "version": 2}]})
         plan = plan_storage_capture(inventory, "/dev/sda2", "partition")
         self.assertEqual(plan["capture_scope"], "encrypted_container_bytes")
         self.assertEqual(plan["manifest_storage"]["source_layer"], "luks2_container")
@@ -41,7 +41,7 @@ class StorageCapturePlanTests(unittest.TestCase):
                 {"path": "/dev/sda2", "type": "part", "filesystem": "LVM2_member",
                  "volume_features": ["lvm", "lvm_pv"], "children": []},
             ],
-        }, luks_metadata={"containers": [{"device": "/dev/sda1", "uuid": "luks-1"}]},
+        }, luks_metadata={"containers": [{"device": "/dev/sda1", "uuid": "luks-1", "version": 2}]},
            volume_topology={"pvs": [{"pv_name": "/dev/sda2", "vg_name": "vg0"}],
                             "volume_groups": []})
         plan = plan_storage_capture(inventory, "/dev/sda", "disk")
@@ -51,15 +51,26 @@ class StorageCapturePlanTests(unittest.TestCase):
         self.assertTrue(any(item.get("device_path") == "/dev/sda1"
                             for item in plan["dependencies"]))
 
-    def test_luks_container_feature_without_filesystem_signature_is_raw_encrypted_scope(self):
+    def test_luks_container_without_verified_luks2_metadata_is_rejected(self):
         inventory = base_inventory({
             "path": "/dev/sda3", "type": "part",
             "volume_features": ["luks_container"], "children": [],
-        })
+        }, luks_metadata={"status": "unavailable", "containers": []})
         plan = plan_storage_capture(inventory, "/dev/sda3", "partition")
-        self.assertEqual(plan["capture_scope"], "encrypted_container_bytes")
-        self.assertIn("luks2_container", plan["storage_layers"])
-        self.assertTrue(plan["dependencies"][0]["included_in_source_bytes"])
+        self.assertFalse(plan["eligible_for_layer_aware_capture"])
+        self.assertTrue(any("not verifiably LUKS2" in item for item in plan["blockers"]))
+        self.assertNotIn("luks2_container", plan["storage_layers"])
+
+    def test_luks1_container_is_not_mislabeled_as_luks2(self):
+        inventory = base_inventory({
+            "path": "/dev/sda3", "type": "part",
+            "filesystem": "crypto_LUKS", "children": [],
+        }, luks_metadata={"status": "available", "containers": [{
+            "device": "/dev/sda3", "uuid": "luks1-uuid", "version": 1,
+        }]})
+        plan = plan_storage_capture(inventory, "/dev/sda3", "partition")
+        self.assertFalse(plan["eligible_for_layer_aware_capture"])
+        self.assertTrue(any("LUKS1" in item for item in plan["blockers"]))
 
     def test_open_crypt_mapping_is_not_misrepresented_as_luks_header_backup(self):
         inventory = base_inventory({
