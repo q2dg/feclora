@@ -1,5 +1,6 @@
 import unittest
 import tempfile
+import os
 from pathlib import Path
 
 from feclora.network.pxe_boot_request import (
