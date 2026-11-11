@@ -54,8 +54,9 @@ migration to an installed-only Fedora Server appliance.
   boundaries; the kiosk account is not a member of wheel and cannot log in
   to Cockpit as an administrator or invoke privileged Feclora API actions.
 - [x] Remove console autologin and passwordless sudo, run Firefox under a
-  separate non-wheel nologin account, mask tty1–tty6 getty services and
-  restrict Firefox navigation through enterprise policy.
+  separate non-wheel nologin account, mask tty1–tty6 getty services, restrict
+  Firefox navigation through enterprise policy and deny non-loopback network
+  access to the kiosk/bootstrap services using systemd IP filters.
 - [ ] Verify compositor/keyboard escape paths and the Cockpit Terminal
   experience on real hardware. The administrator's authenticated Cockpit
   Terminal remains an administrative capability; kiosk mode is not a
