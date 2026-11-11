@@ -90,6 +90,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
+        "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
