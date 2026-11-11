@@ -152,7 +152,7 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
                 token_cookie = cookie["feclora_setup"].value
             except (KeyError, http.cookies.CookieError):
                 token_cookie = ""
-            fields = parse_qs(self.rfile.read(length).decode("utf-8", "replace"), keep_blank_values=True)
+            fields = parse_qs(self.rfile.read(length).decode("utf-8", "replace"), keep_blank_values=True, max_num_fields=4)
             if set(fields) != {"token", "password", "confirmation"} or any(len(values) != 1 for values in fields.values()):
                 self._headers(400)
                 self.wfile.write(b"Invalid form")
