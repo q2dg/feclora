@@ -159,6 +159,18 @@ class PartitionRestoreTests(unittest.TestCase):
                 popen_factory=lambda _argv, **_opts: proc,
             )
 
+    def test_luks2_container_restore_requires_cryptsetup_before_writer(self):
+        self.write_luks2_manifest()
+        with self.assertRaisesRegex(PartitionRestoreError, "cryptsetup is required"):
+            self.restore()
+        self.assertEqual(self.calls, [])
+
+    def test_luks2_container_restore_rejects_inconsistent_scope_and_layer(self):
+        self.write_luks2_manifest(source_layer="active_crypt_mapping")
+        with self.assertRaisesRegex(PartitionRestoreError, "byte scope and source layer"):
+            self.restore()
+        self.assertEqual(self.calls, [])
+
     def test_open_crypt_mapping_image_is_not_written_as_luks_container(self):
         self.write_luks2_manifest(scope="decrypted_mapping_bytes", source_layer="active_crypt_mapping")
         with self.assertRaisesRegex(PartitionRestoreError, "plaintext from an opened crypt mapping"):
