@@ -117,7 +117,7 @@ class PartitionRestoreTests(unittest.TestCase):
                 return SimpleNamespace(stdout=luks_uuid + "\n", stderr="", returncode=0)
             if "luksDump" in command:
                 return SimpleNamespace(
-                    stdout=json.dumps({"uuid": luks_uuid, "segments": {"0": {"encryption": "aes-xts-plain64"}}}),
+                    stdout=json.dumps({"uuid": luks_uuid, "segments": {"0": {"encryption": "aes-xts-plain64"}}, "keyslots": {"0": {"type": "luks2"}}}),
                     stderr="", returncode=0,
                 )
             return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\n", stderr="", returncode=0)
@@ -138,6 +138,30 @@ class PartitionRestoreTests(unittest.TestCase):
         self.assertEqual(proc.stdin.getvalue(), self.payload)
         self.assertTrue(any("luksUUID" in call[0][0] for call in self.runner_calls))
         self.assertTrue(any("luksDump" in call[0][0] for call in self.runner_calls))
+
+    def test_luks2_container_restore_rejects_header_without_keyslots(self):
+        self.write_luks2_manifest()
+        luks_uuid = "12345678-1234-4234-8234-123456789abc"
+        proc = FakeProcess()
+        proc.stdout = io.BytesIO(self.payload)
+        def runner(command, **kwargs):
+            if "luksUUID" in command:
+                return SimpleNamespace(stdout=luks_uuid + "\\n", stderr="", returncode=0)
+            if "luksDump" in command:
+                return SimpleNamespace(
+                    stdout=json.dumps({"uuid": luks_uuid, "segments": {"0": {"encryption": "aes-xts-plain64"}}, "keyslots": {}}),
+                    stderr="", returncode=0,
+                )
+            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\\n", stderr="", returncode=0)
+        with self.assertRaisesRegex(PartitionRestoreError, "segments or keyslots"):
+            restore_partition(
+                self.manifest, self.temp.name, "/dev/sda1",
+                confirmation="ERASE /dev/sda1",
+                executables={"lsblk": "lsblk", "dd": "dd", "cryptsetup": "cryptsetup"},
+                runner=runner, device_validator=lambda _path: True,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda _argv, **_opts: proc,
+            )
 
     def test_luks2_container_restore_rejects_uuid_mismatch_after_write(self):
         self.write_luks2_manifest()
