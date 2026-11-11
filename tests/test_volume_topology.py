@@ -46,6 +46,8 @@ class LvmTopologyTests(unittest.TestCase):
         self.assertEqual(topology["volume_groups"][0]["name"], "vg0")
         self.assertTrue(all("--readonly" in argv for argv in calls))
         self.assertTrue(all("--reportformat" in argv for argv in calls))
+        lvs_call = next(argv for argv in calls if argv[0].endswith("/lvs"))
+        self.assertIn("--all", lvs_call)
 
 
     def test_summarizes_pv_membership_thin_volumes_and_degraded_vgs(self):
@@ -69,6 +71,8 @@ class LvmTopologyTests(unittest.TestCase):
                  "metadata_percent": "8.0", "devices": "/dev/sda2(0)"},
                 {"lv_path": "/dev/vg0/snap", "lv_name": "snap", "vg_name": "vg0",
                  "origin": "data", "lv_role": "public,snapshot", "lv_size": "1000"},
+                {"lv_path": "/dev/vg0/[pool_tdata]", "lv_name": "[pool_tdata]",
+                 "vg_name": "vg0", "lv_role": "private,thin,pool", "lv_size": "1000"},
             ],
         }
         summary = summarize_lvm_topology(raw)
@@ -79,6 +83,7 @@ class LvmTopologyTests(unittest.TestCase):
         self.assertTrue(vg["logical_volumes"][0]["thin_provisioned"])
         self.assertEqual(vg["logical_volumes"][0]["data_percent"], "42.5")
         self.assertTrue(vg["logical_volumes"][1]["snapshot"])
+        self.assertTrue(vg["logical_volumes"][2]["hidden"])
         self.assertEqual(summary["lvs"], raw["lvs"])
 
 
@@ -93,6 +98,17 @@ class LvmTopologyTests(unittest.TestCase):
         self.assertEqual(vg["status"], "degraded")
         self.assertEqual(vg["missing_pv_count"], 1)
         self.assertTrue(vg["pv_members"][0]["missing"])
+
+
+    def test_pv_missing_rows_override_inconsistent_zero_vg_count(self):
+        summary = summarize_lvm_topology({
+            "status": "available",
+            "pvs": [{"pv_name": "[unknown]", "vg_name": "vg0", "pv_missing": "missing"}],
+            "vgs": [{"vg_name": "vg0", "vg_missing_pv_count": "0"}],
+            "lvs": [],
+        })
+        self.assertEqual(summary["volume_groups"][0]["status"], "degraded")
+        self.assertEqual(summary["volume_groups"][0]["missing_pv_count"], 1)
 
     def test_unknown_health_fields_are_not_reported_as_healthy(self):
         summary = summarize_lvm_topology({
