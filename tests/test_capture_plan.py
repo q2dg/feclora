@@ -117,7 +117,8 @@ class StorageCapturePlanTests(unittest.TestCase):
             "major_minor": "253:4", "children": [],
         }, storage_graph={
             "status": "available",
-            "nodes": [{"id": "lvm-lv:lv-1", "kind": "lvm_logical_volume"}],
+            "nodes": [{"id": "lvm-lv:lv-1", "kind": "lvm_logical_volume", "name": "data", "uuid": "lv-1"},
+                      {"id": "lvm-vg:vg0", "kind": "lvm_volume_group", "name": "vg0"}],
             "edges": [
                 {"source": "lvm-lv:lv-1", "target": "device:/dev/mapper/vg-data",
                  "relation": "maps_to_block_device"},
