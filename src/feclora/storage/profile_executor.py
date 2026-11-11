@@ -206,7 +206,7 @@ def preflight_logical_volume_restore(
         raise RestoreProfileError("manifest must declare exactly one external LVM volume-group dependency")
     if vg_dependencies[0].get("included_in_source_bytes") is not False:
         raise RestoreProfileError("LV image must not claim that VG metadata is included in its data bytes")
-    if vg_dependencies[0].get("identity") not in {source_vg, storage.get("lvm_lv_uuid")}:
+    if vg_dependencies[0].get("identity") not in {source_vg, storage.get("lvm_vg_uuid")}:
         raise RestoreProfileError("manifest VG dependency does not match its source VG identity")
     unsupported = [
         item.get("kind") for item in dependencies
