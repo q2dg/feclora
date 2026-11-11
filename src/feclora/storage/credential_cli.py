@@ -46,7 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     put.add_argument("--replace", action="store_true")
     remove = commands.add_parser("remove", help="Remove a stored credential")
     remove.add_argument("--id", required=True)
-    remove.add_argument("--kind", required=True, choices=("ssh-key", "known-hosts", "smb", "rclone"))
+    remove.add_argument("--kind", required=True, choices=("ssh-key", "known-hosts", "smb"))
     return parser
 
 
