@@ -316,7 +316,7 @@ export default function App() {
       else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (operation === "capture_logical_volume") params = { source, image_id: imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (isRestore) {
-        const sftpSource = restoreFromSftp && sftpInspectionMatchesCurrent ? {
+        const sftpSource = !isLogicalVolume && restoreFromSftp && sftpInspectionMatchesCurrent ? {
           host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
           port: Number(sftpPort), identity_credential: sftpIdentity,
           known_hosts_credential: sftpKnownHosts,
@@ -1071,7 +1071,7 @@ export default function App() {
                       <Field label={isDisk ? "Disk image" : isLogicalVolume ? "Logical-volume image" : "Partition image"}>
                         <select className="pf-v5-c-form-control" value={imageId} disabled={busy || restoreFromSftp} onChange={(e) => {
                           const value = e.target.value;
-                          if (sftpInspectionMatchesCurrent && value === sftpRemoteInspection.image_id) {
+                          if (!isLogicalVolume && sftpInspectionMatchesCurrent && value === sftpRemoteInspection.image_id) {
                             setRestoreFromSftp(true); setImageId(value); setRestoreLayoutPreview(null);
                           } else {
                             setRestoreFromSftp(false); setImageId(value);
