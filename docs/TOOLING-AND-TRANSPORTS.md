@@ -25,7 +25,10 @@ when a maintained system tool already provides the required capability.
 The intended remote repository set is SSHFS, SFTP, NFS, SMB/CIFS, WebDAV and
 S3-compatible object storage. These are distinct providers with different
 capabilities; do not assume that every provider supports listing, publishing,
-resuming, deleting or concurrent writers.
+resuming or deleting. Feclora uses a single-publisher / multi-reader model:
+one Client publishes an image and multiple Clients may read/restore that
+committed image concurrently. Concurrent publishers for the same image are
+not a product requirement.
 
 - **SSHFS** is a mounted filesystem. It is not SFTP.
 - **SFTP** is a file-transfer provider and must not be represented as an SSHFS
