@@ -35,10 +35,10 @@ control characters.
 
 This is a preflight constraint, not unattended target discovery or a
 signed per-Client profile. WWN/serial matching reduces accidental
-mis-targeting but is not cryptographic hardware attestation. The operator still selects the local /dev target
-and types the local confirmation in Cockpit. No profile expiry, nonce/replay
-ledger, automatic Client startup or write authorization is provided by this
-binding alone. Existing jobs without target_bindings retain the interactive
+mis-targeting but is not cryptographic hardware attestation. In the interactive workflow the operator still selects the local /dev target
+and types the local confirmation in Cockpit. In the unattended PXE workflow,
+the Client uses the binding to resolve one whole disk automatically; the
+binding alone does not authorize a write. Existing jobs without target_bindings retain the interactive
 workflow.
 
 ## Authenticated unattended flow
