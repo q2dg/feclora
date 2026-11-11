@@ -9,8 +9,8 @@ provisioning workflow.
 The PXE Server publishes the Live kernel, initramfs and squashfs through
 Caddy. The existing interactive iPXE entry boots that Live payload and opens
 the normal Feclora Cockpit interface. The answer-specific unattended entry boots the same payload and passes the
-job UUID plus single answer URL as kernel parameters. A Live boot-time
-downloader must still be added to fetch and verify those documents.
+job UUID plus the single answer URL as kernel parameters. A Live boot-time
+downloader must still be added to fetch and validate the JSON.
 
 There is no per-client USB, identity medium, certificate, private key,
 enrollment bundle or manual identity provisioning in this model. The PXE
@@ -18,27 +18,17 @@ client must not mount or look for `FECLORA-CLIENT` media.
 
 ## Deployment preparation
 
-The Cockpit Server setup provides an answer publication form with a single
-input: the prewritten JSON file. The `repository_url` inside that file identifies
-external image storage independently of the PXE Server. The repository may be
-provided by SSHFS,
-   SFTP, SMB/CIFS, NFS, WebDAV or BitTorrent, subject to the provider support
-   matrix in `REMOTE-REPOSITORIES.md`.
-2. The answer document, uploaded as a JSON file. Feclora validates the JSON,
-   requires the repository URL field to match the separate form field exactly,
-   signs the document with the protected Server minisign private key, verifies
-   it against the configured public key, atomically publishes both files
-   under a generated job UUID in Caddy's document root, and publishes an
-   answer-specific iPXE script that contains only the job UUID and those URLs.
-3. The PXE boot configuration. This initial publication form is separate from
-   the existing mTLS remote-job form and does not enroll or identify clients.
+The Cockpit Server setup provides a single file input for the prewritten JSON
+answer. The `repository_url` field inside that JSON identifies the image
+repository; there is no second repository-URL field in Cockpit. The Server
+validates the document and publishes it through Caddy over HTTP under a
+generated job UUID. It also publishes an answer-specific iPXE script containing
+the job UUID and the answer URL.
 
-The PXE Server does not host or copy the image repository. It serves the
-Live boot assets, answer document, detached HTTP trust and answer-specific
-iPXE script. Credentials are not embedded in
-repository URLs or the answer document; they are selected separately from
-Feclora's protected credential inventory where the chosen provider needs
-authentication.
+The PXE Server does not host or copy the image repository. It serves the Live
+boot assets and the answer JSON. Credentials are not embedded in repository
+URLs or the answer document; `credential_ref` is an opaque reference to
+credentials managed separately by Feclora.
 
 ## Answer document, version 1
 
@@ -95,7 +85,7 @@ server's published file can alter the instructions. Feclora does not add a
 signature, encryption layer or per-client identity to this workflow.
 
 The Live Client answer downloader, repository URL adapters and the end-to-end
-no-identity execution flow remain implementation work. Do not describe unattended PXE as complete until those
+identity-free execution flow remain implementation work. Do not describe unattended PXE as complete until those
 pieces are connected and tested.
 
 ## Provider support status
