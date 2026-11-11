@@ -131,7 +131,10 @@ class RepositoryMountServiceTests(unittest.TestCase):
             manager.add("nas", definition)
             states = iter([False, True])
             manager._is_mounted = lambda _path: next(states)
-            result = manager.mount("nas")
+            try:
+                result = manager.mount("nas")
+            except RepositoryManagerError as exc:
+                self.fail(f"{exc}; runner calls={calls!r}")
             self.assertTrue(result["mounted"])
             command = next(argv for argv in calls if argv[0].endswith("/systemd-run"))
             self.assertIn("--unit=feclora-repository-nas.service", command)
