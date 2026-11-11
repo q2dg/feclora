@@ -30,6 +30,17 @@ The signature sidecar is named PROFILE.json.minisig. The trusted public key is c
 - **preserve:** retain source partition boundaries and leave additional target capacity unallocated, repairing secondary GPT metadata where required.
 - **proportional:** redistribute partition capacity proportionally. This is not equivalent to merely editing GPT end sectors: moving or expanding partitions can overwrite subsequent data. It requires a partition-aware restore plan and filesystem-aware growth, with preflight validation for every partition/filesystem combination. The raw whole-disk clone path does not silently apply this policy.
 
+A separate read-only `preflight_logical_volume_restore()` primitive in
+`profile_executor.py` validates an existing LV destination: LVM report
+completeness, VG/PV health and membership, target LV identity and active
+kernel major/minor mapping, capacity, mounted/read-only state, snapshot
+relationships, and thin-pool health/data/metadata percentages. It resolves
+`/dev/VG/LV` versus `/dev/mapper/*` aliases only through a unique kernel
+major/minor identity. Thin-pool allocation is dynamic, so the preflight warns
+that it cannot reserve extents. This function performs no activation, write,
+LV creation or restore; it is not yet connected to the restore executor or
+Cockpit workflow.
+
 The profile model and unattended whole-disk executor are implemented in src/feclora/storage/restore_profile.py and src/feclora/storage/profile_executor.py. They strictly validate schema fields, reject duplicate JSON keys and path traversal, match WWN/serial identities, verify minisign signatures, and atomically consume single-use authorization immediately before the first write. **Current limitation:** this executor currently requires minisign for profile and image authentication. The project policy is that minisign must remain optional; a configurable verifier/trust interface (with an equally strong alternative authentication path) is still required before unattended restore can satisfy that policy without minisign. UI-based profile authoring, automatic startup/systemd enablement and proportional layout execution remain pending.
 
 
