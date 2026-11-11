@@ -78,7 +78,8 @@ grep -q 'feclora-kiosk-bootstrap-ready' "$ROOT_DIR/kickstart/feclora-live.ks" ||
 grep -q 'feclora-kiosk.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not enable the Firefox kiosk service."
 grep -Fq 'https://localhost:9090/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Kiosk launcher does not open the Feclora Cockpit application."
 grep -Fq 'https://localhost:9090/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/kiosk_bootstrap.py" || fail "First-boot assistant does not redirect into the Feclora Cockpit application."
-grep -q '^Restart=on-failurePYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
+grep -q '^Restart=on-failure$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "First-boot assistant service must restart after failure."
+PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
 
 if ! grep -q 'network_interfaces|' "$ROOT_DIR/kickstart/feclora-live.ks" \
    || ! grep -q 'bootstrap_server|' "$ROOT_DIR/kickstart/feclora-live.ks"; then
