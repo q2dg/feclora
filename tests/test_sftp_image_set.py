@@ -84,6 +84,16 @@ class SFTPImageSetTests(unittest.TestCase):
         self.assertEqual([done for done, _ in progress], sorted(done for done, _ in progress))
 
     @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
+    def test_rejects_artifact_filename_in_native_manifest_marker_namespace(self, verify):
+        document = json.loads(self.manifest.read_text(encoding="utf-8"))
+        document["artifacts"][0]["filename"] = "another-image.manifest.json.minisig"
+        self.manifest.write_text(json.dumps(document), encoding="utf-8")
+        calls = []
+        with self.assertRaisesRegex(SFTPImageSetError, "reserved repository metadata"):
+            self._publish(lambda **kwargs: calls.append(kwargs))
+        self.assertEqual(calls, [])
+
+    @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
     def test_rejects_artifact_digest_mismatch_before_upload(self, verify):
         (self.artifacts / "part-1.img").write_bytes(b"tampered")
         calls = []
