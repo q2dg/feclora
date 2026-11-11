@@ -66,6 +66,7 @@ class LvmTopologyTests(unittest.TestCase):
             ],
             "lvs": [
                 {"lv_path": "/dev/vg0/data", "lv_name": "data", "vg_name": "vg0",
+                 "lv_kernel_major": "253", "lv_kernel_minor": "7",
                  "lv_size": "80000", "segtype": "thin", "lv_layout": "thin",
                  "pool_lv": "pool0", "data_percent": "42.5",
                  "metadata_percent": "8.0", "devices": "/dev/sda2(0)"},
@@ -81,6 +82,7 @@ class LvmTopologyTests(unittest.TestCase):
         self.assertEqual(vg["missing_pv_count"], 1)
         self.assertEqual(vg["pv_members"][0]["allocated_extents"], 20)
         self.assertTrue(vg["logical_volumes"][0]["thin_provisioned"])
+        self.assertEqual(vg["logical_volumes"][0]["major_minor"], "253:7")
         self.assertEqual(vg["logical_volumes"][0]["data_percent"], "42.5")
         self.assertTrue(vg["logical_volumes"][1]["snapshot"])
         self.assertTrue(vg["logical_volumes"][2]["hidden"])
