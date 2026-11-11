@@ -15,8 +15,9 @@ Do not mark a workflow complete because an engine, command builder, protocol pri
 3. Destructive operations fail closed, require explicit authorization and verify results.
 4. Never persist passwords, private keys, `age` identities or `minisign` secret keys in profiles, journals, logs or browser storage. `age` and `minisign` are optional integrations, not mandatory packages or release gates; preserve a safe non-age/non-minisign workflow and document the configured authenticity mechanism.
 5. Interrupted writes are never silently resumed; affected destinations remain untrusted until verified or restored.
-6. Keep local rescue and Server/Client fleet orchestration separate while sharing storage engines.\n7. Treat kiosk confinement as defense in depth; never use it as a replacement for Cockpit authentication, OS account separation or backend authorization.
-7. Never claim hardware/PXE/switch acceptance from unit tests alone.
+6. Keep local rescue and Server/Client fleet orchestration separate while sharing storage engines.
+7. Treat kiosk confinement as defense in depth; never use it as a replacement for Cockpit authentication, OS account separation or backend authorization.
+8. Never claim hardware/PXE/switch acceptance from unit tests alone.
 
 ## P0 — Live appliance startup, kiosk and first-boot security
 
