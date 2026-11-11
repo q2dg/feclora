@@ -47,6 +47,7 @@ class CaptureTests(unittest.TestCase):
         expected = {
             "ext2": "partclone.extfs", "ext3": "partclone.extfs",
             "ext4": "partclone.ext4", "xfs": "partclone.xfs",
+            "btrfs": "partclone.btrfs", "f2fs": "partclone.f2fs",
             "ntfs": "partclone.ntfs", "ntfs3": "partclone.ntfs",
             "fat": "partclone.fat", "fat12": "partclone.fat",
             "fat16": "partclone.fat", "fat32": "partclone.fat",
