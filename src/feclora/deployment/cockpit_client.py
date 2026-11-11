@@ -176,7 +176,7 @@ def export_pxe_client_identity(params: dict[str, Any]) -> dict[str, Any]:
             finally:
                 os.close(source_fd)
                 os.close(target_fd)
-            payload[field] = str(destination)
+            payload[field] = f"/mnt/feclora-pxe-identity/feclora-client-identity/{filename}"
         for field in ("local_minisign_secret_key", "local_minisign_public_key", "age_identity_file", "age_recipients_file"):
             payload[field] = None
         payload["repository"] = REPOSITORY
