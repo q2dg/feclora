@@ -137,12 +137,13 @@ account/export/share and a disposable image. Do not reuse production credentials
    concurrent publishers.
 7. For a read-only mount, confirm inventory, inspection and verification work,
    and confirm capture/extraction controls are unavailable.
-7. For NFS, explicitly test the configured root-squash/ownership policy.
+8. For NFS, explicitly test the configured root-squash/ownership policy.
    Root-owned manifest validation must remain enforced; a manifest mapped to
    an anonymous UID is expected to be rejected.
-8. Unmount through Feclora, confirm the mount is gone, and verify the
+9. Unmount through Feclora, confirm the mount is gone, and verify the
    repository definition remains available for a later mount.
-9. Record provider version, mount options, identity/access-mode verification, actual I/O outcomes, throughput observations, and all failures. Do not record a passing identity check as a passing health check. Never include secrets in the report.
+10. Record provider version, mount options, identity/access-mode verification,
+    actual I/O outcomes, throughput observations, and all failures. Do not record a passing identity check as a passing health check. Never include secrets in the report.
 
 ## 4. S3-compatible repository acceptance
 
