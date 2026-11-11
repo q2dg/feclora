@@ -1,8 +1,7 @@
 [Unit]
 Description=Feclora Firefox kiosk on the local display
 After=systemd-logind.service systemd-user-sessions.service feclora-cockpit-certificate.service feclora-kiosk-bootstrap.service cockpit.socket
-Requires=feclora-cockpit-certificate.service feclora-kiosk-bootstrap.service
-Wants=cockpit.socket
+Requires=feclora-cockpit-certificate.service feclora-kiosk-bootstrap.service cockpit.socket
 Conflicts=getty@tty1.service
 After=getty@tty1.service
 
