@@ -65,7 +65,7 @@ done
   exit 1
 }
 
-cryptsetup luksFormat --batch-mode --type luks2 --key-file "$KEY_FILE" "$SOURCE_PART"
+cryptsetup luksFormat --batch-mode --type luks2 --pbkdf-memory 65536 --key-file "$KEY_FILE" "$SOURCE_PART"
 SOURCE_UUID="$(cryptsetup luksUUID "$SOURCE_PART")"
 cryptsetup open --key-file "$KEY_FILE" "$SOURCE_PART" "$SOURCE_MAPPING"
 
