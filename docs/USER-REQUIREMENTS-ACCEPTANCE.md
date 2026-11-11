@@ -41,6 +41,8 @@ DHCP and static IPv4 must be supported independently on Server and Client where 
 
 Storage-source clarification: LVM logical volumes, raw LUKS2 containers, opened LUKS mappings and Btrfs filesystems are image sources/layers, not repository types. Capture and restore support must describe the exact byte scope and dependencies. Btrfs is imaged at filesystem/block-device level (including supported multi-device sets), not as separate subvolume artifacts. Remote repositories and distribution transports remain the distinct external destinations used to store or deliver those images.
 
+Current-source note: local Cockpit capture now supports eligible active LVM logical volumes, verified raw LUKS2 partition containers and single-device Btrfs partition images. LV restore, dedicated opened-mapping capture, coordinated multi-device Btrfs capture, snapshot-assisted capture and layer-aware restore beyond ordinary raw partition restore remain incomplete. The multi-device Btrfs wording above is a release target, not a claim of current support.
+
 ## 3. Capture images to remote repositories
 
 **Outcome:** Capture a whole disk, partition or supported storage-layer source (including active LVM logical volumes, raw LUKS2 containers and supported Btrfs filesystems) and publish the image, manifest and integrity metadata to a selected remote repository.
