@@ -30,7 +30,7 @@ class LuksInventoryTests(unittest.TestCase):
                               "segments": {"0": {"encryption": "aes-xts-plain64"}}})
         def runner(argv, **kwargs):
             calls.append(argv)
-            output = "11111111-2222-3333-4444-555555555555\\n" if "luksUUID" in argv else payload
+            output = "11111111-2222-3333-4444-555555555555\n" if "luksUUID" in argv else payload
             return subprocess.CompletedProcess(argv, 0, output, "")
         result = collect_luks_inventory(
             [{"path": "/dev/sda", "children": [
@@ -58,12 +58,12 @@ class LuksInventoryTests(unittest.TestCase):
                     if device == "/dev/sda1"
                     else "22222222-2222-3333-4444-555555555555"
                 )
-                return subprocess.CompletedProcess(argv, 0, value + "\\n", "")
+                return subprocess.CompletedProcess(argv, 0, value + "\n", "")
             if "--dump-json-metadata" in argv and device == "/dev/sda1":
                 raise subprocess.CalledProcessError(1, argv, stderr="not a LUKS2 device")
             if "--dump-json-metadata" in argv:
                 return subprocess.CompletedProcess(argv, 0, payload, "")
-            return subprocess.CompletedProcess(argv, 0, "Version: 1\\n", "")
+            return subprocess.CompletedProcess(argv, 0, "Version: 1\n", "")
 
         result = collect_luks_inventory(
             [{"path": "/dev/sda", "children": [
@@ -92,7 +92,7 @@ class LuksInventoryTests(unittest.TestCase):
 
     def test_rejects_non_json_metadata_instead_of_falling_back_to_luks1(self):
         with self.assertRaises(LuksInventoryError):
-            parse_luks_metadata("LUKS header information\\nVersion: 1")
+            parse_luks_metadata("LUKS header information\nVersion: 1")
 
 
 if __name__ == "__main__":
