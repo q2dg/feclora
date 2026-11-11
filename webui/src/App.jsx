@@ -475,13 +475,17 @@ export default function App() {
   const fetchSftpImageSet = async (event) => {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
-      const result = await callFeclora("fetch_sftp_image_set", {
+      const operationParams = {
         host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
         port: Number(sftpPort), identity_credential: sftpIdentity,
         known_hosts_credential: sftpKnownHosts
+      };
+      const result = await callFeclora("submit_local_operation", {
+        operation: "sftp_fetch", operation_params: operationParams
       });
-      setNotice("Imported and verified SFTP image " + result.image_id + " (" + result.artifact_count + " artifacts).");
-      await refresh();
+      setNotice("SFTP image import queued as durable operation " + result.operation_id + ". Follow progress and cancellation in Operation log.");
+      const history = await callFeclora("local_operations");
+      setOperations(history.operations || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -489,13 +493,17 @@ export default function App() {
   const publishSftpImageSet = async (event) => {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
-      const result = await callFeclora("publish_sftp_image_set", {
+      const operationParams = {
         image_id: sftpPublishImageId, host: sftpHost, username: sftpUsername,
         remote_directory: sftpRemoteDirectory, port: Number(sftpPort),
         identity_credential: sftpIdentity, known_hosts_credential: sftpKnownHosts
+      };
+      const result = await callFeclora("submit_local_operation", {
+        operation: "sftp_publish", operation_params: operationParams
       });
-      setNotice("Published signed SFTP image " + result.image_id + " (" + result.artifact_count + " artifacts).");
-      await refresh();
+      setNotice("SFTP image publication queued as durable operation " + result.operation_id + ". Follow progress and cancellation in Operation log.");
+      const history = await callFeclora("local_operations");
+      setOperations(history.operations || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
