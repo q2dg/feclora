@@ -59,11 +59,12 @@ hardware, provider services or physical networks have passed acceptance.
   transfers remain limited (single configured directory, synchronous
   metadata/artifact steps, no complete byte-progress/resume workflow).
 - PXE job handoff: the active Server restore-job lifecycle publishes/revokes
-  the handoff script. Enrolled Client mTLS identity can be exported to a
-  dedicated removable medium and consumed through a read-only Live mount and
-  PXE-specific Client service template. Boot parameters are not authorization.
-  The Client does not yet automatically start from the handoff, authenticate,
-  inspect
+  the handoff script. Enrolled Client mTLS identity is exported to dedicated
+  removable media, mounted read-only by Live, and consumed by an automatic
+  PXE Client dispatcher. The first path authenticates over mTLS, resolves a
+  unique whole disk by per-Client WWN/serial, and retains Server READY/ARM.
+  Boot parameters are not authorization. Partition/multicast unattended
+  execution and physical BIOS/UEFI acceptance remain pending.
   and bind the job/profile, determine a stable target, reach READY or execute
   unattended.
 - Unattended restore profiles: a standalone signed single-use executor exists,
