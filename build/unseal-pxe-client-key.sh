@@ -34,7 +34,9 @@ FINDMNT="$(command -v findmnt || true)"
 [[ -n "$CREDS" && -n "$FINDMNT" ]] || fail "systemd-creds and findmnt are required."
 [[ -s /run/systemd/tpm2-pcr-signature.json && -s /run/systemd/tpm2-pcr-public-key.pem ]] || fail "Trusted UKI PCR signature/public-key metadata is not present in /run/systemd."
 
+[[ ! -L /run/feclora ]] || fail "/run/feclora must not be a symlink."
 install -d -o root -g root -m 0700 /run/feclora
+[[ "$(stat -c '%u:%g:%a' /run/feclora)" == "0:0:700" ]] || fail "/run/feclora must be owned by root with mode 0700."
 [[ "$(readlink -f -- "$(dirname -- "$OUTPUT")")" == /run/feclora ]] || fail "Output parent must resolve exactly to /run/feclora."
 [[ "$("$FINDMNT" -n -o FSTYPE -T /run/feclora)" == tmpfs ]] || fail "/run/feclora is not on tmpfs."
 [[ "$(id -u)" -eq 0 ]] || fail "Credential unsealing must run as root."
