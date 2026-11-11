@@ -35,7 +35,8 @@ migration to an installed-only Fedora Server appliance.
 - [x] Implement a dedicated unprivileged kiosk account and a systemd-managed
   Cage/Firefox session on the local display, with automatic restart.
 - [x] Configure Firefox kiosk mode and a managed policy with a Cockpit/setup
-  URL allowlist, browser password storage disabled and developer tools blocked.
+  `WebsiteFilter` exceptions for the setup/Cockpit origins, browser password
+  storage disabled and developer tools blocked.
 - [x] Configure Cockpit socket activation and order it after local TLS
   certificate provisioning; start the kiosk after Cockpit and bootstrap.
 - [x] Implement a loopback-only first-boot form that sets a unique administrator
