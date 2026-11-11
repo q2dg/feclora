@@ -75,7 +75,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
                     mountpoint = argv[argv.index("--mountpoint") + 1]
                     return SimpleNamespace(
                         returncode=0,
-                        stdout=f"{mountpoint} cifs //nas.example.net/images ro,relatime\n",
+                        stdout=f"{mountpoint} cifs //nas.example.net/images ro,relatime",
                         stderr="",
                     )
                 return SimpleNamespace(returncode=0, stdout="", stderr="")
