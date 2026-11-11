@@ -251,34 +251,30 @@ def revoke_unattended_answer_ipxe_script(http_root: str, job_id: str) -> bool:
 
 
 def clear_stale_unattended_ipxe_script(http_root: str) -> bool:
-    """Remove a previous session's public handoff before a fresh PXE session."""
-    target_root = Path(http_root)
-    try:
-        root_info = target_root.lstat()
-    except OSError as exc:
-        raise LiveBootAssetError(f"PXE HTTP root is unavailable: {exc}") from exc
-    if (not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode)
-            or root_info.st_uid != os.geteuid() or root_info.st_mode & 0o022):
-        raise LiveBootAssetError("PXE HTTP root must be owned by the service user and not group/other-writable")
-    destination = target_root / "unattended.ipxe"
-    try:
-        info = destination.lstat()
-    except FileNotFoundError:
-        return False
-    except OSError as exc:
-        raise LiveBootAssetError(f"cannot inspect stale unattended PXE script: {exc}") from exc
-    if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != os.geteuid() or info.st_mode & 0o022):
-        raise LiveBootAssetError("stale unattended PXE script is not a safe regular file")
-    destination.unlink()
-    directory_fd = os.open(
-        target_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
-    )
-    try:
-        os.fsync(directory_fd)
-    finally:
-        os.close(directory_fd)
-    return True
+    """Remove stale legacy and answer-specific handoff scripts before PXE starts."""
+    target_root = _safe_http_root(http_root)
+    removed = False
+    for name in ("unattended.ipxe", "unattended-answer.ipxe"):
+        destination = target_root / name
+        try:
+            info = destination.lstat()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise LiveBootAssetError(f"cannot inspect stale unattended PXE script: {exc}") from exc
+        if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != os.geteuid() or info.st_mode & 0o022 or info.st_size > 8192):
+            raise LiveBootAssetError(f"stale unattended PXE script {name} is not a safe regular file")
+        destination.unlink()
+        removed = True
+    if removed:
+        directory_fd = os.open(target_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    return removed
+
 
 def stage_live_boot_assets(
     live_root: str,
