@@ -18,6 +18,7 @@ SAMPLE = {
             "type": "disk",
             "size": 1000000,
             "maj:min": "8:0",
+            "log-sec": 512,
             "ro": False,
             "tran": "sata",
             "model": "Example disk",
@@ -31,6 +32,7 @@ SAMPLE = {
                     "type": "part",
                     "size": 900000,
                     "maj:min": "8:1",
+                    "log-sec": 512,
                     "ro": False,
                     "fstype": "ext4",
                     "label": "root",
@@ -51,6 +53,7 @@ class ParseInventoryTests(unittest.TestCase):
         self.assertEqual(disk["path"], "/dev/sda")
         self.assertEqual(disk["size_bytes"], 1000000)
         self.assertEqual(disk["major_minor"], "8:0")
+        self.assertEqual(disk["logical_sector_size"], 512)
         self.assertEqual(disk["children"][0]["filesystem"], "ext4")
         self.assertEqual(disk["children"][0]["mountpoints"], ["/"])
 
@@ -83,6 +86,7 @@ class ParseInventoryTests(unittest.TestCase):
         self.assertIn("--bytes", command)
         self.assertIn("--output", command)
         self.assertIn("MAJ:MIN", command[command.index("--output") + 1])
+        self.assertIn("LOG-SEC", command[command.index("--output") + 1])
         self.assertNotIn("wipefs", command)
         self.assertEqual(len(inventory["devices"]), 1)
         self.assertIn(inventory["volume_topology"]["status"], {"incomplete", "permission_required"})
