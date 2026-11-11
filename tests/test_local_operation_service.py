@@ -84,10 +84,10 @@ class LocalOperationWorkerTests(unittest.TestCase):
             "params": {"host": "backup.example.net"},
         }
         store.status.return_value = {"state": "queued"}
-        with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \\
-             patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store), \\
-             patch("feclora.storage.local_operation_service._device_lock_fds", return_value=[]), \\
-             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \\
+        with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \
+             patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store), \
+             patch("feclora.storage.local_operation_service._device_lock_fds", return_value=[]), \
+             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \
              patch("feclora.webapi._execute_operation", return_value={
                  "image_id": "golden", "image_type": "disk", "artifact_count": 2,
                  "signature_verified": True, "artifacts_verified": True, "published": True,
