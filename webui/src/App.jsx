@@ -1669,7 +1669,7 @@ export default function App() {
                 <Card><CardBody>
                   <Title headingLevel="h3" size="lg">Publish unattended PXE answer</Title>
                   <p>Upload the prewritten JSON answer. The repository URL is read from its <code>repository_url</code> field. The Server validates the JSON and publishes it through Caddy over HTTP. Credentials must be referenced separately and must not be embedded in the URL.</p>
-                  <Alert variant="warning" title="Destructive operation guard" isInline>The PXE Live client will trust the answer delivered by the configured HTTP server, as selected for this deployment. Download and unattended restore execution are not implemented yet; publishing this file does not start a restore.</Alert>
+                  <Alert variant="warning" title="Destructive operation guard" isInline>The PXE Live client trusts the answer delivered by this HTTP server. When a client boots the unattended iPXE entry, a matching whole disk is restored automatically. The first connected repository provider is read-only NFS; images must be unencrypted. Other repository schemes fail closed. Test only with disposable target disks.</Alert>
                   <Field label="Prewritten answer file (JSON)">
                     <input className="pf-v5-c-form-control" type="file" accept=".json,application/json" onChange={(event) => { setPxeAnswerFile(event.target.files?.[0] || null); setPxeAnswerPublished(null); }} />
                     {pxeAnswerFile && <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{pxeAnswerFile.name} · {pxeAnswerFile.size} bytes</div>}
