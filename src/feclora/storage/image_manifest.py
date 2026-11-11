@@ -69,7 +69,7 @@ def _validate_storage_metadata(value: Any, image_type: str) -> dict[str, Any]:
     }:
         raise ManifestValidationError("Logical-volume image has an incompatible storage scope")
     result = dict(value)
-    for key in allowed - {"schema_version", "capture_scope", "source_layer", "dependencies", "btrfs_subvolume_id"}:
+    for key in allowed - {"schema_version", "capture_scope", "source_layer", "dependencies", "btrfs_subvolume_id", "btrfs_device_count"}:
         item = value.get(key)
         if item is not None and (
             not isinstance(item, str) or not item or len(item) > 256
