@@ -93,9 +93,9 @@ for the answer document (for example, a detached signature checked against a
 public key already trusted by the Feclora Live image). Merely downloading the
 document or knowing its URL is not sufficient authorization.
 
-The signed download handoff, the Live Client answer downloader and verifier,
-repository URL adapters and the end-to-end no-identity execution flow remain
-implementation work. Do not describe unattended PXE as complete until those
+The Live Client answer downloader and verifier, independent Live trust-root
+provisioning, repository URL adapters and the end-to-end no-identity execution
+flow remain implementation work. Do not describe unattended PXE as complete until those
 pieces are connected and tested.
 
 ## Provider support status
@@ -111,6 +111,8 @@ are not yet complete provider/transport workflows.
 - [x] Stage the same Fedora Live kernel, initramfs and squashfs for iPXE.
 - [x] Provide interactive Live boot through iPXE.
 - [x] Define and validate a bounded, data-only answer-file schema.
+- [x] Publish an answer-specific iPXE handoff that boots the same Live payload
+      and passes only the answer job UUID and answer/signature URLs.
 - [ ] Add a Live boot-time answer-file downloader and client-side signature verifier.
 - [x] Add Cockpit repository URL and JSON answer-file upload controls; require
       exact URL equality with the answer document.
