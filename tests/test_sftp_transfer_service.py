@@ -232,9 +232,9 @@ class SFTPTransferServiceTests(unittest.TestCase):
 
     def test_service_main_runs_inventory_and_emits_manifest_names(self):
         output = io.StringIO()
-        with patch.dict(os.environ, {"CREDENTIALS_DIRECTORY": "/run/credentials/test"}), \\
-             patch("feclora.storage.sftp_transfer_service._credential_path", side_effect=["/key", "/known_hosts"]), \\
-             patch("feclora.storage.sftp_transfer_service.list_image_manifests", return_value=["manifest.json"]) as inventory, \\
+        with patch.dict(os.environ, {"CREDENTIALS_DIRECTORY": "/run/credentials/test"}), \
+             patch("feclora.storage.sftp_transfer_service._credential_path", side_effect=["/key", "/known_hosts"]), \
+             patch("feclora.storage.sftp_transfer_service.list_image_manifests", return_value=["manifest.json"]) as inventory, \
              redirect_stdout(output):
             result = __import__("feclora.storage.sftp_transfer_service", fromlist=["main"]).main([
                 "inventory", "--host", "sftp.example.net", "--username", "backup",
