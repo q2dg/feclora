@@ -140,13 +140,15 @@ def restore_logical_volume(
     if not lsblk or not dd:
         raise LogicalVolumeRestoreError("lsblk and dd are required for logical-volume restore")
     run = runner or subprocess.run
-    current_inventory = inventory if inventory is not None else (
-        inventory_provider() if inventory_provider else __import__(
-            "feclora.storage.inventory", fromlist=["collect_inventory"]
-        ).collect_inventory()
-    )
+    if inventory is not None:
+        current_inventory = inventory
+    elif inventory_provider is not None:
+        current_inventory = inventory_provider()
+    else:
+        from .inventory import collect_inventory
+        current_inventory = collect_inventory()
     try:
-        preflight = preflight_logical_volume_restore(manifest, current_inventory, target_path)
+        preflight_logical_volume_restore(manifest, current_inventory, target_path)
     except RestoreProfileError as exc:
         raise LogicalVolumeRestoreError(f"logical-volume preflight failed: {exc}") from exc
     target_size, target_sector = _target_geometry(target_path, lsblk, run)
@@ -191,11 +193,13 @@ def restore_logical_volume(
                 raise LogicalVolumeRestoreError("decoded raw image size differs from manifest")
             # Re-inventory immediately before writing: aliases, VG/PV health,
             # target activity, mount state and thin-pool headroom may have changed.
-            fresh_inventory = inventory_provider() if inventory_provider else (
-                current_inventory if inventory is not None else __import__(
-                    "feclora.storage.inventory", fromlist=["collect_inventory"]
-                ).collect_inventory()
-            )
+            if inventory_provider is not None:
+                fresh_inventory = inventory_provider()
+            elif inventory is not None:
+                fresh_inventory = current_inventory
+            else:
+                from .inventory import collect_inventory
+                fresh_inventory = collect_inventory()
             try:
                 preflight_logical_volume_restore(manifest, fresh_inventory, target_path)
             except RestoreProfileError as exc:
