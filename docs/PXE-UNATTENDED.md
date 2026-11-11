@@ -29,8 +29,9 @@ validated job document sent over the TLS 1.3 mTLS control session. The Client
 compares every supplied identifier with its own current block-device inventory
 before it reports READY; a missing or mismatching identifier rejects the
 selection. The Server UI collects these values per selected Client, and the
-job schema rejects selectors for non-authorized Clients, empty selectors,
-unknown fields and control characters.
+job schema rejects selectors for non-authorized Clients, incomplete Client
+coverage, empty selectors, non-restore/partition targets, unknown fields and
+control characters.
 
 This is a preflight constraint, not unattended target discovery or a
 signed per-Client profile. The operator still selects the local /dev target
