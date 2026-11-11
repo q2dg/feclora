@@ -108,6 +108,65 @@ class PartitionRestoreTests(unittest.TestCase):
         with open(self.manifest, "w", encoding="utf-8") as stream:
             json.dump(manifest, stream)
 
+    def write_btrfs_manifest(self, *, device_count=1, dependency_included=True, dependency_uuid="12345678-1234-4234-8234-123456789abc"):
+        self.write_manifest("raw", "btrfs", len(self.payload))
+        with open(self.manifest, encoding="utf-8") as stream:
+            manifest = json.load(stream)
+        manifest["storage"] = {
+            "schema_version": 1,
+            "capture_scope": "partition_bytes",
+            "source_layer": "btrfs_filesystem",
+            "btrfs_uuid": "12345678-1234-4234-8234-123456789abc",
+            "btrfs_device_count": device_count,
+            "dependencies": [{
+                "kind": "btrfs_filesystem",
+                "identity": dependency_uuid,
+                "included_in_source_bytes": dependency_included,
+            }],
+        }
+        with open(self.manifest, "w", encoding="utf-8") as stream:
+            json.dump(manifest, stream)
+
+    def test_btrfs_restore_rejects_multi_device_image_before_writer(self):
+        self.write_btrfs_manifest(device_count=2)
+        with self.assertRaisesRegex(PartitionRestoreError, "single-device"):
+            restore_partition(
+                self.manifest, self.temp.name, "/dev/sda1",
+                confirmation="ERASE /dev/sda1",
+                executables={"lsblk": "lsblk", "dd": "dd"},
+                runner=self.runner, device_validator=lambda _path: True,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda *_args, **_kwargs: self.fail("writer must not start"),
+            )
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.runner_calls, [])
+
+    def test_btrfs_restore_requires_complete_matching_filesystem_dependency(self):
+        self.write_btrfs_manifest(dependency_included=False)
+        with self.assertRaisesRegex(PartitionRestoreError, "complete filesystem dependency"):
+            restore_partition(
+                self.manifest, self.temp.name, "/dev/sda1",
+                confirmation="ERASE /dev/sda1",
+                executables={"lsblk": "lsblk", "dd": "dd"},
+                runner=self.runner, device_validator=lambda _path: True,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda *_args, **_kwargs: self.fail("writer must not start"),
+            )
+        self.assertEqual(self.calls, [])
+
+    def test_btrfs_restore_rejects_legacy_image_without_topology_provenance(self):
+        self.write_manifest("raw", "btrfs", len(self.payload))
+        with self.assertRaisesRegex(PartitionRestoreError, "lacks filesystem-layer provenance"):
+            restore_partition(
+                self.manifest, self.temp.name, "/dev/sda1",
+                confirmation="ERASE /dev/sda1",
+                executables={"lsblk": "lsblk", "dd": "dd"},
+                runner=self.runner, device_validator=lambda _path: True,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda *_args, **_kwargs: self.fail("writer must not start"),
+            )
+        self.assertEqual(self.calls, [])
+
     def test_luks2_container_restore_preserves_raw_bytes_and_verifies_header_uuid(self):
         self.write_luks2_manifest()
         luks_uuid = "12345678-1234-4234-8234-123456789abc"
