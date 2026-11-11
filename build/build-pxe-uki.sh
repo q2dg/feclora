@@ -131,7 +131,8 @@ PY
 )"
 "$SBVERIFY" --cert "$CERT" "$TMP" >/dev/null
 chmod 0644 "$TMP"
-mv -- "$TMP" "$OUTPUT"
+ln -- "$TMP" "$OUTPUT"
+rm -f -- "$TMP"
 rmdir -- "$TMP_DIR"
 trap - EXIT
 printf 'Signed UKI created and signature verified: %s\n' "$OUTPUT"
