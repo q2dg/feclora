@@ -76,11 +76,17 @@ sudo bash tests/vm/run-luks2-partition-acceptance.sh
 The script creates two sparse 160 MiB files in a private temporary directory,
 partitions them, attaches them only as loop devices, formats the source
 partition as LUKS2 with a temporary test key, writes a random plaintext payload
-through the source mapping, captures the raw encrypted partition, and calls
-Feclora's `restore_partition` engine against the second loop partition,
-including its mounted/busy/root-device safety checks. It confirms an incorrect key is rejected, opens the restored container using
-the original key, and compares the decrypted payload byte-for-byte. Temporary mappings, loop devices, key and
-files are removed by the exit trap.
+through the source mapping, and captures the raw encrypted partition. It then
+runs the real unicast `execute_client_image_job` runtime with a locally
+approved partition target and a job-bound transfer offer. The artifact-receiver
+function is deliberately stubbed to supply the locally generated manifest;
+the actual `restore_partition` engine performs the destructive write, safety
+checks, raw read-back and LUKS2 header verification against the second loop
+partition. The harness confirms an incorrect key is rejected, opens the
+restored container using the original key, and compares the decrypted payload
+byte-for-byte. Temporary mappings, loop devices, key and files are removed by
+the exit trap. This validates the unicast Client-to-storage integration, not
+the live TLS artifact-transfer network path or multicast transport.
 
 This is an opt-in destructive test. It refuses to run without root and its
 restore target is constrained to the exact loop partition created by the
