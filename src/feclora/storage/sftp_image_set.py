@@ -58,9 +58,15 @@ def _remote_directory(value: str) -> str:
 
 
 def _validate_manifest_filenames(manifest: ImageManifest) -> None:
-    reserved = {"manifest.json", "manifest.json.minisig"}
-    if any(item.filename in reserved for item in manifest.artifacts):
-        raise SFTPImageSetError("manifest artifact filename collides with reserved metadata")
+    # The native local repository is flat and uses these names as authenticated
+    # image-set commit markers. An artifact must never occupy another image's
+    # marker namespace, even when the remote SFTP directory itself is separate.
+    reserved = re.compile(
+        r"(?:manifest\.json(?:\.minisig)?|"
+        r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.manifest\.json(?:\.minisig)?)"
+    )
+    if any(reserved.fullmatch(item.filename) for item in manifest.artifacts):
+        raise SFTPImageSetError("manifest artifact filename collides with reserved repository metadata")
 
 
 def inspect_remote_image_set(
