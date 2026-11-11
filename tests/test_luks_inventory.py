@@ -44,7 +44,7 @@ def test_collects_nested_luks_devices():
                           "segments": {"0": {"encryption": "aes-xts-plain64"}}})
     def runner(argv, **kwargs):
         calls.append(argv)
-        output = "11111111-2222-3333-4444-555555555555\\n" if "luksUUID" in argv else payload
+        output = "11111111-2222-3333-4444-555555555555\n" if "luksUUID" in argv else payload
         return subprocess.CompletedProcess(argv, 0, output, "")
     result = collect_luks_inventory(
         [{"path": "/dev/sda", "children": [
