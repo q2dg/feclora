@@ -62,6 +62,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
 
     def test_registry_lock_rejects_symlink(self):
         lock = self.registry.parent / ".repositories.lock"
+        lock.parent.mkdir(parents=True, exist_ok=True)
         target = Path(self.temp.name) / "attacker-lock"
         target.write_text("", encoding="ascii")
         target.chmod(0o600)
