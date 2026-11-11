@@ -80,4 +80,5 @@ class StorageTopologyGraphTests(unittest.TestCase):
         })
         by_uuid = {n.get("uuid"): n for n in graph["nodes"] if n["kind"] == "btrfs_subvolume"}
         self.assertEqual(by_uuid["subvol-2"]["parent_uuid"], "subvol-1")
-        self.assertEqual(by_uuid["subvol-1"]["kind"], "subvolume")
+        self.assertEqual(by_uuid["subvol-1"]["kind"], "btrfs_subvolume")
+        self.assertEqual(by_uuid["subvol-1"]["subvolume_kind"], "subvolume")
