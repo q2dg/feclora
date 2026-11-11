@@ -20,6 +20,13 @@ Label: none uuid: fedcba98-7654-3210-fedc-ba9876543210
 """
 
 
+PROFILE_SAMPLE = """Data, single: total=1150000000 used=1130000000
+Metadata, DUP: total=12000000000 used=6450000000
+System, DUP: total=32000000 used=144000
+GlobalReserve, single: total=512000000 used=0
+"""
+
+
 class BtrfsInventoryTests(unittest.TestCase):
     def test_parses_multi_device_filesystems(self):
         result = parse_filesystem_show(SAMPLE)
@@ -39,6 +46,29 @@ class BtrfsInventoryTests(unittest.TestCase):
 """
         with self.assertRaises(BtrfsInventoryError):
             parse_filesystem_show(payload)
+
+    def test_parses_data_metadata_and_system_profiles_without_losing_redundancy(self):
+        profiles = parse_filesystem_profiles(PROFILE_SAMPLE)
+        by_type = {item["type"]: item for item in profiles if item["type"] != "globalreserve"}
+        self.assertEqual(by_type["data"]["profile"], "single")
+        self.assertEqual(by_type["metadata"]["profile"], "dup")
+        self.assertEqual(by_type["metadata"]["total_bytes"], 12000000000)
+        self.assertTrue(by_type["metadata"]["known_profile"])
+
+    def test_preserves_unknown_profile_but_marks_it_unsupported(self):
+        profiles = parse_filesystem_profiles(
+            "Data, future-raid: total=100 used=50\\nMetadata, single: total=100 used=50\\n"
+        )
+        self.assertFalse(profiles[0]["known_profile"])
+        self.assertEqual(profiles[0]["profile"], "future-raid")
+
+    def test_rejects_malformed_or_incomplete_profile_report(self):
+        with self.assertRaises(BtrfsInventoryError):
+            parse_filesystem_profiles(
+                "Data, single: total=100 used=101\\nMetadata, single: total=100 used=50\\n"
+            )
+        with self.assertRaises(BtrfsInventoryError):
+            parse_filesystem_profiles("Data, single: total=100 used=50\\n")
 
     def test_collection_invokes_read_only_show(self):
         calls = []
