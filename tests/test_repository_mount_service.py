@@ -71,8 +71,8 @@ class RepositoryMountServiceTests(unittest.TestCase):
 
             def runner(argv, **kwargs):
                 calls.append(argv)
-                if argv[0].endswith("/findmnt"):
-                    mountpoint = str(root / "mounts" / "nas")
+                if any("findmnt" in str(part) for part in argv):
+                    mountpoint = argv[argv.index("--mountpoint") + 1]
                     return SimpleNamespace(
                         returncode=0,
                         stdout=f"{mountpoint} cifs //nas.example.net/images ro\n",
