@@ -168,7 +168,6 @@ export default function App() {
   const [pxeProfile, setPxeProfile] = useState(null);
   const [pxeRepositoryUrl, setPxeRepositoryUrl] = useState("");
   const [pxeAnswerFile, setPxeAnswerFile] = useState(null);
-  const [pxeAnswerSignatureFile, setPxeAnswerSignatureFile] = useState(null);
   const [pxeAnswerPublished, setPxeAnswerPublished] = useState(null);
   const [pxeStatus, setPxeStatus] = useState({ active: false, configured: false });
   const [security, setSecurity] = useState({});
@@ -785,12 +784,11 @@ export default function App() {
     finally { setBusy(false); }
   };
   const publishPXEAnswer = async () => {
-    if (!pxeAnswerFile || !pxeAnswerSignatureFile || !pxeRepositoryUrl.trim()) return;
+    if (!pxeAnswerFile || !pxeRepositoryUrl.trim()) return;
     setBusy(true); setError(""); setNotice(""); setPxeAnswerPublished(null);
     try {
       if (pxeAnswerFile.size < 1 || pxeAnswerFile.size > 64 * 1024) throw new Error("The answer file must be between 1 byte and 64 KiB.");
-      if (pxeAnswerSignatureFile.size < 1 || pxeAnswerSignatureFile.size > 16 * 1024) throw new Error("The detached minisign signature must be between 1 byte and 16 KiB.");
-      const [answerBuffer, signatureBuffer] = await Promise.all([pxeAnswerFile.arrayBuffer(), pxeAnswerSignatureFile.arrayBuffer()]);
+      const answerBuffer = await pxeAnswerFile.arrayBuffer();
       const encode = (buffer) => {
         const bytes = new Uint8Array(buffer);
         let binary = "";
@@ -802,7 +800,6 @@ export default function App() {
       const result = await callFeclora("publish_pxe_answer", {
         job_id: crypto.randomUUID(),
         answer_base64: encode(answerBuffer),
-        signature_base64: encode(signatureBuffer),
         repository_url: pxeRepositoryUrl.trim()
       });
       setPxeAnswerPublished(result);
@@ -1673,7 +1670,7 @@ export default function App() {
               <StackItem>
                 <Card><CardBody>
                   <Title headingLevel="h3" size="lg">Publish unattended PXE answer</Title>
-                  <p>Upload the prewritten JSON answer and its detached minisign signature. The repository URL below must exactly match the URL inside the signed JSON document; it is shown separately here for operator review. Credentials must be referenced separately and must not be embedded in the URL.</p>
+                  <p>Upload the prewritten JSON answer. The Server validates it and signs it with its protected minisign key before publication. The repository URL below must exactly match the URL inside the JSON document. Credentials must be referenced separately and must not be embedded in the URL.</p>
                   <Alert variant="warning" title="Destructive operation guard" isInline>The server verifies the signature against its configured trusted minisign public key before publishing. The Live-side signature verification and unattended restore executor are not implemented yet; publishing this file does not start a restore.</Alert>
                   <Field label="Image repository URL" help="Accepted URL syntax includes SFTP/SSHFS, SMB/CIFS, NFS, WebDAV, HTTP(S), and BitTorrent. Syntax acceptance does not mean every transport adapter is implemented.">
                     <input className="pf-v5-c-form-control" value={pxeRepositoryUrl} onChange={(event) => { setPxeRepositoryUrl(event.target.value); setPxeAnswerPublished(null); }} maxLength={2048} placeholder="sftp://repository.example/images" />
@@ -1682,11 +1679,7 @@ export default function App() {
                     <input className="pf-v5-c-form-control" type="file" accept=".json,application/json" onChange={(event) => { setPxeAnswerFile(event.target.files?.[0] || null); setPxeAnswerPublished(null); }} />
                     {pxeAnswerFile && <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{pxeAnswerFile.name} · {pxeAnswerFile.size} bytes</div>}
                   </Field>
-                  <Field label="Detached signature (.minisig)">
-                    <input className="pf-v5-c-form-control" type="file" accept=".minisig" onChange={(event) => { setPxeAnswerSignatureFile(event.target.files?.[0] || null); setPxeAnswerPublished(null); }} />
-                    {pxeAnswerSignatureFile && <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{pxeAnswerSignatureFile.name} · {pxeAnswerSignatureFile.size} bytes</div>}
-                  </Field>
-                  <Button variant="primary" onClick={publishPXEAnswer} isLoading={busy} isDisabled={busy || !pxeStatus.active || !pxeRepositoryUrl.trim() || !pxeAnswerFile || !pxeAnswerSignatureFile}>Verify signature and publish answer</Button>
+                  <Button variant="primary" onClick={publishPXEAnswer} isLoading={busy} isDisabled={busy || !pxeStatus.active || !pxeRepositoryUrl.trim() || !pxeAnswerFile}>Validate, sign and publish answer</Button>
                   {!pxeStatus.active && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Start PXE services first; publication is available only while the configured Caddy service is active.</p>}
                   {pxeAnswerPublished && <Alert variant="success" title="Signed answer published" isInline className="pf-v5-u-mt-md">
                     <p>Job: {pxeAnswerPublished.job_id}</p>
