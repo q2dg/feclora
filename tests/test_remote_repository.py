@@ -63,6 +63,13 @@ class RemoteRepositoryTests(unittest.TestCase):
     def test_provider_dependencies(self):
         self.assertEqual(required_tools("sshfs"), ("sshfs",))
 
+    def test_s3_provider_is_not_supported(self):
+        with self.assertRaisesRegex(RepositoryError, "provider must be one of"):
+            RemoteRepository(
+                provider="s3", host="objects.example.net", remote_path="/bucket/images",
+                mountpoint="/mnt/images", read_only=True,
+            )
+
     def test_sshfs_rejects_missing_pinned_host_keys(self):
         with self.assertRaises(RepositoryError):
             RemoteRepository(
