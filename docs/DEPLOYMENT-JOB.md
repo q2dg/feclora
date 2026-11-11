@@ -110,12 +110,14 @@ The Client checks its own selected target and reports READY only after local
 preflight and typed confirmation. The Server requires the complete authorized
 READY set and a separate explicit ARM action before it sends START.
 
-PXE boot parameters and the job UUID are public handoff metadata only.
-The current unattended PXE path obtains mTLS credentials from a dedicated
-per-Client removable medium, authenticates the enrolled certificate, requires
-a WWN/serial binding for unicast whole-disk restore, and retains this job
-schema's READY/ARM authorization. Partition/multicast unattended execution
-and interrupted-job expiry/replay acceptance remain outside the current path.
+The existing Remote jobs workflow uses enrolled Client mTLS identities and
+its READY/ARM authorization. That workflow is separate from the new shared
+PXE answer-file design. The answer-file publication path signs a declarative
+restore answer on the Server and serves it through Caddy without per-Client
+identity or enrollment. The Live answer downloader, independent trust-root
+verification, repository integration, target revalidation and restore
+execution are not yet implemented. Do not infer authorization from PXE boot,
+a DHCP lease, a URL or a job UUID.
 
 ## Managed remote image repository
 
