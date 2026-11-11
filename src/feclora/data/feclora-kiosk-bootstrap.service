@@ -9,7 +9,7 @@ User=root
 Group=root
 Environment=PYTHONPATH=/usr/share/feclora/python
 ExecStart=/usr/bin/python3 -m feclora.kiosk_bootstrap
-ExecStartPost=/usr/bin/python3 -c 'import pathlib,socket,time; p=pathlib.Path("/var/lib/feclora/kiosk-setup-complete"); s=None if p.exists() else socket.socket(); exec("for _ in range(30):\\n try:\\n  s.connect((\"127.0.0.1\",8765)); break\\n except OSError: time.sleep(1)\\nelse: raise SystemExit(1)") if s else None'
+ExecStartPost=/usr/libexec/feclora/feclora-kiosk-bootstrap-ready
 TimeoutStartSec=35
 Restart=no
 UMask=0077
