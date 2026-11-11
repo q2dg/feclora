@@ -23,6 +23,7 @@ class StratisInventoryTests(unittest.TestCase):
             fs = result["pools"][0]["filesystems"][0]
             self.assertEqual(fs["name"], "fs1")
             self.assertEqual(fs["backing_block_devices"], ["sda1"])
+            self.assertEqual(fs["backing_device_paths"], ["/dev/sda1"])
 
     def test_missing_stratis_device_root_is_unavailable(self):
         with tempfile.TemporaryDirectory() as tmp:
