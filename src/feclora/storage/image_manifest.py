@@ -46,7 +46,7 @@ def _validate_storage_metadata(value: Any, image_type: str) -> dict[str, Any]:
     allowed = {
         "schema_version", "capture_scope", "source_layer", "luks_uuid",
         "lvm_vg_name", "lvm_vg_uuid", "lvm_lv_name", "lvm_lv_uuid", "btrfs_uuid",
-        "btrfs_subvolume_id", "btrfs_subvolume_uuid", "btrfs_parent_uuid",
+        "btrfs_subvolume_id", "btrfs_subvolume_uuid", "btrfs_parent_uuid", "btrfs_device_count",
         "btrfs_received_uuid", "dependencies",
     }
     unknown = set(value) - allowed
@@ -76,6 +76,10 @@ def _validate_storage_metadata(value: Any, image_type: str) -> dict[str, Any]:
             or any(ord(ch) < 32 for ch in item)
         ):
             raise ManifestValidationError(f"storage.{key} must be a short non-empty string")
+    if "btrfs_device_count" in value:
+        device_count = value["btrfs_device_count"]
+        if isinstance(device_count, bool) or not isinstance(device_count, int) or not 1 <= device_count <= 256:
+            raise ManifestValidationError("storage.btrfs_device_count must be an integer between 1 and 256")
     if "btrfs_subvolume_id" in value:
         subvolume_id = value["btrfs_subvolume_id"]
         if isinstance(subvolume_id, bool) or not isinstance(subvolume_id, int) or subvolume_id < 0:
