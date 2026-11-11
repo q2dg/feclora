@@ -93,6 +93,89 @@ class PartitionRestoreTests(unittest.TestCase):
         if self.active_process is not None:
             self.stdin_data = self.active_process.stdin.getvalue()
         return result
+    def write_luks2_manifest(self, *, scope="encrypted_container_bytes", source_layer="luks2_container", luks_uuid="12345678-1234-4234-8234-123456789abc"):
+        self.write_manifest("raw", None, len(self.payload))
+        with open(self.manifest, encoding="utf-8") as stream:
+            manifest = json.load(stream)
+        manifest["storage"] = {
+            "schema_version": 1, "capture_scope": scope, "source_layer": source_layer,
+            "luks_uuid": luks_uuid,
+            "dependencies": [{
+                "kind": "luks2_metadata", "identity": luks_uuid,
+                "included_in_source_bytes": True,
+            }],
+        }
+        with open(self.manifest, "w", encoding="utf-8") as stream:
+            json.dump(manifest, stream)
+
+    def test_luks2_container_restore_preserves_raw_bytes_and_verifies_header_uuid(self):
+        self.write_luks2_manifest()
+        luks_uuid = "12345678-1234-4234-8234-123456789abc"
+        def runner(command, **kwargs):
+            self.runner_calls.append((command, kwargs))
+            if "luksUUID" in command:
+                return SimpleNamespace(stdout=luks_uuid + "\\n", stderr="", returncode=0)
+            if "luksDump" in command:
+                return SimpleNamespace(
+                    stdout=json.dumps({"uuid": luks_uuid, "segments": {"0": {"encryption": "aes-xts-plain64"}}}),
+                    stderr="", returncode=0,
+                )
+            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\\n", stderr="", returncode=0)
+        proc = FakeProcess()
+        proc.stdout = io.BytesIO(self.payload)
+        def factory(argv, **opts):
+            self.calls.append((argv, opts))
+            return proc
+        result = restore_partition(
+            self.manifest, self.temp.name, "/dev/sda1",
+            confirmation="ERASE /dev/sda1",
+            executables={"lsblk": "lsblk", "dd": "dd", "cryptsetup": "cryptsetup"},
+            runner=runner, device_validator=lambda _path: True,
+            target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+            popen_factory=factory,
+        )
+        self.assertEqual(result.storage["capture_scope"], "encrypted_container_bytes")
+        self.assertEqual(proc.stdin.getvalue(), self.payload)
+        self.assertTrue(any("luksUUID" in call[0][0] for call in self.runner_calls))
+        self.assertTrue(any("luksDump" in call[0][0] for call in self.runner_calls))
+
+    def test_luks2_container_restore_rejects_uuid_mismatch_after_write(self):
+        self.write_luks2_manifest()
+        proc = FakeProcess()
+        proc.stdout = io.BytesIO(self.payload)
+        def runner(command, **kwargs):
+            if "luksUUID" in command:
+                return SimpleNamespace(stdout="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\n", stderr="", returncode=0)
+            if "luksDump" in command:
+                return SimpleNamespace(stdout=json.dumps({"uuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "segments": {"0": {}}}), stderr="", returncode=0)
+            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\\n", stderr="", returncode=0)
+        with self.assertRaisesRegex(PartitionRestoreError, "UUID or metadata"):
+            restore_partition(
+                self.manifest, self.temp.name, "/dev/sda1",
+                confirmation="ERASE /dev/sda1",
+                executables={"lsblk": "lsblk", "dd": "dd", "cryptsetup": "cryptsetup"},
+                runner=runner, device_validator=lambda _path: True,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda _argv, **_opts: proc,
+            )
+
+    def test_open_crypt_mapping_image_is_not_written_as_luks_container(self):
+        self.write_luks2_manifest(scope="decrypted_mapping_bytes", source_layer="active_crypt_mapping")
+        with self.assertRaisesRegex(PartitionRestoreError, "plaintext from an opened crypt mapping"):
+            self.restore()
+        self.assertEqual(self.calls, [])
+
+    def test_luks2_manifest_requires_matching_header_dependency(self):
+        self.write_luks2_manifest()
+        with open(self.manifest, encoding="utf-8") as stream:
+            manifest = json.load(stream)
+        manifest["storage"]["dependencies"][0]["identity"] = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        with open(self.manifest, "w", encoding="utf-8") as stream:
+            json.dump(manifest, stream)
+        with self.assertRaisesRegex(PartitionRestoreError, "matching header-included"):
+            self.restore()
+        self.assertEqual(self.calls, [])
+
     def test_age_encrypted_restore_requires_identity_before_writer(self):
         with open(self.manifest, encoding="utf-8") as stream:
             manifest = json.load(stream)
