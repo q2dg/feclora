@@ -53,6 +53,7 @@ if [[ -f "$ROOT_DIR/build/seal-pxe-client-key.sh" && -f "$ROOT_DIR/build/unseal-
   bash -n "$ROOT_DIR/build/unseal-pxe-client-key.sh" || fail "TPM2 Client credential unsealing helper has invalid Bash syntax."
   grep -q -- '--with-key=tpm2' "$ROOT_DIR/build/seal-pxe-client-key.sh" || fail "TPM2 credential sealing must explicitly require TPM2."
   grep -q '/run/feclora' "$ROOT_DIR/build/unseal-pxe-client-key.sh" || fail "TPM2 credential unsealing must use volatile /run storage."
+  grep -q 'Secure Boot must be enabled' "$ROOT_DIR/build/unseal-pxe-client-key.sh" || fail "TPM2 credential unsealing must require Secure Boot."
 fi
 
 if [[ -f "$ROOT_DIR/src/feclora/data/feclora-restore-profile-env" ]]; then
