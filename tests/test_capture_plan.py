@@ -43,10 +43,21 @@ class StorageCapturePlanTests(unittest.TestCase):
            volume_topology={"pvs": [{"pv_name": "/dev/sda2", "vg_name": "vg0"}],
                             "volume_groups": []})
         plan = plan_storage_capture(inventory, "/dev/sda", "disk")
+        self.assertEqual(plan["capture_scope"], "whole_disk_bytes")
         self.assertIn("luks2_container", plan["storage_layers"])
         self.assertIn("lvm_physical_volume", plan["storage_layers"])
         self.assertTrue(any(item.get("device_path") == "/dev/sda1"
                             for item in plan["dependencies"]))
+
+    def test_luks_container_feature_without_filesystem_signature_is_raw_encrypted_scope(self):
+        inventory = base_inventory({
+            "path": "/dev/sda3", "type": "part",
+            "volume_features": ["luks_container"], "children": [],
+        })
+        plan = plan_storage_capture(inventory, "/dev/sda3", "partition")
+        self.assertEqual(plan["capture_scope"], "encrypted_container_bytes")
+        self.assertIn("luks2_container", plan["storage_layers"])
+        self.assertTrue(plan["dependencies"][0]["included_in_source_bytes"])
 
     def test_open_crypt_mapping_is_not_misrepresented_as_luks_header_backup(self):
         inventory = base_inventory({
