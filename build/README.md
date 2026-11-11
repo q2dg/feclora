@@ -51,6 +51,18 @@ Python package and frontend into the installer media, and invokes Lorax.
 Results and logs are written under `out/`; inspect the complete result
 directory before treating the build as successful.
 
+## Optional signed PXE UKI build
+
+`build/build-pxe-uki.sh` can assemble an existing Fedora Live kernel/initramfs
+into a signed UKI using `ukify`, with Secure Boot signing and systemd PCR
+signature sections supplied through a protected config file. It requires
+`ukify`, `systemd-measure`, `sbverify` and `sbsigntools` on the build host.
+See [the PXE unattended design](../docs/PXE-UNATTENDED.md) and
+[the illustrative config](../docs/FECLORA-UKI-CONFIG.example). This is an
+opt-in primitive: it is not part of the default ISO build or PXE publication,
+and a successful signature check does not establish firmware trust or a
+working TPM release policy.
+
 ## Important limitations
 
 - The Kickstart and ISO pipeline are source-level build inputs, not a
