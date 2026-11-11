@@ -310,5 +310,32 @@ class SFTPImageSetTests(unittest.TestCase):
         self.assertEqual(list(self.root.glob(".feclora-sftp-incoming-*")), [])
 
 
+    @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
+    def test_fetch_rolls_back_published_files_when_cancelled_during_local_commit(self, verify):
+        remote = self._remote_set()
+        def transfer(**kwargs):
+            filename = kwargs["remote_path"].rsplit("/", 1)[-1]
+            Path(kwargs["local_path"]).write_bytes(remote[filename])
+            return {"verified": kwargs["expected_sha256"] is not None}
+        real_link = os.link
+        calls = 0
+        def cancel_after_first_link(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return real_link(*args, **kwargs)
+            raise KeyboardInterrupt("operator cancellation")
+        with patch("feclora.storage.sftp_image_set.os.link", side_effect=cancel_after_first_link):
+            with self.assertRaisesRegex(KeyboardInterrupt, "operator cancellation"):
+                fetch_image_set(
+                    remote_directory="/images/test-image", destination_root=self.root,
+                    public_key=self.public_key, host="backup.example", username="backup",
+                    identity_credential="key-ref", known_hosts_credential="hosts-ref",
+                    transfer=transfer,
+                )
+        self.assertFalse((self.root / "part-1.img").exists())
+        self.assertFalse((self.root / "test-image.manifest.json").exists())
+        self.assertEqual(list(self.root.glob(".feclora-sftp-incoming-*")), [])
+
 if __name__ == "__main__":
     unittest.main()
