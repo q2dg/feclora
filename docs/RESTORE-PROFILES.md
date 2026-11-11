@@ -40,8 +40,13 @@ major/minor identity. Thin-pool allocation is dynamic, so the preflight warns
 that it cannot reserve extents. Only linear and thin LVs are currently
 accepted by the preflight; RAID, striped, cache, snapshot and unknown segment
 layouts fail closed until their restore semantics are explicitly validated.
-This function performs no activation, write, LV creation or restore; it is not
-yet connected to the restore executor or Cockpit workflow.
+The preflight remains read-only; `logical_volume_restore.py` now invokes it
+before and immediately before writing, then restores into the already active
+LV. Raw images are read back and compared byte-for-byte; Partclone images are
+checked with a filesystem-specific read-only checker. The local Cockpit
+workflow exposes this operation. No LV/VG/PV creation, resizing, activation or
+LVM metadata restoration is performed. Deployment-job LV restore remains
+pending.
 
 The profile model and unattended whole-disk executor are implemented in src/feclora/storage/restore_profile.py and src/feclora/storage/profile_executor.py. They strictly validate schema fields, reject duplicate JSON keys and path traversal, match WWN/serial identities, verify minisign signatures, and atomically consume single-use authorization immediately before the first write. **Current limitation:** this executor currently requires minisign for profile and image authentication. The project policy is that minisign must remain optional; a configurable verifier/trust interface (with an equally strong alternative authentication path) is still required before unattended restore can satisfy that policy without minisign. UI-based profile authoring, automatic startup/systemd enablement and proportional layout execution remain pending.
 
