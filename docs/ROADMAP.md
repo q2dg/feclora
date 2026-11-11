@@ -83,10 +83,11 @@ hardware, provider services or physical networks have passed acceptance.
    READY/progress/read-back verification, and preserve the explicit
    authorization boundary. PXE boot alone must never authorize a write.
 2. **Storage-layer image fidelity:** local LVM logical-volume capture and
-   restore to an existing eligible LV are implemented, but they are not yet
-   available as Server/Client deployment-job targets. Next, integrate LV
-   target selection and preflight into unicast/multicast restore without
-   transmitting the Client's local device path as authorization. Separately,
+   restore are implemented. Server/Client deployment jobs now accept LV
+   restore targets over unicast and multicast; the Client selects the LV
+   locally and runs the existing fail-closed LV preflight/restore engine.
+   Automated and operator acceptance of multi-Client LV deployments remains
+   outstanding. Separately,
    define exact LUKS2/open-mapping restore semantics and finish Btrfs
    snapshot/multi-device/profile planning and supported restore preflights.
    Do not create or administer VGs/LVs, LUKS devices or Btrfs snapshots
