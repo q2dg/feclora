@@ -217,9 +217,10 @@ Live Cockpit interface; operators do not need to boot the ISO manually.
 
 The answer JSON is declarative data, not shell code. It identifies the image,
 repository and stable whole-disk WWN/serial selector and explicitly requests
-restore/start. The Server validates it before publication. The Live image downloads and validates the answer, but NFS repository access, unique target resolution and immediate pre-write
-identity revalidation are connected for whole-disk restore. Other repository
-providers and physical acceptance remain pending. A URL, DHCP lease, MAC address, job UUID or successful
+restore/start. The Server validates it before publication. The Live image downloads and validates the answer. NFS repository access,
+unique target resolution and immediate pre-write identity revalidation are
+connected for whole-disk restore. Other repository providers and physical
+acceptance remain pending. A URL, DHCP lease, MAC address, job UUID or successful
 download is not authorization by itself.
 
 The current implementation downloads and validates the answer in Live and
