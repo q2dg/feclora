@@ -25,6 +25,8 @@ from feclora.network.udpcast import (
 )
 from feclora.storage.disk_restore import DiskRestoreError, restore_disk
 from feclora.storage.partition_restore import PartitionRestoreError, restore_partition
+from feclora.storage.logical_volume_restore import LogicalVolumeRestoreError, restore_logical_volume
+from feclora.storage.inventory import collect_inventory
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.image_security import ImageSecurityError, verify_manifest_signature
 
@@ -162,7 +164,7 @@ def execute_multicast_restore(
             )
         # The restore function re-verifies any signature, artifact hashes and
         # optional age decryption before opening the selected block device.
-        restore_function = restore_partition if manifest.image_type == "partition" else restore_disk
+        restore_function = (restore_logical_volume if manifest.image_type == "logical_volume" else restore_partition if manifest.image_type == "partition" else restore_disk)
         restore_function(
             manifest_path, workdir, approval.device_path,
             confirmation=f"ERASE {approval.device_path}",
@@ -171,11 +173,12 @@ def execute_multicast_restore(
             age_identity_file=age_identity_file,
             progress_callback=progress_callback,
             executables=executables,
+            **({"inventory_provider": collect_inventory} if manifest.image_type == "logical_volume" else {}),
         )
         return True, f"multicast image {job.image_id} restored and destination read-back verified"
     except (
         OSError, ValueError, ManifestValidationError, ImageSecurityError,
-        DiskRestoreError, PartitionRestoreError, UDPcastError,
+        DiskRestoreError, PartitionRestoreError, LogicalVolumeRestoreError, UDPcastError,
     ) as exc:
         raise MulticastDeploymentError(f"multicast restore failed: {exc}") from exc
     finally:
