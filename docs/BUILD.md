@@ -212,28 +212,14 @@ provisioning and PXE job orchestration are not yet fully integrated into
 Cockpit; consult the [feature matrix](FEATURE-MATRIX.md) before claiming
 remote deployment readiness.
 
-### Target kiosk acceptance (not yet implemented)
+### Kiosk operator acceptance (pending)
 
-The target Live appliance must not be accepted as a kiosk until all of the
-following have been tested:
-
-- Cage starts automatically on the local display and launches Firefox in
-  kiosk mode; no general-purpose desktop is installed.
-- Firefox opens the local Cockpit endpoint without a certificate warning,
-  browser chrome, arbitrary URL navigation or external-page access.
-- Cockpit's Feclora application is reachable after secure first-boot
-  administrator provisioning.
-- The kiosk account is unprivileged and cannot access the Feclora privileged
-  API or Cockpit Terminal.
-- Firefox/Cage restart automatically after process failure.
-- Ordinary TTY switching, shell prompts, browser shortcuts and desktop escape
-  paths are blocked or explicitly documented in the physical-access threat
-  model.
-- BIOS and UEFI cold boots reach the same kiosk experience.
-
-Do not treat the current console-led smoke test above as kiosk acceptance.
-The current Live account's empty-password/passwordless-sudo setup must be
-removed as part of the secure kiosk bootstrap implementation.
+The kiosk implementation is now present in source and Kickstart. It is not
+accepted until BIOS and UEFI cold boots, Firefox enterprise policy behavior,
+Cockpit TLS trust, administrator bootstrap, service restart and physical
+keyboard/TTY escape behavior have been exercised on disposable VMs and
+representative hardware. Follow [the VM smoke-test procedure](../tests/VM-SMOKE-TEST.md)
+and record results; do not infer hardware acceptance from static validation.
 
 A successful Cockpit page load does not validate destructive workflows.
 Verify capture/restore/clone only with disposable virtual disks and follow
