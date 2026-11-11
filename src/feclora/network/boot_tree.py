@@ -141,11 +141,18 @@ def publish_unattended_ipxe_script(
     if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode):
         raise LiveBootAssetError("PXE HTTP root must be a real directory")
     destination = target_root / "unattended.ipxe"
+    content = render_unattended_ipxe_script(address, job_id, http_port)
     if os.path.lexists(destination):
         existing = destination.lstat()
         if not stat.S_ISREG(existing.st_mode) or stat.S_ISLNK(existing.st_mode):
             raise LiveBootAssetError("refusing to replace a non-regular unattended boot script")
-    content = render_unattended_ipxe_script(address, job_id, http_port)
+        try:
+            current = destination.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise LiveBootAssetError(f"cannot inspect existing unattended boot script: {exc}") from exc
+        if current != content:
+            raise LiveBootAssetError("a different unattended PXE job is already published")
+        return str(destination)
     fd, temporary = tempfile.mkstemp(prefix=".unattended.ipxe.", dir=target_root)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as output:
@@ -153,7 +160,13 @@ def publish_unattended_ipxe_script(
             output.flush()
             os.fsync(output.fileno())
         os.chmod(temporary, 0o444)
-        os.replace(temporary, destination)
+        try:
+            # link() is atomic and fails if another job won the publication
+            # race. os.replace() would silently overwrite an active job.
+            os.link(temporary, destination)
+        except FileExistsError as exc:
+            raise LiveBootAssetError("another unattended PXE job was published concurrently") from exc
+        os.unlink(temporary)
         directory_fd = os.open(
             target_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
         )
@@ -161,6 +174,12 @@ def publish_unattended_ipxe_script(
             os.fsync(directory_fd)
         finally:
             os.close(directory_fd)
+    except LiveBootAssetError:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
     except OSError as exc:
         try:
             os.unlink(temporary)
