@@ -23,13 +23,13 @@ process.
 
 ## Implemented stable target-binding groundwork
 
-Server restore-job creation can optionally bind each selected Client MAC to a
+Server restore-job creation can bind each selected Client MAC to a
 physical target WWN, serial number, or both. The binding is part of the
 validated job document sent over the TLS 1.3 mTLS control session. The Client
 compares every supplied identifier with its own current block-device inventory
 before it reports READY; a missing or mismatching identifier rejects the
-selection. The Server UI collects these values per selected Client, and the
-job schema rejects selectors for non-authorized Clients, incomplete Client
+selection. The Server UI collects these values per selected Client and requires a complete
+binding when publishing an unattended unicast disk job. The job schema rejects selectors for non-authorized Clients, incomplete Client
 coverage, empty selectors, non-whole-disk restore targets, unknown fields and
 control characters.
 
@@ -102,10 +102,11 @@ disk I/O is attempted after an interruption.
 
 ## Multi-Client and transport constraints
 
-- Each Client must have its own removable identity medium and its own
-  WWN/serial target binding, even when multiple Clients restore the same image.
-- The current automatic PXE dispatcher supports unicast whole-disk restore.
-  Multicast, partition and logical-volume unattended targets are not enabled
+- The current automatic PXE path handles **one Client per unicast job**. Each
+  job requires that Client's own identity medium and WWN/serial target binding.
+  Multiple Clients can be handled by separate unicast jobs; simultaneous
+  multi-Client PXE restore is not yet implemented.
+- Multicast, partition and logical-volume unattended targets are not enabled
   by this path; the existing interactive Client workflow remains available.
 - The existing Server job coordinator and explicit READY/ARM lifecycle remain
   the authorization boundary. No Client begins disk I/O merely by booting or
@@ -119,8 +120,9 @@ disk I/O is attempted after an interruption.
 
 ## Remaining release-critical work
 
-- Extend unattended target resolution beyond unicast whole-disk restore
-  to partition and multicast workflows, with matching hardware acceptance.
+- Extend unattended restore from one Client per unicast whole-disk job to
+  simultaneous multi-Client and multicast workflows, then add partition/LV
+  target support with matching hardware acceptance.
 - Add explicit job-expiry and replay/restart acceptance around the persistent
   Server job journal and interrupted Client lifecycle.
 - Add operator-facing PXE job progress/result reconciliation in the Server UI.
