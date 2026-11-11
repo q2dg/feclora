@@ -63,6 +63,12 @@ class BtrfsSubvolumeTests(unittest.TestCase):
         self.assertTrue(result[1]["is_snapshot"])
         self.assertEqual(result[1]["parent_uuid"], result[0]["uuid"])
 
+    def test_classifies_received_snapshot_from_received_uuid(self):
+        row = "ID 258 gen 130 parent 5 top level 5 parent_uuid - received_uuid 33333333-3333-3333-3333-333333333333 uuid 44444444-4444-4444-4444-444444444444 path received-snapshot"
+        result = parse_subvolume_list(row)
+        self.assertEqual(result[0]["kind"], "received_snapshot")
+        self.assertTrue(result[0]["is_snapshot"])
+
     def test_rejects_unrecognized_rows_instead_of_guessing(self):
         with self.assertRaises(BtrfsInventoryError):
             parse_subvolume_list("ID 256 path @")
@@ -93,7 +99,7 @@ class BtrfsSubvolumeTests(unittest.TestCase):
         self.assertEqual(result["mounts"][0]["mountpoint"], "/mnt/data")
         self.assertEqual(len(result["mounts"][0]["subvolumes"]), 2)
         self.assertIn("findmnt", calls[0])
-        self.assertEqual(calls[1][-5:], ["-a", "-p", "-u", "-q", "/mnt/data"])
+        self.assertEqual(calls[1][-6:], ["-a", "-p", "-u", "-q", "-R", "/mnt/data"])
 
 
 if __name__ == "__main__":
