@@ -320,6 +320,41 @@ def _luks2_restore_uuid(manifest: ImageManifest) -> str | None:
     return luks_uuid
 
 
+def _validate_btrfs_restore_metadata(manifest: ImageManifest, artifact: Any) -> None:
+    """Require proof that a Btrfs partition image represents one complete device."""
+    storage = manifest.storage
+    if artifact.filesystem != "btrfs" and not (
+        isinstance(storage, dict) and storage.get("source_layer") == "btrfs_filesystem"
+    ):
+        return
+    if not isinstance(storage, dict) or storage.get("source_layer") != "btrfs_filesystem":
+        raise PartitionRestoreError(
+            "Btrfs partition image lacks filesystem-layer provenance; refusing a topology-blind restore"
+        )
+    filesystem_uuid = storage.get("btrfs_uuid")
+    device_count = storage.get("btrfs_device_count")
+    if (not isinstance(filesystem_uuid, str)
+            or not re.fullmatch(
+                r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+                filesystem_uuid,
+            )
+            or isinstance(device_count, bool) or device_count != 1):
+        raise PartitionRestoreError(
+            "Btrfs restore is supported only for a uniquely identified single-device filesystem"
+        )
+    dependencies = storage.get("dependencies", [])
+    matching = [
+        item for item in dependencies
+        if isinstance(item, dict) and item.get("kind") == "btrfs_filesystem"
+    ]
+    if (len(matching) != 1
+            or matching[0].get("identity", "").lower() != filesystem_uuid.lower()
+            or matching[0].get("included_in_source_bytes") is not True):
+        raise PartitionRestoreError(
+            "Btrfs image must include exactly one matching complete filesystem dependency"
+        )
+
+
 def _verify_restored_luks2(
     target: str,
     expected_uuid: str,
@@ -422,6 +457,7 @@ def restore_partition(
         raise PartitionRestoreError("manifest must contain exactly one partition-image artifact")
     artifact = artifacts[0]
     luks2_uuid = _luks2_restore_uuid(manifest)
+    _validate_btrfs_restore_metadata(manifest, artifact)
     if luks2_uuid is not None and manifest.source_size_bytes % manifest.logical_sector_size:
         raise PartitionRestoreError("LUKS2 container image size is not aligned to its logical sector size")
     available = executables or {}
