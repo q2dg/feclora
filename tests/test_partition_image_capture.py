@@ -213,9 +213,10 @@ class PartitionImageCaptureTests(unittest.TestCase):
                     manifest = capture_partition_image(
                         "/dev/fake1", "codec-part", "fake1", directory,
                         compression=codec, compression_level=3,
-                        executables={"lsblk": "lsblk"},
+                        executables={"lsblk": "lsblk", "dd": "dd"},
                         runner=runner, device_validator=lambda _path: True,
                         source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                        inventory=make_inventory("/dev/fake1", 4096, "unknown"),
                     )
                 self.assertTrue(os.path.isfile(os.path.join(directory, "codec-part_fake1.img" + suffix)))
                 self.assertEqual(manifest.artifacts[0].compression, codec)
