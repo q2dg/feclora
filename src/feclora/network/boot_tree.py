@@ -220,7 +220,7 @@ def revoke_unattended_ipxe_script(
     if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
             or info.st_uid != os.geteuid() or info.st_mode & 0o022):
         raise LiveBootAssetError("unattended PXE boot script is not a safe regular file")
-    expected = render_unattended_ipxe_script(address, job_id, http_port)
+    expected = render_unattended_ipxe_script(address, job_id, http_port, control_port)
     try:
         actual = destination.read_text(encoding="utf-8")
     except (OSError, UnicodeError) as exc:
@@ -246,8 +246,9 @@ def clear_stale_unattended_ipxe_script(http_root: str) -> bool:
         root_info = target_root.lstat()
     except OSError as exc:
         raise LiveBootAssetError(f"PXE HTTP root is unavailable: {exc}") from exc
-    if not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode):
-        raise LiveBootAssetError("PXE HTTP root must be a real directory")
+    if (not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode)
+            or root_info.st_uid != os.geteuid() or root_info.st_mode & 0o022):
+        raise LiveBootAssetError("PXE HTTP root must be owned by the service user and not group/other-writable")
     destination = target_root / "unattended.ipxe"
     try:
         info = destination.lstat()
