@@ -13,7 +13,7 @@ It is not a fork of Clonezilla and does not depend on its repository, branches, 
 - Cockpit and the Feclora Cockpit application
 - Imaging, cloning, restoration, storage discovery and remote deployment foundations
 
-**Runtime architecture now implemented in source:** Fedora Server product environment in a Live image, without a general-purpose desktop; Cockpit bound to loopback with socket activation; Cage + Firefox kiosk; locked administrator account with a loopback-only first-boot password assistant; and a locally generated Cockpit CA/certificate installed into Firefox's Linux certificate store. The Live filesystem is ephemeral, so credentials and the local CA are regenerated on every boot; persistence design and BIOS/UEFI/physical kiosk acceptance remain open. See the [roadmap](docs/ROADMAP.md) and [implementation plan](docs/IMPLEMENTATION-PLAN.md).
+**Runtime architecture now implemented in source:** Fedora Server product environment in a Live image, without a general-purpose desktop; Cockpit bound to loopback with socket activation; Cage + Firefox kiosk; locked administrator account with a loopback-only first-boot password assistant; and a locally generated Cockpit CA/certificate installed into Firefox's Linux certificate store. The Live filesystem is intentionally ephemeral: each boot starts a fresh Feclora session, and administrator credentials, local CA material and temporary configuration are regenerated. No Live-session persistence is required. Images, manifests and other durable artifacts belong in explicitly selected external repositories. BIOS/UEFI/physical kiosk acceptance remains open. See the [roadmap](docs/ROADMAP.md) and [implementation plan](docs/IMPLEMENTATION-PLAN.md).
 
 ## Design principles
 
@@ -113,8 +113,7 @@ services, mTLS enrollment and authorization, mTLS-authenticated unicast image tr
 UDPcast multicast restore, and direct whole-disk remote cloning. Cockpit
 exposes Server/Client lifecycle and job workflows, per-client status, initial
 Server identity bootstrap, and PXE network-profile preflight/activation for
-ProxyDHCP or isolated DHCP. The PXE workflow still has network-configuration,
-diagnostics and unattended-profile gaps tracked in the implementation plan.
+ProxyDHCP or isolated DHCP. PXE network-profile activation exists, but unattended PXE restore still needs authenticated boot-to-job handoff, profile activation/revocation, deterministic target matching, replay protection within the deployment session, and end-to-end multi-Client validation. See the implementation plan.
 
 Local long-running capture, restore, extraction and clone operations are
 submitted through the privileged API to a root-owned systemd worker. Their
