@@ -18,6 +18,8 @@ part / --fstype=ext4 --size=8192 --grow
 
 %packages --excludedocs
 @^server-product-environment
+-@container-management
+-@headless-management
 kernel
 tar
 sudo
