@@ -90,6 +90,30 @@ def _write_config(path: str, value: dict[str, Any]) -> None:
 
 
 
+def _require_pxe_identity_media(path: str) -> None:
+    """Require a writable POSIX filesystem suitable for private key permissions."""
+    resolved = Path(os.path.realpath(path))
+    try:
+        lines = Path("/proc/self/mountinfo").read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise CockpitEnrollmentError(f"cannot inspect removable-media mount: {exc}") from exc
+    matches = []
+    for line in lines:
+        left, separator, right = line.partition(" - ")
+        before = left.split()
+        after = right.split()
+        if not separator or len(before) < 6 or not after:
+            continue
+        mountpoint = Path(before[4].replace("\\\\040", " ").replace("\\\\011", "\\t").replace("\\\\134", "\\\\"))
+        if resolved.is_relative_to(mountpoint):
+            matches.append((len(str(mountpoint)), after[0], before[5].split(",")))
+    if not matches:
+        raise CockpitEnrollmentError("PXE identity destination is not on a mounted filesystem")
+    _depth, filesystem, options = max(matches, key=lambda item: item[0])
+    if filesystem not in {"ext4", "xfs", "btrfs"} or "rw" not in options:
+        raise CockpitEnrollmentError("PXE identity media must be writable ext4, XFS or Btrfs so private-key permissions are preserved")
+
+
 def export_pxe_client_identity(params: dict[str, Any]) -> dict[str, Any]:
     """Export one enrolled Client's mTLS identity to dedicated removable media.
 
@@ -100,6 +124,7 @@ def export_pxe_client_identity(params: dict[str, Any]) -> dict[str, Any]:
         raise CockpitEnrollmentError("export_pxe_client_identity requires exactly export_directory")
     config = load_client_runtime_config(CONFIG)
     export = _mounted_media_directory(params["export_directory"])
+    _require_pxe_identity_media(export)
     root = Path(export)
     root_info = os.lstat(root)
     if root_info.st_uid != os.geteuid() or root_info.st_mode & 0o022:
