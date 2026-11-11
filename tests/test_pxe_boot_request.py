@@ -136,13 +136,13 @@ class PXEBootRequestTests(unittest.TestCase):
                 ),
                 path,
             )
+            other_job = "f47ac10b-58cc-4372-a567-0e02b2c3d480"
             with self.assertRaisesRegex(LiveBootAssetError, "different unattended PXE answer job"):
                 publish_unattended_answer_ipxe_script(
-                    tmp, "192.0.2.10", JOB_ID,
-                    f"http://192.0.2.10:8080/answers/{JOB_ID}/other.json",
-                    SIGNATURE_URL, 8080,
+                    tmp, "192.0.2.10", other_job,
+                    f"http://192.0.2.10:8080/answers/{other_job}/answer.json",
+                    f"http://192.0.2.10:8080/answers/{other_job}/answer.minisig", 8080,
                 )
-            other_job = "f47ac10b-58cc-4372-a567-0e02b2c3d480"
             with self.assertRaisesRegex(LiveBootAssetError, "different job"):
                 revoke_unattended_answer_ipxe_script(tmp, other_job)
             self.assertTrue(published.exists())
