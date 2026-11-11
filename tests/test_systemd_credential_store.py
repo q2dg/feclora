@@ -47,6 +47,14 @@ class SystemdCredentialStoreTests(unittest.TestCase):
         self.assertEqual((self.root / "feclora-nas-smb.cred").read_bytes(), b"encrypted:opaque-ciphertext")
 
     def test_list_returns_validated_metadata_only(self):
+        self.store.put("nas", "ssh-key", b"secret")
+        entries = self.store.list()
+        self.assertEqual(entries, [{
+            "id": "nas", "kind": "ssh-key", "name": "feclora-nas-ssh-key",
+            "path": str(self.root / "feclora-nas-ssh-key.cred"),
+        }])
+        self.assertNotIn("secret", repr(entries))
+
     def test_empty_inventory_initializes_private_credential_directory(self):
         entries = self.store.list()
         self.assertEqual(entries, [])
