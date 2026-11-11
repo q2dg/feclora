@@ -46,10 +46,11 @@ migration to an installed-only Fedora Server appliance.
 - [x] Generate a local Cockpit CA and localhost/IP SAN certificate, install
   the CA into the system trust store and Firefox's Linux `Certificates.Install`
   policy.
-- [ ] Design persistence for administrator credentials, local CA/private key
-  and Feclora configuration across Live reboots. Do not silently select a
-  target disk; require an explicit persistence medium/policy before enabling it.
-  Until then, the setup wizard and local CA are regenerated for each Live boot.
+- [x] Keep Live-session credentials, local CA/private key and temporary
+  configuration ephemeral. Each boot starts a new session and regenerates
+  these values; persistence across Live reboots is not a requirement. Images,
+  manifests and other durable artifacts are written only to explicitly selected
+  external repositories. No implicit target-disk selection is permitted.
 - [x] Define the authorized administrator and kiosk account privilege
   boundaries; the kiosk account is not a member of wheel and cannot log in
   to Cockpit as an administrator or invoke privileged Feclora API actions.
@@ -187,17 +188,7 @@ Existing foundation: block inventory, read-only LVM reporting, Btrfs/Stratis inv
 - [ ] Add Cockpit topology views and a read-only capture/restore compatibility preview. Feclora does not create/resize VGs or LVs, manage Btrfs snapshots, format LUKS devices, or otherwise administer those external storage stacks.
 Acceptance: inventory accurately identifies VG/LV, Btrfs snapshots and LUKS layers; capture plans state exactly what bytes and metadata are included; unsupported/degraded layouts fail closed before destructive work; successful restores verify the resulting topology and data.
 
-## P1 — PXE and unattended fleet restore
-Existing foundation: PXE/iPXE lifecycle, unicast/multicast restore, signed profile model and single-use executor.
-- [ ] Add Cockpit profile authoring, review, signing and revocation.
-- [ ] Integrate profiles with PXE boot selection and client identity authorization.
-- [ ] Implement safe layout policies; proportional growth stays unavailable until each filesystem combination is supported.
-- [ ] Add client groups and stable-identity target matching.
-- [ ] Add per-client preflight, staging space, signature and expiry reporting.
-- [ ] Define retry behavior that cannot replay single-use authorization.
-- [ ] Add per-client verification and exportable deployment reports.
-- [ ] Add automated BIOS/UEFI PXE tests in virtual networks; physical switch/IGMP acceptance remains operator-owned and is documented in `ACCEPTANCE-TESTS.md`.
-Acceptance: PXE boot alone never authorizes writes; each client verifies signed, unexpired, single-use authorization and target identity.
+undefined
 
 ## P1 — GitHub Pages guides
 Publish task-oriented guides only when the exact workflow is implemented; mark future workflows as planned.
