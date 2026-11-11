@@ -40,11 +40,17 @@ unlock, mount, snapshot, format or modify storage.
   Do not interpret mapping provenance as proof that such a capture is
   available.
 - **Btrfs:** supported single-device Btrfs partitions can be captured as
-  filesystem/block-device images. Multi-device filesystems are rejected by
-  the partition capture path rather than partially imaged. There is no
-  coordinated multi-device capture, snapshot-assisted consistency workflow
-  or separate subvolume image. Subvolume UUIDs, when present, are provenance
-  only.
+  filesystem/block-device images. The manifest records the filesystem UUID
+  and verified device count; restore requires a single-device count and one
+  matching complete-filesystem dependency before any writer starts. Multi-device
+  filesystems are rejected by partition capture and restore rather than being
+  flattened onto one target. Read-only inventory now records Data/Metadata/
+  System allocation profiles (for example `single` or `DUP`) for filesystems
+  that are already mounted; it does not mount sources or alter the filesystem.
+  Profile inventory is observational and is not yet a profile-conversion or
+  multi-device restore engine. There is no coordinated multi-device capture,
+  snapshot-assisted consistency workflow or separate subvolume image.
+  Subvolume UUIDs, when present, are provenance only.
 - **Stratis:** inventory/topology discovery exists; a Stratis-specific
   capture/restore workflow is not implemented.
 
