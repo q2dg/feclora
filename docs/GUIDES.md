@@ -40,7 +40,7 @@ Screenshot procedure and required filenames are listed in [the Cockpit screensho
 - [Remote repository administration and provider constraints](REMOTE-REPOSITORIES.html) — **Partial; check provider limits**
   SSHFS, NFS and SMB/CIFS have partial Cockpit mount/inventory integration.
   SFTP is a distinct transfer workflow. WebDAV has an incomplete
-  provider/credential workflow. BitTorrent is a proposed optional distribution transport, not
+  provider/credential workflow. BitTorrent is a first-class planned distribution transport at equal priority, not
   an implemented repository provider. Do not infer capture support for every provider.
 
 - [Whole-disk capture](WHOLE-DISK-CAPTURE.html) and
