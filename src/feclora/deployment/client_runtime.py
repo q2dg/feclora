@@ -48,6 +48,7 @@ def execute_client_image_job(
     compression_level: int | None = 6,
     progress_callback: Callable[[int, int | None], None] | None = None,
     transfer_progress_callback: Callable[[int, int], None] | None = None,
+    pre_write_callback: Callable[[], None] | None = None,
     executables: dict[str, str | None] | None = None,
 ) -> tuple[bool, str]:
     """Run one TLS-authenticated whole-disk image job after local approval."""
@@ -101,15 +102,20 @@ def execute_client_image_job(
             )
             signature_present = os.path.isfile(manifest_path + ".minisig")
             restore_function = (restore_logical_volume if job.target_type == "logical_volume" else restore_partition if job.target_type == "partition" else restore_disk)
+            restore_kwargs = {
+                "confirmation": f"ERASE {local_device_path}",
+                "minisign_public_key": trusted_server_public_key if signature_present else None,
+                "require_signature": signature_present,
+                "age_identity_file": age_identity_file,
+                "progress_callback": progress_callback,
+                "executables": executables,
+            }
+            if job.target_type == "disk" and pre_write_callback is not None:
+                restore_kwargs["pre_write_callback"] = pre_write_callback
+            if job.target_type == "logical_volume":
+                restore_kwargs["inventory_provider"] = collect_inventory
             restore_function(
-                manifest_path, repository, local_device_path,
-                confirmation=f"ERASE {local_device_path}",
-                minisign_public_key=trusted_server_public_key if signature_present else None,
-                require_signature=signature_present,
-                age_identity_file=age_identity_file,
-                progress_callback=progress_callback,
-                executables=executables,
-                **({"inventory_provider": collect_inventory} if job.target_type == "logical_volume" else {}),
+                manifest_path, repository, local_device_path, **restore_kwargs,
             )
             return True, f"image {job.image_id} restored and destination read-back verified"
         except (ImageTransferError, DiskRestoreError, PartitionRestoreError, LogicalVolumeRestoreError, ImageSecurityError, OSError) as exc:
