@@ -27,7 +27,7 @@ TOOL_GROUPS = {
     ),
     "filesystem_checkers": (
         "e2fsck", "xfs_repair", "ntfsfix", "fsck.fat",
-        "fsck.exfat", "fsck.f2fs", "btrfs",
+        "fsck.exfat", "fsck.f2fs",
     ),
     "raw_imaging": ("dd",),
     "compression": ("gzip", "pigz", "zstd", "xz", "lz4"),
