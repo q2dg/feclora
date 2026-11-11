@@ -21,6 +21,20 @@ class FakeProcess:
         self.returncode = -15
 
 
+
+def make_inventory(source_path, size, filesystem):
+    return {
+        "devices": [{
+            "path": source_path, "type": "part", "size_bytes": size,
+            "logical_sector_size": 512, "filesystem": filesystem,
+            "major_minor": "8:1", "children": [],
+        }],
+        "storage_graph": {"status": "available", "nodes": [], "edges": []},
+        "luks_metadata": {"status": "available", "containers": []},
+        "btrfs_topology": {"filesystems": []},
+    }
+
+
 class PartitionImageCaptureTests(unittest.TestCase):
     def test_rejects_path_traversal_image_and_partition_identifiers(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -33,6 +47,7 @@ class PartitionImageCaptureTests(unittest.TestCase):
                             device_validator=lambda _path: True,
                             source_safety_check=lambda _path: None,
                             effective_uid=lambda: 0,
+                            inventory=make_inventory("/dev/fake1", 4096, "unknown"),
                         )
             self.assertEqual(os.listdir(directory), [])
 
@@ -47,6 +62,7 @@ class PartitionImageCaptureTests(unittest.TestCase):
                 runner=runner, device_validator=lambda _path: True,
                 source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=lambda *a, **k: FakeProcess(payload),
+                inventory=make_inventory("/dev/fake1", len(payload), "unknown"),
             )
             self.assertEqual(manifest.image_type, "partition")
             self.assertEqual(manifest.source_size_bytes, len(payload))
@@ -82,7 +98,7 @@ class PartitionImageCaptureTests(unittest.TestCase):
                     runner=runner, device_validator=lambda _path: True,
                     source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                     popen_factory=lambda *a, **k: FakeProcess(payload),
-                    inventory={"devices": []},
+                    inventory=make_inventory("/dev/fake1", len(payload), "crypto_LUKS"),
                 )
             self.assertEqual(manifest.storage["source_layer"], "luks2_container")
             self.assertEqual(manifest.storage["capture_scope"], "encrypted_container_bytes")
@@ -106,6 +122,7 @@ class PartitionImageCaptureTests(unittest.TestCase):
                     runner=runner, device_validator=lambda _path: True,
                     source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                     popen_factory=lambda *a, **k: FakeProcess(b"unused"),
+                    inventory=make_inventory("/dev/fake1", 4096, "btrfs"),
                 )
             self.assertEqual(os.listdir(directory), [])
 
@@ -120,6 +137,7 @@ class PartitionImageCaptureTests(unittest.TestCase):
                     runner=runner, device_validator=lambda _path: True,
                     source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                     popen_factory=lambda *a, **k: FakeProcess(b"short"),
+                    inventory=make_inventory("/dev/fake1", 4096, "unknown"),
                 )
             self.assertEqual(os.listdir(directory), [])
 
@@ -134,6 +152,7 @@ class PartitionImageCaptureTests(unittest.TestCase):
                 runner=runner, device_validator=lambda _path: True,
                 source_safety_check=lambda _path: None, effective_uid=lambda: 0,
                 popen_factory=lambda *a, **k: FakeProcess(payload),
+                inventory=make_inventory("/dev/fake1", 8192, "ext4"),
             )
             self.assertEqual(manifest.artifacts[0].format, "partclone")
             self.assertEqual(manifest.artifacts[0].filesystem, "ext4")
