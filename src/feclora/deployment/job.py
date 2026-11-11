@@ -41,6 +41,7 @@ _ALLOWED_FIELDS = {
     "staging_required_bytes",
     "source_device",
     "repository_id",
+    "target_bindings",
 }
 
 
@@ -64,6 +65,7 @@ class DeploymentJob:
     staging_required_bytes: int | None = None
     source_device: str | None = None
     repository_id: str | None = None
+    target_bindings: tuple[tuple[str, str | None, str | None], ...] = ()
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "DeploymentJob":
@@ -71,7 +73,7 @@ class DeploymentJob:
             raise JobValidationError("Job document must be a JSON object")
         unknown = set(payload) - _ALLOWED_FIELDS
         missing = _ALLOWED_FIELDS - set(payload) - {
-            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type", "staging_required_bytes", "source_device", "repository_id"
+            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type", "staging_required_bytes", "source_device", "repository_id", "target_bindings"
         }
         if unknown:
             raise JobValidationError(f"Unknown job fields: {', '.join(sorted(unknown))}")
@@ -139,6 +141,31 @@ class DeploymentJob:
             if normalized in normalized_clients:
                 raise JobValidationError(f"Duplicate authorized client: {normalized}")
             normalized_clients.append(normalized)
+
+        raw_bindings = payload.get("target_bindings", {})
+        if not isinstance(raw_bindings, dict) or len(raw_bindings) > len(normalized_clients):
+            raise JobValidationError("target_bindings must map authorized Client MACs to stable WWN/serial selectors")
+        bindings: list[tuple[str, str | None, str | None]] = []
+        seen_binding_macs: set[str] = set()
+        for raw_mac, selector in raw_bindings.items():
+            if not isinstance(raw_mac, str) or not _MAC_RE.fullmatch(raw_mac):
+                raise JobValidationError("target_bindings contains an invalid Client MAC")
+            mac = raw_mac.lower()
+            if mac not in normalized_clients or mac in seen_binding_macs:
+                raise JobValidationError("target_bindings may reference each authorized Client only once")
+            if not isinstance(selector, dict) or set(selector) != {"wwn", "serial"}:
+                raise JobValidationError("each target binding must contain exactly wwn and serial")
+            wwn, serial = selector["wwn"], selector["serial"]
+            if wwn is None and serial is None:
+                raise JobValidationError("each target binding requires a WWN, serial number, or both")
+            for value, label in ((wwn, "WWN"), (serial, "serial")):
+                if value is not None and (
+                    not isinstance(value, str) or not value or len(value) > 256
+                    or value != value.strip() or any(ord(char) < 32 for char in value)
+                ):
+                    raise JobValidationError(f"target binding {label} must be non-empty text without control characters")
+            bindings.append((mac, wwn, serial))
+            seen_binding_macs.add(mac)
 
         interface = payload.get("network_interface")
         if not isinstance(interface, str) or not _INTERFACE_RE.fullmatch(interface):
@@ -217,6 +244,7 @@ class DeploymentJob:
             staging_required_bytes=staging_required_bytes,
             source_device=source_device,
             repository_id=repository_id,
+            target_bindings=tuple(sorted(bindings)),
         )
 
     @classmethod
@@ -251,6 +279,11 @@ class DeploymentJob:
             document["source_device"] = self.source_device
         if self.repository_id is not None:
             document["repository_id"] = self.repository_id
+        if self.target_bindings:
+            document["target_bindings"] = {
+                mac: {"wwn": wwn, "serial": serial}
+                for mac, wwn, serial in self.target_bindings
+            }
         return document
 
     def to_json(self) -> str:
@@ -261,3 +294,32 @@ class DeploymentJob:
         if not isinstance(mac_address, str) or not _MAC_RE.fullmatch(mac_address):
             return False
         return mac_address.lower() in self.authorized_clients
+
+    def authorizes_target(self, mac_address: str, device: dict[str, Any]) -> bool:
+        """Enforce an optional per-Client physical target binding.
+
+        Jobs without a binding retain interactive target approval. A configured
+        binding requires every supplied hardware identifier to match; transient
+        /dev names are never used as identity.
+        """
+        if not isinstance(mac_address, str) or not self.authorizes_client(mac_address):
+            return False
+        selector = next(
+            ((wwn, serial) for mac, wwn, serial in self.target_bindings
+             if mac == mac_address.lower()),
+            None,
+        )
+        if selector is None:
+            return True
+        if not isinstance(device, dict):
+            return False
+        wwn, serial = selector
+        if wwn is not None:
+            actual_wwn = device.get("wwn")
+            if not isinstance(actual_wwn, str) or actual_wwn.strip().lower() != wwn.lower():
+                return False
+        if serial is not None:
+            actual_serial = device.get("serial")
+            if not isinstance(actual_serial, str) or actual_serial.strip() != serial:
+                return False
+        return True
