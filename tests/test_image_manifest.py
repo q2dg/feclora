@@ -289,7 +289,7 @@ class ImageManifestTests(unittest.TestCase):
             "artifacts": [artifact()],
             "storage": {
                 "schema_version": 1, "capture_scope": "partition_bytes",
-                "source_layer": "btrfs_filesystem", "btrfs_uuid": "fs-uuid",
+                "source_layer": "btrfs_filesystem", "btrfs_uuid": "fs-uuid", "btrfs_device_count": 1,
                 "btrfs_subvolume_id": 256, "btrfs_subvolume_uuid": "subvol-uuid",
                 "btrfs_parent_uuid": "parent-uuid", "btrfs_received_uuid": "received-uuid",
                 "dependencies": [{
@@ -301,6 +301,20 @@ class ImageManifestTests(unittest.TestCase):
         manifest = ImageManifest.from_dict(value)
         self.assertEqual(ImageManifest.from_json(manifest.to_json()), manifest)
         self.assertEqual(manifest.storage["btrfs_subvolume_id"], 256)
+        self.assertEqual(manifest.storage["btrfs_device_count"], 1)
+
+    def test_btrfs_device_count_must_be_a_positive_integer_not_a_boolean(self):
+        value = {
+            "schema_version": 1, "image_id": "btrfs-root", "image_type": "partition",
+            "source_size_bytes": 8192, "logical_sector_size": 512, "partition_table": "none",
+            "artifacts": [artifact()],
+            "storage": {
+                "schema_version": 1, "capture_scope": "partition_bytes",
+                "source_layer": "btrfs_filesystem", "btrfs_device_count": True,
+            },
+        }
+        with self.assertRaisesRegex(ManifestValidationError, "btrfs_device_count"):
+            ImageManifest.from_dict(value)
 
     def test_btrfs_subvolume_id_must_be_an_integer_not_a_boolean(self):
         value = {
