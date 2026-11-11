@@ -22,6 +22,20 @@ class FakeProcess:
 
 
 class PartitionImageCaptureTests(unittest.TestCase):
+    def test_rejects_path_traversal_image_and_partition_identifiers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for image_id, partition_id in (("../escape", "root"), ("safe", "../escape")):
+                with self.subTest(image_id=image_id, partition_id=partition_id):
+                    with self.assertRaisesRegex(PartitionImageCaptureError, "filename-compatible"):
+                        capture_partition_image(
+                            "/dev/fake1", image_id, partition_id, directory,
+                            executables={"lsblk": "lsblk", "dd": "dd"},
+                            device_validator=lambda _path: True,
+                            source_safety_check=lambda _path: None,
+                            effective_uid=lambda: 0,
+                        )
+            self.assertEqual(os.listdir(directory), [])
+
     def test_publishes_raw_partition_and_manifest(self):
         payload = b"x" * 4096
         with tempfile.TemporaryDirectory() as directory:
