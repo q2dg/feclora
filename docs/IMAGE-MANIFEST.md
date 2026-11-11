@@ -14,7 +14,7 @@ arbitrary output path.
   SHA-256 digest.
 - Partition identifier for partition-image artifacts.
 - Recognized filesystem type for partition-image and logical-volume-image artifacts when known; Partclone restore uses it to select the matching executable. Older manifests without this optional field remain readable, but a Partclone restore cannot select a utility without it.
-- Optional `storage` provenance: explicit byte scope and source layer, LUKS2 UUID, LVM VG/LV identities, Btrfs filesystem/subvolume UUID provenance and dependency identities. This is descriptive only; it never activates, unlocks, mounts, snapshots or modifies storage.
+- Optional `storage` provenance: explicit byte scope and source layer, LUKS2 UUID, LVM VG/LV identities, Btrfs filesystem/subvolume UUID provenance and dependency identities. This is descriptive only; it never activates, unlocks, mounts, snapshots or modifies storage. Btrfs remains a filesystem-level image (using `partclone.btrfs` when supported); subvolume UUIDs are provenance metadata, not separate subvolume image artifacts.
 
 Artifact names are restricted to safe basenames. Duplicate names, unknown
 fields, unsupported versions, invalid digests and inconsistent disk/partition
