@@ -1344,7 +1344,7 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
             address=address, http_port=port,
         )
         answer_published = True
-        boot_script = publish_unattended_answer_ipxe_script(
+        publish_unattended_answer_ipxe_script(
             http_root, address, job_id,
             published["answer_url"], published["signature_url"], port,
         )
