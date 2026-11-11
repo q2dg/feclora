@@ -1,0 +1,42 @@
+{
+  "policies": {
+    "Certificates": {
+      "ImportEnterpriseRoots": true
+    },
+    "DisableAppUpdate": true,
+    "DisableFirefoxAccounts": true,
+    "DisableFirefoxStudies": true,
+    "DisableFormHistory": true,
+    "DisablePasswordManager": true,
+    "DisablePrivateBrowsing": true,
+    "DisableTelemetry": true,
+    "DisableDeveloperTools": true,
+    "BlockAboutConfig": true,
+    "BlockAboutProfiles": true,
+    "BlockAboutSupport": true,
+    "Homepage": {
+      "URL": "http://127.0.0.1:8765/",
+      "Locked": true,
+      "StartPage": "homepage"
+    },
+    "URLBlocklist": ["*"],
+    "URLAllowlist": [
+      "http://127.0.0.1:8765/*",
+      "https://localhost:9090/*"
+    ],
+    "Preferences": {
+      "browser.aboutConfig.showWarning": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "browser.tabs.warnOnClose": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "signon.rememberSignons": {
+        "Value": false,
+        "Status": "locked"
+      }
+    }
+  }
+}
