@@ -279,6 +279,74 @@ def _verify_partclone_target(
         )
 
 
+def _luks2_restore_uuid(manifest: ImageManifest) -> str | None:
+    """Return the authenticated LUKS2 container UUID, or reject ambiguous layer semantics."""
+    storage = manifest.storage
+    if storage is None:
+        return None
+    scope = storage.get("capture_scope")
+    layer = storage.get("source_layer")
+    if scope == "decrypted_mapping_bytes":
+        raise PartitionRestoreError(
+            "this image contains plaintext from an opened crypt mapping, not a LUKS header; "
+            "restore requires a separately provisioned LUKS2 destination and is not supported"
+        )
+    if scope != "encrypted_container_bytes" or layer != "luks2_container":
+        return None
+    luks_uuid = storage.get("luks_uuid")
+    if not isinstance(luks_uuid, str) or not re.fullmatch(
+        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+        luks_uuid,
+    ):
+        raise PartitionRestoreError("LUKS2 container image has no valid source UUID")
+    dependencies = storage.get("dependencies", [])
+    matching = [
+        item for item in dependencies
+        if isinstance(item, dict) and item.get("kind") == "luks2_metadata"
+    ]
+    if (len(matching) != 1 or matching[0].get("identity", "").lower() != luks_uuid.lower()
+            or matching[0].get("included_in_source_bytes") is not True):
+        raise PartitionRestoreError(
+            "LUKS2 image must declare exactly one matching header-included metadata dependency"
+        )
+    if len(manifest.artifacts) != 1 or manifest.artifacts[0].role != "partition-image":
+        raise PartitionRestoreError("LUKS2 container restore requires exactly one partition image artifact")
+    if manifest.artifacts[0].format != "raw":
+        raise PartitionRestoreError("LUKS2 container images must use raw byte capture, not Partclone")
+    return luks_uuid
+
+
+def _verify_restored_luks2(
+    target: str,
+    expected_uuid: str,
+    cryptsetup: str,
+    runner: Callable[..., Any],
+    effective_uid: Callable[..., Any] | None,
+) -> None:
+    """Verify the written bytes contain the expected LUKS2 header without opening it."""
+    commands = (
+        [cryptsetup, "luksUUID", target],
+        [cryptsetup, "luksDump", "--dump-json-metadata", target],
+    )
+    try:
+        results = [
+            runner(privileged_argv(command, effective_uid=effective_uid),
+                   check=True, capture_output=True, text=True, timeout=30)
+            for command in commands
+        ]
+    except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
+        raise PartitionRestoreError(f"restored LUKS2 header could not be verified: {exc}") from exc
+    reported_uuid = (getattr(results[0], "stdout", "") or "").strip()
+    try:
+        metadata = json.loads(getattr(results[1], "stdout", "") or "")
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise PartitionRestoreError("restored target does not contain valid LUKS2 JSON metadata") from exc
+    if (not isinstance(metadata, dict) or not isinstance(metadata.get("segments"), dict)
+            or reported_uuid.lower() != expected_uuid.lower()
+            or str(metadata.get("uuid", "")).lower() != expected_uuid.lower()):
+        raise PartitionRestoreError("restored LUKS2 UUID or metadata does not match the image manifest")
+
+
 def restore_partition(
     manifest_path: str | os.PathLike[str],
     repository: str | os.PathLike[str],
@@ -344,6 +412,7 @@ def restore_partition(
     if len(artifacts) != 1:
         raise PartitionRestoreError("manifest must contain exactly one partition-image artifact")
     artifact = artifacts[0]
+    luks2_uuid = _luks2_restore_uuid(manifest)
     available = executables or {}
     lsblk = available.get("lsblk") or shutil.which("lsblk")
     if not lsblk:
@@ -372,6 +441,13 @@ def restore_partition(
         executable = available.get("dd") or shutil.which("dd")
         if not executable:
             raise PartitionRestoreError("dd is required for raw partition restore")
+    cryptsetup = None
+    if luks2_uuid is not None:
+        if artifact.format != "raw":
+            raise PartitionRestoreError("LUKS2 container restore accepts raw bytes only")
+        cryptsetup = available.get("cryptsetup") or shutil.which("cryptsetup")
+        if not cryptsetup:
+            raise PartitionRestoreError("cryptsetup is required to verify a restored LUKS2 header")
     safety = target_safety_check or check_capture_source_safe
     try:
         safety(target_path)
@@ -515,6 +591,10 @@ def restore_partition(
                         executable, target_path, staged_path, manifest.source_size_bytes,
                         popen_factory=factory, effective_uid=effective_uid,
                     )
+                    if luks2_uuid is not None and cryptsetup is not None:
+                        _verify_restored_luks2(
+                            target_path, luks2_uuid, cryptsetup, run, effective_uid,
+                        )
                 else:
                     _verify_partclone_target(
                         artifact.filesystem or "", target_path, available, run, effective_uid,
