@@ -33,6 +33,10 @@ class CredentialStoreTests(unittest.TestCase):
         self.assertEqual(path.read_bytes(), b"new")
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
+    def test_rclone_credential_kind_is_not_supported(self):
+        with self.assertRaises(CredentialStoreError):
+            self.store.put("nas", "rclone", b"config")
+
     def test_known_hosts_uses_read_only_public_mode(self):
         self.store.put("nas", "known-hosts", b"nas ssh-ed25519 AAAA")
         self.assertEqual((self.root / "nas.known-hosts").stat().st_mode & 0o777, 0o644)
