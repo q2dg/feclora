@@ -162,7 +162,7 @@ for optional_package in age minisign; do
   grep -qx "$optional_package" "$ROOT_DIR/packages/optional-image-security.txt" || fail "Optional image-security package list is missing $optional_package."
 done
 
-for package in lvm2 stratisd stratis-cli btrfs-progs; do
+for package in lvm2 stratisd stratis-cli btrfs-progs exfatprogs f2fs-tools partclone; do
   grep -qx "$package" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $package."
   grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."
 done
