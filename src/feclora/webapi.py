@@ -1373,6 +1373,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 progress_callback=_progress,
             )
     elif action == "capture_partition":
+        from feclora.storage.inventory import collect_inventory
         from feclora.storage.partition_image_capture import capture_partition_image
         source = _device(params["source"], "source")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
@@ -1387,9 +1388,10 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         if sign and not security["image_signing_available"]:
             raise WebAPIError("initialize Feclora security keys before enabling image signatures")
         recipients_file, signing_key = _capture_material()
+        inventory = collect_inventory()
         manifest = capture_partition_image(
             source, image_id, partition_id, _operation_repository(params, write=True, create_local=True),
-            compression=compression, progress_callback=_progress,
+            compression=compression, progress_callback=_progress, inventory=inventory,
             age_recipients_file=recipients_file if encrypt else None,
             minisign_secret_key=signing_key if sign else None,
         )
