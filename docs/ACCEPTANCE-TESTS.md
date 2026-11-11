@@ -213,6 +213,28 @@ For each run, record:
   unit-test results alone.
 
 
+## 8. Btrfs subvolume and snapshot discovery acceptance
+
+Run this check in a disposable VM with a Btrfs filesystem already mounted and
+containing at least one ordinary subvolume and one snapshot. Feclora discovery
+must not mount, unmount, create, delete or otherwise modify Btrfs objects.
+
+1. Record the filesystem UUID, mounted target, subvolume UUIDs and parent UUIDs
+   using the native Btrfs tools as the independent reference.
+2. Run Feclora storage inventory and confirm it reports each already-mounted
+   Btrfs target, subvolume ID, UUID, path and parent UUID.
+3. Confirm ordinary subvolumes with no parent UUID are classified as
+   subvolumes, and snapshot descendants with a parent UUID are classified as
+   snapshots. Names alone must not determine snapshot status.
+4. Repeat with a nested Btrfs mount and confirm it is inventoried separately.
+5. Repeat without btrfs-progs or findmnt available and confirm the subvolume
+   scan reports unavailable rather than guessing.
+6. Confirm the operation is read-only and bounded; no mount or filesystem
+   mutation command is issued. Record tool versions and the inventory output.
+
+Mark not run until exercised against a real mounted Btrfs filesystem. This
+inventory does not establish that snapshot capture or restore is supported.
+
 ## 7. BitTorrent distribution acceptance
 
 BitTorrent is a first-class artifact-distribution transport at the same priority
