@@ -196,17 +196,15 @@ Live Cockpit interface; operators do not need to boot the ISO manually.
 2. Activate PXE. Feclora stages the packaged BIOS/UEFI iPXE firmware and the
    Live boot payload into the TFTP/HTTP trees. BIOS and UEFI clients chainload
    iPXE and boot that Live environment.
-3. For unattended preparation, open Server setup, enter the image repository
-   URL and upload the prewritten JSON answer file. The URL must match the
-   repository_url inside that document. The Server validates the schema,
-   signs the answer with its protected minisign key, verifies the signature
-   against the configured public key, and publishes the answer plus detached
-   signature under a generated job UUID through Caddy. No Client MAC, USB
-   identity medium, certificate, key or enrollment is requested by this form.
+3. For unattended preparation, open Server setup and upload the prewritten
+   JSON answer file. The `repository_url` is read from the JSON itself. The
+   Server validates the schema and publishes the answer over HTTP through
+   Caddy under a generated job UUID. No age, minisign, Client MAC, USB identity
+   medium, certificate, key or enrollment is requested by this form.
 4. The operator can explicitly revoke the published answer from Cockpit.
    Automatic revocation on deployment cancellation/expiry is not connected
    yet. Clients do not yet download or execute this answer: the Live-side
-   downloader, signature verification, repository adapters, stable target
+   downloader, HTTP answer download, repository adapters, stable target
    revalidation and unattended restore engine remain implementation work.
 5. The existing Remote jobs workflow is a separate authenticated mTLS
    workflow. It still uses enrolled Clients and local target approval; it is
@@ -217,14 +215,12 @@ Live Cockpit interface; operators do not need to boot the ISO manually.
 
 The answer JSON is declarative data, not shell code. It identifies the image,
 repository and stable whole-disk WWN/serial selector and explicitly requests
-restore/start. The Server signs it after validation. Before any future
-unattended write, the Live image must verify that signature against a public
-key provisioned independently of the downloaded answer, validate the answer
-again, resolve exactly one matching disk and recheck its identity immediately
+restore/start. The Server validates it before publication. The Live image must download and
+validate the answer again, resolve exactly one matching disk and recheck its identity immediately
 before the write. A URL, DHCP lease, MAC address, job UUID or successful
 download is not authorization by itself.
 
-The current implementation publishes and revokes signed answer files; it does
+The current implementation publishes and revokes JSON answer files; it does
 not yet perform the Live-side handoff or destructive restore. Do not use the
 new answer form for production unattended restores until the complete client
 path and hardware acceptance tests are implemented.
