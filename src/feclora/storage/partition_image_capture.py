@@ -130,6 +130,8 @@ def capture_partition_image(
             )
         storage_metadata = capture_plan.get("manifest_storage")
 
+    if not isinstance(inventory, Mapping):
+        raise PartitionImageCaptureError("partition capture requires a current storage inventory")
     safe_partition_id = partition_id.replace("+", "_")
     stem = f"{image_id}_{safe_partition_id}"
     suffix = {"none": "", "gzip": ".gz", "xz": ".xz", "zstd": ".zst", "lz4": ".lz4"}.get(compression)
