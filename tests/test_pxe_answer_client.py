@@ -102,11 +102,14 @@ class PXEAnswerClientTests(unittest.TestCase):
                     "image_id": "golden",
                     "repository_url": "nfs://nfs.example/images",
                     "target": {"wwn": "0x5000c50012345678", "serial": None},
-                }, mountpoint=mountpoint, operation_log=log_dir / "operations.jsonl")
+                    "_pxe_job_id": JOB,
+                }, mountpoint=mountpoint, operation_log=log_dir / "operations.jsonl",
+                consumption_dir=log_dir / "consumed")
             self.assertEqual(resolved, "/dev/sdb")
             revalidate.assert_called_once()
             self.assertTrue(restore_call.call_args.kwargs["ignore_signature"])
             self.assertTrue((log_dir / "operations.jsonl").is_file())
+            self.assertTrue((log_dir / "consumed" / JOB).is_file())
 
     def test_non_nfs_provider_fails_closed(self):
         with self.assertRaisesRegex(PXEAnswerClientError, "NFS repositories only"):
@@ -114,6 +117,7 @@ class PXEAnswerClientTests(unittest.TestCase):
                 "image_id": "golden",
                 "repository_url": "sftp://repo.example/images",
                 "target": {"wwn": "0x5000c50012345678", "serial": None},
+                "_pxe_job_id": JOB,
             })
 
 
