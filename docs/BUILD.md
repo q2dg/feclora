@@ -194,7 +194,8 @@ At minimum, verify:
 - `test -s /usr/share/cockpit/feclora/index.html` succeeds and Cockpit
   displays storage inventory and the local Operations wizard.
 - `/usr/share/feclora/python/feclora` contains the Python application.
-- Firefox enterprise policy blocks external URLs and developer tools.
+- Firefox `WebsiteFilter` blocks external URLs and systemd cgroup IP filters
+  deny all kiosk network destinations except loopback.
 - The kiosk account is not in `wheel`; getty@tty1–tty6 are masked; there is
   no autologin configuration or NOPASSWD sudo rule.
 - Firefox and Cage restart after terminating the kiosk process.
