@@ -1,9 +1,0 @@
-[Unit]
-Description=Feclora per-Client PXE identity removable medium
-Before=feclora-pxe-client-start.service
-
-[Mount]
-What=/dev/disk/by-label/FECLORA-CLIENT
-Where=/mnt/feclora-pxe-identity
-Type=auto
-Options=ro,nosuid,nodev,noexec
