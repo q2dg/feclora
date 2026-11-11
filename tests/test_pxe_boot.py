@@ -1,4 +1,5 @@
 import tempfile
+import os
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -35,6 +36,17 @@ class PxeBootTreeTests(unittest.TestCase):
             http_root.mkdir()
             stale = http_root / "unattended.ipxe"
             stale.write_text("#!ipxe\\necho stale\\n", encoding="utf-8")
+            stale_answer_script = http_root / "unattended-answer.ipxe"
+            stale_answer_script.write_text("#!ipxe\\necho stale\\n", encoding="utf-8")
+            answers = http_root / "answers"
+            job_answers = answers / "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+            job_answers.mkdir(parents=True, mode=0o755)
+            (job_answers / "answer.json").write_bytes(b"{}")
+            (job_answers / "answer.minisig").write_bytes(b"signature")
+            os.chmod(answers, 0o755)
+            os.chmod(job_answers, 0o555)
+            os.chmod(job_answers / "answer.json", 0o444)
+            os.chmod(job_answers / "answer.minisig", 0o444)
             with patch("feclora.network.pxe_boot.stage_ipxe_assets") as stage_tftp, patch(
                 "feclora.network.pxe_boot.stage_live_boot_assets"
             ) as stage_http:
@@ -48,6 +60,8 @@ class PxeBootTreeTests(unittest.TestCase):
             stage_tftp.assert_called_once()
             stage_http.assert_called_once()
             self.assertFalse(stale.exists())
+            self.assertFalse(stale_answer_script.exists())
+            self.assertFalse(job_answers.exists())
 
     def test_requires_dnsmasq_account(self):
         with tempfile.TemporaryDirectory() as tmp:
