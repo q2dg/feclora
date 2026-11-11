@@ -44,7 +44,8 @@ def test_collects_nested_luks_devices():
                           "segments": {"0": {"encryption": "aes-xts-plain64"}}})
     def runner(argv, **kwargs):
         calls.append(argv)
-        return subprocess.CompletedProcess(argv, 0, payload, "")
+        output = "11111111-2222-3333-4444-555555555555\\n" if "luksUUID" in argv else payload
+        return subprocess.CompletedProcess(argv, 0, output, "")
     result = collect_luks_inventory(
         [{"path": "/dev/sda", "children": [
             {"path": "/dev/sda2", "filesystem": "crypto_LUKS", "children": []}
@@ -53,7 +54,8 @@ def test_collects_nested_luks_devices():
         runner=runner, effective_uid=lambda: 0,
     )
     assert result["containers"][0]["device"] == "/dev/sda2"
-    assert len(calls) == 1
+    assert len(calls) == 2
+    assert any("luksUUID" in call for call in calls)
 
 
 def test_no_luks_devices_needs_no_cryptsetup():
