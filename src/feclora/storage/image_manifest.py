@@ -95,7 +95,7 @@ class ImageArtifact:
             or compression not in {"gzip", "xz", "zstd", "lz4"}
         ):
             raise ManifestValidationError("gzip 1-9; xz 0-9; zstd 1-19; lz4 1-12")
-        supported_filesystems = {"btrfs", "ext2", "ext3", "ext4", "exfat", "fat", "fat12", "fat16", "fat32", "vfat", "f2fs", "ntfs", "xfs"}
+        supported_filesystems = {"btrfs", "ext2", "ext3", "ext4", "exfat", "fat", "fat12", "fat16", "fat32", "vfat", "f2fs", "ntfs", "ntfs3", "xfs"}
         if filesystem is not None and (not isinstance(filesystem, str) or filesystem not in supported_filesystems):
             raise ManifestValidationError("Unsupported artifact filesystem")
         if role == "partition-image":
