@@ -9,9 +9,7 @@ import os
 import re
 import shutil
 import stat
-import subprocess
 import tempfile
-from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from .capture import CaptureCancelled, CaptureError, capture_logical_volume
