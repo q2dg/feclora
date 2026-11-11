@@ -234,6 +234,35 @@ def revoke_unattended_ipxe_script(
     return True
 
 
+
+def clear_stale_unattended_ipxe_script(http_root: str) -> bool:
+    """Remove a previous session's public handoff before a fresh PXE session."""
+    target_root = Path(http_root)
+    try:
+        root_info = target_root.lstat()
+    except OSError as exc:
+        raise LiveBootAssetError(f"PXE HTTP root is unavailable: {exc}") from exc
+    if not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode):
+        raise LiveBootAssetError("PXE HTTP root must be a real directory")
+    destination = target_root / "unattended.ipxe"
+    try:
+        info = destination.lstat()
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        raise LiveBootAssetError(f"cannot inspect stale unattended PXE script: {exc}") from exc
+    if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
+        raise LiveBootAssetError("stale unattended PXE script is not a regular file")
+    destination.unlink()
+    directory_fd = os.open(
+        target_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+    )
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+    return True
+
 def stage_live_boot_assets(
     live_root: str,
     http_root: str,
