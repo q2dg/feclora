@@ -9,6 +9,7 @@ from feclora.storage.capture import (
     CaptureError,
     build_capture_plan,
     capture_partition,
+    capture_logical_volume,
     _read_partclone_status,
 )
 
@@ -31,6 +32,55 @@ class FakeProcess:
 
 
 class CaptureTests(unittest.TestCase):
+    def test_logical_volume_capture_requires_active_healthy_inventoried_lv(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload = b"logical volume bytes"
+            inventory = {"volume_topology": {"status": "available", "volume_groups": [{
+                "status": "healthy", "logical_volumes": [{
+                    "path": "/dev/vg/root", "size_bytes": len(payload),
+                    "major_minor": "253:4", "hidden": False,
+                    "snapshot": False, "health": None,
+                }],
+            }]}}
+            artifact = capture_logical_volume(
+                "/dev/vg/root", None, directory, "root-lv.img", inventory,
+                {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
+                source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda *_args, **_kwargs: FakeProcess(["dd"], payload),
+            )
+            self.assertEqual(artifact.role, "logical-volume-image")
+            self.assertIsNone(artifact.partition_id)
+            self.assertEqual(artifact.size_bytes, len(payload))
+
+    def test_logical_volume_capture_rejects_inactive_or_ambiguous_lv(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = {"volume_topology": {"status": "available", "volume_groups": [{
+                "status": "healthy", "logical_volumes": [{
+                    "path": "/dev/vg/root", "size_bytes": 32,
+                    "major_minor": None, "hidden": False,
+                    "snapshot": False, "health": None,
+                }],
+            }]}}
+            with self.assertRaisesRegex(CaptureError, "not active"):
+                capture_logical_volume(
+                    "/dev/vg/root", None, directory, "inactive.img", base,
+                    {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
+                    source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                )
+            base["volume_topology"]["volume_groups"].append({
+                "status": "healthy", "logical_volumes": [{
+                    "path": "/dev/vg/root", "size_bytes": 32,
+                    "major_minor": "253:5", "hidden": False,
+                    "snapshot": False, "health": None,
+                }],
+            })
+            with self.assertRaisesRegex(CaptureError, "exactly one"):
+                capture_logical_volume(
+                    "/dev/vg/root", None, directory, "ambiguous.img", base,
+                    {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
+                    source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                )
+
     def test_partclone_plan_uses_stdout_and_filesystem_aware_format(self):
         plan = build_capture_plan(
             "/dev/sda1", "ext4",
