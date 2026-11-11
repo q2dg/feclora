@@ -15,7 +15,7 @@ class RepositoryError(ValueError):
     """A remote repository definition is invalid or unsupported."""
 
 
-_PROVIDERS = {"sshfs", "nfs", "smb", "webdav", "s3"}
+_PROVIDERS = {"sshfs", "nfs", "smb", "webdav"}
 _HOST_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$")
 _REMOTE_PATH_RE = re.compile(r"^/[A-Za-z0-9._/@+,-]*(?:/[A-Za-z0-9._/@+,-]*)*$")
 _SAFE_USER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
@@ -51,7 +51,6 @@ class RemoteRepository:
     identity_file: str | None = None
     known_hosts_file: str | None = None
     port: int | None = None
-    rclone_remote: str | None = None
     read_only: bool = False
 
     def __post_init__(self) -> None:
@@ -97,27 +96,6 @@ class RemoteRepository:
                 raise RepositoryError("SMB requires a protected credentials file")
             if not _SAFE_SHARE_RE.fullmatch(self.remote_path.strip("/").split("/")[0]):
                 raise RepositoryError("SMB remote_path must begin with a valid share name")
-        elif self.provider == "s3":
-            if not isinstance(self.rclone_remote, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", self.rclone_remote):
-                raise RepositoryError("S3 requires a configured rclone remote alias")
-            if self.credential_file is None:
-                raise RepositoryError("S3 requires a protected rclone configuration file")
-            if not self.read_only:
-                raise RepositoryError("S3 repositories are read-only until provider-aware artifact publication is implemented")
-            parts = self.remote_path[1:].split("/")
-            bucket = parts[0] if parts else ""
-            if (self.remote_path.startswith("//") or not _S3_BUCKET_RE.fullmatch(bucket)
-                    or ".." in bucket or ".-" in bucket or "-." in bucket
-                    or (len(bucket.split(".")) == 4 and all(
-                        part.isdigit() and 0 <= int(part) <= 255
-                        for part in bucket.split(".")
-                    ))
-                    or any(part in {"", ".", ".."} for part in parts[1:])):
-                raise RepositoryError(
-                    "S3 remote_path must contain a valid lowercase bucket name followed by normalized prefix components"
-                )
-            if self.port is not None:
-                raise RepositoryError("S3 endpoint and port must be configured in the protected rclone remote")
         elif self.provider == "nfs" and (self.username or self.credential_file or self.identity_file):
             raise RepositoryError("NFS does not accept username or credential-file fields")
 
@@ -152,21 +130,14 @@ class RemoteRepository:
             if self.port is not None:
                 options.append(f"port={self.port}")
             return [exe("mount"), "-t", "cifs", "-o", ",".join(options), source, self.mountpoint]
-        bucket_path = self.remote_path.lstrip("/")
-        argv = [exe("rclone"), "--config", self.credential_file, "mount",
-                f"{self.rclone_remote}:{bucket_path}", self.mountpoint,
-                "--vfs-cache-mode", "off", "--dir-cache-time", "5m",
-                "--daemon", "--daemon-wait", "60s"]
-        if self.read_only:
-            argv.append("--read-only")
-        return argv
+        raise RepositoryError(f"unsupported repository provider: {self.provider}")
 
 
 def required_tools(provider: str) -> tuple[str, ...]:
     """Return executable dependencies for a provider."""
     mapping = {
         "sshfs": ("sshfs",), "nfs": ("mount", "mount.nfs"),
-        "smb": ("mount", "mount.cifs"), "s3": ("rclone",),
+        "smb": ("mount", "mount.cifs"),
     }
     try:
         return mapping[provider]
