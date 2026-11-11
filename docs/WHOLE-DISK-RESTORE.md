@@ -52,7 +52,7 @@ and ciphertext authentication, but does not identify the publisher.
 Tests use mocked device I/O. No VM or hardware restore has been validated.
 Never test against a disk containing needed data.
 
-**Cockpit screenshots are pending.** The exact restore screens to capture (image selection, verification, target confirmation and progress) are listed in [the screenshot plan](assets/screenshots/README.md).
+Illustrations may be real screenshots from a version-matched build or clearly labeled mockups. A mockup is not evidence of runtime acceptance; see the [screenshot and mockup policy](assets/screenshots/README.md).
 
 
 Age decryption staging uses the local system temporary filesystem, not the source repository, so a read-only remote repository can be used. Ensure the local temporary filesystem has enough free space for the decrypted artifact.
