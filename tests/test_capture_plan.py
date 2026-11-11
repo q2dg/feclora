@@ -118,7 +118,7 @@ class StorageCapturePlanTests(unittest.TestCase):
         }, storage_graph={
             "status": "available",
             "nodes": [{"id": "lvm-lv:lv-1", "kind": "lvm_logical_volume", "name": "data", "uuid": "lv-1"},
-                      {"id": "lvm-vg:vg0", "kind": "lvm_volume_group", "name": "vg0"}],
+                      {"id": "lvm-vg:vg0", "kind": "lvm_volume_group", "name": "vg0", "uuid": "vg-uuid"}],
             "edges": [
                 {"source": "lvm-lv:lv-1", "target": "device:/dev/mapper/vg-data",
                  "relation": "maps_to_block_device"},
@@ -130,6 +130,7 @@ class StorageCapturePlanTests(unittest.TestCase):
         self.assertIn("lvm_logical_volume", plan["storage_layers"])
         self.assertEqual(plan["manifest_storage"]["source_layer"], "lvm_logical_volume")
         self.assertEqual(plan["manifest_storage"]["lvm_vg_name"], "vg0")
+        self.assertEqual(plan["manifest_storage"]["lvm_vg_uuid"], "vg-uuid")
         self.assertEqual(plan["manifest_storage"]["lvm_lv_uuid"], "lv-1")
         self.assertEqual(plan["manifest_storage"]["dependencies"][0]["identity"], "vg0")
         self.assertFalse(plan["dependencies"][0]["included_in_source_bytes"])
