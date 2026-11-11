@@ -67,7 +67,9 @@ class PXEClientStartTests(unittest.TestCase):
             request.write_text("existing", encoding="utf-8")
             with patch("feclora.deployment.pxe_client_start.load_client_runtime_config", return_value=object()), patch(
                 "feclora.deployment.pxe_client_start._ensure_directory"
-            ), patch("feclora.deployment.pxe_client_start._job_paths", return_value=(request, root / "status", root / "lock")):
+            ), patch("feclora.deployment.pxe_client_start._job_paths", return_value=(request, root / "status", root / "lock")), patch(
+                "feclora.deployment.pxe_client_start.subprocess.run"
+            ):
                 with self.assertRaisesRegex(ClientJobServiceError, "already has a local request"):
                     start_unattended_pxe_client(command_line_path=str(cmdline))
 
