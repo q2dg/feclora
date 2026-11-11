@@ -40,7 +40,7 @@ class PXEClientStartTests(unittest.TestCase):
                 "feclora.deployment.pxe_client_start._ensure_directory"
             ), patch("feclora.deployment.pxe_client_start._job_paths", return_value=(request, status, root / "lock")), patch(
                 "feclora.deployment.pxe_client_start.CLIENT_CONFIG", str(root / "identity.json")
-            ), patch("feclora.deployment.pxe_client_start.subprocess.run") as run:
+            ), patch("feclora.deployment.pxe_client_start._write_private_json", side_effect=lambda path, value: (Path(path).write_text(json.dumps(value), encoding="utf-8"), Path(path).chmod(0o600))), patch("feclora.deployment.pxe_client_start.subprocess.run") as run:
                 result = start_unattended_pxe_client(command_line_path=str(cmdline))
             self.assertEqual(result, JOB_ID)
             payload = json.loads(request.read_text(encoding="utf-8"))
