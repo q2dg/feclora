@@ -81,6 +81,19 @@ class StorageCapturePlanTests(unittest.TestCase):
         self.assertEqual(plan["capture_scope"], "decrypted_mapping_bytes")
         self.assertTrue(any("not its LUKS header" in warning for warning in plan["warnings"]))
 
+    def test_single_device_btrfs_partition_records_filesystem_uuid(self):
+        inventory = base_inventory({
+            "path": "/dev/sda2", "type": "part", "filesystem": "btrfs",
+            "uuid": None, "children": [],
+        }, btrfs_topology={"filesystems": [{
+            "uuid": "btrfs-uuid", "total_devices": 1,
+            "devices": [{"path": "/dev/sda2"}],
+        }]})
+        plan = plan_storage_capture(inventory, "/dev/sda2", "partition")
+        self.assertTrue(plan["eligible_for_layer_aware_capture"])
+        self.assertEqual(plan["manifest_storage"]["source_layer"], "btrfs_filesystem")
+        self.assertEqual(plan["manifest_storage"]["btrfs_uuid"], "btrfs-uuid")
+
     def test_multi_device_btrfs_member_cannot_be_captured_as_standalone_partition(self):
         inventory = base_inventory({
             "path": "/dev/sda2", "type": "part", "filesystem": "btrfs", "children": [],
