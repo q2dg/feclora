@@ -62,9 +62,9 @@ hardware, provider services or physical networks have passed acceptance.
   single JSON answer containing the repository URL; the Server validates it
   and publishes/revokes it through Caddy over HTTP.
   No per-Client identity or removable identity media is part of this design.
-  Live-side download/schema validation, provider adapters,
-  stable-target revalidation, replay/expiry controls and restore execution
-  remain incomplete.
+  Live-side download/schema validation and NFS-backed whole-disk restore with
+  stable-target revalidation are connected. Remaining work includes other
+  provider adapters, replay/expiry controls and physical acceptance.
 - Unattended restore profiles: a standalone signed single-use executor exists,
   but profile authoring/activation and integration with PXE Server/Client jobs
   are not complete.
@@ -78,12 +78,10 @@ hardware, provider services or physical networks have passed acceptance.
 ## Release-critical work
 
 1. **Unattended PXE restore:** complete the shared answer-file path without
-   per-Client identity or enrollment. Provision the Server signing public key
-   independently in Live, publish an answer-specific iPXE handoff, download and
-   verify the answer before parsing it, integrate supported repository
-   providers/credentials, enforce expiry and single-use replay protection,
-   revalidate the stable target immediately before writing, execute through
-   the protected restore engine, and record verification/results. PXE boot or
+   per-Client identity or enrollment. Live download/schema validation and NFS whole-disk restore are connected.
+   Integrate remaining repository providers/credentials, add expiry and
+   single-use replay protection, improve Cockpit result reporting, and complete
+   BIOS/UEFI plus physical-device acceptance. PXE boot or
    possession of a URL alone must never authorize a write.
 2. **Storage-layer image fidelity:** local LVM logical-volume capture and
    restore are implemented. Server/Client deployment jobs now accept LV
