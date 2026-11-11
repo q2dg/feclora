@@ -283,7 +283,7 @@ def restore_disk(
             if initial_device_number is not None and os.stat(target_path).st_rdev != initial_device_number:
                 raise DiskRestoreError("block-device identity changed before restore")
             if pre_write_callback is not None:
-                # Call only after artifact, geometry, signature and safety
+                # Call only after manifest, artifact, geometry and safety
                 # preflight has completed, immediately before the first write.
                 pre_write_callback()
                 if not validator(target_path):
