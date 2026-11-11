@@ -90,6 +90,7 @@ def make_inventory(*, size=10000, mounted=None, vg_status="healthy",
             "path": "/dev/target/root",
             "type": "lvm",
             "major_minor": major_minor,
+            "logical_sector_size": 512,
             "read_only": False,
             "mountpoints": mounted or [],
             "children": [],
@@ -133,6 +134,26 @@ class LogicalVolumeRestorePreflightTests(unittest.TestCase):
             make_manifest(), inventory, "/dev/target/root"
         )
         self.assertEqual(result["status"], "ready")
+
+    def test_rejects_logical_sector_size_mismatch(self):
+        inventory = make_inventory()
+        inventory["devices"][0]["logical_sector_size"] = 4096
+        with self.assertRaisesRegex(RestoreProfileError, "sector size differs"):
+            preflight_logical_volume_restore(make_manifest(), inventory, "/dev/target/root")
+
+    def test_rejects_mounted_child_device(self):
+        inventory = make_inventory()
+        inventory["devices"][0]["children"] = [{
+            "path": "/dev/target/root1",
+            "type": "part",
+            "major_minor": "253:5",
+            "logical_sector_size": 512,
+            "read_only": False,
+            "mountpoints": ["/mnt/child"],
+            "children": [],
+        }]
+        with self.assertRaisesRegex(RestoreProfileError, "child devices"):
+            preflight_logical_volume_restore(make_manifest(), inventory, "/dev/target/root")
 
     def test_rejects_kernel_identity_mismatch(self):
         with self.assertRaisesRegex(RestoreProfileError, "identities disagree"):
