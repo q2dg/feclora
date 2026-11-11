@@ -148,7 +148,7 @@ class SFTPTransferTests(unittest.TestCase):
             self.assertEqual(destination.read_bytes(), payload)
 
 
-    def test_lists_only_safe_feclora_manifest_basenames(self):
+    def test_lists_only_safe_feclora_manifests_with_detached_signatures(self):
         def runner(_argv, **kwargs):
             self.assertIn('ls -1 "/images"', kwargs["input"])
             return SimpleNamespace(
