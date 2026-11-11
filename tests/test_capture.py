@@ -35,13 +35,19 @@ class CaptureTests(unittest.TestCase):
     def test_logical_volume_capture_requires_active_healthy_inventoried_lv(self):
         with tempfile.TemporaryDirectory() as directory:
             payload = b"logical volume bytes"
-            inventory = {"volume_topology": {"status": "available", "volume_groups": [{
-                "status": "healthy", "logical_volumes": [{
+            inventory = {
+                "devices": [{
                     "path": "/dev/vg/root", "size_bytes": len(payload),
-                    "major_minor": "253:4", "hidden": False,
-                    "snapshot": False, "health": None,
+                    "major_minor": "253:4", "children": [],
                 }],
-            }]}}
+                "volume_topology": {"status": "available", "volume_groups": [{
+                    "status": "healthy", "logical_volumes": [{
+                        "path": "/dev/mapper/vg-root", "size_bytes": len(payload),
+                        "major_minor": "253:4", "hidden": False,
+                        "snapshot": False, "health": None,
+                    }],
+                }]},
+            }
             artifact = capture_logical_volume(
                 "/dev/vg/root", None, directory, "root-lv.img", inventory,
                 {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
@@ -52,15 +58,43 @@ class CaptureTests(unittest.TestCase):
             self.assertIsNone(artifact.partition_id)
             self.assertEqual(artifact.size_bytes, len(payload))
 
+    def test_logical_volume_capture_rejects_conflicting_kernel_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            inventory = {
+                "devices": [{
+                    "path": "/dev/vg/root", "size_bytes": 32,
+                    "major_minor": "253:4", "children": [],
+                }],
+                "volume_topology": {"status": "available", "volume_groups": [{
+                    "status": "healthy", "logical_volumes": [{
+                        "path": "/dev/vg/root", "size_bytes": 32,
+                        "major_minor": "253:5", "hidden": False,
+                        "snapshot": False, "health": None,
+                    }],
+                }]},
+            }
+            with self.assertRaisesRegex(CaptureError, "identities disagree"):
+                capture_logical_volume(
+                    "/dev/vg/root", None, directory, "conflict.img", inventory,
+                    {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
+                    source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                )
+
     def test_logical_volume_capture_rejects_inactive_or_ambiguous_lv(self):
         with tempfile.TemporaryDirectory() as directory:
-            base = {"volume_topology": {"status": "available", "volume_groups": [{
-                "status": "healthy", "logical_volumes": [{
+            base = {
+                "devices": [{
                     "path": "/dev/vg/root", "size_bytes": 32,
-                    "major_minor": None, "hidden": False,
-                    "snapshot": False, "health": None,
+                    "major_minor": "253:4", "children": [],
                 }],
-            }]}}
+                "volume_topology": {"status": "available", "volume_groups": [{
+                    "status": "healthy", "logical_volumes": [{
+                        "path": "/dev/vg/root", "size_bytes": 32,
+                        "major_minor": None, "hidden": False,
+                        "snapshot": False, "health": None,
+                    }],
+                }]},
+            }
             with self.assertRaisesRegex(CaptureError, "not active"):
                 capture_logical_volume(
                     "/dev/vg/root", None, directory, "inactive.img", base,
