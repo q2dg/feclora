@@ -117,7 +117,7 @@ class MulticastRuntimeTests(unittest.TestCase):
             self.assertEqual(restore.call_args.args[2], approval.device_path)
             self.assertTrue(tls.settimeout.called)
 
-    def test_partition_manifest_dispatches_to_partition_restore(self):
+    def test_multicast_luks2_container_partition_dispatches_to_verified_partition_restore(self):
         job = multicast_job(target_type="partition")
         approval = LocalTargetApproval(
             "/dev/feclora-test-partition", "Disposable test partition",
