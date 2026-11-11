@@ -109,7 +109,7 @@ def summarize_lvm_topology(result: dict[str, Any]) -> dict[str, Any]:
             "name": name,
             "uuid": vg.get("vg_uuid"),
             "status": "degraded" if degraded else "healthy" if missing == 0 and not unhealthy_lv else "unknown",
-            "missing_pv_count": missing if missing is not None else pv_missing_count if pv_missing_count else None,
+            "missing_pv_count": max(missing or 0, pv_missing_count) if missing is not None or pv_missing_count else None,
             "pv_count_reported": _as_nonnegative_int(vg.get("pv_count")),
             "lv_count_reported": _as_nonnegative_int(vg.get("lv_count")),
             "extent_size_bytes": _as_nonnegative_int(vg.get("vg_extent_size")),
@@ -149,6 +149,8 @@ def summarize_lvm_topology(result: dict[str, Any]) -> dict[str, Any]:
                     ),
                     "snapshot": bool(lv.get("origin"))
                         or "snapshot" in str(lv.get("lv_role") or "").lower(),
+                    "hidden": str(lv.get("lv_name") or "").startswith("[")
+                        or "private" in str(lv.get("lv_role") or "").lower(),
                 }
                 for lv in lvs_by_vg.get(name, [])
             ],
@@ -178,7 +180,8 @@ def collect_lvm_topology(
             result["missing"] = sorted(set(result.get("missing", [])) | {command})
             continue
         argv = [
-            *prefix, executable, "--readonly", "--reportformat", "json",
+            *prefix, executable, "--readonly", *(["--all"] if command == "lvs" else []),
+            "--reportformat", "json",
             "--units", "b", "--nosuffix", "-o", fields[0],
         ]
         try:
