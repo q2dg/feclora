@@ -54,6 +54,27 @@ class WebAPITests(unittest.TestCase):
             port=22,
         )
 
+    def test_logical_volume_capture_operation_uses_manifest_backed_engine(self):
+        from feclora.webapi import _execute_operation
+        manifest = SimpleNamespace(image_id="root-image", image_type="logical_volume")
+        params = {
+            "source": "/dev/vg/root", "image_id": "root-image",
+            "compression": "none", "encrypt": False, "sign": False,
+        }
+        with patch("feclora.webapi._device", return_value="/dev/vg/root"), \
+             patch("feclora.webapi._security_material", return_value={
+                 "age_encryption_available": False, "image_signing_available": False,
+             }), \
+             patch("feclora.webapi._capture_material", return_value=(None, None)), \
+             patch("feclora.storage.inventory.collect_inventory", return_value={"devices": []}) as inventory, \
+             patch("feclora.storage.logical_volume_image_capture.capture_logical_volume_image",
+                   return_value=manifest) as capture:
+            result = _execute_operation("capture_logical_volume", params, "operation-1")
+        self.assertEqual(result["image_id"], "root-image")
+        self.assertEqual(result["image_type"], "logical_volume")
+        inventory.assert_called_once_with()
+        capture.assert_called_once()
+
     def test_operations_action_returns_durable_local_history(self):
         expected = [{"operation": "capture_disk", "status": "completed"}]
         with patch("feclora.webapi._operations", return_value=expected):
