@@ -90,10 +90,10 @@ class LocalOperationWorkerTests(unittest.TestCase):
                 "image_id": "golden", "image_type": "disk", "artifact_count": 2,
                 "signature_verified": True, "artifacts_verified": True, "published": True,
             }
-        with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \\
-             patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store), \\
-             patch("feclora.storage.local_operation_service._device_lock_fds", return_value=[]), \\
-             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \\
+        with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \
+             patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store), \
+             patch("feclora.storage.local_operation_service._device_lock_fds", return_value=[]), \
+             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \
              patch("feclora.webapi._execute_operation", side_effect=run_sftp):
             self.assertEqual(execute("00000000-0000-4000-8000-000000000001"), 0)
         progress = [call.args[2] for call in store.append.call_args_list if call.args[1] == "progress"]
