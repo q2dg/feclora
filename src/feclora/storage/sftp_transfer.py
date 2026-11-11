@@ -134,12 +134,19 @@ def list_image_manifests(
         argv, [f"ls -1 {_batch_quote(remote_directory)}"],
         runner=runner, timeout=timeout,
     )
-    names: set[str] = set()
-    for raw in (result.stdout or "").splitlines():
-        name = raw
-        if name == "manifest.json" or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.manifest\.json", name):
-            names.add(name)
-    return sorted(names)
+    entries = set((result.stdout or "").splitlines())
+    manifests = {
+        name for name in entries
+        if name == "manifest.json"
+        or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.manifest\.json", name)
+    }
+    # A manifest is the inventory/commit marker only when its detached
+    # signature is also present. Publishers upload the manifest first and the
+    # signature last, so concurrent readers must hide the in-progress window.
+    return sorted(
+        name for name in manifests
+        if name + ".minisig" in entries
+    )
 
 
 def _local_regular(path: str | os.PathLike[str]) -> tuple[str, int, str, tuple[int, int, int, int, int]]:
