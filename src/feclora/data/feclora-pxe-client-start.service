@@ -1,0 +1,27 @@
+[Unit]
+Description=Feclora unattended PXE Client bootstrap
+ConditionKernelCommandLine=feclora.pxe_mode=unattended
+Requires=mnt-feclora\x2dpxe\x2didentity.mount
+After=network-online.target mnt-feclora\x2dpxe\x2didentity.mount
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=PYTHONPATH=/usr/share/feclora/python
+ExecStart=/usr/bin/python3 -m feclora.deployment.pxe_client_start
+TimeoutStartSec=60
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/feclora /run/feclora
+
+[Install]
+WantedBy=multi-user.target
