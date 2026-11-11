@@ -237,6 +237,16 @@ class ImageManifestTests(unittest.TestCase):
         self.assertEqual(decoded, manifest)
         self.assertEqual(decoded.storage["lvm_lv_uuid"], "lv-uuid")
 
+    def test_logical_volume_manifest_requires_storage_provenance(self):
+        value = {
+            "schema_version": 1, "image_id": "lv-image", "image_type": "logical_volume",
+            "source_size_bytes": 4096, "logical_sector_size": 512, "partition_table": "none",
+            "artifacts": [artifact(filename="lv.img", role="logical-volume-image",
+                                   partition_id=None, filesystem="ext4")],
+        }
+        with self.assertRaisesRegex(ManifestValidationError, "require storage metadata"):
+            ImageManifest.from_dict(value)
+
     def test_storage_metadata_rejects_unknown_or_unsafe_dependencies(self):
         base = {
             "schema_version": 1,
