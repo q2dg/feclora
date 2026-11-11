@@ -8,6 +8,10 @@ class CapabilityDiscoveryTests(unittest.TestCase):
         paths = {
             "lsblk": "/usr/bin/lsblk",
             "partclone.ext4": "/usr/sbin/partclone.ext4",
+            "partclone.ext2": "/usr/sbin/partclone.ext2",
+            "partclone.ext3": "/usr/sbin/partclone.ext3",
+            "fsck.exfat": "/usr/sbin/fsck.exfat",
+            "fsck.f2fs": "/usr/sbin/fsck.f2fs",
             "partclone.ntfs": "/usr/sbin/partclone.ntfs",
             "sfdisk": "/usr/sbin/sfdisk",
             "dd": "/usr/bin/dd",
@@ -32,6 +36,8 @@ class CapabilityDiscoveryTests(unittest.TestCase):
             "/usr/sbin/sfdisk",
         )
         self.assertIn("partclone.btrfs", result["missing"])
+        self.assertEqual(result["groups"]["filesystem_checkers"]["fsck.exfat"], "/usr/sbin/fsck.exfat")
+        self.assertEqual(result["groups"]["filesystem_checkers"]["fsck.f2fs"], "/usr/sbin/fsck.f2fs")
         self.assertIn("dd", result["available"])
         self.assertEqual(result["groups"]["volume_management"]["lvm"], "/usr/sbin/lvm")
         self.assertEqual(result["groups"]["volume_management"]["stratis"], "/usr/bin/stratis")
