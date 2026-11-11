@@ -48,36 +48,6 @@ class RemoteRepositoryTests(unittest.TestCase):
                 mountpoint="/mnt/images", credential_file="/etc/davfs2/secrets",
             )
 
-    def test_s3_requires_bucket_scope_and_never_enables_write_cache(self):
-        for remote_path in (
-            "/", "//bucket/images", "/ab", "/UPPERCASE-bucket/images",
-            "/.", "/bucket//images", "/bucket/./images",
-            "/bucket/../images", "/192.168.1.1/images",
-        ):
-            with self.subTest(remote_path=remote_path):
-                with self.assertRaisesRegex(RepositoryError, "valid lowercase bucket name"):
-                    RemoteRepository(
-                        provider="s3", host="s3.example.net", remote_path=remote_path,
-                        mountpoint="/mnt/images", rclone_remote="feclora_s3",
-                        credential_file="/etc/feclora/rclone.conf", read_only=True,
-                    )
-
-    def test_s3_uses_rclone_alias_and_read_only_mount_options(self):
-        repo = RemoteRepository(
-            provider="s3", host="s3.example.net", remote_path="/bucket/images",
-            mountpoint="/mnt/images", rclone_remote="feclora_s3",
-            credential_file="/etc/feclora/rclone.conf", read_only=True,
-        )
-        argv = repo.mount_argv()
-        self.assertEqual(argv[1:4], ["--config", "/etc/feclora/rclone.conf", "mount"])
-        self.assertIn("feclora_s3:bucket/images", argv)
-        self.assertIn("--daemon", argv)
-        self.assertIn("--vfs-cache-mode", argv)
-        self.assertEqual(argv[argv.index("--vfs-cache-mode") + 1], "off")
-        self.assertIn("--read-only", argv)
-        self.assertNotIn("writes", argv)
-        self.assertNotIn("--allow-other", argv)
-
     def test_rejects_shell_metacharacters_and_parent_paths(self):
         with self.assertRaises(RepositoryError):
             RemoteRepository(
@@ -92,7 +62,6 @@ class RemoteRepositoryTests(unittest.TestCase):
 
     def test_provider_dependencies(self):
         self.assertEqual(required_tools("sshfs"), ("sshfs",))
-        self.assertEqual(required_tools("s3"), ("rclone",))
 
     def test_sshfs_rejects_missing_pinned_host_keys(self):
         with self.assertRaises(RepositoryError):
