@@ -34,9 +34,7 @@ administer remote servers, exports, shares, trackers or peers.
   LVM metadata. Raw restores are byte-verified and Partclone restores receive
   a read-only filesystem consistency check. LV images do not include VG/PV
   metadata or dependent storage layers.
-- Raw partition capture of verified LUKS2 containers and single-device Btrfs
-  partition capture. LUKS1/unknown headers and multi-device Btrfs capture fail
-  closed. There is no dedicated opened-mapping capture or snapshot workflow.
+- Raw partition capture and restore of verified LUKS2 containers, plus single-device Btrfs partition capture. LUKS2 restore writes the captured raw encrypted bytes (including header/keyslots) to an existing safe partition and verifies the restored LUKS2 UUID/JSON header; it never opens the mapping or handles passphrases. LUKS1/unknown headers and multi-device Btrfs capture fail closed. Opened-mapping images contain plaintext and are deliberately rejected by restore until a separate destination-provisioning/key workflow exists. There is no dedicated opened-mapping capture or snapshot workflow.
 - Local disk-to-disk and partition-to-partition cloning.
 - Durable local operation queue, systemd worker, progress and journals; an
   interrupted destructive operation is inspected, never automatically
