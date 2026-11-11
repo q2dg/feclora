@@ -12,6 +12,7 @@ from feclora.storage.logical_volume_restore import (
     restore_logical_volume,
 )
 from feclora.storage.image_manifest import ImageManifest
+from feclora.storage.partition_restore import PartitionRestoreError
 
 
 def manifest_dict(payload, *, image_type="logical_volume"):
@@ -103,6 +104,7 @@ class LogicalVolumeRestoreExecutionTests(unittest.TestCase):
             json.dump(manifest_dict(self.payload), stream)
         self.calls = []
         self.written = bytearray()
+        self.readback = self.payload
 
     def runner(self, command, **kwargs):
         if command[0] == "lsblk":
@@ -120,7 +122,7 @@ class LogicalVolumeRestoreExecutionTests(unittest.TestCase):
             proc.stdin.close = close
             return proc
         if argv[0] == "dd" and any(arg.startswith("if=") for arg in argv):
-            return FakeProcess(readback=self.payload)
+            return FakeProcess(readback=self.readback)
         raise AssertionError(f"unexpected writer command: {argv}")
 
     def restore(self, **kwargs):
@@ -179,6 +181,27 @@ class LogicalVolumeRestoreExecutionTests(unittest.TestCase):
             )
         self.assertEqual(self.calls, [])
 
+    def test_fails_when_readback_bytes_differ(self):
+        self.readback = b"x" * len(self.payload)
+        with self.assertRaisesRegex(PartitionRestoreError, "read-back verification failed"):
+            self.restore()
+        self.assertEqual(bytes(self.written), self.payload)
+
+    def test_rechecks_lvm_inventory_immediately_before_write(self):
+        calls = []
+        def inventory_provider():
+            calls.append(True)
+            return target_inventory(mounted=["/mnt/root"]) if len(calls) > 1 else target_inventory()
+        with self.assertRaisesRegex(LogicalVolumeRestoreError, "pre-write check failed.*mounted or in use"):
+            restore_logical_volume(
+                "root.manifest.json", self.temp.name, "/dev/target/root",
+                confirmation="ERASE /dev/target/root", inventory_provider=inventory_provider,
+                executables={"lsblk": "lsblk", "dd": "dd"}, runner=self.runner,
+                device_validator=lambda _path: True, target_safety_check=lambda _path: None,
+                effective_uid=lambda: 0, popen_factory=self.factory,
+            )
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(self.calls, [])
     def test_requires_exact_confirmation(self):
         with self.assertRaisesRegex(LogicalVolumeRestoreError, "explicit confirmation"):
             restore_logical_volume(
