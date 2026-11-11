@@ -125,11 +125,17 @@ account/export/share and a disposable image. Do not reuse production credentials
 4. Exercise the remote path with a real inventory/read operation after identity verification. Confirm that it completes (not merely that the mount is listed as verified), then open the repository image inventory. Confirm it lists only images from the
    selected verified repository, not files from the local directory beneath
    an unmounted mountpoint.
-5. For a read/write provider, capture a small disposable test disk to that
-   repository. Verify its manifest, signature, artifact byte counts and
-   cryptographic digests, then restore it to a disposable target and verify
-   read-back.
-6. For a read-only mount, confirm inventory, inspection and verification work,
+5. For a read/write provider, have one Client capture and publish a small
+   disposable test disk to that repository. Verify its manifest, signature,
+   artifact byte counts and cryptographic digests, then restore it to a
+   disposable target and verify read-back.
+6. Using the committed image from step 5, have at least two other Clients read
+   the same repository image and restore it concurrently to separate disposable
+   targets. Verify each Client independently reports successful integrity and
+   read-back checks, and confirm the remote image set remains unchanged. This
+   exercises the single-publisher / multi-reader contract; do not test
+   concurrent publishers.
+7. For a read-only mount, confirm inventory, inspection and verification work,
    and confirm capture/extraction controls are unavailable.
 7. For NFS, explicitly test the configured root-squash/ownership policy.
    Root-owned manifest validation must remain enforced; a manifest mapped to
