@@ -83,15 +83,17 @@ import hashlib
 import json
 import os
 import shutil
+import socket
 import stat
-import struct
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from unittest.mock import patch
 
 from feclora.deployment.client_runtime import execute_client_image_job
-from feclora.deployment.control import LocalTargetApproval
+from feclora.deployment.artifact_transfer import send_image_set
+from feclora.deployment.control import LocalTargetApproval, send_control_message
 from feclora.deployment.job import DeploymentJob
 from feclora.storage.source_safety import check_capture_source_safe
 
@@ -170,19 +172,6 @@ offer = {
     "job_id": job_id,
     "image_id": "luks2-acceptance",
 }
-encoded_offer = json.dumps(offer, separators=(",", ":")).encode("ascii")
-
-class FakeTLS:
-    def __init__(self):
-        self.incoming = bytearray(struct.pack("!I", len(encoded_offer)) + encoded_offer)
-
-    def settimeout(self, _timeout):
-        pass
-
-    def recv(self, count):
-        chunk = bytes(self.incoming[:count])
-        del self.incoming[:count]
-        return chunk
 
 def safe_target(path):
     if (path != target or not path.startswith("/dev/loop")
@@ -190,31 +179,50 @@ def safe_target(path):
         raise RuntimeError("acceptance target escaped the disposable loop partition")
     check_capture_source_safe(path, effective_uid=os.geteuid)
 
-tls = FakeTLS()
-with (
-    patch(
-        "feclora.deployment.client_runtime.receive_image_set",
-        return_value=str(manifest_path),
-    ),
-    patch(
+# Use a real local stream socket pair and Feclora's framed control/artifact
+# transfer protocol. The socket pair stands in for the already-authenticated
+# TLS stream; it does not exercise certificate negotiation or network routing.
+server_socket, client_socket = socket.socketpair()
+sender_errors = []
+
+def send_job_image():
+    try:
+        send_control_message(server_socket, offer)
+        send_image_set(
+            server_socket, repo, manifest_path,
+            expected_image_id="luks2-acceptance",
+        )
+    except Exception as exc:
+        sender_errors.append(exc)
+    finally:
+        server_socket.close()
+
+sender = threading.Thread(target=send_job_image, daemon=True)
+sender.start()
+try:
+    with patch(
         "feclora.storage.partition_restore.check_capture_source_safe",
         side_effect=safe_target,
-    ),
-):
-    success, detail = execute_client_image_job(
-        job, tls, approval,
-        server_identity=server_identity,
-        repository=repo,
-        trusted_server_public_key=None,
-        executables={
-            "lsblk": shutil.which("lsblk"),
-            "dd": shutil.which("dd"),
-            "cryptsetup": shutil.which("cryptsetup"),
-        },
-    )
+    ):
+        success, detail = execute_client_image_job(
+            job, client_socket, approval,
+            server_identity=server_identity,
+            repository=repo,
+            trusted_server_public_key=None,
+            executables={
+                "lsblk": shutil.which("lsblk"),
+                "dd": shutil.which("dd"),
+                "cryptsetup": shutil.which("cryptsetup"),
+            },
+        )
+finally:
+    client_socket.close()
+    sender.join()
+if sender_errors:
+    raise RuntimeError(f"unicast image sender failed: {sender_errors[0]}")
 if not success:
     raise RuntimeError(f"unicast Client runtime reported failure: {detail}")
-print(f"Unicast Client runtime: {detail}")
+print(f"Unicast Client runtime and framed artifact transfer: {detail}")
 print(f"Restored LUKS2 UUID: {luks_uuid}")
 print(f"Raw container bytes restored and read back: {size}")
 PY
