@@ -89,8 +89,11 @@ WWN/serial, validates the image manifest and artifact digest, and calls the
 existing whole-disk restore engine. PXE deliberately does not use age or
 minisign; the image must be unencrypted. The engine rechecks the target
 immediately before writing and performs read-back verification. Other
-repository schemes, credential references, expiry/replay controls and physical
-hardware acceptance remain outstanding. Do not describe unattended PXE as complete until those
+repository schemes, credential references, cross-reboot expiry/replay controls
+and physical hardware acceptance remain outstanding. The job UUID is consumed
+atomically immediately before the first write to prevent a service restart from
+replaying it during the same Live session; the Live filesystem is ephemeral,
+so this is not a cross-reboot replay ledger. Do not describe unattended PXE as complete until those
 pieces are connected and tested.
 
 ## Provider support status
@@ -118,7 +121,9 @@ are not yet complete provider/transport workflows.
       taken directly from the JSON document.
 - [x] Validate and atomically publish/revoke job-scoped JSON files through Caddy.
 - [x] Clear stale answer files and handoff scripts when a new PXE session starts.
-- [ ] Tie answer revocation to deployment-job cancellation and expiry.
+- [x] Consume each answer job UUID atomically immediately before the first write
+      to prevent replay during the current Live session.
+- [ ] Add cross-reboot expiry/replay protection and tie revocation to deployment-job cancellation/expiry.
 - [x] Connect NFS URL to a read-only Live mount for whole-disk restore.
 - [ ] Connect remaining repository URL schemes to provider and credential facilities.
 - [x] Implement exact whole-disk target resolution, pre-write revalidation and
