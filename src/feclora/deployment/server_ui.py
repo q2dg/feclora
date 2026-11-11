@@ -140,7 +140,7 @@ def _choose_job(
             raise DeploymentControlError("multicast restore requires at least two valid enrolled Clients")
 
     target_bindings: dict[str, dict[str, str | None]] = {}
-    if operation == "restore":
+    if operation == "restore" and target_type == "disk":
         bind_choice = dialog_app._menu(
             "Stable Client target binding",
             "Optional but recommended for PXE unattended preparation. Bind each selected Client to its physical target by WWN and/or serial; transient /dev names are never used as identity.",
