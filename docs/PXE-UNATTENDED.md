@@ -9,7 +9,7 @@ provisioning workflow.
 The PXE Server publishes the Live kernel, initramfs and squashfs through
 Caddy. The existing interactive iPXE entry boots that Live payload and opens
 the normal Feclora Cockpit interface. The answer-specific unattended entry boots the same payload and passes the
-job UUID plus answer/signature URLs as kernel parameters. A Live boot-time
+job UUID plus single answer URL as kernel parameters. A Live boot-time
 downloader must still be added to fetch and verify those documents.
 
 There is no per-client USB, identity medium, certificate, private key,
@@ -34,7 +34,7 @@ The Cockpit Server setup now provides an initial signed-answer publication form 
    the existing mTLS remote-job form and does not enroll or identify clients.
 
 The PXE Server does not host or copy the image repository. It serves the
-Live boot assets, answer document, detached signature and answer-specific
+Live boot assets, answer document, detached HTTP trust and answer-specific
 iPXE script. Credentials are not embedded in
 repository URLs or the answer document; they are selected separately from
 Feclora's protected credential inventory where the chosen provider needs
@@ -72,11 +72,9 @@ rejects duplicate JSON keys, unknown fields, malformed repository URLs,
 embedded URL credentials, missing stable target selectors, and documents
 which do not explicitly confirm destructive restore and automatic start.
 The validator and server-side publication path are implemented. Cockpit exposes
-separate repository URL and JSON file fields. The API only publishes while the
-managed PXE services are active, checks that the answer contains exactly the
-URL entered in the form, signs it with the protected Server minisign private
-key, verifies it against the configured public key, and atomically publishes
-the answer and detached signature. Cockpit can explicitly revoke the published
+one JSON file input; `repository_url` is read from that JSON, with no duplicate
+repository field. The API publishes the validated JSON atomically through Caddy
+over HTTP. No age, minisign, detached signature or client identity is involved. Cockpit can explicitly revoke the published
 answer and its iPXE script by job UUID. A new PXE session also clears stale
 answer files and handoff scripts. This is not yet connected to cancellation/
 expiry of a deployment job, and it is not yet the complete PXE download,
@@ -90,16 +88,14 @@ action through Cockpit, is scoped to one generated job UUID, and can currently
 be revoked explicitly from the same Cockpit form. A new PXE session clears
 stale published answer directories. Automatic removal when a deployment job
 expires or is cancelled is not implemented yet. Clients must validate its
-schema and repository integrity metadata before any write. A plain HTTP
-answer file is vulnerable to modification by an attacker on the PXE network;
-production unattended writes therefore require a trusted integrity mechanism
-for the answer document (for example, a detached signature checked against a
-public key already trusted by the Feclora Live image). Merely downloading the
-document or knowing its URL is not sufficient authorization.
+schema and repository integrity metadata before any write. For this deployment, the operator explicitly chooses to trust the answer
+served by the configured HTTP server. This is an operational trust assumption,
+not cryptographic authenticity: an attacker able to modify HTTP traffic or the
+server's published file can alter the instructions. Feclora does not add a
+signature, encryption layer or per-client identity to this workflow.
 
-The Live Client answer downloader and verifier, independent Live trust-root
-provisioning, repository URL adapters and the end-to-end no-identity execution
-flow remain implementation work. Do not describe unattended PXE as complete until those
+The Live Client answer downloader, repository URL adapters and the end-to-end
+no-identity execution flow remain implementation work. Do not describe unattended PXE as complete until those
 pieces are connected and tested.
 
 ## Provider support status
@@ -116,19 +112,18 @@ are not yet complete provider/transport workflows.
 - [x] Provide interactive Live boot through iPXE.
 - [x] Define and validate a bounded, data-only answer-file schema.
 - [x] Publish an answer-specific iPXE handoff that boots the same Live payload
-      and passes only the answer job UUID and answer/signature URLs.
-- [ ] Add a Live boot-time answer-file downloader and client-side signature verifier.
-- [x] Add Cockpit repository URL and JSON answer-file upload controls; require
-      exact URL equality with the answer document.
-- [x] Sign answers with the protected Server key, verify with the configured
-      public key, and atomically publish/revoke job-scoped files through Caddy.
+      and passes only the answer job UUID and single answer URL.
+- [ ] Add a Live boot-time answer-file downloader and schema validator.
+- [x] Add one Cockpit JSON answer-file upload control; the repository URL is
+      taken directly from the JSON document.
+- [x] Validate and atomically publish/revoke job-scoped JSON files through Caddy.
 - [x] Clear stale answer files and handoff scripts when a new PXE session starts.
 - [ ] Tie answer revocation to deployment-job cancellation and expiry.
 - [ ] Connect repository URL schemes to the existing remote repository
       credential and mount/transfer facilities.
 - [ ] Implement target resolution, pre-write revalidation and unattended
       execution for the supported operation types.
-- [ ] Add an answer integrity mechanism trusted by the Live image.
+- [x] Use the operator-selected HTTP trust assumption; no cryptographic integrity mechanism is provided.
 - [ ] Validate BIOS and UEFI PXE boot, Caddy publication/revocation, wrong or
       tampered answer files, missing credentials, repository outage, ambiguous
       targets, target swaps, interruption and real restore hardware.
