@@ -17,7 +17,7 @@ class VolumeTopologyError(RuntimeError):
 
 
 _LVM_REPORTS = {
-    "pvs": ("pv_name,pv_uuid,vg_name,pv_size,pv_free,pv_attr,pv_pe_count,pv_pe_alloc_count",),
+    "pvs": ("pv_name,pv_uuid,vg_name,pv_size,pv_free,pv_attr,pv_pe_count,pv_pe_alloc_count,pv_missing",),
     "vgs": ("vg_name,vg_uuid,vg_size,vg_free,vg_attr,pv_count,lv_count,vg_extent_size,vg_extent_count,vg_free_count,vg_missing_pv_count",),
     "lvs": ("lv_path,lv_name,vg_name,lv_uuid,lv_size,lv_attr,origin,pool_lv,devices,segtype,lv_layout,lv_role,data_percent,metadata_percent,lv_health_status",),
 }
@@ -96,12 +96,17 @@ def summarize_lvm_topology(result: dict[str, Any]) -> dict[str, Any]:
             for lv in lvs_by_vg.get(name, [])
         ]
         unhealthy_lv = any(value not in {"", "-", "ok", "healthy"} for value in health_values)
-        degraded = (missing is not None and missing > 0) or unhealthy_lv
+        pv_missing_count = sum(
+            1 for pv in pvs_by_vg.get(name, [])
+            if str(pv.get("pv_missing") or "").strip().lower() in {"1", "yes", "missing", "true"}
+        )
+        vg_partial = "p" in str(vg.get("vg_attr") or "").lower()
+        degraded = (missing is not None and missing > 0) or pv_missing_count > 0 or vg_partial or unhealthy_lv
         groups.append({
             "name": name,
             "uuid": vg.get("vg_uuid"),
             "status": "degraded" if degraded else "healthy" if missing == 0 and not unhealthy_lv else "unknown",
-            "missing_pv_count": missing,
+            "missing_pv_count": missing if missing is not None else pv_missing_count if pv_missing_count else None,
             "pv_count_reported": _as_nonnegative_int(vg.get("pv_count")),
             "lv_count_reported": _as_nonnegative_int(vg.get("lv_count")),
             "extent_size_bytes": _as_nonnegative_int(vg.get("vg_extent_size")),
@@ -115,6 +120,7 @@ def summarize_lvm_topology(result: dict[str, Any]) -> dict[str, Any]:
                     "free_bytes": _as_nonnegative_int(pv.get("pv_free")),
                     "total_extents": _as_nonnegative_int(pv.get("pv_pe_count")),
                     "allocated_extents": _as_nonnegative_int(pv.get("pv_pe_alloc_count")),
+                    "missing": str(pv.get("pv_missing") or "").strip().lower() in {"1", "yes", "missing", "true"},
                 }
                 for pv in pvs_by_vg.get(name, [])
             ],
