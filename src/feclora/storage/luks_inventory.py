@@ -92,6 +92,11 @@ def collect_luks_inventory(
     containers = []
     for path in paths:
         try:
+            uuid_result = runner([*prefix, cryptsetup, "luksUUID", path],
+                                 check=True, capture_output=True, text=True, timeout=20)
+            luks_uuid = uuid_result.stdout.strip()
+            if not re.fullmatch(r"[0-9a-fA-F-]{36}", luks_uuid):
+                raise LuksInventoryError(f"cryptsetup returned an invalid LUKS UUID for {path}")
             result = runner([*prefix, cryptsetup, "luksDump", "--dump-json-metadata", path],
                             check=True, capture_output=True, text=True, timeout=20)
             metadata = parse_luks_metadata(result.stdout, json_metadata=True)
@@ -107,7 +112,6 @@ def collect_luks_inventory(
                 raise LuksInventoryError(detail or f"cannot inspect LUKS header on {path}") from exc
         except subprocess.TimeoutExpired as exc:
             raise LuksInventoryError(f"LUKS metadata inspection timed out for {path}") from exc
-        if metadata.get("uuid") is not None and not isinstance(metadata["uuid"], str):
-            raise LuksInventoryError(f"cryptsetup returned an invalid UUID for {path}")
+        metadata["uuid"] = luks_uuid
         containers.append({"device": path, **metadata})
     return {"status": "available", "containers": containers}
