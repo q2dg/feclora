@@ -29,8 +29,11 @@ administer remote servers, exports, shares, trackers or peers.
 - Block-device, partition, LVM, LUKS, Btrfs and Stratis inventory/topology.
 - Whole-disk and partition image capture/restore, with manifests, SHA-256,
   compression and optional age/minisign protection.
-- Local capture of eligible active LVM logical volumes. LV images are
-  descriptive byte images; Feclora does not yet restore them.
+- Local capture and restore of eligible active LVM logical volumes. Restore
+  targets an existing unmounted linear or thin LV; it does not create or resize
+  LVM metadata. Raw restores are byte-verified and Partclone restores receive
+  a read-only filesystem consistency check. LV images do not include VG/PV
+  metadata or dependent storage layers.
 - Raw partition capture of verified LUKS2 containers and single-device Btrfs
   partition capture. LUKS1/unknown headers and multi-device Btrfs capture fail
   closed. There is no dedicated opened-mapping capture or snapshot workflow.
