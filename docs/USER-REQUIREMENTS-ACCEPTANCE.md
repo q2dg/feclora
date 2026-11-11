@@ -85,27 +85,31 @@ Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer pr
 - [ ] Do not start until every required Client is accounted for and independently authorizes its exact destination; missing, duplicate or unexpected Clients block or require explicit resolution.
 - [ ] Unicast and multicast modes show eligibility, network requirements and per-Client status. Multicast acceptance includes switch IGMP snooping/querier behavior.
 - [ ] PXE/iPXE supports the documented DHCP/ProxyDHCP or isolated-network model, boot delivery, architecture/firmware selection and safe Client handoff.
-- [ ] PXE discovery/boot never authorizes destructive restore; enrolled identity and job-bound authorization remain mandatory.
+- [ ] For the existing authenticated multi-Client mTLS workflow, PXE discovery/boot never authorizes destructive restore; enrolled identity and job-bound authorization remain mandatory. This is separate from the identity-free unattended answer workflow.
 - [ ] Provide per-Client progress, throughput, terminal verification, failures and exportable deployment report.
 - [ ] Define failure isolation: one Client's failure must not misreport other Clients' results.
 - [ ] Automated tests cover groups, duplicate/unknown identity, partial readiness, authorization expiry, retry and per-Client reconciliation; VM PXE tests cover BIOS and UEFI. Record physical switch/network acceptance separately.
 - [ ] Publish guides for manual Client boot, PXE Client boot, multi-Client unicast and multicast restore.
 
-## 6. Unattended mass restore
+## 6. Unattended PXE restore from a shared answer file
 
-**Outcome:** After an administrator defines and approves a deployment, eligible Clients boot and complete their assigned restore without per-disk interactive confirmation.
+**Outcome:** An operator prepares one signed, declarative restore answer on the Server. Any compatible PXE-booted Feclora Live client can obtain the same deployment instructions without per-client identity, USB provisioning or enrollment.
 
-- [ ] Cockpit supports profile authoring, review, signing, activation, expiry and revocation.
-- [ ] A profile binds image digest, allowed Client identities/group, target-selection policy, supported geometry/layout policy, deployment identity, validity window and single-use/replay protection.
-- [ ] Profiles are authenticated by an explicitly trusted deployment mechanism (a signature implementation may be selected; `minisign` is optional, not mandatory). Clients locally verify signature, trust, expiry, identity, image digest and target match before writing.
-- [ ] Target policies are deterministic and fail closed on ambiguity, changed hardware, insufficient capacity, unsupported layout or mounted/in-use devices.
-- [ ] Integrate PXE boot-to-job handoff; boot alone is never sufficient authorization.
-- [ ] Consume single-use authorization atomically; retries/recovery cannot replay authorization or silently resume interrupted writes.
-- [ ] Server tracks each Client through discovery, preflight, authorization, transfer, verification and terminal outcome.
-- [ ] Failure policy, concurrency limits, maintenance window and abort-before-write behavior are explicit. Once writing begins, report interruption semantics; do not promise rollback.
-- [ ] Support a non-destructive rehearsal showing exact target set and actions before activation.
-- [ ] Adversarial tests cover forged/expired/revoked profiles, replay, identity mismatch, changed disk, duplicate Client, interrupted authorization and restart recovery.
-- [ ] Publish an end-to-end unattended guide: trust setup, profile signing, PXE, dry run, execution, monitoring and recovery.
+- [x] Define a bounded, duplicate-key-rejecting JSON answer schema with operation, image ID, repository URL, stable WWN/serial target selector, explicit destructive confirmation and automatic-start intent.
+- [x] Provide Cockpit fields for the repository URL and answer-file upload; require exact equality between the field and the signed document.
+- [x] Sign uploaded answers with the protected Server minisign key, verify against the configured public key, publish answer and detached signature atomically through Caddy, and support explicit revocation.
+- [ ] Embed/provision the corresponding trusted public key independently in the Feclora Live image; never trust a key downloaded beside the answer.
+- [ ] Publish an unattended iPXE entry that boots the same Fedora Live kernel, initramfs and squashfs as the ISO and passes only the answer URL/job scope.
+- [ ] Download the answer and detached signature from Caddy in Live, verify the signature before parsing or acting, enforce schema/version/size limits, and fail closed on missing, expired, tampered or revoked content.
+- [ ] Connect the repository URL to supported provider adapters and separately protected credential references; reject unsupported schemes rather than accepting syntax as implementation.
+- [ ] Resolve exactly one whole-disk target by WWN and/or serial, verify capacity and device safety, and recheck stable identity immediately before the first write.
+- [ ] Consume the job authorization atomically to prevent replay; define expiry and tie revocation to cancellation/expiry.
+- [ ] Execute through the existing protected restore engine, retain post-write verification, and record an auditable result in the normal Cockpit interface.
+- [ ] Ensure the interactive PXE boot opens the same Cockpit experience as ISO Live and does not require the answer file.
+- [ ] Adversarial tests cover forged/tampered answers, wrong trust roots, replay, ambiguous or changed disks, missing credentials, repository outage, interrupted download and interrupted restore.
+- [ ] Validate BIOS and UEFI PXE boot and real hardware restore acceptance before describing the workflow as production-ready.
+
+Per-client TLS identity, USB identity media, manual enrollment and per-client key provisioning are explicitly out of scope for this unattended PXE answer workflow. The existing mTLS Remote jobs workflow remains a separate, identity-based feature.
 
 ## Documentation and website acceptance
 
