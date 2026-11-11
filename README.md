@@ -1,22 +1,19 @@
 # feclora
 
-**feclora** is an independent project to build a Fedora Server-based minimal Live appliance for disk imaging, cloning, and recovery. It boots directly into a locked-down Firefox kiosk displaying Cockpit and the Feclora web application; it does not include a general-purpose desktop environment.
+**feclora** is an independent project to build a Fedora Server-based minimal Live appliance for disk imaging, cloning, and recovery. The target appliance boots into a locked-down Firefox kiosk displaying Cockpit and the Feclora web application, without a general-purpose desktop environment.
 
 Project website: [https://q2dg.github.io/feclora/](https://q2dg.github.io/feclora/).
 
 It is not a fork of Clonezilla and does not depend on its repository, branches, or release process. Clonezilla may be used as a functional reference during requirements analysis; implementation and project history live here.
 
-## Current build baseline
+## Current source baseline and product target
 
-- Fedora Linux 45 (released 3 November 2026)
-- x86_64
-- Bootable Live ISO for BIOS and UEFI
-- Fedora Server minimal userspace, without a general-purpose desktop environment
-- Minimal Wayland kiosk compositor (Cage) running Firefox in kiosk mode
-- Cockpit socket activation and the Feclora Cockpit application
-- Imaging, cloning, restoration, and remote deployment management through Cockpit
+- Fedora Linux 45, x86_64
+- Fedora Live ISO build pipeline for BIOS and UEFI
+- Cockpit and the Feclora Cockpit application
+- Imaging, cloning, restoration, storage discovery and remote deployment foundations
 
-The Live boot model, minimal server base and kiosk presentation are separate architectural layers. The remaining implementation and integration work is tracked in [the roadmap](docs/ROADMAP.md).
+**Target runtime architecture:** Fedora Server minimal userspace in a Live image, without a general-purpose desktop; Cockpit socket activation; and Firefox launched in kiosk mode by the minimal Cage Wayland compositor. The current Kickstart still builds the transitional console-led Live image: the kiosk runtime, secure first-boot bootstrap and trusted local Cockpit certificate remain to be implemented. See the [roadmap](docs/ROADMAP.md) and [implementation plan](docs/IMPLEMENTATION-PLAN.md).
 
 ## Design principles
 
