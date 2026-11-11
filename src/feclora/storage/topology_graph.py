@@ -200,7 +200,7 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
                 "btrfs-subvolume:" + str(subvolume.get("uuid") or subvolume.get("id")),
                 "btrfs_subvolume", uuid=subvolume.get("uuid"),
                 subvolume_id=subvolume.get("id"), path=subvolume.get("path"),
-                kind=subvolume.get("kind"), parent_uuid=subvolume.get("parent_uuid"),
+                subvolume_kind=subvolume.get("kind"), parent_uuid=subvolume.get("parent_uuid"),
                 received_uuid=subvolume.get("received_uuid"), mountpoint=mountpoint,
             )
             # Mountpoint-to-filesystem UUID resolution is intentionally omitted
