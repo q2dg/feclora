@@ -143,11 +143,7 @@ approve each local target, wait for READY, and explicitly ARM the job on the
 Server. For a save job, the Client chooses compression and per-image age
 encryption/minisign signing before the local read begins.
 
-The step-by-step screenshot set is not yet published. Follow
-[the screenshot capture plan](assets/screenshots/README.md) to capture these
-screens from a real Fedora Live build matching the documented commit. The
-repository intentionally contains no synthetic UI images presented as actual
-screenshots.
+Illustrations may be real screenshots from a version-matched build or clearly labeled mockups. Mockups must not be presented as runtime evidence; follow the [screenshot and mockup policy](assets/screenshots/README.md).
 
 ## Scope and safety limits
 
@@ -224,11 +220,7 @@ enrolled receiver identity. For multicast restore, it explicitly includes
 the IGMP-verification acknowledgement. Neither a PXE boot, a DHCP lease, a
 MAC address, nor knowledge of the job UUID can substitute for these checks.
 
-PXE boot itself never arms or starts a restore. The current iPXE script boots
-the Live environment and does not yet pass a job UUID or auto-enter Client
-mode; the operator performs the Client job selection and local disk approval
-after boot. This separation is intentional: a DHCP lease or MAC address is
-not authorization to overwrite a disk. Stop PXE services after deployment if
+PXE boot itself never arms or starts a restore. The interactive iPXE choice boots the Live environment without job parameters. If the Server has published a restore-job handoff, the separate unattended choice chains a public script that passes only the job UUID, Server IPv4 address and mTLS control port as kernel parameters. The Client currently validates/parses these non-secret parameters but does not automatically start the Client service, authenticate and bind the job/profile, select a stable target, or reach READY. The operator still uses Cockpit to inspect the job, approve the local destination and wait for the Server's explicit ARM. A job UUID, DHCP lease or MAC address is not authorization to overwrite a disk. Stop PXE services after deployment if
 the network boot window is temporary.
 
 
