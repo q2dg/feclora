@@ -338,46 +338,11 @@ grep -q 'feclora-kiosk-bootstrap-ready' "$ROOT_DIR/kickstart/feclora-live.ks" ||
 grep -q 'feclora-kiosk.service' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not enable the Firefox kiosk service."
 grep -Fq 'https://localhost:9090/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Kiosk launcher does not open the Feclora Cockpit application."
 grep -Fq 'https://localhost:9090/cockpit/@localhost/feclora/index.html' "$ROOT_DIR/src/feclora/kiosk_bootstrap.py" || fail "First-boot assistant does not redirect into the Feclora Cockpit application."
-grep -q '^Restart=on-failurePYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
-
-if (( errors > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$errors" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "First-boot assistant service must restart after failure."
-grep -q '^IPAddressDeny=anyPYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
-
-if (( errors > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$errors" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must deny non-loopback network access."
-grep -q '^IPAddressAllow=127.0.0.1/32PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
-
-if (( errors > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$errors" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv4 loopback."
-grep -q '^IPAddressAllow=::1/128PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
-
-if (( errors > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$errors" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv6 loopback."
-grep -q '^IPAddressDeny=anyPYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
-
-if (( errors > 0 )); then
-  printf 'Validation failed with %d error(s).\n' "$errors" >&2
-  exit 1
-fi
-printf 'Static validation passed. This does not prove that the ISO builds or boots.\n'
- "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "Bootstrap service must deny non-loopback network access."
+grep -q '^Restart=on-failure$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "First-boot assistant service must restart after failure."
+grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must deny non-loopback network access."
+grep -q '^IPAddressAllow=127.0.0.1/32$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv4 loopback."
+grep -q '^IPAddressAllow=::1/128$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Firefox kiosk must allow IPv6 loopback."
+grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "Bootstrap service must deny non-loopback network access."
 grep -q 'AF_NETLINK' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Cage service must retain udev netlink access."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
 
