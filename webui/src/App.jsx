@@ -166,7 +166,6 @@ export default function App() {
   const [pxeAuthoritative, setPxeAuthoritative] = useState(false);
   const [pxePreflight, setPxePreflight] = useState(null);
   const [pxeProfile, setPxeProfile] = useState(null);
-  const [pxeRepositoryUrl, setPxeRepositoryUrl] = useState("");
   const [pxeAnswerFile, setPxeAnswerFile] = useState(null);
   const [pxeAnswerPublished, setPxeAnswerPublished] = useState(null);
   const [pxeStatus, setPxeStatus] = useState({ active: false, configured: false });
@@ -784,7 +783,7 @@ export default function App() {
     finally { setBusy(false); }
   };
   const publishPXEAnswer = async () => {
-    if (!pxeAnswerFile || !pxeRepositoryUrl.trim()) return;
+    if (!pxeAnswerFile) return;
     setBusy(true); setError(""); setNotice(""); setPxeAnswerPublished(null);
     try {
       if (pxeAnswerFile.size < 1 || pxeAnswerFile.size > 64 * 1024) throw new Error("The answer file must be between 1 byte and 64 KiB.");
@@ -799,8 +798,7 @@ export default function App() {
       };
       const result = await callFeclora("publish_pxe_answer", {
         job_id: crypto.randomUUID(),
-        answer_base64: encode(answerBuffer),
-        repository_url: pxeRepositoryUrl.trim()
+        answer_base64: encode(answerBuffer)
       });
       setPxeAnswerPublished(result);
       setNotice(result.message);
@@ -809,7 +807,7 @@ export default function App() {
   };
 
   const revokePXEAnswer = async () => {
-    if (!pxeAnswerPublished?.job_id || !window.confirm("Revoke this job's published PXE answer and signature? Clients that have already downloaded them may still possess a copy.")) return;
+    if (!pxeAnswerPublished?.job_id || !window.confirm("Revoke this job's published PXE answer? Clients that have already downloaded it may still possess a copy.")) return;
     setBusy(true); setError(""); setNotice("");
     try {
       const result = await callFeclora("revoke_pxe_answer", { job_id: pxeAnswerPublished.job_id });
@@ -1670,21 +1668,17 @@ export default function App() {
               <StackItem>
                 <Card><CardBody>
                   <Title headingLevel="h3" size="lg">Publish unattended PXE answer</Title>
-                  <p>Upload the prewritten JSON answer. The Server validates it and signs it with its protected minisign key before publication; a configured Server minisign keypair is required, otherwise publication fails closed. The repository URL below must exactly match the URL inside the JSON document. Credentials must be referenced separately and must not be embedded in the URL.</p>
-                  <Alert variant="warning" title="Destructive operation guard" isInline>The server verifies the signature against its configured trusted minisign public key before publishing. The Live-side signature verification and unattended restore executor are not implemented yet; publishing this file does not start a restore.</Alert>
-                  <Field label="Image repository URL" help="Accepted URL syntax includes SFTP/SSHFS, SMB/CIFS, NFS, WebDAV, HTTP(S), and BitTorrent. Syntax acceptance does not mean every transport adapter is implemented.">
-                    <input className="pf-v5-c-form-control" value={pxeRepositoryUrl} onChange={(event) => { setPxeRepositoryUrl(event.target.value); setPxeAnswerPublished(null); }} maxLength={2048} placeholder="sftp://repository.example/images" />
-                  </Field>
+                  <p>Upload the prewritten JSON answer. The repository URL is read from its <code>repository_url</code> field. The Server validates the JSON and publishes it through Caddy over HTTP. Credentials must be referenced separately and must not be embedded in the URL.</p>
+                  <Alert variant="warning" title="Destructive operation guard" isInline>The PXE Live client will trust the answer delivered by the configured HTTP server, as selected for this deployment. Download and unattended restore execution are not implemented yet; publishing this file does not start a restore.</Alert>
                   <Field label="Prewritten answer file (JSON)">
                     <input className="pf-v5-c-form-control" type="file" accept=".json,application/json" onChange={(event) => { setPxeAnswerFile(event.target.files?.[0] || null); setPxeAnswerPublished(null); }} />
                     {pxeAnswerFile && <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{pxeAnswerFile.name} · {pxeAnswerFile.size} bytes</div>}
                   </Field>
-                  <Button variant="primary" onClick={publishPXEAnswer} isLoading={busy} isDisabled={busy || !pxeStatus.active || !pxeRepositoryUrl.trim() || !pxeAnswerFile}>Validate, sign and publish answer</Button>
+                  <Button variant="primary" onClick={publishPXEAnswer} isLoading={busy} isDisabled={busy || !pxeStatus.active || !pxeAnswerFile}>Validate and publish answer</Button>
                   {!pxeStatus.active && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Start PXE services first; publication is available only while the configured Caddy service is active.</p>}
-                  {pxeAnswerPublished && <Alert variant="success" title="Signed answer published" isInline className="pf-v5-u-mt-md">
+                  {pxeAnswerPublished && <Alert variant="success" title="Answer published" isInline className="pf-v5-u-mt-md">
                     <p>Job: {pxeAnswerPublished.job_id}</p>
                     <p>Answer: <a href={pxeAnswerPublished.answer_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.answer_url}</a></p>
-                    <p>Signature: <a href={pxeAnswerPublished.signature_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.signature_url}</a></p>
                     <p>iPXE handoff: <a href={pxeAnswerPublished.boot_script_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.boot_script_url}</a></p>
                     <p>{pxeAnswerPublished.message}</p>
                     <Button variant="danger" size="sm" onClick={revokePXEAnswer} isLoading={busy} isDisabled={busy}>Revoke published answer</Button>
