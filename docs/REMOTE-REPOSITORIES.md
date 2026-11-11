@@ -244,7 +244,7 @@ sudo dnf install fuse-sshfs nfs-utils cifs-utils davfs2
 
 Only the selected provider's helper is needed. The manager checks for the
 required executable before attempting a mount. Credentials are created and
-provisioned separately; Feclora does not collect access keys or
+provisioned separately; Feclora does not collect access keys or secret material.
 
 ## Security and durability requirements
 
