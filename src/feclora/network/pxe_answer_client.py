@@ -83,11 +83,11 @@ def _publish_runtime_answer(raw: bytes, destination: str | os.PathLike[str]) -> 
         parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         parent_info = os.lstat(parent)
         if (not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode)
-                or parent_info.st_uid != 0 or parent_info.st_mode & 0o077):
+                or parent_info.st_uid != os.geteuid() or parent_info.st_mode & 0o077):
             raise PXEAnswerClientError("PXE runtime answer directory must be root-owned and mode 0700")
         if os.path.lexists(target):
             info = os.lstat(target)
-            if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
+            if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != os.geteuid():
                 raise PXEAnswerClientError("existing PXE runtime answer path is unsafe")
         fd, temporary = tempfile.mkstemp(prefix=".answer-", dir=parent)
         try:
