@@ -71,17 +71,18 @@ class PXEBootRequestTests(unittest.TestCase):
         self.assertNotIn("feclora.pxe_job_id=", script)
 
     def test_job_bound_boot_script_contains_only_non_secret_handoff_data(self):
-        script = render_unattended_ipxe_script("192.0.2.10", JOB_ID, 9443)
+        script = render_unattended_ipxe_script("192.0.2.10", JOB_ID, 8080, 9443)
         self.assertIn(f"feclora.pxe_job_id={JOB_ID}", script)
         self.assertIn("feclora.pxe_mode=unattended", script)
         self.assertIn("feclora.pxe_server=192.0.2.10", script)
+        self.assertIn("http://192.0.2.10:8080/live/vmlinuz", script)
         self.assertIn("feclora.pxe_control_port=9443", script)
         self.assertNotIn("PRIVATE KEY", script)
         self.assertNotIn("password", script.lower())
 
     def test_publishes_and_revokes_only_the_matching_job_script(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = publish_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 9443)
+            path = publish_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 8080, 9443)
             published = Path(path)
             self.assertTrue(published.is_file())
             self.assertEqual(published.stat().st_mode & 0o777, 0o444)
@@ -94,11 +95,11 @@ class PXEBootRequestTests(unittest.TestCase):
 
             other_job = "f47ac10b-58cc-4372-a567-0e02b2c3d480"
             with self.assertRaisesRegex(LiveBootAssetError, "different unattended PXE job"):
-                publish_unattended_ipxe_script(tmp, "192.0.2.10", other_job, 9443)
+                publish_unattended_ipxe_script(tmp, "192.0.2.10", other_job, 8080, 9443)
             with self.assertRaisesRegex(LiveBootAssetError, "different job"):
-                revoke_unattended_ipxe_script(tmp, "192.0.2.10", other_job, 9443)
+                revoke_unattended_ipxe_script(tmp, "192.0.2.10", other_job, 8080, 9443)
             self.assertTrue(published.exists())
-            self.assertTrue(revoke_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 9443))
+            self.assertTrue(revoke_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 8080, 9443))
             self.assertFalse(published.exists())
             self.assertFalse(revoke_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 9443))
 
