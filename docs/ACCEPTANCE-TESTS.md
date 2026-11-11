@@ -251,6 +251,14 @@ in the target Feclora Live image. Record package versions and tool paths.
 | F2FS | partclone.f2fs | fsck.f2fs -n |
 | Btrfs partition image | partclone.btrfs | btrfs check --readonly |
 
+Btrfs uses the same filesystem-aware partition capture/restore path as other
+filesystems: `partclone.btrfs`. The resulting image represents the Btrfs
+filesystem on that partition, including its on-disk subvolume/snapshot metadata;
+Feclora does not create separate images for each subvolume or implement a
+parallel snapshot-cloning engine. The source must be quiescent and unmounted
+for a consistent Partclone capture. Mounted-subvolume inventory is diagnostic
+metadata, not a separate capture requirement.
+
 For each row:
 
 1. Create a disposable filesystem with representative files, directories,
