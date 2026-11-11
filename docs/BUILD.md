@@ -169,10 +169,10 @@ host block devices.
 
 At minimum, verify:
 
-- BIOS boot reaches the expected live session.
-- UEFI boot reaches the expected live session.
-- The feclora live user/session starts as configured.
-- `sudo -n true` succeeds in this explicitly privileged rescue image.
+- BIOS boot reaches the current transitional Live console.
+- UEFI boot reaches the current transitional Live console.
+- The legacy feclora live user/session starts as currently configured.
+- `sudo -n true` succeeds in the current explicitly privileged rescue image; this is a known transitional security weakness, not the target kiosk policy.
 - Cockpit socket activation is available and the Cockpit app is installed:
   `systemctl status cockpit.socket` and
   `test -s /usr/share/cockpit/feclora/index.html`.
@@ -182,14 +182,14 @@ At minimum, verify:
 - Disposable virtual disks are detected and the operation forms enforce
   typed destructive confirmation.
 
-For first browser login, set a password on the live account from the console:
+For first browser login in the current transitional image, set a password on the live account from the console:
 
 ```bash
 sudo passwd feclora
 sudo firewall-cmd --add-service=cockpit
 ```
 
-Open `https://<live-host-ip>:9090` from a trusted management network.
+Open `https://<live-host-ip>:9090` from a trusted management network. This console-led procedure is temporary and will be replaced by the kiosk/bootstrap flow.
 Do not expose Cockpit on an untrusted/shared network. The firewalld command
 above is runtime-only.
 
@@ -198,6 +198,29 @@ menu is not part of the supported startup flow. Remote Server/Client
 provisioning and PXE job orchestration are not yet fully integrated into
 Cockpit; consult the [feature matrix](FEATURE-MATRIX.md) before claiming
 remote deployment readiness.
+
+### Target kiosk acceptance (not yet implemented)
+
+The target Live appliance must not be accepted as a kiosk until all of the
+following have been tested:
+
+- Cage starts automatically on the local display and launches Firefox in
+  kiosk mode; no general-purpose desktop is installed.
+- Firefox opens the local Cockpit endpoint without a certificate warning,
+  browser chrome, arbitrary URL navigation or external-page access.
+- Cockpit's Feclora application is reachable after secure first-boot
+  administrator provisioning.
+- The kiosk account is unprivileged and cannot access the Feclora privileged
+  API or Cockpit Terminal.
+- Firefox/Cage restart automatically after process failure.
+- Ordinary TTY switching, shell prompts, browser shortcuts and desktop escape
+  paths are blocked or explicitly documented in the physical-access threat
+  model.
+- BIOS and UEFI cold boots reach the same kiosk experience.
+
+Do not treat the current console-led smoke test above as kiosk acceptance.
+The current Live account's empty-password/passwordless-sudo setup must be
+removed as part of the secure kiosk bootstrap implementation.
 
 A successful Cockpit page load does not validate destructive workflows.
 Verify capture/restore/clone only with disposable virtual disks and follow
