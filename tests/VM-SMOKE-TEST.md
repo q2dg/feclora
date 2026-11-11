@@ -60,49 +60,35 @@ independent test run. Remove the temporary copy after the test.
 - [ ] `/usr/share/feclora/python/feclora` contains the application payload.
 - [ ] `/usr/share/cockpit/feclora/index.html` exists and is non-empty.
 - [ ] `cockpit.socket` is enabled and active.
-- [ ] The live user can set a password with `sudo passwd feclora`.
-- [ ] Cockpit is reachable from the host through the forwarded port and accepts the live-user login.
+- [ ] The local first-boot assistant accepts a new administrator password and redirects to Cockpit.
+- [ ] Cockpit presents no TLS warning; the localhost CA is trusted by Firefox.
+- [ ] The `feclora` account was locked before setup and accepts the password created in the assistant.
 - [ ] The Feclora Cockpit app opens and displays the Operations wizard.
 - [ ] The legacy `dialog` package and `/usr/local/bin/feclora-ui` are absent from the supported Live image.
 - [ ] Kernel command line and boot logs are captured.
 - [ ] ISO checksum and VM firmware details are recorded.
 
-## Transitional Cockpit login and screenshot capture
+## Cockpit login and screenshot capture
 
-The following procedure applies only to the current console-led Live image. After the Live VM reaches the console, set a temporary password for the live operator:
+Use the VM's local display to complete the first-boot password assistant. It
+binds only to guest loopback and is deliberately unavailable through QEMU
+port forwarding. Firefox then opens Cockpit at `https://localhost:9090/`.
+Sign in as `feclora`, open the Feclora application and verify the Operations
+workflow. The browser must not show a certificate interstitial; do not bypass
+TLS validation. Do not expose port 9090 beyond the host-only QEMU user network.
 
-```bash
-sudo passwd feclora
-```
+## Kiosk confinement and session behavior
 
-From the host, open `https://localhost:9090` and accept the expected self-signed
-certificate warning for this disposable test environment. Sign in as `feclora`,
-open the Feclora application and verify the Operations workflow. Do not expose
-port 9090 beyond the host-only QEMU user network.
-
-For visual documentation, capture the real browser screens from this VM and
-follow the [Cockpit screenshot capture plan](../docs/assets/screenshots/README.md).
-Record the ISO's source commit and Fedora release with each screenshot set; redact
-VM-generated hostnames, addresses and device identifiers before committing.
-
-## Target Firefox/Cage kiosk acceptance (pending implementation)
-
-These checks become mandatory when the kiosk runtime is implemented. They
-must not be marked passed against the current console-led image.
-
-- [ ] BIOS and UEFI boot automatically start the Cage kiosk session.
-- [ ] Firefox opens the local Cockpit origin in kiosk mode.
-- [ ] Cockpit's local TLS certificate is trusted; no certificate bypass or
-  interstitial is required.
-- [ ] Secure first-boot setup provisions a non-default administrator
-  credential without displaying or storing it in the browser profile.
-- [ ] The kiosk account is unprivileged and cannot use privileged Feclora API
-  actions or Cockpit Terminal.
-- [ ] Firefox and Cage restart after forced process termination.
-- [ ] External navigation, browser chrome, application launchers and ordinary
-  TTY/shell escape paths are unavailable.
-- [ ] Kiosk logs, boot journal, certificate fingerprint and test results are
-  recorded for both firmware modes.
+- [ ] Firefox enterprise policy reports the configured local-origin allowlist.
+- [ ] Attempting an external URL is blocked; browser chrome and developer tools
+  are unavailable in the kiosk session.
+- [ ] Killing Firefox or Cage causes the systemd kiosk service to restart it.
+- [ ] getty@tty1–tty6 are masked and no autologin/passwordless-sudo setup exists.
+- [ ] The `feclora-kiosk` account has no login shell and is not in `wheel`.
+- [ ] The kiosk account cannot access privileged Cockpit/Feclora actions.
+- [ ] Record keyboard/VT escape behavior on the actual target hardware.
+- [ ] Reboot confirms current Live-session credentials and generated CA are
+  ephemeral and the setup assistant appears again.
 
 ## Hardware discovery
 
