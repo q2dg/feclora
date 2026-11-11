@@ -49,8 +49,9 @@ and the Server operator explicitly ARMs the complete READY set.
   whole disks only.
 - `authorized_clients`: non-empty allowlist of unique unicast MAC addresses.
   MAC is an inventory mapping key, not cryptographic authentication.
-- `target_bindings`: optional object keyed by an authorized Client MAC. Each
-  value contains exactly `wwn` and `serial`; at least one must be supplied.
+- `target_bindings`: optional object for whole-disk restore jobs, keyed by an
+  authorized Client MAC. If present, it must bind every authorized Client.
+  Each value contains exactly `wwn` and `serial`; at least one must be supplied.
   The Client compares every supplied identifier with its own current device
   inventory before READY. A mismatch or missing identifier rejects the
   selected device. The Server Cockpit whole-disk restore workflow can collect a binding
