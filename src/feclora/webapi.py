@@ -1262,25 +1262,23 @@ def _stop_pxe_services() -> dict[str, Any]:
 
 
 def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
-    required = {"job_id", "answer_base64", "signature_base64", "repository_url"}
+    required = {"job_id", "answer_base64", "repository_url"}
     if set(params) != required:
-        raise WebAPIError("publish_pxe_answer requires job_id, answer_base64, signature_base64 and repository_url")
+        raise WebAPIError("publish_pxe_answer requires job_id, answer_base64 and repository_url")
     job_id = _text(params, "job_id", maximum=36)
     answer_text = _text(params, "answer_base64", maximum=90_000)
-    signature_text = _text(params, "signature_base64", maximum=24_000)
     repository_url = _text(params, "repository_url", maximum=2048)
     try:
         raw_answer = base64.b64decode(answer_text, validate=True)
-        detached_signature = base64.b64decode(signature_text, validate=True)
     except (ValueError, base64.binascii.Error) as exc:
-        raise WebAPIError("answer and signature must be valid base64 data") from exc
+        raise WebAPIError("answer must be valid base64 data") from exc
     from feclora.network.pxe_answer import parse_pxe_answer, PXEAnswerError
     try:
         answer = parse_pxe_answer(raw_answer)
     except PXEAnswerError as exc:
         raise WebAPIError(f"PXE answer validation failed: {exc}") from exc
     if answer["repository_url"] != repository_url:
-        raise WebAPIError("repository URL field must exactly match the URL covered by the answer-file signature")
+        raise WebAPIError("repository URL field must exactly match the URL inside the answer document")
     manager = _pxe_service_manager()
     status = manager.status()
     if status.get("active") is not True or not status.get("interface"):
@@ -1293,7 +1291,7 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         caddy_config = config_file.read_text(encoding="utf-8")
     except OSError as exc:
         raise WebAPIError("active Caddy configuration is unavailable") from exc
-    match = re.match(r'^http://([0-9.]+):([0-9]+) \{\n    root \* "(/srv/feclora/http)"\n', caddy_config)
+    match = re.match(r'^http://([0-9.]+):([0-9]+) \\{\\n    root \\* "(/srv/feclora/http)"\\n', caddy_config)
     if not match:
         raise WebAPIError("active Caddy configuration does not use the expected Feclora HTTP document root")
     address, port_text, http_root = match.groups()
@@ -1312,31 +1310,34 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         server_config = load_server_runtime_config("/etc/feclora/deployment-server.json")
     except Exception as exc:
         raise WebAPIError(f"Server trust configuration is unavailable: {exc}") from exc
-    if not server_config.server_minisign_public_key:
-        raise WebAPIError("configure the independently trusted Server minisign public key before publishing signed PXE answers")
-    from feclora.storage.image_security import verify_manifest_signature
+    public_key = server_config.server_minisign_public_key
+    private_key = Path("/etc/feclora/pki/server.minisign.key")
+    try:
+        key_info = os.lstat(private_key)
+    except OSError as exc:
+        raise WebAPIError("Server minisign signing key is unavailable") from exc
+    if (not public_key or not stat.S_ISREG(key_info.st_mode) or stat.S_ISLNK(key_info.st_mode)
+            or key_info.st_uid != 0 or key_info.st_mode & 0o077):
+        raise WebAPIError("a root-owned private Server signing key and independently configured public key are required")
+    from feclora.storage.image_security import sign_manifest, verify_manifest_signature
     from feclora.network.pxe_answer_store import publish_pxe_answer
     import tempfile
 
-    def verify(raw: bytes, signature: bytes) -> bool:
-        with tempfile.TemporaryDirectory(prefix="feclora-pxe-verify-") as temporary:
-            message_path = Path(temporary) / "answer.json"
-            signature_path = Path(temporary) / "answer.minisig"
-            message_path.write_bytes(raw)
-            signature_path.write_bytes(signature)
-            try:
-                verify_manifest_signature(
-                    message_path, server_config.server_minisign_public_key,
-                    signature_path=signature_path,
-                )
-                return True
-            except Exception:
-                return False
+    with tempfile.TemporaryDirectory(prefix="feclora-pxe-answer-") as temporary:
+        message_path = Path(temporary) / "answer.json"
+        message_path.write_bytes(raw_answer)
+        try:
+            signature_path = Path(sign_manifest(message_path, private_key))
+            verify_manifest_signature(message_path, public_key, signature_path=signature_path)
+            detached_signature = signature_path.read_bytes()
+        except Exception as exc:
+            raise WebAPIError(f"Server could not sign and verify the PXE answer: {exc}") from exc
 
     try:
         published = publish_pxe_answer(
             http_root, job_id, raw_answer, detached_signature,
-            verify_signature=verify, address=address, http_port=port,
+            verify_signature=lambda raw, signature: raw == raw_answer and signature == detached_signature,
+            address=address, http_port=port,
         )
     except Exception as exc:
         raise WebAPIError(f"PXE answer publication failed: {exc}") from exc
@@ -1344,9 +1345,8 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         "job_id": job_id,
         "answer_url": published["answer_url"],
         "signature_url": published["signature_url"],
-        "message": "Signed unattended answer published through the active Feclora Caddy server. Live-side verification and execution are not yet implemented.",
+        "message": "Answer validated, signed by the Server, and published through Caddy. Live-side verification and execution are not yet implemented.",
     }
-
 
 
 
