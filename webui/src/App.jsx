@@ -14,6 +14,7 @@ const OPERATION_LABELS = {
   capture_logical_volume: "Create a logical-volume image",
   restore_disk: "Restore a whole-disk image",
   restore_partition: "Restore a partition image",
+  restore_logical_volume: "Restore a logical-volume image",
   clone_disk: "Clone disk to disk",
   clone_partition: "Clone partition to partition"
 };
@@ -280,11 +281,11 @@ export default function App() {
   const isCapture = operation.startsWith("capture_");
   const isRestore = operation.startsWith("restore_");
   const isDisk = operation.endsWith("_disk");
-  const isLogicalVolume = operation === "capture_logical_volume";
+  const isLogicalVolume = operation === "capture_logical_volume" || operation === "restore_logical_volume";
   const deviceOptions = isDisk ? disks : isLogicalVolume ? logicalVolumes : partitions;
   const selectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId);
   const availableImages = selectedRepositoryId ? repositoryImages : images;
-  const matchingImages = availableImages.filter((item) => item.image_type === (isDisk ? "disk" : "partition"));
+  const matchingImages = availableImages.filter((item) => item.image_type === (isDisk ? "disk" : isLogicalVolume ? "logical_volume" : "partition"));
   const sftpInspectionMatchesCurrent = Boolean(sftpRemoteInspection?.connection
     && sftpRemoteInspection.connection.host === sftpHost
     && sftpRemoteInspection.connection.username === sftpUsername
@@ -1058,7 +1059,7 @@ export default function App() {
                       </Field>
                     </>}
                     {isRestore && <>
-                      <Field label="SFTP restore source">
+                      {!isLogicalVolume && <Field label="SFTP restore source">
                         <label><input type="checkbox" checked={restoreFromSftp} disabled={busy || !sftpInspectionMatchesCurrent || sftpRemoteInspection?.image_type !== (isDisk ? "disk" : "partition") || Boolean(selectedRepositoryId)} onChange={(e) => {
                           const enabled = e.target.checked;
                           setRestoreFromSftp(enabled);
@@ -1066,8 +1067,8 @@ export default function App() {
                         }} /> Fetch and verify the authenticated SFTP image before restoring it</label>
                         {!sftpInspectionMatchesCurrent && <p>Inspect and verify a remote SFTP image in the Remote Repositories tab using the current connection settings first.</p>}
                         {selectedRepositoryId && <p>Clear the mounted repository selection to restore directly from SFTP.</p>}
-                      </Field>
-                      <Field label={isDisk ? "Disk image" : "Partition image"}>
+                      </Field>}
+                      <Field label={isDisk ? "Disk image" : isLogicalVolume ? "Logical-volume image" : "Partition image"}>
                         <select className="pf-v5-c-form-control" value={imageId} disabled={busy || restoreFromSftp} onChange={(e) => {
                           const value = e.target.value;
                           if (sftpInspectionMatchesCurrent && value === sftpRemoteInspection.image_id) {
@@ -1079,10 +1080,10 @@ export default function App() {
                         }}>
                           <option value="">Select an image…</option>
                           {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
-                          {sftpInspectionMatchesCurrent && sftpRemoteInspection.image_type === (isDisk ? "disk" : "partition") && <option value={sftpRemoteInspection.image_id}>{sftpRemoteInspection.image_id} · authenticated SFTP image</option>}
+                          {!isLogicalVolume && sftpInspectionMatchesCurrent && sftpRemoteInspection.image_type === (isDisk ? "disk" : "partition") && <option value={sftpRemoteInspection.image_id}>{sftpRemoteInspection.image_id} · authenticated SFTP image</option>}
                         </select>
                       </Field>
-                      <Field label={isDisk ? "Destination disk" : "Destination partition"}>
+                      <Field label={isDisk ? "Destination disk" : isLogicalVolume ? "Destination logical volume" : "Destination partition"} help={isLogicalVolume ? "Must be an existing active, unmounted linear or thin LV in a healthy VG. Feclora overwrites its data but does not create or resize LVM metadata." : undefined}>
                         <select className="pf-v5-c-form-control" value={target} onChange={(e) => setTarget(e.target.value)}>
                           <option value="">Select a destination…</option>
                           {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
