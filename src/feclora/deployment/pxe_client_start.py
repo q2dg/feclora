@@ -20,7 +20,7 @@ def start_unattended_pxe_client(
     *,
     command_line_path: str = "/proc/cmdline",
     config_path: str = CLIENT_CONFIG,
-    runner=subprocess.run,
+    runner=None,
 ) -> str | None:
     """Create a constrained restore request and start its per-job Client unit."""
     try:
@@ -55,6 +55,7 @@ def start_unattended_pxe_client(
         "unattended": True,
     }
     _write_private_json(request_path, request)
+    runner = runner or subprocess.run
     try:
         runner(
             ["/usr/bin/systemctl", "start", "--no-block",
