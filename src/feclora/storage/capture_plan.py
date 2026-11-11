@@ -211,6 +211,14 @@ def plan_storage_capture(
             storage_metadata["btrfs_uuid"] = btrfs_uuid
         else:
             blockers.append("Btrfs filesystem UUID could not be resolved uniquely; refusing layer-aware capture.")
+        if len(btrfs_matches) != 1:
+            blockers.append("Btrfs filesystem membership could not be resolved to exactly one complete device set.")
+        else:
+            device_count = btrfs_matches[0].get("total_devices")
+            if isinstance(device_count, bool) or not isinstance(device_count, int) or device_count < 1:
+                blockers.append("Btrfs filesystem device count is missing or invalid.")
+            else:
+                storage_metadata["btrfs_device_count"] = device_count
 
     for node in nodes.values():
         if node.get("kind") != "lvm_logical_volume":
