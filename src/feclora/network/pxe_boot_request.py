@@ -1,8 +1,8 @@
 """Parse identity-free PXE answer handoff parameters from the Live kernel command line.
 
-The answer URL and job UUID are public locators, not authorization. Live must
-verify the detached signature against a trust root provisioned independently
-of the downloaded answer before it parses or executes any deployment action.
+The answer URL and job UUID are public locators. This deployment explicitly
+trusts the configured PXE HTTP server to supply the intended answer; the Live
+client still validates the downloaded JSON schema before using its fields.
 """
 from __future__ import annotations
 
