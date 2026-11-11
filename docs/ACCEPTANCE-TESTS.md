@@ -197,6 +197,29 @@ The expected protection is fail-closed: an active restore must not lose its
 repository definition or be unmounted through Feclora while its service holds
 the shared lease.
 
+## LUKS1/LUKS2 header inspection
+
+Run against disposable LUKS1 and LUKS2 containers on a test machine. This
+checks discovery only; it must not unlock, activate, repair or modify either
+container.
+
+1. Record each test device path and independently obtain its UUID and header
+   version with the installed cryptsetup tools.
+2. Run Feclora storage inventory and confirm each `crypto_LUKS` device is
+   listed with its LUKS version and UUID. Check cipher/mode, sector size where
+   available, and keyslot/token/segment counts against the independent header
+   inspection.
+3. Confirm LUKS1 text-header fallback works when JSON metadata is unavailable.
+4. Confirm token payloads, key material, passphrases and recovery secrets are
+   never included in inventory output, Cockpit, logs or profiles.
+5. Repeat without cryptsetup and without sufficient read permissions; the
+   inventory must report unavailable/permission-required rather than guessing.
+6. Confirm no `luksOpen`, activation, repair, format or write operation occurs.
+
+Mark not run until both versions have been checked on the target Fedora Live
+runtime. This inspection does not establish support for decrypted-image
+capture, LVM-on-LUKS layouts or encrypted restore planning.
+
 ## Results record
 
 For each run, record:
