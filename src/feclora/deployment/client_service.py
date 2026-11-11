@@ -488,6 +488,33 @@ class ClientDeploymentService:
                 self._set_status("running", detail="Server armed the job. Client storage operation is in progress.")
                 level = None if compression == "none" else 6
 
+                def recheck_unattended_target() -> None:
+                    if not unattended:
+                        return
+                    try:
+                        current = self._find_unattended_disk(job, config.mac_address)
+                    except ClientJobServiceError as exc:
+                        raise DeploymentControlError(f"unattended target recheck failed: {exc}") from exc
+                    if (current.get("path") != approval.device_path
+                            or not job.authorizes_target(config.mac_address, current)):
+                        raise DeploymentControlError(
+                            "unattended target identity changed after READY; refusing to write"
+                        )
+                    try:
+                        current_info = os.stat(approval.device_path)
+                    except OSError as exc:
+                        raise DeploymentControlError(
+                            f"cannot recheck unattended target immediately before write: {exc}"
+                        ) from exc
+                    if not stat.S_ISBLK(current_info.st_mode):
+                        raise DeploymentControlError("unattended target is no longer a block device")
+                    try:
+                        check_capture_source_safe(approval.device_path)
+                    except SourceSafetyError as exc:
+                        raise DeploymentControlError(
+                            f"unattended target became unsafe before write: {exc}"
+                        ) from exc
+
                 last_reported_bytes = 0
                 last_reported_at = 0.0
                 last_reported_phase = None
@@ -555,6 +582,7 @@ class ClientDeploymentService:
                     compression_level=level,
                     progress_callback=progress,
                     transfer_progress_callback=transfer_progress,
+                    pre_write_callback=recheck_unattended_target if unattended else None,
                 )
 
             try:
