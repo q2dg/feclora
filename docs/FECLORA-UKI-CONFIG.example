@@ -1,0 +1,24 @@
+# Example only: copy to a root-owned file with mode 0600 and replace every
+# path with keys/certificates generated and protected by your Secure Boot
+# and PCR-signing key-management process. Never commit private keys.
+#
+# ukify reads this configuration. The PCR phase policy below is illustrative;
+# it is NOT a production policy and must be tested against the actual
+# firmware, Secure Boot db/dbx, TPM PCR bank and recovery/update workflow.
+
+[UKI]
+SecureBootPrivateKey=/root/secureboot/feclora-db.key
+SecureBootCertificate=/root/secureboot/feclora-db.crt
+PCRBanks=sha256
+
+[PCRSignature:initrd]
+PCRPrivateKey=/root/secureboot/feclora-pcr-initrd.key
+PCRPublicKey=/root/secureboot/feclora-pcr-initrd.pub
+Phases=enter-initrd
+
+[PCRSignature:system]
+PCRPrivateKey=/root/secureboot/feclora-pcr-system.key
+PCRPublicKey=/root/secureboot/feclora-pcr-system.pub
+Phases=enter-initrd:leave-initrd
+        enter-initrd:leave-initrd:sysinit
+        enter-initrd:leave-initrd:sysinit:ready
