@@ -147,6 +147,10 @@ def _choose_job(
             [("bind", "Bind stable target identity for every selected Client"),
              ("skip", "Keep interactive local target selection")],
         )
+        if bind_choice is None:
+            raise DeploymentControlError("stable target-binding choice was cancelled")
+        if bind_choice not in {"bind", "skip"}:
+            raise DeploymentControlError("stable target-binding choice is invalid")
         if bind_choice == "bind":
             for mac in selected_macs:
                 wwn = dialog_app._input(
