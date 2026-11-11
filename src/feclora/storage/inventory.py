@@ -11,7 +11,7 @@ from typing import Any, Callable
 
 from feclora.storage.volume_metadata import annotate_inventory
 from feclora.storage.volume_topology import collect_lvm_topology, VolumeTopologyError
-from feclora.storage.btrfs_inventory import collect_btrfs_topology, BtrfsInventoryError
+from feclora.storage.btrfs_inventory import collect_btrfs_topology, collect_btrfs_subvolumes, BtrfsInventoryError
 from feclora.storage.stratis_inventory import collect_stratis_topology, StratisInventoryError
 
 LSBLK_COLUMNS = (
@@ -118,6 +118,10 @@ def collect_inventory(
         inventory["btrfs_topology"] = collect_btrfs_topology(which=shutil.which, runner=runner)
     except BtrfsInventoryError as exc:
         inventory["btrfs_topology"] = {"status": "error", "error": str(exc)}
+    try:
+        inventory["btrfs_subvolumes"] = collect_btrfs_subvolumes(which=shutil.which, runner=runner)
+    except BtrfsInventoryError as exc:
+        inventory["btrfs_subvolumes"] = {"status": "error", "error": str(exc)}
     try:
         inventory["stratis_topology"] = collect_stratis_topology()
     except StratisInventoryError as exc:
