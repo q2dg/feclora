@@ -207,7 +207,7 @@ class ImageArtifact:
 
 @dataclass(frozen=True)
 class ImageManifest:
-    """Immutable manifest for a whole-disk or partition image set."""
+    """Immutable manifest for a disk, partition or logical-volume image set."""
 
     image_id: str
     image_type: str
