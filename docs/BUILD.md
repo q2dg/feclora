@@ -1,7 +1,6 @@
 # Build and validate the live ISO
 
-This procedure describes how to build the initial Fedora 45 x86_64 feclora
-rescue image and how to validate it in disposable QEMU virtual machines.
+This procedure describes how to build the Fedora 45 x86_64 Feclora Live kiosk appliance and how to validate it in disposable QEMU virtual machines.
 It is a runbook, not evidence that the build or boot tests have passed.
 
 > **Implementation status:** the reproducible build pipeline, application-payload integration, and operator runbook are implemented. Executing the build and BIOS/UEFI boot acceptance remains an operator validation step; this document is not evidence that those tests have passed. Do not distribute an image as tested until the checks below have been executed and recorded.
@@ -161,6 +160,21 @@ Record the checksum and file size with the test results. A successful build
 process and a non-empty ISO are necessary but not sufficient acceptance
 criteria: the image must still boot in both firmware modes.
 
+## Runtime behavior
+
+The Kickstart selects Fedora's Server product environment and adds Cage and
+Firefox as the only local graphical shell. The kiosk starts on tty1; no
+general-purpose desktop or display manager is installed. On each fresh Live
+boot the first-boot page asks the operator to set the `feclora` administrator
+password before redirecting to Cockpit. The local Cockpit CA/certificate is
+generated and trusted automatically before the Cockpit socket starts.
+
+The current Live root is ephemeral. The administrator password, local CA
+private key and first-boot completion marker are session-local and reset on
+reboot. Do not treat the current image as a persistent appliance across
+reboots; persistent credential/configuration storage must be designed
+separately without selecting a potential restore target disk implicitly.
+
 ## 7. Boot-test BIOS and UEFI
 
 Follow [the VM smoke-test procedure](../tests/VM-SMOKE-TEST.md). Run the BIOS
@@ -169,29 +183,28 @@ host block devices.
 
 At minimum, verify:
 
-- BIOS boot reaches the current transitional Live console.
-- UEFI boot reaches the current transitional Live console.
-- The legacy feclora live user/session starts as currently configured.
-- `sudo -n true` succeeds in the current explicitly privileged rescue image; this is a known transitional security weakness, not the target kiosk policy.
-- Cockpit socket activation is available and the Cockpit app is installed:
-  `systemctl status cockpit.socket` and
-  `test -s /usr/share/cockpit/feclora/index.html`.
-- The Python application payload exists at
-  `/usr/share/feclora/python/feclora`.
-- Cockpit displays storage inventory and the local Operations wizard.
-- Disposable virtual disks are detected and the operation forms enforce
-  typed destructive confirmation.
+- BIOS and UEFI boot reach the Firefox kiosk on tty1 without a desktop or
+  console login prompt.
+- The first-boot assistant appears and accepts a new 14–128 character
+  administrator password; the administrator account was locked before setup.
+- The assistant redirects to `https://localhost:9090/` without a certificate
+  warning.
+- `systemctl status cockpit.socket feclora-cockpit-certificate.service
+  feclora-kiosk-bootstrap.service feclora-kiosk.service` shows expected states.
+- `test -s /usr/share/cockpit/feclora/index.html` succeeds and Cockpit
+  displays storage inventory and the local Operations wizard.
+- `/usr/share/feclora/python/feclora` contains the Python application.
+- Firefox enterprise policy blocks external URLs and developer tools.
+- The kiosk account is not in `wheel`; getty@tty1–tty6 are masked; there is
+  no autologin configuration or NOPASSWD sudo rule.
+- Firefox and Cage restart after terminating the kiosk process.
+- After reboot, the Live session asks for the administrator password again;
+  this confirms the documented ephemeral-session behavior, not persistence.
 
-For first browser login in the current transitional image, set a password on the live account from the console:
-
-```bash
-sudo passwd feclora
-sudo firewall-cmd --add-service=cockpit
-```
-
-Open `https://<live-host-ip>:9090` from a trusted management network. This console-led procedure is temporary and will be replaced by the kiosk/bootstrap flow.
-Do not expose Cockpit on an untrusted/shared network. The firewalld command
-above is runtime-only.
+The bootstrap assistant is loopback-only and is not exposed through QEMU
+port forwarding or the LAN. Complete password setup in the VM's local display.
+Cockpit remote access must remain limited to the trusted test network; do not
+expose port 9090 on an untrusted/shared network.
 
 The Cockpit Terminal page is available for diagnostics. The old `dialog`
 menu is not part of the supported startup flow. Remote Server/Client
