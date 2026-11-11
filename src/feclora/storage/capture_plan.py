@@ -202,7 +202,7 @@ def plan_storage_capture(
 
     dependency_kinds = {
         "luks2_metadata", "lvm_pv_metadata", "lvm_vg_members",
-        "lvm_volume_group", "btrfs_filesystem", "btrfs_subvolume",
+        "lvm_volume_group", "btrfs_filesystem",
     }
     for dependency in dependencies:
         kind = dependency.get("kind")
