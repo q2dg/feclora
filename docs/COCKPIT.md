@@ -31,8 +31,8 @@ as its persistence device.
 
 Before Cockpit's socket is activated, a root-owned systemd oneshot generates
 a local CA and a server certificate with SANs for `localhost`,
-`127.0.0.1` and `::1`. The CA is installed in the Fedora system trust store
-and Firefox is configured to import enterprise roots. Cockpit receives the
+`127.0.0.1` and `::1`. The CA is installed in the Fedora system trust store and explicitly
+installed into Firefox using its Linux enterprise certificate policy. Cockpit receives the
 certificate and private key as separate files in
 `/etc/cockpit/ws-certs.d/50-feclora.cert` and
 `50-feclora.key`; private keys are root-only. Firefox does not bypass TLS
@@ -40,12 +40,14 @@ warnings or accept an untrusted certificate interactively.
 
 Firefox runs with `--kiosk` and a managed enterprise policy. Firefox's
 `WebsiteFilter` blocks all URLs except the loopback setup page and the local
-Cockpit origin; password storage, private browsing, developer tools, add-ons
-management, Safe Mode and certificate-warning bypass are disabled. The local
+Cockpit host. Firefox match patterns do not constrain port numbers, so these
+loopback hosts are allowed on any port. Password storage, private browsing,
+developer tools, add-ons management, Safe Mode and certificate-warning
+bypass are disabled. The local
 CA is installed through Firefox's supported Linux `Certificates.Install`
 policy and separately into Fedora's system trust store. The Cage/Firefox systemd service
-restarts after failure. getty services on tty1–tty6 are masked, so ordinary
-virtual-terminal switching does not expose a login shell.
+restarts after failure. Cage is launched without its `-s` option (which would
+enable VT switching), and getty services on tty1–tty6 are masked.
 
 This is defense in depth, not a claim of tamper-proof physical kiosk
 security. Firmware/boot-menu access and hardware-level keyboard escape
