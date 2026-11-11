@@ -184,7 +184,8 @@ Existing foundation: block inventory, read-only LVM reporting, Btrfs/Stratis inv
 - [x] Inspect LUKS2 headers read-only with `cryptsetup`: UUID, cipher, sector size where available, and keyslot/token/segment counts. Do not expose token payloads or request/store passphrases.
 - [ ] Distinguish a raw encrypted-container image from a decrypted logical-volume/filesystem image in capture planning. Never request or persist passphrases in ordinary profiles, logs or browser state.
 - [ ] Represent unknown, degraded, missing and unsupported layers explicitly; never present discovery as proof that capture or restore is supported.
-- [ ] Define capture choices and manifest metadata for whole-disk, partition, logical-volume, Btrfs snapshot/subvolume and encrypted-container images, with explicit source boundaries and dependencies.
+- [x] Add a read-only capture planner for whole-disk/partition byte scope, raw LUKS2 containers versus opened crypt mappings, LVM PV/LV dependencies, multi-device Btrfs completeness and mounted-source blockers. The planner is a safety/metadata primitive only; it does not execute capture or create snapshots.
+- [ ] Extend capture choices and manifest metadata to first-class logical-volume, Btrfs snapshot/subvolume and encrypted-container image workflows, with explicit source boundaries and dependencies.
 - [ ] Validate alignment, sector size, geometry and EFI/BIOS/recovery partition roles where a whole-disk restore is planned.
 - [ ] Complete capture/restore only for explicitly supported LVM layouts, Btrfs multi-device/profile/snapshot combinations and LUKS modes; reject unsupported combinations before writing.
 - [ ] Add Cockpit topology views and a read-only capture/restore compatibility preview. Feclora does not create/resize VGs or LVs, manage Btrfs snapshots, format LUKS devices, or otherwise administer those external storage stacks.
