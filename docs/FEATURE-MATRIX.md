@@ -32,7 +32,7 @@ Status meanings:
 | Encryption | Optional artifact encryption (`age` implementation) | Implemented as optional integration; absence must not block baseline local imaging | Cockpit capture/restore when configured | Automated tests; real Fedora Live acceptance pending |
 | Compression | none, gzip, xz, zstd, lz4 | Implemented | Cockpit basic choices | Automated tests/CI |
 | Filesystems | Partclone-supported filesystems | Implemented with raw fallback; native current/total block progress is consumed from stderr on legacy builds and native JSON byte counters are used when the installed Partclone advertises `--json-status` | Cockpit | Automated tests; operator validation |
-| Storage layers | LVM, LUKS, Btrfs, Stratis | Inventory/safety support varies; full-aware imaging incomplete | Inventory only | Automated tests; operator validation |
+| Storage layers | LVM, LUKS, Btrfs, Stratis | Read-only LVM PV/VG/LV reports; Btrfs multi-device membership inventory; LUKS container signatures and active `crypt` mappings tagged from `lsblk`; full topology normalization, Btrfs snapshot/subvolume discovery and storage-layer-aware imaging incomplete | Inventory only | Unit tests; operator validation pending |
 | Deployment identity | Managed CA and Server mTLS identity bootstrap | Implemented | Cockpit initial bootstrap | Automated tests; operator validation |
 | Deployment trust | Client TLS identity/MAC authorization and exact-confirmation revocation | Implemented | Cockpit | Automated tests |
 | Deployment trust | Optional Client minisign public-key enrollment for signed image capture | Implemented; unsigned Client capture remains permitted | Cockpit | Automated tests; Fedora Live acceptance pending |
