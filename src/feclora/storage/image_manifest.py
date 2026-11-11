@@ -215,8 +215,8 @@ class ImageManifest:
     logical_sector_size: int
     partition_table: str
     artifacts: tuple[ImageArtifact, ...]
-    storage: dict[str, Any] | None = None
     schema_version: int = 1
+    storage: dict[str, Any] | None = None
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "ImageManifest":
@@ -274,8 +274,8 @@ class ImageManifest:
             raise ManifestValidationError("Disk image requires at least one data artifact")
         if image_type == "partition" and "partition-image" not in roles:
             raise ManifestValidationError("Partition image requires a partition-image artifact")
-        if image_type == "logical_volume" and roles.count("logical-volume-image") != 1:
-            raise ManifestValidationError("Logical-volume image requires exactly one logical-volume-image artifact")
+        if image_type == "logical_volume" and roles != ["logical-volume-image"]:
+            raise ManifestValidationError("Logical-volume image requires exactly one logical-volume-image artifact and no other artifact roles")
         if image_type != "logical_volume" and "logical-volume-image" in roles:
             raise ManifestValidationError("logical-volume-image artifacts require image_type='logical_volume'")
         if image_type == "logical_volume" and "partition-image" in roles:
