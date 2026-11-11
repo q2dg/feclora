@@ -27,6 +27,8 @@ class PXEJobHandoffIntegrationTests(unittest.TestCase):
             job = SimpleNamespace(
                 job_id="f47ac10b-58cc-4372-a567-0e02b2c3d479",
                 operation="restore", image_id="gold", transport="unicast",
+                target_type="disk",
+                target_bindings=(("02:00:00:00:00:01", "wwn-01", "serial-01"),),
                 authorized_clients=["02:00:00:00:00:01"],
             )
             coordinator = SimpleNamespace(
