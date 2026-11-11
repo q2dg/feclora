@@ -87,7 +87,7 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
     class Handler(BaseHTTPRequestHandler):
         server_version = "FecloraBootstrap/1"
 
-        def _headers(self, status: int, *, content_type: str = "text/html; charset=utf-8") -> None:
+        def _headers(self, status: int, *, content_type: str = "text/html; charset=utf-8", cookie: str | None = None) -> None:
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Cache-Control", "no-store, max-age=0")
@@ -96,6 +96,8 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
             self.send_header("X-Frame-Options", "DENY")
             self.send_header("Referrer-Policy", "no-referrer")
             self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+            if cookie:
+                self.send_header("Set-Cookie", cookie)
             self.end_headers()
 
         def _valid_local_request(self, *, require_origin: bool) -> bool:
@@ -117,8 +119,7 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
                 self.end_headers()
                 return
             token = secrets.token_urlsafe(32)
-            self._headers(200)
-            self.send_header("Set-Cookie", f"feclora_setup={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=300")
+            self._headers(200, cookie=f"feclora_setup={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=300")
             body = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Feclora initial setup</title><style>body{{font:16px system-ui,sans-serif;max-width:38rem;margin:8vh auto;padding:0 1.2rem;color:#20242a}}label{{display:block;margin:1.2rem 0 .4rem}}input{{box-sizing:border-box;width:100%;padding:.8rem;font:inherit}}button{{margin-top:1.4rem;padding:.8rem 1.2rem;font:inherit}}p{{line-height:1.5}}</style></head><body><h1>Welcome to Feclora</h1><p>Create the local administrator password to continue to Cockpit. Use at least 14 characters. This password is not stored in the browser by Feclora.</p><form method="post" action="/setup"><input type="hidden" name="token" value="{token}"><label for="password">Administrator password</label><input id="password" name="password" type="password" minlength="14" maxlength="128" autocomplete="new-password" required><label for="confirmation">Confirm password</label><input id="confirmation" name="confirmation" type="password" minlength="14" maxlength="128" autocomplete="new-password" required><button type="submit">Set password and open Cockpit</button></form></body></html>""".encode("utf-8")
             self.wfile.write(body)
 
