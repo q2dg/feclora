@@ -117,11 +117,14 @@ ProxyDHCP or isolated DHCP. PXE boot-tree staging, interactive/unattended iPXE m
 
 Local long-running capture, restore, extraction and clone operations are
 submitted through the privileged API to a root-owned systemd worker. Their
-versioned definitions and hash-chained event journals persist under
-`/var/lib/feclora/local-operations`; Cockpit displays durable status, progress
-and history. Boot recovery marks unfinished jobs interrupted and never
-replays destructive I/O. Phase/throughput telemetry, export and live systemd
-acceptance remain outstanding.
+versioned definitions and hash-chained event journals under
+`/var/lib/feclora/local-operations` survive browser, Cockpit/API and worker
+process restarts during the current Live session. The default Live root is
+ephemeral, so this queue/history is not retained across reboot; reboot
+persistence is not required. A reboot during destructive I/O can leave a
+partially written target with no surviving session journal, so inspect it
+before reuse. Phase/throughput telemetry, export and live systemd acceptance
+remain outstanding.
 
 The source tree and CI checks do not establish ISO boot or physical-device
 acceptance. Local storage and Cockpit workflows still require validation on a
