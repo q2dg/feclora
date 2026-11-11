@@ -197,8 +197,20 @@ def plan_storage_capture(
         storage_metadata["source_layer"] = "active_crypt_mapping"
     elif fstype == "btrfs":
         storage_metadata["source_layer"] = "btrfs_filesystem"
-        if source.get("uuid"):
-            storage_metadata["btrfs_uuid"] = source["uuid"]
+        btrfs_matches = [
+            filesystem for filesystem in (inventory.get("btrfs_topology") or {}).get("filesystems", [])
+            if any(
+                isinstance(device, dict) and device.get("path") == source_path
+                for device in filesystem.get("devices", [])
+            )
+        ]
+        btrfs_uuid = source.get("uuid")
+        if not btrfs_uuid and len(btrfs_matches) == 1:
+            btrfs_uuid = btrfs_matches[0].get("uuid")
+        if isinstance(btrfs_uuid, str) and btrfs_uuid:
+            storage_metadata["btrfs_uuid"] = btrfs_uuid
+        else:
+            blockers.append("Btrfs filesystem UUID could not be resolved uniquely; refusing layer-aware capture.")
 
     for node in nodes.values():
         if node.get("kind") != "lvm_logical_volume":
