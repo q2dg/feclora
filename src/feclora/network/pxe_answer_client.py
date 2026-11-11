@@ -260,7 +260,7 @@ def _consume_answer_once(job_id: str, directory: str | os.PathLike[str]) -> None
         root.mkdir(mode=0o700, parents=True, exist_ok=True)
         info = os.lstat(root)
         if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
-                or info.st_uid != 0 or info.st_mode & 0o077):
+                or info.st_uid != os.geteuid() or info.st_mode & 0o077):
             raise PXEAnswerClientError("PXE one-time ledger directory must be root-owned and mode 0700")
         fd = os.open(
             root / canonical,
