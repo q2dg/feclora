@@ -1267,6 +1267,14 @@ def _prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError(f"Client enrollment request preparation failed: {exc}") from exc
 
 
+def _export_pxe_client_identity(params: dict[str, Any]) -> dict[str, Any]:
+    from feclora.deployment.cockpit_client import export_pxe_client_identity
+    try:
+        return export_pxe_client_identity(params)
+    except Exception as exc:
+        raise WebAPIError(f"PXE Client identity export failed: {exc}") from exc
+
+
 def _complete_client_enrollment(params: dict[str, Any]) -> dict[str, Any]:
     from feclora.deployment.cockpit_client import complete_client_enrollment
     try:
@@ -2843,6 +2851,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _prepare_client_request(params)
     if action == "complete_client_enrollment":
         return _complete_client_enrollment(params)
+    if action == "export_pxe_client_identity":
+        return _export_pxe_client_identity(params)
     if action == "prepare_client_renewal":
         return _prepare_client_renewal(params)
     if action == "complete_client_renewal":
