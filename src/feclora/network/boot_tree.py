@@ -135,15 +135,15 @@ def render_unattended_answer_ipxe_script(
             raise LiveBootAssetError(f"PXE {label} URL is not a plain Caddy answer URL")
     live_base = f"http://{parsed}:{http_port}/live"
     return (
-        "#!ipxe\\n"
-        "dhcp\\n"
+        "#!ipxe\n"
+        "dhcp\n"
         f"kernel {live_base}/vmlinuz root=live:{live_base}/squashfs.img ro rd.live.image "
         f"ip=dhcp rd.neednet=1 feclora.pxe_mode=unattended-answer "
         f"feclora.pxe_job_id={canonical_job_id} "
         f"feclora.pxe_answer_url={answer_url} "
-        f"feclora.pxe_signature_url={signature_url}\\n"
-        f"initrd {live_base}/initrd.img\\n"
-        "boot\\n"
+        f"feclora.pxe_signature_url={signature_url}\n"
+        f"initrd {live_base}/initrd.img\n"
+        "boot\n"
     )
 
 
@@ -235,7 +235,7 @@ def revoke_unattended_answer_ipxe_script(http_root: str, job_id: str) -> bool:
         current = destination.read_text(encoding="utf-8")
     except (OSError, UnicodeError) as exc:
         raise LiveBootAssetError(f"cannot read unattended answer boot script: {exc}") from exc
-    if (not current.startswith("#!ipxe\\n")
+    if (not current.startswith("#!ipxe\n")
             or current.count(f"feclora.pxe_job_id={canonical_job_id}") != 1
             or "feclora.pxe_mode=unattended-answer" not in current
             or f"/answers/{canonical_job_id}/answer.json" not in current
