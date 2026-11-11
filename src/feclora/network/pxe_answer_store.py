@@ -125,6 +125,48 @@ def publish_pxe_answer(
     }
 
 
+
+def clear_stale_pxe_answers(http_root: str | os.PathLike[str]) -> int:
+    """Remove all safely published answer directories before a new PXE session."""
+    root = _safe_root(http_root)
+    answers = root / "answers"
+    try:
+        info = answers.lstat()
+    except FileNotFoundError:
+        return 0
+    if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
+            or info.st_uid != os.geteuid() or info.st_mode & 0o022):
+        raise PXEAnswerStoreError("PXE answers directory is unsafe")
+    removed = 0
+    for destination in answers.iterdir():
+        canonical_job_id = _job_id(destination.name)
+        directory_info = destination.lstat()
+        if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
+                or directory_info.st_uid != os.geteuid()):
+            raise PXEAnswerStoreError("PXE answer job path is not a safe directory")
+        if {item.name for item in destination.iterdir()} != {"answer.json", "answer.minisig"}:
+            raise PXEAnswerStoreError(f"PXE answer {canonical_job_id} contains unexpected or missing files")
+        for name in ("answer.json", "answer.minisig"):
+            item = destination / name
+            item_info = item.lstat()
+            if (not stat.S_ISREG(item_info.st_mode) or stat.S_ISLNK(item_info.st_mode)
+                    or item_info.st_uid != os.geteuid()):
+                raise PXEAnswerStoreError(f"PXE answer {canonical_job_id} contains an unsafe file")
+        os.chmod(destination, 0o700)
+        for item in destination.iterdir():
+            os.chmod(item, 0o600)
+        shutil.rmtree(destination)
+        removed += 1
+    if removed:
+        directory_fd = os.open(answers, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    return removed
+
+
+
 def revoke_pxe_answer(http_root: str | os.PathLike[str], job_id: str) -> bool:
     """Revoke only the selected job's answer directory, refusing unsafe contents."""
     canonical_job_id = _job_id(job_id)
