@@ -239,6 +239,12 @@ For each run, record:
 Run each case on a disposable VM disk/partition formatted with the named
 filesystem. Use the exact Partclone and filesystem-checker packages included
 in the target Feclora Live image. Record package versions and tool paths.
+Fedora 45 currently publishes Partclone `0.3.50-1.fc45`; this is a repository
+baseline observation, not a Feclora version pin. Before testing, record
+`rpm -q partclone e2fsprogs xfsprogs ntfs-3g dosfstools exfatprogs f2fs-tools`
+and confirm the expected executables with `command -v`. The Live image must
+include `exfatprogs` and `f2fs-tools` for its declared exFAT and F2FS read-only
+post-restore checks.
 
 | Filesystem | Expected capture/restore utility | Post-restore check |
 |---|---|---|
@@ -279,6 +285,10 @@ For each row:
    A missing checker must reject a Partclone restore before target writes.
 8. Record pass/fail/not-run separately for each filesystem and tool version.
    Unit tests and command-map coverage alone do not constitute acceptance.
+9. Confirm Cockpit capability inventory reports the installed Partclone
+   executables and filesystem checkers independently. Missing `fsck.exfat` or
+   `fsck.f2fs` must be visible as a missing checker; a Partclone restore for
+   that filesystem must fail before starting its target writer.
 
 Do not mark a filesystem supported for a release until its real capture/restore
 round trip and integrity checks have passed on the target runtime.
