@@ -59,8 +59,8 @@ def parse_filesystem_show(payload: str) -> list[dict[str, Any]]:
 
 
 _PROFILE = re.compile(
-    r"^\\s*(Data|Metadata|System|GlobalReserve),\\s*([^:]+):\\s*"
-    r"total=(\\d+)\\s+used=(\\d+)\\s*$", re.IGNORECASE,
+    r"^\s*(Data|Metadata|System|GlobalReserve),\s*([^:]+):\s*"
+    r"total=(\d+)\s+used=(\d+)\s*$", re.IGNORECASE,
 )
 _KNOWN_PROFILES = {
     "single", "dup", "raid0", "raid1", "raid1c3", "raid1c4",
@@ -78,7 +78,7 @@ def parse_filesystem_profiles(payload: str) -> list[dict[str, Any]]:
         if match is None:
             # df output may include harmless non-profile lines, but malformed
             # rows that look like allocation profiles must not be guessed.
-            if re.match(r"^\\s*(Data|Metadata|System|GlobalReserve)\\s*,", line, re.IGNORECASE):
+            if re.match(r"^\s*(Data|Metadata|System|GlobalReserve)\s*,", line, re.IGNORECASE):
                 raise BtrfsInventoryError("Btrfs returned an unrecognized allocation-profile row")
             continue
         kind, profile, total, used = match.groups()
