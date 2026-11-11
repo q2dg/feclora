@@ -86,7 +86,7 @@ Key Slot 0: ENABLED
 """
     def runner(argv, **kwargs):
         if "luksUUID" in argv:
-            return subprocess.CompletedProcess(argv, 0, uuid + "\\n", "")
+            return subprocess.CompletedProcess(argv, 0, uuid + "\n", "")
         if "--dump-json-metadata" in argv:
             raise subprocess.CalledProcessError(1, argv, stderr="LUKS1 has no JSON metadata")
         return subprocess.CompletedProcess(argv, 0, text_header, "")
