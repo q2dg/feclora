@@ -8,7 +8,7 @@ if [[ ${EUID} -ne 0 ]]; then
   exit 1
 fi
 
-for command in cryptsetup losetup sfdisk lsblk dd python3; do
+for command in cryptsetup losetup sfdisk lsblk dd fuser python3; do
   command -v "$command" >/dev/null || {
     echo "Required command not found: $command" >&2
     exit 1
@@ -86,6 +86,7 @@ import sys
 from pathlib import Path
 
 from feclora.storage.partition_restore import restore_partition
+from feclora.storage.source_safety import check_capture_source_safe
 
 repository, source, target, luks_uuid, expected_path = sys.argv[1:]
 repo = Path(repository)
@@ -133,6 +134,7 @@ def safe_target(path):
     if (path != target or not path.startswith("/dev/loop")
             or not stat.S_ISBLK(os.stat(path).st_mode)):
         raise RuntimeError("acceptance target escaped the disposable loop partition")
+    check_capture_source_safe(path, effective_uid=os.geteuid)
 
 restore_partition(
     manifest_path=manifest_path,
