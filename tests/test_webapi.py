@@ -56,6 +56,7 @@ class WebAPITests(unittest.TestCase):
 
     def test_durable_sftp_fetch_operation_uses_local_trust_and_progress(self):
         from pathlib import Path
+        import stat
         params = {
             "host": "backup.example.net", "username": "backup",
             "remote_directory": "/images/golden", "port": 2222,
