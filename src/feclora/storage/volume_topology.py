@@ -103,12 +103,23 @@ def summarize_lvm_topology(result: dict[str, Any]) -> dict[str, Any]:
             1 for pv in pvs_by_vg.get(name, [])
             if str(pv.get("pv_missing") or "").strip().lower() in {"1", "yes", "missing", "true"}
         )
-        vg_partial = "p" in str(vg.get("vg_attr") or "").lower()
-        degraded = (missing is not None and missing > 0) or pv_missing_count > 0 or vg_partial or unhealthy_lv
+        # LVM's vg_attr is positional: the fourth character is the
+        # partial flag. A "p" in another attribute position (for example an
+        # allocation policy) must not be mistaken for a partial VG.
+        vg_attr = str(vg.get("vg_attr") or "").strip().lower()
+        vg_attr_known = len(vg_attr) >= 4
+        vg_partial = vg_attr_known and vg_attr[3] == "p"
+        degraded = (
+            (missing is not None and missing > 0)
+            or pv_missing_count > 0
+            or vg_partial
+            or unhealthy_lv
+        )
+        healthy = missing == 0 and vg_attr_known and not vg_partial and not unhealthy_lv
         groups.append({
             "name": name,
             "uuid": vg.get("vg_uuid"),
-            "status": "degraded" if degraded else "healthy" if missing == 0 and not unhealthy_lv else "unknown",
+            "status": "degraded" if degraded else "healthy" if healthy else "unknown",
             "missing_pv_count": max(missing or 0, pv_missing_count) if missing is not None or pv_missing_count else None,
             "pv_count_reported": _as_nonnegative_int(vg.get("pv_count")),
             "lv_count_reported": _as_nonnegative_int(vg.get("lv_count")),
