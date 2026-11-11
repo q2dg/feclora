@@ -167,7 +167,9 @@ ListenStream=127.0.0.1:9090
 ListenStream=[::1]:9090
 EOF
 install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
-install -d -m 0700 "$TARGET_ROOT/var/lib/feclora"
+install -d -m 0700 "$TARGET_ROOT/var/lib/feclora" "$TARGET_ROOT/var/lib/feclora/pxe"
+chown root:root "$TARGET_ROOT/var/lib/feclora/pxe"
+chmod 0700 "$TARGET_ROOT/var/lib/feclora/pxe"
 systemctl --root="$TARGET_ROOT" enable feclora-local-operation-recovery.service feclora-pxe-answer.service
 systemctl --root="$TARGET_ROOT" enable feclora-cockpit-certificate.service feclora-kiosk-bootstrap.service feclora-kiosk.service
 systemctl --root="$TARGET_ROOT" set-default graphical.target
