@@ -1226,7 +1226,7 @@ class WebAPITests(unittest.TestCase):
             "remote_path": "/images", "username": "backup",
             "credential_file": None, "identity_file": "/etc/feclora/id_ed25519",
             "known_hosts_file": "/etc/feclora/known_hosts", "port": 22,
-            "rclone_remote": None, "read_only": True,
+            "read_only": True,
         }
         with patch("feclora.webapi._remote_repository_manager", return_value=manager):
             self.assertEqual(dispatch({"action": "remote_repositories"}), {
@@ -1255,7 +1255,7 @@ class WebAPITests(unittest.TestCase):
             "id": "images", "provider": "nfs", "host": "nas.example.net",
             "remote_path": "/exports/images", "username": None,
             "credential_file": None, "identity_file": None, "known_hosts_file": None,
-            "port": None, "rclone_remote": None, "read_only": True,
+            "port": None, "read_only": True,
         }
         with patch("feclora.webapi._remote_repository_manager", return_value=manager):
             self.assertEqual(dispatch({"action": "update_remote_repository", "params": definition}),
