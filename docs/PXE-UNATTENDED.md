@@ -101,7 +101,7 @@ are not yet complete provider/transport workflows.
 - [x] Stage the same Fedora Live kernel, initramfs and squashfs for iPXE.
 - [x] Provide interactive Live boot through iPXE.
 - [x] Define and validate a bounded, data-only answer-file schema.
-- [ ] Replace the old identity-medium dispatcher with an answer-file downloader.
+- [ ] Add a Live boot-time answer-file downloader and client-side signature verifier.
 - [ ] Add the deployment-form repository URL and answer-file upload controls.
 - [ ] Publish per-job answer documents through Caddy and revoke them on job
       cancellation/expiry.
