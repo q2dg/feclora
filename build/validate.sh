@@ -23,7 +23,8 @@ if [[ -f "$ROOT_DIR/README.md" ]]; then
 fi
 
 if [[ -f "$ROOT_DIR/kickstart/feclora-live.ks" ]]; then
-  grep -q '^#version=F45
+  grep -q '^#version=F45$' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not declare Fedora 45 (#version=F45)."
+  grep -Fq '@^server-product-environment' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not select the Fedora Server product environment."
   grep -q '^part / ' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not define a root partition."
   grep -q '^%post --nochroot --erroronfail$' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not copy the app payload outside the chroot."
   grep -q 'APP_SOURCE=/run/install/repo/feclora-app/src/feclora' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart payload path does not match the mkksiso staging directory."
@@ -83,7 +84,7 @@ if ! grep -q 'Requires=feclora-cockpit-certificate.service' "$ROOT_DIR/kickstart
 fi
 if ! grep -q 'WebsiteFilter' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" \
    || ! grep -q '"<all_urls>"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" \
-   || ! grep -q '"wss://localhost/\\*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json"; then
+   || ! grep -Fq '"wss://localhost/*"' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json"; then
   fail "Firefox WebsiteFilter does not block all sites except the local Cockpit and setup origins."
 fi
 if ! grep -q 'Certificates' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" \
@@ -91,7 +92,7 @@ if ! grep -q 'Certificates' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-po
   fail "Firefox does not install the local CA using its Linux enterprise certificate policy."
 fi
 if ! grep -q '127.0.0.1:9090' "$ROOT_DIR/kickstart/feclora-live.ks" \
-   || ! grep -q '\\[::1\\]:9090' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+   || ! grep -Fq '[::1]:9090' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Cockpit socket must bind only to IPv4/IPv6 loopback in kiosk mode."
 fi
 
@@ -436,7 +437,7 @@ if ! grep -q 'Certificates' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-po
   fail "Firefox does not install the local CA using its Linux enterprise certificate policy."
 fi
 if ! grep -q '127.0.0.1:9090' "$ROOT_DIR/kickstart/feclora-live.ks" \
-   || ! grep -q '\\[::1\\]:9090' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+   || ! grep -Fq '[::1]:9090' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Cockpit socket must bind only to IPv4/IPv6 loopback in kiosk mode."
 fi
 
@@ -776,7 +777,7 @@ if ! grep -q 'Certificates' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-po
   fail "Firefox does not install the local CA using its Linux enterprise certificate policy."
 fi
 if ! grep -q '127.0.0.1:9090' "$ROOT_DIR/kickstart/feclora-live.ks" \
-   || ! grep -q '\\[::1\\]:9090' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+   || ! grep -Fq '[::1]:9090' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Cockpit socket must bind only to IPv4/IPv6 loopback in kiosk mode."
 fi
 
