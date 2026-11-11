@@ -66,7 +66,7 @@ restored container must unlock with the original key and expose the exact
 plaintext bytes written before capture.
 
 On a disposable Fedora/Linux test host, install `cryptsetup`, `util-linux`
-(`losetup`, `sfdisk`, `lsblk`), `coreutils`, and Python. From the repository
+(`losetup`, `sfdisk`, `lsblk`), `psmisc` (`fuser`), `coreutils`, and Python. From the repository
 root run:
 
 ~~~bash
