@@ -56,17 +56,44 @@ def plan_storage_capture(
 
     fstype = str(source.get("filesystem") or "").lower()
     features = set(source.get("volume_features") or [])
-    if fstype == "crypto_luks" or "luks_container" in features:
-        capture_scope = "encrypted_container_bytes"
-        layers.append("luks2_container")
-        luks_uuid = next((item.get("uuid") for item in (inventory.get("luks_metadata") or {}).get("containers", [])
-                          if item.get("device") == source_path), None)
-        dependencies.append({
-            "kind": "luks2_metadata", "uuid": luks_uuid,
-            "included_in_source_bytes": True,
-            "restore_note": "Raw encrypted bytes include the LUKS header and keyslots; passphrases and recovery keys are not captured.",
-        })
-    elif source.get("type") == "crypt" or "crypt_mapping" in features:
+    # Report encryption/PV layers anywhere inside a whole-disk source too.
+    for item in descendants:
+        item_path = item.get("path")
+        item_fstype = str(item.get("filesystem") or "").lower()
+        item_features = set(item.get("volume_features") or [])
+        if item_fstype == "crypto_luks" or "luks_container" in item_features:
+            layers.append("luks2_container")
+            luks_uuid = next((entry.get("uuid") for entry in (inventory.get("luks_metadata") or {}).get("containers", [])
+                              if entry.get("device") == item_path), None)
+            dependencies.append({
+                "kind": "luks2_metadata", "device_path": item_path, "uuid": luks_uuid,
+                "included_in_source_bytes": True,
+                "restore_note": "Raw encrypted bytes include the LUKS header and keyslots; passphrases and recovery keys are not captured.",
+            })
+        if item_fstype == "lvm2_member" or "lvm_pv" in item_features:
+            layers.append("lvm_physical_volume")
+            topology = inventory.get("volume_topology") or {}
+            pv = next((entry for entry in topology.get("pvs", []) if entry.get("pv_name") == item_path), None)
+            dependencies.append({
+                "kind": "lvm_pv_metadata", "device_path": item_path,
+                "vg_name": pv.get("vg_name") if pv else None,
+                "included_in_source_bytes": True,
+                "restore_note": "PV bytes include on-disk LVM metadata; a complete VG may require every member PV.",
+            })
+            if pv and pv.get("vg_name"):
+                members = [entry.get("pv_name") for entry in topology.get("pvs", [])
+                           if entry.get("vg_name") == pv.get("vg_name") and entry.get("pv_name")]
+                complete = set(members).issubset(included_paths)
+                dependencies.append({
+                    "kind": "lvm_vg_members", "vg_name": pv.get("vg_name"),
+                    "required_device_paths": sorted(set(members)),
+                    "included_in_source_bytes": complete,
+                })
+                if not complete:
+                    blockers.append("The selected source does not contain every PV required by its volume group.")
+
+    # A selected active crypt mapping is plaintext at the block interface.
+    if source.get("type") == "crypt" or "crypt_mapping" in features:
         capture_scope = "decrypted_mapping_bytes"
         layers.append("active_crypt_mapping")
         warnings.append("This captures the opened mapping's plaintext block contents, not its LUKS header or keyslots.")
@@ -74,27 +101,6 @@ def plan_storage_capture(
             "kind": "encryption_mapping", "included_in_source_bytes": False,
             "restore_note": "Recreating encryption requires a separately authorized LUKS2 destination and key-management workflow.",
         })
-
-    if fstype == "lvm2_member" or "lvm_pv" in features:
-        layers.append("lvm_physical_volume")
-        topology = inventory.get("volume_topology") or {}
-        pv = next((item for item in topology.get("pvs", []) if item.get("pv_name") == source_path), None)
-        dependencies.append({
-            "kind": "lvm_pv_metadata", "vg_name": pv.get("vg_name") if pv else None,
-            "included_in_source_bytes": True,
-            "restore_note": "PV bytes include on-disk LVM metadata; a complete VG may require every member PV.",
-        })
-        if pv and pv.get("vg_name"):
-            members = [item.get("pv_name") for item in topology.get("pvs", [])
-                       if item.get("vg_name") == pv.get("vg_name") and item.get("pv_name")]
-            complete = set(members).issubset(included_paths)
-            dependencies.append({
-                "kind": "lvm_vg_members", "vg_name": pv.get("vg_name"),
-                "required_device_paths": sorted(set(members)),
-                "included_in_source_bytes": complete,
-            })
-            if not complete:
-                blockers.append("The selected source does not contain every PV required by its volume group.")
 
     for node in nodes.values():
         if node.get("kind") != "lvm_logical_volume":
