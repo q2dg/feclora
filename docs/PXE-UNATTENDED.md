@@ -192,10 +192,12 @@ Two opt-in helpers now implement the local credential cryptography step:
   `--tpm2-device=auto` and `--tpm2-public-key-pcrs=11`. It has no host-key,
   null-key or no-TPM fallback. Only the resulting ciphertext may be copied to
   the Server; the plaintext private key stays on the Client.
-- `build/unseal-pxe-client-key.sh` requires the systemd-stub PCR signature and
-  public-key files under `/run/systemd`, decrypts through the local TPM and
-  publishes the plaintext only under `/run/feclora` on tmpfs, mode 0600, with
-  no overwrite. Failure to access TPM/PCR policy stops the operation.
+- `build/unseal-pxe-client-key.sh` requires UEFI Secure Boot to be enabled,
+  a TPM2 resource-manager device, and the systemd-stub PCR signature/public-key
+  files under `/run/systemd`. It decrypts through the local TPM and publishes
+  plaintext only under `/run/feclora` on tmpfs, mode 0600, with no overwrite.
+  This also prevents systemd-creds' null-key fallback. Failure to access
+  Secure Boot, TPM2 or the PCR policy stops the operation.
 
 These helpers are cryptographic building blocks, not a complete enrollment
 or deployment workflow. They do not generate or rotate the Client keypair,
