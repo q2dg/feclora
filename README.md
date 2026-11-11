@@ -113,7 +113,7 @@ services, mTLS enrollment and authorization, mTLS-authenticated unicast image tr
 UDPcast multicast restore, and direct whole-disk remote cloning. Cockpit
 exposes Server/Client lifecycle and job workflows, per-client status, initial
 Server identity bootstrap, and PXE network-profile preflight/activation for
-ProxyDHCP or isolated DHCP. PXE network-profile activation exists, but unattended PXE restore still needs authenticated boot-to-job handoff, profile activation/revocation, deterministic target matching, replay protection within the deployment session, and end-to-end multi-Client validation. See the implementation plan.
+ProxyDHCP or isolated DHCP. PXE boot-tree staging, interactive/unattended iPXE menu entries, and active restore-job publication/revocation of a non-secret job-bound handoff script are implemented. The handoff is not authorization: automatic Client startup, mTLS job/profile binding, deterministic target authorization, session replay protection and unattended execution remain incomplete. See the implementation plan.
 
 Local long-running capture, restore, extraction and clone operations are
 submitted through the privileged API to a root-owned systemd worker. Their
