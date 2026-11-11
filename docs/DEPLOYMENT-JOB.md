@@ -112,10 +112,10 @@ READY set and a separate explicit ARM action before it sends START.
 
 The existing Remote jobs workflow uses enrolled Client mTLS identities and
 its READY/ARM authorization. That workflow is separate from the new shared
-PXE answer-file design. The answer-file publication path signs a declarative
-restore answer on the Server and serves it through Caddy without per-Client
-identity or enrollment. The Live answer downloader, independent trust-root
-verification, repository integration, target revalidation and restore
+PXE answer-file design. The answer-file publication path validates a declarative
+restore answer on the Server and serves it through Caddy over HTTP without
+per-Client identity or enrollment. The Live answer downloader, repository
+integration, target revalidation and restore
 execution are not yet implemented. Do not infer authorization from PXE boot,
 a DHCP lease, a URL or a job UUID.
 
