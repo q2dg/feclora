@@ -38,10 +38,12 @@ certificate and private key as separate files in
 `50-feclora.key`; private keys are root-only. Firefox does not bypass TLS
 warnings or accept an untrusted certificate interactively.
 
-Firefox runs with `--kiosk` and a managed enterprise policy. URL block/allow
-rules confine navigation to the loopback setup page and the local Cockpit
-origin; browser password storage, private browsing, developer tools and
-Firefox account features are disabled. The Cage/Firefox systemd service
+Firefox runs with `--kiosk` and a managed enterprise policy. Firefox's
+`WebsiteFilter` blocks all URLs except the loopback setup page and the local
+Cockpit origin; password storage, private browsing, developer tools, add-ons
+management, Safe Mode and certificate-warning bypass are disabled. The local
+CA is installed through Firefox's supported Linux `Certificates.Install`
+policy and separately into Fedora's system trust store. The Cage/Firefox systemd service
 restarts after failure. getty services on tty1–tty6 are masked, so ordinary
 virtual-terminal switching does not expose a login shell.
 
