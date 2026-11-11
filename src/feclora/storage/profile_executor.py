@@ -266,8 +266,6 @@ def preflight_logical_volume_restore(
     if target_size < manifest.source_size_bytes:
         raise RestoreProfileError("target LV is smaller than the image source size")
 
-    if not isinstance(target_path, str) or not target_path.startswith("/dev/"):
-        raise RestoreProfileError("target LV path must be an absolute /dev/ path")
     major_minor = lv.get("major_minor")
     if not isinstance(major_minor, str) or not major_minor:
         raise RestoreProfileError("target LV is not active or its kernel device identity is unknown")
