@@ -1670,7 +1670,7 @@ export default function App() {
               <StackItem>
                 <Card><CardBody>
                   <Title headingLevel="h3" size="lg">Publish unattended PXE answer</Title>
-                  <p>Upload the prewritten JSON answer. The Server validates it and signs it with its protected minisign key before publication. The repository URL below must exactly match the URL inside the JSON document. Credentials must be referenced separately and must not be embedded in the URL.</p>
+                  <p>Upload the prewritten JSON answer. The Server validates it and signs it with its protected minisign key before publication; a configured Server minisign keypair is required, otherwise publication fails closed. The repository URL below must exactly match the URL inside the JSON document. Credentials must be referenced separately and must not be embedded in the URL.</p>
                   <Alert variant="warning" title="Destructive operation guard" isInline>The server verifies the signature against its configured trusted minisign public key before publishing. The Live-side signature verification and unattended restore executor are not implemented yet; publishing this file does not start a restore.</Alert>
                   <Field label="Image repository URL" help="Accepted URL syntax includes SFTP/SSHFS, SMB/CIFS, NFS, WebDAV, HTTP(S), and BitTorrent. Syntax acceptance does not mean every transport adapter is implemented.">
                     <input className="pf-v5-c-form-control" value={pxeRepositoryUrl} onChange={(event) => { setPxeRepositoryUrl(event.target.value); setPxeAnswerPublished(null); }} maxLength={2048} placeholder="sftp://repository.example/images" />
