@@ -7,12 +7,67 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from feclora.deployment.cockpit_client import (
-    CockpitEnrollmentError, prepare_client_request, complete_client_enrollment, refresh_client_age_recipients,
+    CockpitEnrollmentError, prepare_client_request, complete_client_enrollment, refresh_client_age_recipients, export_pxe_client_identity,
     prepare_client_renewal, complete_client_renewal,
 )
 
 
 class CockpitClientTests(unittest.TestCase):
+    def test_export_pxe_identity_copies_private_material_to_private_media(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "media"
+            media.mkdir()
+            pki = root / "pki"
+            pki.mkdir()
+            paths = {}
+            for name, private in (("ca.crt", False), ("client.crt", False), ("client.key", True)):
+                path = pki / name
+                path.write_text("material-" + name, encoding="utf-8")
+                path.chmod(0o600 if private else 0o644)
+                paths[name] = str(path)
+            config_path = root / "deployment-client.json"
+            config = {
+                "schema_version": 1, "host": "192.0.2.10", "port": 9443,
+                "local_identity": "URI:feclora-client-lab", "server_identity": "URI:feclora-server",
+                "mac_address": "52:54:00:12:34:56", "ca_file": paths["ca.crt"],
+                "certificate_file": paths["client.crt"], "private_key_file": paths["client.key"],
+                "trusted_server_public_key": None, "local_minisign_secret_key": None,
+                "local_minisign_public_key": None, "age_identity_file": None,
+                "age_recipients_file": None, "repository": "/var/lib/feclora/images",
+            }
+            config_path.write_text(__import__("json").dumps(config), encoding="utf-8")
+            runtime = SimpleNamespace(
+                local_identity=config["local_identity"], ca_file=paths["ca.crt"],
+                certificate_file=paths["client.crt"], private_key_file=paths["client.key"],
+                trusted_server_public_key=None, local_minisign_secret_key=None,
+                local_minisign_public_key=None, age_identity_file=None, age_recipients_file=None,
+            )
+            with patch("feclora.deployment.cockpit_client.CONFIG", str(config_path)), patch(
+                "feclora.deployment.cockpit_client.REPOSITORY", "/var/lib/feclora/images"
+            ), patch("feclora.deployment.cockpit_client.load_client_runtime_config", return_value=runtime), patch(
+                "feclora.deployment.cockpit_client._mounted_media_directory", return_value=str(media)
+            ):
+                result = export_pxe_client_identity({"export_directory": str(media)})
+            exported = media / "feclora-client-identity"
+            self.assertEqual(result["identity"], "URI:feclora-client-lab")
+            self.assertEqual((exported / "client.key").stat().st_mode & 0o777, 0o600)
+            self.assertEqual((exported / "deployment-client.json").stat().st_mode & 0o777, 0o600)
+            rewritten = __import__("json").loads((exported / "deployment-client.json").read_text())
+            self.assertEqual(rewritten["private_key_file"], str(exported / "client.key"))
+            self.assertEqual(rewritten["ca_file"], str(exported / "ca.crt"))
+            self.assertFalse((exported / "client.key").is_symlink())
+
+    def test_export_pxe_identity_refuses_existing_bundle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            media = Path(directory)
+            (media / "feclora-client-identity").mkdir()
+            with patch("feclora.deployment.cockpit_client.load_client_runtime_config", return_value=SimpleNamespace()), patch(
+                "feclora.deployment.cockpit_client._mounted_media_directory", return_value=str(media)
+            ):
+                with self.assertRaisesRegex(CockpitEnrollmentError, "already exists"):
+                    export_pxe_client_identity({"export_directory": str(media)})
+
     def test_prepare_restore_only_request_keeps_private_key_local(self):
         params = {
             "client_id": "lab-01",
