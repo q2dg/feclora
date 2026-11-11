@@ -6,6 +6,15 @@ def test_classifies_lvm_physical_and_logical_volumes():
     assert classify_volume({"type": "lvm", "fstype": "xfs"}) == ["lvm", "lvm_lv"]
 
 
+def test_classifies_luks_container_and_active_mapping():
+    assert classify_volume({"type": "part", "fstype": "crypto_LUKS"}) == ["luks", "luks_container"]
+    assert classify_volume({"type": "crypt", "fstype": "xfs"}) == ["luks", "luks_mapping"]
+
+
+def test_does_not_infer_luks_from_mapper_name_alone():
+    assert classify_volume({"name": "/dev/mapper/data", "type": "dm", "fstype": "xfs"}) == []
+
+
 def test_classifies_btrfs_without_claiming_lvm_or_stratis():
     assert classify_volume({"type": "part", "fstype": "btrfs"}) == ["btrfs"]
 
