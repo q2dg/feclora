@@ -17,6 +17,7 @@ PORT = 8765
 COMPLETE = Path("/var/lib/feclora/kiosk-setup-complete")
 ADMIN = "feclora"
 ORIGIN = f"http://{HOST}:{PORT}"
+COCKPIT_APP = "https://localhost:9090/cockpit/@localhost/feclora/index.html"
 
 
 class BootstrapError(RuntimeError):
@@ -114,7 +115,7 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
                 return
             if complete_path.exists():
                 self.send_response(303)
-                self.send_header("Location", "https://localhost:9090/")
+                self.send_header("Location", COCKPIT_APP)
                 self.send_header("Cache-Control", "no-store")
                 self.end_headers()
                 return
@@ -124,6 +125,10 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
             self.wfile.write(body)
 
         def do_POST(self) -> None:
+            if complete_path.exists():
+                self._headers(409)
+                self.wfile.write(b"First-boot setup is already complete")
+                return
             if not self._valid_local_request(require_origin=True) or self.path != "/setup":
                 self._headers(403)
                 self.wfile.write(b"Forbidden")
@@ -171,7 +176,6 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
             self.send_header("Cache-Control", "no-store")
             self.send_header("Set-Cookie", "feclora_setup=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0")
             self.end_headers()
-            self.server.setup_complete = True
 
         def log_message(self, fmt: str, *args) -> None:
             # Never log request bodies or credentials.
@@ -181,13 +185,12 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
 
 
 def serve(*, complete_path: Path = COMPLETE, password_runner=subprocess.run) -> int:
-    if complete_path.exists():
-        return 0
+    # Keep the loopback endpoint alive for the session: after setup it only
+    # redirects the managed Firefox homepage to Feclora and rejects new setup.
     server = HTTPServer((HOST, PORT), build_handler(complete_path, password_runner))
     server.timeout = 1
-    server.setup_complete = False
     try:
-        while not server.setup_complete:
+        while True:
             server.handle_request()
     finally:
         server.server_close()
