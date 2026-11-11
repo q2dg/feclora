@@ -123,6 +123,7 @@ class PXEBootRequestTests(unittest.TestCase):
 
     def test_publishes_and_revokes_only_the_matching_answer_job_script(self):
         with tempfile.TemporaryDirectory() as tmp:
+            os.chmod(tmp, 0o755)
             path = publish_unattended_answer_ipxe_script(
                 tmp, "192.0.2.10", JOB_ID, ANSWER_URL, SIGNATURE_URL, 8080,
             )
@@ -152,6 +153,7 @@ class PXEBootRequestTests(unittest.TestCase):
 
     def test_new_pxe_session_clears_both_stale_handoff_scripts(self):
         with tempfile.TemporaryDirectory() as tmp:
+            os.chmod(tmp, 0o755)
             legacy = Path(tmp) / "unattended.ipxe"
             answer = Path(tmp) / "unattended-answer.ipxe"
             legacy.write_text("#!ipxe\\necho stale\\n", encoding="utf-8")
@@ -163,6 +165,7 @@ class PXEBootRequestTests(unittest.TestCase):
 
     def test_new_pxe_session_refuses_symlinked_stale_handoff(self):
         with tempfile.TemporaryDirectory() as tmp:
+            os.chmod(tmp, 0o755)
             stale = Path(tmp) / "unattended-answer.ipxe"
             stale.symlink_to("/etc/passwd")
             with self.assertRaisesRegex(LiveBootAssetError, "not a safe regular file"):
