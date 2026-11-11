@@ -80,12 +80,12 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
   address and mTLS control port. These values are metadata, not authorization.
   The Client does not yet automatically authenticate, inspect the job,
   select/verify its target, or enter the READY/ARM workflow from this boot.
-- **Unattended PXE restore** — **Partially implemented**. Each enrolled
-  Client exports its mTLS identity to dedicated removable media; the Live
-  image mounts it read-only and automatically starts the Client for unattended
-  boots. One Client per unicast whole-disk job requires an exact WWN/serial
-  binding and retains the Server READY/ARM gate. Partition/multicast execution,
-  interrupted-job replay acceptance and BIOS/UEFI lab validation remain.
+- **Unattended PXE answer workflow** — **Partially implemented**. Cockpit accepts
+  a prewritten JSON answer and repository URL; the Server validates and signs
+  the answer and publishes it with a detached signature through Caddy. This
+  path has no per-Client identity or enrollment. Live-side download and
+  signature verification, trusted-key provisioning, provider integration,
+  stable-target revalidation and restore execution remain unimplemented.
 
 PXE boot alone never authorizes a destructive write. Manual Client approval
 and the Server's explicit ARM remain required by the current deployment
