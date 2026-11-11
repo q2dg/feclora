@@ -80,12 +80,10 @@ def _choose_job(
         raise DeploymentControlError("job creation cancelled")
     manifest_path = None
     if operation == "restore":
-        images = _available_images(config.repository, config.server_minisign_public_key)
-        if transport == "multicast":
-            images = [
-                entry for entry in images
-                if entry[1].image_type in {"disk", "partition"}
-            ]
+        images = [
+            entry for entry in _available_images(config.repository, config.server_minisign_public_key)
+            if entry[1].image_type in {"disk", "partition"}
+        ]
         choices = [
             (manifest.image_id, f"{manifest.image_id} | {manifest.image_type} | {manifest.source_size_bytes:,} bytes")
             for _filename, manifest in images
