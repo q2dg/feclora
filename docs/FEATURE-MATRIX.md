@@ -15,7 +15,7 @@ Status meanings:
 |---|---|---|---|---|
 | Boot | x86_64 BIOS | Build configuration present | N/A | Operator validation |
 | Boot | x86_64 UEFI | Build configuration present | N/A | Operator validation |
-| Boot/UI | Fedora Server Live kiosk | Fedora Server product environment; Cage + Firefox kiosk, unprivileged kiosk user, locked admin with local first-boot password setup, localhost CA/certificate and Firefox origin policy implemented | Cockpit + Firefox kiosk | Unit tests written and static checks wired; BIOS/UEFI, packaged Firefox TLS trust and physical escape-path acceptance pending; credentials/CA are session-local |
+| Boot/UI | Fedora Server Live kiosk | Fedora Server product environment; Cage + Firefox kiosk, unprivileged kiosk user, locked admin with local first-boot password setup, localhost CA/certificate, Firefox WebsiteFilter and systemd loopback-only network filters implemented | Cockpit + Firefox kiosk | Unit tests written and static checks wired; BIOS/UEFI, packaged Firefox TLS trust and physical escape-path acceptance pending; credentials/CA are session-local |
 | Storage | Block-device and partition inventory | Implemented | Cockpit | Automated tests |
 | Imaging | Whole-disk capture/restore | Implemented | Cockpit | Automated tests; operator validation |
 | Imaging | Partition capture/restore | Implemented | Cockpit | Automated tests; operator validation |
