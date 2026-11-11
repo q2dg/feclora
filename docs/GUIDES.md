@@ -74,15 +74,14 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
 - **Interactive PXE boot** — boot-tree staging and service activation exist;
   BIOS/UEFI network-boot acceptance remains pending. It is intended to boot
   the same Live environment as ISO, then use Cockpit interactively.
-- **Signed-answer PXE handoff** — **Partial**. The iPXE menu offers an
+- **HTTP answer PXE handoff** — **Partial**. The iPXE menu offers an
   unattended answer-file entry. Cockpit publishes one validated JSON answer
   and an answer-specific script containing its URL. The Live downloader and
   restore execution are not yet integrated.
 - **Unattended PXE answer workflow** — **Partially implemented**. Cockpit accepts
-  a prewritten JSON answer and repository URL; the Server validates and signs
-  the answer and publishes it with a detached signature through Caddy. This
-  path has no per-Client identity or enrollment. Live-side download and
-  signature verification, trusted-key provisioning, provider integration,
+  one prewritten JSON answer containing the repository URL; the Server validates
+  and publishes it through Caddy over HTTP. This path has no per-Client identity
+  or enrollment. Live-side download, provider integration,
   stable-target revalidation and restore execution remain unimplemented.
 
 PXE boot alone never authorizes a destructive write. The existing mTLS Remote
