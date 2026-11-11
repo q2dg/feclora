@@ -84,8 +84,11 @@ not cryptographic authenticity: an attacker able to modify HTTP traffic or the
 server's published file can alter the instructions. Feclora does not add a
 signature, encryption layer or per-client identity to this workflow.
 
-The Live Client answer downloader, repository URL adapters and the end-to-end
-identity-free execution flow remain implementation work. Do not describe unattended PXE as complete until those
+The Live HTTP downloader and schema validation service are now implemented
+and conditionally started for unattended PXE kernel parameters. It stores the
+validated answer under `/run/feclora/pxe/answer.json`. Repository URL adapters,
+target matching, pre-write revalidation and destructive restore execution
+remain implementation work. Do not describe unattended PXE as complete until those
 pieces are connected and tested.
 
 ## Provider support status
@@ -103,7 +106,10 @@ are not yet complete provider/transport workflows.
 - [x] Define and validate a bounded, data-only answer-file schema.
 - [x] Publish an answer-specific iPXE handoff that boots the same Live payload
       and passes only the answer job UUID and single answer URL.
-- [ ] Add a Live boot-time answer-file downloader and schema validator.
+- [x] Add a Live boot-time HTTP answer downloader and schema validator; store the
+      validated JSON in the root-only Live runtime directory.
+- [ ] Connect repository access, target resolution and the existing whole-disk
+      restore engine to the downloaded answer.
 - [x] Add one Cockpit JSON answer-file upload control; the repository URL is
       taken directly from the JSON document.
 - [x] Validate and atomically publish/revoke job-scoped JSON files through Caddy.
