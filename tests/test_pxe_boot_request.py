@@ -116,7 +116,7 @@ class PXEBootRequestTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             stale = Path(tmp) / "unattended.ipxe"
             stale.symlink_to("/etc/passwd")
-            with self.assertRaisesRegex(LiveBootAssetError, "not a regular file"):
+            with self.assertRaisesRegex(LiveBootAssetError, "not a safe regular file"):
                 clear_stale_unattended_ipxe_script(tmp)
 
     def test_unattended_boot_script_validates_control_port_separately(self):
