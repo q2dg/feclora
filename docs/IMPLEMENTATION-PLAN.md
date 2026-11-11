@@ -101,6 +101,20 @@ Existing foundation: deployment journals, persistent Server service lifecycle, r
 - [ ] Keep `dialog`/ `zenity` out of the execution architecture; any future console UI must be a client of the same durable service. The legacy `dialog_app.py` still executes engines in its own process and is not safe to reactivate as-is.
 Acceptance: browser closure does not stop jobs; history survives Cockpit/API and worker service restarts; destructive jobs cannot race on one device; restart never silently resumes writes; all UI clients use the same validation and authorization boundary.
 
+## P1 — Filesystem-aware partition imaging
+
+Existing foundation: filesystem-specific Partclone command selection for ext2/ext3/ext4, XFS, NTFS (including the Linux `ntfs3` FSTYPE alias), FAT12/16/32/vfat and exFAT; raw `dd` fallback for unknown filesystems or unavailable capture utilities; matching restore mappings and post-restore checkers; raw read-back verification.
+
+- [x] Keep capture and restore filesystem-to-Partclone mappings aligned, including NTFS FSTYPE aliases.
+- [x] Require a defined post-restore checker for every filesystem-specific Partclone restore mapping.
+- [x] Preserve explicit raw capture fallback when Partclone is unavailable or the filesystem is unknown; record the known filesystem identifier when possible.
+- [ ] Validate every listed filesystem against real disposable filesystems and the exact Fedora package/tool versions shipped; record capture, restore, checker and data-integrity outcomes.
+- [ ] Verify dirty/unclean filesystem handling and mounted/in-use source behavior for each filesystem; reject unsafe capture rather than silently claiming a consistent image.
+- [ ] Define and document unsupported filesystem variants and Partclone version limitations; never infer support from kernel recognition or a manifest allowlist alone.
+- [ ] Ensure Cockpit reports the selected capture engine (Partclone or raw dd), the reason for fallback and the post-restore verification method.
+
+Acceptance: each supported filesystem has a matching capture/restore mapping, a safe verification path and a recorded real-filesystem round trip. If filesystem-aware capture is unavailable, raw imaging remains an explicit fallback, not an assertion of filesystem-aware optimization.
+
 ## P1 — Storage discovery and image fidelity
 Scope clarification: this is an image-creation and restore-compatibility requirement, not a request for Feclora to administer storage stacks or provision LVM, Btrfs or LUKS. Feclora must discover and describe existing layers accurately, then capture the selected block-level or filesystem-level content without silently flattening or omitting them.
 Existing foundation: block inventory, read-only LVM reporting, Btrfs/Stratis inventory, restore profiles and whole-disk layout preview.
