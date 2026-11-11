@@ -216,6 +216,8 @@ def preflight_logical_volume_restore(
     if unsupported:
         raise RestoreProfileError("manifest contains storage dependencies unsupported by LV restore preflight")
 
+    if not isinstance(target_path, str) or not target_path.startswith("/dev/"):
+        raise RestoreProfileError("target LV path must be an absolute /dev/ path")
     topology = inventory.get("volume_topology")
     if not isinstance(topology, dict) or topology.get("status") != "available":
         raise RestoreProfileError("LVM topology is unavailable; refusing logical-volume restore")
@@ -266,18 +268,22 @@ def preflight_logical_volume_restore(
 
     if not isinstance(target_path, str) or not target_path.startswith("/dev/"):
         raise RestoreProfileError("target LV path must be an absolute /dev/ path")
-    block_matches = [
-        device for device in _flatten_inventory_devices(inventory.get("devices", []))
-        if device.get("path") == target_path
-    ]
-    if len(block_matches) != 1:
-        raise RestoreProfileError("target LV must be present exactly once in the active block-device inventory")
-    block = block_matches[0]
     major_minor = lv.get("major_minor")
     if not isinstance(major_minor, str) or not major_minor:
         raise RestoreProfileError("target LV is not active or its kernel device identity is unknown")
-    if block.get("major_minor") != major_minor:
-        raise RestoreProfileError("LVM and block-device identities disagree for the target LV")
+    block_devices = _flatten_inventory_devices(inventory.get("devices", []))
+    exact_paths = [device for device in block_devices if device.get("path") == target_path]
+    major_matches = [device for device in block_devices if device.get("major_minor") == major_minor]
+    if len(exact_paths) > 1:
+        raise RestoreProfileError("target LV path is ambiguous in the block-device inventory")
+    if exact_paths:
+        block = exact_paths[0]
+        if block.get("major_minor") != major_minor:
+            raise RestoreProfileError("LVM and block-device identities disagree for the target LV")
+    else:
+        if len(major_matches) != 1:
+            raise RestoreProfileError("target LV block-device identity is missing or ambiguous")
+        block = major_matches[0]
     if block.get("read_only"):
         raise RestoreProfileError("target LV is read-only")
     if block.get("mountpoints"):
