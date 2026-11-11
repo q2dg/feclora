@@ -1,7 +1,6 @@
 # Feature and compatibility matrix
 
-Remote-service boundary: SSH/SFTP, NFS, SMB/CIFS, WebDAV and optional
-BitTorrent infrastructure are external systems operated
+Remote-service boundary: SSH/SFTP, NFS, SMB/CIFS, WebDAV and BitTorrent infrastructure are external systems operated
 by their owners. Feclora is a client only; its implementation covers outbound
 access, credentials, mounts/transfers, integrity and client-side failure
 handling. It does not deploy or administer those remote services.
@@ -62,6 +61,6 @@ creation and laboratory validation are operator-owned steps.
 
 | Area | Capability | Implementation | Cockpit | Verification |
 |---|---|---|---|---|
-| Distribution | BitTorrent peer-to-peer artifact delivery | Planned optional immutable-artifact transport; must reuse a maintained client and verify trusted manifest plus SHA-256 before restore | Not implemented; not a mounted/writable repository | Not implemented; design, client integration, authorization, cancellation, cleanup and acceptance remain pending |
+| Distribution | BitTorrent peer-to-peer artifact delivery | Planned first-class immutable-artifact transport at equal priority to other remote transports; reuse a maintained client and verify trusted manifest plus SHA-256 before restore | Not implemented; distribution transport, not a mounted/writable repository | Client integration, authenticated metadata delivery, authorization, cancellation, cleanup, multi-Client restore and acceptance remain pending |
 
 `age` and `minisign` are optional integrations, not mandatory runtime packages or release gates. WebDAV remains a planned repository type pending isolated credentials. Do not mark a provider complete based solely on an argv builder or mount primitive.
