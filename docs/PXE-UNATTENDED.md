@@ -83,6 +83,55 @@ Until that mechanism exists, the unattended boot script is only a safe
 job-bound handoff. It must not start a writer or fall back to interactive
 credentials silently.
 
+## Feasibility decision: TPM2-bound Client identity
+
+A network-only Live PXE session cannot currently authenticate as an enrolled
+Client: its root filesystem, /etc/feclora/deployment-client.json and TLS
+private key are ephemeral and are intentionally discarded on reboot. Fetching
+a private key from the Server over the public handoff would create a circular
+trust problem; placing it in iPXE, DHCP, TFTP, HTTP or the kernel command line
+would disclose a reusable fleet credential. A shared bootstrap password or
+MAC-derived secret is not an acceptable workaround.
+
+The viable hardware-backed route is a per-Client identity sealed on that
+Client's TPM2, using systemd's encrypted-credential format with an explicitly
+TPM2-bound key (not the existing generic --with-key=auto repository
+credential path). The encrypted blob and public certificate/configuration may
+then be staged in a per-Client PXE credential directory: the blob is portable
+as ciphertext but only the enrolled TPM should be able to decrypt it. The
+Live Client must retrieve the bundle, verify its signature and job/server
+binding, ask the local TPM to decrypt the key into volatile root-only
+storage, and establish TLS 1.3 mTLS. No plaintext key may be sent to or stored
+by the Server. Missing TPM2, failed unseal, wrong device identity or invalid
+bundle must stop before READY.
+
+TPM sealing alone is not sufficient boot integrity. A compromised
+network-delivered kernel/initramfs running as root on the enrolled machine
+could request TPM unsealing and exfiltrate the key. The present PXE path loads
+kernel and initramfs as separate HTTP assets; it does not yet establish a
+measured, signed Live boot chain suitable for PCR-bound release. Before
+enabling unattended identity unsealing, Feclora must boot a signed Unified
+Kernel Image (UKI) through a Secure Boot-verifiable chain, define and test a
+stable PCR policy (including recovery/firmware update procedures), and bind
+the credential release policy to that measured boot. Do not treat Secure Boot
+being enabled, by itself, as proof that the current HTTP initramfs is trusted.
+
+Once that trust chain exists, the unattended Client can use the existing
+mTLS HELLO/JOB protocol and the job's per-Client WWN/serial binding to resolve
+exactly one local target. The target path and destructive confirmation remain
+local; the Client synthesizes the confirmation only after the authenticated
+job and unique hardware binding pass. The Server's existing explicit ARM
+remains the final fleet-wide write gate. The authenticated journal must
+record single-use session/profile consumption before READY, and the Client
+must recheck target identity immediately before the first write. This keeps
+the operator's approval at the Server while removing the need for an operator
+at each Client.
+
+This is a staged implementation decision, not a claim that unattended PXE is
+now available. First validate TPM2-bound systemd credentials and the signed
+UKI/PCR policy on the supported Fedora 45 hardware/VM matrix. Until then the
+existing unattended menu remains a non-authorizing handoff and must not
+auto-start a disk writer.
 ## Multi-Client and transport constraints
 
 - Each Client receives its own profile and target selector, even when all
