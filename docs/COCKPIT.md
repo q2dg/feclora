@@ -386,6 +386,6 @@ independent trust mechanism and bind its digest to the authorized job/profile.
 
 Remote repository types in the intended scope are SSHFS, SFTP, NFS, SMB/CIFS,
 WebDAV requires isolated per-repository
-credentials; the global davfs2 secrets file is not an acceptable workaround. BitTorrent is a planned optional peer-to-peer distribution transport,
+credentials; the global davfs2 secrets file is not an acceptable workaround. BitTorrent is a first-class planned peer-to-peer distribution transport at the same priority as the other remote transports,
 not a writable repository; if implemented it must use a maintained client and
 verify manifest authenticity and artifact digests before restore.
