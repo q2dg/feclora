@@ -3,9 +3,9 @@
 This document is the dependency-ordered implementation backlog and acceptance contract. It complements ROADMAP.md and FEATURE-MATRIX.md.
 
 
-## Product target: bootable Live system with six Cockpit workflows
+## Product target: Fedora Server minimal Live kiosk with six Cockpit workflows
 
-The maintainer's end-user requirements and measurable release gates are defined in [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md). That document is authoritative for the six workflows: (1) local disk/partition clone, (2) remote disk/partition clone with DHCP/static networking, (3) capture to SSHFS/SFTP/NFS/SMB/WebDAV, (4) restore from those repositories to one local target, (5) multi-Client restore with manual Feclora boot or PXE, and (6) unattended multi-Client restore. BitTorrent is a first-class distribution transport for immutable artifacts, at the same implementation priority as SSHFS, SFTP, NFS, SMB/CIFS and WebDAV; it is not a writable repository. It also defines the Cockpit-first operating modes, security invariants, documentation gates and operator ISO acceptance.
+The maintainer's end-user requirements and measurable release gates are defined in [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md). That document is authoritative for the six workflows: (1) local disk/partition clone, (2) remote disk/partition clone with DHCP/static networking, (3) capture to SSHFS/SFTP/NFS/SMB/WebDAV, (4) restore from those repositories to one local target, (5) multi-Client restore with manual Feclora boot or PXE, and (6) unattended multi-Client restore. BitTorrent is a first-class distribution transport for immutable artifacts, at the same implementation priority as SSHFS, SFTP, NFS, SMB/CIFS and WebDAV; it is not a writable repository. It also defines the Cockpit-first operating modes, security invariants, documentation gates and operator ISO acceptance. The Live image is based on a minimal Fedora Server userspace without a general-purpose desktop; Cage launches Firefox in kiosk mode against the local Cockpit endpoint.
 
 Do not mark a workflow complete because an engine, command builder, protocol primitive or operator acceptance recipe exists. Completion requires an end-to-end Cockpit path, backend/runtime integration, safe authorization and failure handling, progress/results, automated software tests, operator acceptance procedure and a matching published step-by-step guide. In particular, SFTP is distinct from SSHFS; current PXE service activation does not equal PXE job handoff; and signed restore-profile primitives do not equal unattended fleet restore.
 
@@ -15,8 +15,59 @@ Do not mark a workflow complete because an engine, command builder, protocol pri
 3. Destructive operations fail closed, require explicit authorization and verify results.
 4. Never persist passwords, private keys, `age` identities or `minisign` secret keys in profiles, journals, logs or browser storage. `age` and `minisign` are optional integrations, not mandatory packages or release gates; preserve a safe non-age/non-minisign workflow and document the configured authenticity mechanism.
 5. Interrupted writes are never silently resumed; affected destinations remain untrusted until verified or restored.
-6. Keep local rescue and Server/Client fleet orchestration separate while sharing storage engines.
+6. Keep local rescue and Server/Client fleet orchestration separate while sharing storage engines.\n7. Treat kiosk confinement as defense in depth; never use it as a replacement for Cockpit authentication, OS account separation or backend authorization.
 7. Never claim hardware/PXE/switch acceptance from unit tests alone.
+
+## P0 — Live appliance startup, kiosk and first-boot security
+
+Target architecture: a bootable Live ISO using a minimal Fedora Server
+userspace, with no general-purpose desktop environment. Cockpit is enabled
+through `cockpit.socket`. A minimal Wayland compositor (Cage) launches Firefox
+in kiosk mode on the local display, fixed to the local Cockpit endpoint and
+Feclora application. The Live boot model must be preserved; this is not a
+migration to an installed-only Fedora Server appliance.
+
+- [ ] Replace the current console-led Live Kickstart startup with the
+  Fedora Server minimal runtime package selection; retain the Live initramfs,
+  BIOS/UEFI boot and Lorax image pipeline.
+- [ ] Add Cage and Firefox to the runtime package manifest and keep the
+  Kickstart and package manifest synchronized.
+- [ ] Implement a dedicated unprivileged kiosk account and a systemd-managed
+  Cage/Firefox session on the local display. Restart the kiosk session after
+  browser/compositor failure.
+- [ ] Configure Firefox kiosk mode and a managed profile/policy that fixes
+  navigation to Cockpit, suppresses browser chrome and avoids arbitrary
+  external browsing.
+- [ ] Configure Cockpit socket activation and order the kiosk after local
+  Cockpit availability and network initialization.
+- [ ] Design and implement secure first-boot administrator credential
+  provisioning. Do not use an empty password, shared default password,
+  passwordless sudo, or browser-stored administrator credentials.
+- [ ] Provision and trust a local Cockpit TLS certificate before launching
+  Firefox. The kiosk must not depend on bypassing certificate warnings or
+  accepting an untrusted certificate interactively.
+- [ ] Define the authorized administrator and kiosk account privilege
+  boundaries; the kiosk account must not be a member of wheel and must not
+  receive access to privileged Feclora API actions.
+- [ ] Close ordinary escape paths: alternate TTYs, shell/login prompts,
+  desktop/session launchers, Firefox context menus and arbitrary URL
+  navigation. Document the residual physical-access threat model; do not
+  claim kiosk mode alone is a security boundary.
+- [ ] Keep Cockpit's authenticated Terminal feature subject to administrator
+  authorization; do not silently expose a terminal to the kiosk account.
+- [ ] Add static validation for package/service/policy wiring and tests for
+  bootstrap, Firefox policy and systemd unit behavior where practical.
+- [ ] Update operator documentation and acceptance tests for cold boot,
+  network readiness, Cockpit TLS trust, login/bootstrap, browser restart,
+  TTY escape attempts, keyboard shortcuts, and recovery from Firefox failure.
+- [ ] Validate on BIOS and UEFI VMs and representative physical display/input
+  hardware. ISO creation remains operator-owned and is not part of this task.
+
+Acceptance: a cold boot reaches the local Cockpit login/Feclora assistant
+without a shell or desktop being presented; Firefox remains confined to the
+Cockpit origin; a valid administrator can authenticate using credentials
+provisioned securely; no default or empty privileged credential exists; and
+the kiosk account cannot invoke privileged backend operations.
 
 ## P0 — Remote disk-to-disk cloning
 Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the existing persistent Server/Client deployment services.
