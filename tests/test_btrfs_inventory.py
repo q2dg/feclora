@@ -4,7 +4,9 @@ import unittest
 from feclora.storage.btrfs_inventory import (
     BtrfsInventoryError,
     collect_btrfs_topology,
+    collect_btrfs_subvolumes,
     parse_filesystem_show,
+    parse_subvolume_list,
 )
 
 
@@ -46,6 +48,41 @@ class BtrfsInventoryTests(unittest.TestCase):
         result = collect_btrfs_topology(which=lambda name: "/usr/bin/btrfs", runner=runner, effective_uid=lambda: 0)
         self.assertEqual(len(result["filesystems"]), 2)
         self.assertEqual(calls[0][1:], ["filesystem", "show", "--raw", "--all-devices"])
+
+
+SUBVOLUMES = """ID 256 gen 100 parent 5 top level 5 parent_uuid - received_uuid - uuid 11111111-1111-1111-1111-111111111111 path @
+ID 257 gen 120 parent 256 top level 5 parent_uuid 11111111-1111-1111-1111-111111111111 received_uuid - uuid 22222222-2222-2222-2222-222222222222 path @snapshots/pre-upgrade
+"""
+
+
+class BtrfsSubvolumeTests(unittest.TestCase):
+    def test_distinguishes_snapshot_from_regular_subvolume_by_parent_uuid(self):
+        result = parse_subvolume_list(SUBVOLUMES)
+        self.assertEqual([item["kind"] for item in result], ["subvolume", "snapshot"])
+        self.assertFalse(result[0]["is_snapshot"])
+        self.assertTrue(result[1]["is_snapshot"])
+        self.assertEqual(result[1]["parent_uuid"], result[0]["uuid"])
+
+    def test_rejects_unrecognized_rows_instead_of_guessing(self):
+        with self.assertRaises(BtrfsInventoryError):
+            parse_subvolume_list("ID 256 path @")
+
+    def test_inspects_only_already_mounted_btrfs_filesystems(self):
+        calls = []
+        def runner(argv, **kwargs):
+            calls.append(argv)
+            if "findmnt" in argv:
+                return subprocess.CompletedProcess(argv, 0, '{"filesystems":[{"target":"/mnt/data"}]}', "")
+            return subprocess.CompletedProcess(argv, 0, SUBVOLUMES, "")
+        result = collect_btrfs_subvolumes(
+            which=lambda name: "/usr/bin/" + name,
+            runner=runner,
+            effective_uid=lambda: 0,
+        )
+        self.assertEqual(result["mounts"][0]["mountpoint"], "/mnt/data")
+        self.assertEqual(len(result["mounts"][0]["subvolumes"]), 2)
+        self.assertIn("findmnt", calls[0])
+        self.assertEqual(calls[1][-5:], ["-a", "-p", "-u", "-q", "/mnt/data"])
 
 
 if __name__ == "__main__":
