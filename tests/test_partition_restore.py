@@ -146,13 +146,13 @@ class PartitionRestoreTests(unittest.TestCase):
         proc.stdout = io.BytesIO(self.payload)
         def runner(command, **kwargs):
             if "luksUUID" in command:
-                return SimpleNamespace(stdout=luks_uuid + "\\n", stderr="", returncode=0)
+                return SimpleNamespace(stdout=luks_uuid + "\n", stderr="", returncode=0)
             if "luksDump" in command:
                 return SimpleNamespace(
                     stdout=json.dumps({"uuid": luks_uuid, "segments": {"0": {"encryption": "aes-xts-plain64"}}, "keyslots": {}}),
                     stderr="", returncode=0,
                 )
-            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\\n", stderr="", returncode=0)
+            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\n", stderr="", returncode=0)
         with self.assertRaisesRegex(PartitionRestoreError, "segments or keyslots"):
             restore_partition(
                 self.manifest, self.temp.name, "/dev/sda1",
