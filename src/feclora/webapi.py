@@ -2594,7 +2594,7 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             if set(params) != {"id", "kind"}:
                 raise WebAPIError("remove_systemd_credential requires id and kind")
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
-            kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb|rclone", maximum=16)
+            kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb", maximum=16)
             from feclora.storage.systemd_credential_store import SystemdCredentialStore
             store = SystemdCredentialStore()
             if _remote_repository_manager().credential_is_referenced(str(store._path(identifier, kind))):
