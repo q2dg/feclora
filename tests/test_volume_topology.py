@@ -7,6 +7,7 @@ from feclora.storage.volume_topology import (
     VolumeTopologyError,
     _report_rows,
     collect_lvm_topology,
+    summarize_lvm_topology,
 )
 
 
@@ -42,8 +43,56 @@ class LvmTopologyTests(unittest.TestCase):
         self.assertEqual(len(topology["pvs"]), 1)
         self.assertEqual(len(topology["vgs"]), 1)
         self.assertEqual(len(topology["lvs"]), 1)
+        self.assertEqual(topology["volume_groups"][0]["name"], "vg0")
         self.assertTrue(all("--readonly" in argv for argv in calls))
         self.assertTrue(all("--reportformat" in argv for argv in calls))
+
+
+    def test_summarizes_pv_membership_thin_volumes_and_degraded_vgs(self):
+        raw = {
+            "status": "available",
+            "pvs": [
+                {"pv_name": "/dev/sda2", "pv_uuid": "pv-a", "vg_name": "vg0",
+                 "pv_size": "100000", "pv_free": "20000",
+                 "pv_pe_count": "25", "pv_pe_alloc_count": "20"},
+            ],
+            "vgs": [
+                {"vg_name": "vg0", "vg_uuid": "vg-uuid", "pv_count": "2",
+                 "lv_count": "2", "vg_extent_size": "4096",
+                 "vg_extent_count": "25", "vg_free_count": "5",
+                 "vg_missing_pv_count": "1"},
+            ],
+            "lvs": [
+                {"lv_path": "/dev/vg0/data", "lv_name": "data", "vg_name": "vg0",
+                 "lv_size": "80000", "segtype": "thin", "lv_layout": "thin",
+                 "pool_lv": "pool0", "data_percent": "42.5",
+                 "metadata_percent": "8.0", "devices": "/dev/sda2(0)"},
+                {"lv_path": "/dev/vg0/snap", "lv_name": "snap", "vg_name": "vg0",
+                 "origin": "data", "lv_role": "public,snapshot", "lv_size": "1000"},
+            ],
+        }
+        summary = summarize_lvm_topology(raw)
+        vg = summary["volume_groups"][0]
+        self.assertEqual(vg["status"], "degraded")
+        self.assertEqual(vg["missing_pv_count"], 1)
+        self.assertEqual(vg["pv_members"][0]["allocated_extents"], 20)
+        self.assertTrue(vg["logical_volumes"][0]["thin_provisioned"])
+        self.assertEqual(vg["logical_volumes"][0]["data_percent"], "42.5")
+        self.assertTrue(vg["logical_volumes"][1]["snapshot"])
+        self.assertEqual(summary["lvs"], raw["lvs"])
+
+    def test_unknown_health_fields_are_not_reported_as_healthy(self):
+        summary = summarize_lvm_topology({
+            "status": "available",
+            "pvs": [],
+            "vgs": [{"vg_name": "vg0"}],
+            "lvs": [],
+        })
+        self.assertEqual(summary["volume_groups"][0]["status"], "unknown")
+
+    def test_rejects_non_object_lvm_rows(self):
+        with self.assertRaises(VolumeTopologyError):
+            summarize_lvm_topology({"pvs": ["bad"], "vgs": [], "lvs": []})
 
     @patch("feclora.storage.volume_topology.shutil.which", return_value=None)
     def test_unprivileged_collection_requires_noninteractive_sudo(self, _which):
