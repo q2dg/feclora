@@ -22,7 +22,7 @@ _LVM_REPORT_SECTIONS = {"pvs": "pv", "vgs": "vg", "lvs": "lv"}
 _LVM_REPORTS = {
     "pvs": ("pv_name,pv_uuid,vg_name,pv_size,pv_free,pv_attr,pv_pe_count,pv_pe_alloc_count,pv_missing",),
     "vgs": ("vg_name,vg_uuid,vg_size,vg_free,vg_attr,pv_count,lv_count,vg_extent_size,vg_extent_count,vg_free_count,vg_missing_pv_count",),
-    "lvs": ("lv_path,lv_name,vg_name,lv_uuid,lv_size,lv_attr,origin,pool_lv,devices,segtype,lv_layout,lv_role,data_percent,metadata_percent,lv_health_status",),
+    "lvs": ("lv_path,lv_name,vg_name,lv_uuid,lv_size,lv_attr,origin,pool_lv,devices,segtype,lv_layout,lv_role,data_percent,metadata_percent,lv_health_status,lv_kernel_major,lv_kernel_minor",),
 }
 
 
