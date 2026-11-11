@@ -310,6 +310,7 @@ def preflight_logical_volume_restore(
         pool = pools[0]
         if pool.get("health") not in (None, "", "-", "ok", "healthy"):
             raise RestoreProfileError("thin pool reports an unhealthy state")
+        percentages: dict[str, float] = {}
         for field in ("data_percent", "metadata_percent"):
             try:
                 percent = float(pool[field])
@@ -317,9 +318,22 @@ def preflight_logical_volume_restore(
                 raise RestoreProfileError(f"thin pool {field} is unknown; refusing restore")
             if not 0 <= percent < 100:
                 raise RestoreProfileError(f"thin pool {field} is exhausted or invalid")
+            percentages[field] = percent
             if percent >= 90:
                 warnings.append(f"Thin pool {field} is at {percent:g}%; allocation during restore may exhaust it.")
-        warnings.append("Thin-pool free capacity can change during restore; this preflight does not reserve extents.")
+        pool_size = pool.get("size_bytes")
+        if isinstance(pool_size, bool) or not isinstance(pool_size, int) or pool_size <= 0:
+            raise RestoreProfileError("thin pool capacity is unknown")
+        estimated_free_data = int(pool_size * (100.0 - percentages["data_percent"]) / 100.0)
+        if estimated_free_data < manifest.source_size_bytes:
+            raise RestoreProfileError(
+                "thin pool estimated free data capacity is smaller than the logical-volume image"
+            )
+        warnings.append(
+            f"Estimated thin-pool free data capacity is {estimated_free_data} bytes; "
+            "this estimate is not a reservation and can change before or during restore."
+        )
+        warnings.append("Thin-pool metadata allocation can change during restore; this preflight does not reserve metadata extents.")
 
     return {
         "status": "ready",
