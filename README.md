@@ -13,7 +13,7 @@ It is not a fork of Clonezilla and does not depend on its repository, branches, 
 - Cockpit and the Feclora Cockpit application
 - Imaging, cloning, restoration, storage discovery and remote deployment foundations
 
-**Target runtime architecture:** Fedora Server minimal userspace in a Live image, without a general-purpose desktop; Cockpit socket activation; and Firefox launched in kiosk mode by the minimal Cage Wayland compositor. The current Kickstart still builds the transitional console-led Live image: the kiosk runtime, secure first-boot bootstrap and trusted local Cockpit certificate remain to be implemented. See the [roadmap](docs/ROADMAP.md) and [implementation plan](docs/IMPLEMENTATION-PLAN.md).
+**Runtime architecture now implemented in source:** Fedora Server product environment in a Live image, without a general-purpose desktop; Cockpit bound to loopback with socket activation; Cage + Firefox kiosk; locked administrator account with a loopback-only first-boot password assistant; and a locally generated Cockpit CA/certificate installed into Firefox's Linux certificate store. The Live filesystem is ephemeral, so credentials and the local CA are regenerated on every boot; persistence design and BIOS/UEFI/physical kiosk acceptance remain open. See the [roadmap](docs/ROADMAP.md) and [implementation plan](docs/IMPLEMENTATION-PLAN.md).
 
 ## Design principles
 
