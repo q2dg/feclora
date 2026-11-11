@@ -5,5 +5,5 @@ Before=feclora-pxe-client-start.service
 [Mount]
 What=/dev/disk/by-label/FECLORA-CLIENT
 Where=/mnt/feclora-pxe-identity
-Type=ext4
+Type=auto
 Options=ro,nosuid,nodev,noexec
