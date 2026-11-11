@@ -43,9 +43,13 @@ operator tasks; see [the feature matrix](FEATURE-MATRIX.html).
 - **Opened LUKS mapping capture** — **Not available as a dedicated workflow**.
   Inventory and planning can describe mappings, but no mapping-image
   operation is exposed.
-- **Btrfs** — **Single-device partition capture only**. Multi-device
-  filesystems, coordinated snapshots and separate subvolume images are not
-  supported. Subvolume identifiers are provenance, not image units.
+- **Btrfs** — **Single-device partition capture and restore only**. The
+  manifest records the filesystem UUID and device count; restore refuses
+  images without a matching complete single-device dependency. Read-only
+  inventory reports Data/Metadata/System allocation profiles on already
+  mounted filesystems. Multi-device restore, profile conversion, coordinated
+  snapshots and separate subvolume images are not supported. Subvolume
+  identifiers are provenance, not image units.
 - **Stratis** — inventory only; no Stratis-specific image workflow.
 
 See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
