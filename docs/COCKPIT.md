@@ -428,3 +428,5 @@ WebDAV requires isolated per-repository
 credentials; the global davfs2 secrets file is not an acceptable workaround. BitTorrent is a first-class planned peer-to-peer distribution transport at the same priority as the other remote transports,
 not a writable repository; if implemented it must use a maintained client and
 verify manifest authenticity and artifact digests before restore.
+
+For Server/Client deployment restores, the persistent Cockpit Client can select an existing local logical volume when the job target type is `logical_volume`. The API and persistent Client service validate it against healthy local LVM topology; the LV restore engine repeats the safety preflight immediately before writing. This path does not create or resize LVM metadata. Deployment-job LV capture is not implemented.
