@@ -1,0 +1,38 @@
+[Unit]
+Description=Feclora Firefox kiosk on the local display
+After=systemd-logind.service systemd-user-sessions.service feclora-cockpit-certificate.service feclora-kiosk-bootstrap.service cockpit.socket
+Wants=feclora-cockpit-certificate.service feclora-kiosk-bootstrap.service cockpit.socket
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+Type=simple
+User=feclora-kiosk
+Group=feclora-kiosk
+SupplementaryGroups=video render
+Environment=HOME=/var/lib/feclora-kiosk
+Environment=MOZ_ENABLE_WAYLAND=1
+PAMName=login
+TTYPath=/dev/tty1
+StandardInput=tty
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+ExecStart=/usr/libexec/feclora/feclora-kiosk-launch
+Restart=always
+RestartSec=2
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/feclora-kiosk
+
+[Install]
+WantedBy=graphical.target
