@@ -210,10 +210,7 @@ Cockpit is bound to guest loopback only; QEMU host port forwarding for 9090 is
 not part of the supported kiosk test path.
 
 The Cockpit Terminal page is available for diagnostics. The old `dialog`
-menu is not part of the supported startup flow. Remote Server/Client
-provisioning and PXE job orchestration are not yet fully integrated into
-Cockpit; consult the [feature matrix](FEATURE-MATRIX.md) before claiming
-remote deployment readiness.
+menu is not part of the supported startup flow. Remote Server/Client deployment is integrated for the documented manual workflows. PXE boot-to-job handoff is partial: the Server publishes/revokes a non-secret job-bound iPXE script, but the Client does not yet automatically authenticate, bind the job/profile, authorize a deterministic target or execute unattended. Consult the [feature matrix](FEATURE-MATRIX.md) before claiming PXE/unattended readiness.
 
 ### Kiosk operator acceptance (pending)
 
