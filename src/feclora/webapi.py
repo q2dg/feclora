@@ -1314,6 +1314,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
+        "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
@@ -1512,7 +1513,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             "signed": signing_key is not None,
             "encrypted": any(item.encryption == "age" for item in extracted.artifacts),
         }
-    elif action in {"restore_disk", "restore_partition"}:
+    elif action in {"restore_disk", "restore_partition", "restore_logical_volume"}:
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         target = _device(params["target"], "target")
         expected = f"ERASE {target}"
@@ -1569,7 +1570,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             repository = _operation_repository(params, write=False)
         manifest_path = _image_manifest(image_id, repository)
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
-        expected_type = "disk" if action == "restore_disk" else "partition"
+        expected_type = {"restore_disk": "disk", "restore_partition": "partition", "restore_logical_volume": "logical_volume"}[action]
         if manifest.image_type != expected_type:
             raise WebAPIError(f"selected image is not a {expected_type} image")
         from feclora.storage.image_security import verify_manifest_signature
@@ -1620,10 +1621,19 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                     progress_callback=_progress, age_identity_file=identity_file,
                     minisign_public_key=trusted_key, require_signature=signed,
                 )
-            else:
+            elif action == "restore_partition":
                 from feclora.storage.partition_restore import restore_partition
                 restore_partition(
                     manifest_path, repository, target, confirmation=expected,
+                    progress_callback=_progress, age_identity_file=identity_file,
+                    minisign_public_key=trusted_key, require_signature=signed,
+                )
+            else:
+                from feclora.storage.inventory import collect_inventory
+                from feclora.storage.logical_volume_restore import restore_logical_volume
+                restore_logical_volume(
+                    manifest_path, repository, target, confirmation=expected,
+                    inventory_provider=collect_inventory,
                     progress_callback=_progress, age_identity_file=identity_file,
                     minisign_public_key=trusted_key, require_signature=signed,
                 )
@@ -1806,6 +1816,7 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
+        "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
@@ -1833,6 +1844,7 @@ def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
+        "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
@@ -2864,7 +2876,7 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _cancel_local_operation(params)
     if action == "local_operations":
         return _local_operations(params)
-    if action in {"capture_disk", "capture_partition", "restore_disk", "restore_partition",
+    if action in {"capture_disk", "capture_partition", "restore_disk", "restore_partition", "restore_logical_volume",
                   "clone_disk", "clone_partition", "extract_partition_image"}:
         return _submit_local_operation({"operation": action, "operation_params": params})
     raise WebAPIError("unsupported Cockpit API action")
