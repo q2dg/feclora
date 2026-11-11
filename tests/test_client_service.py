@@ -16,9 +16,9 @@ SERVER_IDENTITY = "URI:feclora-server"
 
 
 class ClientDeploymentServiceTests(unittest.TestCase):
-    def _job(self, transport="unicast"):
+    def _job(self, transport="unicast", target_bindings=None):
         from feclora.deployment.job import DeploymentJob
-        return DeploymentJob.from_dict({
+        payload = {
             "schema_version": 1, "job_id": JOB_ID, "operation": "restore",
             "image_id": "golden-image", "target_type": "disk",
             "authorized_clients": ["52:54:00:12:34:56"] if transport == "unicast" else ["52:54:00:12:34:56", "52:54:00:12:34:57"],
@@ -27,7 +27,10 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             "multicast_port": 9000 if transport == "multicast" else None,
             "staging_required_bytes": 1024 if transport == "multicast" else None,
             "start_policy": "manual", "expected_clients": None, "start_deadline": None,
-        })
+        }
+        if target_bindings:
+            payload["target_bindings"] = target_bindings
+        return DeploymentJob.from_dict(payload)
 
     def test_client_service_runs_only_after_server_start_and_persists_terminal_status(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -58,7 +61,9 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             join_options = {}
             def fake_join(host, port, context, **kwargs):
                 join_options.update(kwargs)
-                job = self._job()
+                job = self._job(target_bindings={
+                    "52:54:00:12:34:56": {"wwn": "wwn-test-1", "serial": "SN-1"},
+                })
                 approval = kwargs["prepare_local_target"](job)
                 success, detail = kwargs["execute_job"](job, object(), approval)
                 return job, success, detail
@@ -78,7 +83,8 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
                  mock.patch("feclora.deployment.client_service.create_mutual_tls_context", return_value=object()), \
                  mock.patch.object(ClientDeploymentService, "_find_device", return_value={
-                     "model": "Test disk", "size_bytes": 1024, "serial": "SN-1",
+                     "model": "Test disk", "size_bytes": 1024,
+                    "serial": "SN-1", "wwn": "wwn-test-1",
                  }), \
                  mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \
                  mock.patch("feclora.network.interface_discovery.discover_interface_addresses", return_value=[SimpleNamespace(address="192.0.2.20")]), \
