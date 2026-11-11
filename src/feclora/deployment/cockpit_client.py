@@ -89,6 +89,99 @@ def _write_config(path: str, value: dict[str, Any]) -> None:
         raise
 
 
+
+def export_pxe_client_identity(params: dict[str, Any]) -> dict[str, Any]:
+    """Export one enrolled Client's mTLS identity to dedicated removable media.
+
+    The USB medium is a physical bearer credential: keep it under physical
+    control, use one medium per Client, and revoke the certificate if lost.
+    """
+    if set(params) != {"export_directory"}:
+        raise CockpitEnrollmentError("export_pxe_client_identity requires exactly export_directory")
+    config = load_client_runtime_config(CONFIG)
+    export = _mounted_media_directory(params["export_directory"])
+    root = Path(export)
+    root_info = os.lstat(root)
+    if root_info.st_uid != 0 or root_info.st_mode & 0o022:
+        raise CockpitEnrollmentError("PXE identity media must be root-owned and not group/other-writable")
+    identity_dir = root / "feclora-client-identity"
+    if os.path.lexists(identity_dir):
+        raise CockpitEnrollmentError("PXE Client identity directory already exists; refusing to overwrite it")
+    identity_dir.mkdir(mode=0o700)
+    try:
+        fields = {
+            "ca_file": ("ca.crt", False),
+            "certificate_file": ("client.crt", False),
+            "private_key_file": ("client.key", True),
+            "trusted_server_public_key": ("server.pub", False),
+            "local_minisign_secret_key": ("client.minisign.key", True),
+            "local_minisign_public_key": ("client.minisign.pub", False),
+            "age_identity_file": ("client.age", True),
+            "age_recipients_file": ("age-recipients.txt", False),
+        }
+        payload = json.loads(Path(CONFIG).read_text(encoding="utf-8"))
+        for field, (filename, private) in fields.items():
+            source = getattr(config, field)
+            if source is None:
+                payload[field] = None
+                continue
+            try:
+                source_info = os.lstat(source)
+            except OSError as exc:
+                raise CockpitEnrollmentError(f"configured Client identity file is unavailable: {field}") from exc
+            if (not stat.S_ISREG(source_info.st_mode) or stat.S_ISLNK(source_info.st_mode)
+                    or source_info.st_uid != 0 or (private and source_info.st_mode & 0o077)):
+                raise CockpitEnrollmentError(f"configured Client identity file is unsafe: {field}")
+            source_fd = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            destination = identity_dir / filename
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+            target_fd = os.open(destination, flags, 0o600 if private else 0o644)
+            try:
+                opened = os.fstat(source_fd)
+                if (not stat.S_ISREG(opened.st_mode) or opened.st_uid != 0
+                        or (opened.st_dev, opened.st_ino) != (source_info.st_dev, source_info.st_ino)):
+                    raise CockpitEnrollmentError(f"Client identity file changed during export: {field}")
+                while True:
+                    chunk = os.read(source_fd, 1024 * 1024)
+                    if not chunk:
+                        break
+                    view = memoryview(chunk)
+                    while view:
+                        written = os.write(target_fd, view)
+                        if written <= 0:
+                            raise CockpitEnrollmentError("short write while exporting Client identity")
+                        view = view[written:]
+                os.fsync(target_fd)
+            finally:
+                os.close(source_fd)
+                os.close(target_fd)
+            payload[field] = str(destination)
+        payload["repository"] = REPOSITORY
+        config_path = identity_dir / "deployment-client.json"
+        fd = os.open(config_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            encoded = (json.dumps(payload, sort_keys=True, indent=2) + "\\n").encode("utf-8")
+            os.write(fd, encoded)
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        directory_fd = os.open(identity_dir, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+        return {
+            "identity": config.local_identity,
+            "directory": str(identity_dir),
+            "config_file": str(config_path),
+            "private_key_exported": True,
+            "message": "Per-Client mTLS identity exported to removable media. This medium is a bearer credential; keep it physically secure and revoke this Client certificate immediately if it is lost.",
+        }
+    except Exception:
+        shutil.rmtree(identity_dir, ignore_errors=True)
+        raise
+
+
 def refresh_client_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"inventory_path"}:
         raise CockpitEnrollmentError("refresh_client_age_recipients requires exactly inventory_path")
