@@ -251,11 +251,19 @@ export default function App() {
   const restoreTargetDevice = devices.find((device) => device.path === target);
   const partitions = devices.filter((d) => d.type === "part" && d.path);
   const logicalVolumes = useMemo(() => {
+    const groups = inventory?.volume_topology?.volume_groups || [];
+    const allVolumes = groups.flatMap((group) => group.logical_volumes || []);
+    const identityCounts = new Map();
+    for (const lv of allVolumes) {
+      if (lv.major_minor) identityCounts.set(lv.major_minor, (identityCounts.get(lv.major_minor) || 0) + 1);
+    }
     const result = [];
-    for (const group of inventory?.volume_topology?.volume_groups || []) {
+    for (const group of groups) {
       if (group.status !== "healthy") continue;
       for (const lv of group.logical_volumes || []) {
-        if (lv.hidden || lv.snapshot || !lv.major_minor) continue;
+        if (lv.hidden || lv.snapshot || !lv.major_minor || identityCounts.get(lv.major_minor) !== 1
+            || !Number.isSafeInteger(lv.size_bytes) || lv.size_bytes <= 0
+            || ![null, undefined, "", "-", "ok", "healthy"].includes(lv.health)) continue;
         const matches = devices.filter((device) => device.major_minor === lv.major_minor);
         if (matches.length === 1) result.push({ ...matches[0], lvm_name: lv.name, lvm_path: lv.path });
       }
