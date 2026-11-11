@@ -104,8 +104,9 @@ registry mutation: simultaneous additions for different IDs must preserve both
 entries, a symlink substituted for the registry lock must be rejected, and a
 simulated registry-write failure during removal must leave the definition and
 its empty mountpoint intact. These tests protect Feclora's local
-registry only; they are not tests of concurrent writes performed by independent
-clients against a remote service.
+registry only; they are not tests of remote image publication. Remote image
+distribution follows a single-publisher / multi-reader contract: one Client
+publishes an image and multiple Clients may read/restore it concurrently.
 
 Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS
 endpoint. WebDAV is currently rejected by the repository manager until its
@@ -158,8 +159,9 @@ have been verified. Never test overwrite.
 7. If write publication is explicitly supported, test unique staging keys,
    conditional create-if-absent for every final object and manifest, multipart
    completion semantics, remote read-back digest/size verification, interrupted
-   upload cleanup and concurrent writers. A HEAD/list pre-check is not a safe
-   substitute for server-enforced conditional creation.
+   upload cleanup and concurrent read-only restores of the same committed image.
+   Concurrent publishers are outside the product contract. A HEAD/list pre-check
+   is not a safe substitute for server-enforced conditional creation.
 8. Record service/vendor, API compatibility, rclone version and verification
    results. Do not infer safe publication support from the label
    S3-compatible.
