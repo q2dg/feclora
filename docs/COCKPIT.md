@@ -64,7 +64,9 @@ media and installed at `/usr/share/cockpit/feclora`.
 The target image includes `cockpit`, `cockpit-system`,
 `cockpit-storaged`, `cage` and `firefox`; it does not install a desktop
 environment. `cockpit.socket`, the certificate/bootstrap units and the kiosk
-unit are enabled by Kickstart.
+unit are enabled by Kickstart. The Cockpit socket drop-in resets the default
+wildcard listener and binds port 9090 only to `127.0.0.1` and `::1`; remote
+LAN access is intentionally unavailable in this kiosk profile.
 
 ## Storage workflows
 
