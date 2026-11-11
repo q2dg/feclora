@@ -114,6 +114,13 @@ class RepositoryMountServiceTests(unittest.TestCase):
 
             def runner(argv, **kwargs):
                 calls.append(argv)
+                if "--mountpoint" in argv:
+                    mountpoint = argv[argv.index("--mountpoint") + 1]
+                    return SimpleNamespace(
+                        returncode=0,
+                        stdout=f"{mountpoint} cifs //nas.example.net/images ro\\n",
+                        stderr="",
+                    )
                 return SimpleNamespace(returncode=0, stdout="", stderr="")
 
             manager = RemoteRepositoryManager(
