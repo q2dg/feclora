@@ -234,7 +234,7 @@ def preflight_logical_volume_restore(
     if len(target_matches) != 1:
         raise RestoreProfileError("target path must identify exactly one existing LVM logical volume")
     group, lv = target_matches[0]
-    if group.get("status") != "healthy" or group.get("missing_pv_count") not in (0, None):
+    if group.get("status") != "healthy" or group.get("missing_pv_count") != 0:
         raise RestoreProfileError("target volume group is degraded or its PV health is unknown")
     members = group.get("pv_members")
     if not isinstance(members, list) or not members:
@@ -242,7 +242,8 @@ def preflight_logical_volume_restore(
     if any(not isinstance(member, dict) or member.get("missing") is not False for member in members):
         raise RestoreProfileError("target volume group has missing or unverified PV members")
     reported_pv_count = group.get("pv_count_reported")
-    if reported_pv_count is not None and reported_pv_count != len(members):
+    if (isinstance(reported_pv_count, bool) or not isinstance(reported_pv_count, int)
+            or reported_pv_count <= 0 or reported_pv_count != len(members)):
         raise RestoreProfileError("target VG PV membership is incomplete or inconsistent")
 
     if lv.get("hidden") or lv.get("segment_type") == "thin-pool":
@@ -284,8 +285,14 @@ def preflight_logical_volume_restore(
         block = major_matches[0]
     if block.get("read_only"):
         raise RestoreProfileError("target LV is read-only")
-    if block.get("mountpoints"):
-        raise RestoreProfileError("target LV is mounted or in use")
+    try:
+        target_sector_size = int(block.get("logical_sector_size"))
+    except (TypeError, ValueError):
+        raise RestoreProfileError("target LV logical sector size is unknown")
+    if target_sector_size != manifest.logical_sector_size:
+        raise RestoreProfileError("target LV logical sector size differs from the image")
+    if any(device.get("mountpoints") for device in _flatten_inventory_devices([block])):
+        raise RestoreProfileError("target LV or one of its child devices is mounted or in use")
 
     warnings: list[str] = []
     thin = bool(lv.get("thin_provisioned"))
