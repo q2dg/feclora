@@ -1,7 +1,17 @@
 # Configuring authenticated Server and Client modes
 
 The authenticated deployment runtime is opt-in. PXE services and the control
-listener do not start automatically at boot. On first Server use, Feclora
+listener do not start automatically at boot.
+
+**Live-session lifetime:** the default Live root is ephemeral. Server/Client
+configuration, managed CA and endpoint private keys, enrollment mappings,
+repository definitions/credentials, deployment journals and local operation
+history stored under `/etc` or `/var/lib` are session-local and disappear on
+reboot. Reboot starts a new Feclora session; reconfigure and re-enroll as
+required. This is intentional and no Live persistence disk is selected
+implicitly. If power is lost during a destructive operation, assume the target
+may be partially written and inspect it before reuse; the previous session's
+journal may no longer exist. On first Server use, Feclora
 creates a root-only local CA and Server TLS identity, then generates a default
 Server configuration. Optional age/minisign keys may be provisioned when the
 corresponding executables are installed, but their use is selected per image.
