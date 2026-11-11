@@ -7,7 +7,7 @@ This document is the dependency-ordered implementation backlog and acceptance co
 
 The maintainer's end-user requirements and measurable release gates are defined in [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md). That document is authoritative for the six workflows: (1) local disk/partition clone, (2) remote disk/partition clone with DHCP/static networking, (3) capture to SSHFS/SFTP/NFS/SMB/WebDAV, (4) restore from those repositories to one local target, (5) multi-Client restore with manual Feclora boot or PXE, and (6) unattended multi-Client restore. BitTorrent is a first-class distribution transport for immutable artifacts, at the same implementation priority as SSHFS, SFTP, NFS, SMB/CIFS and WebDAV; it is not a writable repository. It also defines the Cockpit-first operating modes, security invariants, documentation gates and operator ISO acceptance. The Live image is based on a minimal Fedora Server userspace without a general-purpose desktop; Cage launches Firefox in kiosk mode against the local Cockpit endpoint.
 
-Do not mark a workflow complete because an engine, command builder, protocol primitive or operator acceptance recipe exists. Completion requires an end-to-end Cockpit path, backend/runtime integration, safe authorization and failure handling, progress/results, automated software tests, operator acceptance procedure and a matching published step-by-step guide. In particular, SFTP is distinct from SSHFS; current PXE service activation does not equal PXE job handoff; and signed restore-profile primitives do not equal unattended fleet restore.
+Do not mark a workflow complete because an engine, command builder, protocol primitive or operator acceptance recipe exists. Completion requires an end-to-end Cockpit path, backend/runtime integration, safe authorization and failure handling, progress/results, automated software tests, operator acceptance procedure and a matching published step-by-step guide. In particular, SFTP is distinct from SSHFS; PXE job-script publication does not equal authenticated Client startup/job binding; and signed restore-profile primitives do not equal unattended fleet restore.
 
 ## Delivery principles
 1. Reuse existing engines and mature system tools; inspect current code before creating parallel implementations. Prefer Partclone for supported filesystems, UDPcast for multicast, NetworkManager for network configuration/checkpoints, OpenSSL for TLS/X.509 operations, systemd for services/workers/credentials, and established SSH/SFTP, NFS, SMB, davfs2 implementations for transport/storage. Select and integrate a maintained BitTorrent client rather than implementing the protocol.
@@ -212,12 +212,12 @@ PXE security-flow and credential-provisioning constraints are documented in [doc
 7. [ ] Unattended multi-client PXE restore. Bind signed/otherwise independently authenticated profiles to the deployment/job, Client certificate identity, image digest, expiry and stable WWN/serial target; integrate Server-side single-use replay state, dry-run, deterministic target checks and per-Client result reconciliation. Boot parameters alone never authorize writes.
 8. [ ] Initial Server/Client setup, enrollment and trust.
 9. [ ] Repository and credential administration.
-10. [ ] Storage discovery and image fidelity: VG/LV, Btrfs snapshots and LUKS layers.
+10. [ ] Storage-layer restore and fidelity: LV restore execution, LUKS2/open-mapping semantics, Btrfs snapshot and multi-device support; local LV capture is already implemented.
 11. [ ] Interrupted-operation and PKI recovery.
 
 The [guide index](GUIDES.md) distinguishes available procedures from planned
 workflows. Do not publish an operational recipe for an unimplemented path.
-Every guide needs prerequisites, supported layouts, exact Cockpit steps, expected results, verification, failure recovery and data-loss warnings. Use current screenshots and role/network diagrams.
+Every guide needs prerequisites, supported layouts, exact Cockpit steps, expected results, verification, failure recovery and data-loss warnings. Use version-matched screenshots or clearly labeled mockups, plus role/network diagrams; mockups are illustrative and not runtime acceptance evidence.
 
 ## Operator acceptance guides
 
@@ -317,7 +317,7 @@ orphan files, but cannot expose an incomplete set through inventory.
 - [x] Expose one-shot SFTP endpoint and encrypted SSH-key/known_hosts credential selection through Cockpit.
 - [x] Add reusable saved SFTP endpoint definitions and encrypted credential references.
 - [ ] Add provider health checks and multi-directory inventory/discovery.
-- [ ] Add operator guide and screenshots after the complete workflow exists.
+- [ ] Add operator guide and screenshots or clearly labeled mockups after the complete workflow exists.
 
 SFTP is available in Cockpit for one-shot signed-image publication, import and direct disk/partition restore. Named endpoint definitions and encrypted credential references are saved in a root-owned registry. Remote manifest-marker inventory is now submitted as a durable local operation and can be cancelled from the existing Operation log. Metadata inspection and separate artifact import/publication remain synchronous; byte-level transfer progress and resume are still missing. Transient read-only downloads and inventory retry connection faults up to twice; uploads are not automatically retried. Unit tests exist; live provider acceptance remains outstanding.
 
@@ -353,6 +353,6 @@ pre-existing files are preserved.
 - [x] Add optional automatic SFTP publication to durable disk/partition capture jobs, requiring a signed manifest and registered encrypted SSH-key/known_hosts credentials.
 - [x] Integrate authenticated SFTP image selection with durable disk/partition restore jobs; bind the requested image ID and inspected manifest SHA-256 to the signed remote manifest, then verify all artifacts before destructive restore starts.
 - [ ] Implement transfer byte progress, operator cancellation, resume and full provider acceptance for SFTP-backed restore jobs. Bounded retry for transient read-only transfers is already implemented.
-- [ ] Add operational guide and current screenshots after Cockpit workflow acceptance.
+- [ ] Add operational guide and version-matched screenshots or clearly labeled mockups after Cockpit workflow acceptance.
 
-Tests were added but not executed in this session. Cockpit can preview remote image metadata only after verifying the detached minisign signature against the configured independent trust key. Both explicit import and direct restore fetch artifact content and verify signed sizes and SHA-256 values before the image is made available to the restore engine. SFTP publication is also integrated with manual Cockpit upload and optional post-capture publication. This is not yet a complete reusable SFTP provider: inventory is limited to one configured directory, transfers are synchronous, and byte-level progress, resume, cancellation and multi-directory catalog discovery remain pending. Bounded retries apply only to transient read-only transport failures.
+Automated tests are present; check CI for the exact commit before reporting a passing result. Cockpit can preview remote image metadata only after verifying the detached minisign signature against the configured independent trust key. Both explicit import and direct restore fetch artifact content and verify signed sizes and SHA-256 values before the image is made available to the restore engine. SFTP publication is also integrated with manual Cockpit upload and optional post-capture publication. This is not yet a complete reusable SFTP provider: inventory is limited to one configured directory, transfers are synchronous, and byte-level progress, resume, cancellation and multi-directory catalog discovery remain pending. Bounded retries apply only to transient read-only transport failures.
