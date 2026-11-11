@@ -64,4 +64,4 @@ creation and laboratory validation are operator-owned steps.
 |---|---|---|---|---|
 | Distribution | BitTorrent peer-to-peer artifact delivery | Planned optional immutable-artifact transport; must reuse a maintained client and verify trusted manifest plus SHA-256 before restore | Not implemented; not a mounted/writable repository | Not implemented; design, client integration, authorization, cancellation, cleanup and acceptance remain pending |
 
-`age` and `minisign` are optional integrations, not mandatory runtime packages or release gates. WebDAV remains a planned repository type pending isolated credentials. S3 is not a supported provider. Do not mark a provider complete based solely on an argv builder or mount primitive.
+`age` and `minisign` are optional integrations, not mandatory runtime packages or release gates. WebDAV remains a planned repository type pending isolated credentials. Do not mark a provider complete based solely on an argv builder or mount primitive.
