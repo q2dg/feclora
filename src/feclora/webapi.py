@@ -1319,6 +1319,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
         "sftp_inventory": {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "port"},
+        "sftp_fetch": {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "port"},
+        "sftp_publish": {"image_id", "host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "port"},
     }
     if action not in allowed:
         raise WebAPIError("operation parameters do not match the selected operation")
@@ -1331,7 +1333,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         accepted_params = (allowed_params, allowed_params - {"repository_id"},
                            allowed_params - {"sftp_publish"},
                            allowed_params - {"repository_id", "sftp_publish"})
-    if (set(params) not in accepted_params and not (action == "sftp_inventory" and set(params) == allowed_params - {"port"})) or ("sftp_source" in params and "repository_id" in params):
+    if (set(params) not in accepted_params and not (action in {"sftp_inventory", "sftp_fetch", "sftp_publish"} and set(params) == allowed_params - {"port"})) or ("sftp_source" in params and "repository_id" in params):
         raise WebAPIError("operation parameters do not match the selected operation")
     started = time.monotonic()
     _emit({"event": "started", "operation_id": operation_id, "operation": action})
@@ -1344,6 +1346,37 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             identity_credential=_text(params, "identity_credential", maximum=512),
             known_hosts_credential=_text(params, "known_hosts_credential", maximum=512),
             port=params.get("port", 22),
+        )
+    elif action == "sftp_fetch":
+        host = _text(params, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
+        username = _text(params, "username", pattern=r"[A-Za-z0-9._-]{1,64}")
+        remote_directory = _text(params, "remote_directory", maximum=1024)
+        identity = _text(params, "identity_credential", maximum=512)
+        known_hosts = _text(params, "known_hosts_credential", maximum=512)
+        port = params.get("port", 22)
+        if host.endswith(".") or ".." in host or isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+            raise WebAPIError("SFTP fetch endpoint or port is invalid")
+        client_config = _client_runtime_config()
+        public_key = Path(client_config.trusted_server_public_key) if client_config and client_config.trusted_server_public_key else Path("/etc/feclora/pki/server.pub")
+        try:
+            info = os.lstat(public_key)
+        except OSError as exc:
+            raise WebAPIError("trusted Feclora image-signing public key is unavailable") from exc
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise WebAPIError("trusted Feclora image-signing public key has unsafe ownership or permissions")
+        from feclora.storage.sftp_image_set import fetch_image_set
+        result = fetch_image_set(
+            remote_directory=remote_directory, destination_root=_repository(create=True),
+            public_key=public_key, host=host, username=username,
+            identity_credential=identity, known_hosts_credential=known_hosts,
+            port=port, progress_callback=_progress,
+        )
+    elif action == "sftp_publish":
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        config = {key: params[key] for key in ("host", "username", "remote_directory", "identity_credential", "known_hosts_credential")}
+        config["port"] = params.get("port", 22)
+        result = _publish_captured_image_to_sftp(
+            image_id, _repository(), config, progress_callback=_progress,
         )
     elif action == "capture_disk":
         from feclora.storage.disk_capture import capture_disk
