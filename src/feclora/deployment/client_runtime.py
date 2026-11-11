@@ -19,6 +19,7 @@ from feclora.deployment.job import DeploymentJob
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
 from feclora.storage.disk_restore import DiskRestoreError, restore_disk
 from feclora.storage.partition_restore import PartitionRestoreError, restore_partition
+from feclora.storage.logical_volume_restore import LogicalVolumeRestoreError, restore_logical_volume
 from feclora.storage.image_security import ImageSecurityError
 from feclora.network.remote_clone import receive_remote_disk
 
@@ -98,7 +99,7 @@ def execute_client_image_job(
                 progress_callback=transfer_progress_callback,
             )
             signature_present = os.path.isfile(manifest_path + ".minisig")
-            restore_function = restore_partition if job.target_type == "partition" else restore_disk
+            restore_function = (restore_logical_volume if job.target_type == "logical_volume" else restore_partition if job.target_type == "partition" else restore_disk)
             restore_function(
                 manifest_path, repository, local_device_path,
                 confirmation=f"ERASE {local_device_path}",
@@ -107,9 +108,10 @@ def execute_client_image_job(
                 age_identity_file=age_identity_file,
                 progress_callback=progress_callback,
                 executables=executables,
+                **({"inventory_provider": __import__("feclora.storage.inventory", fromlist=["collect_inventory"]).collect_inventory} if job.target_type == "logical_volume" else {}),
             )
             return True, f"image {job.image_id} restored and destination read-back verified"
-        except (ImageTransferError, DiskRestoreError, PartitionRestoreError, ImageSecurityError, OSError) as exc:
+        except (ImageTransferError, DiskRestoreError, PartitionRestoreError, LogicalVolumeRestoreError, ImageSecurityError, OSError) as exc:
             raise ClientImageRuntimeError(f"restore failed: {exc}") from exc
 
     if job.operation == "save":
