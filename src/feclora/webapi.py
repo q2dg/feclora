@@ -1293,7 +1293,7 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         caddy_config = config_file.read_text(encoding="utf-8")
     except OSError as exc:
         raise WebAPIError("active Caddy configuration is unavailable") from exc
-    match = re.match(r'^http://([0-9.]+):([0-9]+) \\{\\n    root \\* "(/srv/feclora/http)"\\n', caddy_config)
+    match = re.match(r'^http://([0-9.]+):([0-9]+) \{\n    root \* "(/srv/feclora/http)"\n', caddy_config)
     if not match:
         raise WebAPIError("active Caddy configuration does not use the expected Feclora HTTP document root")
     address, port_text, http_root = match.groups()
