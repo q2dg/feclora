@@ -90,6 +90,27 @@ class StorageTopologyGraphTests(unittest.TestCase):
         self.assertIn(("btrfs-subvolume:subvol-2", "btrfs-subvolume:subvol-1", "snapshot_of"), relations)
         self.assertIn(("btrfs:fs-uuid", "btrfs-subvolume:subvol-1", "contains_subvolume"), relations)
 
+    def test_attaches_btrfs_allocation_profiles_to_filesystem_node(self):
+        graph = build_storage_graph({
+            "devices": [{"path": "/dev/sda1", "type": "part", "filesystem": "btrfs", "uuid": "btrfs-uuid", "children": []}],
+            "btrfs_topology": {"filesystems": [{
+                "uuid": "btrfs-uuid", "total_devices": 1,
+                "devices": [{"devid": 1, "size_bytes": 1000, "path": "/dev/sda1"}],
+            }]},
+            "btrfs_subvolumes": {"mounts": [{
+                "uuid": "btrfs-uuid", "mountpoint": "/mnt/data",
+                "allocation_profiles": [
+                    {"type": "data", "profile": "single", "known_profile": True},
+                    {"type": "metadata", "profile": "dup", "known_profile": True},
+                ],
+                "subvolumes": [],
+            }]},
+        })
+        filesystem = next(node for node in graph["nodes"] if node["id"] == "btrfs:btrfs-uuid")
+        self.assertEqual(filesystem["allocation_profile_inventory"], "available")
+        self.assertEqual(filesystem["allocation_profiles"][1]["profile"], "dup")
+        self.assertFalse(filesystem["has_unknown_allocation_profile"])
+
     def test_joins_stratis_pool_filesystem_mapper_and_backing_device(self):
         graph = build_storage_graph({
             "devices": [{"path": "/dev/dm-3", "type": "lvm", "children": []},
