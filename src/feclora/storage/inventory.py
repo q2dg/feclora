@@ -14,6 +14,7 @@ from feclora.storage.volume_topology import collect_lvm_topology, VolumeTopology
 from feclora.storage.btrfs_inventory import collect_btrfs_topology, collect_btrfs_subvolumes, BtrfsInventoryError
 from feclora.storage.stratis_inventory import collect_stratis_topology, StratisInventoryError
 from feclora.storage.luks_inventory import collect_luks_inventory, LuksInventoryError
+from feclora.storage.topology_graph import build_storage_graph
 
 LSBLK_COLUMNS = (
     "NAME,PATH,TYPE,SIZE,RO,TRAN,MODEL,VENDOR,SERIAL,WWN,"
@@ -131,6 +132,7 @@ def collect_inventory(
         inventory["luks_metadata"] = collect_luks_inventory(inventory["devices"], which=shutil.which, runner=runner)
     except LuksInventoryError as exc:
         inventory["luks_metadata"] = {"status": "error", "error": str(exc), "containers": []}
+    inventory["storage_graph"] = build_storage_graph(inventory)
     return inventory
 
 
