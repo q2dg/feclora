@@ -7,7 +7,7 @@ respective administrators. Feclora is only a client: it stores access
 references, establishes outbound connections, mounts or transfers data,
 verifies remote content and reports failures. It must not install, configure,
 start, stop, administer or claim ownership of any remote server, export, share,
-processes and release its own sessions; that is not remote-server management.
+or peer. Feclora may stop its own client-side mount/transfer processes and release its own sessions; that is not remote-server management.
 
 feclora keeps its image engines independent of transport by using ordinary
 filesystem paths as repository roots. Provider adapters mount remote storage;
@@ -41,10 +41,15 @@ command builders. A provider is not complete until its Cockpit workflow,
 authorization, failure handling, automated tests and operator acceptance cover
 the same image lifecycle.
 
-|---|---|---|---|---|---|---|---|
-| Durable Cockpit lifecycle | Local operation engine for image work; mount lifecycle is separate | Same | Same | Read-only image operations; writable publication unavailable | Unavailable | Inventory durable/cancellable; metadata inspection, import and publication still synchronous | Not implemented |
-| Byte progress / transfer resume | No provider-specific network telemetry or safe write resume acceptance | Same | Same | No provider-specific transfer telemetry or safe write resume acceptance | Unavailable | Byte progress and resume pending | Not implemented |
-| Health, interruption and recovery acceptance | Pending live server/network tests | Pending live server/network tests, including root-squash | Pending live server/network tests | Provider-aware write capability and outage tests pending | Pending design | Multi-directory discovery, health checks and live acceptance pending | Design and implementation pending |
+| Capability | SSHFS | NFS | SMB/CIFS | WebDAV | SFTP | BitTorrent |
+|---|---|---|---|---|---|---|
+| Connection / mount or transport | Integrated mount lifecycle | Integrated mount lifecycle | Integrated mount lifecycle | Disabled | OpenSSH batch transfer | Not implemented |
+| Protected credentials | SSH key + pinned host keys | Export/server policy | Encrypted SMB credential | Missing isolated per-repository model | Encrypted SSH key + pinned host keys | Not applicable yet |
+| Inventory / read / restore | Via verified mounted repository | Via verified mounted repository | Via verified mounted repository | Unavailable | Signed manifest inventory and authenticated fetch/restore | Not implemented |
+| Capture / publish | Writable mount path exists; end-to-end provider acceptance pending | Writable mount path exists; root-squash/ownership acceptance pending | Writable mount path exists; provider acceptance pending | Blocked | Signed no-overwrite image-set publication exists; synchronous and not yet fully durable | Immutable distribution only, not publication |
+| Durable Cockpit lifecycle | Local operation engine for image work; mount lifecycle is separate | Same | Same | Unavailable | Inventory durable/cancellable; metadata inspection, import and publication still synchronous | Not implemented |
+| Byte progress / transfer resume | No provider-specific network telemetry or safe write resume acceptance | Same | Same | Unavailable | Byte progress and resume pending | Not implemented |
+| Health, interruption and recovery acceptance | Pending live server/network tests | Pending live server/network tests, including root-squash | Pending live server/network tests | Pending design | Multi-directory discovery, health checks and live acceptance pending | Design and implementation pending |
 
 **Interpretation:** SSHFS, NFS and SMB share the mounted-filesystem integration
 but are not yet at production acceptance parity. WebDAV remains fail-closed.
@@ -238,12 +243,13 @@ sudo dnf install fuse-sshfs nfs-utils cifs-utils davfs2
 ```
 
 Only the selected provider's helper is needed. The manager checks for the
-required executable before attempting a mount. created and provisioned separately; Feclora does not collect access keys or
+required executable before attempting a mount. Credentials are created and
+provisioned separately; Feclora does not collect access keys or
 
 ## Security and durability requirements
 
 - SSH host keys must be verified; never disable strict host-key checking.
-- SSH keys, SMB credentials, davfs2 secrets must be
+- SSH keys, SMB credentials and WebDAV secrets must be
   stored outside image manifests and restore profiles with restrictive
   ownership and permissions. Cockpit accepts paths/aliases, never secret
   contents.
@@ -264,29 +270,16 @@ required executable before attempting a mount. created and provisioned separatel
   before unmounting or removing the definition.
 - A mount failure must never fall back to the local directory underneath an
   unmounted mountpoint.
-- Image artifacts must be staged on the same filesystem and the manifest
-  published last. A remote backend must demonstrate the required atomicity
-  and durability semantics before it can be used for production captures.
-  provider-aware staging and publish protocol with remote read-back.
-  server-enforced create-if-absent precondition (for example, conditional
-  A preceding HEAD/list check is not a substitute: it has a time-of-check /
-  time-of-use race. Multipart uploads need an equivalent conditional
-  completion guarantee; if the provider cannot guarantee it, Feclora must
-  reject publication rather than silently fall back to an unconditional
-  overwrite.
-- Publication must use unique staging keys, verify each completed object by
-  reading it back and checking byte count and cryptographic digest, then
-  publish the signed manifest last with the same create-if-absent condition.
-  Failed publication may leave unreachable staging objects for later
-  garbage collection, but must never expose a manifest referencing
-  incomplete artifacts. Provider capability checks must be explicit and
+- Image artifacts must be staged and the manifest published last. A remote
+  backend must demonstrate the required atomicity and durability semantics
+  before it can be used for production captures.
 
 ## Remaining work
 
 Remaining engineering work: add edit/test and health/free-space workflows,
 credential provisioning/rotation and recovery, safe per-repository WebDAV
-operator cancellation, resume, multi-directory discovery and live provider
-acceptance, plus automated coverage for every provider lifecycle. Bounded
+credentials, SFTP operator cancellation, resume, multi-directory discovery
+and live provider acceptance, plus automated coverage for every provider lifecycle. Bounded
 transport retries are implemented for read-only SFTP downloads and inventory;
 publication uploads remain non-retrying because their outcome can be ambiguous.
 acceptance tests. SFTP file transfer is distinct from SSHFS and is not a
