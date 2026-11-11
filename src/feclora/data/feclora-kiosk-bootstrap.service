@@ -19,7 +19,7 @@ ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
-ReadWritePaths=/var/lib/feclora
+ReadWritePaths=/var/lib/feclora /etc/shadow /etc/shadow- /etc/.pwd.lock
 
 [Install]
 WantedBy=multi-user.target
