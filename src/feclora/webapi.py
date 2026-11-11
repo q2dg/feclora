@@ -2580,7 +2580,7 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             if set(params) != {"id", "kind", "source_file", "replace"}:
                 raise WebAPIError("put_systemd_credential requires id, kind, source_file and replace")
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
-            kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb|rclone", maximum=16)
+            kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb", maximum=16)
             source_file = _text(params, "source_file", maximum=512)
             if not isinstance(params["replace"], bool):
                 raise WebAPIError("replace must be boolean")
@@ -2625,7 +2625,7 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             required = {
                 "id", "provider", "host", "remote_path", "username",
                 "credential_file", "identity_file", "known_hosts_file",
-                "port", "read_only", "rclone_remote",
+                "port", "read_only",
             }
             if set(params) != required:
                 raise WebAPIError("remote repository definition has missing or unknown fields")
@@ -2635,7 +2635,7 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
                 _text(definition, key, maximum=512)
             if definition["provider"] == "webdav":
                 raise WebAPIError("WebDAV repository setup is unavailable until its per-repository encrypted credential lifecycle is implemented")
-            for key in ("username", "credential_file", "identity_file", "known_hosts_file", "rclone_remote"):
+            for key in ("username", "credential_file", "identity_file", "known_hosts_file"):
                 if definition[key] is not None and (
                     not isinstance(definition[key], str) or not definition[key]
                     or len(definition[key]) > 512
