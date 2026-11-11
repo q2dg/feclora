@@ -222,10 +222,11 @@ identity revalidation are connected for whole-disk restore. Other repository
 providers and physical acceptance remain pending. A URL, DHCP lease, MAC address, job UUID or successful
 download is not authorization by itself.
 
-The current implementation publishes and revokes JSON answer files; it does
-not yet perform the Live-side handoff or destructive restore. Do not use the
-new answer form for production unattended restores until the complete client
-path and hardware acceptance tests are implemented.
+The current implementation downloads and validates the answer in Live and
+connects NFS-backed whole-disk restore to the existing engine. The target is
+revalidated immediately before writing and the result is read back. Other
+repository schemes, replay/expiry controls and hardware acceptance remain
+pending; test only with disposable disks.
 
 ### Durable Client progress and restart history
 
