@@ -54,8 +54,8 @@ class CockpitClientTests(unittest.TestCase):
             self.assertEqual((exported / "client.key").stat().st_mode & 0o777, 0o600)
             self.assertEqual((exported / "deployment-client.json").stat().st_mode & 0o777, 0o600)
             rewritten = __import__("json").loads((exported / "deployment-client.json").read_text())
-            self.assertEqual(rewritten["private_key_file"], str(exported / "client.key"))
-            self.assertEqual(rewritten["ca_file"], str(exported / "ca.crt"))
+            self.assertEqual(rewritten["private_key_file"], "/mnt/feclora-pxe-identity/feclora-client-identity/client.key")
+            self.assertEqual(rewritten["ca_file"], "/mnt/feclora-pxe-identity/feclora-client-identity/ca.crt")
             self.assertFalse((exported / "client.key").is_symlink())
 
     def test_export_pxe_identity_refuses_existing_bundle(self):
