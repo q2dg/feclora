@@ -1,0 +1,28 @@
+[Unit]
+Description=Fetch and validate the shared Feclora PXE answer
+Wants=network-online.target
+After=network-online.target
+ConditionKernelCommandLine=feclora.pxe_mode=unattended-answer
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=PYTHONPATH=/usr/share/feclora/python
+ExecStartPre=/usr/bin/install -d -o root -g root -m 0700 /run/feclora/pxe
+ExecStart=/usr/bin/python3 -m feclora.network.pxe_answer_client
+TimeoutStartSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+ReadWritePaths=/run/feclora/pxe
+
+[Install]
+WantedBy=multi-user.target
