@@ -31,6 +31,23 @@ class StorageCapturePlanTests(unittest.TestCase):
         self.assertIn("luks2_container", plan["storage_layers"])
         self.assertEqual(plan["dependencies"][0]["uuid"], "luks-uuid")
 
+    def test_whole_disk_reports_nested_luks_and_lvm_layers(self):
+        inventory = base_inventory({
+            "path": "/dev/sda", "type": "disk", "children": [
+                {"path": "/dev/sda1", "type": "part", "filesystem": "crypto_LUKS",
+                 "volume_features": ["luks_container"], "children": []},
+                {"path": "/dev/sda2", "type": "part", "filesystem": "LVM2_member",
+                 "volume_features": ["lvm", "lvm_pv"], "children": []},
+            ],
+        }, luks_metadata={"containers": [{"device": "/dev/sda1", "uuid": "luks-1"}]},
+           volume_topology={"pvs": [{"pv_name": "/dev/sda2", "vg_name": "vg0"}],
+                            "volume_groups": []})
+        plan = plan_storage_capture(inventory, "/dev/sda", "disk")
+        self.assertIn("luks2_container", plan["storage_layers"])
+        self.assertIn("lvm_physical_volume", plan["storage_layers"])
+        self.assertTrue(any(item.get("device_path") == "/dev/sda1"
+                            for item in plan["dependencies"]))
+
     def test_open_crypt_mapping_is_not_misrepresented_as_luks_header_backup(self):
         inventory = base_inventory({
             "path": "/dev/mapper/secure", "type": "crypt", "filesystem": "ext4",
