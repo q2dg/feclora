@@ -157,7 +157,19 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
             )
             add_edge(vg_id, lv_id, "contains_lv")
             matched_device_id = path_ids.get(lv_path) if isinstance(lv_path, str) else None
-            if matched_device_id is None:
+            path_identity_conflict = False
+            if matched_device_id:
+                matched_device = nodes[matched_device_id]
+                lv_major_minor = lv.get("major_minor")
+                device_major_minor = matched_device.get("major_minor")
+                if (isinstance(lv_major_minor, str) and lv_major_minor
+                        and isinstance(device_major_minor, str) and device_major_minor
+                        and lv_major_minor != device_major_minor):
+                    unresolved.append({"layer": "lvm_lv", "path": str(lv_path),
+                                       "reason": "device_path_and_major_minor_conflict"})
+                    matched_device_id = None
+                    path_identity_conflict = True
+            if matched_device_id is None and not path_identity_conflict:
                 major_minor = lv.get("major_minor")
                 candidates = device_ids_by_major_minor.get(major_minor, []) if isinstance(major_minor, str) else []
                 if len(candidates) == 1:
