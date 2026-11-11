@@ -61,6 +61,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         tls = FakeTLS(control_frame({
             "type": "transfer_offer", "job_id": JOB_ID, "image_id": "golden-image",
         }))
+        pre_write_check = lambda: None
         with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
              patch("feclora.deployment.client_runtime.os.path.isfile", return_value=True), \
              patch("feclora.deployment.client_runtime.receive_image_set", return_value="/repo/golden-image.manifest.json") as receive, \
@@ -70,6 +71,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
                 server_identity="URI:feclora-server", repository="/repo",
                 trusted_server_public_key="/trusted/server.pub",
                 transfer_progress_callback=lambda current, total: None,
+                pre_write_callback=pre_write_check,
             )
         self.assertTrue(result[0])
         receive.assert_called_once()
@@ -78,6 +80,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         self.assertEqual(restore.call_args.args[0], "/repo/golden-image.manifest.json")
         self.assertTrue(restore.call_args.kwargs["require_signature"])
         self.assertEqual(restore.call_args.kwargs["confirmation"], "ERASE /dev/vda")
+        self.assertIs(restore.call_args.kwargs["pre_write_callback"], pre_write_check)
 
     def test_logical_volume_restore_dispatches_to_local_lv_engine(self):
         tls = FakeTLS(control_frame({
