@@ -1409,61 +1409,31 @@ class WebAPITests(unittest.TestCase):
 
 
 
-    def test_fetch_sftp_image_set_api_uses_local_trust_and_encrypted_refs(self):
-        import stat
-        from contextlib import nullcontext
-        from pathlib import Path
+    def test_fetch_sftp_image_set_api_queues_durable_operation(self):
         params = {
             "host": "backup.example.net", "username": "backup",
             "remote_directory": "/images/golden", "port": 2222,
-            "identity_credential": "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred",
-            "known_hosts_credential": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred",
+            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
         }
-        expected = {
-            "image_id": "golden", "image_type": "disk", "artifact_count": 2,
-            "published": True, "signature_verified": True, "artifacts_verified": True,
-        }
-        with patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(
-            st_mode=stat.S_IFREG | 0o644, st_uid=0,
-        )), patch("feclora.webapi._repository", return_value=Path("/var/lib/feclora/images")), \
-             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \
-             patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("op-123")), \
-             patch("feclora.storage.sftp_image_set.fetch_image_set", return_value=expected) as fetch:
+        expected = {"operation_id": "fetch-job", "state": "queued"}
+        with patch("feclora.webapi._submit_local_operation", return_value=expected) as submit:
             result = dispatch({"action": "fetch_sftp_image_set", "params": params})
-        self.assertEqual(result, {"operation_id": "op-123", **expected})
-        self.assertEqual(fetch.call_args.kwargs["destination_root"], Path("/var/lib/feclora/images"))
-        self.assertEqual(fetch.call_args.kwargs["host"], params["host"])
-        self.assertEqual(fetch.call_args.kwargs["identity_credential"], params["identity_credential"])
-        self.assertEqual(fetch.call_args.kwargs["known_hosts_credential"], params["known_hosts_credential"])
-        self.assertEqual(fetch.call_args.kwargs["port"], 2222)
+        self.assertEqual(result, expected)
+        submit.assert_called_once_with({"operation": "sftp_fetch", "operation_params": params})
 
-    def test_publish_sftp_image_set_api_uses_local_signing_trust_and_encrypted_refs(self):
-        import stat
-        from contextlib import nullcontext
-        from pathlib import Path
+    def test_publish_sftp_image_set_api_queues_durable_operation(self):
         params = {
             "image_id": "golden", "host": "backup.example.net", "username": "backup",
             "remote_directory": "/images/golden", "port": 2222,
-            "identity_credential": "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred",
-            "known_hosts_credential": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred",
+            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
         }
-        expected = {"image_id": "golden", "image_type": "disk", "artifact_count": 2, "published": True}
-        with patch("feclora.webapi._client_runtime_config", return_value=None), \
-             patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(
-                 st_mode=stat.S_IFREG | 0o600, st_uid=0,
-             )), patch("feclora.webapi._repository", return_value=Path("/var/lib/feclora/images")), \
-             patch("feclora.webapi._storage_operation_lock", return_value=nullcontext()), \
-             patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("op-456")), \
-             patch("feclora.storage.sftp_image_set.publish_image_set", return_value=expected) as publish:
+        expected = {"operation_id": "publish-job", "state": "queued"}
+        with patch("feclora.webapi._submit_local_operation", return_value=expected) as submit:
             result = dispatch({"action": "publish_sftp_image_set", "params": params})
-        self.assertEqual(result, {"operation_id": "op-456", **expected})
-        self.assertEqual(publish.call_args.kwargs["manifest_path"], Path("/var/lib/feclora/images/golden.manifest.json"))
-        self.assertEqual(publish.call_args.kwargs["signature_path"], Path("/var/lib/feclora/images/golden.manifest.json.minisig"))
-        self.assertEqual(publish.call_args.kwargs["public_key"], Path("/etc/feclora/pki/server.pub"))
-        self.assertEqual(publish.call_args.kwargs["remote_directory"], params["remote_directory"])
-        self.assertEqual(publish.call_args.kwargs["identity_credential"], params["identity_credential"])
-        self.assertEqual(publish.call_args.kwargs["known_hosts_credential"], params["known_hosts_credential"])
-        self.assertEqual(publish.call_args.kwargs["port"], 2222)
+        self.assertEqual(result, expected)
+        submit.assert_called_once_with({"operation": "sftp_publish", "operation_params": params})
 
     def test_capture_disk_publishes_signed_image_to_sftp_after_capture(self):
         from pathlib import Path
