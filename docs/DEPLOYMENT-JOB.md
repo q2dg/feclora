@@ -114,9 +114,10 @@ The existing Remote jobs workflow uses enrolled Client mTLS identities and
 its READY/ARM authorization. That workflow is separate from the new shared
 PXE answer-file design. The answer-file publication path validates a declarative
 restore answer on the Server and serves it through Caddy over HTTP without
-per-Client identity or enrollment. The Live answer downloader, repository
-integration, target revalidation and restore
-execution are not yet implemented. Do not infer authorization from PXE boot,
+per-Client identity or enrollment. The Live answer downloader, NFS read-only mount, unique WWN/serial target
+resolution, pre-write revalidation and whole-disk restore engine are connected.
+Other repository providers, replay/expiry controls and physical acceptance
+remain pending. Do not infer authorization from PXE boot,
 a DHCP lease, a URL or a job UUID.
 
 ## Managed remote image repository
