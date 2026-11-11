@@ -33,6 +33,20 @@ class LocalOperationStoreTests(unittest.TestCase):
         self.assertEqual(validated["action"], "capture_logical_volume")
         self.assertEqual(validated["params"]["source"], "/dev/mapper/vg-root")
 
+    def test_logical_volume_restore_is_a_valid_durable_operation(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000002",
+            "action": "restore_logical_volume",
+            "params": {
+                "image_id": "root-image", "target": "/dev/mapper/vg-root",
+                "confirmation": "ERASE /dev/mapper/vg-root",
+            },
+        }
+        validated = validate_definition(definition)
+        self.assertEqual(validated["action"], "restore_logical_volume")
+        self.assertEqual(validated["params"]["target"], "/dev/mapper/vg-root")
+
     def test_sftp_inventory_is_a_valid_durable_operation(self):
         definition = {
             "schema_version": 1,
