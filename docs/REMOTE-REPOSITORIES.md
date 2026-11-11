@@ -124,13 +124,27 @@ configuration or supported credential chain. Writable capture requires a
 provider-aware object API publisher with server-enforced conditional
 create-if-absent semantics (including multipart completion), unique staging
 keys, remote read-back and digest/size verification, and manifest-last
-publication. The product contract has one publishing Client per image; this
-is not a multi-writer coordination problem. Multiple Clients must be able to
-read and restore the committed image concurrently. If the provider cannot
-guarantee safe publication semantics, Feclora must expose that endpoint as
-read-only. S3-compatible branding or a preceding HEAD/list request is not
-proof of safe no-overwrite behavior.
+publication.
 
+For AWS S3, the documented no-overwrite primitive is `If-None-Match: *` on
+`PutObject` and `CompleteMultipartUpload`, signed with AWS Signature Version 4.
+Multipart initiation and part-upload requests do not themselves accept that
+conditional header; the condition must be applied when completing the object.
+A `409 Conflict` from conditional multipart completion requires restarting
+the multipart upload, not retrying the same completion blindly. These AWS
+semantics are not assumed for every S3-compatible service: each endpoint must
+be qualified against its actual API implementation, including conditional
+completion, read-after-write visibility and object read-back. A provider that
+cannot demonstrate those guarantees remains read-only.
+
+The product contract has one publishing Client per image; this is not a
+multi-writer coordination problem and Feclora does not need a distributed
+writer lock. Conditional creation is still required to prevent accidental
+replacement and to make ambiguous upload outcomes safe. Multiple Clients
+must be able to read and restore the committed image concurrently. If the
+provider cannot guarantee safe publication semantics, Feclora must expose
+that endpoint as read-only. S3-compatible branding or a preceding HEAD/list
+request is not proof of safe no-overwrite behavior.
 ## Cockpit credential workflow
 
 1. Prepare each source file on the Feclora host. It must be a root-owned regular
