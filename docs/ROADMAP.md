@@ -86,10 +86,15 @@ hardware, provider services or physical networks have passed acceptance.
    Cockpit Clients select the LV locally, validate it against healthy local
    LVM topology, and run the existing fail-closed LV preflight/restore engine.
    Automated and operator acceptance of multi-Client LV deployments remains
-   outstanding. Separately,
-   define exact LUKS2/open-mapping restore semantics and finish Btrfs
-   snapshot/multi-device/profile planning and supported restore preflights.
-   Do not create or administer VGs/LVs, LUKS devices or Btrfs snapshots
+   outstanding. Raw LUKS2 container restore to an existing partition is now
+   implemented: it requires explicit encrypted-container provenance and a
+   matching header-included UUID, writes raw bytes, verifies read-back and the
+   LUKS2 UUID/JSON header, and leaves the container closed. Opened-mapping
+   plaintext restore, LUKS2-on-LV, provisioning and rekeying remain unsupported.
+   A disposable loop-device acceptance harness now checks wrong-key rejection,
+   original-key unlock and plaintext equality; its execution is still pending.
+   Finish Btrfs snapshot/multi-device/profile planning and supported restore
+   preflights. Do not create or administer VGs/LVs, LUKS devices or Btrfs snapshots
    implicitly.
 3. **Remote repositories:** finish credential/provider lifecycle and validate
    each external provider independently; complete SFTP progress/cancellation
