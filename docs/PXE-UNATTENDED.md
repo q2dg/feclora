@@ -84,11 +84,14 @@ not cryptographic authenticity: an attacker able to modify HTTP traffic or the
 server's published file can alter the instructions. Feclora does not add a
 signature, encryption layer or per-client identity to this workflow.
 
-The Live HTTP downloader and schema validation service are now implemented
-and conditionally started for unattended PXE kernel parameters. It stores the
-validated answer under `/run/feclora/pxe/answer.json`. Repository URL adapters,
-target matching, pre-write revalidation and destructive restore execution
-remain implementation work. Do not describe unattended PXE as complete until those
+The Live HTTP downloader and schema validation service are conditionally
+started for unattended PXE kernel parameters. The first connected restore
+provider is NFS: Live mounts it read-only, resolves exactly one whole disk by
+WWN/serial, validates the image manifest, rejects encrypted artifacts, and
+calls the existing whole-disk restore engine. The engine rechecks the target
+immediately before writing and performs read-back verification. Other
+repository schemes, credential references and full end-to-end hardware
+acceptance remain outstanding. Do not describe unattended PXE as complete until those
 pieces are connected and tested.
 
 ## Provider support status
@@ -108,21 +111,24 @@ are not yet complete provider/transport workflows.
       and passes only the answer job UUID and single answer URL.
 - [x] Add a Live boot-time HTTP answer downloader and schema validator; store the
       validated JSON in the root-only Live runtime directory.
-- [ ] Connect repository access, target resolution and the existing whole-disk
-      restore engine to the downloaded answer.
+- [x] Connect the NFS repository adapter, unique WWN/serial target resolution,
+      pre-write identity revalidation and existing whole-disk restore engine.
+- [ ] Add SSHFS, SFTP, SMB/CIFS, HTTP(S), WebDAV and BitTorrent provider adapters
+      plus credential_ref resolution.
 - [x] Add one Cockpit JSON answer-file upload control; the repository URL is
       taken directly from the JSON document.
 - [x] Validate and atomically publish/revoke job-scoped JSON files through Caddy.
 - [x] Clear stale answer files and handoff scripts when a new PXE session starts.
 - [ ] Tie answer revocation to deployment-job cancellation and expiry.
-- [ ] Connect repository URL schemes to the existing remote repository
-      credential and mount/transfer facilities.
-- [ ] Implement target resolution, pre-write revalidation and unattended
-      execution for the supported operation types.
+- [x] Connect NFS URL to a read-only Live mount for whole-disk restore.
+- [ ] Connect remaining repository URL schemes to provider and credential facilities.
+- [x] Implement exact whole-disk target resolution, pre-write revalidation and
+      execution through the existing verified whole-disk restore engine for NFS.
+- [ ] Add other repository providers and lifecycle/replay controls.
 - [x] Use the operator-selected HTTP trust assumption; no cryptographic integrity mechanism is provided.
 - [ ] Validate BIOS and UEFI PXE boot, Caddy publication/revocation, wrong or
       tampered answer files, missing credentials, repository outage, ambiguous
       targets, target swaps, interruption and real restore hardware.
 
-No hardware acceptance or end-to-end unattended answer-file restore is
-claimed by this document.
+The NFS whole-disk software path is now connected, but no hardware acceptance,
+provider interoperability or production-ready end-to-end claim is made.
