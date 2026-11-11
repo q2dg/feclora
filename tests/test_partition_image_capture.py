@@ -42,6 +42,38 @@ class PartitionImageCaptureTests(unittest.TestCase):
                 {"backup-part_fake1.img", "backup-part.manifest.json"},
             )
 
+    def test_luks2_partition_image_records_encrypted_container_provenance(self):
+        payload = b"x" * 4096
+        storage = {
+            "schema_version": 1,
+            "capture_scope": "encrypted_container_bytes",
+            "source_layer": "luks2_container",
+            "luks_uuid": "12345678-1234-1234-1234-123456789abc",
+            "dependencies": [{
+                "kind": "luks2_metadata",
+                "identity": "12345678-1234-1234-1234-123456789abc",
+                "included_in_source_bytes": True,
+            }],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            def runner(command, **kwargs):
+                return SimpleNamespace(stdout=f"{len(payload)} 512 part crypto_LUKS\n")
+            with patch(
+                "feclora.storage.partition_image_capture.plan_storage_capture",
+                return_value={"blockers": [], "manifest_storage": storage},
+            ):
+                manifest = capture_partition_image(
+                    "/dev/fake1", "luks-backup", "luks", directory,
+                    executables={"lsblk": "lsblk", "dd": "dd"},
+                    runner=runner, device_validator=lambda _path: True,
+                    source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                    popen_factory=lambda *a, **k: FakeProcess(payload),
+                    inventory={"devices": []},
+                )
+            self.assertEqual(manifest.storage["source_layer"], "luks2_container")
+            self.assertEqual(manifest.storage["capture_scope"], "encrypted_container_bytes")
+            self.assertEqual(manifest.storage["luks_uuid"], storage["luks_uuid"])
+
     def test_rejects_multi_device_btrfs_capture_before_writing(self):
         payload = """Label: array uuid: 01234567-89ab-cdef-0123-456789abcdef
         Total devices 2 FS bytes used 123456
