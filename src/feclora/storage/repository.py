@@ -20,7 +20,6 @@ _HOST_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$")
 _REMOTE_PATH_RE = re.compile(r"^/[A-Za-z0-9._/@+,-]*(?:/[A-Za-z0-9._/@+,-]*)*$")
 _SAFE_USER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 _SAFE_SHARE_RE = re.compile(r"^[A-Za-z0-9._$-]{1,80}$")
-_S3_BUCKET_RE = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
 
 
 def _absolute_path(value: str, field: str) -> str:
