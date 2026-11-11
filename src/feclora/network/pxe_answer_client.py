@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import os
 import stat
+import subprocess
+import shutil
+from urllib.parse import unquote, urlsplit
 import sys
 import tempfile
 import urllib.error
@@ -16,6 +19,11 @@ from pathlib import Path
 from typing import Any
 
 from feclora.network.pxe_answer import MAX_ANSWER_BYTES, parse_pxe_answer
+from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
+from feclora.storage.restore_profile import RestoreTargetSelector
+from feclora.storage.inventory import collect_inventory
+from feclora.storage.disk_restore import restore_disk
+from feclora.storage.operation_log import operation_record
 from feclora.network.pxe_boot_request import (
     PXEBootRequestError,
     parse_pxe_boot_request,
@@ -132,6 +140,170 @@ def fetch_live_pxe_answer(
     return answer
 
 
+
+def _flatten_devices(devices: Any) -> list[dict[str, Any]]:
+    flattened: list[dict[str, Any]] = []
+    pending = list(devices) if isinstance(devices, list) else []
+    while pending:
+        device = pending.pop()
+        if not isinstance(device, dict):
+            continue
+        flattened.append(device)
+        children = device.get("children")
+        if isinstance(children, list):
+            pending.extend(children)
+    return flattened
+
+
+def _resolve_target(answer: dict[str, Any]) -> dict[str, Any]:
+    selector = RestoreTargetSelector(**answer["target"])
+    try:
+        inventory = collect_inventory()
+    except Exception as exc:
+        raise PXEAnswerClientError(f"cannot inventory disks before unattended restore: {exc}") from exc
+    matches = [
+        item for item in _flatten_devices(inventory.get("devices"))
+        if item.get("type") == "disk" and selector.matches(item)
+    ]
+    if len(matches) != 1:
+        raise PXEAnswerClientError(
+            f"PXE target selector matched {len(matches)} whole disks; exactly one is required"
+        )
+    target = matches[0]
+    path = target.get("path")
+    if not isinstance(path, str) or not path.startswith("/dev/"):
+        raise PXEAnswerClientError("resolved PXE target has no valid block-device path")
+    return target
+
+
+def _mount_nfs_repository(repository_url: str, mountpoint: Path) -> None:
+    parsed = urlsplit(repository_url)
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise PXEAnswerClientError("NFS repository URL has an invalid port") from exc
+    host = parsed.hostname or ""
+    path = unquote(parsed.path)
+    if (parsed.scheme.lower() != "nfs" or not host or port is not None
+            or parsed.username is not None or parsed.password is not None
+            or parsed.query or parsed.fragment or not path.startswith("/")
+            or any(part in {".", ".."} for part in path.split("/"))
+            or any(ord(char) < 32 for char in path)
+            or not all(char.isalnum() or char in ".-:" for char in host)):
+        raise PXEAnswerClientError("NFS repository URL must be nfs://host/absolute/export/path without credentials or options")
+    mount_cmd, umount_cmd, findmnt_cmd = (
+        shutil.which("mount"), shutil.which("umount"), shutil.which("findmnt")
+    )
+    if not mount_cmd or not umount_cmd or not findmnt_cmd:
+        raise PXEAnswerClientError("mount, umount and findmnt are required for NFS PXE repositories")
+    mountpoint.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = os.lstat(mountpoint)
+    if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode):
+        raise PXEAnswerClientError("PXE repository mountpoint is not a real directory")
+    if any(mountpoint.iterdir()):
+        raise PXEAnswerClientError("PXE repository mountpoint is not empty")
+    source = f"{host}:{path}"
+    try:
+        subprocess.run(
+            [mount_cmd, "-t", "nfs", "-o",
+             "ro,nosuid,nodev,noexec,vers=4.2,timeo=30,retrans=2", source, str(mountpoint)],
+            check=True, capture_output=True, text=True, timeout=45,
+        )
+        check = subprocess.run(
+            [findmnt_cmd, "--noheadings", "--mountpoint", str(mountpoint),
+             "--output", "FSTYPE,OPTIONS,SOURCE"],
+            check=True, capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        try:
+            subprocess.run([umount_cmd, str(mountpoint)], check=False, capture_output=True, timeout=15)
+        except (OSError, subprocess.SubprocessError):
+            pass
+        raise PXEAnswerClientError(f"cannot mount PXE NFS repository read-only: {exc}") from exc
+    fields = check.stdout.split()
+    if len(fields) < 3 or fields[0].lower() not in {"nfs", "nfs4"} or "ro" not in fields[1].split(","):
+        try:
+            subprocess.run([umount_cmd, str(mountpoint)], check=False, capture_output=True, timeout=15)
+        except (OSError, subprocess.SubprocessError):
+            pass
+        raise PXEAnswerClientError("PXE repository mount is not verified as a read-only NFS mount")
+
+
+def _revalidate_target(selector: RestoreTargetSelector, expected_path: str) -> None:
+    try:
+        inventory = collect_inventory()
+    except Exception as exc:
+        raise PXEAnswerClientError(f"cannot recheck PXE target immediately before write: {exc}") from exc
+    matches = [
+        item for item in _flatten_devices(inventory.get("devices"))
+        if item.get("type") == "disk" and selector.matches(item)
+    ]
+    if len(matches) != 1 or matches[0].get("path") != expected_path:
+        raise PXEAnswerClientError("PXE target identity or device path changed before the first write")
+
+
+def execute_live_pxe_restore(
+    answer: dict[str, Any],
+    *,
+    mountpoint: str | os.PathLike[str] = "/run/feclora/pxe/repository",
+    operation_log: str | os.PathLike[str] = "/var/lib/feclora/pxe/operations.jsonl",
+) -> str:
+    """Execute the requested NFS-backed whole-disk restore; other providers fail closed."""
+    repository_url = answer.get("repository_url")
+    if not isinstance(repository_url, str) or not repository_url.lower().startswith("nfs://"):
+        raise PXEAnswerClientError(
+            "PXE restore currently supports NFS repositories only; this URL scheme has no Live adapter yet"
+        )
+    if answer.get("credential_ref") is not None:
+        raise PXEAnswerClientError(
+            "credential_ref is not yet connected to the PXE NFS provider; refusing to ignore it"
+        )
+    selector = RestoreTargetSelector(**answer["target"])
+    target = _resolve_target(answer)
+    target_path = target["path"]
+    repository = Path(mountpoint)
+    _mount_nfs_repository(repository_url, repository)
+    try:
+        manifest_path = repository / f"{answer['image_id']}.manifest.json"
+        try:
+            info = os.lstat(manifest_path)
+            if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
+                raise PXEAnswerClientError("PXE image manifest must be a regular file")
+            manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, ManifestValidationError) as exc:
+            raise PXEAnswerClientError(f"cannot load PXE image manifest: {exc}") from exc
+        if manifest.image_id != answer["image_id"] or manifest.image_type != "disk":
+            raise PXEAnswerClientError("PXE answer requires a matching whole-disk image manifest")
+        if any(item.encryption != "none" for item in manifest.artifacts):
+            raise PXEAnswerClientError("PXE unattended restore currently requires an unencrypted image set")
+        if os.path.lexists(str(manifest_path) + ".minisig"):
+            raise PXEAnswerClientError("PXE restore does not use minisign; use an unsigned image set")
+        with operation_record(
+            "restore_disk", target_path, image_id=answer["image_id"], log_path=operation_log,
+        ):
+            def before_write() -> None:
+                _revalidate_target(selector, target_path)
+
+            try:
+                restore_disk(
+                    str(manifest_path), str(repository), target_path,
+                    confirmation=f"ERASE {target_path}",
+                    pre_write_callback=before_write,
+                )
+            except Exception as exc:
+                raise PXEAnswerClientError(f"PXE whole-disk restore failed: {exc}") from exc
+        return target_path
+    finally:
+        umount_cmd = shutil.which("umount") or "umount"
+        try:
+            subprocess.run(
+                [umount_cmd, str(repository)],
+                check=True, capture_output=True, text=True, timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise PXEAnswerClientError(f"restore ended but NFS repository unmount failed: {exc}") from exc
+
+
 def main() -> int:
     try:
         answer = fetch_live_pxe_answer()
@@ -140,10 +312,12 @@ def main() -> int:
         return 1
     if answer is None:
         return 0
-    print(
-        "PXE answer downloaded and validated "
-        f"(image_id={answer['image_id']}); restore execution is not enabled by this stage."
-    )
+    try:
+        target = execute_live_pxe_restore(answer)
+    except (PXEAnswerClientError, OSError, RuntimeError, subprocess.SubprocessError) as exc:
+        print(f"feclora-pxe-answer: {exc}", file=sys.stderr)
+        return 1
+    print(f"PXE restore completed and read-back verified: {answer['image_id']} -> {target}")
     return 0
 
 
