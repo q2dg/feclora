@@ -272,6 +272,39 @@ class ImageManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ManifestValidationError, "incompatible storage scope"):
             ImageManifest.from_dict(value)
 
+    def test_btrfs_partition_storage_provenance_round_trips(self):
+        value = {
+            "schema_version": 1, "image_id": "btrfs-root", "image_type": "partition",
+            "source_size_bytes": 8192, "logical_sector_size": 512, "partition_table": "none",
+            "artifacts": [artifact()],
+            "storage": {
+                "schema_version": 1, "capture_scope": "partition_bytes",
+                "source_layer": "btrfs_filesystem", "btrfs_uuid": "fs-uuid",
+                "btrfs_subvolume_id": 256, "btrfs_subvolume_uuid": "subvol-uuid",
+                "btrfs_parent_uuid": "parent-uuid", "btrfs_received_uuid": "received-uuid",
+                "dependencies": [{
+                    "kind": "btrfs_filesystem", "identity": "fs-uuid",
+                    "included_in_source_bytes": True,
+                }],
+            },
+        }
+        manifest = ImageManifest.from_dict(value)
+        self.assertEqual(ImageManifest.from_json(manifest.to_json()), manifest)
+        self.assertEqual(manifest.storage["btrfs_subvolume_id"], 256)
+
+    def test_btrfs_subvolume_id_must_be_an_integer_not_a_boolean(self):
+        value = {
+            "schema_version": 1, "image_id": "btrfs-root", "image_type": "partition",
+            "source_size_bytes": 8192, "logical_sector_size": 512, "partition_table": "none",
+            "artifacts": [artifact()],
+            "storage": {
+                "schema_version": 1, "capture_scope": "partition_bytes",
+                "source_layer": "btrfs_filesystem", "btrfs_subvolume_id": True,
+            },
+        }
+        with self.assertRaisesRegex(ManifestValidationError, "non-negative integer"):
+            ImageManifest.from_dict(value)
+
     def test_rejects_unknown_fields_and_invalid_schema(self):
         with self.assertRaisesRegex(ManifestValidationError, "Unknown"):
             ImageManifest.from_dict(disk_manifest(untrusted_command="dd"))
