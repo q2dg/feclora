@@ -126,6 +126,14 @@ class LogicalVolumeRestorePreflightTests(unittest.TestCase):
                 make_manifest(), make_inventory(mounted=["/mnt/root"]), "/dev/target/root"
             )
 
+    def test_resolves_lsblk_mapper_alias_by_unique_major_minor(self):
+        inventory = make_inventory()
+        inventory["devices"][0]["path"] = "/dev/mapper/target-root"
+        result = preflight_logical_volume_restore(
+            make_manifest(), inventory, "/dev/target/root"
+        )
+        self.assertEqual(result["status"], "ready")
+
     def test_rejects_kernel_identity_mismatch(self):
         with self.assertRaisesRegex(RestoreProfileError, "identities disagree"):
             preflight_logical_volume_restore(
