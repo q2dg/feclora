@@ -90,7 +90,7 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
 PXE boot alone never authorizes a destructive write. The existing mTLS Remote
 jobs workflow retains local Client approval and the Server's explicit ARM. The
 new answer workflow is intended to pre-answer the deployment questions, but
-cannot execute until its Live-side downloader, schema validation and restore engine are integrated.
+NFS-backed whole-disk execution is connected to the existing verified restore engine; remaining providers and physical acceptance are pending.
 
 ## Build, security and acceptance
 
