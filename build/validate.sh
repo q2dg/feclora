@@ -364,6 +364,7 @@ if [[ ! -f "$LUKS2_ACCEPTANCE" ]]; then
   fail "Disposable LUKS2 partition acceptance script is missing."
 fi
 grep -q 'cryptsetup open --key-file "$KEY_FILE" "$TARGET_PART" "$TARGET_MAPPING"' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must unlock the restored target with the original key."
+grep -q 'cryptsetup open --test-passphrase --key-file "$WRONG_KEY_FILE" "$TARGET_PART"' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must reject an incorrect key."
 grep -q 'cmp -- "$EXPECTED" "$WORK_DIR/restored-plaintext.bin"' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must compare restored plaintext byte-for-byte."
 grep -q 'check_capture_source_safe(path' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must use Feclora's block-device safety checks."
 grep -q 'run-luks2-partition-acceptance.sh' "$ROOT_DIR/tests/vm/README.md" || fail "LUKS2 loop-device acceptance runbook is missing."
