@@ -117,7 +117,7 @@ class DeploymentJobTests(unittest.TestCase):
             {"52:54:00:12:34:56": {"wwn": None, "serial": None}},
             {"52:54:00:12:34:56": {"wwn": "", "serial": None}},
             {"52:54:00:12:34:56": {"wwn": "../device", "serial": None, "path": "/dev/sda"}},
-            {"52:54:00:12:34:56": {"wwn": None, "serial": "bad\\nserial"}},
+            {"52:54:00:12:34:56": {"wwn": None, "serial": "bad" + chr(10) + "serial"}},
         ]
         for bindings in invalid:
             with self.subTest(bindings=bindings):
