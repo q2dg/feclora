@@ -75,7 +75,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
                     mountpoint = str(root / "mounts" / "nas")
                     return SimpleNamespace(
                         returncode=0,
-                        stdout=f"{mountpoint} cifs //nas.example.net/images ro\\n",
+                        stdout=f"{mountpoint} cifs //nas.example.net/images ro\n",
                         stderr="",
                     )
                 return SimpleNamespace(returncode=0, stdout="", stderr="")
