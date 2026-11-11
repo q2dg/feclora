@@ -74,12 +74,11 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
 - **Interactive PXE boot** — boot-tree staging and service activation exist;
   BIOS/UEFI network-boot acceptance remains pending. It is intended to boot
   the same Live environment as ISO, then use Cockpit interactively.
-- **Job-bound PXE handoff** — **Partial**. The iPXE menu offers an unattended
-  handoff choice. During an active Server restore job, Feclora can publish
-  and later revoke a public script containing only the job UUID, Server
-  address and mTLS control port. These values are metadata, not authorization.
-  The Client does not yet automatically authenticate, inspect the job,
-  select/verify its target, or enter the READY/ARM workflow from this boot.
+- **Signed-answer PXE handoff** — **Partial**. The iPXE menu offers an
+  unattended answer-file entry. Cockpit publishes a signed answer, detached
+  signature and answer-specific script containing only the job UUID and the
+  two Caddy URLs. These values are locators, not authorization. The Live
+  downloader and independent signature verification are not yet integrated.
 - **Unattended PXE answer workflow** — **Partially implemented**. Cockpit accepts
   a prewritten JSON answer and repository URL; the Server validates and signs
   the answer and publishes it with a detached signature through Caddy. This
@@ -87,9 +86,10 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
   signature verification, trusted-key provisioning, provider integration,
   stable-target revalidation and restore execution remain unimplemented.
 
-PXE boot alone never authorizes a destructive write. Manual Client approval
-and the Server's explicit ARM remain required by the current deployment
-workflow.
+PXE boot alone never authorizes a destructive write. The existing mTLS Remote
+jobs workflow retains local Client approval and the Server's explicit ARM. The
+new answer workflow is intended to pre-answer the deployment questions, but
+cannot execute until its Live-side verifier and restore engine are integrated.
 
 ## Build, security and acceptance
 
