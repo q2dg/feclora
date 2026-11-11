@@ -50,8 +50,9 @@ class PXEClientStartTests(unittest.TestCase):
             self.assertIsNone(payload["device_path"])
             self.assertIsNone(payload["confirmation"])
             self.assertEqual(request.stat().st_mode & 0o777, 0o600)
-            run.assert_called_once()
+            self.assertEqual(run.call_count, 2)
             self.assertEqual(run.call_args.args[0][-1], f"feclora-pxe-client@{JOB_ID}.service")
+            self.assertEqual(run.call_args_list[0].args[0][-1], "mnt-feclora\\x2dpxe\\x2didentity.mount")
 
     def test_unattended_start_refuses_existing_job_request(self):
         with tempfile.TemporaryDirectory() as directory:
