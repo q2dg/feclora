@@ -314,7 +314,9 @@ orphan files, but cannot expose an incomplete set through inventory.
 - [x] Integrate SFTP image-set publication with disk/partition capture operations, retaining durable capture-job tracking and requiring signed manifests.
 - [x] Integrate authenticated SFTP image selection with durable disk/partition restore jobs, binding the inspected image ID and manifest digest before artifact retrieval.
 - [x] Add bounded retries for transient SFTP download and inventory transport failures; never retry uploads automatically when publication outcome may be ambiguous.
-- [ ] Add byte-level transfer progress, operator cancellation, resume and complete recovery semantics.
+- [x] Route SFTP image import and publication through the durable local-operation worker, with Operation log state and orderly cancellation of the transient SFTP child service.
+- [x] Persist artifact-boundary progress checkpoints for verified downloads and published uploads.
+- [ ] Add continuous byte-level progress within individual files, safe resume semantics, remote orphan discovery/cleanup and complete recovery behavior.
 - [x] Expose one-shot SFTP endpoint and encrypted SSH-key/known_hosts credential selection through Cockpit.
 - [x] Add reusable saved SFTP endpoint definitions and encrypted credential references.
 - [ ] Add provider health checks and multi-directory inventory/discovery.
