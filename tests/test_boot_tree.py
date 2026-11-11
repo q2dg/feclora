@@ -12,9 +12,12 @@ from feclora.network.boot_tree import (
 class LiveBootTreeTests(unittest.TestCase):
     def test_renders_http_live_boot_script(self):
         script = render_ipxe_script("192.0.2.10", 8080)
-        self.assertIn("root=live:http://192.0.2.10:8080/live/squashfs.img", script)
+        self.assertIn("set live_base http://192.0.2.10:8080/live", script)
+        self.assertIn("root=live:${live_base}/squashfs.img", script)
+        self.assertIn("feclora.pxe_mode=interactive", script)
+        self.assertIn("item unattended", script)
         self.assertIn("rd.neednet=1", script)
-        self.assertIn("initrd http://192.0.2.10:8080/live/initrd.img", script)
+        self.assertIn("initrd ${live_base}/initrd.img", script)
 
     def test_stages_kernel_initramfs_squashfs_and_script_read_only(self):
         with tempfile.TemporaryDirectory() as tmp:
