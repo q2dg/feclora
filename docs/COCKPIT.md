@@ -385,9 +385,7 @@ unattended workflow must authenticate the manifest through the configured
 independent trust mechanism and bind its digest to the authorized job/profile.
 
 Remote repository types in the intended scope are SSHFS, SFTP, NFS, SMB/CIFS,
-WebDAV and S3-compatible object storage. WebDAV requires isolated per-repository
-credentials; the global davfs2 secrets file is not an acceptable workaround.
-S3's current rclone mount is read-only until a safe provider-aware publisher
-exists. BitTorrent is a planned optional peer-to-peer distribution transport,
+WebDAV requires isolated per-repository
+credentials; the global davfs2 secrets file is not an acceptable workaround. BitTorrent is a planned optional peer-to-peer distribution transport,
 not a writable repository; if implemented it must use a maintained client and
 verify manifest authenticity and artifact digests before restore.
