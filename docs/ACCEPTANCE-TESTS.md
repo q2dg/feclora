@@ -224,8 +224,9 @@ must not mount, unmount, create, delete or otherwise modify Btrfs objects.
 2. Run Feclora storage inventory and confirm it reports each already-mounted
    Btrfs target, subvolume ID, UUID, path and parent UUID.
 3. Confirm ordinary subvolumes with no parent UUID are classified as
-   subvolumes, and snapshot descendants with a parent UUID are classified as
-   snapshots. Names alone must not determine snapshot status.
+   subvolumes, and snapshot descendants with a parent UUID and received snapshots with a
+   received UUID are classified as snapshots. Names alone must not determine
+   snapshot status.
 4. Repeat with a nested Btrfs mount and confirm it is inventoried separately.
 5. Repeat without btrfs-progs or findmnt available and confirm the subvolume
    scan reports unavailable rather than guessing.
