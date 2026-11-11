@@ -83,8 +83,8 @@ The LV manifest requires exactly one `logical-volume-image` artifact and no
 other artifact role.
 
 The optional `storage` object has its own schema version and validates
-capture scope, source layer, supported LUKS/LVM/Btrfs identifiers and a
-restricted dependency list. Unknown fields, invalid types, incompatible
+capture scope, source layer, supported LUKS/LVM/Btrfs identifiers (including
+the positive Btrfs device count) and a restricted dependency list. Unknown fields, invalid types, incompatible
 scopes and unsupported dependency kinds are rejected. Legacy disk/partition
 manifests without `storage` remain readable.
 
