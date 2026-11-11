@@ -62,7 +62,7 @@ hardware, provider services or physical networks have passed acceptance.
   single JSON answer containing the repository URL; the Server validates it
   and publishes/revokes it through Caddy over HTTP.
   No per-Client identity or removable identity media is part of this design.
-  Live-side download, independent trust-root provisioning, provider adapters,
+  Live-side download/schema validation, provider adapters,
   stable-target revalidation, replay/expiry controls and restore execution
   remain incomplete.
 - Unattended restore profiles: a standalone signed single-use executor exists,
