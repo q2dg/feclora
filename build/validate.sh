@@ -105,7 +105,7 @@ if ! grep -q 'FECLORA_CLIENT_CONFIG=/mnt/feclora-pxe-identity/feclora-client-ide
   fail "PXE Client service does not consume a read-only, dedicated identity medium."
 fi
 if ! grep -q 'feclora-pxe-client@.service' "$ROOT_DIR/kickstart/feclora-live.ks" \
-   || ! grep -Fq 'mnt-feclora\\x2dpxe\\x2didentity.mount' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+   || ! grep -Fq 'mnt-feclora\x2dpxe\x2didentity.mount' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Kickstart does not install the PXE Client identity units."
 fi
 
