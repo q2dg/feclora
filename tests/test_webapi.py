@@ -1209,7 +1209,7 @@ class WebAPITests(unittest.TestCase):
         params = {
             "id": "webdav", "provider": "webdav", "host": "files.example", "remote_path": "/",
             "username": "operator", "credential_file": None, "identity_file": None,
-            "known_hosts_file": None, "port": None, "read_only": True, "rclone_remote": None,
+            "known_hosts_file": None, "port": None, "read_only": True,
         }
         with self.assertRaisesRegex(WebAPIError, "per-repository encrypted credential lifecycle"):
             dispatch({"action": "add_remote_repository", "params": params})
