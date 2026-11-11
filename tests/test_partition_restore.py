@@ -137,6 +137,21 @@ class PartitionRestoreTests(unittest.TestCase):
                 progress_callback=lambda *_args: (_ for _ in ()).throw(PartitionRestoreCancelled("operator cancel")),
             )
         self.assertEqual(proc.returncode, -15)
+    def test_filesystem_restore_map_has_a_checker_for_every_partclone_type(self):
+        from feclora.storage.partition_restore import _PARTCLONE, _FILESYSTEM_CHECKS
+        expected = {
+            "ext2": "partclone.extfs", "ext3": "partclone.extfs",
+            "ext4": "partclone.ext4", "xfs": "partclone.xfs",
+            "ntfs": "partclone.ntfs", "ntfs3": "partclone.ntfs",
+            "fat": "partclone.fat", "fat12": "partclone.fat",
+            "fat16": "partclone.fat", "fat32": "partclone.fat",
+            "vfat": "partclone.fat", "exfat": "partclone.exfat",
+        }
+        for filesystem, executable in expected.items():
+            with self.subTest(filesystem=filesystem):
+                self.assertEqual(_PARTCLONE[filesystem], executable)
+                self.assertIn(filesystem, _FILESYSTEM_CHECKS)
+
     def test_partclone_restore_uses_filesystem_specific_executable(self):
         self.write_manifest("partclone", "ext4", len(self.payload))
         self.restore()
