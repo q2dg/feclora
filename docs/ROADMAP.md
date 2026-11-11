@@ -95,8 +95,11 @@ hardware, provider services or physical networks have passed acceptance.
    provenance and header checks; runtime dispatch tests cover both transports.
    Real remote multi-client/block-device acceptance remains pending. Opened-mapping
    plaintext restore, LUKS2-on-LV, provisioning and rekeying remain unsupported.
-   A disposable loop-device acceptance harness now checks wrong-key rejection,
-   original-key unlock and plaintext equality; its execution is still pending.
+   A disposable loop-device acceptance harness now exercises the real unicast
+   Client runtime and framed image-set transfer over a local socket pair, then
+   checks wrong-key rejection, original-key unlock and plaintext equality.
+   It does not perform a live mTLS handshake, network routing or multicast
+   transfer; execution on a Fedora/Linux host is still pending.
    Finish Btrfs snapshot/multi-device/profile planning and supported restore
    preflights. Do not create or administer VGs/LVs, LUKS devices or Btrfs snapshots
    implicitly.
