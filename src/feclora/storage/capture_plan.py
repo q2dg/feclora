@@ -198,6 +198,8 @@ def plan_storage_capture(
             vg_node = nodes.get(vg_edge.get("source")) if vg_edge else None
             if vg_node and vg_node.get("name"):
                 storage_metadata["lvm_vg_name"] = str(vg_node["name"])
+            if vg_node and vg_node.get("uuid"):
+                storage_metadata["lvm_vg_uuid"] = str(vg_node["uuid"])
             break
 
     dependency_kinds = {
