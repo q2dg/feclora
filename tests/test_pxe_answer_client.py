@@ -12,6 +12,7 @@ from feclora.network.pxe_answer_client import (
     PXEAnswerClientError,
     fetch_live_pxe_answer,
     execute_live_pxe_restore,
+    _consume_answer_once,
 )
 
 
@@ -119,6 +120,14 @@ class PXEAnswerClientTests(unittest.TestCase):
                 "target": {"wwn": "0x5000c50012345678", "serial": None},
                 "_pxe_job_id": JOB,
             })
+
+
+    def test_job_authorization_is_consumed_only_once_per_live_session(self):
+        with tempfile.TemporaryDirectory() as root:
+            ledger = Path(root) / "consumed"
+            _consume_answer_once(JOB, ledger)
+            with self.assertRaisesRegex(PXEAnswerClientError, "already been consumed"):
+                _consume_answer_once(JOB, ledger)
 
 
 if __name__ == "__main__":
