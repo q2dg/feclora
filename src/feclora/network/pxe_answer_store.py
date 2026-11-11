@@ -1,9 +1,4 @@
-"""Publish signed, job-scoped PXE answer documents into the Caddy document root.
-
-This module verifies the detached signature before publication and never
-publishes an unsigned destructive answer. Client-side verification against a
-trust root embedded in the Live image is still required before execution.
-"""
+"""Publish validated, job-scoped PXE JSON answers into the Caddy document root."""
 from __future__ import annotations
 
 import ipaddress
@@ -13,7 +8,6 @@ import stat
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Callable
 
 from feclora.network.pxe_answer import PXEAnswerError, parse_pxe_answer
 
@@ -173,7 +167,7 @@ def revoke_pxe_answer(http_root: str | os.PathLike[str], job_id: str) -> bool:
     if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
             or directory_info.st_uid != os.geteuid()):
         raise PXEAnswerStoreError("PXE answer job path is not a safe directory")
-    for name in ("answer.json", "answer.minisig"):
+    for name in ("answer.json",):
         item = destination / name
         try:
             item_info = item.lstat()
@@ -181,7 +175,7 @@ def revoke_pxe_answer(http_root: str | os.PathLike[str], job_id: str) -> bool:
             raise PXEAnswerStoreError("PXE answer publication is incomplete; refusing recursive removal")
         if not stat.S_ISREG(item_info.st_mode) or stat.S_ISLNK(item_info.st_mode) or item_info.st_uid != os.geteuid():
             raise PXEAnswerStoreError("PXE answer publication contains an unsafe file")
-    if {item.name for item in destination.iterdir()} != {"answer.json", "answer.minisig"}:
+    if {item.name for item in destination.iterdir()} != {"answer.json"}:
         raise PXEAnswerStoreError("PXE answer publication contains unexpected files")
     os.chmod(destination, 0o700)
     for item in destination.iterdir():
