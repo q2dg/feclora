@@ -64,23 +64,38 @@ workflow.
    performs read-back verification, and reports a terminal per-Client result.
    The Server persists the job/replay outcome and reconciles every Client.
 
-## Credential provisioning constraint
+## Client identity provisioning
 
-The Live session is intentionally ephemeral. A PXE boot script, TFTP payload,
-HTTP response, kernel command line, DHCP option or unauthenticated network
-request must never carry a Client private key or reusable bootstrap secret.
+Unattended PXE uses a dedicated, per-Client removable identity medium. The
+medium is prepared from an already enrolled Client in Cockpit using
+**Export PXE mTLS identity**. It contains only that Client's CA certificate,
+TLS certificate, TLS private key and (when configured) the Server's public
+image-verification key. It does not contain image-signing or age private keys.
 
-Therefore unattended PXE requires a secure way to make the already-enrolled
-Client mTLS identity available inside the fresh Live session. That provisioning
-mechanism is not implemented yet and must be selected before Client auto-start
-is enabled. Acceptable designs must bind the credential to the intended Client
-and protect it at rest and in use (for example, an explicitly provisioned secure local medium). MAC-only
-enrollment, public boot parameters and shared fleet-wide secrets are not
-acceptable substitutes.
+Use a separate ext4, XFS or Btrfs filesystem for each Client and label it
+`FECLORA-CLIENT`. Keep the medium physically controlled: it is a bearer
+credential for the Client's mTLS identity. Do not copy it into the Server's
+shared TFTP/HTTP boot tree or distribute one Client's medium to another
+machine. If it is lost, revoke that Client certificate in the Server trust
+inventory and issue a new enrollment.
 
-Until that mechanism exists, the unattended boot script is only a safe
-job-bound handoff. It must not start a writer or fall back to interactive
-credentials silently.
+The Live image installs a read-only mount unit for that label at
+`/mnt/feclora-pxe-identity` and a PXE-specific Client service template. The
+template reads
+`/mnt/feclora-pxe-identity/feclora-client-identity/deployment-client.json`
+through the `FECLORA_CLIENT_CONFIG` override. The standard interactive
+Client configuration path remains unchanged. The medium must be present and
+readable before the PXE Client service starts; absent or invalid media fails
+closed. The export operation refuses filesystems that cannot preserve POSIX
+ownership and private-key permissions.
+
+This resolves how the enrolled mTLS identity is made available to a fresh
+Live PXE session without transmitting it over the network. It does **not**
+yet start the Client automatically or authorize a restore. The job UUID and
+Server endpoint remain public handoff metadata only. The remaining orchestration
+must create a validated job request, resolve exactly one target from the
+Server's stable WWN/serial binding, complete local preflight, and retain the
+existing Server-side READY/ARM gate before any write.
 
 
 ## Multi-Client and transport constraints
