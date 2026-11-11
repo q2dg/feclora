@@ -22,7 +22,7 @@ the administration surface; Firefox runs in kiosk mode under a minimal
 Wayland compositor (Cage). The browser opens the local Cockpit endpoint and
 the Feclora Cockpit application.
 
-The source now implements the core kiosk path: Fedora Server product environment, Cage + Firefox, a separate unprivileged kiosk account, locked administrator account with loopback-only first-boot password setup, a locally generated trusted Cockpit certificate, Firefox origin allowlisting, and systemd supervision. BIOS/UEFI boot, certificate behavior in the packaged Firefox build, keyboard/TTY escape resistance, and physical display/input behavior remain operator acceptance tasks. Cockpit authentication and backend authorization remain mandatory.
+The source now implements the core kiosk path: Fedora Server product environment, Cage + Firefox, a separate unprivileged kiosk account, locked administrator account with loopback-only first-boot password setup, a locally generated Cockpit CA/certificate installed into Firefox through its Linux enterprise policy, a WebsiteFilter navigation policy, and systemd supervision. The Live root is ephemeral, so credentials and the local CA are regenerated on each boot; persistent configuration/credential storage remains a release-design task and must not consume a potential restore target disk implicitly. BIOS/UEFI boot, certificate behavior in the packaged Firefox build, keyboard/TTY escape resistance, and physical display/input behavior remain operator acceptance tasks. Cockpit authentication and backend authorization remain mandatory.
 
 ## Completed in source
 
