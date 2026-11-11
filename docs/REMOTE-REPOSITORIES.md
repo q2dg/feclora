@@ -390,10 +390,12 @@ This is still not a complete SFTP repository provider. OpenSSH SFTP does not pro
 format. Before any network transfer it parses the manifest, verifies the
 detached minisign signature against a separately supplied trusted public key,
 and checks every local artifact's regular-file type, byte count and SHA-256
-against the signed manifest. It then uploads each artifact, followed by
-`manifest.json`, and uploads `manifest.json.minisig` last. The signature is
-the publication marker: a consumer must not accept a set without downloading
-and verifying both metadata files and independently checking every artifact.
+against the signed manifest. It uploads each artifact, then the detached
+`manifest.json.minisig`, and publishes `manifest.json` last. The manifest is
+the visibility/commit marker: inventory requires both files, so concurrent
+readers cannot discover the set in the interval between metadata uploads. A
+consumer must still verify the detached signature and independently check
+every artifact before import or restore.
 
 Each individual upload retains the adapter's random staging name and uses the
 OpenSSH hard-link extension for atomic no-overwrite publication; servers that
@@ -402,8 +404,9 @@ from the native local repository's manifest-marker namespace
 (`manifest.json`, `manifest.json.minisig`, and
 `<image_id>.manifest.json[.minisig]`) so an artifact cannot collide with
 another image's discovery metadata during import. This is not a multi-file atomic transaction:
-failed publication can leave unreferenced remote artifacts or a manifest
-without its signature. Such a set is incomplete and must be rejected. The
+failed publication can leave unreferenced remote artifacts or a detached
+signature without its manifest. Such a set remains invisible to inventory and
+must be rejected. The
 publisher does not yet implement remote inventory/garbage collection,
 download-side manifest discovery, operation-journal progress, Cockpit actions,
 or capture/restore routing. It is an integration primitive, not end-user SFTP
