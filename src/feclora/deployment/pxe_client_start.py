@@ -35,6 +35,15 @@ def start_unattended_pxe_client(
         return None
     if not handoff.job_id or not handoff.server_address or not handoff.control_port:
         raise ClientJobServiceError("unattended PXE handoff is incomplete")
+    runner = runner or subprocess.run
+    try:
+        runner(
+            ["/usr/bin/systemctl", "start", "mnt-feclora\\x2dpxe\\x2didentity.mount"],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE, text=True, check=True, timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ClientJobServiceError(f"could not mount the dedicated PXE Client identity medium: {exc}") from exc
     config = load_client_runtime_config(config_path)
     _ensure_directory()
     request_path, status_path, _lock_path = _job_paths(handoff.job_id)
@@ -55,7 +64,6 @@ def start_unattended_pxe_client(
         "unattended": True,
     }
     _write_private_json(request_path, request)
-    runner = runner or subprocess.run
     try:
         runner(
             ["/usr/bin/systemctl", "start", "--no-block",
