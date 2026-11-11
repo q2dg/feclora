@@ -1,6 +1,6 @@
 [Unit]
 Description=Feclora authenticated PXE Client deployment job %i
-Requires=run-feclora-pxe\x2didentity.mount
+Requires=mnt-feclora\x2dpxe\x2didentity.mount
 After=network-online.target run-feclora-pxe\x2didentity.mount
 Wants=network-online.target
 
@@ -9,7 +9,7 @@ Type=simple
 User=root
 Group=root
 Environment=PYTHONPATH=/usr/share/feclora/python
-Environment=FECLORA_CLIENT_CONFIG=/run/feclora/pxe-identity/feclora-client-identity/deployment-client.json
+Environment=FECLORA_CLIENT_CONFIG=/mnt/feclora-pxe-identity/feclora-client-identity/deployment-client.json
 ExecStartPre=/usr/bin/install -d -o root -g root -m 0755 /run/feclora
 ExecStartPre=/usr/bin/install -d -o root -g root -m 0700 /var/lib/feclora/client-jobs
 ExecStart=/usr/bin/python3 -m feclora.deployment.client_service --job-id %i
