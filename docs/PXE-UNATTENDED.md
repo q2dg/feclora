@@ -18,10 +18,10 @@ client must not mount or look for `FECLORA-CLIENT` media.
 
 ## Deployment preparation
 
-The Cockpit Server setup now provides an initial signed-answer publication form that collects:
-
-1. The image repository URL. This identifies external image storage and is
-   independent of the PXE Server. The repository may be provided by SSHFS,
+The Cockpit Server setup provides an answer publication form with a single
+input: the prewritten JSON file. The `repository_url` inside that file identifies
+external image storage independently of the PXE Server. The repository may be
+provided by SSHFS,
    SFTP, SMB/CIFS, NFS, WebDAV or BitTorrent, subject to the provider support
    matrix in `REMOTE-REPOSITORIES.md`.
 2. The answer document, uploaded as a JSON file. Feclora validates the JSON,
