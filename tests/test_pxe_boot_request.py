@@ -12,6 +12,7 @@ from feclora.network.boot_tree import (
     render_unattended_ipxe_script,
     publish_unattended_ipxe_script,
     revoke_unattended_ipxe_script,
+    clear_stale_unattended_ipxe_script,
 )
 
 
@@ -102,6 +103,21 @@ class PXEBootRequestTests(unittest.TestCase):
             self.assertTrue(revoke_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 8080, 9443))
             self.assertFalse(published.exists())
             self.assertFalse(revoke_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 8080, 9443))
+
+    def test_new_pxe_session_clears_stale_regular_handoff_script(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            stale = Path(tmp) / "unattended.ipxe"
+            stale.write_text("#!ipxe\\necho stale\\n", encoding="utf-8")
+            self.assertTrue(clear_stale_unattended_ipxe_script(tmp))
+            self.assertFalse(stale.exists())
+            self.assertFalse(clear_stale_unattended_ipxe_script(tmp))
+
+    def test_new_pxe_session_refuses_symlinked_stale_handoff(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            stale = Path(tmp) / "unattended.ipxe"
+            stale.symlink_to("/etc/passwd")
+            with self.assertRaisesRegex(LiveBootAssetError, "not a regular file"):
+                clear_stale_unattended_ipxe_script(tmp)
 
     def test_rejects_noncanonical_job_id_for_boot_script(self):
         with self.assertRaisesRegex(LiveBootAssetError, "canonical UUID"):
