@@ -189,6 +189,8 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
                 unresolved.append({"layer": "btrfs_member", "path": path, "reason": "device_path_not_matched"})
 
     subvolumes = inventory.get("btrfs_subvolumes") or {}
+    subvolume_ids: dict[str, str] = {}
+    subvolume_parents: list[tuple[str, str]] = []
     for mount in subvolumes.get("mounts", []):
         if not isinstance(mount, dict):
             continue
@@ -196,15 +198,30 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
         for subvolume in mount.get("subvolumes", []):
             if not isinstance(subvolume, dict):
                 continue
+            uuid = subvolume.get("uuid")
             subvol_id = add_node(
-                "btrfs-subvolume:" + str(subvolume.get("uuid") or subvolume.get("id")),
-                "btrfs_subvolume", uuid=subvolume.get("uuid"),
+                "btrfs-subvolume:" + str(uuid or subvolume.get("id")),
+                "btrfs_subvolume", uuid=uuid,
                 subvolume_id=subvolume.get("id"), path=subvolume.get("path"),
                 subvolume_kind=subvolume.get("kind"), parent_uuid=subvolume.get("parent_uuid"),
                 received_uuid=subvolume.get("received_uuid"), mountpoint=mountpoint,
             )
+            if isinstance(uuid, str) and uuid:
+                subvolume_ids[uuid] = subvol_id
+            parent_uuid = subvolume.get("parent_uuid")
+            if isinstance(parent_uuid, str) and parent_uuid:
+                subvolume_parents.append((subvol_id, parent_uuid))
             # Mountpoint-to-filesystem UUID resolution is intentionally omitted
             # until findmnt provides the source UUID in the inventory contract.
+    for child_id, parent_uuid in subvolume_parents:
+        parent_id = subvolume_ids.get(parent_uuid)
+        if parent_id:
+            add_edge(child_id, parent_id, "snapshot_of")
+        else:
+            unresolved.append({
+                "layer": "btrfs_snapshot_parent", "path": parent_uuid,
+                "reason": "parent_subvolume_not_in_inventory",
+            })
 
     return {
         "schema_version": 1,
