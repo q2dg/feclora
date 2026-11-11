@@ -90,7 +90,7 @@ class BtrfsSubvolumeTests(unittest.TestCase):
         def runner(argv, **kwargs):
             calls.append(argv)
             if "findmnt" in argv:
-                return subprocess.CompletedProcess(argv, 0, '{"filesystems":[{"target":"/mnt/data"}]}', "")
+                return subprocess.CompletedProcess(argv, 0, '{"filesystems":[{"target":"/mnt/data","source":"/dev/sda1","uuid":"01234567-89ab-cdef-0123-456789abcdef"}]}', "")
             return subprocess.CompletedProcess(argv, 0, SUBVOLUMES, "")
         result = collect_btrfs_subvolumes(
             which=lambda name: "/usr/bin/" + name,
@@ -98,6 +98,9 @@ class BtrfsSubvolumeTests(unittest.TestCase):
             effective_uid=lambda: 0,
         )
         self.assertEqual(result["mounts"][0]["mountpoint"], "/mnt/data")
+        self.assertEqual(result["mounts"][0]["source"], "/dev/sda1")
+        self.assertEqual(result["mounts"][0]["uuid"], "01234567-89ab-cdef-0123-456789abcdef")
+        self.assertIn("SOURCE,UUID", calls[0][calls[0].index("--output") + 1])
         self.assertEqual(len(result["mounts"][0]["subvolumes"]), 2)
         self.assertIn("findmnt", calls[0])
         self.assertEqual(calls[1][-6:], ["-a", "-p", "-u", "-q", "-R", "/mnt/data"])
