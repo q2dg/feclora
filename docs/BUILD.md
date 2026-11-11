@@ -187,7 +187,7 @@ At minimum, verify:
   console login prompt.
 - The first-boot assistant appears and accepts a new 14–128 character
   administrator password; the administrator account was locked before setup.
-- The assistant redirects to `https://localhost:9090/` without a certificate
+- The assistant redirects to `https://localhost:9090/cockpit/@localhost/feclora/index.html` without a certificate
   warning.
 - `systemctl status cockpit.socket feclora-cockpit-certificate.service
   feclora-kiosk-bootstrap.service feclora-kiosk.service` shows expected states.
