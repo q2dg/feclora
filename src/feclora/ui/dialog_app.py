@@ -65,6 +65,12 @@ def volume_topology_details(inventory: dict[str, Any]) -> str:
             lines.append("  " + section[:-1].upper() + ": " + " | ".join(fields))
     if lvm.get("error"):
         lines.append("  Error: " + str(lvm["error"]))
+    luks = inventory.get("luks_metadata") or {}
+    lines.append("LUKS header metadata: " + str(luks.get("status", "not collected")))
+    for container in luks.get("containers", []):
+        lines.append("  Container: " + str(container.get("device")) + " | LUKS" + str(container.get("version")) + " | UUID " + str(container.get("uuid")) + " | cipher " + str(container.get("cipher") or "unknown") + " | enabled keyslots " + str(container.get("keyslot_count", "unknown")) + " | tokens " + str(container.get("token_count", "unknown")))
+    if luks.get("error"):
+        lines.append("  Error: " + str(luks["error"]))
     stratis = inventory.get("stratis_topology") or {}
     lines.append("Stratis topology: " + str(stratis.get("status", "not collected")))
     for pool in stratis.get("pools", []):
