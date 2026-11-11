@@ -146,7 +146,7 @@ install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-rest
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-deployment@.service" "$TARGET_ROOT/etc/systemd/system/feclora-deployment@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-client@.service" "$TARGET_ROOT/etc/systemd/system/feclora-client@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-pxe-client@.service" "$TARGET_ROOT/etc/systemd/system/feclora-pxe-client@.service"
-install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/run-feclora-pxe\\x2didentity.mount" "$TARGET_ROOT/etc/systemd/system/mnt-feclora\\x2dpxe\\x2didentity.mount"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/run-feclora-pxe\x2didentity.mount" "$TARGET_ROOT/etc/systemd/system/mnt-feclora\x2dpxe\x2didentity.mount"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation@.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation-recovery.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation-recovery.service"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-certificate" "$TARGET_ROOT/usr/libexec/feclora/feclora-cockpit-certificate"
