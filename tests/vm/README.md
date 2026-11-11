@@ -78,8 +78,8 @@ partitions them, attaches them only as loop devices, formats the source
 partition as LUKS2 with a temporary test key, writes a random plaintext payload
 through the source mapping, captures the raw encrypted partition, and calls
 Feclora's `restore_partition` engine against the second loop partition,
-including its mounted/busy/root-device safety checks. It then opens the restored container using the original key and compares the
-decrypted payload byte-for-byte. Temporary mappings, loop devices, key and
+including its mounted/busy/root-device safety checks. It confirms an incorrect key is rejected, opens the restored container using
+the original key, and compares the decrypted payload byte-for-byte. Temporary mappings, loop devices, key and
 files are removed by the exit trap.
 
 This is an opt-in destructive test. It refuses to run without root and its
