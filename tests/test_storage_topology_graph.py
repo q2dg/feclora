@@ -13,7 +13,7 @@ class StorageTopologyGraphTests(unittest.TestCase):
                         {"path": "/dev/mapper/cryptroot", "type": "crypt",
                          "filesystem": "LVM2_member", "volume_features": ["encrypted", "crypt_mapping", "lvm", "lvm_pv"],
                          "children": [
-                            {"path": "/dev/mapper/root", "type": "lvm", "filesystem": "ext4",
+                            {"path": "/dev/mapper/root", "type": "lvm", "filesystem": "ext4", "major_minor": "253:0",
                              "uuid": "fs-root", "volume_features": ["lvm", "lvm_lv"], "children": []}
                          ]}
                     ]}
@@ -26,7 +26,7 @@ class StorageTopologyGraphTests(unittest.TestCase):
                          "vg_name": "fedora", "pv_size": "1000", "pv_free": "200"}],
                 "volume_groups": [{"name": "fedora", "uuid": "vg-uuid", "status": "healthy",
                     "logical_volumes": [{"path": "/dev/fedora/root", "name": "root",
-                        "uuid": "lv-uuid", "size_bytes": 800, "segment_type": "linear",
+                        "uuid": "lv-uuid", "size_bytes": 800, "segment_type": "linear", "major_minor": "253:0",
                         "devices": "/dev/mapper/cryptroot(0)", "thin_provisioned": False,
                         "snapshot": False, "hidden": False}]}],
             },
@@ -44,8 +44,8 @@ class StorageTopologyGraphTests(unittest.TestCase):
         self.assertIn(("lvm-vg:fedora", "lvm-lv:lv-uuid", "contains_lv"), relations)
         self.assertIn(("lvm-lv:lv-uuid", "lvm-pv:pv-uuid", "allocated_on"), relations)
         self.assertTrue(any(n["id"] == "filesystem:fs-root" for n in graph["nodes"]))
-        self.assertIn({"layer": "lvm_lv", "path": "/dev/fedora/root",
-                       "reason": "lv_path_not_exactly_matched_to_lsblk"}, graph["unresolved"])
+        self.assertIn(("lvm-lv:lv-uuid", "device:/dev/mapper/root", "maps_to_block_device"), relations)
+        self.assertIn(("lvm-lv:lv-uuid", "filesystem:fs-root", "hosts_filesystem"), relations)
         self.assertIn(("lvm-lv:lv-uuid", "lvm-pv:pv-uuid", "allocated_on"), relations)
 
     def test_reports_unmatched_device_paths_instead_of_guessing_aliases(self):
@@ -109,7 +109,7 @@ class StorageTopologyGraphTests(unittest.TestCase):
 
     def test_reports_incomplete_sources_and_unmatched_lvm_lv_paths(self):
         graph = build_storage_graph({
-            "devices": [{"path": "/dev/mapper/vg-root", "type": "lvm", "children": []}],
+            "devices": [{"path": "/dev/mapper/vg-root", "type": "lvm", "major_minor": "253:0", "children": []}],
             "volume_topology": {"status": "available", "pvs": [], "volume_groups": [{
                 "name": "vg", "logical_volumes": [{"path": "/dev/vg/root", "name": "root"}]
             }]},
@@ -117,6 +117,25 @@ class StorageTopologyGraphTests(unittest.TestCase):
         })
         self.assertEqual(graph["status"], "partial")
         self.assertIn({"layer": "lvm_lv", "path": "/dev/vg/root",
-                       "reason": "lv_path_not_exactly_matched_to_lsblk"}, graph["unresolved"])
+                       "reason": "lv_path_and_device_identity_not_matched"}, graph["unresolved"])
         self.assertIn({"source": "luks_metadata", "status": "permission_required"},
                       graph["source_statuses"])
+
+    def test_major_minor_match_must_be_unique(self):
+        graph = build_storage_graph({
+            "devices": [
+                {"path": "/dev/dm-0", "type": "lvm", "major_minor": "253:4",
+                 "filesystem": "xfs", "uuid": "fs-a", "children": []},
+                {"path": "/dev/mapper/vg-data", "type": "lvm", "major_minor": "253:4",
+                 "filesystem": "xfs", "uuid": "fs-b", "children": []},
+            ],
+            "volume_topology": {"status": "available", "pvs": [], "volume_groups": [{
+                "name": "vg", "logical_volumes": [{"path": "/dev/vg/data",
+                    "name": "data", "major_minor": "253:4"}]
+            }]},
+        })
+        self.assertIn({"layer": "lvm_lv", "path": "/dev/vg/data",
+                       "reason": "device_major_minor_is_ambiguous"}, graph["unresolved"])
+        relations = {(e["source"], e["target"], e["relation"]) for e in graph["edges"]}
+        self.assertFalse(any(source == "lvm-lv:vg/data" and relation == "maps_to_block_device"
+                             for source, target, relation in relations))
