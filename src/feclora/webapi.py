@@ -1262,12 +1262,11 @@ def _stop_pxe_services() -> dict[str, Any]:
 
 
 def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
-    required = {"job_id", "answer_base64", "repository_url"}
+    required = {"job_id", "answer_base64"}
     if set(params) != required:
-        raise WebAPIError("publish_pxe_answer requires job_id, answer_base64 and repository_url")
+        raise WebAPIError("publish_pxe_answer requires job_id and answer_base64")
     job_id = _text(params, "job_id", maximum=36)
     answer_text = _text(params, "answer_base64", maximum=90_000)
-    repository_url = _text(params, "repository_url", maximum=2048)
     try:
         raw_answer = base64.b64decode(answer_text, validate=True)
     except (ValueError, base64.binascii.Error) as exc:
@@ -1277,8 +1276,6 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         answer = parse_pxe_answer(raw_answer)
     except PXEAnswerError as exc:
         raise WebAPIError(f"PXE answer validation failed: {exc}") from exc
-    if answer["repository_url"] != repository_url:
-        raise WebAPIError("repository URL field must exactly match the URL inside the answer document")
     manager = _pxe_service_manager()
     status = manager.status()
     if status.get("active") is not True or not status.get("interface"):
@@ -1305,48 +1302,20 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         for item in _network_interfaces()
     ):
         raise WebAPIError("active Caddy address is no longer assigned to the PXE interface")
-    try:
-        from feclora.deployment.runtime_config import load_server_runtime_config
-        server_config = load_server_runtime_config("/etc/feclora/deployment-server.json")
-    except Exception as exc:
-        raise WebAPIError(f"Server trust configuration is unavailable: {exc}") from exc
-    public_key = server_config.server_minisign_public_key
-    private_key = Path("/etc/feclora/pki/server.minisign.key")
-    try:
-        key_info = os.lstat(private_key)
-    except OSError as exc:
-        raise WebAPIError("Server minisign signing key is unavailable") from exc
-    if (not public_key or not stat.S_ISREG(key_info.st_mode) or stat.S_ISLNK(key_info.st_mode)
-            or key_info.st_uid != 0 or key_info.st_mode & 0o077):
-        raise WebAPIError("a root-owned private Server signing key and independently configured public key are required")
-    from feclora.storage.image_security import sign_manifest, verify_manifest_signature
     from feclora.network.pxe_answer_store import publish_pxe_answer, revoke_pxe_answer
     from feclora.network.boot_tree import (
         publish_unattended_answer_ipxe_script, revoke_unattended_answer_ipxe_script,
     )
-    import tempfile
-
-    with tempfile.TemporaryDirectory(prefix="feclora-pxe-answer-") as temporary:
-        message_path = Path(temporary) / "answer.json"
-        message_path.write_bytes(raw_answer)
-        try:
-            signature_path = Path(sign_manifest(message_path, private_key))
-            verify_manifest_signature(message_path, public_key, signature_path=signature_path)
-            detached_signature = signature_path.read_bytes()
-        except Exception as exc:
-            raise WebAPIError(f"Server could not sign and verify the PXE answer: {exc}") from exc
 
     answer_published = False
     try:
         published = publish_pxe_answer(
-            http_root, job_id, raw_answer, detached_signature,
-            verify_signature=lambda raw, signature: raw == raw_answer and signature == detached_signature,
-            address=address, http_port=port,
+            http_root, job_id, raw_answer, address=address, http_port=port,
         )
         answer_published = True
         publish_unattended_answer_ipxe_script(
             http_root, address, job_id,
-            published["answer_url"], published["signature_url"], port,
+            published["answer_url"], port,
         )
     except Exception as exc:
         if answer_published:
@@ -1362,9 +1331,8 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
     return {
         "job_id": job_id,
         "answer_url": published["answer_url"],
-        "signature_url": published["signature_url"],
         "boot_script_url": f"http://{address}:{port}/unattended-answer.ipxe",
-        "message": "Answer validated, signed by the Server, and published with an identity-free iPXE handoff. Live-side verification and execution are not yet implemented.",
+        "message": "Answer validated and published over HTTP with an identity-free iPXE handoff. Live-side download and execution are not yet implemented.",
     }
 
 
@@ -1383,7 +1351,7 @@ def _revoke_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
     return {
         "job_id": job_id,
         "revoked": revoked,
-        "message": "PXE answer and detached signature revoked from the Caddy document root."
+        "message": "PXE answer revoked from the Caddy document root."
         if revoked else "No published PXE answer existed for this job.",
     }
 
