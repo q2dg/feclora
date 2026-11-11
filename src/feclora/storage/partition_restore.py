@@ -287,12 +287,15 @@ def _luks2_restore_uuid(manifest: ImageManifest) -> str | None:
         return None
     scope = storage.get("capture_scope")
     layer = storage.get("source_layer")
-    if scope == "decrypted_mapping_bytes":
+    if scope == "decrypted_mapping_bytes" or layer == "active_crypt_mapping":
         raise PartitionRestoreError(
             "this image contains plaintext from an opened crypt mapping, not a LUKS header; "
             "restore requires a separately provisioned LUKS2 destination and is not supported"
         )
-    if scope != "encrypted_container_bytes" or layer != "luks2_container":
+    if scope == "encrypted_container_bytes" or layer == "luks2_container":
+        if scope != "encrypted_container_bytes" or layer != "luks2_container":
+            raise PartitionRestoreError("LUKS2 container byte scope and source layer do not agree")
+    else:
         return None
     luks_uuid = storage.get("luks_uuid")
     if not isinstance(luks_uuid, str) or not re.fullmatch(
