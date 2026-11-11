@@ -73,3 +73,27 @@ def test_missing_cryptsetup_is_reported():
 def test_rejects_unrecognized_luks1_text():
     with pytest.raises(LuksInventoryError):
         parse_luks_metadata("not a LUKS header", json_metadata=False)
+
+
+def test_collects_luks1_when_json_metadata_is_not_supported():
+    uuid = "11111111-2222-3333-4444-555555555555"
+    text_header = f"""LUKS header information
+Version: 1
+Cipher name: aes
+Cipher mode: xts-plain64
+UUID: {uuid}
+Key Slot 0: ENABLED
+"""
+    def runner(argv, **kwargs):
+        if "luksUUID" in argv:
+            return subprocess.CompletedProcess(argv, 0, uuid + "\\n", "")
+        if "--dump-json-metadata" in argv:
+            raise subprocess.CalledProcessError(1, argv, stderr="LUKS1 has no JSON metadata")
+        return subprocess.CompletedProcess(argv, 0, text_header, "")
+    result = collect_luks_inventory(
+        [{"path": "/dev/sda1", "filesystem": "crypto_LUKS", "children": []}],
+        which=lambda name: "/usr/sbin/cryptsetup" if name == "cryptsetup" else None,
+        runner=runner, effective_uid=lambda: 0,
+    )
+    assert result["containers"][0]["version"] == 1
+    assert result["containers"][0]["uuid"] == uuid
