@@ -51,13 +51,11 @@ def publish_pxe_answer(
     http_root: str | os.PathLike[str],
     job_id: str,
     raw_answer: bytes,
-    detached_signature: bytes,
     *,
-    verify_signature: Callable[[bytes, bytes], bool],
     address: str,
     http_port: int = 8080,
 ) -> dict[str, str]:
-    """Atomically publish a validated answer and its verified signature."""
+    """Atomically publish a validated JSON answer for retrieval over HTTP."""
     canonical_job_id = _job_id(job_id)
     root = _safe_root(http_root)
     try:
@@ -68,18 +66,10 @@ def publish_pxe_answer(
         raise PXEAnswerStoreError("PXE answer URL address must be usable unicast IPv4")
     if isinstance(http_port, bool) or not isinstance(http_port, int) or not 1 <= http_port <= 65535:
         raise PXEAnswerStoreError("PXE answer HTTP port is invalid")
-    if not isinstance(detached_signature, bytes) or not detached_signature or len(detached_signature) > 16 * 1024:
-        raise PXEAnswerStoreError("detached signature must be non-empty and at most 16 KiB")
     try:
         parse_pxe_answer(raw_answer)
     except PXEAnswerError as exc:
         raise PXEAnswerStoreError(f"PXE answer validation failed: {exc}") from exc
-    try:
-        verified = verify_signature(raw_answer, detached_signature)
-    except Exception as exc:
-        raise PXEAnswerStoreError(f"PXE answer signature verification failed: {exc}") from exc
-    if verified is not True:
-        raise PXEAnswerStoreError("PXE answer signature is not trusted; refusing publication")
 
     answers = root / "answers"
     answers.mkdir(mode=0o755, exist_ok=True)
@@ -95,14 +85,12 @@ def publish_pxe_answer(
     temporary = Path(tempfile.mkdtemp(prefix=".answer-", dir=answers))
     try:
         answer_path = temporary / "answer.json"
-        signature_path = temporary / "answer.minisig"
-        for path, payload in ((answer_path, raw_answer), (signature_path, detached_signature)):
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o444)
-            with os.fdopen(fd, "wb") as output:
-                output.write(payload)
-                output.flush()
-                os.fsync(output.fileno())
-            os.chmod(path, 0o444)
+        fd = os.open(answer_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o444)
+        with os.fdopen(fd, "wb") as output:
+            output.write(raw_answer)
+            output.flush()
+            os.fsync(output.fileno())
+        os.chmod(answer_path, 0o444)
         os.chmod(temporary, 0o555)
         os.rename(temporary, destination)
         directory_fd = os.open(answers, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
@@ -120,13 +108,7 @@ def publish_pxe_answer(
             shutil.rmtree(temporary, ignore_errors=True)
 
     base = f"http://{parsed_address}:{http_port}/answers/{canonical_job_id}"
-    return {
-        "answer_url": base + "/answer.json",
-        "signature_url": base + "/answer.minisig",
-        "directory": str(destination),
-    }
-
-
+    return {"answer_url": base + "/answer.json", "directory": str(destination)}
 
 def clear_stale_pxe_answers(http_root: str | os.PathLike[str]) -> int:
     """Remove all safely published answer directories before a new PXE session."""
@@ -147,9 +129,9 @@ def clear_stale_pxe_answers(http_root: str | os.PathLike[str]) -> int:
         if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
                 or directory_info.st_uid != os.geteuid()):
             raise PXEAnswerStoreError("PXE answer job path is not a safe directory")
-        if {item.name for item in destination.iterdir()} != {"answer.json", "answer.minisig"}:
+        if {item.name for item in destination.iterdir()} != {"answer.json"}:
             raise PXEAnswerStoreError(f"PXE answer {canonical_job_id} contains unexpected or missing files")
-        for name in ("answer.json", "answer.minisig"):
+        for name in ("answer.json",):
             item = destination / name
             item_info = item.lstat()
             if (not stat.S_ISREG(item_info.st_mode) or stat.S_ISLNK(item_info.st_mode)
