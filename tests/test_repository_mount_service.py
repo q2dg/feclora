@@ -71,6 +71,13 @@ class RepositoryMountServiceTests(unittest.TestCase):
 
             def runner(argv, **kwargs):
                 calls.append(argv)
+                if argv[0].endswith("/findmnt"):
+                    mountpoint = str(root / "mounts" / "nas")
+                    return SimpleNamespace(
+                        returncode=0,
+                        stdout=f"{mountpoint} cifs //nas.example.net/images ro\\n",
+                        stderr="",
+                    )
                 return SimpleNamespace(returncode=0, stdout="", stderr="")
 
             manager = RemoteRepositoryManager(
@@ -126,7 +133,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
             manager._is_mounted = lambda _path: next(states)
             result = manager.mount("nas")
             self.assertTrue(result["mounted"])
-            command = calls[-1]
+            command = next(argv for argv in calls if argv[0].endswith("/systemd-run"))
             self.assertIn("--unit=feclora-repository-nas.service", command)
             self.assertIn(
                 f"--property=LoadCredentialEncrypted=feclora-nas-smb:{encrypted}",
