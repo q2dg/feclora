@@ -224,6 +224,7 @@ def run_server_ui(
                 from feclora.deployment.server_ui import run_deployment_server_ui
                 run_deployment_server_ui(
                     config.interface, config.address, firewall=manager.firewall,
+                    pxe_config=config,
                 )
     except Exception as exc:
         failure = exc
