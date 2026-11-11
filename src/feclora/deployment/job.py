@@ -167,6 +167,9 @@ class DeploymentJob:
             bindings.append((mac, wwn, serial))
             seen_binding_macs.add(mac)
 
+        if bindings and target_type != "disk":
+            raise JobValidationError("stable WWN/serial target bindings currently require whole-disk targets")
+
         interface = payload.get("network_interface")
         if not isinstance(interface, str) or not _INTERFACE_RE.fullmatch(interface):
             raise JobValidationError("network_interface must be a valid Linux interface name")
