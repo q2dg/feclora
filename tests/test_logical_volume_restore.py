@@ -186,6 +186,18 @@ class LogicalVolumeRestorePreflightTests(unittest.TestCase):
                 make_manifest(), make_inventory(thin=True, pool_metadata=None), "/dev/target/root"
             )
 
+    def test_rejects_thin_pool_with_insufficient_estimated_free_data_capacity(self):
+        with self.assertRaisesRegex(RestoreProfileError, "free data capacity is smaller"):
+            preflight_logical_volume_restore(
+                make_manifest(), make_inventory(thin=True, pool_data="70"), "/dev/target/root"
+            )
+
+    def test_rejects_thin_pool_with_unknown_capacity(self):
+        inventory = make_inventory(thin=True)
+        inventory["volume_topology"]["volume_groups"][0]["logical_volumes"][1]["size_bytes"] = None
+        with self.assertRaisesRegex(RestoreProfileError, "capacity is unknown"):
+            preflight_logical_volume_restore(make_manifest(), inventory, "/dev/target/root")
+
     def test_rejects_snapshot_origin_and_lv_with_dependent_snapshots(self):
         inventory = make_inventory()
         inventory["volume_topology"]["volume_groups"][0]["logical_volumes"][0]["snapshot"] = True
