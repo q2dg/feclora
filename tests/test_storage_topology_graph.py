@@ -121,6 +121,41 @@ class StorageTopologyGraphTests(unittest.TestCase):
         self.assertIn({"source": "luks_metadata", "status": "permission_required"},
                       graph["source_statuses"])
 
+
+    def test_exact_lv_path_with_conflicting_major_minor_is_unresolved(self):
+        graph = build_storage_graph({
+            "devices": [{
+                "path": "/dev/mapper/vg-root", "type": "lvm",
+                "major_minor": "253:7", "filesystem": "ext4",
+                "uuid": "root-fs", "children": [],
+            }],
+            "volume_topology": {"status": "available", "pvs": [], "volume_groups": [{
+                "name": "vg", "logical_volumes": [{
+                    "path": "/dev/mapper/vg-root", "name": "root",
+                    "uuid": "lv-root", "major_minor": "253:8",
+                }]
+            }]},
+        })
+        self.assertIn({"layer": "lvm_lv", "path": "/dev/mapper/vg-root",
+                       "reason": "device_path_and_major_minor_conflict"}, graph["unresolved"])
+        relations = {(e["source"], e["target"], e["relation"]) for e in graph["edges"]}
+        self.assertFalse(any(source == "lvm-lv:lv-root" and relation == "maps_to_block_device"
+                             for source, target, relation in relations))
+        self.assertEqual(graph["status"], "partial")
+
+    def test_exact_lv_path_remains_usable_when_major_minor_is_unavailable(self):
+        graph = build_storage_graph({
+            "devices": [{"path": "/dev/mapper/vg-root", "type": "lvm", "children": []}],
+            "volume_topology": {"status": "available", "pvs": [], "volume_groups": [{
+                "name": "vg", "logical_volumes": [{
+                    "path": "/dev/mapper/vg-root", "name": "root",
+                    "major_minor": "253:8",
+                }]
+            }]},
+        })
+        relations = {(e["source"], e["target"], e["relation"]) for e in graph["edges"]}
+        self.assertIn(("lvm-lv:vg/root", "device:/dev/mapper/vg-root", "maps_to_block_device"), relations)
+
     def test_major_minor_match_must_be_unique(self):
         graph = build_storage_graph({
             "devices": [
