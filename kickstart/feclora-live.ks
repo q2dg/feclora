@@ -1,6 +1,6 @@
 #version=F45
-# feclora initial rescue-live Kickstart for Fedora 45 x86_64.
-# This recipe is a starting point and must pass build and boot tests.
+# Feclora Fedora Server minimal Live kiosk Kickstart for Fedora 45 x86_64.
+# Live boot is retained; Firefox/Cage is the only local interactive shell.
 
 text
 cdrom
@@ -33,6 +33,10 @@ openssl
 cockpit
 cockpit-system
 cockpit-storaged
+
+# Minimal Wayland kiosk compositor and Firefox browser (no desktop environment)
+cage
+firefox
 
 # Embedded Server-mode PXE stack; services remain disabled until explicitly selected
 # dnsmasq provides DHCP/ProxyDHCP, PXE and read-only TFTP; Caddy serves HTTP boot assets
@@ -86,33 +90,16 @@ lshw
 systemctl --root=/ enable NetworkManager
 systemctl --root=/ enable cockpit.socket
 
-# Live rescue console: physical access to this image grants an automatic
-# feclora shell and passwordless sudo. Do not reuse this policy on an installed OS.
+# The administrator account starts locked. The local first-boot
+# assistant sets its password before Cockpit accepts the administrator login.
 useradd --create-home --groups wheel --shell /bin/bash feclora
-passwd --delete feclora
-cat > /home/feclora/.bash_profile <<'EOF'
-# Cockpit is the primary operator interface. Set the live user's password
-# from this console before signing in to Cockpit.
-if [ "$(tty 2>/dev/null)" = "/dev/tty1" ] && [ -z "${FECLORA_WELCOME_SHOWN:-}" ]; then
-  export FECLORA_WELCOME_SHOWN=1
-  printf '\nFeclora Cockpit: https://<this-machine-ip>:9090\n'
-  printf 'Set a login password with: sudo passwd feclora\n'
-  printf 'Then open Cockpit from a trusted management network.\n\n'
-fi
-EOF
-chown feclora:feclora /home/feclora/.bash_profile
-chmod 0644 /home/feclora/.bash_profile
-mkdir -p /etc/systemd/system/getty@tty1.service.d
-cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf <<'EOF'
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin feclora --noclear %I $TERM
-Type=idle
-EOF
-mkdir -p /etc/sudoers.d
-echo '%wheel ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/feclora-wheel
-chmod 0440 /etc/sudoers.d/feclora-wheel
-restorecon -RF /home/feclora /etc/sudoers.d /etc/systemd/system/getty@tty1.service.d || true
+passwd --lock feclora
+
+# Firefox runs as a separate unprivileged account, never as the administrator.
+useradd --system --no-create-home --home-dir /var/lib/feclora-kiosk \
+  --shell /sbin/nologin --user-group feclora-kiosk
+install -d -o feclora-kiosk -g feclora-kiosk -m 0700 /var/lib/feclora-kiosk
+
 %end
 
 # Copy the application payload from the augmented installer DVD into the
@@ -160,9 +147,24 @@ install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-depl
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-client@.service" "$TARGET_ROOT/etc/systemd/system/feclora-client@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation@.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation-recovery.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation-recovery.service"
+install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-certificate" "$TARGET_ROOT/usr/libexec/feclora/feclora-cockpit-certificate"
+install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-launch" "$TARGET_ROOT/usr/libexec/feclora/feclora-kiosk-launch"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-certificate.service" "$TARGET_ROOT/etc/systemd/system/feclora-cockpit-certificate.service"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-bootstrap.service" "$TARGET_ROOT/etc/systemd/system/feclora-kiosk-bootstrap.service"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk.service" "$TARGET_ROOT/etc/systemd/system/feclora-kiosk.service"
+install -d -m 0755 "$TARGET_ROOT/etc/firefox/policies" "$TARGET_ROOT/etc/systemd/system/cockpit.socket.d"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-kiosk-firefox-policies.json" "$TARGET_ROOT/etc/firefox/policies/policies.json"
+cat > "$TARGET_ROOT/etc/systemd/system/cockpit.socket.d/feclora.conf" <<'EOF'
+[Unit]
+Requires=feclora-cockpit-certificate.service
+After=feclora-cockpit-certificate.service
+EOF
 install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora"
 systemctl --root="$TARGET_ROOT" enable feclora-local-operation-recovery.service
+systemctl --root="$TARGET_ROOT" enable feclora-cockpit-certificate.service feclora-kiosk-bootstrap.service feclora-kiosk.service
+systemctl --root="$TARGET_ROOT" set-default graphical.target
+systemctl --root="$TARGET_ROOT" mask getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora/images"
 chown --reference="$TARGET_ROOT/home/feclora" "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
 chown root:root "$TARGET_ROOT/var/lib/feclora/images"
