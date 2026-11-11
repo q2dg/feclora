@@ -167,8 +167,10 @@ class DeploymentJob:
             bindings.append((mac, wwn, serial))
             seen_binding_macs.add(mac)
 
-        if bindings and target_type != "disk":
-            raise JobValidationError("stable WWN/serial target bindings currently require whole-disk targets")
+        if bindings and seen_binding_macs != set(normalized_clients):
+            raise JobValidationError("stable target bindings must cover every authorized Client in the job")
+        if bindings and (operation != "restore" or target_type != "disk"):
+            raise JobValidationError("stable WWN/serial target bindings currently require whole-disk restore jobs")
 
         interface = payload.get("network_interface")
         if not isinstance(interface, str) or not _INTERFACE_RE.fullmatch(interface):
