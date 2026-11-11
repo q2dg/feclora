@@ -26,8 +26,8 @@ def plan_storage_capture(
     image_type: str,
 ) -> dict[str, Any]:
     """Describe a disk/partition's raw-byte scope and storage dependencies."""
-    if image_type not in {"disk", "partition"}:
-        raise CapturePlanError("image_type must be disk or partition")
+    if image_type not in {"disk", "partition", "logical_volume"}:
+        raise CapturePlanError("image_type must be disk, partition or logical_volume")
     if not isinstance(source_path, str) or not source_path.startswith("/dev/"):
         raise CapturePlanError("source_path must be an absolute /dev path")
     matches = [item for item in _walk_devices(inventory.get("devices") or [])
@@ -35,9 +35,9 @@ def plan_storage_capture(
     if len(matches) != 1:
         raise CapturePlanError("capture source must exist exactly once in the current inventory")
     source = matches[0]
-    expected_type = "disk" if image_type == "disk" else "part"
-    if source.get("type") != expected_type:
-        raise CapturePlanError(f"selected source is not a {expected_type}")
+    expected_types = {"disk"} if image_type == "disk" else ({"part"} if image_type == "partition" else {"lvm", "crypt", "dm"})
+    if source.get("type") not in expected_types:
+        raise CapturePlanError(f"selected source is not a valid {image_type} block device")
 
     descendants = list(_walk_devices([source]))
     included_paths = {item.get("path") for item in descendants if isinstance(item.get("path"), str)}
@@ -141,8 +141,8 @@ def plan_storage_capture(
 
     if graph.get("status") != "available":
         warnings.append("Storage topology is incomplete; inspect unresolved relationships before relying on layer-aware restore.")
-    if source.get("mountpoints"):
-        blockers.append("The selected source is mounted or in use; a consistent capture snapshot is not established.")
+    if any(item.get("mountpoints") for item in descendants):
+        blockers.append("The selected source or one of its descendants is mounted or in use; a consistent capture snapshot is not established.")
     if source.get("read_only"):
         warnings.append("The selected source is read-only; capture still requires source-access and consistency checks.")
 
