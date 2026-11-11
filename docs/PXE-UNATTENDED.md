@@ -24,11 +24,11 @@ The Cockpit Server setup now provides an initial signed-answer publication form 
    independent of the PXE Server. The repository may be provided by SSHFS,
    SFTP, SMB/CIFS, NFS, WebDAV or BitTorrent, subject to the provider support
    matrix in `REMOTE-REPOSITORIES.md`.
-2. The answer document and its detached `.minisig` signature, uploaded as files.
-   Feclora validates the JSON, requires the repository URL field to match the
-   signed document exactly, verifies the signature against the configured
-   Server minisign public key, and atomically publishes both files under a
-   generated job UUID in Caddy's document root.
+2. The answer document, uploaded as a JSON file. Feclora validates the JSON,
+   requires the repository URL field to match the separate form field exactly,
+   signs the document with the protected Server minisign private key, verifies
+   it against the configured public key, and atomically publishes both files
+   under a generated job UUID in Caddy's document root.
 3. The PXE boot configuration. This initial publication form is separate from
    the existing mTLS remote-job form and does not enroll or identify clients.
 
@@ -70,21 +70,22 @@ rejects duplicate JSON keys, unknown fields, malformed repository URLs,
 embedded URL credentials, missing stable target selectors, and documents
 which do not explicitly confirm destructive restore and automatic start.
 The validator and server-side publication path are implemented. Cockpit exposes
-separate repository URL, JSON file and detached-signature fields. The API only
-publishes while the managed PXE services are active, checks that the signed
-answer contains exactly the URL entered in the form, and verifies the signature
-against the Server's configured trusted minisign public key. Cockpit can
-explicitly revoke the published answer by its job UUID. This is not yet
-connected to cancellation/expiry of a deployment job, and it is not yet the
-complete PXE download, client-side verification, repository-mount or restore
-execution path.
+separate repository URL and JSON file fields. The API only publishes while the
+managed PXE services are active, checks that the answer contains exactly the
+URL entered in the form, signs it with the protected Server minisign private
+key, verifies it against the configured public key, and atomically publishes
+the answer and detached signature. Cockpit can explicitly revoke the published
+answer by its job UUID. This is not yet connected to cancellation/expiry of a
+deployment job, and it is not yet the complete PXE download, client-side
+verification, repository-mount or restore execution path.
 
 ## Security boundary
 
 An answer file can authorize a destructive operation, so it must not be
-treated as harmless configuration. It must be published only by an
-administrator through Cockpit, be scoped to one deployment, and be removed
-when that deployment expires or is cancelled. Clients must validate its
+treated as harmless configuration. It is published only after administrator
+action through Cockpit, is scoped to one generated job UUID, and can currently
+be revoked explicitly from the same Cockpit form. Automatic removal when a
+future deployment job expires or is cancelled is not implemented yet. Clients must validate its
 schema and repository integrity metadata before any write. A plain HTTP
 answer file is vulnerable to modification by an attacker on the PXE network;
 production unattended writes therefore require a trusted integrity mechanism
@@ -94,9 +95,8 @@ document or knowing its URL is not sufficient authorization.
 
 The signed download handoff, the Live Client answer downloader and verifier,
 repository URL adapters and the end-to-end no-identity execution flow remain
-implementation work. Do not
-describe unattended PXE as complete until those pieces are connected and
-tested.
+implementation work. Do not describe unattended PXE as complete until those
+pieces are connected and tested.
 
 ## Provider support status
 
@@ -112,10 +112,10 @@ are not yet complete provider/transport workflows.
 - [x] Provide interactive Live boot through iPXE.
 - [x] Define and validate a bounded, data-only answer-file schema.
 - [ ] Add a Live boot-time answer-file downloader and client-side signature verifier.
-- [x] Add Cockpit repository URL, JSON answer and detached-signature upload
-      controls; require exact URL equality with the signed answer.
-- [x] Verify uploaded signatures against the configured Server public key and
-      atomically publish/revoke job-scoped files through the active Caddy root.
+- [x] Add Cockpit repository URL and JSON answer-file upload controls; require
+      exact URL equality with the answer document.
+- [x] Sign answers with the protected Server key, verify with the configured
+      public key, and atomically publish/revoke job-scoped files through Caddy.
 - [ ] Tie answer revocation to deployment-job cancellation and expiry.
 - [ ] Connect repository URL schemes to the existing remote repository
       credential and mount/transfer facilities.
