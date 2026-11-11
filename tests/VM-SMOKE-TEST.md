@@ -55,8 +55,8 @@ independent test run. Remove the temporary copy after the test.
 
 - [ ] ISO boots in BIOS mode.
 - [ ] ISO boots in UEFI mode.
-- [ ] Live session reaches the expected tty1 feclora shell.
-- [ ] `sudo -n true` succeeds in this explicitly privileged rescue image.
+- [ ] Current transitional Live session reaches the expected tty1 feclora shell.
+- [ ] `sudo -n true` succeeds in the current explicitly privileged rescue image; this must be removed for the target kiosk runtime.
 - [ ] `/usr/share/feclora/python/feclora` contains the application payload.
 - [ ] `/usr/share/cockpit/feclora/index.html` exists and is non-empty.
 - [ ] `cockpit.socket` is enabled and active.
@@ -67,9 +67,9 @@ independent test run. Remove the temporary copy after the test.
 - [ ] Kernel command line and boot logs are captured.
 - [ ] ISO checksum and VM firmware details are recorded.
 
-## Cockpit login and screenshot capture
+## Transitional Cockpit login and screenshot capture
 
-After the Live VM reaches the console, set a temporary password for the live operator:
+The following procedure applies only to the current console-led Live image. After the Live VM reaches the console, set a temporary password for the live operator:
 
 ```bash
 sudo passwd feclora
@@ -84,6 +84,25 @@ For visual documentation, capture the real browser screens from this VM and
 follow the [Cockpit screenshot capture plan](../docs/assets/screenshots/README.md).
 Record the ISO's source commit and Fedora release with each screenshot set; redact
 VM-generated hostnames, addresses and device identifiers before committing.
+
+## Target Firefox/Cage kiosk acceptance (pending implementation)
+
+These checks become mandatory when the kiosk runtime is implemented. They
+must not be marked passed against the current console-led image.
+
+- [ ] BIOS and UEFI boot automatically start the Cage kiosk session.
+- [ ] Firefox opens the local Cockpit origin in kiosk mode.
+- [ ] Cockpit's local TLS certificate is trusted; no certificate bypass or
+  interstitial is required.
+- [ ] Secure first-boot setup provisions a non-default administrator
+  credential without displaying or storing it in the browser profile.
+- [ ] The kiosk account is unprivileged and cannot use privileged Feclora API
+  actions or Cockpit Terminal.
+- [ ] Firefox and Cage restart after forced process termination.
+- [ ] External navigation, browser chrome, application launchers and ordinary
+  TTY/shell escape paths are unavailable.
+- [ ] Kiosk logs, boot journal, certificate fingerprint and test results are
+  recorded for both firmware modes.
 
 ## Hardware discovery
 
