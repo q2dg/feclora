@@ -84,6 +84,8 @@ class ParseInventoryTests(unittest.TestCase):
         self.assertIn(inventory["volume_topology"]["status"], {"incomplete", "permission_required"})
         self.assertIn("btrfs_subvolumes", inventory)
         self.assertEqual(inventory["btrfs_subvolumes"]["status"], "unavailable")
+        self.assertEqual(inventory["storage_graph"]["schema_version"], 1)
+        self.assertTrue(any(node["id"] == "device:/dev/sda" for node in inventory["storage_graph"]["nodes"]))
 
     @patch("feclora.storage.inventory.shutil.which", return_value="/usr/bin/lsblk")
     def test_reports_lsblk_failure(self, _which):
