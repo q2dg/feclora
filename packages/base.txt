@@ -1,4 +1,4 @@
-# Runtime packages for the initial feclora rescue live image (Fedora 45 x86_64).
+# Runtime packages for the Fedora 45 minimal Live kiosk appliance (x86_64).
 # Keep this list aligned with kickstart/feclora-live.ks.
 kernel
 tar
@@ -15,6 +15,10 @@ openssl
 cockpit
 cockpit-system
 cockpit-storaged
+
+# Minimal local graphical shell: Firefox kiosk only, no general-purpose desktop
+cage
+firefox
 
 # Embedded Server-mode PXE stack (installed, never enabled by default)
 dnsmasq
