@@ -163,6 +163,71 @@ class PartitionRestoreTests(unittest.TestCase):
                 popen_factory=lambda _argv, **_opts: proc,
             )
 
+    def test_luks2_container_restore_rejects_missing_segments(self):
+        self.write_luks2_manifest()
+        luks_uuid = "12345678-1234-4234-8234-123456789abc"
+        proc = FakeProcess()
+        proc.stdout = io.BytesIO(self.payload)
+        def runner(command, **kwargs):
+            if "luksUUID" in command:
+                return SimpleNamespace(stdout=luks_uuid + "\n", stderr="", returncode=0)
+            if "luksDump" in command:
+                return SimpleNamespace(
+                    stdout=json.dumps({"uuid": luks_uuid, "segments": {}, "keyslots": {"0": {"type": "luks2"}}}),
+                    stderr="", returncode=0,
+                )
+            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\n", stderr="", returncode=0)
+        with self.assertRaisesRegex(PartitionRestoreError, "segments or keyslots"):
+            restore_partition(
+                self.manifest, self.temp.name, "/dev/sda1",
+                confirmation="ERASE /dev/sda1",
+                executables={"lsblk": "lsblk", "dd": "dd", "cryptsetup": "cryptsetup"},
+                runner=runner, device_validator=lambda _path: True,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda _argv, **_opts: proc,
+            )
+
+    def test_luks2_container_restore_fails_closed_when_cryptsetup_cannot_read_header(self):
+        self.write_luks2_manifest()
+        proc = FakeProcess()
+        proc.stdout = io.BytesIO(self.payload)
+        def runner(command, **kwargs):
+            if "luksUUID" in command:
+                return SimpleNamespace(stdout="", stderr="not a LUKS device", returncode=2)
+            if "luksDump" in command:
+                return SimpleNamespace(stdout="", stderr="not a LUKS device", returncode=2)
+            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\n", stderr="", returncode=0)
+        with self.assertRaisesRegex(PartitionRestoreError, "header could not be verified"):
+            restore_partition(
+                self.manifest, self.temp.name, "/dev/sda1",
+                confirmation="ERASE /dev/sda1",
+                executables={"lsblk": "lsblk", "dd": "dd", "cryptsetup": "cryptsetup"},
+                runner=runner, device_validator=lambda _path: True,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda _argv, **_opts: proc,
+            )
+
+    def test_luks2_container_restore_rejects_invalid_json_metadata(self):
+        self.write_luks2_manifest()
+        luks_uuid = "12345678-1234-4234-8234-123456789abc"
+        proc = FakeProcess()
+        proc.stdout = io.BytesIO(self.payload)
+        def runner(command, **kwargs):
+            if "luksUUID" in command:
+                return SimpleNamespace(stdout=luks_uuid + "\n", stderr="", returncode=0)
+            if "luksDump" in command:
+                return SimpleNamespace(stdout="{invalid", stderr="", returncode=0)
+            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\n", stderr="", returncode=0)
+        with self.assertRaisesRegex(PartitionRestoreError, "valid LUKS2 JSON metadata"):
+            restore_partition(
+                self.manifest, self.temp.name, "/dev/sda1",
+                confirmation="ERASE /dev/sda1",
+                executables={"lsblk": "lsblk", "dd": "dd", "cryptsetup": "cryptsetup"},
+                runner=runner, device_validator=lambda _path: True,
+                target_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda _argv, **_opts: proc,
+            )
+
     def test_luks2_container_restore_rejects_uuid_mismatch_after_write(self):
         self.write_luks2_manifest()
         proc = FakeProcess()
