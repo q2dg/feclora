@@ -57,6 +57,39 @@ The same isolated lab has one Server and two independently bootable Clients (BIO
 
 The multicast receiver count is deliberately set to the full selected Client count. The sender must not start unless every selected Client is authenticated and READY. The current sender is bounded by its configured wait and bitrate limits. If the multicast path or IGMP behavior is unreliable, do not weaken the receiver threshold to hide packet loss; use unicast instead.
 
+
+## LUKS2 encrypted-partition restore acceptance
+
+The dedicated loop-device test exercises the full raw encrypted-container path,
+including the check that metadata-only verification cannot establish: the
+restored container must unlock with the original key and expose the exact
+plaintext bytes written before capture.
+
+On a disposable Fedora/Linux test host, install `cryptsetup`, `util-linux`
+(`losetup`, `sfdisk`, `lsblk`), `coreutils`, and Python. From the repository
+root run:
+
+~~~bash
+sudo bash tests/vm/run-luks2-partition-acceptance.sh
+~~~
+
+The script creates two sparse 160 MiB files in a private temporary directory,
+partitions them, attaches them only as loop devices, formats the source
+partition as LUKS2 with a temporary test key, writes a random plaintext payload
+through the source mapping, captures the raw encrypted partition, and calls
+Feclora's `restore_partition` engine against the second loop partition. It
+then opens the restored container using the original key and compares the
+decrypted payload byte-for-byte. Temporary mappings, loop devices, key and
+files are removed by the exit trap.
+
+This is an opt-in destructive test. It refuses to run without root and its
+restore target is constrained to the exact loop partition created by the
+script. Do not edit it to point at a physical disk, production volume, or
+existing loop device. A successful run is evidence for this host/kernel/
+cryptsetup combination only; record the OS, kernel, cryptsetup version and
+commit SHA with the result. It does not replace hardware acceptance or test
+LUKS2-on-LV, opened-mapping restore, key rotation, or remote deployment.
+
 ## Cleanup
 
 After recording results, remove the guests and isolated network:
