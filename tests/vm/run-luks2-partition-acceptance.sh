@@ -142,10 +142,12 @@ manifest = {
 }
 manifest_path = repo / "luks2-acceptance.manifest.json"
 manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+client_repo = repo / "client-repository"
+client_repo.mkdir(mode=0o700)
 
 # Exercise the real unicast Client runtime and its locally approved
-# partition target. Only the network artifact receiver is replaced: it returns
-# this locally generated manifest, while restore_partition performs real I/O.
+# partition target. The Client receives into a separate repository so the
+# real image-set receiver must publish the transferred artifact and manifest.
 job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 job = DeploymentJob.from_dict({
     "schema_version": 1,
@@ -207,7 +209,7 @@ try:
         success, detail = execute_client_image_job(
             job, client_socket, approval,
             server_identity=server_identity,
-            repository=repo,
+            repository=client_repo,
             trusted_server_public_key=None,
             executables={
                 "lsblk": shutil.which("lsblk"),
