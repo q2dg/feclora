@@ -51,7 +51,7 @@ def device_details(device: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 def volume_topology_details(inventory: dict[str, Any]) -> str:
-    """Format read-only LVM, Stratis and Btrfs topology for the rescue UI."""
+    """Format read-only LVM, LUKS, Stratis and Btrfs topology for the rescue UI."""
     lines: list[str] = []
     lvm = inventory.get("volume_topology") or {}
     lines.append("LVM topology: " + str(lvm.get("status", "not collected")))
@@ -780,7 +780,7 @@ def main() -> int:
             return 1
         choice = _menu("feclora - Local rescue", "Inspect, capture or restore storage. Restore operations overwrite their target.", [
             ("inspect", "Inspect disks and partitions"),
-            ("volume-topology", "Inspect LVM, Stratis and Btrfs topology (read only)"),
+            ("volume-topology", "Inspect LVM, LUKS, Stratis and Btrfs topology (read only)"),
             ("capture-disk", "Capture a whole disk"),
             ("capture-partition", "Capture a partition"),
             ("restore", "Restore an image"),
