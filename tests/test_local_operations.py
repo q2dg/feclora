@@ -19,6 +19,20 @@ class LocalOperationStoreTests(unittest.TestCase):
             self.assertEqual(status["events"][0]["sequence"], 1)
             self.assertEqual(store.definition(operation_id)["params"]["source"], "/dev/sda")
 
+    def test_logical_volume_capture_is_a_valid_durable_operation(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000001",
+            "action": "capture_logical_volume",
+            "params": {
+                "source": "/dev/mapper/vg-root", "image_id": "root-image",
+                "compression": "zstd", "encrypt": False, "sign": False,
+            },
+        }
+        validated = validate_definition(definition)
+        self.assertEqual(validated["action"], "capture_logical_volume")
+        self.assertEqual(validated["params"]["source"], "/dev/mapper/vg-root")
+
     def test_sftp_inventory_is_a_valid_durable_operation(self):
         definition = {
             "schema_version": 1,
