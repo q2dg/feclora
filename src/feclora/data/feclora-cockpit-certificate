@@ -4,6 +4,7 @@ umask 077
 
 ROOT=/etc/feclora/kiosk-pki
 ANCHOR=/etc/pki/ca-trust/source/anchors/feclora-kiosk-ca.crt
+MOZILLA_CA=/usr/lib/mozilla/certificates/feclora-kiosk-ca.crt
 COCKPIT_DIR=/etc/cockpit/ws-certs.d
 COCKPIT_CERT=${COCKPIT_DIR}/50-feclora.cert
 COCKPIT_KEY=${COCKPIT_DIR}/50-feclora.key
@@ -12,7 +13,7 @@ OPENSSL=/usr/bin/openssl
 [[ $EUID -eq 0 ]] || { echo "Must run as root" >&2; exit 1; }
 command -v "$OPENSSL" >/dev/null 2>&1 || { echo "OpenSSL is required" >&2; exit 1; }
 install -d -o root -g root -m 0700 "$ROOT"
-install -d -o root -g root -m 0755 "$COCKPIT_DIR" "$(dirname "$ANCHOR")"
+install -d -o root -g root -m 0755 "$COCKPIT_DIR" "$(dirname "$ANCHOR")" "$(dirname "$MOZILLA_CA")"
 
 CA_KEY=$ROOT/ca.key
 CA_CERT=$ROOT/ca.crt
@@ -85,5 +86,6 @@ install -o root -g root -m 0600 "$SERVER_KEY" "$tmp_key"
 mv -f "$tmp_key" "$COCKPIT_KEY"
 mv -f "$tmp_cert" "$COCKPIT_CERT"
 install -o root -g root -m 0644 "$CA_CERT" "$ANCHOR"
-restorecon "$ROOT" "$ANCHOR" "$COCKPIT_CERT" 2>/dev/null || true
+install -o root -g root -m 0644 "$CA_CERT" "$MOZILLA_CA"
+restorecon "$ROOT" "$ANCHOR" "$MOZILLA_CA" "$COCKPIT_CERT" 2>/dev/null || true
 /usr/bin/update-ca-trust extract
