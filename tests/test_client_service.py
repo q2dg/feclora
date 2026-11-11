@@ -32,6 +32,37 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             payload["target_bindings"] = target_bindings
         return DeploymentJob.from_dict(payload)
 
+    def test_find_device_resolves_only_unique_healthy_linear_or_thin_lv(self):
+        inventory = {
+            "devices": [{"type": "lvm", "path": "/dev/dm-2", "major_minor": "253:2", "size_bytes": 8 * 1024**3}],
+            "volume_topology": {"status": "available", "volume_groups": [{
+                "name": "vg0", "status": "healthy", "logical_volumes": [{
+                    "name": "data", "path": "/dev/vg0/data", "major_minor": "253:2",
+                    "segment_type": "linear", "size_bytes": 8 * 1024**3,
+                    "health": None, "snapshot": False, "hidden": False,
+                }],
+            }]},
+        }
+        with mock.patch("feclora.deployment.client_service.collect_inventory", return_value=inventory):
+            selected = ClientDeploymentService._find_device("/dev/vg0/data", "logical_volume")
+        self.assertEqual(selected["path"], "/dev/vg0/data")
+        self.assertEqual(selected["major_minor"], "253:2")
+        self.assertEqual(selected["type"], "lvm")
+
+    def test_find_device_rejects_unsupported_lv_layout(self):
+        inventory = {
+            "devices": [{"type": "lvm", "path": "/dev/dm-2", "major_minor": "253:2"}],
+            "volume_topology": {"status": "available", "volume_groups": [{
+                "name": "vg0", "status": "healthy", "logical_volumes": [{
+                    "name": "data", "path": "/dev/vg0/data", "major_minor": "253:2",
+                    "segment_type": "raid1", "health": None, "snapshot": False, "hidden": False,
+                }],
+            }]},
+        }
+        with mock.patch("feclora.deployment.client_service.collect_inventory", return_value=inventory):
+            with self.assertRaisesRegex(Exception, "not uniquely present"):
+                ClientDeploymentService._find_device("/dev/vg0/data", "logical_volume")
+
     def test_client_service_runs_only_after_server_start_and_persists_terminal_status(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
