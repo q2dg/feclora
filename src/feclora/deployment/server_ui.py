@@ -139,6 +139,36 @@ def _choose_job(
         if len(selected_macs) < 2 or len(selected_macs) != len(selected_identities):
             raise DeploymentControlError("multicast restore requires at least two valid enrolled Clients")
 
+    target_bindings: dict[str, dict[str, str | None]] = {}
+    if operation == "restore":
+        bind_choice = dialog_app._menu(
+            "Stable Client target binding",
+            "Optional but recommended for PXE unattended preparation. Bind each selected Client to its physical target by WWN and/or serial; transient /dev names are never used as identity.",
+            [("bind", "Bind stable target identity for every selected Client"),
+             ("skip", "Keep interactive local target selection")],
+        )
+        if bind_choice == "bind":
+            for mac in selected_macs:
+                wwn = dialog_app._input(
+                    "Client target WWN",
+                    f"Enter the expected target WWN for Client {mac}; leave blank only if unavailable:",
+                )
+                if wwn is None:
+                    raise DeploymentControlError("stable target binding was cancelled")
+                serial = dialog_app._input(
+                    "Client target serial number",
+                    f"Enter the expected target serial for Client {mac}; leave blank only if unavailable:",
+                )
+                if serial is None:
+                    raise DeploymentControlError("stable target binding was cancelled")
+                wwn = wwn.strip() or None
+                serial = serial.strip() or None
+                if wwn is None and serial is None:
+                    raise DeploymentControlError(
+                        f"Client {mac} target binding requires a WWN, serial number, or both"
+                    )
+                target_bindings[mac] = {"wwn": wwn, "serial": serial}
+
     group = None
     port = None
     if transport == "multicast":
@@ -173,6 +203,7 @@ def _choose_job(
         "start_policy": "manual",
         "expected_clients": None,
         "start_deadline": None,
+        **({"target_bindings": target_bindings} if target_bindings else {}),
     })
     return job, manifest_path, selected_macs
 
