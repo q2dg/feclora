@@ -48,7 +48,11 @@ def plan_storage_capture(
     warnings: list[str] = []
     dependencies: list[dict[str, Any]] = []
     layers: list[str] = []
-    capture_scope = "whole_disk_bytes" if image_type == "disk" else "partition_bytes"
+    capture_scope = {
+        "disk": "whole_disk_bytes",
+        "partition": "partition_bytes",
+        "logical_volume": "logical_volume_bytes",
+    }[image_type]
 
     fstype = str(source.get("filesystem") or "").lower()
     features = set(source.get("volume_features") or [])
