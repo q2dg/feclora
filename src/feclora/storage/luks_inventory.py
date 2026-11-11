@@ -112,6 +112,10 @@ def collect_luks_inventory(
         except (subprocess.TimeoutExpired, LuksInventoryError, OSError):
             errors.append({"device": path, "reason": "LUKS2 metadata inspection failed"})
             continue
+        metadata_uuid = metadata.get("uuid")
+        if isinstance(metadata_uuid, str) and metadata_uuid.lower() != luks_uuid.lower():
+            errors.append({"device": path, "reason": "LUKS UUID sources disagree"})
+            continue
         metadata["uuid"] = luks_uuid
         containers.append({"device": path, **metadata})
 
