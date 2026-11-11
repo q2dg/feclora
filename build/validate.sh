@@ -4,7 +4,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 errors=0
 fail() { printf 'ERROR: %s\n' "$*" >&2; errors=$((errors + 1)); }
 
-for file in "$ROOT_DIR/build/build-iso.sh" "$ROOT_DIR/build/preflight.sh" "$ROOT_DIR/build/install-host-deps.sh" "$ROOT_DIR/kickstart/feclora-live.ks" "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/src/feclora/storage/inventory.py" "$ROOT_DIR/src/feclora/storage/partition_image_capture.py" "$ROOT_DIR/tests/test_partition_image_capture.py" "$ROOT_DIR/src/feclora/storage/volume_metadata.py" "$ROOT_DIR/tests/test_volume_metadata.py" "$ROOT_DIR/src/feclora/storage/volume_topology.py" "$ROOT_DIR/tests/test_volume_topology.py" "$ROOT_DIR/src/feclora/storage/btrfs_inventory.py" "$ROOT_DIR/tests/test_btrfs_inventory.py" "$ROOT_DIR/src/feclora/storage/stratis_inventory.py" "$ROOT_DIR/tests/test_stratis_inventory.py" "$ROOT_DIR/src/feclora/network/interface_discovery.py" "$ROOT_DIR/tests/test_interface_discovery.py" "$ROOT_DIR/src/feclora/network/pxe_config.py" "$ROOT_DIR/src/feclora/network/pxe_preflight.py" "$ROOT_DIR/tests/test_pxe_preflight.py" "$ROOT_DIR/src/feclora/network/pxe_service.py" "$ROOT_DIR/tests/test_pxe_service.py" "$ROOT_DIR/src/feclora/network/firewall.py" "$ROOT_DIR/tests/test_firewall.py" "$ROOT_DIR/src/feclora/network/boot_assets.py" "$ROOT_DIR/tests/test_boot_assets.py" "$ROOT_DIR/src/feclora/network/boot_tree.py" "$ROOT_DIR/tests/test_boot_tree.py" "$ROOT_DIR/src/feclora/network/pxe_boot.py" "$ROOT_DIR/tests/test_pxe_boot.py" "$ROOT_DIR/src/feclora/network/server_mode.py" "$ROOT_DIR/src/feclora/deployment/control.py" "$ROOT_DIR/src/feclora/deployment/artifact_transfer.py" "$ROOT_DIR/src/feclora/deployment/client_runtime.py" "$ROOT_DIR/src/feclora/deployment/runtime_config.py" "$ROOT_DIR/src/feclora/deployment/journal.py" "$ROOT_DIR/src/feclora/deployment/service.py" "$ROOT_DIR/src/feclora/deployment/client_service.py" "$ROOT_DIR/src/feclora/data/feclora-deployment@.service" "$ROOT_DIR/src/feclora/data/feclora-client@.service" "$ROOT_DIR/tests/test_deployment_service.py" "$ROOT_DIR/tests/test_client_service.py" "$ROOT_DIR/src/feclora/deployment/server_ui.py" "$ROOT_DIR/src/feclora/deployment/client_ui.py" "$ROOT_DIR/tests/test_deployment_control.py" "$ROOT_DIR/tests/test_artifact_transfer.py" "$ROOT_DIR/tests/test_client_runtime.py" "$ROOT_DIR/tests/test_runtime_config.py" "$ROOT_DIR/tests/test_deployment_journal.py" "$ROOT_DIR/tests/vm/README.md" "$ROOT_DIR/tests/vm/run-pxe-matrix.sh" "$ROOT_DIR/tests/test_server_mode.py" "$ROOT_DIR/tests/test_pxe_config.py" "$ROOT_DIR/src/feclora/storage/restore_profile.py" "$ROOT_DIR/src/feclora/storage/profile_executor.py" "$ROOT_DIR/src/feclora/data/feclora-restore-profile-env" "$ROOT_DIR/src/feclora/data/feclora-restore-profile.service" "$ROOT_DIR/src/feclora/webapi.py" "$ROOT_DIR/src/feclora/storage/local_operations.py" "$ROOT_DIR/src/feclora/storage/local_operation_service.py" "$ROOT_DIR/src/feclora/data/feclora-local-operation@.service" "$ROOT_DIR/src/feclora/data/feclora-local-operation-recovery.service" "$ROOT_DIR/tests/test_webapi.py" "$ROOT_DIR/tests/test_bootstrap.py" "$ROOT_DIR/tests/test_local_operations.py" "$ROOT_DIR/tests/test_local_operation_service.py" "$ROOT_DIR/webui/package.json" "$ROOT_DIR/webui/src/App.jsx" "$ROOT_DIR/webui/src/api.js" "$ROOT_DIR/build/build-webui.sh" "$ROOT_DIR/docs/COCKPIT.md" "$ROOT_DIR/build/README.md"; do
+for file in "$ROOT_DIR/build/build-iso.sh" "$ROOT_DIR/build/preflight.sh" "$ROOT_DIR/build/install-host-deps.sh" "$ROOT_DIR/kickstart/feclora-live.ks" "$ROOT_DIR/packages/base.txt" "$ROOT_DIR/src/feclora/storage/inventory.py" "$ROOT_DIR/src/feclora/storage/partition_image_capture.py" "$ROOT_DIR/tests/test_partition_image_capture.py" "$ROOT_DIR/src/feclora/storage/volume_metadata.py" "$ROOT_DIR/tests/test_volume_metadata.py" "$ROOT_DIR/src/feclora/storage/volume_topology.py" "$ROOT_DIR/tests/test_volume_topology.py" "$ROOT_DIR/src/feclora/storage/btrfs_inventory.py" "$ROOT_DIR/tests/test_btrfs_inventory.py" "$ROOT_DIR/src/feclora/storage/stratis_inventory.py" "$ROOT_DIR/tests/test_stratis_inventory.py" "$ROOT_DIR/src/feclora/network/interface_discovery.py" "$ROOT_DIR/tests/test_interface_discovery.py" "$ROOT_DIR/src/feclora/network/pxe_config.py" "$ROOT_DIR/src/feclora/network/pxe_preflight.py" "$ROOT_DIR/tests/test_pxe_preflight.py" "$ROOT_DIR/src/feclora/network/pxe_service.py" "$ROOT_DIR/tests/test_pxe_service.py" "$ROOT_DIR/src/feclora/network/firewall.py" "$ROOT_DIR/tests/test_firewall.py" "$ROOT_DIR/src/feclora/network/boot_assets.py" "$ROOT_DIR/tests/test_boot_assets.py" "$ROOT_DIR/src/feclora/network/boot_tree.py" "$ROOT_DIR/tests/test_boot_tree.py" "$ROOT_DIR/src/feclora/network/pxe_boot.py" "$ROOT_DIR/tests/test_pxe_boot.py" "$ROOT_DIR/src/feclora/network/server_mode.py" "$ROOT_DIR/src/feclora/deployment/control.py" "$ROOT_DIR/src/feclora/deployment/artifact_transfer.py" "$ROOT_DIR/src/feclora/deployment/client_runtime.py" "$ROOT_DIR/src/feclora/deployment/runtime_config.py" "$ROOT_DIR/src/feclora/deployment/journal.py" "$ROOT_DIR/src/feclora/deployment/service.py" "$ROOT_DIR/src/feclora/deployment/client_service.py" "$ROOT_DIR/src/feclora/data/feclora-deployment@.service" "$ROOT_DIR/src/feclora/data/feclora-client@.service" "$ROOT_DIR/tests/test_deployment_service.py" "$ROOT_DIR/tests/test_client_service.py" "$ROOT_DIR/src/feclora/deployment/server_ui.py" "$ROOT_DIR/src/feclora/deployment/client_ui.py" "$ROOT_DIR/tests/test_deployment_control.py" "$ROOT_DIR/tests/test_artifact_transfer.py" "$ROOT_DIR/tests/test_client_runtime.py" "$ROOT_DIR/tests/test_runtime_config.py" "$ROOT_DIR/tests/test_deployment_journal.py" "$ROOT_DIR/tests/vm/README.md" "$ROOT_DIR/tests/vm/run-pxe-matrix.sh" "$ROOT_DIR/tests/test_server_mode.py" "$ROOT_DIR/tests/test_pxe_config.py" "$ROOT_DIR/src/feclora/storage/restore_profile.py" "$ROOT_DIR/src/feclora/storage/profile_executor.py" "$ROOT_DIR/src/feclora/data/feclora-restore-profile-env" "$ROOT_DIR/src/feclora/data/feclora-restore-profile.service" "$ROOT_DIR/src/feclora/webapi.py" "$ROOT_DIR/src/feclora/kiosk_bootstrap.py" "$ROOT_DIR/tests/test_kiosk_bootstrap.py" "$ROOT_DIR/src/feclora/data/feclora-cockpit-certificate" "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" "$ROOT_DIR/src/feclora/data/feclora-cockpit-certificate.service" "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" "$ROOT_DIR/src/feclora/storage/local_operations.py" "$ROOT_DIR/src/feclora/storage/local_operation_service.py" "$ROOT_DIR/src/feclora/data/feclora-local-operation@.service" "$ROOT_DIR/src/feclora/data/feclora-local-operation-recovery.service" "$ROOT_DIR/tests/test_webapi.py" "$ROOT_DIR/tests/test_bootstrap.py" "$ROOT_DIR/tests/test_local_operations.py" "$ROOT_DIR/tests/test_local_operation_service.py" "$ROOT_DIR/webui/package.json" "$ROOT_DIR/webui/src/App.jsx" "$ROOT_DIR/webui/src/api.js" "$ROOT_DIR/build/build-webui.sh" "$ROOT_DIR/docs/COCKPIT.md" "$ROOT_DIR/build/README.md"; do
   [[ -f "$file" ]] || fail "Required project file is missing: $file"
 done
 
@@ -44,6 +44,42 @@ fi
 
 if [[ -f "$ROOT_DIR/src/feclora/data/feclora-restore-profile-env" ]]; then
   bash -n "$ROOT_DIR/src/feclora/data/feclora-restore-profile-env" || fail "Unattended restore environment wrapper has invalid Bash syntax."
+fi
+if [[ -f "$ROOT_DIR/src/feclora/data/feclora-cockpit-certificate" ]]; then
+  bash -n "$ROOT_DIR/src/feclora/data/feclora-cockpit-certificate" || fail "Cockpit certificate provisioning script has invalid Bash syntax."
+fi
+if [[ -f "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" ]]; then
+  bash -n "$ROOT_DIR/src/feclora/data/feclora-kiosk-launch" || fail "Firefox kiosk launcher has invalid Bash syntax."
+fi
+if [[ -f "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" ]]; then
+  python3 -m json.tool "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json" >/dev/null || fail "Firefox kiosk policy is not valid JSON."
+fi
+if ! grep -q 'def validate_password' "$ROOT_DIR/src/feclora/kiosk_bootstrap.py" \
+   || ! grep -q 'HTTPServer((HOST, PORT)' "$ROOT_DIR/src/feclora/kiosk_bootstrap.py"; then
+  fail "Loopback-only first-boot administrator setup is missing."
+fi
+if ! grep -q '127.0.0.1' "$ROOT_DIR/src/feclora/kiosk_bootstrap.py" \
+   || ! grep -q 'Origin' "$ROOT_DIR/src/feclora/kiosk_bootstrap.py"; then
+  fail "First-boot password setup is missing its loopback/Origin restrictions."
+fi
+if grep -Eiq 'agetty --autologin|NOPASSWD|passwd --delete feclora' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "Kickstart must not configure automatic login, empty passwords or passwordless sudo."
+fi
+if ! grep -q 'passwd --lock feclora' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "The Cockpit administrator account must remain locked until local first-boot setup."
+fi
+for package in cage firefox; do
+  grep -qx "$package" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $package."
+  grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."
+done
+for unit in feclora-cockpit-certificate.service feclora-kiosk-bootstrap.service feclora-kiosk.service; do
+  grep -q "$unit" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not install and enable $unit."
+done
+if ! grep -q 'Requires=feclora-cockpit-certificate.service' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "Cockpit socket is not ordered after local TLS certificate provisioning."
+fi
+if ! grep -q 'ImportEnterpriseRoots' "$ROOT_DIR/src/feclora/data/feclora-kiosk-firefox-policies.json"; then
+  fail "Firefox is not configured to trust the operating-system enterprise CA store."
 fi
 
 if ! grep -q 'network_interfaces|' "$ROOT_DIR/kickstart/feclora-live.ks" \
