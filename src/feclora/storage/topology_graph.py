@@ -9,7 +9,7 @@ import re
 from typing import Any
 
 
-_DEVICE_PATH = re.compile(r"(/dev/[^\s,()]+)")
+_DEVICE_PATH = re.compile(r"(/dev/[^\\s,()]+)")
 
 
 def _walk_devices(devices: list[dict[str, Any]]):
@@ -27,7 +27,7 @@ def _walk_devices(devices: list[dict[str, Any]]):
 
 
 def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
-    """Join lsblk, LVM, LUKS and Btrfs evidence without inferring aliases."""
+    """Join storage evidence; never infer an unverified device alias."""
     nodes: dict[str, dict[str, Any]] = {}
     edges: list[dict[str, str]] = []
     unresolved: list[dict[str, str]] = []
@@ -69,21 +69,19 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
             add_edge(device_id, fs_id, "hosts")
 
     luks = inventory.get("luks_metadata") or {}
-    luks_by_path = {
-        item.get("device"): item for item in luks.get("containers", [])
-        if isinstance(item, dict) and isinstance(item.get("device"), str)
-    }
-    for path, metadata in luks_by_path.items():
+    for item in luks.get("containers", []):
+        if not isinstance(item, dict) or not isinstance(item.get("device"), str):
+            continue
+        path = item["device"]
         device_id = path_ids.get(path)
         if not device_id:
             unresolved.append({"layer": "luks", "path": path, "reason": "device_not_in_lsblk"})
             continue
         luks_id = add_node(
-            "luks:" + str(metadata.get("uuid") or path), "luks2_container",
-            device=path, uuid=metadata.get("uuid"), cipher=metadata.get("cipher"),
-            sector_size=metadata.get("sector_size"),
-            keyslot_count=metadata.get("keyslot_count"),
-            token_count=metadata.get("token_count"),
+            "luks:" + str(item.get("uuid") or path), "luks2_container",
+            device=path, uuid=item.get("uuid"), cipher=item.get("cipher"),
+            sector_size=item.get("sector_size"),
+            keyslot_count=item.get("keyslot_count"), token_count=item.get("token_count"),
         )
         add_edge(device_id, luks_id, "contains_encrypted_container")
 
@@ -103,13 +101,12 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(vg, dict) or not vg.get("name"):
             continue
         name = str(vg["name"])
-        vg_id = add_node(
+        vg_ids[name] = add_node(
             "lvm-vg:" + name, "lvm_volume_group", name=name,
             uuid=vg.get("uuid"), status=vg.get("status"),
             missing_pv_count=vg.get("missing_pv_count"),
             extent_size_bytes=vg.get("extent_size_bytes"),
         )
-        vg_ids[name] = vg_id
 
     pv_ids: dict[str, str] = {}
     for pv in lvm.get("pvs", []):
@@ -154,30 +151,36 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
                 hidden=lv.get("hidden"), health=lv.get("health"),
             )
             add_edge(vg_id, lv_id, "contains_lv")
-            lv_device_path = lv_path if isinstance(lv_path, str) else None
-            if lv_device_path and lv_device_path in path_ids:
-                add_edge(lv_id, path_ids[lv_device_path], "maps_to_block_device")
+            if isinstance(lv_path, str) and lv_path:
+                if lv_path in path_ids:
+                    add_edge(lv_id, path_ids[lv_path], "maps_to_block_device")
+                else:
+                    unresolved.append({"layer": "lvm_lv", "path": lv_path,
+                                       "reason": "lv_path_not_exactly_matched_to_lsblk"})
+
+            backing_paths = set()
             devices_field = lv.get("devices")
             if isinstance(devices_field, str):
-                for backing_path in _DEVICE_PATH.findall(devices_field):
-                    pv_id = pv_ids.get(backing_path)
-                    if pv_id:
-                        add_edge(lv_id, pv_id, "allocated_on")
-                    else:
-                        unresolved.append({
-                            "layer": "lvm_lv_backing", "path": backing_path,
-                            "reason": "pv_path_not_matched",
-                        })
+                backing_paths.update(_DEVICE_PATH.findall(devices_field))
+            for backing_path in sorted(backing_paths):
+                pv_id = pv_ids.get(backing_path)
+                if pv_id:
+                    add_edge(lv_id, pv_id, "allocated_on")
+                else:
+                    unresolved.append({"layer": "lvm_lv_backing", "path": backing_path,
+                                       "reason": "pv_path_not_matched"})
 
     btrfs = inventory.get("btrfs_topology") or {}
+    btrfs_fs_ids: dict[str, str] = {}
     for filesystem in btrfs.get("filesystems", []):
         if not isinstance(filesystem, dict) or not filesystem.get("uuid"):
             continue
+        uuid = str(filesystem["uuid"])
         fs_id = add_node(
-            "btrfs:" + str(filesystem["uuid"]), "btrfs_filesystem",
-            uuid=filesystem.get("uuid"), label=filesystem.get("label"),
-            total_devices=filesystem.get("total_devices"),
+            "btrfs:" + uuid, "btrfs_filesystem", uuid=uuid,
+            label=filesystem.get("label"), total_devices=filesystem.get("total_devices"),
         )
+        btrfs_fs_ids[uuid] = fs_id
         for member in filesystem.get("devices", []):
             if not isinstance(member, dict):
                 continue
@@ -186,7 +189,8 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
             if device_id:
                 add_edge(fs_id, device_id, "spans_device")
             elif isinstance(path, str):
-                unresolved.append({"layer": "btrfs_member", "path": path, "reason": "device_path_not_matched"})
+                unresolved.append({"layer": "btrfs_member", "path": path,
+                                   "reason": "device_path_not_matched"})
 
     subvolumes = inventory.get("btrfs_subvolumes") or {}
     subvolume_ids: dict[str, str] = {}
@@ -195,6 +199,11 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(mount, dict):
             continue
         mountpoint = mount.get("mountpoint")
+        mount_uuid = mount.get("uuid")
+        fs_id = btrfs_fs_ids.get(mount_uuid) if isinstance(mount_uuid, str) else None
+        if fs_id is None:
+            unresolved.append({"layer": "btrfs_mount", "path": str(mountpoint or ""),
+                               "reason": "mount_source_uuid_not_matched"})
         for subvolume in mount.get("subvolumes", []):
             if not isinstance(subvolume, dict):
                 continue
@@ -206,26 +215,66 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
                 subvolume_kind=subvolume.get("kind"), parent_uuid=subvolume.get("parent_uuid"),
                 received_uuid=subvolume.get("received_uuid"), mountpoint=mountpoint,
             )
+            if fs_id:
+                add_edge(fs_id, subvol_id, "contains_subvolume")
             if isinstance(uuid, str) and uuid:
                 subvolume_ids[uuid] = subvol_id
             parent_uuid = subvolume.get("parent_uuid")
             if isinstance(parent_uuid, str) and parent_uuid:
                 subvolume_parents.append((subvol_id, parent_uuid))
-            # Mountpoint-to-filesystem UUID resolution is intentionally omitted
-            # until findmnt provides the source UUID in the inventory contract.
     for child_id, parent_uuid in subvolume_parents:
         parent_id = subvolume_ids.get(parent_uuid)
         if parent_id:
             add_edge(child_id, parent_id, "snapshot_of")
         else:
-            unresolved.append({
-                "layer": "btrfs_snapshot_parent", "path": parent_uuid,
-                "reason": "parent_subvolume_not_in_inventory",
-            })
+            unresolved.append({"layer": "btrfs_snapshot_parent", "path": parent_uuid,
+                               "reason": "parent_subvolume_not_in_inventory"})
 
+    stratis = inventory.get("stratis_topology") or {}
+    for pool in stratis.get("pools", []):
+        if not isinstance(pool, dict) or not isinstance(pool.get("name"), str):
+            continue
+        pool_name = pool["name"]
+        pool_id = add_node("stratis-pool:" + pool_name, "stratis_pool", name=pool_name)
+        for filesystem in pool.get("filesystems", []):
+            if not isinstance(filesystem, dict) or not isinstance(filesystem.get("name"), str):
+                continue
+            fs_name = filesystem["name"]
+            fs_id = add_node(
+                "stratis-filesystem:" + pool_name + "/" + fs_name, "stratis_filesystem",
+                name=fs_name, pool=pool_name, device=filesystem.get("device"),
+                mapper_device=filesystem.get("mapper_device"),
+            )
+            add_edge(pool_id, fs_id, "contains_filesystem")
+            mapper_path = filesystem.get("mapper_device")
+            if isinstance(mapper_path, str):
+                mapper_id = path_ids.get(mapper_path)
+                if mapper_id:
+                    add_edge(fs_id, mapper_id, "maps_to_block_device")
+                else:
+                    unresolved.append({"layer": "stratis_mapper", "path": mapper_path,
+                                       "reason": "device_path_not_matched"})
+            for path in filesystem.get("backing_device_paths", []):
+                if not isinstance(path, str):
+                    continue
+                device_id = path_ids.get(path)
+                if device_id:
+                    add_edge(fs_id, device_id, "backed_by")
+                else:
+                    unresolved.append({"layer": "stratis_backing", "path": path,
+                                       "reason": "device_path_not_matched"})
+
+    source_statuses = []
+    for key in ("volume_topology", "luks_metadata", "btrfs_topology",
+                "btrfs_subvolumes", "stratis_topology"):
+        source = inventory.get(key)
+        if isinstance(source, dict) and source.get("status") not in (None, "available"):
+            source_statuses.append({"source": key, "status": source.get("status")})
+    graph_status = "partial" if unresolved or source_statuses else "available"
     return {
         "schema_version": 1,
-        "status": "available",
+        "status": graph_status,
+        "source_statuses": source_statuses,
         "nodes": list(nodes.values()),
         "edges": edges,
         "unresolved": unresolved,
