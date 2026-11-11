@@ -99,13 +99,15 @@ Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer pr
 - [x] Provide one Cockpit answer-file upload; the repository URL is embedded in the JSON.
 - [x] Validate uploaded answers and publish the JSON atomically through Caddy over HTTP; support explicit revocation. The operator-selected trust assumption is that the configured HTTP server supplies the intended answer; there is no cryptographic authenticity layer in this PXE flow.
 - [x] Publish an answer-specific iPXE entry that boots the same Fedora Live kernel, initramfs and squashfs as the ISO and passes only the job UUID and answer URL.
-- [ ] Download the answer from Caddy in Live, validate schema/version/size limits, and fail closed on missing, expired or revoked content.
-- [ ] Connect the repository URL to supported provider adapters and separately protected credential references; reject unsupported schemes rather than accepting syntax as implementation.
-- [ ] Resolve exactly one whole-disk target by WWN and/or serial, verify capacity and device safety, and recheck stable identity immediately before the first write.
+- [x] Download the answer from Caddy in Live, validate schema/version/size limits, and fail closed on missing or invalid content.
+- [x] Connect NFS repository URLs to a read-only mount; reject unsupported schemes rather than accepting syntax as implementation.
+- [ ] Connect remaining provider adapters and separately protected credential references.
+- [x] Resolve exactly one whole-disk target by WWN and/or serial, verify capacity and device safety through the existing restore engine, and recheck stable identity immediately before the first write.
 - [ ] Consume the job authorization atomically to prevent replay; define expiry and tie revocation to cancellation/expiry.
-- [ ] Execute through the existing protected restore engine, retain post-write verification, and record an auditable result in the normal Cockpit interface.
+- [x] Execute NFS-backed whole-disk restores through the existing restore engine with post-write read-back verification and a local operation journal.
+- [ ] Expose the PXE restore result in the normal Cockpit interface.
 - [ ] Ensure the interactive PXE boot opens the same Cockpit experience as ISO Live and does not require the answer file.
-- [ ] Adversarial tests cover forged/tampered answers, wrong trust roots, replay, ambiguous or changed disks, missing credentials, repository outage, interrupted download and interrupted restore.
+- [ ] Adversarial and hardware tests cover modified HTTP answers, replay, ambiguous or changed disks, provider outage, interrupted download and interrupted restore.
 - [ ] Validate BIOS and UEFI PXE boot and real hardware restore acceptance before describing the workflow as production-ready.
 
 Per-client TLS identity, USB identity media, manual enrollment and per-client key provisioning are explicitly out of scope for this unattended PXE answer workflow. The existing mTLS Remote jobs workflow remains a separate, identity-based feature.
