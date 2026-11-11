@@ -76,12 +76,13 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
   the same Live environment as ISO, then use Cockpit interactively.
 - **HTTP answer PXE handoff** — **Partial**. The iPXE menu offers an
   unattended answer-file entry. Cockpit publishes one validated JSON answer
-  and an answer-specific script containing its URL. The Live downloader and
-  restore execution are not yet integrated.
+  and an answer-specific script containing its URL. Live now downloads and
+  validates the answer into a root-only runtime file; restore execution is
+  not yet integrated.
 - **Unattended PXE answer workflow** — **Partially implemented**. Cockpit accepts
   one prewritten JSON answer containing the repository URL; the Server validates
   and publishes it through Caddy over HTTP. This path has no per-Client identity
-  or enrollment. Live-side download, provider integration,
+  or enrollment. Live-side download/schema validation is implemented. Provider integration,
   stable-target revalidation and restore execution remain unimplemented.
 
 PXE boot alone never authorizes a destructive write. The existing mTLS Remote
