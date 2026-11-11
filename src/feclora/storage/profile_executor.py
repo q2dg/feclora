@@ -248,6 +248,14 @@ def preflight_logical_volume_restore(
 
     if lv.get("hidden") or lv.get("segment_type") == "thin-pool":
         raise RestoreProfileError("hidden LVs and thin-pool metadata LVs are not valid restore targets")
+    segment_type = lv.get("segment_type")
+    thin_provisioned = lv.get("thin_provisioned")
+    if segment_type not in {"linear", "thin"}:
+        raise RestoreProfileError(
+            f"target LV segment type {segment_type!r} is not supported for byte-image restore"
+        )
+    if not isinstance(thin_provisioned, bool) or thin_provisioned != (segment_type == "thin"):
+        raise RestoreProfileError("target LV segment type and thin-provisioning metadata are inconsistent")
     if lv.get("snapshot") or lv.get("origin"):
         raise RestoreProfileError("snapshot LVs and snapshot origins are not valid restore targets")
     lv_name = lv.get("name")
