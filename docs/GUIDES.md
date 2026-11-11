@@ -75,10 +75,9 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
   BIOS/UEFI network-boot acceptance remains pending. It is intended to boot
   the same Live environment as ISO, then use Cockpit interactively.
 - **Signed-answer PXE handoff** — **Partial**. The iPXE menu offers an
-  unattended answer-file entry. Cockpit publishes a signed answer, detached
-  signature and answer-specific script containing only the job UUID and the
-  two Caddy URLs. These values are locators, not authorization. The Live
-  downloader and independent signature verification are not yet integrated.
+  unattended answer-file entry. Cockpit publishes one validated JSON answer
+  and an answer-specific script containing its URL. The Live downloader and
+  restore execution are not yet integrated.
 - **Unattended PXE answer workflow** — **Partially implemented**. Cockpit accepts
   a prewritten JSON answer and repository URL; the Server validates and signs
   the answer and publishes it with a detached signature through Caddy. This
