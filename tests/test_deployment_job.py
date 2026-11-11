@@ -78,9 +78,12 @@ class DeploymentJobTests(unittest.TestCase):
         self.assertEqual(job.to_dict()["repository_id"], "nas-images")
 
     def test_per_client_stable_target_bindings_round_trip_and_match(self):
-        payload = valid_job(target_bindings={
-            "52:54:00:12:34:56": {"wwn": "0x5000CCA123456789", "serial": "DISK-001"},
-        })
+        payload = valid_job(
+            authorized_clients=["52:54:00:12:34:56"],
+            target_bindings={
+                "52:54:00:12:34:56": {"wwn": "0x5000CCA123456789", "serial": "DISK-001"},
+            },
+        )
         job = DeploymentJob.from_dict(payload)
         self.assertEqual(
             DeploymentJob.from_json(job.to_json()).target_bindings,
@@ -99,9 +102,16 @@ class DeploymentJobTests(unittest.TestCase):
             "wwn": "0x5000cca123456789", "serial": "DISK-001",
         }))
 
+    def test_stable_target_bindings_must_cover_every_authorized_client(self):
+        with self.assertRaisesRegex(JobValidationError, "every authorized Client"):
+            DeploymentJob.from_dict(valid_job(target_bindings={
+                "52:54:00:12:34:56": {"wwn": "wwn-1", "serial": None},
+            }))
+
     def test_stable_target_bindings_require_whole_disk_targets(self):
         with self.assertRaisesRegex(JobValidationError, "whole-disk"):
             DeploymentJob.from_dict(valid_job(
+                authorized_clients=["52:54:00:12:34:56"],
                 target_type="partition",
                 target_bindings={"52:54:00:12:34:56": {"wwn": "wwn-1", "serial": None}},
             ))
