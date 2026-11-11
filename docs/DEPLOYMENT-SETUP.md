@@ -204,8 +204,10 @@ Live Cockpit interface; operators do not need to boot the ISO manually.
 4. The operator can explicitly revoke the published answer from Cockpit.
    Automatic revocation on deployment cancellation/expiry is not connected
    yet. The Live boot now downloads and validates the answer JSON when the
-   unattended kernel handoff is present. Repository adapters, stable-target
-   revalidation and unattended restore execution remain implementation work.
+   unattended kernel handoff is present. The first connected provider is NFS: Live mounts it read-only, resolves the
+   disk by WWN/serial, rechecks that identity immediately before writing and
+   invokes the existing whole-disk restore engine with read-back verification.
+   Other repository adapters and hardware acceptance remain pending.
 5. The existing Remote jobs workflow is a separate authenticated mTLS
    workflow. It still uses enrolled Clients and local target approval; it is
    not the new identity-free PXE answer workflow and must not be used as proof
@@ -215,9 +217,9 @@ Live Cockpit interface; operators do not need to boot the ISO manually.
 
 The answer JSON is declarative data, not shell code. It identifies the image,
 repository and stable whole-disk WWN/serial selector and explicitly requests
-restore/start. The Server validates it before publication. The Live image downloads and validates the answer, but target resolution,
-repository access and immediate pre-write identity revalidation are not yet
-connected to the restore engine. A URL, DHCP lease, MAC address, job UUID or successful
+restore/start. The Server validates it before publication. The Live image downloads and validates the answer, but NFS repository access, unique target resolution and immediate pre-write
+identity revalidation are connected for whole-disk restore. Other repository
+providers and physical acceptance remain pending. A URL, DHCP lease, MAC address, job UUID or successful
 download is not authorization by itself.
 
 The current implementation publishes and revokes JSON answer files; it does
