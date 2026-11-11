@@ -6,6 +6,7 @@ not activate groups, create snapshots, unlock LUKS, or modify storage.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -43,8 +44,8 @@ def capture_logical_volume_image(
     minisign_secret_key: str | os.PathLike[str] | None = None,
 ) -> ImageManifest:
     """Capture one healthy active LV and atomically publish its manifest set."""
-    if not isinstance(image_id, str) or not image_id or len(image_id) > 128:
-        raise LogicalVolumeImageCaptureError("image_id must be a safe non-empty identifier")
+    if not isinstance(image_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
+        raise LogicalVolumeImageCaptureError("image_id must be a safe filename-compatible identifier")
     repo = os.path.abspath(os.fspath(repository))
     try:
         repo_info = os.lstat(repo)
@@ -70,18 +71,18 @@ def capture_logical_volume_image(
         )
     source = plan.get("source") or {}
     size = source.get("size_bytes")
-    sector = None
-    for group in (inventory.get("volume_topology") or {}).get("volume_groups", []):
-        for lv in group.get("logical_volumes", []):
-            if lv.get("path") == source_path:
-                sector = next((
-                    device.get("logical_sector_size")
-                    for device in _walk_devices(inventory.get("devices") or [])
-                    if device.get("path") == source_path
-                ), None)
-                break
+    source_devices = [
+        device for device in _walk_devices(inventory.get("devices") or [])
+        if device.get("path") == source_path
+    ]
+    if len(source_devices) != 1:
+        raise LogicalVolumeImageCaptureError("logical-volume block identity is missing or ambiguous")
+    source_device = source_devices[0]
+    sector = source_device.get("logical_sector_size")
     if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
         raise LogicalVolumeImageCaptureError("logical-volume size is unknown")
+    if source_device.get("size_bytes") != size:
+        raise LogicalVolumeImageCaptureError("capture plan and block-inventory logical-volume sizes disagree")
     if isinstance(sector, bool) or sector not in {512, 4096}:
         raise LogicalVolumeImageCaptureError("logical-volume logical sector size is unknown or unsupported")
     filesystem = source.get("filesystem")
