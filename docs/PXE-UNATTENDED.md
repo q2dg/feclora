@@ -74,12 +74,14 @@ disk I/O is attempted after an interruption.
 
 ## Multi-Client and transport constraints
 
-- Each Client receives its own profile and target selector, even when all
-  Clients restore the same immutable image.
-- A single Client may be targeted by one job at a time. Duplicate or replayed
-  profile consumption is rejected by Server-side persistent state.
-- Unicast and multicast share the same authenticated control plane and
-  per-Client READY/ARM gate. Multicast changes only artifact data transport.
+- Each Client must have its own removable identity medium and its own
+  WWN/serial target binding, even when multiple Clients restore the same image.
+- The current automatic PXE dispatcher supports unicast whole-disk restore.
+  Multicast, partition and logical-volume unattended targets are not enabled
+  by this path; the existing interactive Client workflow remains available.
+- The existing Server job coordinator and explicit READY/ARM lifecycle remain
+  the authorization boundary. No Client begins disk I/O merely by booting or
+  receiving the public job UUID.
 - UDPcast datagrams are not authenticated or encrypted by UDPcast itself;
   network isolation and optional artifact encryption remain separate controls.
 - Partial failure is reported per Client. A failed receiver must not cause
