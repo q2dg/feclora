@@ -108,7 +108,7 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
             return True
 
         def do_GET(self) -> None:
-            if not self._valid_local_request(require_origin=False):
+            if self.path != "/" or not self._valid_local_request(require_origin=False):
                 self._headers(403)
                 self.wfile.write(b"Forbidden")
                 return
@@ -136,6 +136,10 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
                 self._headers(400)
                 self.wfile.write(b"Invalid request")
                 return
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/x-www-form-urlencoded":
+                self._headers(415)
+                self.wfile.write(b"Unsupported content type")
+                return
             cookie = http.cookies.SimpleCookie()
             try:
                 cookie.load(self.headers.get("Cookie", ""))
@@ -143,6 +147,10 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
             except (KeyError, http.cookies.CookieError):
                 token_cookie = ""
             fields = parse_qs(self.rfile.read(length).decode("utf-8", "replace"), keep_blank_values=True)
+            if set(fields) != {"token", "password", "confirmation"} or any(len(values) != 1 for values in fields.values()):
+                self._headers(400)
+                self.wfile.write(b"Invalid form")
+                return
             token = fields.get("token", [""])[0]
             password = fields.get("password", [""])[0]
             confirmation = fields.get("confirmation", [""])[0]
