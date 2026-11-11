@@ -8,9 +8,9 @@ provisioning workflow.
 
 The PXE Server publishes the Live kernel, initramfs and squashfs through
 Caddy. The existing interactive iPXE entry boots that Live payload and opens
-the normal Feclora Cockpit interface. The unattended entry must boot the same
-payload and then fetch one deployment answer document from the PXE Server's
-Caddy HTTP endpoint.
+the normal Feclora Cockpit interface. The answer-specific unattended entry boots the same payload and passes the
+job UUID plus answer/signature URLs as kernel parameters. A Live boot-time
+downloader must still be added to fetch and verify those documents.
 
 There is no per-client USB, identity medium, certificate, private key,
 enrollment bundle or manual identity provisioning in this model. The PXE
@@ -27,13 +27,15 @@ The Cockpit Server setup now provides an initial signed-answer publication form 
 2. The answer document, uploaded as a JSON file. Feclora validates the JSON,
    requires the repository URL field to match the separate form field exactly,
    signs the document with the protected Server minisign private key, verifies
-   it against the configured public key, and atomically publishes both files
-   under a generated job UUID in Caddy's document root.
+   it against the configured public key, atomically publishes both files
+   under a generated job UUID in Caddy's document root, and publishes an
+   answer-specific iPXE script that contains only the job UUID and those URLs.
 3. The PXE boot configuration. This initial publication form is separate from
    the existing mTLS remote-job form and does not enroll or identify clients.
 
-The PXE Server does not host or copy the image repository. It only serves the
-Live boot assets and the answer document. Credentials are not embedded in
+The PXE Server does not host or copy the image repository. It serves the
+Live boot assets, answer document, detached signature and answer-specific
+iPXE script. Credentials are not embedded in
 repository URLs or the answer document; they are selected separately from
 Feclora's protected credential inventory where the chosen provider needs
 authentication.
@@ -75,17 +77,19 @@ managed PXE services are active, checks that the answer contains exactly the
 URL entered in the form, signs it with the protected Server minisign private
 key, verifies it against the configured public key, and atomically publishes
 the answer and detached signature. Cockpit can explicitly revoke the published
-answer by its job UUID. This is not yet connected to cancellation/expiry of a
-deployment job, and it is not yet the complete PXE download, client-side
-verification, repository-mount or restore execution path.
+answer and its iPXE script by job UUID. A new PXE session also clears stale
+answer files and handoff scripts. This is not yet connected to cancellation/
+expiry of a deployment job, and it is not yet the complete PXE download,
+client-side verification, repository-mount or restore execution path.
 
 ## Security boundary
 
 An answer file can authorize a destructive operation, so it must not be
 treated as harmless configuration. It is published only after administrator
 action through Cockpit, is scoped to one generated job UUID, and can currently
-be revoked explicitly from the same Cockpit form. Automatic removal when a
-future deployment job expires or is cancelled is not implemented yet. Clients must validate its
+be revoked explicitly from the same Cockpit form. A new PXE session clears
+stale published answer directories. Automatic removal when a deployment job
+expires or is cancelled is not implemented yet. Clients must validate its
 schema and repository integrity metadata before any write. A plain HTTP
 answer file is vulnerable to modification by an attacker on the PXE network;
 production unattended writes therefore require a trusted integrity mechanism
@@ -118,6 +122,7 @@ are not yet complete provider/transport workflows.
       exact URL equality with the answer document.
 - [x] Sign answers with the protected Server key, verify with the configured
       public key, and atomically publish/revoke job-scoped files through Caddy.
+- [x] Clear stale answer files and handoff scripts when a new PXE session starts.
 - [ ] Tie answer revocation to deployment-job cancellation and expiry.
 - [ ] Connect repository URL schemes to the existing remote repository
       credential and mount/transfer facilities.
