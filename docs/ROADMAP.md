@@ -26,7 +26,7 @@ The source now implements the core kiosk path: Fedora Server product environment
 
 ## Completed in source
 
-- [x] Fedora 45 x86_64 Live-image build configuration and BIOS/UEFI boot assets.\n- [ ] Replace the transitional console-led Live startup with the Fedora Server minimal + Cage + Firefox kiosk runtime and secure bootstrap described above.
+- [x] Replace the console-led Live startup with Fedora Server product environment + Cage + Firefox kiosk runtime and secure first-boot bootstrap.
 - [x] Read-only block-device, partition and volume inventory.
 - [x] Manifest-backed whole-disk and partition capture.
 - [x] Verified whole-disk and partition restore engines.
