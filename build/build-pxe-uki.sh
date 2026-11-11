@@ -129,6 +129,7 @@ PY
 "$SBVERIFY" --cert "$CERT" "$TMP" >/dev/null
 chmod 0644 "$TMP"
 mv -- "$TMP" "$OUTPUT"
+rmdir -- "$TMP_DIR"
 trap - EXIT
 printf 'Signed UKI created and signature verified: %s\n' "$OUTPUT"
 printf 'This does not prove firmware trust enrollment, PCR policy acceptance, or TPM unsealing.\n'
