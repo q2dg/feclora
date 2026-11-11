@@ -16,6 +16,9 @@ class VolumeTopologyError(RuntimeError):
     """A volume manager returned invalid or incomplete topology data."""
 
 
+_LVM_REPORT_SECTIONS = {"pvs": "pv", "vgs": "vg", "lvs": "lv"}
+
+
 _LVM_REPORTS = {
     "pvs": ("pv_name,pv_uuid,vg_name,pv_size,pv_free,pv_attr,pv_pe_count,pv_pe_alloc_count,pv_missing",),
     "vgs": ("vg_name,vg_uuid,vg_size,vg_free,vg_attr,pv_count,lv_count,vg_extent_size,vg_extent_count,vg_free_count,vg_missing_pv_count",),
@@ -35,7 +38,7 @@ def _report_rows(payload: str, command: str) -> list[dict[str, Any]]:
     for report in reports:
         if not isinstance(report, dict):
             continue
-        section = report.get(command)
+        section = report.get(_LVM_REPORT_SECTIONS[command])
         if section is None:
             continue
         if not isinstance(section, list) or any(not isinstance(row, dict) for row in section):
