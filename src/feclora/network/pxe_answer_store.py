@@ -85,7 +85,8 @@ def publish_pxe_answer(
     answers.mkdir(mode=0o755, exist_ok=True)
     info = answers.lstat()
     if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != os.geteuid() or info.st_mode & 0o022):
+            or info.st_uid != os.geteuid() or info.st_mode & 0o022
+            or info.st_mode & 0o005 != 0o005):
         raise PXEAnswerStoreError("PXE answers directory is unsafe")
     destination = answers / canonical_job_id
     if os.path.lexists(destination):
@@ -136,7 +137,8 @@ def clear_stale_pxe_answers(http_root: str | os.PathLike[str]) -> int:
     except FileNotFoundError:
         return 0
     if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != os.geteuid() or info.st_mode & 0o022):
+            or info.st_uid != os.geteuid() or info.st_mode & 0o022
+            or info.st_mode & 0o005 != 0o005):
         raise PXEAnswerStoreError("PXE answers directory is unsafe")
     removed = 0
     for destination in answers.iterdir():
@@ -178,7 +180,8 @@ def revoke_pxe_answer(http_root: str | os.PathLike[str], job_id: str) -> bool:
     except FileNotFoundError:
         return False
     if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != os.geteuid() or info.st_mode & 0o022):
+            or info.st_uid != os.geteuid() or info.st_mode & 0o022
+            or info.st_mode & 0o005 != 0o005):
         raise PXEAnswerStoreError("PXE answers directory is unsafe")
     destination = answers / canonical_job_id
     try:
