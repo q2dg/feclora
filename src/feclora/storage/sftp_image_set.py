@@ -340,12 +340,15 @@ def publish_image_set(
             bytes_done += size
             if progress_callback is not None:
                 progress_callback(bytes_done, bytes_total)
-        upload(manifest_file, "manifest.json")
-        bytes_done += manifest_size
-        if progress_callback is not None:
-            progress_callback(bytes_done, bytes_total)
+        # Publish the detached signature before the manifest. Inventory
+        # treats the manifest itself as the commit marker, so readers never
+        # discover a set in the interval between metadata uploads.
         upload(signature_file, "manifest.json.minisig")
         bytes_done += signature_size
+        if progress_callback is not None:
+            progress_callback(bytes_done, bytes_total)
+        upload(manifest_file, "manifest.json")
+        bytes_done += manifest_size
         if progress_callback is not None:
             progress_callback(bytes_done, bytes_total)
     except (SFTPTransferError, RuntimeError, OSError) as exc:
@@ -358,5 +361,5 @@ def publish_image_set(
         "manifest_sha256": manifest_digest,
         "signature_sha256": signature_digest,
         "published": True,
-        "publication_marker": "manifest.json.minisig",
+        "publication_marker": "manifest.json",
     }
