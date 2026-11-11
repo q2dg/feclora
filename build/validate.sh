@@ -346,7 +346,7 @@ grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstra
 grep -q 'AF_NETLINK' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Cage service must retain udev netlink access."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_inventory.py' || fail "Block-device inventory tests failed."
-PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" pytest -q "$ROOT_DIR/tests/test_luks_inventory.py" || fail "LUKS2 metadata inventory tests failed."
+PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_luks_inventory.py' || fail "LUKS2 metadata inventory tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_volume_topology.py' || fail "Read-only LVM topology tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_btrfs_inventory.py' || fail "Btrfs inventory tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_stratis_inventory.py' || fail "Stratis inventory tests failed."
