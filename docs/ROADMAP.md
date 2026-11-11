@@ -84,8 +84,9 @@ hardware, provider services or physical networks have passed acceptance.
    authorization boundary. PXE boot alone must never authorize a write.
 2. **Storage-layer image fidelity:** local LVM logical-volume capture and
    restore are implemented. Server/Client deployment jobs now accept LV
-   restore targets over unicast and multicast; the Client selects the LV
-   locally and runs the existing fail-closed LV preflight/restore engine.
+   restore targets over unicast and multicast; both interactive and persistent
+   Cockpit Clients select the LV locally, validate it against healthy local
+   LVM topology, and run the existing fail-closed LV preflight/restore engine.
    Automated and operator acceptance of multi-Client LV deployments remains
    outstanding. Separately,
    define exact LUKS2/open-mapping restore semantics and finish Btrfs
