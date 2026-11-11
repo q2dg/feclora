@@ -97,6 +97,10 @@ for section in pcr_sections:
     st = os.stat(path, follow_symlinks=False)
     if not stat.S_ISREG(st.st_mode) or st.st_mode & 0o077:
         raise SystemExit("ERROR: PCR private key must be a regular file with mode 0600 or stricter")
+    public_path = cfg.get(section, "PCRPublicKey").strip()
+    public_st = os.stat(public_path, follow_symlinks=False)
+    if not stat.S_ISREG(public_st.st_mode):
+        raise SystemExit("ERROR: PCR public key must be a regular file")
 with open(cmdline_path, encoding="utf-8") as stream:
     cmdline = stream.read().strip()
 if not cmdline or "\n" in cmdline or "\r" in cmdline:
@@ -107,8 +111,9 @@ for forbidden in ("password=", "passwd=", "token=", "private_key=", "credential=
         raise SystemExit("ERROR: kernel command line appears to contain a secret")
 PY
 
-TMP="$(mktemp "$OUT_DIR/.feclora-uki.XXXXXXXX.efi")"
-cleanup() { rm -f -- "$TMP"; }
+TMP_DIR="$(mktemp -d "$OUT_DIR/.feclora-uki.XXXXXXXX")"
+TMP="$TMP_DIR/feclora-live.efi"
+cleanup() { rm -rf -- "$TMP_DIR"; }
 trap cleanup EXIT
 
 "$UKIFY" --config="$CONFIG" build \
