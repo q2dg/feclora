@@ -91,15 +91,13 @@ disk I/O is attempted after an interruption.
 
 ## Remaining release-critical work
 
-- Select and implement per-Client credential provisioning into the Live session without placing reusable credentials in network boot assets.
-- Add automatic Client service startup for unattended boot.
-- Add Server-to-Client signed profile delivery and certificate/job/profile
-  binding.
-- Extend the implemented optional job-level WWN/serial preflight binding into signed per-Client profile authoring and automatic unique target resolution.
-- Integrate expiry, nonce/replay protection, manifest digest binding and
-  Server-side single-use state.
-- Add unattended local preflight, READY, ARM, progress, read-back verification
-  and terminal result reconciliation.
+- Extend unattended target resolution beyond unicast whole-disk restore
+  to partition and multicast workflows, with matching hardware acceptance.
+- Add explicit job-expiry and replay/restart acceptance around the persistent
+  Server job journal and interrupted Client lifecycle.
+- Add operator-facing PXE job progress/result reconciliation in the Server UI.
+- Validate missing/lost identity media, revoked identities, mismatching or
+  duplicate WWN/serial selectors, target swaps and network interruption.
 - Validate BIOS and UEFI PXE, one Client and multiple Clients, unicast and
   multicast, missing credentials, revoked identities, expired/replayed
   profiles, ambiguous targets, target swaps and network interruption.
