@@ -20,6 +20,13 @@ def classify_volume(device: dict[str, Any]) -> list[str]:
 
     if fstype == "btrfs":
         tags.append("btrfs")
+    # lsblk reports crypto_LUKS for an unopened encrypted container and
+    # TYPE=crypt for an active device-mapper mapping. Do not infer LUKS from
+    # mapper names: only the kernel-reported type/signature is authoritative.
+    if fstype == "crypto_luks":
+        tags.extend(("luks", "luks_container"))
+    elif dev_type == "crypt":
+        tags.extend(("luks", "luks_mapping"))
     if fstype in {"lvm2_member", "lvm"} or dev_type == "lvm":
         tags.append("lvm")
         if fstype == "lvm2_member":
