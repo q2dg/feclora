@@ -41,61 +41,35 @@ ledger, automatic Client startup or write authorization is provided by this
 binding alone. Existing jobs without target_bindings retain the interactive
 workflow.
 
-## Required authenticated flow
+## Authenticated unattended flow
 
-1. The Client boots the shared Live image and parses the unattended handoff.
-2. A pre-enrolled Client identity establishes TLS 1.3 mutual authentication to
-   the advertised Server control endpoint. MAC address, IP address and job
-   UUID are not authentication credentials.
-3. The Server verifies that the certificate identity is enrolled, not revoked,
-   and explicitly authorized for this job.
-4. The Client obtains a signed, immutable per-Client restore profile over the
-   authenticated control channel. The profile binds the job UUID, Client
-   certificate identity, image-manifest digest, expiry, single-use nonce and
-   a stable target selector (WWN and/or serial). It must not select a disk by
-   transient `/dev/sdX` name.
-5. The Client verifies the profile signature against pinned Server trust,
-   checks expiry and replay state, verifies the manifest and artifact digests,
-   resolves exactly one target by WWN/serial, and runs all local restore
-   preflights. It sends READY only after all checks pass.
-6. The Server requires every expected Client to be authenticated and READY.
-   No storage write begins until the Server operator explicitly ARMs the job.
-7. The Client rechecks target identity immediately before writing, restores,
-   performs read-back verification, and reports a terminal per-Client result.
-   The Server persists the job/replay outcome and reconciles every Client.
+1. The Server publishes a job-bound iPXE script containing only the Server
+   IPv4 address, control port and job UUID.
+2. The Client boots the Live image. For unattended mode, systemd mounts the
+   dedicated `FECLORA-CLIENT` identity medium read-only, validates its
+   deployment configuration and automatically creates a private local job
+   request. Interactive boots do not start this dispatcher.
+3. The dispatcher starts the job-specific PXE Client service. The Client
+   connects using TLS 1.3 mutual authentication and the identity on its
+   removable medium. The Server checks the certificate against its enrollment
+   and revocation state and checks that the enrolled identity is authorized
+   for the requested job.
+4. The unattended path currently accepts **unicast whole-disk restore only**.
+   The job must bind this Client to a WWN and/or serial number. The Client
+   resolves exactly one local whole disk using that selector, then rechecks
+   the selected device, block-device status and source-safety conditions.
+   Missing, mismatching or ambiguous selectors fail before READY.
+5. The Client sends READY only after its local preflight succeeds. The Server
+   still requires the operator's explicit ARM action before sending START.
+6. The Client restores through the existing authenticated transfer path,
+   performs the restore engine's integrity/read-back verification, and sends
+   its terminal result to the Server.
 
-## Client identity provisioning
-
-Unattended PXE uses a dedicated, per-Client removable identity medium. The
-medium is prepared from an already enrolled Client in Cockpit using
-**Export PXE mTLS identity**. It contains only that Client's CA certificate,
-TLS certificate, TLS private key and (when configured) the Server's public
-image-verification key. It does not contain image-signing or age private keys.
-
-Use a separate ext4, XFS or Btrfs filesystem for each Client and label it
-`FECLORA-CLIENT`. Keep the medium physically controlled: it is a bearer
-credential for the Client's mTLS identity. Do not copy it into the Server's
-shared TFTP/HTTP boot tree or distribute one Client's medium to another
-machine. If it is lost, revoke that Client certificate in the Server trust
-inventory and issue a new enrollment.
-
-The Live image installs a read-only mount unit for that label at
-`/mnt/feclora-pxe-identity` and a PXE-specific Client service template. The
-template reads
-`/mnt/feclora-pxe-identity/feclora-client-identity/deployment-client.json`
-through the `FECLORA_CLIENT_CONFIG` override. The standard interactive
-Client configuration path remains unchanged. The medium must be present and
-readable before the PXE Client service starts; absent or invalid media fails
-closed. The export operation refuses filesystems that cannot preserve POSIX
-ownership and private-key permissions.
-
-This resolves how the enrolled mTLS identity is made available to a fresh
-Live PXE session without transmitting it over the network. It does **not**
-yet start the Client automatically or authorize a restore. The job UUID and
-Server endpoint remain public handoff metadata only. The remaining orchestration
-must create a validated job request, resolve exactly one target from the
-Server's stable WWN/serial binding, complete local preflight, and retain the
-existing Server-side READY/ARM gate before any write.
+The Server endpoint in the kernel command line is not trusted by itself: the
+Client verifies the Server certificate identity against the pinned identity
+from its enrollment configuration. The boot parameters never select a
+`/dev` target and never authorize a write. No automatic resume or replay of
+disk I/O is attempted after an interruption.
 
 
 ## Multi-Client and transport constraints
