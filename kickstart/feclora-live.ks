@@ -159,6 +159,11 @@ cat > "$TARGET_ROOT/etc/systemd/system/cockpit.socket.d/feclora.conf" <<'EOF'
 [Unit]
 Requires=feclora-cockpit-certificate.service
 After=feclora-cockpit-certificate.service
+
+[Socket]
+ListenStream=
+ListenStream=127.0.0.1:9090
+ListenStream=[::1]:9090
 EOF
 install -d -m 0700 "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora"
