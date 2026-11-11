@@ -174,7 +174,7 @@ class SFTPTransferServiceTests(unittest.TestCase):
              "path": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred"},
         ])
         cancellation = LocalOperationCancelled("cancellation requested by operator")
-        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store), \\
+        with patch("feclora.storage.systemd_credential_store.SystemdCredentialStore", return_value=fake_store), \
              patch("feclora.storage.sftp_transfer_service.subprocess.run",
                    side_effect=subprocess.TimeoutExpired(["systemctl", "stop"], 20)):
             with self.assertRaisesRegex(RepositoryManagerError, "state is uncertain"):
