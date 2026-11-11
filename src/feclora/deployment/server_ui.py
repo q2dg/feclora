@@ -29,7 +29,6 @@ from feclora.deployment.runtime_config import (
 from feclora.network.remote_clone_protocol import create_mutual_tls_context
 from feclora.network.multicast_preflight import inspect_multicast_interface
 from feclora.network.pxe_config import PXENetworkConfig
-from feclora.network.boot_tree import publish_unattended_ipxe_script, revoke_unattended_ipxe_script
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.ui import dialog_app
 
@@ -53,7 +52,7 @@ def _available_images(
 
 
 def _choose_job(
-    config: ServerRuntimeConfig, interface: str, *, require_stable_binding: bool = False,
+    config: ServerRuntimeConfig, interface: str,
 ) -> tuple[DeploymentJob, str | None, list[str]]:
     transport = dialog_app._menu(
         "Deployment transport",
@@ -141,23 +140,16 @@ def _choose_job(
 
     target_bindings: dict[str, dict[str, str | None]] = {}
     if operation == "restore" and target_type == "disk":
-        if require_stable_binding and transport == "unicast":
-            bind_choice = "bind"
-            dialog_app._message(
-                "PXE unattended target binding required",
-                "This job will publish an unattended PXE handoff. Every selected Client must be bound to its physical whole disk by WWN and/or serial; the Client will resolve that disk automatically and the Server still requires explicit ARM.",
-            )
-        else:
-            bind_choice = dialog_app._menu(
-                "Stable Client target binding",
-                "Optional but recommended for PXE unattended preparation. Bind each selected Client to its physical target by WWN and/or serial; transient /dev names are never used as identity.",
-                [("bind", "Bind stable target identity for every selected Client"),
-                 ("skip", "Keep interactive local target selection")],
-            )
-            if bind_choice is None:
-                raise DeploymentControlError("stable target-binding choice was cancelled")
-            if bind_choice not in {"bind", "skip"}:
-                raise DeploymentControlError("stable target-binding choice is invalid")
+        bind_choice = dialog_app._menu(
+            "Stable Client target binding",
+            "Optional for this authenticated Remote jobs workflow. Bind each selected Client to its physical target by WWN and/or serial; transient /dev names are never used as identity.",
+            [("bind", "Bind stable target identity for every selected Client"),
+             ("skip", "Keep interactive local target selection")],
+        )
+        if bind_choice is None:
+            raise DeploymentControlError("stable target-binding choice was cancelled")
+        if bind_choice not in {"bind", "skip"}:
+            raise DeploymentControlError("stable target-binding choice is invalid")
         if bind_choice == "bind":
             for mac in selected_macs:
                 wwn = dialog_app._input(
@@ -541,7 +533,6 @@ def run_deployment_server_ui(
 ) -> int:
     """Load root-provisioned trust material and run one authenticated deployment job."""
     control = None
-    published_pxe_job: tuple[str, str, str, int, int] | None = None
     try:
         created = ensure_server_deployment_config(address, config_path=config_path)
         config = load_server_runtime_config(config_path)
@@ -561,10 +552,11 @@ def run_deployment_server_ui(
             )
         journal_dir = _journal_directory()
         _review_previous_journals(journal_dir)
-        require_pxe_binding = pxe_config is not None
-        job, manifest_path, selected_macs = _choose_job(
-            config, interface, require_stable_binding=require_pxe_binding,
-        )
+        if pxe_config is not None:
+            pxe_config.validated()
+            if pxe_config.address != address or pxe_config.interface != interface:
+                raise DeploymentControlError("PXE boot profile does not match the active deployment interface/address")
+        job, manifest_path, selected_macs = _choose_job(config, interface)
         multicast_config = None
         if job.transport == "multicast":
             multicast_config = udpcast_config_for_job(
@@ -614,31 +606,11 @@ def run_deployment_server_ui(
             interface=interface,
         )
         bound_address, port = control.start(config.bind_address, config.port)
-        if (pxe_config is not None and job.operation == "restore"
-                and job.transport == "unicast" and job.target_type == "disk"):
-            bound_macs = {mac for mac, _wwn, _serial in job.target_bindings}
-            if bound_macs != set(job.authorized_clients):
-                raise DeploymentControlError(
-                    "unattended PXE unicast restore requires a WWN/serial binding for every authorized Client"
-                )
-            pxe_config.validated()
-            if pxe_config.address != address or pxe_config.interface != interface:
-                raise DeploymentControlError("PXE boot profile does not match the active deployment interface/address")
-            publish_unattended_ipxe_script(
-                pxe_config.http_root, pxe_config.address, job.job_id,
-                pxe_config.http_port, port,
-            )
-            published_pxe_job = (
-                pxe_config.http_root, pxe_config.address, job.job_id,
-                pxe_config.http_port, port,
-            )
         selected_mac_text = ", ".join(selected_macs)
         dialog_app._message(
             "Authenticated deployment listener",
             f"Job: {job.job_id}\nOperation: {job.operation}\nImage: {job.image_id}\n"
             f"Authorized Client MACs: {selected_mac_text}\nTransport: {job.transport}\nControl endpoint: {bound_address}:{port}\nJournal: {journal_path}\n"
-            + ("\nAn unattended PXE handoff script has been published. Each Client needs its own FECLORA-CLIENT identity medium; it will authenticate, resolve the bound WWN/serial disk and send READY automatically. The Server operator must still explicitly ARM the job." if published_pxe_job else "")
-            + ("\n\nThis PXE job type is not supported by the current unattended path; use the interactive Client workflow." if pxe_config is not None and job.operation == "restore" and not published_pxe_job else "")
             + "\n\nThe listener requires TLS 1.3 mutual authentication. For interactive jobs, the Client uses "
             "its enrolled certificate, enters this job UUID, selects its local target and types the exact confirmation. "
             "For all jobs, the Server operator explicitly arms the job before any image write.",
@@ -702,11 +674,6 @@ def run_deployment_server_ui(
         dialog_app._message("Deployment setup failed", str(exc))
         return 1
     finally:
-        if published_pxe_job is not None:
-            try:
-                revoke_unattended_ipxe_script(*published_pxe_job)
-            except Exception as exc:
-                dialog_app._message("PXE handoff revocation warning", str(exc))
         if control is not None:
             try:
                 control.stop()
