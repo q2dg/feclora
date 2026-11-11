@@ -226,8 +226,8 @@ download is not authorization by itself.
 The current implementation downloads and validates the answer in Live and
 connects NFS-backed whole-disk restore to the existing engine. The target is
 revalidated immediately before writing and the result is read back. Other
-repository schemes, replay/expiry controls and hardware acceptance remain
-pending; test only with disposable disks.
+repository schemes, cross-reboot replay/expiry controls and hardware acceptance
+remain pending; test only with disposable disks.
 
 ### Durable Client progress and restart history
 
