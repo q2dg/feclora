@@ -280,16 +280,48 @@ def capture_logical_volume(
     topology = inventory.get("volume_topology")
     if not isinstance(topology, Mapping) or topology.get("status") != "available":
         raise CaptureError("LVM topology is unavailable; refusing logical-volume capture")
-    matches = []
+    source_devices = []
+    def walk(items):
+        for item in items:
+            if not isinstance(item, Mapping):
+                continue
+            yield item
+            yield from walk(item.get("children") or [])
+    source_devices = [
+        item for item in walk(inventory.get("devices") or [])
+        if item.get("path") == source_path
+    ]
+    if len(source_devices) != 1:
+        raise CaptureError("capture source must exist exactly once in the current block inventory")
+    source_device = source_devices[0]
+    source_major_minor = source_device.get("major_minor")
+    if not isinstance(source_major_minor, str) or not source_major_minor:
+        raise CaptureError("capture source has no stable active kernel device identity")
+    exact_matches = []
+    identity_matches = []
     for group in topology.get("volume_groups", []):
-        if not isinstance(group, Mapping) or group.get("status") != "healthy":
+        if not isinstance(group, Mapping):
             continue
         for logical_volume in group.get("logical_volumes", []):
-            if isinstance(logical_volume, Mapping) and logical_volume.get("path") == source_path:
-                matches.append(logical_volume)
-    if len(matches) != 1:
-        raise CaptureError("capture source must identify exactly one healthy-volume-group LV")
-    logical_volume = matches[0]
+            if not isinstance(logical_volume, Mapping):
+                continue
+            if logical_volume.get("path") == source_path:
+                exact_matches.append((group, logical_volume))
+            if logical_volume.get("major_minor") == source_major_minor:
+                identity_matches.append((group, logical_volume))
+    if len(exact_matches) > 1:
+        raise CaptureError("capture source path identifies multiple logical volumes")
+    if exact_matches:
+        group, logical_volume = exact_matches[0]
+        lv_major_minor = logical_volume.get("major_minor")
+        if lv_major_minor and lv_major_minor != source_major_minor:
+            raise CaptureError("LVM and block-inventory device identities disagree")
+    else:
+        if len(identity_matches) != 1:
+            raise CaptureError("capture source must resolve to exactly one LV by kernel device identity")
+        group, logical_volume = identity_matches[0]
+    if group.get("status") != "healthy":
+        raise CaptureError("logical volume belongs to a non-healthy or incomplete volume group")
     size = logical_volume.get("size_bytes")
     if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
         raise CaptureError("logical-volume size is unknown; refusing capture")
@@ -299,6 +331,9 @@ def capture_logical_volume(
         raise CaptureError("logical volume reports an unhealthy state")
     if not logical_volume.get("major_minor"):
         raise CaptureError("logical volume is not active; refusing capture")
+    source_size = source_device.get("size_bytes")
+    if isinstance(source_size, int) and not isinstance(source_size, bool) and source_size != size:
+        raise CaptureError("LVM and block-inventory logical-volume sizes disagree")
     return capture_partition(
         source_path, filesystem, repository, filename, None, executables,
         compression=compression, compression_level=compression_level,
