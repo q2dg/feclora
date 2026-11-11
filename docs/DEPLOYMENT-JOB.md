@@ -54,7 +54,8 @@ and the Server operator explicitly ARMs the complete READY set.
   Each value contains exactly `wwn` and `serial`; at least one must be supplied.
   The Client compares every supplied identifier with its own current device
   inventory before READY. A mismatch or missing identifier rejects the
-  selected device. The Server Cockpit whole-disk restore workflow can collect a binding
+  selected device. These hardware fields reduce accidental mis-targeting;
+  they are not cryptographic device attestation and may be spoofable. The Server Cockpit whole-disk restore workflow can collect a binding
   for each selected Client; partition-target bindings are not currently
   supported because the stable identity belongs to the parent disk. This is a preflight constraint: it does not yet
   provide unattended target discovery or replace the Client's local target
