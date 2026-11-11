@@ -47,7 +47,9 @@ class CockpitClientTests(unittest.TestCase):
                 "feclora.deployment.cockpit_client.REPOSITORY", "/var/lib/feclora/images"
             ), patch("feclora.deployment.cockpit_client.load_client_runtime_config", return_value=runtime), patch(
                 "feclora.deployment.cockpit_client._mounted_media_directory", return_value=str(media)
-            ), patch("feclora.deployment.cockpit_client._require_pxe_identity_media"):
+            ), patch("feclora.deployment.cockpit_client._require_pxe_identity_media"), patch(
+                "feclora.network.remote_clone_protocol.create_mutual_tls_context"
+            ):
                 result = export_pxe_client_identity({"export_directory": str(media)})
             exported = media / "feclora-client-identity"
             self.assertEqual(result["identity"], "URI:feclora-client-lab")
