@@ -204,7 +204,7 @@ Live Cockpit interface; operators do not need to boot the ISO manually.
 4. The operator can explicitly revoke the published answer from Cockpit.
    Automatic revocation on deployment cancellation/expiry is not connected
    yet. Clients do not yet download or execute this answer: the Live-side
-   downloader, HTTP answer download, repository adapters, stable target
+   downloader, repository adapters, stable target
    revalidation and unattended restore engine remain implementation work.
 5. The existing Remote jobs workflow is a separate authenticated mTLS
    workflow. It still uses enrolled Clients and local target approval; it is
