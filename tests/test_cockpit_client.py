@@ -47,7 +47,7 @@ class CockpitClientTests(unittest.TestCase):
                 "feclora.deployment.cockpit_client.REPOSITORY", "/var/lib/feclora/images"
             ), patch("feclora.deployment.cockpit_client.load_client_runtime_config", return_value=runtime), patch(
                 "feclora.deployment.cockpit_client._mounted_media_directory", return_value=str(media)
-            ):
+            ), patch("feclora.deployment.cockpit_client._require_pxe_identity_media"):
                 result = export_pxe_client_identity({"export_directory": str(media)})
             exported = media / "feclora-client-identity"
             self.assertEqual(result["identity"], "URI:feclora-client-lab")
@@ -64,7 +64,7 @@ class CockpitClientTests(unittest.TestCase):
             (media / "feclora-client-identity").mkdir()
             with patch("feclora.deployment.cockpit_client.load_client_runtime_config", return_value=SimpleNamespace()), patch(
                 "feclora.deployment.cockpit_client._mounted_media_directory", return_value=str(media)
-            ):
+            ), patch("feclora.deployment.cockpit_client._require_pxe_identity_media"):
                 with self.assertRaisesRegex(CockpitEnrollmentError, "already exists"):
                     export_pxe_client_identity({"export_directory": str(media)})
 
