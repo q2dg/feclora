@@ -19,7 +19,6 @@ from feclora.network.boot_tree import (
 
 JOB_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 ANSWER_URL = f"http://192.0.2.10:8080/answers/{JOB_ID}/answer.json"
-SIGNATURE_URL = f"http://192.0.2.10:8080/answers/{JOB_ID}/answer.minisig"
 
 
 class PXEBootRequestTests(unittest.TestCase):
@@ -32,17 +31,16 @@ class PXEBootRequestTests(unittest.TestCase):
         self.assertIsNone(request.job_id)
         self.assertIsNone(request.answer_url)
 
-    def test_unattended_answer_handoff_requires_job_and_both_urls(self):
+    def test_unattended_answer_handoff_requires_job_and_answer_url(self):
         request = parse_pxe_boot_request(
             f"ro feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB_ID} "
-            f"feclora.pxe_answer_url={ANSWER_URL} feclora.pxe_signature_url={SIGNATURE_URL}"
+            f"feclora.pxe_answer_url={ANSWER_URL}"
         )
         self.assertEqual(request.mode, "unattended-answer")
         self.assertEqual(request.job_id, JOB_ID)
         self.assertEqual(request.server_address, "192.0.2.10")
         self.assertEqual(request.http_port, 8080)
         self.assertEqual(request.answer_url, ANSWER_URL)
-        self.assertEqual(request.signature_url, SIGNATURE_URL)
 
     def test_rejects_duplicate_or_incomplete_parameters(self):
         with self.assertRaisesRegex(PXEBootRequestError, "duplicate"):
@@ -56,7 +54,7 @@ class PXEBootRequestTests(unittest.TestCase):
         with self.assertRaisesRegex(PXEBootRequestError, "canonical UUID"):
             parse_pxe_boot_request(
                 f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB_ID.upper()} "
-                f"feclora.pxe_answer_url={ANSWER_URL} feclora.pxe_signature_url={SIGNATURE_URL}"
+                f"feclora.pxe_answer_url={ANSWER_URL}"
             )
 
     def test_rejects_loopback_and_malformed_answer_urls(self):
@@ -71,20 +69,7 @@ class PXEBootRequestTests(unittest.TestCase):
                 with self.assertRaises(PXEBootRequestError):
                     parse_pxe_boot_request(
                         f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB_ID} "
-                        f"feclora.pxe_answer_url={answer_url} feclora.pxe_signature_url={SIGNATURE_URL}"
-                    )
-
-    def test_rejects_signature_url_on_different_listener_or_path(self):
-        for signature_url in (
-            f"http://192.0.2.11:8080/answers/{JOB_ID}/answer.minisig",
-            f"http://192.0.2.10:8081/answers/{JOB_ID}/answer.minisig",
-            f"http://192.0.2.10:8080/answers/{JOB_ID}/wrong.minisig",
-        ):
-            with self.subTest(signature_url=signature_url):
-                with self.assertRaises(PXEBootRequestError):
-                    parse_pxe_boot_request(
-                        f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB_ID} "
-                        f"feclora.pxe_answer_url={ANSWER_URL} feclora.pxe_signature_url={signature_url}"
+                        f"feclora.pxe_answer_url={answer_url}"
                     )
 
     def test_rejects_answer_parameters_in_interactive_mode(self):
@@ -101,14 +86,13 @@ class PXEBootRequestTests(unittest.TestCase):
         self.assertIn("feclora.pxe_mode=interactive", script)
         self.assertNotIn("feclora.pxe_control_port=", script)
 
-    def test_answer_boot_script_contains_only_job_and_signed_answer_urls(self):
+    def test_answer_boot_script_contains_only_job_and_answer_url(self):
         script = render_unattended_answer_ipxe_script(
-            "192.0.2.10", JOB_ID, ANSWER_URL, SIGNATURE_URL, 8080,
+            "192.0.2.10", JOB_ID, ANSWER_URL, 8080,
         )
         self.assertIn(f"feclora.pxe_job_id={JOB_ID}", script)
         self.assertIn("feclora.pxe_mode=unattended-answer", script)
         self.assertIn(f"feclora.pxe_answer_url={ANSWER_URL}", script)
-        self.assertIn(f"feclora.pxe_signature_url={SIGNATURE_URL}", script)
         self.assertIn("http://192.0.2.10:8080/live/vmlinuz", script)
         self.assertNotIn("feclora.pxe_control_port=", script)
         self.assertNotIn("client.key", script.lower())
@@ -119,14 +103,14 @@ class PXEBootRequestTests(unittest.TestCase):
             render_unattended_answer_ipxe_script(
                 "192.0.2.10", JOB_ID,
                 f"http://192.0.2.11:8080/answers/{JOB_ID}/answer.json",
-                SIGNATURE_URL, 8080,
+                8080,
             )
 
     def test_publishes_and_revokes_only_the_matching_answer_job_script(self):
         with tempfile.TemporaryDirectory() as tmp:
             os.chmod(tmp, 0o755)
             path = publish_unattended_answer_ipxe_script(
-                tmp, "192.0.2.10", JOB_ID, ANSWER_URL, SIGNATURE_URL, 8080,
+                tmp, "192.0.2.10", JOB_ID, ANSWER_URL, 8080,
             )
             published = Path(path)
             self.assertTrue(published.is_file())
@@ -134,7 +118,7 @@ class PXEBootRequestTests(unittest.TestCase):
             self.assertIn(f"feclora.pxe_job_id={JOB_ID}", published.read_text())
             self.assertEqual(
                 publish_unattended_answer_ipxe_script(
-                    tmp, "192.0.2.10", JOB_ID, ANSWER_URL, SIGNATURE_URL, 8080,
+                    tmp, "192.0.2.10", JOB_ID, ANSWER_URL, 8080,
                 ),
                 path,
             )
@@ -142,8 +126,7 @@ class PXEBootRequestTests(unittest.TestCase):
             with self.assertRaisesRegex(LiveBootAssetError, "different unattended PXE answer job"):
                 publish_unattended_answer_ipxe_script(
                     tmp, "192.0.2.10", other_job,
-                    f"http://192.0.2.10:8080/answers/{other_job}/answer.json",
-                    f"http://192.0.2.10:8080/answers/{other_job}/answer.minisig", 8080,
+                    f"http://192.0.2.10:8080/answers/{other_job}/answer.json", 8080,
                 )
             with self.assertRaisesRegex(LiveBootAssetError, "different job"):
                 revoke_unattended_answer_ipxe_script(tmp, other_job)
