@@ -50,9 +50,9 @@ service's private credential directory.
   `feclora.storage.systemd_credential_store.SystemdCredentialStore`, which
   stores encrypted blobs under `/etc/credstore.encrypted/feclora`.
 - The repository manager now launches transient per-repository systemd
-  services for SSHFS, SMB and rclone mounts that reference registered
+  services for SSHFS and SMB mounts that reference registered
   encrypted blobs through `LoadCredentialEncrypted=`. The mount helper reads
-  only from `$CREDENTIALS_DIRECTORY`; SSHFS/rclone stay foreground so the
+  only from `$CREDENTIALS_DIRECTORY`; SSHFS stays foreground so the
   service owns their lifetime. WebDAV repository definitions are rejected
   until a per-repository encrypted credential and isolated davfs2 service
   design is implemented; the global secrets file is not accepted. The mount
