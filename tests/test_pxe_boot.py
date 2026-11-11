@@ -31,6 +31,10 @@ class PxeBootTreeTests(unittest.TestCase):
             (live / "images" / "pxeboot" / "vmlinuz").write_bytes(b"kernel")
             (live / "images" / "pxeboot" / "initrd.img").write_bytes(b"initrd")
             (live / "LiveOS" / "squashfs.img").write_bytes(b"squashfs")
+            http_root = Path(config(root).http_root)
+            http_root.mkdir()
+            stale = http_root / "unattended.ipxe"
+            stale.write_text("#!ipxe\\necho stale\\n", encoding="utf-8")
             with patch("feclora.network.pxe_boot.stage_ipxe_assets") as stage_tftp, patch(
                 "feclora.network.pxe_boot.stage_live_boot_assets"
             ) as stage_http:
@@ -43,6 +47,7 @@ class PxeBootTreeTests(unittest.TestCase):
             self.assertEqual(result["tftp"]["undionly.kpxe"], "tftp/undionly.kpxe")
             stage_tftp.assert_called_once()
             stage_http.assert_called_once()
+            self.assertFalse(stale.exists())
 
     def test_requires_dnsmasq_account(self):
         with tempfile.TemporaryDirectory() as tmp:
