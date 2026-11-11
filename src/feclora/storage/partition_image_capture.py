@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable, Mapping
 from .capture import CaptureCancelled, CaptureError, capture_partition
+from .capture_plan import CapturePlanError, plan_storage_capture
 from .image_manifest import ImageManifest, ManifestValidationError
 from .image_security import ImageSecurityError, encrypt_artifact, preflight_image_security, sign_manifest
 from .source_safety import SourceSafetyError, check_capture_source_safe
@@ -33,6 +34,7 @@ def capture_partition_image(
     progress_callback: Callable[[int, int | None], None] | None = None,
     age_recipients_file: str | os.PathLike[str] | None = None,
     minisign_secret_key: str | os.PathLike[str] | None = None,
+    inventory: Mapping[str, Any] | None = None,
 ) -> ImageManifest:
     """Capture a partition and publish its data artifact and manifest marker."""
     if not isinstance(image_id, str) or not image_id or len(image_id) > 128:
@@ -77,6 +79,19 @@ def capture_partition_image(
     filesystem = fields[3].lower() if len(fields) > 3 else None
     if filesystem in {"", "-"}:
         filesystem = None
+
+    storage_metadata = None
+    if inventory is not None:
+        try:
+            capture_plan = plan_storage_capture(dict(inventory), source_path, "partition")
+        except CapturePlanError as exc:
+            raise PartitionImageCaptureError(f"storage-layer capture planning failed: {exc}") from exc
+        if capture_plan.get("blockers"):
+            raise PartitionImageCaptureError(
+                "partition source has unresolved storage dependencies: "
+                + "; ".join(capture_plan["blockers"])
+            )
+        storage_metadata = capture_plan.get("manifest_storage")
 
     if filesystem == "btrfs":
         btrfs_executable = available.get("btrfs") or shutil.which("btrfs")
@@ -141,6 +156,7 @@ def capture_partition_image(
             "schema_version": 1, "image_id": image_id, "image_type": "partition",
             "source_size_bytes": size, "logical_sector_size": sector,
             "partition_table": "none", "artifacts": [artifact.to_dict()],
+            **({"storage": storage_metadata} if storage_metadata is not None else {}),
         })
         manifest_stage = os.path.join(stage, manifest_name)
         fd = os.open(manifest_stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
