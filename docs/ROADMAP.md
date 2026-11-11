@@ -82,10 +82,15 @@ hardware, provider services or physical networks have passed acceptance.
    deterministic stable target, perform local preflight, report per-Client
    READY/progress/read-back verification, and preserve the explicit
    authorization boundary. PXE boot alone must never authorize a write.
-2. **Storage-layer image fidelity:** finish Btrfs snapshot/multi-device/profile
-   planning and supported restore preflights; add LVM restore execution and
-   define exact LUKS2/open-mapping restore semantics. Do not create or
-   administer VGs/LVs, LUKS devices or Btrfs snapshots implicitly.
+2. **Storage-layer image fidelity:** local LVM logical-volume capture and
+   restore to an existing eligible LV are implemented, but they are not yet
+   available as Server/Client deployment-job targets. Next, integrate LV
+   target selection and preflight into unicast/multicast restore without
+   transmitting the Client's local device path as authorization. Separately,
+   define exact LUKS2/open-mapping restore semantics and finish Btrfs
+   snapshot/multi-device/profile planning and supported restore preflights.
+   Do not create or administer VGs/LVs, LUKS devices or Btrfs snapshots
+   implicitly.
 3. **Remote repositories:** finish credential/provider lifecycle and validate
    each external provider independently; complete SFTP progress/cancellation
    and safe recovery semantics; implement isolated WebDAV credentials.
