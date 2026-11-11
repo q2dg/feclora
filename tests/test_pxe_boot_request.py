@@ -86,8 +86,15 @@ class PXEBootRequestTests(unittest.TestCase):
             self.assertTrue(published.is_file())
             self.assertEqual(published.stat().st_mode & 0o777, 0o444)
             self.assertIn(f"feclora.pxe_job_id={JOB_ID}", published.read_text())
+            # Idempotent publication of the same job is safe.
+            self.assertEqual(
+                publish_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 9443),
+                path,
+            )
 
             other_job = "f47ac10b-58cc-4372-a567-0e02b2c3d480"
+            with self.assertRaisesRegex(LiveBootAssetError, "different unattended PXE job"):
+                publish_unattended_ipxe_script(tmp, "192.0.2.10", other_job, 9443)
             with self.assertRaisesRegex(LiveBootAssetError, "different job"):
                 revoke_unattended_ipxe_script(tmp, "192.0.2.10", other_job, 9443)
             self.assertTrue(published.exists())
