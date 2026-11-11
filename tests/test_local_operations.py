@@ -62,6 +62,36 @@ class LocalOperationStoreTests(unittest.TestCase):
         validated = validate_definition(definition)
         self.assertEqual(validated["action"], "sftp_inventory")
 
+    def test_sftp_fetch_and_publish_are_valid_durable_operations(self):
+        common = {
+            "host": "backup.example.net", "username": "backup",
+            "remote_directory": "/images/golden", "port": 22,
+            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
+            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+        }
+        for action, params in (("sftp_fetch", common),
+                               ("sftp_publish", {"image_id": "golden", **common})):
+            definition = {
+                "schema_version": 1,
+                "operation_id": "00000000-0000-4000-8000-000000000001",
+                "action": action, "params": params,
+            }
+            self.assertEqual(validate_definition(definition)["action"], action)
+
+    def test_sftp_fetch_rejects_unregistered_credential_path(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000001",
+            "action": "sftp_fetch",
+            "params": {
+                "host": "backup.example.net", "username": "backup",
+                "remote_directory": "/images", "port": 22,
+                "identity_credential": "/tmp/private.key",
+                "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
+            },
+        }
+        with self.assertRaisesRegex(LocalOperationError, "registered encrypted credential"):
+            validate_definition(definition)
     def test_sftp_inventory_rejects_path_traversal(self):
         definition = {
             "schema_version": 1,
