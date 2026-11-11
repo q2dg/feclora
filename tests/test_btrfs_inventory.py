@@ -67,6 +67,17 @@ class BtrfsSubvolumeTests(unittest.TestCase):
         with self.assertRaises(BtrfsInventoryError):
             parse_subvolume_list("ID 256 path @")
 
+    def test_no_mounted_btrfs_filesystems_is_an_empty_inventory(self):
+        def runner(argv, **kwargs):
+            error = subprocess.CalledProcessError(1, argv, stderr="")
+            raise error
+        result = collect_btrfs_subvolumes(
+            which=lambda name: "/usr/bin/" + name,
+            runner=runner,
+            effective_uid=lambda: 0,
+        )
+        self.assertEqual(result, {"status": "available", "mounts": []})
+
     def test_inspects_only_already_mounted_btrfs_filesystems(self):
         calls = []
         def runner(argv, **kwargs):
