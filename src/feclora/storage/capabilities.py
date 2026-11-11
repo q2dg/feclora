@@ -13,6 +13,8 @@ TOOL_GROUPS = {
     "partitioning": ("parted", "sgdisk"),
     "partclone": (
         "partclone.ext4",
+        "partclone.ext2",
+        "partclone.ext3",
         "partclone.extfs",
         "partclone.ntfs",
         "partclone.xfs",
@@ -22,6 +24,10 @@ TOOL_GROUPS = {
         "partclone.f2fs",
         "partclone.dd",
         "partclone.chkimg",
+    ),
+    "filesystem_checkers": (
+        "e2fsck", "xfs_repair", "ntfsfix", "fsck.fat",
+        "fsck.exfat", "fsck.f2fs", "btrfs",
     ),
     "raw_imaging": ("dd",),
     "compression": ("gzip", "pigz", "zstd", "xz", "lz4"),
