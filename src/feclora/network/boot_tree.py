@@ -178,6 +178,12 @@ def revoke_unattended_ipxe_script(
 ) -> bool:
     """Remove only the exact job script being revoked; never delete a newer job."""
     target_root = Path(http_root)
+    try:
+        root_info = target_root.lstat()
+    except OSError as exc:
+        raise LiveBootAssetError(f"PXE HTTP root is unavailable: {exc}") from exc
+    if not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode):
+        raise LiveBootAssetError("PXE HTTP root must be a real directory")
     destination = target_root / "unattended.ipxe"
     try:
         info = destination.lstat()
