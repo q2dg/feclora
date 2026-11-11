@@ -56,6 +56,11 @@ def plan_storage_capture(
 
     fstype = str(source.get("filesystem") or "").lower()
     features = set(source.get("volume_features") or [])
+    source_is_luks_container = (
+        fstype == "crypto_luks" or "luks_container" in features
+    )
+    if source_is_luks_container:
+        capture_scope = "encrypted_container_bytes"
     # Report encryption/PV layers anywhere inside a whole-disk source too.
     for item in descendants:
         item_path = item.get("path")
