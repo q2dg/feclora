@@ -132,6 +132,52 @@ now available. First validate TPM2-bound systemd credentials and the signed
 UKI/PCR policy on the supported Fedora 45 hardware/VM matrix. Until then the
 existing unattended menu remains a non-authorizing handoff and must not
 auto-start a disk writer.
+## Signed UKI build primitive
+
+The repository now includes `build/build-pxe-uki.sh`, an opt-in build
+primitive for a signed UKI assembled from a Fedora Live kernel and initramfs.
+It uses systemd `ukify` with a protected configuration containing both
+Secure Boot signing material and at least one systemd PCR-signature section.
+It requires `systemd-measure` and verifies the resulting PE signature with
+`sbverify` before atomically publishing a new output file. Existing output
+files are never overwritten.
+
+The script is deliberately separate from the default ISO/PXE build: it does
+not guess the Live kernel command line, alter the current iPXE menu, enroll a
+firmware trust key, or publish the UKI. The operator must provide:
+
+- A root-protected ukify configuration with `[UKI]` Secure Boot key/certificate
+  and one or more `[PCRSignature:name]` sections containing PCR private/public
+  keys and explicit phase lists.
+- The exact kernel and initramfs from the same Fedora Live build.
+- A one-line kernel command line file with only non-secret boot parameters.
+- A pre-existing output directory and a firmware trust chain that accepts the
+  configured signing certificate.
+
+Example invocation:
+
+```bash
+FECLORA_UKI_CONFIG=/root/uki/feclora-uki.conf \
+FECLORA_UKI_CMDLINE=/root/uki/feclora.cmdline \
+FECLORA_UKI_KERNEL=/boot/vmlinuz-<version> \
+FECLORA_UKI_INITRD=/boot/initramfs-<version>.img \
+FECLORA_UKI_OUTPUT=/srv/feclora/boot/feclora-live.efi \
+bash build/build-pxe-uki.sh
+```
+
+The config, command-line file and private keys must be regular files with
+0600-or-stricter permissions. PCR phase selection, PCR bank choice, PCR
+signature enrollment and recovery after firmware/kernel updates remain
+operator-defined and are not certified by this builder. The script's
+successful signature check proves only that the output verifies against the
+provided certificate; it does not prove that firmware trusts it or that the
+TPM will release a credential under the intended measured-boot policy.
+
+The current PXE tree still boots its existing kernel/initramfs assets. The
+signed UKI is not wired into production PXE selection until bootloader/firmware
+compatibility, UKI signature trust, PCR measurements and recovery paths have
+been tested on the Fedora 45 BIOS/UEFI matrix.
+
 ## Multi-Client and transport constraints
 
 - Each Client receives its own profile and target selector, even when all
