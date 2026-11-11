@@ -36,7 +36,10 @@ def _load_manifest(path: str | os.PathLike[str]) -> ImageManifest:
         with os.fdopen(fd, "r", encoding="utf-8") as stream:
             if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                 raise LogicalVolumeRestoreError("manifest must be a regular file")
-            return ImageManifest.from_json(stream.read(1024 * 1024 + 1))
+            raw = stream.read(1024 * 1024 + 1)
+            if len(raw) > 1024 * 1024:
+                raise LogicalVolumeRestoreError("manifest exceeds the 1 MiB size limit")
+            return ImageManifest.from_json(raw)
     except (OSError, UnicodeError, ManifestValidationError) as exc:
         raise LogicalVolumeRestoreError(f"cannot load valid logical-volume manifest: {exc}") from exc
 
