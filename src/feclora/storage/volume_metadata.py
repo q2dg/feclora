@@ -26,7 +26,9 @@ def classify_volume(device: dict[str, Any]) -> list[str]:
     if fstype == "crypto_luks":
         tags.extend(("luks", "luks_container"))
     elif dev_type == "crypt":
-        tags.extend(("luks", "luks_mapping"))
+        # TYPE=crypt proves an active dm-crypt mapping, but does not prove
+        # that its on-disk format is LUKS (plain dm-crypt is also possible).
+        tags.extend(("encrypted", "crypt_mapping"))
     if fstype in {"lvm2_member", "lvm"} or dev_type == "lvm":
         tags.append("lvm")
         if fstype == "lvm2_member":
