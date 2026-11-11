@@ -58,13 +58,13 @@ hardware, provider services or physical networks have passed acceptance.
 - SFTP: separate signed image-set publish/fetch and Cockpit paths exist, but
   transfers remain limited (single configured directory, synchronous
   metadata/artifact steps, no complete byte-progress/resume workflow).
-- PXE job handoff: the active Server restore-job lifecycle publishes/revokes
-  the handoff script. Enrolled Client mTLS identity is exported to dedicated
-  removable media, mounted read-only by Live, and consumed by an automatic
-  PXE Client dispatcher. The first path authenticates over mTLS, resolves a
-  unique whole disk by per-Client WWN/serial, and retains Server READY/ARM.
-  Boot parameters are not authorization. Partition/multicast unattended
-  execution and physical BIOS/UEFI acceptance remain pending.
+- PXE Live boot and initial shared-answer publication: Cockpit accepts a
+  JSON answer and repository URL; the Server signs it with its protected
+  minisign key and publishes/revokes the answer and signature through Caddy.
+  No per-Client identity or removable identity media is part of this design.
+  Live-side download, independent trust-root provisioning, provider adapters,
+  stable-target revalidation, replay/expiry controls and restore execution
+  remain incomplete.
 - Unattended restore profiles: a standalone signed single-use executor exists,
   but profile authoring/activation and integration with PXE Server/Client jobs
   are not complete.
@@ -77,12 +77,14 @@ hardware, provider services or physical networks have passed acceptance.
 
 ## Release-critical work
 
-1. **Unattended PXE restore:** integrate authenticated Client startup and
-   per-device mTLS identity, bind the Server job/profile/image digest to the
-   Client identity, enforce expiry and session replay protection, select a
-   deterministic stable target, perform local preflight, report per-Client
-   READY/progress/read-back verification, and preserve the explicit
-   authorization boundary. PXE boot alone must never authorize a write.
+1. **Unattended PXE restore:** complete the shared answer-file path without
+   per-Client identity or enrollment. Provision the Server signing public key
+   independently in Live, publish an answer-specific iPXE handoff, download and
+   verify the answer before parsing it, integrate supported repository
+   providers/credentials, enforce expiry and single-use replay protection,
+   revalidate the stable target immediately before writing, execute through
+   the protected restore engine, and record verification/results. PXE boot or
+   possession of a URL alone must never authorize a write.
 2. **Storage-layer image fidelity:** local LVM logical-volume capture and
    restore are implemented. Server/Client deployment jobs now accept LV
    restore targets over unicast and multicast; both interactive and persistent
