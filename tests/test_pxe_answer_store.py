@@ -23,13 +23,11 @@ class PXEAnswerStoreTests(unittest.TestCase):
             "confirm_destructive": True, "start": True,
         }).encode()
 
-    def test_publishes_verified_answer_atomically_and_revokes_it(self):
+    def test_publishes_answer_atomically_and_revokes_it(self):
         with tempfile.TemporaryDirectory() as tmp:
             os.chmod(tmp, 0o755)
             result = publish_pxe_answer(
-                tmp, self.JOB_ID, self.answer(), b"signature",
-                verify_signature=lambda raw, sig: raw == self.answer() and sig == b"signature",
-                address="192.0.2.10",
+                tmp, self.JOB_ID, self.answer(), address="192.0.2.10",
             )
             self.assertTrue(Path(result["directory"], "answer.json").is_file())
             self.assertEqual(Path(result["directory"], "answer.json").stat().st_mode & 0o777, 0o444)
@@ -37,28 +35,17 @@ class PXEAnswerStoreTests(unittest.TestCase):
             self.assertTrue(revoke_pxe_answer(tmp, self.JOB_ID))
             self.assertFalse(revoke_pxe_answer(tmp, self.JOB_ID))
 
-    def test_rejects_untrusted_signature_and_does_not_publish(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            os.chmod(tmp, 0o755)
-            with self.assertRaisesRegex(PXEAnswerStoreError, "not trusted"):
-                publish_pxe_answer(
-                    tmp, self.JOB_ID, self.answer(), b"bad",
-                    verify_signature=lambda _raw, _sig: False, address="192.0.2.10",
-                )
-            self.assertFalse((Path(tmp) / "answers").exists())
-
     def test_rejects_invalid_answer_and_noncanonical_job_id(self):
         with tempfile.TemporaryDirectory() as tmp:
             os.chmod(tmp, 0o755)
             with self.assertRaises(PXEAnswerStoreError):
                 publish_pxe_answer(
-                    tmp, self.JOB_ID, b"{}", b"signature",
-                    verify_signature=lambda _raw, _sig: True, address="192.0.2.10",
+                    tmp, self.JOB_ID, b"{}", address="192.0.2.10",
                 )
             with self.assertRaises(PXEAnswerStoreError):
                 publish_pxe_answer(
-                    tmp, str(uuid.UUID(self.JOB_ID)).upper(), self.answer(), b"signature",
-                    verify_signature=lambda _raw, _sig: True, address="192.0.2.10",
+                    tmp, str(uuid.UUID(self.JOB_ID)).upper(), self.answer(),
+                    address="192.0.2.10",
                 )
 
     def test_clears_all_stale_job_answer_directories(self):
@@ -66,8 +53,7 @@ class PXEAnswerStoreTests(unittest.TestCase):
             os.chmod(tmp, 0o755)
             for job_id in (self.JOB_ID, "f47ac10b-58cc-4372-a567-0e02b2c3d480"):
                 publish_pxe_answer(
-                    tmp, job_id, self.answer(), b"signature",
-                    verify_signature=lambda _raw, _sig: True, address="192.0.2.10",
+                    tmp, job_id, self.answer(), address="192.0.2.10",
                 )
             self.assertEqual(clear_stale_pxe_answers(tmp), 2)
             self.assertEqual(clear_stale_pxe_answers(tmp), 0)
@@ -76,8 +62,8 @@ class PXEAnswerStoreTests(unittest.TestCase):
     def test_refuses_to_replace_existing_job_answer(self):
         with tempfile.TemporaryDirectory() as tmp:
             os.chmod(tmp, 0o755)
-            args = (tmp, self.JOB_ID, self.answer(), b"signature")
-            kwargs = {"verify_signature": lambda _raw, _sig: True, "address": "192.0.2.10"}
+            args = (tmp, self.JOB_ID, self.answer())
+            kwargs = {"address": "192.0.2.10"}
             publish_pxe_answer(*args, **kwargs)
             with self.assertRaisesRegex(PXEAnswerStoreError, "already published"):
                 publish_pxe_answer(*args, **kwargs)
@@ -87,8 +73,7 @@ class PXEAnswerStoreTests(unittest.TestCase):
             os.chmod(tmp, 0o777)
             with self.assertRaises(PXEAnswerStoreError):
                 publish_pxe_answer(
-                    tmp, self.JOB_ID, self.answer(), b"signature",
-                    verify_signature=lambda _raw, _sig: True, address="192.0.2.10",
+                    tmp, self.JOB_ID, self.answer(), address="192.0.2.10",
                 )
 
 
