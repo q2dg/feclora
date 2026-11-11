@@ -21,20 +21,11 @@ class PXEAnswerAPITests(unittest.TestCase):
             "start": True,
         }).encode("utf-8")
 
-    def test_requires_repository_url_to_match_answer_document(self):
-        with self.assertRaisesRegex(WebAPIError, "exactly match"):
-            _publish_pxe_answer({
-                "job_id": self.JOB_ID,
-                "answer_base64": base64.b64encode(self.answer()).decode("ascii"),
-                "repository_url": "sftp://other.example/images",
-            })
-
     def test_rejects_invalid_base64_before_touching_pxe_services(self):
         with self.assertRaisesRegex(WebAPIError, "valid base64"):
             _publish_pxe_answer({
                 "job_id": self.JOB_ID,
                 "answer_base64": "%%%not-base64%%%",
-                "repository_url": "sftp://repo.example/images",
             })
 
     def test_rejects_unknown_or_missing_request_fields(self):
@@ -42,7 +33,6 @@ class PXEAnswerAPITests(unittest.TestCase):
             _publish_pxe_answer({
                 "job_id": self.JOB_ID,
                 "answer_base64": base64.b64encode(self.answer()).decode("ascii"),
-                "repository_url": "sftp://repo.example/images",
                 "signature_base64": "unused",
             })
 
