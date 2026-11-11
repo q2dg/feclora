@@ -1,7 +1,7 @@
 [Unit]
 Description=Feclora authenticated PXE Client deployment job %i
 Requires=mnt-feclora\x2dpxe\x2didentity.mount
-After=network-online.target run-feclora-pxe\x2didentity.mount
+After=network-online.target mnt-feclora\x2dpxe\x2didentity.mount
 Wants=network-online.target
 
 [Service]
