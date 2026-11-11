@@ -6,6 +6,7 @@ ROOT=/etc/feclora/kiosk-pki
 ANCHOR=/etc/pki/ca-trust/source/anchors/feclora-kiosk-ca.crt
 COCKPIT_DIR=/etc/cockpit/ws-certs.d
 COCKPIT_CERT=${COCKPIT_DIR}/50-feclora.cert
+COCKPIT_KEY=${COCKPIT_DIR}/50-feclora.key
 OPENSSL=/usr/bin/openssl
 
 [[ $EUID -eq 0 ]] || { echo "Must run as root" >&2; exit 1; }
@@ -71,14 +72,17 @@ done
 "$OPENSSL" x509 -in "$SERVER_CERT" -noout -checkip 127.0.0.1
 "$OPENSSL" x509 -in "$SERVER_CERT" -noout -checkip ::1
 
-if [[ -e "$COCKPIT_CERT" && ! -f "$COCKPIT_CERT" ]]; then
-  echo "Cockpit certificate destination is not a regular file" >&2
-  exit 1
-fi
+for destination in "$COCKPIT_CERT" "$COCKPIT_KEY"; do
+  if [[ -e "$destination" && ! -f "$destination" ]]; then
+    echo "Cockpit certificate destination is not a regular file: $destination" >&2
+    exit 1
+  fi
+done
 tmp_cert=$(mktemp "$COCKPIT_DIR/.feclora-cert.XXXXXX")
-cat "$SERVER_CERT" "$SERVER_KEY" > "$tmp_cert"
-chmod 0600 "$tmp_cert"
-chown root:root "$tmp_cert"
+tmp_key=$(mktemp "$COCKPIT_DIR/.feclora-key.XXXXXX")
+install -o root -g root -m 0644 "$SERVER_CERT" "$tmp_cert"
+install -o root -g root -m 0600 "$SERVER_KEY" "$tmp_key"
+mv -f "$tmp_key" "$COCKPIT_KEY"
 mv -f "$tmp_cert" "$COCKPIT_CERT"
 install -o root -g root -m 0644 "$CA_CERT" "$ANCHOR"
 restorecon "$ROOT" "$ANCHOR" "$COCKPIT_CERT" 2>/dev/null || true
