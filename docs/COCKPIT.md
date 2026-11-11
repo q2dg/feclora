@@ -19,7 +19,8 @@ at `http://127.0.0.1:8765/`. This service binds only to IPv4 loopback and
 checks the Host header, exact Origin and a short-lived CSRF token. It accepts
 a password of 14–128 characters, sends it to `chpasswd` through standard
 input (never command-line arguments or logs), marks setup complete for the
-current Live session, and redirects Firefox to `https://localhost:9090/`.
+current Live session, and redirects Firefox to the Feclora Cockpit application at
+`https://localhost:9090/cockpit/@localhost/feclora/index.html`.
 There is no default/shared administrator password.
 
 The Live filesystem is currently ephemeral: the administrator password,
