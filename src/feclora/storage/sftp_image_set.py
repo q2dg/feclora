@@ -244,7 +244,9 @@ def fetch_image_set(
             raise SFTPImageSetError(
                 "an image artifact or manifest already exists; refusing to overwrite it"
             ) from exc
-        except OSError:
+        except BaseException:
+            # Include orderly worker cancellation: never leave a partially
+            # imported local image set visible without its manifest marker.
             for target in reversed(published):
                 try:
                     os.unlink(target)
