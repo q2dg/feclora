@@ -11,7 +11,8 @@ Environment=PYTHONPATH=/usr/share/feclora/python
 ExecStart=/usr/bin/python3 -m feclora.kiosk_bootstrap
 ExecStartPost=/usr/libexec/feclora/feclora-kiosk-bootstrap-ready
 TimeoutStartSec=35
-Restart=no
+Restart=on-failure
+RestartSec=2
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
