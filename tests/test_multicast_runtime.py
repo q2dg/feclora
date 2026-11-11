@@ -166,6 +166,64 @@ class MulticastRuntimeTests(unittest.TestCase):
             restore_partition.assert_called_once()
             restore_disk.assert_not_called()
 
+    def test_logical_volume_manifest_dispatches_to_lv_restore_with_fresh_inventory(self):
+        job = multicast_job(target_type="logical_volume")
+        approval = LocalTargetApproval(
+            "/dev/vg0/lv-data", "Disposable logical volume",
+            "ERASE /dev/vg0/lv-data FROM URI:feclora-server",
+        )
+        artifact = ImageArtifact(
+            "golden-image.raw", "logical-volume-image", "raw", "none", 3,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        )
+        manifest = SimpleNamespace(
+            image_id="golden-image", image_type="logical_volume", artifacts=(artifact,),
+        )
+        offer = {
+            "type": "transfer_offer", "job_id": job.job_id, "image_id": job.image_id,
+            "manifest_b64": base64.b64encode(b"{}").decode("ascii"),
+            "signature_b64": base64.b64encode(b"signature").decode("ascii"),
+        }
+        tls = Mock()
+        with tempfile.TemporaryDirectory() as repository:
+            real_lstat = os.lstat
+            def fake_lstat(path, *args, **kwargs):
+                if path == approval.device_path:
+                    return SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
+                return real_lstat(path, *args, **kwargs)
+            def fake_receive(staging_directory, _artifact, _config, **_kwargs):
+                private = tempfile.mkdtemp(prefix=".feclora-udpcast-", dir=staging_directory)
+                staged = os.path.join(private, "payload")
+                with open(staged, "wb") as stream:
+                    stream.write(b"abc")
+                return staged
+            with (
+                patch("feclora.deployment.multicast_runtime.os.lstat", side_effect=fake_lstat),
+                patch("feclora.deployment.multicast_runtime.receive_control_message", return_value=offer),
+                patch("feclora.deployment.multicast_runtime.verify_manifest_signature"),
+                patch("feclora.deployment.multicast_runtime.ImageManifest.from_json", return_value=manifest),
+                patch("feclora.deployment.multicast_runtime.receive_multicast_artifact_to_staging", side_effect=fake_receive),
+                patch("feclora.deployment.multicast_runtime.verify_staged_multicast_artifact"),
+                patch("feclora.deployment.multicast_runtime.restore_logical_volume") as restore_lv,
+                patch("feclora.deployment.multicast_runtime.collect_inventory") as inventory,
+            ):
+                result = execute_multicast_restore(
+                    job, tls, approval, server_identity="URI:feclora-server",
+                    repository=repository, trusted_server_public_key="/pki/server.pub",
+                    firewall=Mock(), network_interface="enp1s0",
+                )
+            self.assertTrue(result[0])
+            restore_lv.assert_called_once()
+            self.assertEqual(restore_lv.call_args.args[2], approval.device_path)
+            self.assertEqual(
+                restore_lv.call_args.kwargs["confirmation"],
+                "ERASE /dev/vg0/lv-data",
+            )
+            self.assertIs(
+                restore_lv.call_args.kwargs["inventory_provider"],
+                inventory,
+            )
+
     def test_invalid_signed_manifest_never_reaches_restore(self):
         job = multicast_job()
         approval = LocalTargetApproval(
