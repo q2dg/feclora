@@ -108,10 +108,9 @@ def render_unattended_answer_ipxe_script(
     address: str,
     job_id: str,
     answer_url: str,
-    signature_url: str,
     http_port: int = 8080,
 ) -> str:
-    """Render an identity-free Live boot handoff to a signed answer document."""
+    """Render an identity-free Live boot handoff to a plain HTTP JSON answer."""
     from urllib.parse import urlsplit
 
     try:
@@ -123,28 +122,25 @@ def render_unattended_answer_ipxe_script(
     if isinstance(http_port, bool) or not isinstance(http_port, int) or not 1 <= http_port <= 65535:
         raise LiveBootAssetError("PXE HTTP port is invalid")
     canonical_job_id = _answer_job_id(job_id)
-    base_url = f"http://{parsed}:{http_port}/answers/{canonical_job_id}"
-    expected_answer = base_url + "/answer.json"
-    expected_signature = base_url + "/answer.minisig"
-    if answer_url != expected_answer or signature_url != expected_signature:
-        raise LiveBootAssetError("PXE answer URLs must match this Server, port and canonical job UUID")
-    for value, label in ((answer_url, "answer"), (signature_url, "signature")):
-        parsed_url = urlsplit(value)
-        if (parsed_url.scheme != "http" or parsed_url.username is not None
-                or parsed_url.password is not None or parsed_url.query or parsed_url.fragment):
-            raise LiveBootAssetError(f"PXE {label} URL is not a plain Caddy answer URL")
+    expected_answer = f"http://{parsed}:{http_port}/answers/{canonical_job_id}/answer.json"
+    if answer_url != expected_answer:
+        raise LiveBootAssetError("PXE answer URL must match this Server, port and canonical job UUID")
+    parsed_url = urlsplit(answer_url)
+    if (parsed_url.scheme != "http" or parsed_url.username is not None
+            or parsed_url.password is not None or parsed_url.query or parsed_url.fragment):
+        raise LiveBootAssetError("PXE answer URL is not a plain Caddy answer URL")
     live_base = f"http://{parsed}:{http_port}/live"
     return (
-        "#!ipxe\n"
-        "dhcp\n"
+        "#!ipxe\\n"
+        "dhcp\\n"
         f"kernel {live_base}/vmlinuz root=live:{live_base}/squashfs.img ro rd.live.image "
         f"ip=dhcp rd.neednet=1 feclora.pxe_mode=unattended-answer "
         f"feclora.pxe_job_id={canonical_job_id} "
-        f"feclora.pxe_answer_url={answer_url} "
-        f"feclora.pxe_signature_url={signature_url}\n"
-        f"initrd {live_base}/initrd.img\n"
-        "boot\n"
+        f"feclora.pxe_answer_url={answer_url}\\n"
+        f"initrd {live_base}/initrd.img\\n"
+        "boot\\n"
     )
+
 
 
 def _safe_http_root(http_root: str) -> Path:
@@ -165,13 +161,12 @@ def publish_unattended_answer_ipxe_script(
     address: str,
     job_id: str,
     answer_url: str,
-    signature_url: str,
     http_port: int = 8080,
 ) -> str:
     """Atomically publish one answer-specific, identity-free iPXE script."""
     target_root = _safe_http_root(http_root)
     content = render_unattended_answer_ipxe_script(
-        address, job_id, answer_url, signature_url, http_port,
+        address, job_id, answer_url, http_port,
     )
     destination = target_root / "unattended-answer.ipxe"
     if os.path.lexists(destination):
