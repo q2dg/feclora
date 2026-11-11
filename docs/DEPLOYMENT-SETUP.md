@@ -203,9 +203,9 @@ Live Cockpit interface; operators do not need to boot the ISO manually.
    medium, certificate, key or enrollment is requested by this form.
 4. The operator can explicitly revoke the published answer from Cockpit.
    Automatic revocation on deployment cancellation/expiry is not connected
-   yet. Clients do not yet download or execute this answer: the Live-side
-   downloader, repository adapters, stable target
-   revalidation and unattended restore engine remain implementation work.
+   yet. The Live boot now downloads and validates the answer JSON when the
+   unattended kernel handoff is present. Repository adapters, stable-target
+   revalidation and unattended restore execution remain implementation work.
 5. The existing Remote jobs workflow is a separate authenticated mTLS
    workflow. It still uses enrolled Clients and local target approval; it is
    not the new identity-free PXE answer workflow and must not be used as proof
@@ -215,9 +215,9 @@ Live Cockpit interface; operators do not need to boot the ISO manually.
 
 The answer JSON is declarative data, not shell code. It identifies the image,
 repository and stable whole-disk WWN/serial selector and explicitly requests
-restore/start. The Server validates it before publication. The Live image must download and
-validate the answer again, resolve exactly one matching disk and recheck its identity immediately
-before the write. A URL, DHCP lease, MAC address, job UUID or successful
+restore/start. The Server validates it before publication. The Live image downloads and validates the answer, but target resolution,
+repository access and immediate pre-write identity revalidation are not yet
+connected to the restore engine. A URL, DHCP lease, MAC address, job UUID or successful
 download is not authorization by itself.
 
 The current implementation publishes and revokes JSON answer files; it does
