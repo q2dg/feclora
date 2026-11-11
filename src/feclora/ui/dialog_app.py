@@ -82,6 +82,14 @@ def volume_topology_details(inventory: dict[str, Any]) -> str:
             lines.append("    Device " + str(device.get("devid")) + ": " + str(device.get("path")) + " | " + str(device.get("size_bytes")) + " bytes")
     if btrfs.get("error"):
         lines.append("  Error: " + str(btrfs["error"]))
+    subvolumes = inventory.get("btrfs_subvolumes") or {}
+    lines.append("Btrfs subvolumes: " + str(subvolumes.get("status", "not collected")))
+    for mount in subvolumes.get("mounts", []):
+        lines.append("  Mounted at: " + str(mount.get("mountpoint")))
+        for subvolume in mount.get("subvolumes", []):
+            lines.append("    " + str(subvolume.get("kind")) + ": " + str(subvolume.get("path")) + " | UUID " + str(subvolume.get("uuid")))
+    if subvolumes.get("error"):
+        lines.append("  Error: " + str(subvolumes["error"]))
     return "\n".join(lines)
 
 def _dialog(args: list[str]) -> subprocess.CompletedProcess[str]:
