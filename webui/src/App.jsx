@@ -266,7 +266,7 @@ export default function App() {
             || !Number.isSafeInteger(lv.size_bytes) || lv.size_bytes <= 0
             || ![null, undefined, "", "-", "ok", "healthy"].includes(lv.health)) continue;
         const matches = devices.filter((device) => device.major_minor === lv.major_minor);
-        if (matches.length === 1) result.push({ ...matches[0], lvm_name: lv.name, lvm_path: lv.path });
+        if (matches.length === 1) result.push({ ...matches[0], path: lv.path, lvm_name: lv.name, lvm_path: lv.path });
       }
     }
     return result;
