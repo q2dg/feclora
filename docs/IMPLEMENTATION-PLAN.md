@@ -43,7 +43,12 @@ migration to an installed-only Fedora Server appliance.
   password (minimum 14 characters) without a default/shared secret or browser
   storage. The administrator account remains locked until this succeeds.
 - [x] Generate a local Cockpit CA and localhost/IP SAN certificate, install
-  the CA into the system trust store, and enable Firefox enterprise-root import.
+  the CA into the system trust store and Firefox's Linux `Certificates.Install`
+  policy.
+- [ ] Design persistence for administrator credentials, local CA/private key
+  and Feclora configuration across Live reboots. Do not silently select a
+  target disk; require an explicit persistence medium/policy before enabling it.
+  Until then, the setup wizard and local CA are regenerated for each Live boot.
 - [x] Define the authorized administrator and kiosk account privilege
   boundaries; the kiosk account is not a member of wheel and cannot log in
   to Cockpit as an administrator or invoke privileged Feclora API actions.
