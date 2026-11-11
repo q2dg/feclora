@@ -5,40 +5,50 @@ application is installed at `/usr/share/cockpit/feclora` and uses Cockpit's
 authenticated session and explicit superuser authorization for privileged
 operations.
 
-## First login
+## Live kiosk startup and authentication
 
-The live console prints the Cockpit URL and setup instructions. From the
-console, set a password for the live account:
+Feclora's target runtime is a Live appliance based on a minimal Fedora Server
+userspace. It does not provide a general-purpose desktop environment. A
+minimal Wayland kiosk compositor (Cage) launches Firefox in kiosk mode on the
+local display, with Cockpit at `https://localhost:9090/` as its fixed page.
+Cockpit is enabled through `cockpit.socket`; the kiosk session and Cockpit
+are started automatically during boot.
 
-```bash
-sudo passwd feclora
-```
+Firefox is the only normal interactive application presented on the local
+display. The kiosk must not expose browser chrome, arbitrary navigation,
+application launchers or a desktop session. This is a presentation boundary,
+not a substitute for operating-system authorization: Cockpit continues to
+authenticate users and authorize privileged actions through its normal
+mechanisms. TTY switching, shell access, browser escape paths, service
+permissions and physical-console access must be addressed separately.
 
-Then allow Cockpit through firewalld only on the trusted management network
-(or use the host's existing interface-specific firewall policy):
+The current Live Kickstart still contains a legacy console-oriented account
+setup (automatic tty1 login and passwordless wheel sudo). That policy is not
+an acceptable final kiosk security model and must not be copied into an
+installed Server deployment. The kiosk implementation is gated on a secure
+first-boot credential/bootstrap flow and a trusted local Cockpit TLS
+certificate: without those, Firefox would either have no usable Cockpit
+account or display a certificate interstitial instead of the Feclora
+assistant. These are explicit implementation tasks, not assumed solved.
 
-```bash
-sudo firewall-cmd --add-service=cockpit
-```
-
-Then open `https://<management-interface-address>:9090` from a trusted
-management workstation and sign in as `feclora`. The firewall rule above is
-runtime-only; do not make it permanent unless the management VLAN/interface
-is correctly isolated. Cockpit's Terminal page is available for system
-administration and diagnostics; it is not used as a substitute for Feclora's
-validated storage workflows.
+Cockpit's Terminal component remains an authenticated Cockpit feature for
+authorized administrators. Hiding the local terminal or browser controls
+does not remove the need to restrict Cockpit roles, system accounts and
+privileged API actions.
 
 ## Build and package
 
 On the Fedora 45 build host, install Node.js and npm with
-`build/install-host-deps.sh`. The ISO build invokes
+`build/install-host-deps.sh`. The Live build invokes
 `build/build-webui.sh`, which installs the frontend dependencies and builds
 `webui/dist/`. The generated package is staged on the augmented installer
 media and installed at `/usr/share/cockpit/feclora`.
 
-The Live image includes `cockpit`, `cockpit-system` and
-`cockpit-storaged`; `cockpit.socket` is enabled. The operator must set a
-non-empty live-account password before browser login.
+The target Live image includes `cockpit`, `cockpit-system` and
+`cockpit-storaged`; `cockpit.socket` is enabled. The kiosk runtime will add
+Firefox and a minimal Wayland compositor, not a full desktop environment.
+The legacy console password instructions describe the current transitional
+image only and are not the target kiosk bootstrap experience.
 
 ## Storage workflows
 
