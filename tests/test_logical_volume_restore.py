@@ -175,7 +175,7 @@ class LogicalVolumeRestorePreflightTests(unittest.TestCase):
         )
         self.assertTrue(result["thin_provisioned"])
         self.assertEqual(result["thin_pool"], "pool0")
-        self.assertTrue(any("does not reserve extents" in item for item in result["warnings"]))
+        self.assertTrue(any("not a reservation" in item for item in result["warnings"]))
 
         with self.assertRaisesRegex(RestoreProfileError, "exhausted"):
             preflight_logical_volume_restore(
