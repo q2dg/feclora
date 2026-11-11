@@ -104,6 +104,38 @@ class PartitionImageCaptureTests(unittest.TestCase):
             self.assertEqual(manifest.storage["capture_scope"], "encrypted_container_bytes")
             self.assertEqual(manifest.storage["luks_uuid"], storage["luks_uuid"])
 
+    def test_single_device_btrfs_capture_uses_partclone_and_records_uuid(self):
+        payload = b"btrfs partclone stream"
+        btrfs_show = """Label: none  uuid: 01234567-89ab-cdef-0123-456789abcdef
+        Total devices 1 FS bytes used 123456
+        devid    1 size 4096 path /dev/fake1
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            def runner(command, **kwargs):
+                if command[0] == "lsblk":
+                    return SimpleNamespace(stdout="4096 512 part btrfs\\n")
+                return SimpleNamespace(stdout=btrfs_show, returncode=0)
+            inventory = make_inventory("/dev/fake1", 4096, "btrfs")
+            inventory["btrfs_topology"] = {"status": "available", "filesystems": [{
+                "uuid": "01234567-89ab-cdef-0123-456789abcdef",
+                "total_devices": 1, "devices": [{"path": "/dev/fake1"}],
+            }]}
+            manifest = capture_partition_image(
+                "/dev/fake1", "btrfs-backup", "fake1", directory,
+                executables={
+                    "lsblk": "lsblk", "btrfs": "btrfs",
+                    "partclone.btrfs": "partclone.btrfs",
+                },
+                runner=runner, device_validator=lambda _path: True,
+                source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda *a, **k: FakeProcess(payload),
+                inventory=inventory,
+            )
+            self.assertEqual(manifest.artifacts[0].format, "partclone")
+            self.assertEqual(manifest.artifacts[0].filesystem, "btrfs")
+            self.assertEqual(manifest.storage["source_layer"], "btrfs_filesystem")
+            self.assertEqual(manifest.storage["btrfs_uuid"], "01234567-89ab-cdef-0123-456789abcdef")
+
     def test_rejects_multi_device_btrfs_capture_before_writing(self):
         payload = """Label: array uuid: 01234567-89ab-cdef-0123-456789abcdef
         Total devices 2 FS bytes used 123456
