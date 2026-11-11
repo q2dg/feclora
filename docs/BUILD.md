@@ -169,11 +169,13 @@ boot the first-boot page asks the operator to set the `feclora` administrator
 password before redirecting to Cockpit. The local Cockpit CA/certificate is
 generated and trusted automatically before the Cockpit socket starts.
 
-The current Live root is ephemeral. The administrator password, local CA
-private key and first-boot completion marker are session-local and reset on
-reboot. Do not treat the current image as a persistent appliance across
-reboots; persistent credential/configuration storage must be designed
-separately without selecting a potential restore target disk implicitly.
+The Live root is intentionally ephemeral. The administrator password, local CA
+private key, first-boot completion marker and temporary Feclora configuration
+are session-local and reset on reboot. Each boot begins a new session; this is
+the intended operating model, not a missing persistence feature. Images,
+manifests and other data that must survive are written to repositories or
+storage explicitly selected by the operator. Never select a potential restore
+target disk implicitly.
 
 ## 7. Boot-test BIOS and UEFI
 
