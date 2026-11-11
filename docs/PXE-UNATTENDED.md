@@ -30,7 +30,7 @@ compares every supplied identifier with its own current block-device inventory
 before it reports READY; a missing or mismatching identifier rejects the
 selection. The Server UI collects these values per selected Client, and the
 job schema rejects selectors for non-authorized Clients, incomplete Client
-coverage, empty selectors, non-restore/partition targets, unknown fields and
+coverage, empty selectors, non-whole-disk restore targets, unknown fields and
 control characters.
 
 This is a preflight constraint, not unattended target discovery or a
@@ -40,6 +40,34 @@ and types the local confirmation in Cockpit. In the unattended PXE workflow,
 the Client uses the binding to resolve one whole disk automatically; the
 binding alone does not authorize a write. Existing jobs without target_bindings retain the interactive
 workflow.
+
+## Client identity provisioning
+
+After enrolling a Client, open Cockpit's **Client enrollment** tab and use
+**Prepare PXE identity USB**. Select a dedicated, already-mounted removable
+filesystem. The export includes only the Client CA certificate, TLS
+certificate, TLS private key and the Server's public image-verification key
+when configured. Client age and minisign private keys are deliberately not
+exported.
+
+Use one medium per Client, formatted as ext4, XFS or Btrfs and labelled
+`FECLORA-CLIENT`. The export refuses filesystems without POSIX permissions,
+symlinks or unsafe ownership/write permissions. The Live image auto-detects
+the filesystem type and mounts it read-only at
+`/mnt/feclora-pxe-identity`; the deployment configuration inside the medium
+uses that fixed mount path.
+
+The USB is a **bearer credential**: physical possession gives access to that
+Client's mTLS identity. Keep it under physical control, do not copy it to the
+Server's shared PXE boot tree, and never share it between Clients. If lost,
+revoke the corresponding Client certificate in the Server trust inventory
+and enroll a replacement. The media is not encrypted at rest by Feclora.
+
+The Live image enables a small dispatcher conditioned on
+`feclora.pxe_mode=unattended`. It mounts the identity medium only for that
+mode, validates the configuration, writes a root-only job request and starts
+the per-job Client service. Interactive PXE boots do not mount the identity
+medium or start the dispatcher.
 
 ## Authenticated unattended flow
 
