@@ -137,6 +137,7 @@ def fetch_live_pxe_answer(
         raise PXEAnswerClientError("unattended PXE boot has no answer URL")
     raw = downloader(request.answer_url)
     answer = parse_pxe_answer(raw)
+    answer["_pxe_job_id"] = request.job_id
     _publish_runtime_answer(raw, destination)
     return answer
 
@@ -243,11 +244,52 @@ def _revalidate_target(selector: RestoreTargetSelector, expected_path: str) -> N
         raise PXEAnswerClientError("PXE target identity or device path changed before the first write")
 
 
+
+def _consume_answer_once(job_id: str, directory: str | os.PathLike[str]) -> None:
+    """Consume a PXE job UUID once in this Live session, immediately pre-write."""
+    import uuid
+
+    try:
+        canonical = str(uuid.UUID(job_id))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise PXEAnswerClientError("PXE job ID is invalid for one-time consumption") from exc
+    if canonical != job_id:
+        raise PXEAnswerClientError("PXE job ID is not canonical")
+    root = Path(directory)
+    try:
+        root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        info = os.lstat(root)
+        if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != 0 or info.st_mode & 0o077):
+            raise PXEAnswerClientError("PXE one-time ledger directory must be root-owned and mode 0700")
+        fd = os.open(
+            root / canonical,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+        )
+        with os.fdopen(fd, "w", encoding="ascii") as output:
+            output.write("consumed\\n")
+            output.flush()
+            os.fsync(output.fileno())
+        directory_fd = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except FileExistsError as exc:
+        raise PXEAnswerClientError("PXE answer job has already been consumed in this Live session") from exc
+    except PXEAnswerClientError:
+        raise
+    except OSError as exc:
+        raise PXEAnswerClientError(f"cannot consume PXE answer authorization once: {exc}") from exc
+
+
 def execute_live_pxe_restore(
     answer: dict[str, Any],
     *,
     mountpoint: str | os.PathLike[str] = "/run/feclora/pxe/repository",
     operation_log: str | os.PathLike[str] = "/var/lib/feclora/pxe/operations.jsonl",
+    consumption_dir: str | os.PathLike[str] = "/var/lib/feclora/pxe/consumed",
 ) -> str:
     """Execute the requested NFS-backed whole-disk restore; other providers fail closed."""
     repository_url = answer.get("repository_url")
@@ -259,6 +301,9 @@ def execute_live_pxe_restore(
         raise PXEAnswerClientError(
             "credential_ref is not yet connected to the PXE NFS provider; refusing to ignore it"
         )
+    job_id = answer.get("_pxe_job_id")
+    if not isinstance(job_id, str):
+        raise PXEAnswerClientError("PXE job ID is required for one-time restore authorization")
     selector = RestoreTargetSelector(**answer["target"])
     target = _resolve_target(answer)
     target_path = target["path"]
@@ -286,6 +331,7 @@ def execute_live_pxe_restore(
         ):
             def before_write() -> None:
                 _revalidate_target(selector, target_path)
+                _consume_answer_once(job_id, consumption_dir)
 
             try:
                 restore_disk(
