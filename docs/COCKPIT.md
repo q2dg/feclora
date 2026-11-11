@@ -42,7 +42,9 @@ warnings or accept an untrusted certificate interactively.
 Firefox runs with `--kiosk` and a managed enterprise policy. Firefox's
 `WebsiteFilter` blocks all URLs except the loopback setup page and the local
 Cockpit host. Firefox match patterns do not constrain port numbers, so these
-loopback hosts are allowed on any port. Password storage, private browsing,
+loopback hosts are allowed on any port. Independently, systemd's cgroup IP
+filters restrict both the kiosk browser and bootstrap service to IPv4/IPv6
+loopback; the browser cannot open connections to LAN or Internet addresses. Password storage, private browsing,
 developer tools, add-ons management, Safe Mode and certificate-warning
 bypass are disabled. The local
 CA is installed through Firefox's supported Linux `Certificates.Install`
