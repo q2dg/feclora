@@ -95,11 +95,16 @@ hardware, provider services or physical networks have passed acceptance.
    provenance and header checks; runtime dispatch tests cover both transports.
    Real remote multi-client/block-device acceptance remains pending. Opened-mapping
    plaintext restore, LUKS2-on-LV, provisioning and rekeying remain unsupported.
-   A disposable loop-device acceptance harness now exercises the real unicast
+   A disposable loop-device acceptance harness exercises the real unicast
    Client runtime and framed image-set transfer over a local socket pair, then
    checks wrong-key rejection, original-key unlock and plaintext equality.
-   It does not perform a live mTLS handshake, network routing or multicast
-   transfer; execution on a Fedora/Linux host is still pending.
+   Multicast Client dispatch is covered by automated runtime tests and the
+   existing two-Client UDPcast operator runbook; the runbook must be used for
+   actual multicast/IGMP acceptance. The loop-device harness does not perform
+   a live mTLS handshake or network routing, and has not yet been executed on
+   a Fedora/Linux host. The LUKS2 implementation scope is therefore closed;
+   remaining work is operator acceptance plus explicitly unsupported modes,
+   not further LUKS2 feature development.
    Finish Btrfs snapshot/multi-device/profile planning and supported restore
    preflights. Do not create or administer VGs/LVs, LUKS devices or Btrfs snapshots
    implicitly.
