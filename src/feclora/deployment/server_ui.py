@@ -616,6 +616,11 @@ def run_deployment_server_ui(
         bound_address, port = control.start(config.bind_address, config.port)
         if (pxe_config is not None and job.operation == "restore"
                 and job.transport == "unicast" and job.target_type == "disk"):
+            bound_macs = {mac for mac, _wwn, _serial in job.target_bindings}
+            if bound_macs != set(job.authorized_clients):
+                raise DeploymentControlError(
+                    "unattended PXE unicast restore requires a WWN/serial binding for every authorized Client"
+                )
             pxe_config.validated()
             if pxe_config.address != address or pxe_config.interface != interface:
                 raise DeploymentControlError("PXE boot profile does not match the active deployment interface/address")
