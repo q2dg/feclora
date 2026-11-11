@@ -208,18 +208,60 @@ class ClientDeploymentService:
     @staticmethod
     def _find_device(device_path: str, target_type: str) -> dict[str, Any]:
         inventory = collect_inventory()
+        if target_type == "logical_volume":
+            topology = inventory.get("volume_topology", {})
+            if topology.get("status") != "available":
+                raise ClientJobServiceError("LVM topology is unavailable for local target validation")
+            devices: list[dict[str, Any]] = []
+
+            def visit(items: list[dict[str, Any]]) -> None:
+                for item in items:
+                    if isinstance(item, dict):
+                        devices.append(item)
+                        children = item.get("children")
+                        if isinstance(children, list):
+                            visit(children)
+
+            visit(inventory.get("devices", []))
+            all_lvs = [
+                lv for group in topology.get("volume_groups", [])
+                for lv in group.get("logical_volumes", [])
+                if isinstance(lv, dict) and lv.get("major_minor")
+            ]
+            identity_counts: dict[str, int] = {}
+            for lv in all_lvs:
+                identity_counts[lv["major_minor"]] = identity_counts.get(lv["major_minor"], 0) + 1
+            matches: list[dict[str, Any]] = []
+            for group in topology.get("volume_groups", []):
+                if group.get("status") != "healthy":
+                    continue
+                for lv in group.get("logical_volumes", []):
+                    if (not isinstance(lv, dict) or lv.get("path") != device_path
+                            or lv.get("segment_type") not in {"linear", "thin"}
+                            or lv.get("snapshot") or lv.get("hidden")
+                            or lv.get("health") not in (None, "", "-", "ok", "healthy")
+                            or not lv.get("major_minor")
+                            or identity_counts.get(lv["major_minor"]) != 1):
+                        continue
+                    backing = [item for item in devices if item.get("major_minor") == lv["major_minor"]]
+                    if len(backing) == 1 and backing[0].get("type") == "lvm":
+                        matches.append({**backing[0], **lv, "path": lv["path"], "type": "lvm"})
+            if len(matches) != 1:
+                raise ClientJobServiceError("selected logical volume is not uniquely present in healthy local LVM inventory")
+            return matches[0]
+
         expected_type = "disk" if target_type == "disk" else "part"
         matches: list[dict[str, Any]] = []
 
-        def visit(items: list[dict[str, Any]]) -> None:
+        def visit_devices(items: list[dict[str, Any]]) -> None:
             for item in items:
                 if item.get("path") == device_path and item.get("type") == expected_type:
                     matches.append(item)
                 children = item.get("children")
                 if isinstance(children, list):
-                    visit(children)
+                    visit_devices(children)
 
-        visit(inventory.get("devices", []))
+        visit_devices(inventory.get("devices", []))
         if len(matches) != 1:
             raise ClientJobServiceError("selected local target is not uniquely present in the current block-device inventory")
         return matches[0]
@@ -340,7 +382,7 @@ class ClientDeploymentService:
                         "selected local target does not match this Client's job-bound WWN/serial identity"
                     )
                 try:
-                    info = os.lstat(device_path)
+                    info = os.stat(device_path)
                 except OSError as exc:
                     raise DeploymentControlError(f"cannot inspect selected local target: {exc}") from exc
                 if not stat.S_ISBLK(info.st_mode):
@@ -361,7 +403,7 @@ class ClientDeploymentService:
                     for value in (
                         selected.get("model"), selected.get("size_bytes"), selected.get("serial"),
                     ) if value
-                ) or ("Selected local partition" if job.target_type == "partition" else "Selected local whole disk")
+                ) or ("Selected local logical volume" if job.target_type == "logical_volume" else "Selected local partition" if job.target_type == "partition" else "Selected local whole disk")
                 description = " ".join(description.split())[:200]
                 self._set_status(
                     "ready", detail=(
