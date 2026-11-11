@@ -45,8 +45,10 @@ and the Server operator explicitly ARMs the complete READY set.
   whole-disk Server-to-Client stream and requires unicast/manual start.
 - `image_id`: simple repository identifier for save/restore; clone jobs must
   set it to null.
-- `target_type`: `disk` or `partition`. Save and clone currently support
-  whole disks only.
+- `target_type`: `disk`, `partition` or `logical_volume`. Logical-volume
+  targets are valid only for restore jobs. Save and clone currently support
+  whole disks only. A Client selects its own existing LV locally; the job
+  never carries a Client device path.
 - `authorized_clients`: non-empty allowlist of unique unicast MAC addresses.
   MAC is an inventory mapping key, not cryptographic authentication.
 - `target_bindings`: optional object for whole-disk restore jobs, keyed by an
@@ -56,8 +58,8 @@ and the Server operator explicitly ARMs the complete READY set.
   inventory before READY. A mismatch or missing identifier rejects the
   selected device. These hardware fields reduce accidental mis-targeting;
   they are not cryptographic device attestation and may be spoofable. The Server Cockpit whole-disk restore workflow can collect a binding
-  for each selected Client; partition-target bindings are not currently
-  supported because the stable identity belongs to the parent disk. This is a preflight constraint: it does not yet
+  for each selected Client; partition- and logical-volume target bindings are not currently
+  supported because those targets require local topology-aware selection. This is a preflight constraint: it does not yet
   provide unattended target discovery or replace the Client's local target
   selection and typed confirmation.
 - `network_interface`: explicit Linux interface name; no implicit default.
@@ -83,6 +85,12 @@ arbitrary executable, password or private key. A stable WWN/serial binding is
 not a path and cannot be used to bypass local inventory or safety checks.
 Without a binding, the established interactive Client target-selection path
 remains in effect.
+
+A logical-volume restore is preflighted against the Client local LVM inventory
+and must target an existing active, unmounted linear or thin LV. The restore
+engine re-collects inventory immediately before writing. It never creates,
+resizes, activates or otherwise changes PV/VG/LV metadata. RAID, striped,
+cache, snapshot and unknown layouts are rejected.
 
 A parsed job does not authenticate a peer or start a write. Production control
 traffic uses TLS 1.3 mutual authentication. The Server maps the authenticated
