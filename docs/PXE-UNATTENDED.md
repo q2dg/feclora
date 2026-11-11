@@ -178,6 +178,30 @@ signed UKI is not wired into production PXE selection until bootloader/firmware
 compatibility, UKI signature trust, PCR measurements and recovery paths have
 been tested on the Fedora 45 BIOS/UEFI matrix.
 
+### TPM2 Client-key sealing primitives
+
+Two opt-in helpers now implement the local credential cryptography step:
+
+- `build/seal-pxe-client-key.sh` runs on the enrolled Client. It accepts an
+  existing root-protected TLS private key and a PCR public key, then invokes
+  `systemd-creds encrypt` with explicit `--with-key=tpm2`,
+  `--tpm2-device=auto` and `--tpm2-public-key-pcrs=11`. It has no host-key,
+  null-key or no-TPM fallback. Only the resulting ciphertext may be copied to
+  the Server; the plaintext private key stays on the Client.
+- `build/unseal-pxe-client-key.sh` requires the systemd-stub PCR signature and
+  public-key files under `/run/systemd`, decrypts through the local TPM and
+  publishes the plaintext only under `/run/feclora` on tmpfs, mode 0600, with
+  no overwrite. Failure to access TPM/PCR policy stops the operation.
+
+These helpers are cryptographic building blocks, not a complete enrollment
+or deployment workflow. They do not generate or rotate the Client keypair,
+sign the Server's per-Client credential bundle, fetch it from PXE, update the
+Client runtime configuration, start the Client service, bind a profile to the
+TLS certificate, or implement nonce/replay consumption. In particular, the
+unseal helper must not be enabled in the current separate HTTP kernel/initramfs
+boot. It is only eligible for integration after the signed UKI and measured
+boot have passed the hardware acceptance gates above.
+
 ## Multi-Client and transport constraints
 
 - Each Client receives its own profile and target selector, even when all
