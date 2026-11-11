@@ -94,7 +94,7 @@ def render_ipxe_script(address: str, http_port: int = 8080) -> str:
 
 
 def render_unattended_ipxe_script(
-    address: str, job_id: str, http_port: int = 8080,
+    address: str, job_id: str, http_port: int = 8080, control_port: int = 9443,
 ) -> str:
     """Render a job-bound Live boot handoff; the job ID is not authorization."""
     import uuid
@@ -107,6 +107,8 @@ def render_unattended_ipxe_script(
         raise LiveBootAssetError("PXE boot address must be usable unicast IPv4")
     if isinstance(http_port, bool) or not isinstance(http_port, int) or not 1 <= http_port <= 65535:
         raise LiveBootAssetError("PXE HTTP port is invalid")
+    if isinstance(control_port, bool) or not isinstance(control_port, int) or not 1024 <= control_port <= 65535:
+        raise LiveBootAssetError("deployment control port must be between 1024 and 65535")
     try:
         canonical_job_id = str(uuid.UUID(job_id))
     except (ValueError, TypeError, AttributeError) as exc:
@@ -131,6 +133,7 @@ def publish_unattended_ipxe_script(
     address: str,
     job_id: str,
     http_port: int = 8080,
+    control_port: int = 9443,
 ) -> str:
     """Atomically publish a public, non-secret job handoff script."""
     target_root = Path(http_root)
@@ -141,7 +144,7 @@ def publish_unattended_ipxe_script(
     if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode):
         raise LiveBootAssetError("PXE HTTP root must be a real directory")
     destination = target_root / "unattended.ipxe"
-    content = render_unattended_ipxe_script(address, job_id, http_port)
+    content = render_unattended_ipxe_script(address, job_id, http_port, control_port)
     if os.path.lexists(destination):
         existing = destination.lstat()
         if not stat.S_ISREG(existing.st_mode) or stat.S_ISLNK(existing.st_mode):
@@ -194,6 +197,7 @@ def revoke_unattended_ipxe_script(
     address: str,
     job_id: str,
     http_port: int = 8080,
+    control_port: int = 9443,
 ) -> bool:
     """Remove only the exact job script being revoked; never delete a newer job."""
     target_root = Path(http_root)
