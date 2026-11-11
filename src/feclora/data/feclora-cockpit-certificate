@@ -1,0 +1,84 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+umask 077
+
+ROOT=/etc/feclora/kiosk-pki
+ANCHOR=/etc/pki/ca-trust/source/anchors/feclora-kiosk-ca.crt
+COCKPIT_DIR=/etc/cockpit/ws-certs.d
+COCKPIT_CERT=${COCKPIT_DIR}/50-feclora.cert
+OPENSSL=/usr/bin/openssl
+
+[[ $EUID -eq 0 ]] || { echo "Must run as root" >&2; exit 1; }
+command -v "$OPENSSL" >/dev/null 2>&1 || { echo "OpenSSL is required" >&2; exit 1; }
+install -d -o root -g root -m 0700 "$ROOT" "$COCKPIT_DIR" "$(dirname "$ANCHOR")"
+
+CA_KEY=$ROOT/ca.key
+CA_CERT=$ROOT/ca.crt
+SERVER_KEY=$ROOT/server.key
+SERVER_CERT=$ROOT/server.crt
+present=0
+for file in "$CA_KEY" "$CA_CERT" "$SERVER_KEY" "$SERVER_CERT"; do
+  [[ -e "$file" ]] && present=$((present + 1))
+done
+if (( present == 0 )); then
+  work=$(mktemp -d "$ROOT/.generate.XXXXXX")
+  trap 'rm -rf "$work"' EXIT
+  "$OPENSSL" req -x509 -newkey rsa:3072 -nodes -sha256 -days 3650 \
+    -keyout "$work/ca.key" -out "$work/ca.crt" \
+    -subj "/CN=Feclora Local Cockpit CA" \
+    -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
+    -addext "keyUsage=critical,keyCertSign,cRLSign" \
+    -addext "subjectKeyIdentifier=hash"
+  "$OPENSSL" req -new -newkey rsa:3072 -nodes \
+    -keyout "$work/server.key" -out "$work/server.csr" \
+    -subj "/CN=localhost"
+  cat > "$work/server.ext" <<'EOF'
+subjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1
+keyUsage=critical,digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+EOF
+  "$OPENSSL" x509 -req -in "$work/server.csr" -CA "$work/ca.crt" \
+    -CAkey "$work/ca.key" -set_serial "0x$("$OPENSSL" rand -hex 16)" \
+    -out "$work/server.crt" -days 825 -sha256 -extfile "$work/server.ext"
+  "$OPENSSL" verify -CAfile "$work/ca.crt" "$work/server.crt"
+  "$OPENSSL" x509 -in "$work/server.crt" -noout -checkhost localhost
+  "$OPENSSL" x509 -in "$work/server.crt" -noout -checkip 127.0.0.1
+  "$OPENSSL" x509 -in "$work/server.crt" -noout -checkip ::1
+  "$OPENSSL" x509 -in "$work/server.crt" -pubkey -noout > "$work/cert.pub"
+  "$OPENSSL" pkey -in "$work/server.key" -pubout > "$work/key.pub"
+  cmp -s "$work/cert.pub" "$work/key.pub"
+  chmod 0600 "$work/ca.key" "$work/server.key"
+  chmod 0644 "$work/ca.crt" "$work/server.crt"
+  install -o root -g root -m 0600 "$work/ca.key" "$CA_KEY"
+  install -o root -g root -m 0600 "$work/server.key" "$SERVER_KEY"
+  install -o root -g root -m 0644 "$work/ca.crt" "$CA_CERT"
+  install -o root -g root -m 0644 "$work/server.crt" "$SERVER_CERT"
+  rm -rf "$work"
+  trap - EXIT
+elif (( present != 4 )); then
+  echo "Partial local Cockpit PKI exists; refusing to overwrite it" >&2
+  exit 1
+fi
+
+for file in "$CA_KEY" "$SERVER_KEY"; do
+  [[ -f "$file" && ! -L "$file" && $(stat -c '%u:%a' "$file") == "0:600" ]] || {
+    echo "Unsafe private-key ownership or permissions: $file" >&2; exit 1;
+  }
+done
+"$OPENSSL" verify -CAfile "$CA_CERT" "$SERVER_CERT"
+"$OPENSSL" x509 -in "$SERVER_CERT" -noout -checkhost localhost
+"$OPENSSL" x509 -in "$SERVER_CERT" -noout -checkip 127.0.0.1
+"$OPENSSL" x509 -in "$SERVER_CERT" -noout -checkip ::1
+
+if [[ -e "$COCKPIT_CERT" && ! -f "$COCKPIT_CERT" ]]; then
+  echo "Cockpit certificate destination is not a regular file" >&2
+  exit 1
+fi
+tmp_cert=$(mktemp "$COCKPIT_DIR/.feclora-cert.XXXXXX")
+cat "$SERVER_CERT" "$SERVER_KEY" > "$tmp_cert"
+chmod 0600 "$tmp_cert"
+chown root:root "$tmp_cert"
+mv -f "$tmp_cert" "$COCKPIT_CERT"
+install -o root -g root -m 0644 "$CA_CERT" "$ANCHOR"
+restorecon "$ROOT" "$ANCHOR" "$COCKPIT_CERT" 2>/dev/null || true
+/usr/bin/update-ca-trust extract
