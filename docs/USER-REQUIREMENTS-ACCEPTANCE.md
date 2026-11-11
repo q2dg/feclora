@@ -76,7 +76,7 @@ Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer pr
 **Outcome:** Select one verified image and restore it to multiple remote Clients in one managed deployment. Each Client can boot Feclora manually or by PXE/iPXE, as configured on the Server.
 
 - [ ] Cockpit supports explicit Client selection and named/stable-identity groups; freeze and display the recipient set before authorization.
-- [ ] Select one image from any repository or enabled distribution transport whose read/restore path is supported, including optional BitTorrent staging only after independent authenticity and digest verification.
+- [ ] Select one image from any repository or enabled distribution transport whose read/restore path is supported, including BitTorrent staging only after independent authenticity and digest verification.
 - [ ] Each Client independently reports identity, boot mode, network, target, capacity, sector size, safety checks and READY state.
 - [ ] Do not start until every required Client is accounted for and independently authorizes its exact destination; missing, duplicate or unexpected Clients block or require explicit resolution.
 - [ ] Unicast and multicast modes show eligibility, network requirements and per-Client status. Multicast acceptance includes switch IGMP snooping/querier behavior.
