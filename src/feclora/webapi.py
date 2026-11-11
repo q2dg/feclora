@@ -2887,9 +2887,9 @@ def dispatch(request: Any) -> dict[str, Any]:
     if action == "list_sftp_image_manifests":
         return _list_sftp_image_manifests(params)
     if action == "fetch_sftp_image_set":
-        return _fetch_sftp_image_set(params)
+        return _submit_local_operation({"operation": "sftp_fetch", "operation_params": params})
     if action == "publish_sftp_image_set":
-        return _publish_sftp_image_set(params)
+        return _submit_local_operation({"operation": "sftp_publish", "operation_params": params})
     if action == "repository_images":
         if set(params) != {"repository_id"}:
             raise WebAPIError("repository_images requires repository_id")
