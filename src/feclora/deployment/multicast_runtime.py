@@ -105,11 +105,11 @@ def execute_multicast_restore(
     if approval.confirmation != required:
         raise MulticastDeploymentError("local typed restore confirmation does not match")
     try:
-        device_info = os.lstat(approval.device_path)
+        device_info = os.stat(approval.device_path)
     except OSError as exc:
-        raise MulticastDeploymentError(f"cannot inspect selected local disk: {exc}") from exc
+        raise MulticastDeploymentError(f"cannot inspect selected local block device: {exc}") from exc
     if not stat.S_ISBLK(device_info.st_mode):
-        raise MulticastDeploymentError("selected restore target must be a block device")
+        raise MulticastDeploymentError("selected restore target must resolve to a block device")
     tls_socket.settimeout(120)
     offer = receive_control_message(tls_socket, expected_type="transfer_offer")
     expected_fields = {"type", "job_id", "image_id", "manifest_b64", "signature_b64"}
