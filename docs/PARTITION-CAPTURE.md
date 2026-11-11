@@ -6,9 +6,10 @@ runner for one partition.
 ## Tool selection
 
 Known filesystem types map to the corresponding Partclone executable
-(`partclone.extfs`, `partclone.ntfs`, `partclone.xfs`,
+(`partclone.extfs`, `partclone.ext4`, `partclone.ntfs`, `partclone.xfs`,
 `partclone.btrfs`, `partclone.fat`, `partclone.exfat`, or
-`partclone.f2fs`). The planner uses Partclone's documented clone mode,
+`partclone.f2fs`). Fedora 45's `partclone` RPM provides these executables;
+the package release is selected by Fedora updates rather than pinned by Feclora. The planner uses Partclone's documented clone mode,
 `-c -s DEVICE`, with output directed to stdout. If no matching executable is
 available, it uses generic `dd if=DEVICE bs=4M status=none` and labels the
 artifact as raw. It never guesses that an unsupported filesystem is safe for
@@ -56,5 +57,11 @@ before attempting restore.
 **Screenshots are pending.** Follow the [Cockpit screenshot capture plan](assets/screenshots/README.md). Capture the workflow from a real, version-matched
 Fedora Live build and store the images under `docs/assets/screenshots/`. Do not
 substitute mockups or screenshots from a different UI revision.
+
+Fedora 45's runtime package set also includes `e2fsprogs`, `xfsprogs`,
+`ntfs-3g`, `dosfstools`, `exfatprogs` and `f2fs-tools`, which provide the
+read-only post-restore checkers used by the filesystem map. Capability
+inventory reports checker presence separately from Partclone presence; a
+missing checker rejects Partclone restore before target writes.
 
 Partclone and dd command semantics are based on the upstream Partclone usage documentation.
