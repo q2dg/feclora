@@ -306,11 +306,17 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
             real_stat = os.stat
 
+            def fake_execute_client_image_job(*args, **kwargs):
+                self.assertTrue(callable(kwargs["pre_write_callback"]))
+                kwargs["pre_write_callback"]()
+                return True, "restore completed"
+
             def fake_join(host, port, context, **kwargs):
                 approval = kwargs["prepare_local_target"](job)
                 self.assertEqual(approval.device_path, DEVICE)
                 self.assertEqual(approval.confirmation, f"ERASE {DEVICE} FROM {SERVER_IDENTITY}")
-                return job, True, "restore completed"
+                success, detail = kwargs["execute_job"](job, object(), approval)
+                return job, success, detail
 
             with mock.patch.object(service, "_acquire_lock"), \
                  mock.patch("feclora.deployment.service.recover_stale_runtime_artifacts"), \
@@ -323,10 +329,13 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch.object(ClientDeploymentService, "_find_device", return_value=selected), \
                  mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \
                  mock.patch("feclora.deployment.client_service.os.stat", side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == DEVICE else real_stat(path, *args, **kwargs)), \
-                 mock.patch("feclora.deployment.client_service.join_deployment", side_effect=fake_join) as join:
+                 mock.patch("feclora.deployment.client_service.execute_client_image_job", side_effect=fake_execute_client_image_job), \
+                 mock.patch("feclora.deployment.client_service.join_deployment", side_effect=fake_join) as join, \
+                 mock.patch.object(ClientDeploymentService, "_find_unattended_disk", return_value=selected) as resolve_target:
                 service.run()
 
             join.assert_called_once()
+            self.assertEqual(resolve_target.call_count, 2)
             self.assertEqual(join.call_args.args[0], "192.0.2.10")
             self.assertEqual(join.call_args.args[1], 9555)
             status = json.loads(service.status_path.read_text(encoding="utf-8"))
