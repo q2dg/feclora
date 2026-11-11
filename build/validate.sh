@@ -345,6 +345,7 @@ grep -q '^IPAddressAllow=::1/128$' "$ROOT_DIR/src/feclora/data/feclora-kiosk.ser
 grep -q '^IPAddressDeny=any$' "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap.service" || fail "Bootstrap service must deny non-loopback network access."
 grep -q 'AF_NETLINK' "$ROOT_DIR/src/feclora/data/feclora-kiosk.service" || fail "Cage service must retain udev netlink access."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_kiosk_bootstrap.py' || fail "First-boot kiosk bootstrap tests failed."
+PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_volume_topology.py' || fail "Read-only LVM topology tests failed."
 
 if (( errors > 0 )); then
   printf 'Validation failed with %d error(s).\n' "$errors" >&2
