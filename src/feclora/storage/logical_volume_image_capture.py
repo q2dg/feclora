@@ -67,6 +67,14 @@ def capture_logical_volume_image(
             "logical-volume source has unresolved storage dependencies: "
             + "; ".join(plan["blockers"])
         )
+    storage_metadata = plan.get("manifest_storage")
+    if (not isinstance(storage_metadata, dict)
+            or storage_metadata.get("source_layer") != "lvm_logical_volume"
+            or not storage_metadata.get("lvm_vg_name")
+            or not storage_metadata.get("lvm_lv_name")):
+        raise LogicalVolumeImageCaptureError(
+            "capture planner could not prove the source is a uniquely identified LVM logical volume"
+        )
     source = plan.get("source") or {}
     size = source.get("size_bytes")
     source_devices = [
@@ -115,7 +123,7 @@ def capture_logical_volume_image(
             "logical_sector_size": sector,
             "partition_table": "none",
             "artifacts": [artifact.to_dict()],
-            "storage": plan["manifest_storage"],
+            "storage": storage_metadata,
         })
         manifest_stage = os.path.join(stage, manifest_name)
         fd = os.open(manifest_stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
