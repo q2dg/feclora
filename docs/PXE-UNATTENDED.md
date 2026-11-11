@@ -74,8 +74,7 @@ Therefore unattended PXE requires a secure way to make the already-enrolled
 Client mTLS identity available inside the fresh Live session. That provisioning
 mechanism is not implemented yet and must be selected before Client auto-start
 is enabled. Acceptable designs must bind the credential to the intended Client
-and protect it at rest and in use (for example, a hardware-backed/TPM-sealed
-identity or an explicitly provisioned secure local medium). MAC-only
+and protect it at rest and in use (for example, an explicitly provisioned secure local medium). MAC-only
 enrollment, public boot parameters and shared fleet-wide secrets are not
 acceptable substitutes.
 
@@ -83,130 +82,6 @@ Until that mechanism exists, the unattended boot script is only a safe
 job-bound handoff. It must not start a writer or fall back to interactive
 credentials silently.
 
-## Feasibility decision: TPM2-bound Client identity
-
-A network-only Live PXE session cannot currently authenticate as an enrolled
-Client: its root filesystem, /etc/feclora/deployment-client.json and TLS
-private key are ephemeral and are intentionally discarded on reboot. Fetching
-a private key from the Server over the public handoff would create a circular
-trust problem; placing it in iPXE, DHCP, TFTP, HTTP or the kernel command line
-would disclose a reusable fleet credential. A shared bootstrap password or
-MAC-derived secret is not an acceptable workaround.
-
-The viable hardware-backed route is a per-Client identity sealed on that
-Client's TPM2, using systemd's encrypted-credential format with an explicitly
-TPM2-bound key (not the existing generic --with-key=auto repository
-credential path). The encrypted blob and public certificate/configuration may
-then be staged in a per-Client PXE credential directory: the blob is portable
-as ciphertext but only the enrolled TPM should be able to decrypt it. The
-Live Client must retrieve the bundle, verify its signature and job/server
-binding, ask the local TPM to decrypt the key into volatile root-only
-storage, and establish TLS 1.3 mTLS. No plaintext key may be sent to or stored
-by the Server. Missing TPM2, failed unseal, wrong device identity or invalid
-bundle must stop before READY.
-
-TPM sealing alone is not sufficient boot integrity. A compromised
-network-delivered kernel/initramfs running as root on the enrolled machine
-could request TPM unsealing and exfiltrate the key. The present PXE path loads
-kernel and initramfs as separate HTTP assets; it does not yet establish a
-measured, signed Live boot chain suitable for PCR-bound release. Before
-enabling unattended identity unsealing, Feclora must boot a signed Unified
-Kernel Image (UKI) through a Secure Boot-verifiable chain, define and test a
-stable PCR policy (including recovery/firmware update procedures), and bind
-the credential release policy to that measured boot. Do not treat Secure Boot
-being enabled, by itself, as proof that the current HTTP initramfs is trusted.
-
-Once that trust chain exists, the unattended Client can use the existing
-mTLS HELLO/JOB protocol and the job's per-Client WWN/serial binding to resolve
-exactly one local target. The target path and destructive confirmation remain
-local; the Client synthesizes the confirmation only after the authenticated
-job and unique hardware binding pass. The Server's existing explicit ARM
-remains the final fleet-wide write gate. The authenticated journal must
-record single-use session/profile consumption before READY, and the Client
-must recheck target identity immediately before the first write. This keeps
-the operator's approval at the Server while removing the need for an operator
-at each Client.
-
-This is a staged implementation decision, not a claim that unattended PXE is
-now available. First validate TPM2-bound systemd credentials and the signed
-UKI/PCR policy on the supported Fedora 45 hardware/VM matrix. Until then the
-existing unattended menu remains a non-authorizing handoff and must not
-auto-start a disk writer.
-## Signed UKI build primitive
-
-The repository now includes `build/build-pxe-uki.sh`, an opt-in build
-primitive for a signed UKI assembled from a Fedora Live kernel and initramfs.
-It uses systemd `ukify` with a protected configuration containing both
-Secure Boot signing material and at least one systemd PCR-signature section.
-It requires `systemd-measure` and verifies the resulting PE signature with
-`sbverify` before atomically publishing a new output file. Existing output
-files are never overwritten.
-
-The script is deliberately separate from the default ISO/PXE build: it does
-not guess the Live kernel command line, alter the current iPXE menu, enroll a
-firmware trust key, or publish the UKI. Build a distinct UKI for each job when
-the non-secret Server endpoint/job handoff parameters differ. Embed those
-parameters in the signed `.cmdline` section; do not pass overrides as EFI load
-options, because an embedded command line under Secure Boot is immutable and
-is included in the UKI's measured content. The operator must provide:
-
-- A root-protected ukify configuration with `[UKI]` Secure Boot key/certificate
-  and one or more `[PCRSignature:name]` sections containing PCR private/public
-  keys and explicit phase lists. See [the illustrative configuration](FECLORA-UKI-CONFIG.example); its PCR phase policy is not a production default.
-- The exact kernel and initramfs from the same Fedora Live build.
-- A one-line kernel command line file with only non-secret boot parameters.
-- A pre-existing output directory and a firmware trust chain that accepts the
-  configured signing certificate.
-
-Example invocation:
-
-```bash
-FECLORA_UKI_CONFIG=/root/uki/feclora-uki.conf \
-FECLORA_UKI_CMDLINE=/root/uki/feclora.cmdline \
-FECLORA_UKI_KERNEL=/boot/vmlinuz-<version> \
-FECLORA_UKI_INITRD=/boot/initramfs-<version>.img \
-FECLORA_UKI_OUTPUT=/srv/feclora/boot/feclora-live.efi \
-bash build/build-pxe-uki.sh
-```
-
-The config, command-line file and private keys must be regular files with
-0600-or-stricter permissions. PCR phase selection, PCR bank choice, PCR
-signature enrollment and recovery after firmware/kernel updates remain
-operator-defined and are not certified by this builder. The script's
-successful signature check proves only that the output verifies against the
-provided certificate; it does not prove that firmware trusts it or that the
-TPM will release a credential under the intended measured-boot policy.
-
-The current PXE tree still boots its existing kernel/initramfs assets. The
-signed UKI is not wired into production PXE selection until bootloader/firmware
-compatibility, UKI signature trust, PCR measurements and recovery paths have
-been tested on the Fedora 45 BIOS/UEFI matrix.
-
-### TPM2 Client-key sealing primitives
-
-Two opt-in helpers now implement the local credential cryptography step:
-
-- `build/seal-pxe-client-key.sh` runs on the enrolled Client. It accepts an
-  existing root-protected TLS private key and a PCR public key, then invokes
-  `systemd-creds encrypt` with explicit `--with-key=tpm2`,
-  `--tpm2-device=auto` and `--tpm2-public-key-pcrs=11`. It has no host-key,
-  null-key or no-TPM fallback. Only the resulting ciphertext may be copied to
-  the Server; the plaintext private key stays on the Client.
-- `build/unseal-pxe-client-key.sh` requires UEFI Secure Boot to be enabled,
-  a TPM2 resource-manager device, and the systemd-stub PCR signature/public-key
-  files under `/run/systemd`. It decrypts through the local TPM and publishes
-  plaintext only under `/run/feclora` on tmpfs, mode 0600, with no overwrite.
-  This also prevents systemd-creds' null-key fallback. Failure to access
-  Secure Boot, TPM2 or the PCR policy stops the operation.
-
-These helpers are cryptographic building blocks, not a complete enrollment
-or deployment workflow. They do not generate or rotate the Client keypair,
-sign the Server's per-Client credential bundle, fetch it from PXE, update the
-Client runtime configuration, start the Client service, bind a profile to the
-TLS certificate, or implement nonce/replay consumption. In particular, the
-unseal helper must not be enabled in the current separate HTTP kernel/initramfs
-boot. It is only eligible for integration after the signed UKI and measured
-boot have passed the hardware acceptance gates above.
 
 ## Multi-Client and transport constraints
 
@@ -225,7 +100,7 @@ boot have passed the hardware acceptance gates above.
 
 ## Remaining release-critical work
 
-- Select and implement secure per-Client credential provisioning into Live.
+- Select and implement per-Client credential provisioning into the Live session without placing reusable credentials in network boot assets.
 - Add automatic Client service startup for unattended boot.
 - Add Server-to-Client signed profile delivery and certificate/job/profile
   binding.
