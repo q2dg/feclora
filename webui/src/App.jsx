@@ -811,6 +811,17 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const revokePXEAnswer = async () => {
+    if (!pxeAnswerPublished?.job_id || !window.confirm("Revoke this job's published PXE answer and signature? Clients that have already downloaded them may still possess a copy.")) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("revoke_pxe_answer", { job_id: pxeAnswerPublished.job_id });
+      setPxeAnswerPublished(null);
+      setNotice(result.message);
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
   const validatePXEProfile = async () => {
     const selected = networkInterfaces.find((item) => item.binding === serverBinding);
     if (!selected) return;
@@ -1682,6 +1693,7 @@ export default function App() {
                     <p>Answer: <a href={pxeAnswerPublished.answer_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.answer_url}</a></p>
                     <p>Signature: <a href={pxeAnswerPublished.signature_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.signature_url}</a></p>
                     <p>{pxeAnswerPublished.message}</p>
+                    <Button variant="danger" size="sm" onClick={revokePXEAnswer} isLoading={busy} isDisabled={busy}>Revoke published answer</Button>
                   </Alert>}
                 </CardBody></Card>
               </StackItem>
