@@ -46,6 +46,7 @@ if [[ -f "$ROOT_DIR/build/build-pxe-uki.sh" ]]; then
   bash -n "$ROOT_DIR/build/build-pxe-uki.sh" || fail "PXE UKI builder has invalid Bash syntax."
   grep -q 'PCRSignature:' "$ROOT_DIR/build/build-pxe-uki.sh" || fail "PXE UKI builder does not require PCR-signature configuration."
   grep -q 'sbverify --cert' "$ROOT_DIR/build/build-pxe-uki.sh" || fail "PXE UKI builder does not verify the Secure Boot signature."
+  grep -q 'inspect --all' "$ROOT_DIR/build/build-pxe-uki.sh" || fail "PXE UKI builder does not inspect embedded PCR signatures."
 fi
 
 if [[ -f "$ROOT_DIR/src/feclora/data/feclora-restore-profile-env" ]]; then
