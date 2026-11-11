@@ -28,6 +28,8 @@ from feclora.deployment.runtime_config import (
 )
 from feclora.network.remote_clone_protocol import create_mutual_tls_context
 from feclora.network.multicast_preflight import inspect_multicast_interface
+from feclora.network.pxe_config import PXENetworkConfig
+from feclora.network.boot_tree import publish_unattended_ipxe_script, revoke_unattended_ipxe_script
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.ui import dialog_app
 
@@ -495,9 +497,11 @@ def run_deployment_server_ui(
     *,
     firewall: Any,
     config_path: str = CONFIG_PATH,
+    pxe_config: PXENetworkConfig | None = None,
 ) -> int:
     """Load root-provisioned trust material and run one authenticated deployment job."""
     control = None
+    published_pxe_job: tuple[str, str, str, int, int] | None = None
     try:
         created = ensure_server_deployment_config(address, config_path=config_path)
         config = load_server_runtime_config(config_path)
@@ -567,12 +571,25 @@ def run_deployment_server_ui(
             interface=interface,
         )
         bound_address, port = control.start(config.bind_address, config.port)
+        if pxe_config is not None and job.operation == "restore":
+            pxe_config.validated()
+            if pxe_config.address != address or pxe_config.interface != interface:
+                raise DeploymentControlError("PXE boot profile does not match the active deployment interface/address")
+            publish_unattended_ipxe_script(
+                pxe_config.http_root, pxe_config.address, job.job_id,
+                pxe_config.http_port, port,
+            )
+            published_pxe_job = (
+                pxe_config.http_root, pxe_config.address, job.job_id,
+                pxe_config.http_port, port,
+            )
         selected_mac_text = ", ".join(selected_macs)
         dialog_app._message(
             "Authenticated deployment listener",
             f"Job: {job.job_id}\nOperation: {job.operation}\nImage: {job.image_id}\n"
-            f"Authorized Client MACs: {selected_mac_text}\nTransport: {job.transport}\nControl endpoint: {bound_address}:{port}\nJournal: {journal_path}\n\n"
-            "The listener requires TLS 1.3 mutual authentication. The Client must use "
+            f"Authorized Client MACs: {selected_mac_text}\nTransport: {job.transport}\nControl endpoint: {bound_address}:{port}\nJournal: {journal_path}\n"
+            + ("\nAn unattended PXE handoff script has been published. Its job UUID is metadata only; it does not authorize a write. Client mTLS identity, job authorization, READY checks and explicit Server ARM remain required." if published_pxe_job else "")
+            + "\n\nThe listener requires TLS 1.3 mutual authentication. The Client must use "
             "its enrolled certificate and enter this job UUID. No image write starts "
             "until the Client selects its local disk, types the exact confirmation "
             "and the Server operator explicitly arms the job.",
@@ -636,6 +653,11 @@ def run_deployment_server_ui(
         dialog_app._message("Deployment setup failed", str(exc))
         return 1
     finally:
+        if published_pxe_job is not None:
+            try:
+                revoke_unattended_ipxe_script(*published_pxe_job)
+            except Exception as exc:
+                dialog_app._message("PXE handoff revocation warning", str(exc))
         if control is not None:
             try:
                 control.stop()
