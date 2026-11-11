@@ -101,7 +101,6 @@ export default function App() {
   const [repositoryIdentity, setRepositoryIdentity] = useState("");
   const [repositoryKnownHosts, setRepositoryKnownHosts] = useState("");
   const [repositoryCredentials, setRepositoryCredentials] = useState("");
-  const [repositoryRcloneRemote, setRepositoryRcloneRemote] = useState("");
   const [repositoryPort, setRepositoryPort] = useState("22");
   const [repositoryReadOnly, setRepositoryReadOnly] = useState(true);
   const [imageVerification, setImageVerification] = useState({});
@@ -488,7 +487,7 @@ export default function App() {
         identity_file: repositoryProvider === "sshfs" ? repositoryIdentity : null,
         known_hosts_file: repositoryProvider === "sshfs" ? repositoryKnownHosts : null,
         port: repositoryProvider === "sshfs" || repositoryProvider === "smb" ? (repositoryPort ? Number(repositoryPort) : null) : null,
-        rclone_remote: repositoryProvider === "s3" ? repositoryRcloneRemote : null, read_only: repositoryProvider === "s3" ? true : repositoryReadOnly
+        read_only: repositoryReadOnly
       });
       setNotice(repositoryEditing ? "Repository definition updated; no mount was started." : "Repository definition saved; no mount was started.");
       setRepositoryId(""); setRepositoryEditing(false); await refresh();
@@ -502,7 +501,7 @@ export default function App() {
     setRepositoryProvider(repo.provider); setRepositoryHost(repo.host);
     setRepositoryPath(repo.remote_path); setRepositoryUsername(repo.username || "");
     setRepositoryIdentity(repo.identity_file || ""); setRepositoryKnownHosts(repo.known_hosts_file || "");
-    setRepositoryCredentials(repo.credential_file || ""); setRepositoryRcloneRemote(repo.rclone_remote || "");
+    setRepositoryCredentials(repo.credential_file || "");
     setRepositoryPort(repo.port ? String(repo.port) : ""); setRepositoryReadOnly(Boolean(repo.read_only));
   };
 
@@ -1294,15 +1293,15 @@ export default function App() {
           <Tab eventKey="repositories" title="Remote repositories">
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Remote image repositories</Title>
-                <p>Manage client-side filesystem mounts and signed image-set transfers to external services. SSHFS, NFS and SMB/CIFS are filesystem providers; S3/rclone remains read-only. SFTP supports saved endpoint definitions, signed-image inventory in one configured directory, import, publication and optional publication after durable capture. Metadata inspection and artifact transfer are still synchronous; byte-level progress, transfer cancellation and resume remain pending.</p>
-                <Alert variant="warning" title="Provider scope" isInline>Cockpit exposes SSHFS, NFS, SMB/CIFS and read-only S3/rclone mounts. SFTP is a separate signed file-transfer workflow with saved endpoint definitions, one-directory manifest inventory, import, publication and optional durable capture-job publication. Transfer metadata inspection and artifact import/publication are synchronous; byte-level progress, cancellation and resume are pending. WebDAV remains unavailable until its per-repository encrypted credential lifecycle is supported. S3 remains read-only.</Alert>
+                <p>Manage client-side filesystem mounts and signed image-set transfers to external services. SSHFS, NFS and SMB/CIFS are filesystem providers. SFTP supports saved endpoint definitions, signed-image inventory in one configured directory, import, publication and optional publication after durable capture. Metadata inspection and artifact transfer are still synchronous; byte-level progress, transfer cancellation and resume remain pending.</p>
+                <Alert variant="warning" title="Provider scope" isInline>Cockpit exposes SSHFS, NFS and SMB/CIFS mounts. SFTP is a separate signed file-transfer workflow with saved endpoint definitions, one-directory manifest inventory, import, publication and optional durable capture-job publication. Transfer metadata inspection and artifact import/publication are synchronous; byte-level progress, cancellation and resume are pending. WebDAV remains unavailable until its per-repository encrypted credential lifecycle is supported.</Alert>
               </StackItem>
               <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
                 <Field label="Repository ID"><input className="pf-v5-c-form-control" value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} readOnly={repositoryEditing} required /></Field>
                 <Field label="Provider"><select className="pf-v5-c-form-control" value={repositoryProvider} onChange={(e) => { setRepositoryProvider(e.target.value); setRepositoryPort(e.target.value === "sshfs" ? "22" : ""); }}>
-                  <option value="sshfs">SSHFS (remote filesystem over SSH)</option><option value="nfs">NFS</option><option value="smb">SMB/CIFS</option><option value="s3">S3-compatible object storage (rclone)</option>
+                  <option value="sshfs">SSHFS (remote filesystem over SSH)</option><option value="nfs">NFS</option><option value="smb">SMB/CIFS</option>
                 </select></Field>
-                <Field label={repositoryProvider === "s3" ? "Endpoint hostname (informational; actual endpoint is in rclone config)" : "Server hostname or IPv4 address"}><input className="pf-v5-c-form-control" value={repositoryHost} onChange={(e) => setRepositoryHost(e.target.value)} maxLength={253} required /></Field>
+                <Field label="Server hostname or IPv4 address"><input className="pf-v5-c-form-control" value={repositoryHost} onChange={(e) => setRepositoryHost(e.target.value)} maxLength={253} required /></Field>
                 <Field label={repositoryProvider === "smb" ? "Share and optional subdirectory" : "Remote absolute path"}><input className="pf-v5-c-form-control" value={repositoryPath} onChange={(e) => setRepositoryPath(e.target.value)} maxLength={512} required /></Field>
                 {(repositoryProvider === "sshfs" || repositoryProvider === "smb") && <Field label="Username"><input className="pf-v5-c-form-control" value={repositoryUsername} onChange={(e) => setRepositoryUsername(e.target.value)} maxLength={64} required /></Field>}
                 {repositoryProvider === "sshfs" && <>
@@ -1310,10 +1309,9 @@ export default function App() {
                   <Field label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={repositoryKnownHosts} onChange={(e) => setRepositoryKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
                 </>}
                 {repositoryProvider === "smb" && <Field label="Encrypted SMB credentials"><select className="pf-v5-c-form-control" value={repositoryCredentials} onChange={(e) => setRepositoryCredentials(e.target.value)} required><option value="">Select imported SMB credential</option>{systemdCredentials.filter((item) => item.kind === "smb").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>}
-                {repositoryProvider === "s3" && <><Field label="rclone remote alias"><input className="pf-v5-c-form-control" value={repositoryRcloneRemote} onChange={(e) => setRepositoryRcloneRemote(e.target.value)} pattern="[A-Za-z0-9_-]{1,64}" maxLength={64} required /></Field><Field label="Encrypted rclone configuration"><select className="pf-v5-c-form-control" value={repositoryCredentials} onChange={(e) => setRepositoryCredentials(e.target.value)} required><option value="">Select imported rclone config</option>{systemdCredentials.filter((item) => item.kind === "rclone").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field><p>Configure S3 endpoint and credentials in this rclone config file. Remote path is /bucket/prefix.</p></> }
                 <Field label="Port (optional)"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={repositoryPort} onChange={(e) => setRepositoryPort(e.target.value)} /></Field>
                 <Field label="Mount access"><select className="pf-v5-c-form-control" value={repositoryReadOnly ? "ro" : "rw"} onChange={(e) => setRepositoryReadOnly(e.target.value === "ro")}>
-                  <option value="ro">Read-only</option><option value="rw" disabled={repositoryProvider === "s3"}>Read/write (image capture)</option>
+                  <option value="ro">Read-only</option><option value="rw">Read/write (image capture)</option>
                 </select></Field>
                 <Button type="submit" variant="primary" isDisabled={busy || !repositoryId || !repositoryHost || !repositoryPath}>{repositoryEditing ? "Update repository definition" : "Save repository definition"}</Button>{" "}{repositoryEditing && <Button type="button" variant="link" onClick={resetRemoteRepositoryForm} isDisabled={busy}>Cancel edit</Button>}
               </form></CardBody></Card></StackItem>
@@ -1321,7 +1319,7 @@ export default function App() {
                 <p>Import a root-owned private source file (mode 0600, no symlinks or hard links). Cockpit submits only its path; the API encrypts its contents with systemd-creds and never returns secret material. The source file remains in place and must be protected or securely removed by the operator.</p>
                 <Card><CardBody><form onSubmit={importSystemdCredential}>
                   <Field label="Credential ID"><input className="pf-v5-c-form-control" value={credentialId} onChange={(e) => setCredentialId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
-                  <Field label="Credential type"><select className="pf-v5-c-form-control" value={credentialKind} onChange={(e) => setCredentialKind(e.target.value)}><option value="ssh-key">SSH private key</option><option value="known-hosts">SSH known_hosts</option><option value="smb">SMB credentials</option><option value="rclone">rclone config (S3)</option></select></Field>
+                  <Field label="Credential type"><select className="pf-v5-c-form-control" value={credentialKind} onChange={(e) => setCredentialKind(e.target.value)}><option value="ssh-key">SSH private key</option><option value="known-hosts">SSH known_hosts</option><option value="smb">SMB credentials</option></select></Field>
                   <Field label="Protected source file path"><input className="pf-v5-c-form-control" value={credentialSourceFile} onChange={(e) => setCredentialSourceFile(e.target.value)} maxLength={512} required /></Field>
                   <label><input type="checkbox" checked={credentialReplace} onChange={(e) => setCredentialReplace(e.target.checked)} /> Replace an existing credential with this ID and type</label>
                   <Button type="submit" variant="primary" isDisabled={busy || !credentialId || !credentialSourceFile}>Import and encrypt credential</Button>
