@@ -25,7 +25,7 @@ from feclora.storage.repository import RemoteRepository, RepositoryError, requir
 REGISTRY = Path("/etc/feclora/repositories.json")
 MOUNT_ROOT = Path("/var/lib/feclora/repositories")
 _REPOSITORY_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
-_SUPPORTED = {"sshfs", "nfs", "smb", "s3"}
+_SUPPORTED = {"sshfs", "nfs", "smb"}
 
 
 class RepositoryManagerError(RuntimeError):
@@ -151,7 +151,7 @@ def _repository(identifier: str, definition: dict[str, Any], *, owner_uid: int =
         "provider", "host", "remote_path", "username", "credential_file",
         "identity_file", "known_hosts_file", "port", "read_only",
     }
-    if set(definition) not in (required, required | {"rclone_remote"}):
+    if set(definition) != required:
         raise RepositoryManagerError("repository definition has missing or unknown fields")
     try:
         repo = RemoteRepository(
@@ -162,7 +162,7 @@ def _repository(identifier: str, definition: dict[str, Any], *, owner_uid: int =
             credential_file=definition["credential_file"],
             identity_file=definition["identity_file"],
             known_hosts_file=definition["known_hosts_file"],
-            port=definition["port"], rclone_remote=definition.get("rclone_remote"),
+            port=definition["port"],
             read_only=definition["read_only"],
         )
     except (RepositoryError, TypeError) as exc:
@@ -174,13 +174,11 @@ def _repository(identifier: str, definition: dict[str, Any], *, owner_uid: int =
         _check_secret_reference(repo.known_hosts_file, "SSH known_hosts", private=False, owner_uid=owner_uid)
     if repo.provider == "smb":
         _check_secret_reference(repo.credential_file, "SMB credentials file", owner_uid=owner_uid)
-    if repo.provider == "s3":
-        _check_secret_reference(repo.credential_file, "rclone configuration file", owner_uid=owner_uid)
     return repo
 
 
 class RemoteRepositoryManager:
-    """Manage supported SSHFS, NFS, SMB and read-only S3 mounts."""
+    """Manage supported SSHFS, NFS and SMB mounts."""
 
     def __init__(
         self, *, registry: Path = REGISTRY, mount_root: Path = MOUNT_ROOT,
@@ -243,7 +241,7 @@ class RemoteRepositoryManager:
                 "host": definition["host"], "remote_path": definition["remote_path"],
                 "username": definition.get("username"), "credential_file": definition.get("credential_file"),
                 "identity_file": definition.get("identity_file"), "known_hosts_file": definition.get("known_hosts_file"),
-                "port": definition.get("port"), "rclone_remote": definition.get("rclone_remote"),
+                "port": definition.get("port"),
                 "read_only": definition["read_only"], "mountpoint": mountpoint,
                 "credential_refs": [
                     value for key in ("credential_file", "identity_file", "known_hosts_file")
@@ -297,7 +295,7 @@ class RemoteRepositoryManager:
                     "provider": repo.provider, "host": repo.host, "remote_path": repo.remote_path,
                     "username": repo.username, "credential_file": repo.credential_file,
                     "identity_file": repo.identity_file, "known_hosts_file": repo.known_hosts_file,
-                    "port": repo.port, "rclone_remote": repo.rclone_remote,
+                    "port": repo.port,
                     "read_only": repo.read_only,
                 }
                 _write_registry(entries, self.registry, owner_uid=self.owner_uid)
@@ -334,7 +332,7 @@ class RemoteRepositoryManager:
                 "provider": repo.provider, "host": repo.host, "remote_path": repo.remote_path,
                 "username": repo.username, "credential_file": repo.credential_file,
                 "identity_file": repo.identity_file, "known_hosts_file": repo.known_hosts_file,
-                "port": repo.port, "rclone_remote": repo.rclone_remote,
+                "port": repo.port,
                 "read_only": repo.read_only,
             }
             try:
@@ -612,8 +610,7 @@ class RemoteRepositoryManager:
             valid_source = source == f"https://{repo.host}{repo.remote_path}"
             valid_type = filesystem.startswith("fuse.davfs")
         else:
-            valid_source = source == f"{repo.rclone_remote}:{repo.remote_path.lstrip('/')}"
-            valid_type = filesystem.startswith("fuse.rclone")
+            raise RepositoryManagerError("unsupported managed repository provider")
         if not valid_source or not valid_type:
             raise RepositoryManagerError("mounted filesystem source or type does not match the saved repository definition")
         option_set = set(options.split(","))
