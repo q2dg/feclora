@@ -193,9 +193,7 @@ class PartitionRestoreTests(unittest.TestCase):
         proc.stdout = io.BytesIO(self.payload)
         def runner(command, **kwargs):
             if "luksUUID" in command:
-                return SimpleNamespace(stdout="", stderr="not a LUKS device", returncode=2)
-            if "luksDump" in command:
-                return SimpleNamespace(stdout="", stderr="not a LUKS device", returncode=2)
+                raise OSError("not a LUKS device")
             return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\n", stderr="", returncode=0)
         with self.assertRaisesRegex(PartitionRestoreError, "header could not be verified"):
             restore_partition(
