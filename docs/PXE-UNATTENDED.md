@@ -34,7 +34,8 @@ coverage, empty selectors, non-restore/partition targets, unknown fields and
 control characters.
 
 This is a preflight constraint, not unattended target discovery or a
-signed per-Client profile. The operator still selects the local /dev target
+signed per-Client profile. WWN/serial matching reduces accidental
+mis-targeting but is not cryptographic hardware attestation. The operator still selects the local /dev target
 and types the local confirmation in Cockpit. No profile expiry, nonce/replay
 ledger, automatic Client startup or write authorization is provided by this
 binding alone. Existing jobs without target_bindings retain the interactive
