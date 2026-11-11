@@ -71,7 +71,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
 
             def runner(argv, **kwargs):
                 calls.append(argv)
-                if any("findmnt" in str(part) for part in argv):
+                if "--mountpoint" in argv:
                     mountpoint = argv[argv.index("--mountpoint") + 1]
                     return SimpleNamespace(
                         returncode=0,
