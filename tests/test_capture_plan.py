@@ -131,6 +131,7 @@ class StorageCapturePlanTests(unittest.TestCase):
         self.assertEqual(plan["manifest_storage"]["source_layer"], "lvm_logical_volume")
         self.assertEqual(plan["manifest_storage"]["lvm_vg_name"], "vg0")
         self.assertEqual(plan["manifest_storage"]["lvm_lv_uuid"], "lv-1")
+        self.assertEqual(plan["manifest_storage"]["dependencies"][0]["identity"], "vg0")
         self.assertFalse(plan["dependencies"][0]["included_in_source_bytes"])
 
     def test_disk_capture_blocks_when_a_child_partition_is_mounted(self):
