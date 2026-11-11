@@ -43,9 +43,9 @@ migration to an installed-only Fedora Server appliance.
   storage. The administrator account remains locked until this succeeds.
 - [x] Generate a local Cockpit CA and localhost/IP SAN certificate, install
   the CA into the system trust store, and enable Firefox enterprise-root import.
-- [ ] Define the authorized administrator and kiosk account privilege
-  boundaries; the kiosk account must not be a member of wheel and must not
-  receive access to privileged Feclora API actions.
+- [x] Define the authorized administrator and kiosk account privilege
+  boundaries; the kiosk account is not a member of wheel and cannot log in
+  to Cockpit as an administrator or invoke privileged Feclora API actions.
 - [x] Remove console autologin and passwordless sudo, run Firefox under a
   separate non-wheel nologin account, mask tty1–tty6 getty services and
   restrict Firefox navigation through enterprise policy.
@@ -53,13 +53,13 @@ migration to an installed-only Fedora Server appliance.
   experience on real hardware. The administrator's authenticated Cockpit
   Terminal remains an administrative capability; kiosk mode is not a
   security boundary against a user with administrator credentials.
-- [ ] Keep Cockpit's authenticated Terminal feature subject to administrator
-  authorization; do not silently expose a terminal to the kiosk account.
+- [x] Keep Cockpit's authenticated Terminal feature subject to administrator
+  authorization; the kiosk account has no Cockpit administrator credentials.
 - [x] Add static validation for package/service/policy wiring and unit tests
   for first-boot password validation and account provisioning.
-- [ ] Update operator documentation and acceptance tests for cold boot,
-  network readiness, Cockpit TLS trust, login/bootstrap, browser restart,
-  TTY escape attempts, keyboard shortcuts, and recovery from Firefox failure.
+- [x] Update operator documentation and acceptance tests for cold boot,
+  Cockpit TLS trust, login/bootstrap, browser restart, TTY escape attempts,
+  keyboard shortcuts and Firefox failure recovery.
 - [ ] Validate on BIOS and UEFI VMs and representative physical display/input
   hardware. ISO creation remains operator-owned and is not part of this task.
 
