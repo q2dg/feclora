@@ -1321,7 +1321,9 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError("a root-owned private Server signing key and independently configured public key are required")
     from feclora.storage.image_security import sign_manifest, verify_manifest_signature
     from feclora.network.pxe_answer_store import publish_pxe_answer, revoke_pxe_answer
-    from feclora.network.boot_tree import publish_unattended_answer_ipxe_script
+    from feclora.network.boot_tree import (
+        publish_unattended_answer_ipxe_script, revoke_unattended_answer_ipxe_script,
+    )
     import tempfile
 
     with tempfile.TemporaryDirectory(prefix="feclora-pxe-answer-") as temporary:
@@ -1334,21 +1336,28 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         except Exception as exc:
             raise WebAPIError(f"Server could not sign and verify the PXE answer: {exc}") from exc
 
+    answer_published = False
     try:
         published = publish_pxe_answer(
             http_root, job_id, raw_answer, detached_signature,
             verify_signature=lambda raw, signature: raw == raw_answer and signature == detached_signature,
             address=address, http_port=port,
         )
+        answer_published = True
         boot_script = publish_unattended_answer_ipxe_script(
             http_root, address, job_id,
             published["answer_url"], published["signature_url"], port,
         )
     except Exception as exc:
-        try:
-            revoke_pxe_answer(http_root, job_id)
-        except Exception:
-            pass
+        if answer_published:
+            try:
+                revoke_unattended_answer_ipxe_script(http_root, job_id)
+            except Exception:
+                pass
+            try:
+                revoke_pxe_answer(http_root, job_id)
+            except Exception:
+                pass
         raise WebAPIError(f"PXE answer/boot publication failed: {exc}") from exc
     return {
         "job_id": job_id,
