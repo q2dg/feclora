@@ -1,63 +1,111 @@
 # Roadmap
 
-This roadmap distinguishes code implementation, Cockpit integration and operator-owned validation. Feclora is a Live appliance based on a minimal Fedora Server userspace, without a general-purpose desktop. Its local display is configured to run Firefox in a Cage kiosk session, fixed to Cockpit and the Feclora application; the old local `dialog` menu is not part of the supported interface.
+This page is a high-level status summary. The [feature matrix](FEATURE-MATRIX.md)
+is the current capability reference; the [implementation plan](IMPLEMENTATION-PLAN.md)
+is the dependency-ordered backlog; and
+[USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md) defines
+the release target and acceptance gates.
 
-The detailed, dependency-ordered implementation backlog and acceptance criteria live in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md). Operator procedures are indexed in [GUIDES.md](GUIDES.md); only workflows implemented end to end are presented as available. Broader CA rotation and trust migration are deferred and are not offered as an available workflow.
+## Product model
 
+Feclora is a Fedora Server-based minimal Live appliance. It has no
+general-purpose desktop: Cage launches Firefox in kiosk mode and opens the
+Feclora application in Cockpit. The Live session is intentionally ephemeral.
+Each boot creates a fresh session and temporary credentials/configuration;
+durable images and manifests belong in repositories explicitly selected by
+the operator. No persistent Live-session design is required.
 
-## Maintainer's end-user target
+Storage layers and repositories are different concepts. LVM logical volumes,
+raw LUKS2 containers/open mappings and Btrfs filesystems are possible image
+sources. SSHFS, SFTP, NFS, SMB/CIFS and WebDAV are external repository
+mechanisms; BitTorrent is a planned immutable-artifact distribution transport.
+Feclora is a client of external infrastructure and does not install or
+administer remote servers, exports, shares, trackers or peers.
 
-The release target is a bootable Fedora Server minimal Live kiosk appliance, with automatic Cockpit socket activation and Firefox as its fixed local browser, covering six end-to-end workflows: local disk/partition cloning; remote disk/partition cloning with DHCP/static networking; image capture to SSHFS, SFTP, NFS, SMB/CIFS and WebDAV (once provider-specific credential and write capabilities are complete); restore from those repositories to one local target; multi-Client restore with manual Feclora or PXE boot; and unattended multi-Client restore. Measurable acceptance gates, security requirements and guide requirements are maintained in [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md).
+## Implemented in source and Cockpit
 
-BitTorrent is a first-class peer-to-peer distribution transport for immutable, verified image artifacts, with the same implementation priority as SSHFS, SFTP, NFS, SMB/CIFS and WebDAV. It is not a general writable repository. `age` and `minisign` are optional integrations and must not be mandatory installation or release requirements. Their absence must not prevent ordinary local imaging or deployment where another configured trust/integrity mechanism is used.
+- Fedora Server Live kiosk, first-boot administrator password setup, local
+  Cockpit certificate trust and loopback confinement.
+- Block-device, partition, LVM, LUKS, Btrfs and Stratis inventory/topology.
+- Whole-disk and partition image capture/restore, with manifests, SHA-256,
+  compression and optional age/minisign protection.
+- Local capture of eligible active LVM logical volumes. LV images are
+  descriptive byte images; Feclora does not yet restore them.
+- Raw partition capture of verified LUKS2 containers and single-device Btrfs
+  partition capture. LUKS1/unknown headers and multi-device Btrfs capture fail
+  closed. There is no dedicated opened-mapping capture or snapshot workflow.
+- Local disk-to-disk and partition-to-partition cloning.
+- Durable local operation queue, systemd worker, progress and journals; an
+  interrupted destructive operation is inspected, never automatically
+  resumed.
+- Authenticated Server/Client enrollment and jobs; unicast image transfer,
+  multicast restore and direct whole-disk remote cloning.
+- PXE/iPXE boot-tree staging and transient dnsmasq/Caddy/firewalld lifecycle.
+  The iPXE menu distinguishes interactive Live boot from an unattended
+  handoff path. During an active Server restore job, Feclora publishes and
+  revokes a job-bound script containing only non-secret job/Server metadata.
 
-The present implementation is a foundation, not completion of that target. In particular, SSHFS with SFTP, PXE service lifecycle with PXE job handoff, or signed-profile primitives with unattended fleet deployment. Only advertise a workflow as available when its Cockpit path, backend/runtime, authorization, error handling, tests and published operator guide are complete.
+These are source/Cockpit implementation statements, not claims that the ISO,
+hardware, provider services or physical networks have passed acceptance.
 
-## Runtime architecture and immediate work
+## Important partial capabilities
 
-The image remains **Live**: it boots from removable media without requiring
-installation to disk. Its operating-system base is a minimal Fedora Server
-userspace, not Fedora Workstation and not a full graphical desktop. Cockpit is
-the administration surface; Firefox runs in kiosk mode under a minimal
-Wayland compositor (Cage). The browser opens the local Cockpit endpoint and
-the Feclora Cockpit application.
+- Remote mounted repositories: SSHFS, NFS and SMB/CIFS have client-side
+  mount/inventory/image-engine integration, but provider permissions,
+  interruptions, NFS root-squash, health and concurrent-reader behavior still
+  require provider-by-provider acceptance.
+- SFTP: separate signed image-set publish/fetch and Cockpit paths exist, but
+  transfers remain limited (single configured directory, synchronous
+  metadata/artifact steps, no complete byte-progress/resume workflow).
+- PXE job handoff: the active Server restore-job lifecycle publishes/revokes
+  the handoff script. Boot parameters are not authorization. The Client does
+  not yet automatically authenticate, inspect and bind the job/profile,
+  determine a stable target, reach READY or execute unattended.
+- Unattended restore profiles: a standalone signed single-use executor exists,
+  but profile authoring/activation and integration with PXE Server/Client jobs
+  are not complete.
+- Network configuration: Cockpit applies DHCP/static IPv4 to an active
+  NetworkManager profile with a checkpoint/rollback window; complete
+  end-to-end reachability, DNS, multi-interface and Server/Client workflow
+  acceptance remains open.
+- Local operation telemetry and remote transfer progress have outstanding
+  phase/throughput and Server-side byte-progress work.
 
-The source now implements the core kiosk path: Fedora Server product environment, Cage + Firefox, a separate unprivileged kiosk account, locked administrator account with loopback-only first-boot password setup, a locally generated Cockpit CA/certificate installed into Firefox through its Linux enterprise policy, a WebsiteFilter navigation policy, and systemd supervision. The Live root is intentionally ephemeral: every boot starts a new session and regenerates credentials, local CA material and temporary configuration. No persistence of Live-session credentials or configuration is required. Images, manifests and other durable artifacts are stored only in explicitly selected repositories outside the Live session. BIOS/UEFI boot, certificate behavior in the packaged Firefox build, keyboard/TTY escape resistance, and physical display/input behavior remain operator acceptance tasks. Cockpit authentication and backend authorization remain mandatory.
+## Release-critical work
 
-## Completed in source
+1. **Unattended PXE restore:** integrate authenticated Client startup and
+   per-device mTLS identity, bind the Server job/profile/image digest to the
+   Client identity, enforce expiry and session replay protection, select a
+   deterministic stable target, perform local preflight, report per-Client
+   READY/progress/read-back verification, and preserve the explicit
+   authorization boundary. PXE boot alone must never authorize a write.
+2. **Storage-layer image fidelity:** finish Btrfs snapshot/multi-device/profile
+   planning and supported restore preflights; add LVM restore execution and
+   define exact LUKS2/open-mapping restore semantics. Do not create or
+   administer VGs/LVs, LUKS devices or Btrfs snapshots implicitly.
+3. **Remote repositories:** finish credential/provider lifecycle and validate
+   each external provider independently; complete SFTP progress/cancellation
+   and safe recovery semantics; implement isolated WebDAV credentials.
+4. **Remote cloning and deployment:** complete partition-to-partition remote
+   cloning, fault injection and transfer telemetry.
+5. **Release validation:** build/boot the Live image in BIOS and UEFI, test
+   Cockpit/kiosk behavior, real filesystem and storage-layer workflows, remote
+   providers, multi-Client jobs and PXE on an isolated lab network. Record
+   results; do not infer them from unit tests.
 
-- [x] Replace the console-led Live startup with Fedora Server product environment + Cage + Firefox kiosk runtime and secure first-boot bootstrap.
-- [x] Read-only block-device, partition and volume inventory.
-- [x] Manifest-backed whole-disk and partition capture.
-- [x] Verified whole-disk and partition restore engines.
-- [x] Direct local disk-to-disk and partition-to-partition clone engines.
-- [x] Compression and SHA-256 artifact verification; optional `age` encryption and `minisign` signing integrations exist.
-- [x] Source-safety checks, target geometry checks and explicit destructive confirmations.
-- [x] Local managed CA/TLS identity bootstrap and Client CSR enrollment primitives.
-- [x] Authenticated unicast deployment engine and UDPcast multicast restore engine.
-- [x] Direct whole-disk Server-to-Client remote clone integrated into the persistent job lifecycle, existing mTLS control session, durable journals and Cockpit workflow.
-- [x] PXE/iPXE boot-tree staging and transient dnsmasq/Caddy/firewalld service lifecycle.
-- [x] Durable deployment journals, audit-state reconstruction from verified journals, and explicit interrupted-job reconciliation (reconstruction does not restore sessions or resume work).
-- [x] Root-peer Unix IPC protocol integrated with the persistent systemd Server service and Cockpit lifecycle API.
-- [x] Cockpit React/PatternFly package and privileged allowlisted backend.
-- [x] Cockpit local operations wizard: disk/partition capture, restore and clone.
-- [x] Cockpit storage/image inventory, operation journal summary and local image-security setup.
-- [x] Cockpit Terminal remains available for system administration.
-- [x] Initial Cockpit Server identity bootstrap from a currently assigned IPv4 address, including DHCP-server warning and managed trust-material initialization.
-- [x] Cockpit PXE network-profile preflight and explicit activation/shutdown for ProxyDHCP and isolated DHCP, with persisted transient systemd units and reversible interface-scoped firewalld state.
+BitTorrent remains a first-class planned distribution transport for immutable,
+verified artifacts, at the same priority as the other remote transports. It
+is not a writable repository.
 
-## Project license
+## Operator-owned acceptance
 
-- [x] GNU General Public License v3.0 or later (`GPL-3.0-or-later`); see [LICENSE](../LICENSE).
+The maintainer builds the ISO. Feclora's documentation describes the process;
+the project does not generate or publish an ISO as part of this work. BIOS/
+UEFI boot, physical disk writes, remote service behavior, PXE network boot,
+multicast switch/IGMP behavior and representative hardware acceptance must be
+performed and recorded by an operator. Unit tests and static validation do
+not establish those results.
 
-## Remaining implementation work
-
-See [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) for task-level checklists and acceptance criteria. Immediate priorities are BIOS/UEFI and physical kiosk acceptance, storage topology normalization and volume-aware capture/restore, repository credential/provider lifecycle across SSHFS, SFTP, NFS, SMB/CIFS and WebDAV; remote-clone disconnect/restart fault injection; consistent operation telemetry; and Server-side artifact-transfer progress. Unattended PXE restore is a release-critical workflow: integrate trusted deployment profiles with PXE boot-to-job handoff, deterministic Client/target binding, session-scoped replay protection, per-Client preflight and verification. No Live-session persistence design is required; durable images/manifests remain in explicitly selected external repositories. BitTorrent distribution is a co-equal remote-transport priority: select a maintained client and implement authenticated metadata delivery, verified artifact staging, authorized job binding, cancellation, cleanup, peer/bandwidth policy and multi-Client restore. Broader CA rotation and trust migration are explicitly deferred; the supported PKI scope remains managed CA bootstrap, enrollment/renewal, trust inventory/revocation, Server leaf renewal and Server TLS keypair rotation under the existing CA. CA backup does not provide CA rotation or compromise recovery. Durable local operations now have a root-owned systemd worker, persistent queue/journal, Cockpit status/history and boot-time interrupted-job recovery; live systemd and hardware acceptance remain outstanding. Storage topology and volume-aware workflows, unattended PXE orchestration, documentation and release governance remain open. Remote-clone two-machine hardware and real network/storage-provider acceptance are operator-run procedures documented in [ACCEPTANCE-TESTS.md](ACCEPTANCE-TESTS.md). Automated fault-injection and recovery checks remain software test responsibilities.
-
-## Operator-owned validation (optional, not a software completion gate)
-
-The project documents how an operator can build the Fedora 45 ISO and validate it in disposable virtual machines in [BUILD.md](BUILD.md). **Actually building the ISO is not required to complete the software backlog.** The documented procedure is sufficient unless the maintainer separately requests an ISO artifact.
-
-Physical-disk destructive acceptance, BIOS/UEFI boot on target hardware, PXE operation on the deployment network and switch IGMP snooping/querier validation are also operator activities. They must not be reported as passed unless someone actually performs and records them.
-
-Automated unit tests, static checks, shell validation, deterministic frontend installation/build, documentation checks and CI remain project responsibilities. Never claim these checks pass without running them or observing successful CI.
+Broader CA rotation and trust migration are deferred. The current PKI scope is
+managed CA bootstrap, enrollment/renewal, trust inventory/revocation and
+Server TLS leaf/keypair lifecycle under the existing CA.
