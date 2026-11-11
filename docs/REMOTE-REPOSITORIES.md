@@ -15,7 +15,7 @@ manifests, compression, encryption, checksums and restore code continue to use
 the same repository API.
 
 **Remote image distribution follows a single-publisher / multi-reader model
-across SSHFS, SFTP, NFS, SMB/CIFS, WebDAV and optional BitTorrent:** one
+across SSHFS, SFTP, NFS, SMB/CIFS, WebDAV and BitTorrent:** one
 Client publishes each image; any number of Clients may concurrently discover,
 fetch and restore that immutable published image. Concurrent remote publishers
 for the same image are outside the product contract. Publication still needs
@@ -285,9 +285,9 @@ publication uploads remain non-retrying because their outcome can be ambiguous.
 acceptance tests. SFTP file transfer is distinct from SSHFS and is not a
 separate mounted filesystem provider.
 
-## Optional BitTorrent artifact distribution
+## BitTorrent artifact distribution
 
-BitTorrent is an optional peer-to-peer distribution transport for immutable
+BitTorrent is a first-class peer-to-peer distribution transport, at the same priority as the other remote transports, for immutable
 image artifacts, not a writable repository and not a substitute for the
 repository metadata/credential lifecycle. If integrated, Feclora must reuse a
 maintained client rather than implement the protocol. Torrent metadata and
@@ -296,8 +296,9 @@ manifest through the configured independent trust mechanism, verify every
 artifact's exact size and SHA-256, and bind the manifest digest to the
 job/profile authorization. Implement cancellation, incomplete-download
 cleanup, peer/network restrictions, bandwidth limits and an explicit seeding
-policy. BitTorrent must remain optional and must not be required for normal
-Feclora operation.
+policy. BitTorrent remains a distribution transport rather than a writable
+repository; its maintained client is selected independently and is not a
+prerequisite for local-only Feclora operation.
 
 
 ## Image workflow integration
