@@ -80,8 +80,10 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
   address and mTLS control port. These values are metadata, not authorization.
   The Client does not yet automatically authenticate, inspect the job,
   select/verify its target, or enter the READY/ARM workflow from this boot.
-- **Unattended PXE restore** — **Not implemented end to end**. The signed
-  restore-profile executor is a separate primitive; profile delivery,
+- **Unattended PXE restore** — **Not implemented end to end**. An opt-in
+  signed UKI/PCR builder now exists, but it is not in the PXE asset pipeline
+  and has no BIOS/UEFI/TPM acceptance. The signed restore-profile executor is
+  a separate primitive; TPM2 credential provisioning, profile delivery,
   authenticated Client job binding, session replay protection, deterministic
   target authorization and per-Client unattended execution remain pending.
 
