@@ -223,15 +223,16 @@ not yet acceptance-tested.
 
 ## SFTP image-set integration checkpoint
 
-A standalone `sftp_image_set.py` publisher now validates the v1 manifest,
+A standalone `sftp_image_set.py` publisher validates the v1 manifest,
 verifies its minisign signature with an independently trusted public key,
-checks each artifact's size and SHA-256, then uploads artifacts, manifest and
-detached signature in that order. The signature is the final publication
-marker. A failed transfer may leave orphan files, but cannot complete the
-signed-set publication sequence.
+checks each artifact's size and SHA-256, then uploads artifacts, detached
+signature and manifest in that order. The manifest is the final visibility
+marker; inventory requires its adjacent signature to exist, so readers never
+discover a set between the two metadata uploads. A failed transfer may leave
+orphan files, but cannot expose an incomplete set through inventory.
 
 - [x] Validate the existing signed manifest and every local artifact before transfer.
-- [x] Publish artifact files before manifest metadata and detached signature.
+- [x] Publish artifact files and detached signature before the manifest commit marker.
 - [x] Add unit coverage for ordering, digest mismatch, signature failure and interrupted upload.
 - [x] Fetch manifest/signature into a private staging set and enforce metadata size limits.
 - [x] Verify downloaded manifest signature before fetching listed artifacts; verify size and SHA-256 for every artifact.
