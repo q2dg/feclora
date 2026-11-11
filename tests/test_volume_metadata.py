@@ -8,7 +8,7 @@ def test_classifies_lvm_physical_and_logical_volumes():
 
 def test_classifies_luks_container_and_active_mapping():
     assert classify_volume({"type": "part", "fstype": "crypto_LUKS"}) == ["luks", "luks_container"]
-    assert classify_volume({"type": "crypt", "fstype": "xfs"}) == ["luks", "luks_mapping"]
+    assert classify_volume({"type": "crypt", "fstype": "xfs"}) == ["encrypted", "crypt_mapping"]
 
 
 def test_does_not_infer_luks_from_mapper_name_alone():
