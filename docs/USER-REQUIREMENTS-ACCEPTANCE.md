@@ -39,6 +39,8 @@ DHCP and static IPv4 must be supported independently on Server and Client where 
 - [ ] Automated fault injection covers established-session disconnect, timeout and service restart; disposable two-host testing validates the complete operation.
 - [ ] Publish separate remote disk-clone and partition-clone guides, including DHCP and static configurations.
 
+Storage-source clarification: LVM logical volumes, raw LUKS2 containers, opened LUKS mappings and Btrfs filesystems are image sources/layers, not repository types. Capture and restore support must describe the exact byte scope and dependencies. Btrfs is imaged at filesystem/block-device level (including supported multi-device sets), not as separate subvolume artifacts. Remote repositories and distribution transports remain the distinct external destinations used to store or deliver those images.
+
 ## 3. Capture images to remote repositories
 
 **Outcome:** Capture a whole disk or partition and publish the image, manifest and integrity metadata to a selected remote repository.
