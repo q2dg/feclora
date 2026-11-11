@@ -116,13 +116,13 @@ class PXEJobHandoffIntegrationTests(unittest.TestCase):
                  patch("feclora.deployment.server_ui.DeploymentControlServer", FakeControl), \
                  patch("feclora.deployment.server_ui.publish_unattended_ipxe_script") as publish, \
                  patch("feclora.deployment.server_ui.revoke_unattended_ipxe_script") as revoke, \
-                 patch("feclora.deployment.server_ui.dialog_app._message"), \
+                 patch("feclora.deployment.server_ui.dialog_app._message") as message, \
                  patch("feclora.deployment.server_ui.dialog_app._menu", return_value="stop"):
                 result = run_deployment_server_ui(
                     "enp1s0", "192.0.2.10", firewall=object(), pxe_config=pxe_config,
                 )
 
-            self.assertEqual(result, 0)
+            self.assertEqual(result, 0, str(message.call_args_list))
             publish.assert_not_called()
             revoke.assert_not_called()
 
