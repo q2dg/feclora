@@ -32,6 +32,7 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
     edges: list[dict[str, str]] = []
     unresolved: list[dict[str, str]] = []
     path_ids: dict[str, str] = {}
+    device_ids_by_major_minor: dict[str, list[str]] = {}
 
     def add_node(node_id: str, kind: str, **attributes: Any) -> str:
         nodes.setdefault(node_id, {"id": node_id, "kind": kind, **attributes})
@@ -51,11 +52,15 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
             "device:" + path, "block_device", path=path,
             device_type=device.get("type"), size_bytes=device.get("size_bytes"),
             serial=device.get("serial"), wwn=device.get("wwn"),
+            major_minor=device.get("major_minor"),
             filesystem=device.get("filesystem"), uuid=device.get("uuid"),
             label=device.get("label"), mountpoints=device.get("mountpoints", []),
             volume_features=device.get("volume_features", []),
         )
         path_ids[path] = device_id
+        major_minor = device.get("major_minor")
+        if isinstance(major_minor, str) and major_minor.count(":") == 1:
+            device_ids_by_major_minor.setdefault(major_minor, []).append(device_id)
         if parent_path:
             add_edge("device:" + parent_path, device_id, "contains")
         filesystem = str(device.get("filesystem") or "").strip()
@@ -148,15 +153,30 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
                 size_bytes=lv.get("size_bytes"), segment_type=lv.get("segment_type"),
                 layout=lv.get("layout"), thin_provisioned=lv.get("thin_provisioned"),
                 snapshot=lv.get("snapshot"), origin=lv.get("origin"),
-                hidden=lv.get("hidden"), health=lv.get("health"),
+                hidden=lv.get("hidden"), health=lv.get("health"), major_minor=lv.get("major_minor"),
             )
             add_edge(vg_id, lv_id, "contains_lv")
-            if isinstance(lv_path, str) and lv_path:
-                if lv_path in path_ids:
-                    add_edge(lv_id, path_ids[lv_path], "maps_to_block_device")
-                else:
+            matched_device_id = path_ids.get(lv_path) if isinstance(lv_path, str) else None
+            if matched_device_id is None:
+                major_minor = lv.get("major_minor")
+                candidates = device_ids_by_major_minor.get(major_minor, []) if isinstance(major_minor, str) else []
+                if len(candidates) == 1:
+                    matched_device_id = candidates[0]
+                elif len(candidates) > 1:
+                    unresolved.append({"layer": "lvm_lv", "path": str(lv_path or ""),
+                                       "reason": "device_major_minor_is_ambiguous"})
+                elif isinstance(lv_path, str) and lv_path:
                     unresolved.append({"layer": "lvm_lv", "path": lv_path,
-                                       "reason": "lv_path_not_exactly_matched_to_lsblk"})
+                                       "reason": "lv_path_and_device_identity_not_matched"})
+            if matched_device_id:
+                add_edge(lv_id, matched_device_id, "maps_to_block_device")
+                matched_device = next((node for node in nodes.values()
+                                       if node["id"] == matched_device_id), None)
+                if matched_device and matched_device.get("filesystem"):
+                    filesystem_uuid = matched_device.get("uuid")
+                    filesystem_id = "filesystem:" + str(filesystem_uuid or matched_device.get("path"))
+                    if filesystem_id in nodes:
+                        add_edge(lv_id, filesystem_id, "hosts_filesystem")
 
             backing_paths = set()
             devices_field = lv.get("devices")
