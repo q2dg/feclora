@@ -23,7 +23,7 @@ Profiles contain choices only. They must never contain age identity contents, pr
 - **confirm:** perform preflight automatically and require a final typed confirmation before writing.
 - **unattended:** require an authenticated profile and image manifest verified against an independently configured trust anchor, a timezone-qualified expiry, a single-use profile, exact stable target identity matching, and mandatory post-write verification. `minisign` is one optional signature implementation, not a product-wide dependency. The current executor is minisign-specific; replacing that hard dependency with a configurable trust/verifier interface is outstanding. A failed or incomplete preflight must stop before the first write.
 
-The signature sidecar is named PROFILE.json.minisig. The trusted public key is configured outside the profile. The profile ID must be recorded in a persistent consumption ledger before the first destructive write so a single-use profile cannot be replayed. Until that ledger and the restore orchestrator are integrated, the profile model is a validation foundation, not an unattended execution switch.
+The signature sidecar is named PROFILE.json.minisig. The trusted public key is configured outside the profile. For a standalone local invocation, the profile ID is recorded in the configured consumption ledger before the first destructive write. For PXE fleet jobs, replay protection belongs to the authenticated Server deployment-session journal and job state; the ephemeral Client Live session does not need a persistent local ledger. Until profile verification, PXE handoff and the Server/Client restore orchestrator are integrated end to end, the profile model is not an unattended PXE execution switch.
 
 ## Layout policies
 
@@ -35,10 +35,7 @@ The profile model and unattended whole-disk executor are implemented in src/fecl
 
 ## Running an unattended disk restore
 
-The Live image installs the `feclora-restore-profile` command. Store the
-profile, image repository, trust keys and audit files on storage that remains
-available to the Live session. The Live home directory and its logs may reside
-on a volatile overlay and are not suitable as a replay ledger across reboots.
+The Live image installs the `feclora-restore-profile` command. For standalone CLI use, store the profile, image repository, trust keys and audit files on explicitly selected storage available during the Live session. The Live home directory and logs are ephemeral by design. The CLI's local consumption ledger protects that invocation; PXE fleet replay protection must be maintained by the authenticated Server deployment session, not by requiring a persistent Client Live disk.
 The profile and image each need independently authenticated metadata. The current implementation requires separate detached minisign signatures and trusted public keys; this is an implementation-specific limitation, not a product-wide dependency. The target design must support another configured verifier so minisign remains optional.
 
 A profile JSON document has this shape (replace all example identities and
@@ -85,7 +82,7 @@ feclora-restore-profile \
 ```
 
 For images encrypted with the optional age integration, additionally pass `--age-identity` with a protected
-identity file supplied outside the profile. Use a Linux filesystem with POSIX ownership, permissions, locking and hard-link support (for example ext4, XFS or Btrfs); FAT/exFAT volumes may not provide the required semantics. The command verifies that the consumption ledger and operation journal reside on a dedicated persistent mounted filesystem (not the Live overlay, tmpfs or root filesystem). It rechecks the WWN and serial immediately
+identity file supplied outside the profile. Use a Linux filesystem with POSIX ownership, permissions, locking and hard-link support (for example ext4, XFS or Btrfs); FAT/exFAT volumes may not provide the required semantics. The standalone CLI currently verifies that its consumption ledger and operation journal reside on a dedicated persistent mounted filesystem (not the Live overlay, tmpfs or root filesystem). This CLI constraint does not define the PXE architecture: PXE jobs use the Server's session-scoped journal and never require a persistent Client Live filesystem. It rechecks the WWN and serial immediately
 before writing, after artifact and target preflight. It atomically consumes
 the profile ID in the durable ledger at that same pre-write boundary. A consumed profile cannot be replayed from the same persistent
 ledger, including after a reboot, interrupted or failed write. If the ledger
