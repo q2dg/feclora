@@ -316,6 +316,10 @@ def capture_logical_volume(
         lv_major_minor = logical_volume.get("major_minor")
         if lv_major_minor and lv_major_minor != source_major_minor:
             raise CaptureError("LVM and block-inventory device identities disagree")
+        if identity_matches and (
+            len(identity_matches) != 1 or identity_matches[0][1] is not logical_volume
+        ):
+            raise CaptureError("kernel device identity resolves to multiple logical volumes")
     else:
         if len(identity_matches) != 1:
             raise CaptureError("capture source must resolve to exactly one LV by kernel device identity")
