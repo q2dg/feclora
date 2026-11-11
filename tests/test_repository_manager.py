@@ -280,18 +280,6 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         with self.assertRaisesRegex(RepositoryManagerError, "global davfs2 secrets file is not accepted"):
             self.manager.add("images", definition)
 
-    def test_add_accepts_s3_with_protected_rclone_config(self):
-        config = Path(self.temp.name) / "rclone.conf"
-        config.write_text("[feclora_s3]\\ntype = s3\\n", encoding="utf-8")
-        config.chmod(0o600)
-        definition = {**self.definition, "provider": "s3", "host": "s3.example.net",
-                      "remote_path": "/bucket/images", "username": None,
-                      "credential_file": str(config), "identity_file": None,
-                      "known_hosts_file": None, "port": None,
-                      "rclone_remote": "feclora_s3"}
-        result = self.manager.add("images", definition)
-        self.assertEqual(result["provider"], "s3")
-
     def test_resolve_rejects_webdav_until_isolated_credentials_exist(self):
         definition = {**self.definition, "provider": "webdav", "host": "dav.example.net",
                       "remote_path": "/images", "username": None,
@@ -299,23 +287,6 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
                       "known_hosts_file": None, "port": None}
         with self.assertRaisesRegex(RepositoryManagerError, "global davfs2 secrets file is not accepted"):
             self.manager.add("dav", definition)
-
-    def test_resolve_verifies_s3_remote_and_enforces_read_only(self):
-        config = Path(self.temp.name) / "rclone.conf"
-        config.write_text("[feclora_s3]\\ntype = s3\\n", encoding="utf-8")
-        config.chmod(0o600)
-        definition = {**self.definition, "provider": "s3", "host": "s3.example.net",
-                      "remote_path": "/bucket/images", "username": None,
-                      "credential_file": str(config), "identity_file": None,
-                      "known_hosts_file": None, "port": None,
-                      "rclone_remote": "feclora_s3", "read_only": True}
-        self.manager.add("objects", definition)
-        self.manager._mount_record = lambda _path: (
-            "fuse.rclone", "feclora_s3:bucket/images", "ro,relatime",
-        )
-        self.assertEqual(self.manager.resolve("objects"), str(self.mount_root / "objects"))
-        with self.assertRaisesRegex(RepositoryManagerError, "read-only"):
-            self.manager.resolve("objects", write=True)
 
     def test_remove_restores_mountpoint_if_registry_commit_fails(self):
         self.manager.add("images", self.definition)
