@@ -79,7 +79,8 @@ TLS validation. Cockpit listens on guest loopback only; no host port forwarding 
 
 ## Kiosk confinement and session behavior
 
-- [ ] Firefox enterprise policy reports the configured local-origin allowlist.
+- [ ] Firefox enterprise policy reports `WebsiteFilter` blocking all URLs except
+  the local setup and Cockpit origins.
 - [ ] Attempting an external URL is blocked; browser chrome and developer tools
   are unavailable in the kiosk session.
 - [ ] Killing Firefox or Cage causes the systemd kiosk service to restart it.
