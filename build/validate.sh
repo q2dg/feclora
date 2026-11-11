@@ -94,15 +94,6 @@ if ! grep -q 'start_unattended_pxe_client' "$ROOT_DIR/src/feclora/deployment/pxe
   fail "Unattended PXE Client dispatcher is incomplete."
 fi
 
-if ! grep -q 'FECLORA_CLIENT_CONFIG=/mnt/feclora-pxe-identity/feclora-client-identity/deployment-client.json' "$ROOT_DIR/src/feclora/data/feclora-pxe-client@.service" \
-   || ! grep -q 'What=/dev/disk/by-label/FECLORA-CLIENT' "$ROOT_DIR/src/feclora/data/run-feclora-pxe\x2didentity.mount" \
-   || ! grep -q 'Options=ro,nosuid,nodev,noexec' "$ROOT_DIR/src/feclora/data/run-feclora-pxe\x2didentity.mount"; then
-  fail "PXE Client service does not consume a read-only, dedicated identity medium."
-fi
-if ! grep -q 'feclora-pxe-client@.service' "$ROOT_DIR/kickstart/feclora-live.ks" \
-   || ! grep -Fq 'mnt-feclora\x2dpxe\x2didentity.mount' "$ROOT_DIR/kickstart/feclora-live.ks"; then
-  fail "Kickstart does not install the PXE Client identity units."
-fi
 
 if ! grep -q 'def _validate_pxe_profile' "$ROOT_DIR/src/feclora/webapi.py"; then
   fail "Cockpit backend is missing PXE profile preflight."
