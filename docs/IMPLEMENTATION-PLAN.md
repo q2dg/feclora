@@ -27,47 +27,43 @@ in kiosk mode on the local display, fixed to the local Cockpit endpoint and
 Feclora application. The Live boot model must be preserved; this is not a
 migration to an installed-only Fedora Server appliance.
 
-- [ ] Replace the current console-led Live Kickstart startup with the
-  Fedora Server minimal runtime package selection; retain the Live initramfs,
-  BIOS/UEFI boot and Lorax image pipeline.
-- [ ] Add Cage and Firefox to the runtime package manifest and keep the
+- [x] Replace the generic minimal Kickstart environment with the Fedora Server
+  product environment while retaining the Live initramfs, BIOS/UEFI boot and
+  Lorax image pipeline.
+- [x] Add Cage and Firefox to the runtime package manifest and keep the
   Kickstart and package manifest synchronized.
-- [ ] Implement a dedicated unprivileged kiosk account and a systemd-managed
-  Cage/Firefox session on the local display. Restart the kiosk session after
-  browser/compositor failure.
-- [ ] Configure Firefox kiosk mode and a managed profile/policy that fixes
-  navigation to Cockpit, suppresses browser chrome and avoids arbitrary
-  external browsing.
-- [ ] Configure Cockpit socket activation and order the kiosk after local
-  Cockpit availability and network initialization.
-- [ ] Design and implement secure first-boot administrator credential
-  provisioning. Do not use an empty password, shared default password,
-  passwordless sudo, or browser-stored administrator credentials.
-- [ ] Provision and trust a local Cockpit TLS certificate before launching
-  Firefox. The kiosk must not depend on bypassing certificate warnings or
-  accepting an untrusted certificate interactively.
+- [x] Implement a dedicated unprivileged kiosk account and a systemd-managed
+  Cage/Firefox session on the local display, with automatic restart.
+- [x] Configure Firefox kiosk mode and a managed policy with a Cockpit/setup
+  URL allowlist, browser password storage disabled and developer tools blocked.
+- [x] Configure Cockpit socket activation and order it after local TLS
+  certificate provisioning; start the kiosk after Cockpit and bootstrap.
+- [x] Implement a loopback-only first-boot form that sets a unique administrator
+  password (minimum 14 characters) without a default/shared secret or browser
+  storage. The administrator account remains locked until this succeeds.
+- [x] Generate a local Cockpit CA and localhost/IP SAN certificate, install
+  the CA into the system trust store, and enable Firefox enterprise-root import.
 - [ ] Define the authorized administrator and kiosk account privilege
   boundaries; the kiosk account must not be a member of wheel and must not
   receive access to privileged Feclora API actions.
-- [ ] Close ordinary escape paths: alternate TTYs, shell/login prompts,
-  desktop/session launchers, Firefox context menus and arbitrary URL
-  navigation. Document the residual physical-access threat model; do not
-  claim kiosk mode alone is a security boundary.
+- [x] Remove console autologin and passwordless sudo, run Firefox under a
+  separate non-wheel nologin account, mask tty1–tty6 getty services and
+  restrict Firefox navigation through enterprise policy.
+- [ ] Verify compositor/keyboard escape paths and the Cockpit Terminal
+  experience on real hardware. The administrator's authenticated Cockpit
+  Terminal remains an administrative capability; kiosk mode is not a
+  security boundary against a user with administrator credentials.
 - [ ] Keep Cockpit's authenticated Terminal feature subject to administrator
   authorization; do not silently expose a terminal to the kiosk account.
-- [ ] Add static validation for package/service/policy wiring and tests for
-  bootstrap, Firefox policy and systemd unit behavior where practical.
+- [x] Add static validation for package/service/policy wiring and unit tests
+  for first-boot password validation and account provisioning.
 - [ ] Update operator documentation and acceptance tests for cold boot,
   network readiness, Cockpit TLS trust, login/bootstrap, browser restart,
   TTY escape attempts, keyboard shortcuts, and recovery from Firefox failure.
 - [ ] Validate on BIOS and UEFI VMs and representative physical display/input
   hardware. ISO creation remains operator-owned and is not part of this task.
 
-Acceptance: a cold boot reaches the local Cockpit login/Feclora assistant
-without a shell or desktop being presented; Firefox remains confined to the
-Cockpit origin; a valid administrator can authenticate using credentials
-provisioned securely; no default or empty privileged credential exists; and
-the kiosk account cannot invoke privileged backend operations.
+Acceptance still requires operator execution: a cold BIOS/UEFI boot must reach the local setup form and then Cockpit without presenting a desktop or shell; Firefox must remain confined to the allowlisted local origins; the generated certificate must be trusted; the administrator must authenticate with the password created at first boot; and the kiosk account must not invoke privileged backend operations.
 
 ## P0 — Remote disk-to-disk cloning
 Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the existing persistent Server/Client deployment services.
