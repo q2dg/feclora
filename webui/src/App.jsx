@@ -1083,7 +1083,7 @@ export default function App() {
                           {!isLogicalVolume && sftpInspectionMatchesCurrent && sftpRemoteInspection.image_type === (isDisk ? "disk" : "partition") && <option value={sftpRemoteInspection.image_id}>{sftpRemoteInspection.image_id} · authenticated SFTP image</option>}
                         </select>
                       </Field>
-                      <Field label={isDisk ? "Destination disk" : isLogicalVolume ? "Destination logical volume" : "Destination partition"} help={isLogicalVolume ? "Must be an existing active, unmounted linear or thin LV in a healthy VG. Feclora overwrites its data but does not create or resize LVM metadata." : undefined}>
+                      <Field label={isDisk ? "Destination disk" : isLogicalVolume ? "Destination logical volume" : "Destination partition"} help={isLogicalVolume ? "Must be an existing active, unmounted linear or thin LV in a healthy VG. Thin-pool free space is estimated, not reserved. Feclora overwrites LV data but does not create or resize LVM metadata." : undefined}>
                         <select className="pf-v5-c-form-control" value={target} onChange={(e) => setTarget(e.target.value)}>
                           <option value="">Select a destination…</option>
                           {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
