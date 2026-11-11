@@ -1685,6 +1685,7 @@ export default function App() {
                     <p>Job: {pxeAnswerPublished.job_id}</p>
                     <p>Answer: <a href={pxeAnswerPublished.answer_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.answer_url}</a></p>
                     <p>Signature: <a href={pxeAnswerPublished.signature_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.signature_url}</a></p>
+                    <p>iPXE handoff: <a href={pxeAnswerPublished.boot_script_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.boot_script_url}</a></p>
                     <p>{pxeAnswerPublished.message}</p>
                     <Button variant="danger" size="sm" onClick={revokePXEAnswer} isLoading={busy} isDisabled={busy}>Revoke published answer</Button>
                   </Alert>}
