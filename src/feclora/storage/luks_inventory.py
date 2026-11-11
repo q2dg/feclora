@@ -94,9 +94,15 @@ def collect_luks_inventory(
         try:
             uuid_result = runner([*prefix, cryptsetup, "luksUUID", path],
                                  check=True, capture_output=True, text=True, timeout=20)
-            luks_uuid = uuid_result.stdout.strip()
-            if not re.fullmatch(r"[0-9a-fA-F-]{36}", luks_uuid):
-                raise LuksInventoryError(f"cryptsetup returned an invalid LUKS UUID for {path}")
+        except subprocess.TimeoutExpired as exc:
+            raise LuksInventoryError(f"LUKS UUID inspection timed out for {path}") from exc
+        except subprocess.CalledProcessError as exc:
+            detail = (exc.stderr or "").strip()
+            raise LuksInventoryError(detail or f"cannot read LUKS UUID on {path}") from exc
+        luks_uuid = uuid_result.stdout.strip()
+        if not re.fullmatch(r"[0-9a-fA-F-]{36}", luks_uuid):
+            raise LuksInventoryError(f"cryptsetup returned an invalid LUKS UUID for {path}")
+        try:
             result = runner([*prefix, cryptsetup, "luksDump", "--dump-json-metadata", path],
                             check=True, capture_output=True, text=True, timeout=20)
             metadata = parse_luks_metadata(result.stdout, json_metadata=True)
