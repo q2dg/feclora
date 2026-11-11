@@ -359,6 +359,14 @@ PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discov
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_capture_plan.py' || fail "Layered storage capture planning tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_image_manifest.py' || fail "Image manifest schema tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_partition_restore.py' || fail "Partition and LUKS2 container restore tests failed."
+LUKS2_ACCEPTANCE="$ROOT_DIR/tests/vm/run-luks2-partition-acceptance.sh"
+if [[ ! -x "$LUKS2_ACCEPTANCE" ]]; then
+  fail "Disposable LUKS2 partition acceptance script must be executable."
+fi
+grep -q 'cryptsetup open --key-file "$KEY_FILE" "$TARGET_PART" "$TARGET_MAPPING"' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must unlock the restored target with the original key."
+grep -q 'cmp -- "$EXPECTED" "$WORK_DIR/restored-plaintext.bin"' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must compare restored plaintext byte-for-byte."
+grep -q 'check_capture_source_safe(path' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must use Feclora's block-device safety checks."
+grep -q 'run-luks2-partition-acceptance.sh' "$ROOT_DIR/tests/vm/README.md" || fail "LUKS2 loop-device acceptance runbook is missing."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_logical_volume_restore.py' || fail "Logical-volume restore preflight tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_boot_tree.py' || fail "PXE Live boot-tree tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_pxe_boot_request.py' || fail "PXE boot-mode and job-handoff validation tests failed."
