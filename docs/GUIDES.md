@@ -83,7 +83,7 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
 - **Unattended PXE restore** — **Partially implemented**. Each enrolled
   Client exports its mTLS identity to dedicated removable media; the Live
   image mounts it read-only and automatically starts the Client for unattended
-  boots. Unicast whole-disk restore requires an exact per-Client WWN/serial
+  boots. One Client per unicast whole-disk job requires an exact WWN/serial
   binding and retains the Server READY/ARM gate. Partition/multicast execution,
   interrupted-job replay acceptance and BIOS/UEFI lab validation remain.
 
