@@ -58,10 +58,12 @@ into a signed UKI using `ukify`, with Secure Boot signing and systemd PCR
 signature sections supplied through a protected config file. It requires
 `ukify`, `systemd-measure`, `sbverify` and `sbsigntools` on the build host.
 See [the PXE unattended design](../docs/PXE-UNATTENDED.md) and
-[the illustrative config](../docs/FECLORA-UKI-CONFIG.example). This is an
-opt-in primitive: it is not part of the default ISO build or PXE publication,
-and a successful signature check does not establish firmware trust or a
-working TPM release policy.
+[the illustrative config](../docs/FECLORA-UKI-CONFIG.example). The same
+design documents the local-only TPM2 credential seal/unseal helpers. They
+require an already-enrolled Client key and do not provision identity or start
+the deployment runtime. These are opt-in primitives: they are not part of
+the default ISO build or PXE publication, and a successful signature check
+does not establish firmware trust or a working TPM release policy.
 
 ## Important limitations
 
