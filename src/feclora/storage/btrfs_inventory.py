@@ -112,7 +112,7 @@ def collect_btrfs_subvolumes(
         prefix = [sudo_bin, "-n"]
     try:
         mounted = runner(
-            [*prefix, findmnt, "--json", "--types", "btrfs", "--output", "TARGET"],
+            [*prefix, findmnt, "--json", "--list", "--types", "btrfs", "--output", "TARGET"],
             check=True, capture_output=True, text=True, timeout=15,
         )
         payload = json.loads(mounted.stdout)
