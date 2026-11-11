@@ -148,7 +148,7 @@ firmware trust key, or publish the UKI. The operator must provide:
 
 - A root-protected ukify configuration with `[UKI]` Secure Boot key/certificate
   and one or more `[PCRSignature:name]` sections containing PCR private/public
-  keys and explicit phase lists.
+  keys and explicit phase lists. See [the illustrative configuration](FECLORA-UKI-CONFIG.example); its PCR phase policy is not a production default.
 - The exact kernel and initramfs from the same Fedora Live build.
 - A one-line kernel command line file with only non-secret boot parameters.
 - A pre-existing output directory and a firmware trust chain that accepts the
