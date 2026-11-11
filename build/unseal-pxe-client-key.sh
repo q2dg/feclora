@@ -64,7 +64,7 @@ trap cleanup EXIT
 
 # systemd-creds consumes the PCR signature passed by systemd-stub and the
 # TPM2 policy embedded in the encrypted credential. Any mismatch is fatal.
-"$CREDS" --tpm2-device=auto decrypt "$INPUT" "$TMP"
+"$CREDS" --tpm2-device=auto --tpm2-signature=/run/systemd/tpm2-pcr-signature.json decrypt "$INPUT" "$TMP"
 [[ -s "$TMP" ]] || fail "TPM2 decryption produced an empty key."
 chmod 0600 "$TMP"
 ln -- "$TMP" "$OUTPUT"
