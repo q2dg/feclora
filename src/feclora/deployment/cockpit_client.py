@@ -123,6 +123,12 @@ def export_pxe_client_identity(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"export_directory"}:
         raise CockpitEnrollmentError("export_pxe_client_identity requires exactly export_directory")
     config = load_client_runtime_config(CONFIG)
+    from feclora.network.remote_clone_protocol import create_mutual_tls_context
+    create_mutual_tls_context(
+        "client", ca_file=config.ca_file,
+        certificate_file=config.certificate_file,
+        private_key_file=config.private_key_file,
+    )
     export = _mounted_media_directory(params["export_directory"])
     _require_pxe_identity_media(export)
     root = Path(export)
@@ -198,6 +204,11 @@ def export_pxe_client_identity(params: dict[str, Any]) -> dict[str, Any]:
             os.fsync(directory_fd)
         finally:
             os.close(directory_fd)
+        media_fd = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(media_fd)
+        finally:
+            os.close(media_fd)
         return {
             "identity": config.local_identity,
             "directory": str(identity_dir),
