@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from feclora.deployment.client_service import ClientDeploymentService
+from feclora.deployment.client_service import ClientDeploymentService, ClientJobServiceError
 
 
 JOB_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
@@ -60,7 +60,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             }]},
         }
         with mock.patch("feclora.deployment.client_service.collect_inventory", return_value=inventory):
-            with self.assertRaisesRegex(Exception, "not uniquely present"):
+            with self.assertRaisesRegex(ClientJobServiceError, "not uniquely present"):
                 ClientDeploymentService._find_device("/dev/vg0/data", "logical_volume")
 
     def test_client_service_runs_only_after_server_start_and_persists_terminal_status(self):
