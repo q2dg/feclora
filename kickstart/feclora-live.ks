@@ -74,6 +74,8 @@ e2fsprogs
 xfsprogs
 btrfs-progs
 dosfstools
+exfatprogs
+f2fs-tools
 ntfs-3g
 pciutils
 usbutils
