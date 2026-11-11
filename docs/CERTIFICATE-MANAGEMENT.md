@@ -110,9 +110,11 @@ installing the restored CA.
   appliance. Protect persistent Server storage and keep an encrypted offline
   backup. If lost or compromised, create a new CA and re-enroll every
   endpoint.
-- CRL validation, server-certificate renewal automation, server-side expiry
-  inventory and OCSP are not implemented. The Client warns locally about its
-  own certificate expiry. OCSP is not required for an isolated appliance.
+- CRL validation, automated certificate renewal and OCSP are not
+  implemented. Cockpit reports expiry for the locally configured Server
+  and/or Client leaf certificate and its associated CA, with a 30-day warning
+  threshold; this is local status inspection, not fleet-wide Client inventory
+  or revocation checking. OCSP is not required for an isolated appliance.
 - External PKI remains supported through the existing certificate-import
   workflow; Feclora-managed CSR issuance is only enabled when the configured
   CA is the local Feclora CA.
