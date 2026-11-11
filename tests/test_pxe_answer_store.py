@@ -1,0 +1,84 @@
+from __future__ import annotations
+
+import json
+import os
+import tempfile
+import unittest
+import uuid
+from pathlib import Path
+
+from feclora.network.pxe_answer_store import (
+    PXEAnswerStoreError, publish_pxe_answer, revoke_pxe_answer,
+)
+
+
+class PXEAnswerStoreTests(unittest.TestCase):
+    JOB_ID = "3b241101-e2bb-4255-8caf-4136c566a962"
+
+    def answer(self):
+        return json.dumps({
+            "schema_version": 1, "operation": "restore",
+            "image_id": "fedora", "repository_url": "sftp://repo.example/images",
+            "target": {"wwn": "0x5000abcd", "serial": None},
+            "confirm_destructive": True, "start": True,
+        }).encode()
+
+    def test_publishes_verified_answer_atomically_and_revokes_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            os.chmod(tmp, 0o755)
+            result = publish_pxe_answer(
+                tmp, self.JOB_ID, self.answer(), b"signature",
+                verify_signature=lambda raw, sig: raw == self.answer() and sig == b"signature",
+                address="192.0.2.10",
+            )
+            self.assertTrue(Path(result["directory"], "answer.json").is_file())
+            self.assertEqual(Path(result["directory"], "answer.json").stat().st_mode & 0o777, 0o444)
+            self.assertEqual(result["answer_url"], f"http://192.0.2.10:8080/answers/{self.JOB_ID}/answer.json")
+            self.assertTrue(revoke_pxe_answer(tmp, self.JOB_ID))
+            self.assertFalse(revoke_pxe_answer(tmp, self.JOB_ID))
+
+    def test_rejects_untrusted_signature_and_does_not_publish(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            os.chmod(tmp, 0o755)
+            with self.assertRaisesRegex(PXEAnswerStoreError, "not trusted"):
+                publish_pxe_answer(
+                    tmp, self.JOB_ID, self.answer(), b"bad",
+                    verify_signature=lambda _raw, _sig: False, address="192.0.2.10",
+                )
+            self.assertFalse((Path(tmp) / "answers").exists())
+
+    def test_rejects_invalid_answer_and_noncanonical_job_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            os.chmod(tmp, 0o755)
+            with self.assertRaises(PXEAnswerStoreError):
+                publish_pxe_answer(
+                    tmp, self.JOB_ID, b"{}", b"signature",
+                    verify_signature=lambda _raw, _sig: True, address="192.0.2.10",
+                )
+            with self.assertRaises(PXEAnswerStoreError):
+                publish_pxe_answer(
+                    tmp, str(uuid.UUID(self.JOB_ID)).upper(), self.answer(), b"signature",
+                    verify_signature=lambda _raw, _sig: True, address="192.0.2.10",
+                )
+
+    def test_refuses_to_replace_existing_job_answer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            os.chmod(tmp, 0o755)
+            args = (tmp, self.JOB_ID, self.answer(), b"signature")
+            kwargs = {"verify_signature": lambda _raw, _sig: True, "address": "192.0.2.10"}
+            publish_pxe_answer(*args, **kwargs)
+            with self.assertRaisesRegex(PXEAnswerStoreError, "already published"):
+                publish_pxe_answer(*args, **kwargs)
+
+    def test_refuses_unsafe_http_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            os.chmod(tmp, 0o777)
+            with self.assertRaises(PXEAnswerStoreError):
+                publish_pxe_answer(
+                    tmp, self.JOB_ID, self.answer(), b"signature",
+                    verify_signature=lambda _raw, _sig: True, address="192.0.2.10",
+                )
+
+
+if __name__ == "__main__":
+    unittest.main()
