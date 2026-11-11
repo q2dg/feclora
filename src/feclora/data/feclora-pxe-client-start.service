@@ -1,8 +1,7 @@
 [Unit]
 Description=Feclora unattended PXE Client bootstrap
 ConditionKernelCommandLine=feclora.pxe_mode=unattended
-Requires=mnt-feclora\x2dpxe\x2didentity.mount
-After=network-online.target mnt-feclora\x2dpxe\x2didentity.mount
+After=network-online.target
 Wants=network-online.target
 
 [Service]
