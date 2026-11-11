@@ -99,6 +99,13 @@ class DeploymentJobTests(unittest.TestCase):
             "wwn": "0x5000cca123456789", "serial": "DISK-001",
         }))
 
+    def test_stable_target_bindings_require_whole_disk_targets(self):
+        with self.assertRaisesRegex(JobValidationError, "whole-disk"):
+            DeploymentJob.from_dict(valid_job(
+                target_type="partition",
+                target_bindings={"52:54:00:12:34:56": {"wwn": "wwn-1", "serial": None}},
+            ))
+
     def test_unbound_client_retains_interactive_target_approval(self):
         job = DeploymentJob.from_dict(valid_job())
         self.assertTrue(job.authorizes_target("52:54:00:12:34:56", {"path": "/dev/sda"}))
