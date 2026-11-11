@@ -87,5 +87,5 @@ mv -f "$tmp_key" "$COCKPIT_KEY"
 mv -f "$tmp_cert" "$COCKPIT_CERT"
 install -o root -g root -m 0644 "$CA_CERT" "$ANCHOR"
 install -o root -g root -m 0644 "$CA_CERT" "$MOZILLA_CA"
-restorecon "$ROOT" "$ANCHOR" "$MOZILLA_CA" "$COCKPIT_CERT" 2>/dev/null || true
+restorecon "$ROOT" "$CA_KEY" "$CA_CERT" "$SERVER_KEY" "$SERVER_CERT" "$ANCHOR" "$MOZILLA_CA" "$COCKPIT_CERT" "$COCKPIT_KEY" 2>/dev/null || true
 /usr/bin/update-ca-trust extract
