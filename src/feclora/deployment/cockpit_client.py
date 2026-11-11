@@ -114,10 +114,6 @@ def export_pxe_client_identity(params: dict[str, Any]) -> dict[str, Any]:
             "certificate_file": ("client.crt", False),
             "private_key_file": ("client.key", True),
             "trusted_server_public_key": ("server.pub", False),
-            "local_minisign_secret_key": ("client.minisign.key", True),
-            "local_minisign_public_key": ("client.minisign.pub", False),
-            "age_identity_file": ("client.age", True),
-            "age_recipients_file": ("age-recipients.txt", False),
         }
         payload = json.loads(Path(CONFIG).read_text(encoding="utf-8"))
         for field, (filename, private) in fields.items():
@@ -156,6 +152,8 @@ def export_pxe_client_identity(params: dict[str, Any]) -> dict[str, Any]:
                 os.close(source_fd)
                 os.close(target_fd)
             payload[field] = str(destination)
+        for field in ("local_minisign_secret_key", "local_minisign_public_key", "age_identity_file", "age_recipients_file"):
+            payload[field] = None
         payload["repository"] = REPOSITORY
         config_path = identity_dir / "deployment-client.json"
         fd = os.open(config_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
