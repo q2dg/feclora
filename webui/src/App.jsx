@@ -483,7 +483,7 @@ export default function App() {
         id: repositoryId, provider: repositoryProvider, host: repositoryHost,
         remote_path: repositoryPath,
         username: repositoryProvider === "sshfs" || repositoryProvider === "smb" ? repositoryUsername || null : null,
-        credential_file: repositoryProvider === "smb" || repositoryProvider === "s3" ? repositoryCredentials : null,
+        credential_file: repositoryProvider === "smb" ? repositoryCredentials : null,
         identity_file: repositoryProvider === "sshfs" ? repositoryIdentity : null,
         known_hosts_file: repositoryProvider === "sshfs" ? repositoryKnownHosts : null,
         port: repositoryProvider === "sshfs" || repositoryProvider === "smb" ? (repositoryPort ? Number(repositoryPort) : null) : null,
