@@ -24,10 +24,9 @@ class PXEBootRequest:
     server_address: str | None = None
     http_port: int | None = None
     answer_url: str | None = None
-    signature_url: str | None = None
 
 
-def _answer_endpoint(value: str, job_id: str, filename: str) -> tuple[str, int]:
+def _answer_endpoint(value: str, job_id: str) -> tuple[str, int]:
     try:
         parsed = urlsplit(value)
         port = parsed.port
@@ -39,8 +38,8 @@ def _answer_endpoint(value: str, job_id: str, filename: str) -> tuple[str, int]:
             or parsed.username is not None or parsed.password is not None
             or parsed.query or parsed.fragment):
         raise PXEBootRequestError("PXE answer URL must be plain HTTP to a usable unicast IPv4 listener")
-    if parsed.path != f"/answers/{job_id}/{filename}":
-        raise PXEBootRequestError(f"PXE answer URL path must identify this job's {filename}")
+    if parsed.path != f"/answers/{job_id}/answer.json":
+        raise PXEBootRequestError("PXE answer URL path must identify this job's answer.json")
     return str(address), port
 
 
@@ -52,8 +51,7 @@ def parse_pxe_boot_request(command_line: str) -> PXEBootRequest:
     except ValueError as exc:
         raise PXEBootRequestError("kernel command line contains invalid quoting") from exc
     keys = {
-        "feclora.pxe_mode", "feclora.pxe_job_id",
-        "feclora.pxe_answer_url", "feclora.pxe_signature_url",
+        "feclora.pxe_mode", "feclora.pxe_job_id", "feclora.pxe_answer_url",
     }
     values: dict[str, str] = {}
     for argument in arguments:
@@ -75,13 +73,9 @@ def parse_pxe_boot_request(command_line: str) -> PXEBootRequest:
         return PXEBootRequest(mode="interactive")
     if mode != "unattended-answer":
         raise PXEBootRequestError("PXE mode must be interactive or unattended-answer")
-
-    required = {
-        "feclora.pxe_mode", "feclora.pxe_job_id",
-        "feclora.pxe_answer_url", "feclora.pxe_signature_url",
-    }
+    required = {"feclora.pxe_mode", "feclora.pxe_job_id", "feclora.pxe_answer_url"}
     if set(values) != required:
-        raise PXEBootRequestError("unattended answer PXE boot requires job ID, answer URL and signature URL")
+        raise PXEBootRequestError("unattended answer PXE boot requires job ID and answer URL")
     job_id = values["feclora.pxe_job_id"]
     try:
         canonical = str(uuid.UUID(job_id))
@@ -89,18 +83,8 @@ def parse_pxe_boot_request(command_line: str) -> PXEBootRequest:
         raise PXEBootRequestError("unattended PXE job ID must be a UUID") from exc
     if canonical != job_id:
         raise PXEBootRequestError("unattended PXE job ID must use canonical UUID notation")
-
-    address, port = _answer_endpoint(values["feclora.pxe_answer_url"], job_id, "answer.json")
-    signature_address, signature_port = _answer_endpoint(
-        values["feclora.pxe_signature_url"], job_id, "answer.minisig",
-    )
-    if (signature_address, signature_port) != (address, port):
-        raise PXEBootRequestError("answer and signature URLs must use the same Server listener")
+    address, port = _answer_endpoint(values["feclora.pxe_answer_url"], job_id)
     return PXEBootRequest(
-        mode="unattended-answer",
-        job_id=job_id,
-        server_address=address,
-        http_port=port,
-        answer_url=values["feclora.pxe_answer_url"],
-        signature_url=values["feclora.pxe_signature_url"],
+        mode="unattended-answer", job_id=job_id, server_address=address,
+        http_port=port, answer_url=values["feclora.pxe_answer_url"],
     )
