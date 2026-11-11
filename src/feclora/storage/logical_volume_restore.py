@@ -112,6 +112,18 @@ def restore_logical_volume(
     manifest = _load_manifest(manifest_file)
     if manifest.image_type != "logical_volume":
         raise LogicalVolumeRestoreError("logical-volume restore requires a logical_volume image manifest")
+    if isinstance(manifest.storage, dict):
+        scope = manifest.storage.get("capture_scope")
+        if scope == "encrypted_container_bytes":
+            raise LogicalVolumeRestoreError(
+                "LUKS2 container images must be restored through the dedicated encrypted-container workflow; "
+                "logical-volume target restore is not enabled for LUKS containers"
+            )
+        if scope == "decrypted_mapping_bytes":
+            raise LogicalVolumeRestoreError(
+                "this image contains plaintext from an opened crypt mapping; restore requires a separately "
+                "provisioned LUKS2 destination and key-management workflow, which is not supported"
+            )
     artifacts = [item for item in manifest.artifacts if item.role == "logical-volume-image"]
     if len(artifacts) != 1:
         raise LogicalVolumeRestoreError("manifest must contain exactly one logical-volume-image artifact")
