@@ -615,7 +615,9 @@ class RemoteRepositoryManager:
             raise RepositoryManagerError("mounted filesystem source or type does not match the saved repository definition")
         option_set = set(options.split(","))
         if "ro" not in option_set and "rw" not in option_set:
-            raise RepositoryManagerError("mounted filesystem does not report its access mode")
+            raise RepositoryManagerError(
+                f"mounted filesystem does not report its access mode (options={options!r})"
+            )
         if write and "rw" not in option_set:
             raise RepositoryManagerError("repository is not mounted read/write")
         if not write and repo.read_only and "ro" not in option_set:
