@@ -258,6 +258,57 @@ def build_capture_plan(
     )
 
 
+def capture_logical_volume(
+    source_path: str,
+    filesystem: str | None,
+    repository: str | os.PathLike[str],
+    filename: str,
+    inventory: Mapping[str, object],
+    executables: Mapping[str, str | None] | None = None,
+    *,
+    compression: str = "none",
+    compression_level: int | None = None,
+    device_validator: Callable[[str], bool] | None = None,
+    popen_factory: Callable[..., subprocess.Popen] | None = None,
+    source_safety_check: Callable[[str], None] | None = None,
+    effective_uid: Callable[[], int] | None = None,
+    progress_callback: Callable[[int, int | None], None] | None = None,
+) -> ImageArtifact:
+    """Capture one active, uniquely inventoried LVM logical volume."""
+    if not isinstance(inventory, Mapping):
+        raise CaptureError("logical-volume capture requires a storage inventory")
+    topology = inventory.get("volume_topology")
+    if not isinstance(topology, Mapping) or topology.get("status") != "available":
+        raise CaptureError("LVM topology is unavailable; refusing logical-volume capture")
+    matches = []
+    for group in topology.get("volume_groups", []):
+        if not isinstance(group, Mapping) or group.get("status") != "healthy":
+            continue
+        for logical_volume in group.get("logical_volumes", []):
+            if isinstance(logical_volume, Mapping) and logical_volume.get("path") == source_path:
+                matches.append(logical_volume)
+    if len(matches) != 1:
+        raise CaptureError("capture source must identify exactly one healthy-volume-group LV")
+    logical_volume = matches[0]
+    size = logical_volume.get("size_bytes")
+    if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
+        raise CaptureError("logical-volume size is unknown; refusing capture")
+    if logical_volume.get("hidden") or logical_volume.get("snapshot"):
+        raise CaptureError("hidden or snapshot LVs are not valid capture sources")
+    if logical_volume.get("health") not in (None, "", "-", "ok", "healthy"):
+        raise CaptureError("logical volume reports an unhealthy state")
+    if not logical_volume.get("major_minor"):
+        raise CaptureError("logical volume is not active; refusing capture")
+    return capture_partition(
+        source_path, filesystem, repository, filename, None, executables,
+        compression=compression, compression_level=compression_level,
+        device_validator=device_validator, popen_factory=popen_factory,
+        source_safety_check=source_safety_check, expected_size_bytes=size,
+        effective_uid=effective_uid, progress_callback=progress_callback,
+        artifact_role="logical-volume-image",
+    )
+
+
 def _is_block_device(path: str) -> bool:
     try:
         return stat.S_ISBLK(os.stat(path).st_mode)
@@ -270,7 +321,7 @@ def capture_partition(
     filesystem: str | None,
     repository: str | os.PathLike[str],
     filename: str,
-    partition_id: str,
+    partition_id: str | None,
     executables: Mapping[str, str | None] | None = None,
     *,
     compression: str = "none",
@@ -281,6 +332,7 @@ def capture_partition(
     expected_size_bytes: int | None = None,
     effective_uid: Callable[[], int] | None = None,
     progress_callback: Callable[[int, int | None], None] | None = None,
+    artifact_role: str = "partition-image",
 ) -> ImageArtifact:
     """Capture one block partition into a repository without overwriting files.
 
@@ -352,7 +404,7 @@ def capture_partition(
                     stage_dir,
                     filename,
                     counted,
-                    role="partition-image",
+                    role=artifact_role,
                     image_format=plan.image_format,
                     compression=compression,
                     compression_level=compression_level,
