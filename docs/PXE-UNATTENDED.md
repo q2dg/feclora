@@ -21,6 +21,24 @@ active job's script, revokes the matching script when the job UI exits, and a
 new PXE session removes a safe stale script left by an interrupted Server
 process.
 
+## Implemented stable target-binding groundwork
+
+Server restore-job creation can optionally bind each selected Client MAC to a
+physical target WWN, serial number, or both. The binding is part of the
+validated job document sent over the TLS 1.3 mTLS control session. The Client
+compares every supplied identifier with its own current block-device inventory
+before it reports READY; a missing or mismatching identifier rejects the
+selection. The Server UI collects these values per selected Client, and the
+job schema rejects selectors for non-authorized Clients, empty selectors,
+unknown fields and control characters.
+
+This is a preflight constraint, not unattended target discovery or a
+signed per-Client profile. The operator still selects the local /dev target
+and types the local confirmation in Cockpit. No profile expiry, nonce/replay
+ledger, automatic Client startup or write authorization is provided by this
+binding alone. Existing jobs without target_bindings retain the interactive
+workflow.
+
 ## Required authenticated flow
 
 1. The Client boots the shared Live image and parses the unattended handoff.
@@ -84,7 +102,7 @@ credentials silently.
 - Add automatic Client service startup for unattended boot.
 - Add Server-to-Client signed profile delivery and certificate/job/profile
   binding.
-- Add stable WWN/serial target selection and per-Client profile authoring.
+- Extend the implemented optional job-level WWN/serial preflight binding into signed per-Client profile authoring and automatic unique target resolution.
 - Integrate expiry, nonce/replay protection, manifest digest binding and
   Server-side single-use state.
 - Add unattended local preflight, READY, ARM, progress, read-back verification
