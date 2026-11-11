@@ -265,7 +265,7 @@ pre-existing files are preserved.
 - [x] Verify signed manifest before downloading any image artifacts.
 - [x] Download and verify every artifact against signed size and SHA-256.
 - [x] Import verified files into the native local image repository, with signature and manifest published last and no-overwrite hard links.
-- [x] Test metadata-first ordering, bad signature rejection, digest mismatch, collision refusal and staging cleanup.
+- [x] Test metadata-first ordering, bad signature rejection, digest mismatch, collision refusal, staging cleanup and rejection of artifact names in the native manifest-marker namespace.
 - [x] Add safe Cockpit remote manifest-marker listing and authenticated signed-manifest metadata inspection before artifact retrieval; multi-directory catalog discovery remains pending.
 - [x] Connect authenticated SFTP fetch/import to a journaled Cockpit API action and local image inventory.
 - [x] Connect signed-image publication to disk/partition capture and existing Cockpit upload actions.
