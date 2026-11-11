@@ -121,7 +121,7 @@ def render_unattended_ipxe_script(
         "dhcp\n"
         f"kernel {base}/vmlinuz root=live:{base}/squashfs.img ro rd.live.image "
         f"ip=dhcp rd.neednet=1 feclora.pxe_mode=unattended feclora.pxe_job_id={job_id} "
-        f"feclora.pxe_server={parsed} feclora.pxe_control_port={http_port}\n"
+        f"feclora.pxe_server={parsed} feclora.pxe_control_port={control_port}\n"
         f"initrd {base}/initrd.img\n"
         "boot\n"
     )
