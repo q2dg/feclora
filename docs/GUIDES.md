@@ -1,97 +1,97 @@
 ---
 layout: default
-title: Step-by-step guides
+title: Operator guides
 ---
 
-# Step-by-step guides
+# Operator guides
 
-This index distinguishes implemented workflows from partially integrated and
-planned workflows. Use the linked technical and operator documentation for
-the current Cockpit sequence and safety contract. A feature marked planned is
-not an operator procedure. The release-wide acceptance contract is in
-[USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.html).
+This index reports what the current source exposes through Cockpit. An
+implemented code path is not the same as a runtime-accepted workflow. ISO,
+hardware, remote-provider and physical-network acceptance remain separate
+operator tasks; see [the feature matrix](FEATURE-MATRIX.html).
 
-## Local image capture and recovery
+## Local imaging and recovery
 
-- [Whole-disk capture](WHOLE-DISK-CAPTURE.html) — Cockpit operator procedure, compression and optional age/minisign protection.
-- [Partition capture](PARTITION-CAPTURE.html) — Cockpit operator procedure and supported Partclone/raw formats.
-- [Whole-disk restore](WHOLE-DISK-RESTORE.html) and [partition restore](PARTITION-RESTORE.html) — verification and destructive-write safeguards.
-- [Image encryption and signatures](IMAGE-ENCRYPTION.html) — key handling, trust requirements and restore behavior.
-
-The supported operator interface is Cockpit. Screenshot sets will be added
-only from real, version-matched Fedora Live sessions; no illustrative or
-synthetic screenshot is presented as an actual application screen.
-
-Screenshot procedure and required filenames are listed in [the Cockpit screenshot capture plan](assets/screenshots/README.md). Images will be committed only after capture from a real, version-matched Live build.
-
-## Cloning
-
-- [Local disk-to-disk cloning](GUIDE-LOCAL-DISK-CLONE.html) — **Available in Cockpit**
-  Copy a complete local disk to another local disk, with explicit destination
-  confirmation.
-
-- [Remote disk-to-disk cloning](REMOTE-DISK-CLONE.html) — **Available in Cockpit**
-  Clone a read-only Server source disk to one enrolled Client over the existing
-  authenticated persistent Server/Client session. The guide documents both
-  endpoint authorization, READY/ARM, streaming and independent read-back.
-
-## Remote repositories and disk imaging
-
-- [Remote repository administration and provider constraints](REMOTE-REPOSITORIES.html) — **Partial; check provider limits**
-  SSHFS, NFS and SMB/CIFS have partial Cockpit mount/inventory integration.
-  SFTP is a distinct transfer workflow. WebDAV has an incomplete
-  provider/credential workflow. BitTorrent is a first-class planned distribution transport at equal priority, not
-  an implemented repository provider. Do not infer capture support for every provider.
-
-- [Whole-disk capture](WHOLE-DISK-CAPTURE.html) and
-  [partition capture](PARTITION-CAPTURE.html) — **Available in Cockpit**
-  Capture to the local repository or a selected active, verified remote
-  repository with write access.
-
+- [Whole-disk capture](WHOLE-DISK-CAPTURE.html) — **Implemented in Cockpit**.
+- [Partition capture](PARTITION-CAPTURE.html) — **Implemented in Cockpit**;
+  includes supported filesystem-aware/raw capture and storage provenance.
 - [Whole-disk restore](WHOLE-DISK-RESTORE.html) and
-  [partition restore](PARTITION-RESTORE.html) — **Available**
-  Restore from a selected active, verified repository, including read-only
-  remote mounts.
+  [partition restore](PARTITION-RESTORE.html) — **Implemented in Cockpit**.
+- [Image encryption and signatures](IMAGE-ENCRYPTION.html) — optional age
+  encryption and minisign signatures; neither is mandatory for ordinary
+  local imaging.
+- [Local disk-to-disk cloning](GUIDE-LOCAL-DISK-CLONE.html) — **Implemented
+  in Cockpit**.
+- [Partition extraction](PARTITION-EXTRACTION.html) — **Implemented in
+  Cockpit**; creates a separate partition image from a verified disk image.
 
-- **Remote provider-specific capture/restore recipes** — **Operator acceptance**
-  Provider-by-provider test sequences are documented in
-  [physical and remote acceptance tests](ACCEPTANCE-TESTS.html). They are
-  validation procedures, not additional implementation requirements.
+## Storage-layer images
 
-## Multi-client deployment
+- **LVM logical-volume capture** — **Implemented in local Cockpit capture**.
+  The source must be an active, uniquely identified, non-hidden,
+  non-snapshot LV in a healthy VG. The resulting image is not a backup of the
+  complete VG and cannot currently be restored by Feclora.
+- **LUKS2 container capture** — **Partial**. A partition can be captured as
+  raw encrypted bytes after its LUKS2 header and UUID are verified.
+  LUKS1/unknown headers fail closed for this layer-aware path. The ordinary
+  partition restore writes those bytes to an existing compatible partition;
+  Feclora does not unlock or provision encryption.
+- **Opened LUKS mapping capture** — **Not available as a dedicated workflow**.
+  Inventory and planning can describe mappings, but no mapping-image
+  operation is exposed.
+- **Btrfs** — **Single-device partition capture only**. Multi-device
+  filesystems, coordinated snapshots and separate subvolume images are not
+  supported. Subvolume identifiers are provenance, not image units.
+- **Stratis** — inventory only; no Stratis-specific image workflow.
 
-- [Server/Client deployment setup](DEPLOYMENT-SETUP.html) — **Available**
-  Enroll Clients, configure a persistent deployment and use unicast or
-  multicast restore. Multi-Client restore can select an active, verified remote
-  repository.
+See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
 
-- **PXE boot-to-job automatic handoff** — **Planned**
-  PXE/iPXE service lifecycle and boot assets exist, but PXE boot does not
-  automatically bind a Client to a deployment job or authorize a destructive
-  restore. The current workflow remains explicitly operator-controlled.
+## Remote deployment
 
-- **Unattended multi-client PXE restore** — **Planned**
-  Signed single-use restore-profile primitives exist, but profile authoring,
-  fleet authorization and PXE execution are not integrated end to end.
+- [Server/Client setup and enrollment](DEPLOYMENT-SETUP.html) — Cockpit
+  workflows for trust enrollment, deployment jobs and Client target approval.
+- [Remote whole-disk cloning](REMOTE-DISK-CLONE.html) — **Implemented in
+  source/Cockpit**; real two-machine acceptance remains outstanding.
+- [Authenticated deployment control](DEPLOYMENT-CONTROL.html) — protocol,
+  job authorization and lifecycle details.
+- [Remote repositories](REMOTE-REPOSITORIES.html) — **Partial**. SSHFS, NFS
+  and SMB/CIFS mounted-provider integration exists; SFTP has a distinct
+  signed-image transfer workflow with limitations. WebDAV and BitTorrent are
+  not complete provider/transport workflows.
+- [Acceptance procedures](ACCEPTANCE-TESTS.html) — operator-run tests for
+  remote services, multiple Clients, interruption and physical networks.
 
-## Requirements and acceptance
+## PXE and unattended deployment
 
-- [Six end-user workflows and release acceptance contract](USER-REQUIREMENTS-ACCEPTANCE.html) — the authoritative checklist for the requested Live/Cockpit experience.
+- **Interactive PXE boot** — boot-tree staging and service activation exist;
+  BIOS/UEFI network-boot acceptance remains pending. It is intended to boot
+  the same Live environment as ISO, then use Cockpit interactively.
+- **Job-bound PXE handoff** — **Partial**. The iPXE menu offers an unattended
+  handoff choice. During an active Server restore job, Feclora can publish
+  and later revoke a public script containing only the job UUID, Server
+  address and mTLS control port. These values are metadata, not authorization.
+  The Client does not yet automatically authenticate, inspect the job,
+  select/verify its target, or enter the READY/ARM workflow from this boot.
+- **Unattended PXE restore** — **Not implemented end to end**. The signed
+  restore-profile executor is a separate primitive; profile delivery,
+  authenticated Client job binding, session replay protection, deterministic
+  target authorization and per-Client unattended execution remain pending.
 
-## Acceptance testing
+PXE boot alone never authorizes a destructive write. Manual Client approval
+and the Server's explicit ARM remain required by the current deployment
+workflow.
 
-- [Physical and remote-environment acceptance](ACCEPTANCE-TESTS.html) —
-  step-by-step operator procedures for two-machine clone, multi-Client
-  unicast/multicast restore, SSHFS/NFS/SMB/WebDAV repository checks
-  read-only checks, interruption/restart recovery and repository lease
-  protection. Physical runs are operator-owned and are not reported as passed
-  until actually performed.
+## Build, security and acceptance
 
-## Related technical documentation
-
-- [Tool reuse, repository types and optional transports](TOOLING-AND-TRANSPORTS.html)
-
+- [Build and BIOS/UEFI VM procedure](BUILD.html)
+- [Cockpit interface and runtime boundaries](COCKPIT.html)
+- [Certificate and enrollment policy](CERTIFICATE-MANAGEMENT.html)
+- [Six end-user workflows and release acceptance contract](USER-REQUIREMENTS-ACCEPTANCE.html)
+- [Implementation backlog](IMPLEMENTATION-PLAN.html)
 - [Feature and compatibility matrix](FEATURE-MATRIX.html)
-- [Remote repository architecture and security requirements](REMOTE-REPOSITORIES.html)
-- [Unattended restore profiles and current limits](RESTORE-PROFILES.html)
-- [Implementation plan](IMPLEMENTATION-PLAN.html)
+
+## Illustrations
+
+Guides may use real screenshots or clearly labeled mockups. Mockups are
+illustrative only and must not be presented as proof that a feature works.
+See the [screenshot and mockup policy](assets/screenshots/README.md).
