@@ -1013,6 +1013,43 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(inspect.call_args.kwargs["source_address"], "192.0.2.20")
         self.assertEqual(inspect.call_args.kwargs["network_interface"], "enp1s0")
 
+    def test_start_client_job_accepts_verified_logical_volume_target(self):
+        import stat
+        import tempfile
+        from pathlib import Path
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
+            real_stat = os.stat
+            inventory = {
+                "devices": [{"type": "lvm", "path": "/dev/dm-2", "major_minor": "253:2"}],
+                "volume_topology": {"status": "available", "volume_groups": [{
+                    "name": "vg0", "status": "healthy", "logical_volumes": [{
+                        "name": "data", "path": "/dev/vg0/data", "major_minor": "253:2",
+                        "segment_type": "linear", "health": None,
+                        "snapshot": False, "hidden": False,
+                    }],
+                }]},
+            }
+            with patch("feclora.webapi._inspect_remote_job", return_value={
+                "host": "192.0.2.10", "server_identity": "URI:server",
+                "job": {"job_id": job_id, "operation": "restore", "target_type": "logical_volume", "transport": "unicast"},
+            }), patch("feclora.webapi._client_job_directory", return_value=root), \
+                 patch("feclora.storage.inventory.collect_inventory", return_value=inventory), \
+                 patch("feclora.webapi.os.stat", side_effect=lambda path: block_info if os.fspath(path) == "/dev/vg0/data" else real_stat(path)), \
+                 patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")), \
+                 patch("feclora.webapi._client_job_status", return_value={"job_id": job_id, "phase": "connecting"}):
+                result = dispatch({"action": "start_client_job", "params": {
+                    "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/vg0/data",
+                    "confirmation": "ERASE /dev/vg0/data FROM URI:server", "compression": "gzip",
+                    "network_interface": "enp1s0", "source_address": "192.0.2.20",
+                    "igmp_confirmed": False,
+                }})
+            request = json.loads((root / (job_id + ".request.json")).read_text(encoding="utf-8"))
+        self.assertEqual(result["phase"], "connecting")
+        self.assertEqual(request["device_path"], "/dev/vg0/data")
+
     def test_start_client_job_persists_private_request_and_starts_systemd_unit(self):
         import stat
         import tempfile
