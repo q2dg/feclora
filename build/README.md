@@ -67,9 +67,9 @@ directory before treating the build as successful.
   are masked. Physical firmware/boot-menu access and keyboard escape behavior
   still require testing. The authenticated Cockpit Terminal remains an
   administrator capability inside Cockpit.
-- BIOS and UEFI boot, Secure Boot, Cockpit login, device discovery and all
-  destructive storage operations require testing in disposable virtual
-  machines or on disposable media before release.
+- BIOS and UEFI boot, Cockpit login, device discovery and all destructive
+  storage operations require testing in disposable virtual machines or on
+  disposable media before release.
 - PXE boot, remote deployment, multicast networking and switch IGMP behavior
   require validation on the actual network. UDPcast multicast traffic is not
   encrypted or authenticated by UDPcast itself.
