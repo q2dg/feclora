@@ -1,62 +1,101 @@
 # Image manifest schema v1
 
-feclora stores an image as a directory of artifacts plus a validated
-`manifest.json`. The manifest is descriptive metadata, not an executable
-restore plan. It never contains a target device path, shell command, or
-arbitrary output path.
+Feclora publishes an image as one or more artifact files plus a validated
+`manifest.json`. The manifest describes the captured source and stored bytes.
+It is not an executable restore plan and never authorizes a target write.
 
-## Supported metadata
+## Image types and current capture support
 
-- `image_type`: whole `disk`, individual `partition`, or a `logical_volume` image captured from an already active, uniquely inventoried LV in a healthy VG; restore execution is not yet implemented.
-- Source capacity and logical sector size (512 or 4096 bytes).
-- Partition table type: GPT, MBR, none, or unknown.
-- Artifact filename, semantic role, encoding, compression, byte length and
-  SHA-256 digest.
-- Partition identifier for partition-image artifacts.
-- Recognized filesystem type for partition-image and logical-volume-image artifacts when known; Partclone restore uses it to select the matching executable. Older manifests without this optional field remain readable, but a Partclone restore cannot select a utility without it.
-- Optional `storage` provenance: explicit byte scope and source layer, LUKS2 UUID, LVM VG/LV identities, Btrfs filesystem/subvolume UUID provenance and dependency identities. This is descriptive only; it never activates, unlocks, mounts, snapshots or modifies storage. Btrfs remains a filesystem-level image (using `partclone.btrfs` when supported); subvolume UUIDs are provenance metadata, not separate subvolume image artifacts.
+| Manifest image type | Meaning | Capture status | Restore status |
+|---|---|---|---|
+| `disk` | Complete block-device byte stream plus partition-table metadata | Implemented in local Cockpit workflow | Implemented for an existing whole-disk target |
+| `partition` | One existing partition, captured with Partclone when supported or raw bytes otherwise | Implemented in local Cockpit workflow; requires current storage inventory | Implemented for an existing partition target |
+| `logical_volume` | One active LVM logical volume in a healthy VG | Implemented in local Cockpit workflow for uniquely identified, non-hidden, non-snapshot LVs | Not implemented |
 
-Artifact names are restricted to safe basenames. Duplicate names, unknown
-fields, unsupported versions, invalid digests and inconsistent disk/partition
-metadata are rejected.
+These are **image source types/layers**, not repository types. A repository is
+the explicitly selected local or remote destination holding the image files.
+SSHFS, SFTP, NFS, SMB/CIFS and WebDAV are remote storage/transfer mechanisms;
+LVM, LUKS2 and Btrfs describe the source storage being imaged.
 
-## Artifact roles and formats
+## Storage-layer scope
 
-- `partition-table`: raw textual metadata from a generic partition-table tool
-  such as `sfdisk`; not a block-device image.
+The optional `storage` object records the planner's view of the source layer,
+byte scope and dependencies. It is provenance, not a command to activate,
+unlock, mount, snapshot, format or modify storage.
+
+- **LVM logical volume:** the current capture path accepts an active LV whose
+  path and kernel major/minor identity resolve uniquely, whose size is known,
+  and whose VG/PV topology is healthy. Hidden and snapshot LVs are excluded.
+  The resulting `logical_volume` image is a byte image of that LV, not a
+  self-contained backup of the VG, PV metadata or all VG members. Restore is
+  not implemented; the destination LV and its dependency topology require a
+  future validated restore workflow.
+- **LUKS2 container:** partition capture can record raw encrypted-container
+  bytes only when `cryptsetup` verifies a version-2 header and UUID. The
+  captured bytes include the LUKS2 header/keyslots; passphrases and recovery
+  keys are never captured. LUKS1 and unknown/unverified headers fail closed
+  for this layer-aware path.
+- **Opened LUKS mapping:** inventory and planning can describe an active
+  mapping, but a dedicated mapping-image capture workflow is not exposed.
+  Do not interpret mapping provenance as proof that such a capture is
+  available.
+- **Btrfs:** supported single-device Btrfs partitions can be captured as
+  filesystem/block-device images. Multi-device filesystems are rejected by
+  the partition capture path rather than partially imaged. There is no
+  coordinated multi-device capture, snapshot-assisted consistency workflow
+  or separate subvolume image. Subvolume UUIDs, when present, are provenance
+  only.
+- **Stratis:** inventory/topology discovery exists; a Stratis-specific
+  capture/restore workflow is not implemented.
+
+A raw LUKS2 partition image can be restored through the ordinary partition
+restore path as bytes to an existing compatible partition. That operation
+does not provision encryption, unlock the result, or manage keys. There is no
+LVM logical-volume restore engine or layer-aware Btrfs restore workflow.
+
+## Schema fields and artifact roles
+
+The validator supports `image_type` values `disk`, `partition` and
+`logical_volume`. Source capacity and logical sector size are recorded;
+logical-volume manifests use `partition_table: "none"` and require storage
+provenance.
+
+Artifact roles include:
+
+- `partition-table`: textual partition-table metadata (not a block image).
 - `disk-metadata`: descriptive source metadata.
-- `boot-area`: raw boot-area bytes where explicitly captured and documented.
-- `disk-image`: raw whole-disk stream (including raw fallback when filesystem-aware capture is unavailable).
-- `partition-image`: filesystem-aware Partclone stream or raw partition byte stream.
-- `logical-volume-image`: reserved for a filesystem-aware Partclone stream or raw LV byte stream. Its manifest requires storage provenance and does not imply that capture or restore execution is available.
+- `boot-area`: raw boot-area bytes where explicitly captured.
+- `disk-image`: raw whole-disk stream.
+- `partition-image`: Partclone stream or raw partition byte stream.
+- `logical-volume-image`: Partclone stream or raw LV byte stream; valid only
+  for `logical_volume` manifests and requires storage metadata.
 
-Compression is declared per artifact: none, gzip, zstd, xz or lz4. The writer
-must record the actual stored-file size and SHA-256 of the stored bytes. Restore paths verify the complete stored artifact and decompression stream before opening a target block device.
+Each artifact records a safe basename, role, encoding, compression,
+encryption, stored byte length and SHA-256 digest. Partition-image and
+logical-volume-image artifacts may also record a recognized filesystem type.
+The LV manifest requires exactly one `logical-volume-image` artifact and no
+other artifact role.
 
-## Integrity, signatures and encryption
+The optional `storage` object has its own schema version and validates
+capture scope, source layer, supported LUKS/LVM/Btrfs identifiers and a
+restricted dependency list. Unknown fields, invalid types, incompatible
+scopes and unsupported dependency kinds are rejected. Legacy disk/partition
+manifests without `storage` remain readable.
 
-Schema v1 is currently written by local whole-disk and partition capture.
-Disk and partition restore paths consume manifests. The schema can describe
-logical-volume images and storage provenance, but no LV capture/restore engine
-or Cockpit selection workflow is implemented. Repository publication uses the
-manifest as its final commit marker. Legacy manifests without the optional
-`storage` object remain readable.
+## Integrity, encryption and signatures
 
-SHA-256 covers the exact stored bytes of each artifact. For an age-encrypted
-artifact, this is the ciphertext digest: restore verifies the stored size and
-digest first, then age authenticates and decrypts into private local staging
+SHA-256 covers the exact stored artifact bytes. Compression is applied before
+optional age encryption. For an age-encrypted artifact, restore verifies the
+ciphertext size/digest first, then authenticates/decrypts into private staging
 before decompression or target writes.
 
-A detached `.minisig` file may sign the completed manifest. When present,
-restore must verify it against a public key trusted independently of the image
-repository; a present but unverifiable signature blocks restoration. Unsigned
-images remain supported for local workflows and authenticated mTLS deployment
-sessions. In those cases, the manifest's authenticity comes from the
-independently authenticated local operator/repository or TLS control session,
-not from SHA-256 alone.
+A detached `.minisig` may sign the completed manifest. A present signature
+must verify against a public key trusted independently of the image
+repository; an invalid or unverifiable signature blocks restore. Unsigned
+images remain available to local workflows and authenticated deployment
+sessions where the operator/job supplies the separate trust decision.
+SHA-256 detects corruption; it does not authenticate the publisher.
 
-SHA-256 detects artifact corruption but does not authenticate a manifest or
-its publisher. Do not accept an unsigned manifest from an untrusted source
-without a separate authenticated channel or trust decision. Full partition
-geometry maps and crash-recovery journaling for repository publication remain
-outside schema v1.
+Repository publication uses the manifest as its visibility marker. This is
+not a general crash-recovery transaction across arbitrary filesystems. Do not
+treat orphaned artifacts without a manifest as a complete image set.
