@@ -40,6 +40,7 @@ _PARTCLONE = {
     "vfat": "partclone.fat",
     "f2fs": "partclone.f2fs",
     "ntfs": "partclone.ntfs",
+    "ntfs3": "partclone.ntfs",
     "xfs": "partclone.xfs",
 }
 
@@ -189,6 +190,7 @@ _FILESYSTEM_CHECKS = {
     "exfat": ("fsck.exfat", ["-n"]),
     "f2fs": ("fsck.f2fs", ["-n"]),
     "ntfs": ("ntfsfix", ["--no-action"]),
+    "ntfs3": ("ntfsfix", ["--no-action"]),
 }
 
 
