@@ -39,15 +39,14 @@ Screenshot procedure and required filenames are listed in [the Cockpit screensho
 
 - [Remote repository administration and provider constraints](REMOTE-REPOSITORIES.html) — **Partial; check provider limits**
   SSHFS, NFS and SMB/CIFS have partial Cockpit mount/inventory integration.
-  SFTP is a distinct transfer workflow. WebDAV and S3 have incomplete
-  provider/credential workflows; S3 is currently read-only in the image
-  integration. BitTorrent is a proposed optional distribution transport, not
+  SFTP is a distinct transfer workflow. WebDAV has an incomplete
+  provider/credential workflow. BitTorrent is a proposed optional distribution transport, not
   an implemented repository provider. Do not infer capture support for every provider.
 
 - [Whole-disk capture](WHOLE-DISK-CAPTURE.html) and
   [partition capture](PARTITION-CAPTURE.html) — **Available in Cockpit**
   Capture to the local repository or a selected active, verified remote
-  repository with write access. S3 remains read-only.
+  repository with write access.
 
 - [Whole-disk restore](WHOLE-DISK-RESTORE.html) and
   [partition restore](PARTITION-RESTORE.html) — **Available**
@@ -83,7 +82,7 @@ Screenshot procedure and required filenames are listed in [the Cockpit screensho
 
 - [Physical and remote-environment acceptance](ACCEPTANCE-TESTS.html) —
   step-by-step operator procedures for two-machine clone, multi-Client
-  unicast/multicast restore, SSHFS/NFS/SMB/WebDAV repository checks, S3
+  unicast/multicast restore, SSHFS/NFS/SMB/WebDAV repository checks
   read-only checks, interruption/restart recovery and repository lease
   protection. Physical runs are operator-owned and are not reported as passed
   until actually performed.
