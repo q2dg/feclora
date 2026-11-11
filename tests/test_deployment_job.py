@@ -77,6 +77,46 @@ class DeploymentJobTests(unittest.TestCase):
         self.assertEqual(DeploymentJob.from_json(job.to_json()), job)
         self.assertEqual(job.to_dict()["repository_id"], "nas-images")
 
+    def test_per_client_stable_target_bindings_round_trip_and_match(self):
+        payload = valid_job(target_bindings={
+            "52:54:00:12:34:56": {"wwn": "0x5000CCA123456789", "serial": "DISK-001"},
+        })
+        job = DeploymentJob.from_dict(payload)
+        self.assertEqual(
+            DeploymentJob.from_json(job.to_json()).target_bindings,
+            (("52:54:00:12:34:56", "0x5000CCA123456789", "DISK-001"),),
+        )
+        self.assertTrue(job.authorizes_target("52:54:00:12:34:56", {
+            "wwn": "0x5000cca123456789", "serial": "DISK-001",
+        }))
+        self.assertFalse(job.authorizes_target("52:54:00:12:34:56", {
+            "wwn": "0x5000cca123456789", "serial": "DISK-002",
+        }))
+        self.assertFalse(job.authorizes_target("52:54:00:12:34:56", {
+            "wwn": "0x5000cca123456789",
+        }))
+        self.assertFalse(job.authorizes_target("52:54:00:12:34:57", {
+            "wwn": "0x5000cca123456789", "serial": "DISK-001",
+        }))
+
+    def test_unbound_client_retains_interactive_target_approval(self):
+        job = DeploymentJob.from_dict(valid_job())
+        self.assertTrue(job.authorizes_target("52:54:00:12:34:56", {"path": "/dev/sda"}))
+
+    def test_target_bindings_reject_unknown_clients_and_weak_selectors(self):
+        invalid = [
+            {"ff:54:00:12:34:56": {"wwn": "x", "serial": None}},
+            {"52:54:00:12:34:99": {"wwn": "x", "serial": None}},
+            {"52:54:00:12:34:56": {"wwn": None, "serial": None}},
+            {"52:54:00:12:34:56": {"wwn": "", "serial": None}},
+            {"52:54:00:12:34:56": {"wwn": "../device", "serial": None, "path": "/dev/sda"}},
+            {"52:54:00:12:34:56": {"wwn": None, "serial": "bad\\nserial"}},
+        ]
+        for bindings in invalid:
+            with self.subTest(bindings=bindings):
+                with self.assertRaises(JobValidationError):
+                    DeploymentJob.from_dict(valid_job(target_bindings=bindings))
+
     def test_repository_id_is_rejected_for_non_restore_and_invalid_values(self):
         with self.assertRaisesRegex(JobValidationError, "only for restore"):
             DeploymentJob.from_dict(valid_job(operation="save", repository_id="nas-images"))
