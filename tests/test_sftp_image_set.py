@@ -58,7 +58,7 @@ class SFTPImageSetTests(unittest.TestCase):
         return publish_image_set(**args)
 
     @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
-    def test_uploads_artifacts_then_manifest_then_signature(self, verify):
+    def test_uploads_artifacts_then_signature_then_manifest_commit_marker(self, verify):
         calls = []
         def transfer(**kwargs):
             calls.append(kwargs["remote_path"])
@@ -67,11 +67,11 @@ class SFTPImageSetTests(unittest.TestCase):
         verify.assert_called_once()
         self.assertEqual(calls, [
             "/images/test-image/part-1.img",
-            "/images/test-image/manifest.json",
             "/images/test-image/manifest.json.minisig",
+            "/images/test-image/manifest.json",
         ])
         self.assertTrue(result["published"])
-        self.assertEqual(result["publication_marker"], "manifest.json.minisig")
+        self.assertEqual(result["publication_marker"], "manifest.json")
 
     @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
     def test_publish_reports_completed_file_byte_progress(self, verify):
