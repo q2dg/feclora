@@ -267,9 +267,13 @@ def execute_live_pxe_restore(
         manifest_path = repository / f"{answer['image_id']}.manifest.json"
         try:
             info = os.lstat(manifest_path)
-            if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
-                raise PXEAnswerClientError("PXE image manifest must be a regular file")
-            manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+            if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                    or info.st_size > 1024 * 1024):
+                raise PXEAnswerClientError("PXE image manifest must be a regular file no larger than 1 MiB")
+            manifest_raw = manifest_path.read_bytes()
+            if len(manifest_raw) > 1024 * 1024:
+                raise PXEAnswerClientError("PXE image manifest exceeds the 1 MiB size limit")
+            manifest = ImageManifest.from_json(manifest_raw.decode("utf-8"))
         except (OSError, UnicodeError, ManifestValidationError) as exc:
             raise PXEAnswerClientError(f"cannot load PXE image manifest: {exc}") from exc
         if manifest.image_id != answer["image_id"] or manifest.image_type != "disk":
