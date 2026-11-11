@@ -152,7 +152,12 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
                 token_cookie = cookie["feclora_setup"].value
             except (KeyError, http.cookies.CookieError):
                 token_cookie = ""
-            fields = parse_qs(self.rfile.read(length).decode("utf-8", "replace"), keep_blank_values=True, max_num_fields=4)
+            try:
+                fields = parse_qs(self.rfile.read(length).decode("utf-8", "replace"), keep_blank_values=True, max_num_fields=4)
+            except ValueError:
+                self._headers(400)
+                self.wfile.write(b"Invalid form")
+                return
             if set(fields) != {"token", "password", "confirmation"} or any(len(values) != 1 for values in fields.values()):
                 self._headers(400)
                 self.wfile.write(b"Invalid form")
@@ -171,6 +176,10 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
             except BootstrapError as exc:
                 self._headers(400)
                 self.wfile.write(str(exc).encode("utf-8"))
+                return
+            except OSError:
+                self._headers(500)
+                self.wfile.write(b"Could not finalize first-boot setup.")
                 return
             self.send_response(303)
             self.send_header("Location", "https://localhost:9090/")
