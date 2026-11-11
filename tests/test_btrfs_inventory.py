@@ -58,7 +58,7 @@ class BtrfsInventoryTests(unittest.TestCase):
 
     def test_preserves_unknown_profile_but_marks_it_unsupported(self):
         profiles = parse_filesystem_profiles(
-            "Data, future-raid: total=100 used=50\\nMetadata, single: total=100 used=50\\n"
+            "Data, future-raid: total=100 used=50\nMetadata, single: total=100 used=50\n"
         )
         self.assertFalse(profiles[0]["known_profile"])
         self.assertEqual(profiles[0]["profile"], "future-raid")
@@ -66,10 +66,10 @@ class BtrfsInventoryTests(unittest.TestCase):
     def test_rejects_malformed_or_incomplete_profile_report(self):
         with self.assertRaises(BtrfsInventoryError):
             parse_filesystem_profiles(
-                "Data, single: total=100 used=101\\nMetadata, single: total=100 used=50\\n"
+                "Data, single: total=100 used=101\nMetadata, single: total=100 used=50\n"
             )
         with self.assertRaises(BtrfsInventoryError):
-            parse_filesystem_profiles("Data, single: total=100 used=50\\n")
+            parse_filesystem_profiles("Data, single: total=100 used=50\n")
 
     def test_collection_invokes_read_only_show(self):
         calls = []
