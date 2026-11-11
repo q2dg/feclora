@@ -153,6 +153,15 @@ def summarize_lvm_topology(result: dict[str, Any]) -> dict[str, Any]:
                     "data_percent": lv.get("data_percent"),
                     "metadata_percent": lv.get("metadata_percent"),
                     "health": lv.get("lv_health_status") or None,
+                    "kernel_major": _as_nonnegative_int(lv.get("lv_kernel_major")),
+                    "kernel_minor": _as_nonnegative_int(lv.get("lv_kernel_minor")),
+                    "major_minor": (
+                        f"{_as_nonnegative_int(lv.get('lv_kernel_major'))}:"
+                        f"{_as_nonnegative_int(lv.get('lv_kernel_minor'))}"
+                        if _as_nonnegative_int(lv.get("lv_kernel_major")) is not None
+                        and _as_nonnegative_int(lv.get("lv_kernel_minor")) is not None
+                        else None
+                    ),
                     "thin_provisioned": (
                         "thin" in str(lv.get("lv_layout") or "").lower()
                         or str(lv.get("segtype") or "").lower() in {"thin", "thin-pool"}
