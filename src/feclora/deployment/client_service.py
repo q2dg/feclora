@@ -322,7 +322,8 @@ class ClientDeploymentService:
                     if source_address not in {item.address for item in current_addresses}:
                         raise ClientJobServiceError("selected Client source address is no longer assigned to its interface")
             self.request_path.unlink()
-            config = load_client_runtime_config("/etc/feclora/deployment-client.json")
+            config_path = os.environ.get("FECLORA_CLIENT_CONFIG", "/etc/feclora/deployment-client.json")
+            config = load_client_runtime_config(config_path)
             context = create_mutual_tls_context(
                 "client", ca_file=config.ca_file,
                 certificate_file=config.certificate_file,
