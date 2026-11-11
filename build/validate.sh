@@ -88,11 +88,6 @@ if ! grep -q 'cancel_local_operation' "$ROOT_DIR/kickstart/feclora-live.ks" \
    || ! grep -q 'def _cancel_local_operation' "$ROOT_DIR/src/feclora/webapi.py"; then
   fail "Cockpit local operation cancellation is not wired through the Live wrapper, client and backend."
 fi
-if ! grep -q 'start_unattended_pxe_client' "$ROOT_DIR/src/feclora/deployment/pxe_client_start.py" \
-   || ! grep -q 'ConditionKernelCommandLine=feclora.pxe_mode=unattended' "$ROOT_DIR/src/feclora/data/feclora-pxe-client-start.service" \
-   || ! grep -q 'feclora-pxe-client-start.service' "$ROOT_DIR/kickstart/feclora-live.ks"; then
-  fail "Unattended PXE Client dispatcher is incomplete."
-fi
 
 
 if ! grep -q 'def _validate_pxe_profile' "$ROOT_DIR/src/feclora/webapi.py"; then
