@@ -1,4 +1,6 @@
 import unittest
+import tempfile
+from pathlib import Path
 
 from feclora.network.pxe_boot_request import (
     PXEBootRequestError,
@@ -8,6 +10,8 @@ from feclora.network.boot_tree import (
     LiveBootAssetError,
     render_ipxe_script,
     render_unattended_ipxe_script,
+    publish_unattended_ipxe_script,
+    revoke_unattended_ipxe_script,
 )
 
 
@@ -74,6 +78,22 @@ class PXEBootRequestTests(unittest.TestCase):
         self.assertIn("feclora.pxe_control_port=9443", script)
         self.assertNotIn("PRIVATE KEY", script)
         self.assertNotIn("password", script.lower())
+
+    def test_publishes_and_revokes_only_the_matching_job_script(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = publish_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 9443)
+            published = Path(path)
+            self.assertTrue(published.is_file())
+            self.assertEqual(published.stat().st_mode & 0o777, 0o444)
+            self.assertIn(f"feclora.pxe_job_id={JOB_ID}", published.read_text())
+
+            other_job = "f47ac10b-58cc-4372-a567-0e02b2c3d480"
+            with self.assertRaisesRegex(LiveBootAssetError, "different job"):
+                revoke_unattended_ipxe_script(tmp, "192.0.2.10", other_job, 9443)
+            self.assertTrue(published.exists())
+            self.assertTrue(revoke_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 9443))
+            self.assertFalse(published.exists())
+            self.assertFalse(revoke_unattended_ipxe_script(tmp, "192.0.2.10", JOB_ID, 9443))
 
     def test_rejects_noncanonical_job_id_for_boot_script(self):
         with self.assertRaisesRegex(LiveBootAssetError, "canonical UUID"):
