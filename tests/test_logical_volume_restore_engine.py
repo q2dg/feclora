@@ -149,9 +149,10 @@ class LogicalVolumeRestoreExecutionTests(unittest.TestCase):
             value = json.load(stream)
         value["image_type"] = "partition"
         value["artifacts"][0]["role"] = "partition-image"
+        value.pop("storage", None)
         with open(os.path.join(self.temp.name, "root.manifest.json"), "w", encoding="utf-8") as stream:
             json.dump(value, stream)
-        with self.assertRaisesRegex(LogicalVolumeRestoreError, "logical_volume image manifest"):
+        with self.assertRaisesRegex(LogicalVolumeRestoreError, "cannot load valid logical-volume manifest"):
             self.restore()
         self.assertEqual(self.calls, [])
 
