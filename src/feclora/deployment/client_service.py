@@ -266,6 +266,50 @@ class ClientDeploymentService:
             raise ClientJobServiceError("selected local target is not uniquely present in the current block-device inventory")
         return matches[0]
 
+    @staticmethod
+    def _find_unattended_disk(job: Any, mac_address: str) -> dict[str, Any]:
+        """Resolve exactly one whole disk using the job's stable per-Client selector."""
+        if job.operation != "restore" or job.transport != "unicast" or job.target_type != "disk":
+            raise ClientJobServiceError("unattended PXE currently supports unicast whole-disk restore only")
+        selector = next(
+            ((wwn, serial) for mac, wwn, serial in job.target_bindings if mac == mac_address.lower()),
+            None,
+        )
+        if selector is None or selector == (None, None):
+            raise ClientJobServiceError("unattended PXE job must bind this Client to a WWN and/or serial number")
+        wwn, serial = selector
+        inventory = collect_inventory()
+        matches: list[dict[str, Any]] = []
+
+        def visit(items: list[dict[str, Any]]) -> None:
+            for item in items:
+                if isinstance(item, dict):
+                    if item.get("type") == "disk":
+                        actual_wwn = item.get("wwn")
+                        actual_serial = item.get("serial")
+                        wwn_ok = wwn is None or (
+                            isinstance(actual_wwn, str) and actual_wwn.strip().lower() == wwn.lower()
+                        )
+                        serial_ok = serial is None or (
+                            isinstance(actual_serial, str) and actual_serial.strip() == serial
+                        )
+                        if wwn_ok and serial_ok:
+                            matches.append(item)
+                    children = item.get("children")
+                    if isinstance(children, list):
+                        visit(children)
+
+        visit(inventory.get("devices", []))
+        if len(matches) != 1:
+            raise ClientJobServiceError(
+                "unattended target selector must resolve exactly one local whole disk"
+            )
+        selected = matches[0]
+        path = selected.get("path")
+        if not isinstance(path, str) or not path.startswith("/dev/") or os.path.normpath(path) != path:
+            raise ClientJobServiceError("resolved unattended target has an invalid device path")
+        return selected
+
     def _handle_signal(self, _signum: int, _frame: Any) -> None:
         if self._phase == "running":
             # Do not interrupt a block-device operation during orderly shutdown.
@@ -279,10 +323,13 @@ class ClientDeploymentService:
             recover_stale_runtime_artifacts(lock_held=True)
             request = _read_private_json(self.request_path)
             expected = {"schema_version", "job_id", "host", "device_path", "confirmation", "compression", "network_interface", "igmp_confirmed"}
-            optional = {"source_address", "image_encrypt", "image_sign"}
+            optional = {"source_address", "image_encrypt", "image_sign", "unattended", "port"}
             if (not expected.issubset(request) or set(request) - expected - optional
                     or request.get("schema_version") != 1 or request.get("job_id") != self.job_id):
                 raise ClientJobServiceError("Client job request has an invalid schema or job identifier")
+            unattended = request.get("unattended", False)
+            if not isinstance(unattended, bool):
+                raise ClientJobServiceError("unattended request flag must be boolean")
             host = request["host"]
             device_path = request["device_path"]
             confirmation = request["confirmation"]
@@ -292,6 +339,7 @@ class ClientDeploymentService:
             igmp_confirmed = request["igmp_confirmed"]
             image_encrypt = request.get("image_encrypt", False)
             image_sign = request.get("image_sign", False)
+            control_port = request.get("port", 9443 if unattended else None)
             if not isinstance(image_encrypt, bool) or not isinstance(image_sign, bool):
                 raise ClientJobServiceError("per-image encryption/signing choices must be boolean")
             if not isinstance(igmp_confirmed, bool):
@@ -299,11 +347,21 @@ class ClientDeploymentService:
             if (not isinstance(host, str) or not host or len(host) > 253
                     or any(ord(char) < 33 for char in host)):
                 raise ClientJobServiceError("Server host is invalid")
-            if (not isinstance(device_path, str) or not device_path.startswith("/dev/")
-                    or len(device_path) > 256 or os.path.normpath(device_path) != device_path):
-                raise ClientJobServiceError("selected local device path is invalid")
-            if not isinstance(confirmation, str) or len(confirmation) > 512:
-                raise ClientJobServiceError("local target confirmation is invalid")
+            if unattended:
+                if (device_path is not None or confirmation is not None
+                        or network_interface is not None or source_address is not None
+                        or igmp_confirmed is not False or image_encrypt or image_sign
+                        or compression != "none"):
+                    raise ClientJobServiceError("unattended PXE request contains interactive, multicast or save-only options")
+                if isinstance(control_port, bool) or not isinstance(control_port, int) or not 1024 <= control_port <= 65535:
+                    raise ClientJobServiceError("unattended PXE control port is invalid")
+            else:
+                if (not isinstance(device_path, str) or not device_path.startswith("/dev/")
+                        or len(device_path) > 256 or os.path.normpath(device_path) != device_path):
+                    raise ClientJobServiceError("selected local device path is invalid")
+                if not isinstance(confirmation, str) or len(confirmation) > 512:
+                    raise ClientJobServiceError("local target confirmation is invalid")
+                control_port = None
             if not isinstance(compression, str) or compression not in {"none", "gzip", "xz"}:
                 raise ClientJobServiceError("capture compression must be none, gzip or xz")
             if source_address is not None and network_interface is None:
@@ -332,6 +390,16 @@ class ClientDeploymentService:
             self._set_status("connecting", detail="Connecting to the authenticated Server; no local disk operation has started.")
 
             def prepare_local_target(job):
+                nonlocal device_path, confirmation
+                if unattended:
+                    if job.operation != "restore" or job.transport != "unicast" or job.target_type != "disk":
+                        raise DeploymentControlError("unattended PXE currently supports unicast whole-disk restore only")
+                    try:
+                        resolved = self._find_unattended_disk(job, config.mac_address)
+                    except ClientJobServiceError as exc:
+                        raise DeploymentControlError(str(exc)) from exc
+                    device_path = resolved["path"]
+                    confirmation = f"ERASE {device_path} FROM {config.server_identity}"
                 if job.operation != "save" and (image_encrypt or image_sign):
                     raise DeploymentControlError("per-image encryption/signing selections are valid only for a save job")
                 if job.job_id != self.job_id or job.transport not in {"unicast", "multicast"}:
@@ -491,7 +559,7 @@ class ClientDeploymentService:
 
             try:
                 job, success, detail = join_deployment(
-                    host, config.port, context,
+                    host, control_port or config.port, context,
                     local_identity=config.local_identity,
                     expected_server_identity=config.server_identity,
                     mac_address=config.mac_address,
