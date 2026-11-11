@@ -45,6 +45,42 @@ def test_collects_nested_luks2_devices():
     assert len(calls) == 2
 
 
+def test_luks1_container_does_not_hide_other_luks2_devices():
+    payload = json.dumps({
+        "uuid": "22222222-2222-3333-4444-555555555555",
+        "config": {}, "keyslots": {}, "tokens": {},
+        "segments": {"0": {"encryption": "aes-xts-plain64"}},
+    })
+
+    def runner(argv, **kwargs):
+        device = argv[-1]
+        if "luksUUID" in argv:
+            value = (
+                "11111111-2222-3333-4444-555555555555"
+                if device == "/dev/sda1"
+                else "22222222-2222-3333-4444-555555555555"
+            )
+            return subprocess.CompletedProcess(argv, 0, value + "\\n", "")
+        if "--dump-json-metadata" in argv and device == "/dev/sda1":
+            raise subprocess.CalledProcessError(1, argv, stderr="not a LUKS2 device")
+        if "--dump-json-metadata" in argv:
+            return subprocess.CompletedProcess(argv, 0, payload, "")
+        return subprocess.CompletedProcess(argv, 0, "Version: 1\\n", "")
+
+    result = collect_luks_inventory(
+        [{"path": "/dev/sda", "children": [
+            {"path": "/dev/sda1", "filesystem": "crypto_LUKS", "children": []},
+            {"path": "/dev/sda2", "filesystem": "crypto_LUKS", "children": []},
+        ]}],
+        which=lambda name: "/usr/sbin/cryptsetup" if name == "cryptsetup" else None,
+        runner=runner, effective_uid=lambda: 0,
+    )
+    assert result["status"] == "partial"
+    assert [item["device"] for item in result["containers"]] == ["/dev/sda2"]
+    assert result["unsupported_containers"][0]["device"] == "/dev/sda1"
+    assert result["unsupported_containers"][0]["version"] == 1
+
+
 def test_no_luks_devices_needs_no_cryptsetup():
     assert collect_luks_inventory([], which=lambda _name: None)["containers"] == []
 
