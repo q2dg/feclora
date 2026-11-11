@@ -55,8 +55,8 @@ the same image lifecycle.
 but are not yet at production acceptance parity. WebDAV remains fail-closed.
 SFTP has richer signed file-transfer workflows than the mounted providers in
 some areas, but still lacks durable byte-level transfer controls. BitTorrent is
-a separate optional immutable-artifact distribution feature, not a repository
-mount or writable publication backend.
+a first-class immutable-artifact distribution transport at equal priority to
+the other remote transports, not a writable repository provider.
 
 For all mounted providers, Feclora's common image engine supplies manifest
 validation and artifact integrity checks; this does not replace provider-side
@@ -232,9 +232,9 @@ repository editing is available only while unmounted; the check action verifies 
 
 ## Host dependencies
 
-Install only the helper for each repository type actually used. BitTorrent is
-not currently an implemented dependency; any future integration must remain
-optional and use a maintained Fedora-compatible client.
+Install only the helper for each repository type actually used. BitTorrent
+uses a separately selected maintained Fedora-compatible client and does not
+require a mounted-filesystem helper.
 
 On Fedora, install the helpers required by the providers you intend to use:
 
