@@ -15,6 +15,14 @@ filesystem paths as repository roots. Provider adapters mount remote storage;
 manifests, compression, encryption, checksums and restore code continue to use
 the same repository API.
 
+**Remote image distribution follows a single-publisher / multi-reader model
+across SSHFS, SFTP, NFS, SMB/CIFS, WebDAV, S3 and optional BitTorrent:** one
+Client publishes each image; any number of Clients may concurrently discover,
+fetch and restore that immutable published image. Concurrent remote publishers
+for the same image are outside the product contract. Publication still needs
+no-overwrite and incomplete-publication protections, while readers must be
+able to access a committed image concurrently without modifying it.
+
 ## Provider contract
 
 SFTP is intentionally not represented as a mounted filesystem provider. Feclora now exposes one-shot image-set import and publication actions in Cockpit, using pinned host keys and encrypted systemd credential references. The current implementation uses minisign-authenticated manifests for these actions; this is a current implementation dependency, not a product-wide requirement. The target is a configurable verifier so minisign remains optional. The workflow transfers an already captured, authenticated local image to an existing SFTP directory, or fetches and verifies a remote image into the local repository. Named endpoint definitions, one-directory manifest inventory, signed metadata inspection and direct disk/partition restore routing are integrated. Byte-level progress, operator cancellation, resume, multi-directory discovery and full provider acceptance remain pending. Bounded retries are limited to transient download/inventory failures; uploads are not automatically retried because publication outcomes can be ambiguous. SSHFS mounts do not satisfy the SFTP transfer contract.
@@ -55,8 +63,9 @@ mount or writable publication backend.
 
 For all mounted providers, Feclora's common image engine supplies manifest
 validation and artifact integrity checks; this does not replace provider-side
-testing for disconnects, stale mounts, concurrent writers, permissions,
-partial writes or cleanup. No transport may automatically resume a destructive
+testing for disconnects, stale mounts, single-publisher publication
+semantics, concurrent read/restore access, permissions, partial writes or
+cleanup. No transport may automatically resume a destructive
 write after interruption. Recovery must first establish whether the destination
 is trustworthy.
 
