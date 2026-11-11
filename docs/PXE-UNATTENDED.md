@@ -1,133 +1,118 @@
-# Unattended PXE restore design and implementation status
+# PXE Live and unattended answer files
 
-## Implemented boot handoff
+## Intended operating model
 
-Interactive and unattended boot use the same Fedora Live kernel, initramfs and
-squashfs payload. The normal iPXE menu exposes both paths. The unattended path
-chains to `unattended.ipxe`, which is published only while an active Server
-restore job is running.
+PXE is a network boot method for the **same Feclora Fedora Live environment**
+used by the ISO. It is not a separate thin Client, installer, or per-machine
+provisioning workflow.
 
-The job-bound script contains only:
-- the public Server IPv4 address;
-- the actual TLS control port returned by the Server listener;
-- the non-secret deployment job UUID;
-- the unattended boot-mode selector.
+The PXE Server publishes the Live kernel, initramfs and squashfs through
+Caddy. The existing interactive iPXE entry boots that Live payload and opens
+the normal Feclora Cockpit interface. The unattended entry must boot the same
+payload and then fetch one deployment answer document from the PXE Server's
+Caddy HTTP endpoint.
 
-It contains no certificate, private key, password, enrollment token or restore
-authorization. The Live command-line parser validates the UUID and endpoint,
-but these values are only a handoff request. They do not authorize a write.
-The Server publishes the script atomically, refuses to overwrite another
-active job's script, revokes the matching script when the job UI exits, and a
-new PXE session removes a safe stale script left by an interrupted Server
-process.
+There is no per-client USB, identity medium, certificate, private key,
+enrollment bundle or manual identity provisioning in this model. The PXE
+client must not mount or look for `FECLORA-CLIENT` media.
 
-## Implemented stable target-binding groundwork
+## Deployment preparation
 
-Server restore-job creation can bind each selected Client MAC to a
-physical target WWN, serial number, or both. The binding is part of the
-validated job document sent over the TLS 1.3 mTLS control session. The Client
-compares every supplied identifier with its own current block-device inventory
-before it reports READY; a missing or mismatching identifier rejects the
-selection. The Server UI collects these values per selected Client and requires a complete
-binding when publishing an unattended unicast disk job. The job schema rejects selectors for non-authorized Clients, incomplete Client
-coverage, empty selectors, non-whole-disk restore targets, unknown fields and
-control characters.
+The Cockpit Server deployment form is intended to collect:
 
-This is a preflight constraint, not unattended target discovery or a
-signed per-Client profile. WWN/serial matching reduces accidental
-mis-targeting but is not cryptographic hardware attestation. In the interactive workflow the operator still selects the local /dev target
-and types the local confirmation in Cockpit. In the unattended PXE workflow,
-the Client uses the binding to resolve one whole disk automatically; the
-binding alone does not authorize a write. Existing jobs without target_bindings retain the interactive
-workflow.
+1. The image repository URL. This identifies external image storage and is
+   independent of the PXE Server. The repository may be provided by SSHFS,
+   SFTP, SMB/CIFS, NFS, WebDAV or BitTorrent, subject to the provider support
+   matrix in `REMOTE-REPOSITORIES.md`.
+2. The answer document, uploaded by the operator as a file in the same form.
+   Feclora validates its schema and publishes the accepted document under a
+   job-scoped name in the Caddy document root.
+3. The PXE boot configuration and selected deployment clients/target policy.
 
-## Client identity provisioning
+The PXE Server does not host or copy the image repository. It only serves the
+Live boot assets and the answer document. Credentials are not embedded in
+repository URLs or the answer document; they are selected separately from
+Feclora's protected credential inventory where the chosen provider needs
+authentication.
 
-After enrolling a Client, open Cockpit's **Client enrollment** tab and use
-**Prepare PXE identity USB**. Select a dedicated, already-mounted removable
-filesystem. The export includes only the Client CA certificate, TLS
-certificate, TLS private key and the Server's public image-verification key
-when configured. Client age and minisign private keys are deliberately not
-exported.
+## Answer document, version 1
 
-Use one medium per Client, formatted as ext4, XFS or Btrfs and labelled
-`FECLORA-CLIENT`. The export refuses filesystems without POSIX permissions,
-symlinks or unsafe ownership/write permissions. The Live image auto-detects
-the filesystem type and mounts it read-only at
-`/mnt/feclora-pxe-identity`; the deployment configuration inside the medium
-uses that fixed mount path.
+The first supported answer schema is deliberately data-only JSON. It contains
+no shell commands, Python, arbitrary command-line arguments, local
+`/dev/...` paths, usernames, passwords, private keys or certificates.
 
-The USB is a **bearer credential**: physical possession gives access to that
-Client's mTLS identity. Keep it under physical control, do not copy it to the
-Server's shared PXE boot tree, and never share it between Clients. If lost,
-revoke the corresponding Client certificate in the Server trust inventory
-and enroll a replacement. The media is not encrypted at rest by Feclora.
+```json
+{
+  "schema_version": 1,
+  "operation": "restore",
+  "image_id": "fedora-workstation",
+  "repository_url": "sftp://images.example.net/feclora",
+  "target": {
+    "wwn": "0x5000abcd1234",
+    "serial": null
+  },
+  "confirm_destructive": true,
+  "start": true,
+  "credential_ref": "image-store"
+}
+```
 
-The Live image enables a small dispatcher conditioned on
-`feclora.pxe_mode=unattended`. It mounts the identity medium only for that
-mode, validates the configuration, writes a root-only job request and starts
-the per-job Client service. Interactive PXE boots do not mount the identity
-medium or start the dispatcher.
+The target is selected by stable hardware identity (WWN and/or serial), never
+by a hard-coded device path. The Client must resolve exactly one matching
+whole disk from its current inventory and recheck that identity immediately
+before writing. Missing or ambiguous matches fail closed.
 
-## Authenticated unattended flow
+The schema validator is implemented in `feclora.network.pxe_answer`. It
+rejects duplicate JSON keys, unknown fields, malformed repository URLs,
+embedded URL credentials, missing stable target selectors, and documents
+which do not explicitly confirm destructive restore and automatic start.
+The validator is a building block; it is not yet the complete PXE download,
+repository-mount and restore execution path.
 
-1. The Server publishes a job-bound iPXE script containing only the Server
-   IPv4 address, control port and job UUID.
-2. The Client boots the Live image. For unattended mode, systemd mounts the
-   dedicated `FECLORA-CLIENT` identity medium read-only, validates its
-   deployment configuration and automatically creates a private local job
-   request. Interactive boots do not start this dispatcher.
-3. The dispatcher starts the job-specific PXE Client service. The Client
-   connects using TLS 1.3 mutual authentication and the identity on its
-   removable medium. The Server checks the certificate against its enrollment
-   and revocation state and checks that the enrolled identity is authorized
-   for the requested job.
-4. The unattended path currently accepts **unicast whole-disk restore only**.
-   The job must bind this Client to a WWN and/or serial number. The Client
-   resolves exactly one local whole disk using that selector, then rechecks
-   the selected device, block-device status and source-safety conditions.
-   Missing, mismatching or ambiguous selectors fail before READY.
-5. The Client sends READY only after its local preflight succeeds. The Server
-   still requires the operator's explicit ARM action before sending START.
-6. The Client restores through the existing authenticated transfer path,
-   performs the restore engine's integrity/read-back verification, and sends
-   its terminal result to the Server.
+## Security boundary
 
-The Server endpoint in the kernel command line is not trusted by itself: the
-Client verifies the Server certificate identity against the pinned identity
-from its enrollment configuration. The boot parameters never select a
-`/dev` target and never authorize a write. No automatic resume or replay of
-disk I/O is attempted after an interruption.
+An answer file can authorize a destructive operation, so it must not be
+treated as harmless configuration. It must be published only by an
+administrator through Cockpit, be scoped to one deployment, and be removed
+when that deployment expires or is cancelled. Clients must validate its
+schema and repository integrity metadata before any write. A plain HTTP
+answer file is vulnerable to modification by an attacker on the PXE network;
+production unattended writes therefore require a trusted integrity mechanism
+for the answer document (for example, a detached signature checked against a
+public key already trusted by the Feclora Live image). Merely downloading the
+document or knowing its URL is not sufficient authorization.
 
+The Server-side answer-file upload/publishing form, the signed download
+handoff, the Live Client answer downloader, repository URL adapters and the
+end-to-end no-identity execution flow remain implementation work. Do not
+describe unattended PXE as complete until those pieces are connected and
+tested.
 
-## Multi-Client and transport constraints
+## Provider support status
 
-- The current automatic PXE path handles **one Client per unicast job**. Each
-  job requires that Client's own identity medium and WWN/serial target binding.
-  Multiple Clients can be handled by separate unicast jobs; simultaneous
-  multi-Client PXE restore is not yet implemented.
-- Multicast, partition and logical-volume unattended targets are not enabled
-  by this path; the existing interactive Client workflow remains available.
-- The existing Server job coordinator and explicit READY/ARM lifecycle remain
-  the authorization boundary. No Client begins disk I/O merely by booting or
-  receiving the public job UUID.
-- UDPcast datagrams are not authenticated or encrypted by UDPcast itself;
-  network isolation and optional artifact encryption remain separate controls.
-- Partial failure is reported per Client. A failed receiver must not cause
-  another Client's successful result to be overwritten or misreported.
-- No automatic resume or replay of disk I/O occurs after reboot. Operators
-  inspect interrupted targets before creating a new job.
+The answer schema accepts URL schemes for SSHFS, SFTP, SMB/CIFS, NFS, WebDAV,
+HTTP(S) and BitTorrent. This is syntax validation only, not a claim that every
+provider is implemented for PXE restores. Current repository support and
+limitations are tracked in `REMOTE-REPOSITORIES.md`; WebDAV and BitTorrent
+are not yet complete provider/transport workflows.
 
-## Remaining release-critical work
+## Current status and acceptance
 
-- Extend unattended restore from one Client per unicast whole-disk job to
-  simultaneous multi-Client and multicast workflows, then add partition/LV
-  target support with matching hardware acceptance.
-- Add explicit job-expiry and replay/restart acceptance around the persistent
-  Server job journal and interrupted Client lifecycle.
-- Add operator-facing PXE job progress/result reconciliation in the Server UI.
-- Validate missing/lost identity media, revoked identities, mismatching or
-  duplicate WWN/serial selectors, target swaps and network interruption.
-- Validate BIOS and UEFI PXE, one Client and multiple Clients, unicast and
-  multicast, missing credentials, revoked identities, expired/replayed
-  profiles, ambiguous targets, target swaps and network interruption.
+- [x] Stage the same Fedora Live kernel, initramfs and squashfs for iPXE.
+- [x] Provide interactive Live boot through iPXE.
+- [x] Define and validate a bounded, data-only answer-file schema.
+- [ ] Replace the old identity-medium dispatcher with an answer-file downloader.
+- [ ] Add the deployment-form repository URL and answer-file upload controls.
+- [ ] Publish per-job answer documents through Caddy and revoke them on job
+      cancellation/expiry.
+- [ ] Connect repository URL schemes to the existing remote repository
+      credential and mount/transfer facilities.
+- [ ] Implement target resolution, pre-write revalidation and unattended
+      execution for the supported operation types.
+- [ ] Add an answer integrity mechanism trusted by the Live image.
+- [ ] Validate BIOS and UEFI PXE boot, Caddy publication/revocation, wrong or
+      tampered answer files, missing credentials, repository outage, ambiguous
+      targets, target swaps, interruption and real restore hardware.
+
+No hardware acceptance or end-to-end unattended answer-file restore is
+claimed by this document.
