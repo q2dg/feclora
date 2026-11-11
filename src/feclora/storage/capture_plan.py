@@ -56,9 +56,22 @@ def plan_storage_capture(
 
     fstype = str(source.get("filesystem") or "").lower()
     features = set(source.get("volume_features") or [])
-    source_is_luks_container = (
+    source_is_luks_candidate = (
         fstype == "crypto_luks" or "luks_container" in features
     )
+    luks_containers = (inventory.get("luks_metadata") or {}).get("containers", [])
+    def verified_luks2(device_path: str):
+        matches = [
+            item for item in luks_containers
+            if isinstance(item, dict) and item.get("device") == device_path
+            and item.get("version") == 2 and isinstance(item.get("uuid"), str)
+            and item.get("uuid")
+        ]
+        return matches[0] if len(matches) == 1 else None
+    source_luks_metadata = verified_luks2(source_path) if source_is_luks_candidate else None
+    source_is_luks_container = source_luks_metadata is not None
+    if source_is_luks_candidate and not source_is_luks_container and image_type != "disk":
+        blockers.append("The selected LUKS-like container is not verifiably LUKS2; LUKS1 and unknown headers are unsupported.")
     if source_is_luks_container:
         capture_scope = "encrypted_container_bytes"
     # Report encryption/PV layers anywhere inside a whole-disk source too.
@@ -67,13 +80,23 @@ def plan_storage_capture(
         item_fstype = str(item.get("filesystem") or "").lower()
         item_features = set(item.get("volume_features") or [])
         if item_fstype == "crypto_luks" or "luks_container" in item_features:
+            luks_metadata = verified_luks2(item_path) if isinstance(item_path, str) else None
+            if luks_metadata is None:
+                if item_path == source_path and image_type != "disk":
+                    # The selected partition/LV must be positively identified as LUKS2.
+                    pass
+                else:
+                    warnings.append(
+                        f"LUKS-like layer at {item_path} could not be verified as LUKS2; "
+                        "it is recorded only as opaque bytes in a whole-disk image."
+                    )
+                continue
             layers.append("luks2_container")
-            luks_uuid = next((entry.get("uuid") for entry in (inventory.get("luks_metadata") or {}).get("containers", [])
-                              if entry.get("device") == item_path), None)
             dependencies.append({
-                "kind": "luks2_metadata", "device_path": item_path, "uuid": luks_uuid,
+                "kind": "luks2_metadata", "device_path": item_path,
+                "uuid": luks_metadata["uuid"],
                 "included_in_source_bytes": True,
-                "restore_note": "Raw encrypted bytes include the LUKS header and keyslots; passphrases and recovery keys are not captured.",
+                "restore_note": "Raw encrypted bytes include the LUKS2 header and keyslots; passphrases and recovery keys are not captured.",
             })
         if item_fstype == "lvm2_member" or "lvm_pv" in item_features:
             layers.append("lvm_physical_volume")
@@ -169,11 +192,7 @@ def plan_storage_capture(
     }
     if source_is_luks_container:
         storage_metadata["source_layer"] = "luks2_container"
-        source_luks_uuid = next((entry.get("uuid") for entry in
-                                 (inventory.get("luks_metadata") or {}).get("containers", [])
-                                 if entry.get("device") == source_path), None)
-        if source_luks_uuid:
-            storage_metadata["luks_uuid"] = source_luks_uuid
+        storage_metadata["luks_uuid"] = source_luks_metadata["uuid"]
     elif source.get("type") == "crypt" or "crypt_mapping" in features:
         storage_metadata["source_layer"] = "active_crypt_mapping"
     elif fstype == "btrfs":
