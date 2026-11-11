@@ -335,6 +335,10 @@ class ClientDeploymentService:
                 if job.operation == "save" and job.target_type != "disk":
                     raise DeploymentControlError("Client capture currently supports whole-disk jobs only")
                 selected = self._find_device(device_path, job.target_type)
+                if not job.authorizes_target(config.mac_address, selected):
+                    raise DeploymentControlError(
+                        "selected local target does not match this Client's job-bound WWN/serial identity"
+                    )
                 try:
                     info = os.lstat(device_path)
                 except OSError as exc:
