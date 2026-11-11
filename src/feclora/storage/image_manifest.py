@@ -32,11 +32,11 @@ _STORAGE_SCOPES = {
 }
 _STORAGE_LAYERS = {
     "block_device", "luks2_container", "active_crypt_mapping",
-    "lvm_logical_volume", "btrfs_filesystem", "btrfs_subvolume",
+    "lvm_logical_volume", "btrfs_filesystem",
 }
 _STORAGE_DEPENDENCIES = {
     "luks2_metadata", "lvm_pv_metadata", "lvm_vg_members",
-    "lvm_volume_group", "btrfs_filesystem", "btrfs_subvolume",
+    "lvm_volume_group", "btrfs_filesystem",
 }
 
 
