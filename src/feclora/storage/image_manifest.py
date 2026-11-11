@@ -20,9 +20,83 @@ _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _IMAGE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
 _PARTITION_ID_RE = re.compile(r"^[A-Za-z0-9_.+-]{1,64}$")
-_ARTIFACT_ROLES = {"disk-image", "disk-metadata", "partition-table", "boot-area", "partition-image"}
+_ARTIFACT_ROLES = {"disk-image", "disk-metadata", "partition-table", "boot-area", "partition-image", "logical-volume-image"}
 _ARTIFACT_FORMATS = {"raw", "partclone"}
 _COMPRESSIONS = {"none", "gzip", "zstd", "xz", "lz4"}
+
+
+_STORAGE_SCOPES = {
+    "whole_disk_bytes", "partition_bytes", "logical_volume_bytes",
+    "encrypted_container_bytes", "decrypted_mapping_bytes",
+}
+_STORAGE_LAYERS = {
+    "block_device", "luks2_container", "active_crypt_mapping",
+    "lvm_logical_volume", "btrfs_filesystem", "btrfs_subvolume",
+}
+_STORAGE_DEPENDENCIES = {
+    "luks2_metadata", "lvm_pv_metadata", "lvm_vg_members",
+    "lvm_volume_group", "btrfs_filesystem", "btrfs_subvolume",
+}
+
+
+def _validate_storage_metadata(value: Any, image_type: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ManifestValidationError("storage metadata must be a JSON object")
+    allowed = {
+        "schema_version", "capture_scope", "source_layer", "luks_uuid",
+        "lvm_vg_name", "lvm_lv_name", "lvm_lv_uuid", "btrfs_uuid",
+        "btrfs_subvolume_id", "btrfs_subvolume_uuid", "btrfs_parent_uuid",
+        "btrfs_received_uuid", "dependencies",
+    }
+    unknown = set(value) - allowed
+    if unknown:
+        raise ManifestValidationError(f"Unknown storage metadata fields: {', '.join(sorted(unknown))}")
+    if value.get("schema_version") != 1 or isinstance(value.get("schema_version"), bool):
+        raise ManifestValidationError("Unsupported storage metadata schema_version")
+    scope = value.get("capture_scope")
+    if scope not in _STORAGE_SCOPES:
+        raise ManifestValidationError("Unsupported storage capture_scope")
+    layer = value.get("source_layer")
+    if layer not in _STORAGE_LAYERS:
+        raise ManifestValidationError("Unsupported storage source_layer")
+    if image_type == "disk" and scope != "whole_disk_bytes":
+        raise ManifestValidationError("Disk image storage scope must be whole_disk_bytes")
+    if image_type == "partition" and scope not in {"partition_bytes", "encrypted_container_bytes"}:
+        raise ManifestValidationError("Partition image has an incompatible storage scope")
+    if image_type == "logical_volume" and scope not in {
+        "logical_volume_bytes", "encrypted_container_bytes", "decrypted_mapping_bytes"
+    }:
+        raise ManifestValidationError("Logical-volume image has an incompatible storage scope")
+    result = dict(value)
+    for key in allowed - {"schema_version", "capture_scope", "source_layer", "dependencies"}:
+        item = value.get(key)
+        if item is not None and (
+            not isinstance(item, str) or not item or len(item) > 256
+            or any(ord(ch) < 32 for ch in item)
+        ):
+            raise ManifestValidationError(f"storage.{key} must be a short non-empty string")
+    if "btrfs_subvolume_id" in value:
+        subvolume_id = value["btrfs_subvolume_id"]
+        if isinstance(subvolume_id, bool) or not isinstance(subvolume_id, int) or subvolume_id < 0:
+            raise ManifestValidationError("storage.btrfs_subvolume_id must be a non-negative integer")
+    dependencies = value.get("dependencies", [])
+    if not isinstance(dependencies, list):
+        raise ManifestValidationError("storage.dependencies must be a list")
+    normalized = []
+    for dependency in dependencies:
+        if not isinstance(dependency, dict) or set(dependency) != {"kind", "identity", "included_in_source_bytes"}:
+            raise ManifestValidationError("Each storage dependency requires kind, identity and included_in_source_bytes")
+        if dependency["kind"] not in _STORAGE_DEPENDENCIES:
+            raise ManifestValidationError("Unsupported storage dependency kind")
+        identity = dependency["identity"]
+        included = dependency["included_in_source_bytes"]
+        if not isinstance(identity, str) or not identity or len(identity) > 256:
+            raise ManifestValidationError("Storage dependency identity must be a short non-empty string")
+        if not isinstance(included, bool):
+            raise ManifestValidationError("Storage dependency included_in_source_bytes must be boolean")
+        normalized.append(dict(dependency))
+    result["dependencies"] = normalized
+    return result
 
 
 @dataclass(frozen=True)
@@ -104,10 +178,10 @@ class ImageArtifact:
         elif partition_id is not None:
             raise ManifestValidationError("partition_id is only valid for partition-image artifacts")
 
-        if image_format == "partclone" and role != "partition-image":
-            raise ManifestValidationError("Partclone format is only valid for partition-image artifacts")
-        if role != "partition-image" and filesystem is not None:
-            raise ManifestValidationError("filesystem is only valid for partition-image artifacts")
+        if image_format == "partclone" and role not in {"partition-image", "logical-volume-image"}:
+            raise ManifestValidationError("Partclone format is only valid for partition or logical-volume image artifacts")
+        if role not in {"partition-image", "logical-volume-image"} and filesystem is not None:
+            raise ManifestValidationError("filesystem is only valid for partition or logical-volume image artifacts")
         return cls(filename, role, image_format, compression, size, digest, partition_id, filesystem, encryption, compression_level)
 
     def to_dict(self) -> dict[str, Any]:
@@ -140,6 +214,7 @@ class ImageManifest:
     logical_sector_size: int
     partition_table: str
     artifacts: tuple[ImageArtifact, ...]
+    storage: dict[str, Any] | None = None
     schema_version: int = 1
 
     @classmethod
@@ -148,7 +223,7 @@ class ImageManifest:
             raise ManifestValidationError("Manifest must be a JSON object")
         allowed = {
             "schema_version", "image_id", "image_type", "source_size_bytes",
-            "logical_sector_size", "partition_table", "artifacts",
+            "logical_sector_size", "partition_table", "artifacts", "storage",
         }
         unknown = set(value) - allowed
         missing = allowed - set(value)
@@ -166,8 +241,8 @@ class ImageManifest:
             raise ManifestValidationError("image_id must be a simple identifier")
 
         image_type = value.get("image_type")
-        if not isinstance(image_type, str) or image_type not in {"disk", "partition"}:
-            raise ManifestValidationError("image_type must be disk or partition")
+        if not isinstance(image_type, str) or image_type not in {"disk", "partition", "logical_volume"}:
+            raise ManifestValidationError("image_type must be disk, partition or logical_volume")
 
         source_size = value.get("source_size_bytes")
         if isinstance(source_size, bool) or not isinstance(source_size, int) or source_size <= 0:
@@ -196,12 +271,22 @@ class ImageManifest:
             raise ManifestValidationError("Disk image requires a partition-table artifact")
         if image_type == "disk" and not ({"disk-image", "partition-image"} & set(roles)):
             raise ManifestValidationError("Disk image requires at least one data artifact")
+        if image_type == "partition" and "partition-image" not in roles:
+            raise ManifestValidationError("Partition image requires a partition-image artifact")
+        if image_type == "logical_volume" and roles.count("logical-volume-image") != 1:
+            raise ManifestValidationError("Logical-volume image requires exactly one logical-volume-image artifact")
         if "disk-image" in roles and any(
             item.role == "disk-image" and item.format != "raw" for item in artifacts
         ):
             raise ManifestValidationError("Whole-disk artifacts must use raw format")
-        if image_type == "partition" and any(role in {"partition-table", "disk-metadata", "boot-area"} for role in roles):
-            raise ManifestValidationError("Partition image cannot contain whole-disk metadata artifacts")
+        if image_type in {"partition", "logical_volume"} and any(
+            role in {"partition-table", "disk-metadata", "boot-area"} for role in roles
+        ):
+            raise ManifestValidationError("Partition/logical-volume images cannot contain whole-disk metadata artifacts")
+
+        storage = value.get("storage")
+        if storage is not None:
+            storage = _validate_storage_metadata(storage, image_type)
 
         return cls(
             image_id=image_id,
@@ -210,6 +295,7 @@ class ImageManifest:
             logical_sector_size=sector_size,
             partition_table=table,
             artifacts=artifacts,
+            storage=storage,
             schema_version=1,
         )
 
@@ -230,6 +316,7 @@ class ImageManifest:
             "logical_sector_size": self.logical_sector_size,
             "partition_table": self.partition_table,
             "artifacts": [artifact.to_dict() for artifact in self.artifacts],
+            **({"storage": self.storage} if self.storage is not None else {}),
         }
 
     def to_json(self) -> str:
