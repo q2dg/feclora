@@ -159,6 +159,7 @@ def restore_disk(
     age_identity_file: str | os.PathLike[str] | None = None,
     minisign_public_key: str | os.PathLike[str] | None = None,
     require_signature: bool = False,
+    ignore_signature: bool = False,
     pre_write_callback: Callable[[], None] | None = None,
 ) -> ImageManifest:
     """Restore a verified raw whole-disk image to a whole-disk block device.
@@ -199,13 +200,17 @@ def restore_disk(
     except (OSError, UnicodeError, ManifestValidationError) as exc:
         raise DiskRestoreError(f"cannot load valid image manifest: {exc}") from exc
 
+    if not isinstance(ignore_signature, bool):
+        raise DiskRestoreError("ignore_signature must be a boolean")
+    if ignore_signature and (require_signature or minisign_public_key is not None):
+        raise DiskRestoreError("ignore_signature cannot be combined with required or configured signature verification")
     signature_path = manifest_file + ".minisig"
     signature_present = os.path.lexists(signature_path)
-    if require_signature and not signature_present:
+    if not ignore_signature and require_signature and not signature_present:
         raise DiskRestoreError("a minisign signature is required but this image has none")
-    if signature_present and minisign_public_key is None:
+    if not ignore_signature and signature_present and minisign_public_key is None:
         raise DiskRestoreError("image is signed; a trusted minisign public key is required before restore")
-    if minisign_public_key is not None:
+    if not ignore_signature and minisign_public_key is not None:
         if not signature_present:
             raise DiskRestoreError("minisign public key supplied but image signature is missing")
         staged_manifest = None
@@ -228,7 +233,7 @@ def restore_disk(
                     os.unlink(staged_manifest)
                 except FileNotFoundError:
                     pass
-    elif require_signature:
+    elif not ignore_signature and require_signature:
         raise DiskRestoreError("signature verification requires a trusted minisign public key")
 
     if manifest.image_type != "disk":
