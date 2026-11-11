@@ -104,7 +104,7 @@ def _require_pxe_identity_media(path: str) -> None:
         after = right.split()
         if not separator or len(before) < 6 or not after:
             continue
-        mountpoint = Path(before[4].replace("\\\\040", " ").replace("\\\\011", "\\t").replace("\\\\134", "\\\\"))
+        mountpoint = Path(before[4].replace("\\040", " ").replace("\\011", "\\t").replace("\\134", "\\\\"))
         if resolved.is_relative_to(mountpoint):
             matches.append((len(str(mountpoint)), after[0], before[5].split(",")))
     if not matches:
@@ -184,7 +184,12 @@ def export_pxe_client_identity(params: dict[str, Any]) -> dict[str, Any]:
         fd = os.open(config_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         try:
             encoded = (json.dumps(payload, sort_keys=True, indent=2) + "\\n").encode("utf-8")
-            os.write(fd, encoded)
+            view = memoryview(encoded)
+            while view:
+                written = os.write(fd, view)
+                if written <= 0:
+                    raise CockpitEnrollmentError("short write while saving PXE Client configuration")
+                view = view[written:]
             os.fsync(fd)
         finally:
             os.close(fd)
