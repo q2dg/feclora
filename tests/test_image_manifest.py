@@ -14,9 +14,9 @@ def artifact(**changes):
         "partition_id": "1",
     }
     value.update(changes)
-    if value["role"] == "partition-image" and value["format"] == "partclone":
+    if value["role"] in {"partition-image", "logical-volume-image"} and value["format"] == "partclone":
         value.setdefault("filesystem", "ext4")
-    if value["role"] != "partition-image":
+    if value["role"] not in {"partition-image", "logical-volume-image"}:
         value.pop("filesystem", None)
     return value
 
@@ -204,6 +204,73 @@ class ImageManifestTests(unittest.TestCase):
             "artifacts": [artifact()],
         })
         self.assertEqual(manifest.artifacts[0].partition_id, "1")
+
+    def test_logical_volume_manifest_with_storage_metadata_round_trips(self):
+        manifest = ImageManifest.from_dict({
+            "schema_version": 1,
+            "image_id": "vg-root",
+            "image_type": "logical_volume",
+            "source_size_bytes": 800000,
+            "logical_sector_size": 512,
+            "partition_table": "none",
+            "artifacts": [artifact(
+                filename="lv-root.img.zst",
+                role="logical-volume-image",
+                partition_id=None,
+                filesystem="xfs",
+            )],
+            "storage": {
+                "schema_version": 1,
+                "capture_scope": "logical_volume_bytes",
+                "source_layer": "lvm_logical_volume",
+                "lvm_vg_name": "vg0",
+                "lvm_lv_name": "root",
+                "lvm_lv_uuid": "lv-uuid",
+                "dependencies": [{
+                    "kind": "lvm_volume_group",
+                    "identity": "vg-uuid",
+                    "included_in_source_bytes": False,
+                }],
+            },
+        })
+        decoded = ImageManifest.from_json(manifest.to_json())
+        self.assertEqual(decoded, manifest)
+        self.assertEqual(decoded.storage["lvm_lv_uuid"], "lv-uuid")
+
+    def test_storage_metadata_rejects_unknown_or_unsafe_dependencies(self):
+        base = {
+            "schema_version": 1,
+            "capture_scope": "logical_volume_bytes",
+            "source_layer": "lvm_logical_volume",
+        }
+        value = {
+            "schema_version": 1, "image_id": "lv-image", "image_type": "logical_volume",
+            "source_size_bytes": 4096, "logical_sector_size": 512, "partition_table": "none",
+            "artifacts": [artifact(filename="lv.img", role="logical-volume-image",
+                                   partition_id=None, filesystem="ext4")],
+            "storage": {**base, "untrusted_command": "dd"},
+        }
+        with self.assertRaisesRegex(ManifestValidationError, "Unknown storage"):
+            ImageManifest.from_dict(value)
+        value["storage"] = {**base, "dependencies": [{
+            "kind": "lvm_volume_group", "identity": "vg0",
+            "included_in_source_bytes": "yes",
+        }]}
+        with self.assertRaisesRegex(ManifestValidationError, "must be boolean"):
+            ImageManifest.from_dict(value)
+
+    def test_storage_scope_must_match_image_type(self):
+        value = {
+            "schema_version": 1, "image_id": "partition-image", "image_type": "partition",
+            "source_size_bytes": 4096, "logical_sector_size": 512, "partition_table": "none",
+            "artifacts": [artifact()],
+            "storage": {
+                "schema_version": 1, "capture_scope": "logical_volume_bytes",
+                "source_layer": "lvm_logical_volume",
+            },
+        }
+        with self.assertRaisesRegex(ManifestValidationError, "incompatible storage scope"):
+            ImageManifest.from_dict(value)
 
     def test_rejects_unknown_fields_and_invalid_schema(self):
         with self.assertRaisesRegex(ManifestValidationError, "Unknown"):
