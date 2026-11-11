@@ -82,14 +82,16 @@ repository, device-lock and audit contracts as Cockpit.
 
 ## Implementation status
 
-The initial implementation is present on `main`: Cockpit submits validated,
-allowlisted operation definitions to a root-owned persistent queue; a
-systemd template unit executes each job independently of the request process;
-a hash-chained event journal records state and byte progress; and the worker
-reuses the host-wide storage lock plus per-block-device locks. Boot recovery
-marks every unfinished job interrupted and never replays it. Recovery isolates
-a damaged journal so it does not prevent reconciliation of other jobs, while
-reporting that damaged record for manual inspection.
+The implementation is present on `main`: Cockpit submits validated,
+allowlisted operation definitions to a root-owned queue; a systemd template
+unit executes each job independently of the request process; a hash-chained
+event journal records state and byte progress; and the worker reuses the
+host-wide storage lock plus per-block-device locks. This state survives browser,
+Cockpit/API and worker-process lifetimes while the current filesystem remains
+available. The default Live root is ephemeral, so the queue and journal are
+lost on reboot; reboot persistence is not a product requirement. The recovery
+unit can classify unfinished records as interrupted only when those records
+are present at boot. No destructive I/O is replayed.
 
 The implementation deliberately uses systemd activation and a file-backed
 handoff rather than the originally considered dedicated local IPC service.
@@ -101,9 +103,10 @@ The latter is not claimed by unit tests or static checks.
 
 - Closing a browser tab or restarting Cockpit does not terminate an accepted
   local operation.
-- Operation state and progress remain queryable after Cockpit/API restart.
-- A worker/service crash during a write leaves an explicit interrupted record;
-  no block-device I/O is resumed automatically.
+- Operation state and progress remain queryable after Cockpit/API or worker-process restart within the same Live session.
+- A worker/service crash during a write leaves an interrupted record while the
+  session filesystem survives; after Live reboot the operator must assume the
+  target may be partial and inspect it. No block-device I/O is resumed automatically.
 - Two operations that target the same device cannot execute concurrently,
   including when submitted through different UI clients.
 - All destructive actions are revalidated by the service immediately before
