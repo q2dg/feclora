@@ -119,6 +119,10 @@ class PXEBootRequestTests(unittest.TestCase):
             with self.assertRaisesRegex(LiveBootAssetError, "not a regular file"):
                 clear_stale_unattended_ipxe_script(tmp)
 
+    def test_unattended_boot_script_validates_control_port_separately(self):
+        with self.assertRaisesRegex(LiveBootAssetError, "control port"):
+            render_unattended_ipxe_script("192.0.2.10", JOB_ID, 8080, 22)
+
     def test_rejects_noncanonical_job_id_for_boot_script(self):
         with self.assertRaisesRegex(LiveBootAssetError, "canonical UUID"):
             render_unattended_ipxe_script(
