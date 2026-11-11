@@ -30,6 +30,7 @@ NetworkManager
 iproute
 firewalld
 openssl
+ca-certificates
 
 # Cockpit web interface; primary operator entry point
 cockpit
