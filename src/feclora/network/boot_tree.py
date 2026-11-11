@@ -70,11 +70,56 @@ def render_ipxe_script(address: str, http_port: int = 8080) -> str:
     if isinstance(http_port, bool) or not isinstance(http_port, int) or not 1 <= http_port <= 65535:
         raise LiveBootAssetError("PXE HTTP port is invalid")
     base = f"http://{parsed}:{http_port}/live"
+    unattended = f"http://{parsed}:{http_port}/unattended.ipxe"
+    return (
+        "#!ipxe\n"
+        "dhcp\n"
+        "set live_base " + base + "\n"
+        "menu Feclora Live PXE\n"
+        "item interactive Boot interactive Feclora Live session\n"
+        "item unattended Boot an authorized unattended deployment\n"
+        "choose pxe_mode || exit\n"
+        "goto ${pxe_mode}\n"
+        ":interactive\n"
+        "kernel ${live_base}/vmlinuz root=live:${live_base}/squashfs.img ro rd.live.image "
+        "ip=dhcp rd.neednet=1 feclora.pxe_mode=interactive\n"
+        "initrd ${live_base}/initrd.img\n"
+        "boot\n"
+        ":unattended\n"
+        f"chain {unattended} || goto unattended_missing\n"
+        ":unattended_missing\n"
+        "echo No active unattended deployment boot profile is published by this Server.\n"
+        "shell\n"
+    )
+
+
+def render_unattended_ipxe_script(
+    address: str, job_id: str, http_port: int = 8080,
+) -> str:
+    """Render a job-bound Live boot handoff; the job ID is not authorization."""
+    import uuid
+
+    try:
+        parsed = ipaddress.ip_address(address)
+    except ValueError as exc:
+        raise LiveBootAssetError("PXE boot address must be IPv4") from exc
+    if parsed.version != 4 or parsed.is_unspecified or parsed.is_loopback or parsed.is_multicast:
+        raise LiveBootAssetError("PXE boot address must be usable unicast IPv4")
+    if isinstance(http_port, bool) or not isinstance(http_port, int) or not 1 <= http_port <= 65535:
+        raise LiveBootAssetError("PXE HTTP port is invalid")
+    try:
+        canonical_job_id = str(uuid.UUID(job_id))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise LiveBootAssetError("unattended PXE job ID must be a UUID") from exc
+    if canonical_job_id != job_id:
+        raise LiveBootAssetError("unattended PXE job ID must use canonical UUID notation")
+    base = f"http://{parsed}:{http_port}/live"
     return (
         "#!ipxe\n"
         "dhcp\n"
         f"kernel {base}/vmlinuz root=live:{base}/squashfs.img ro rd.live.image "
-        "ip=dhcp rd.neednet=1\n"
+        f"ip=dhcp rd.neednet=1 feclora.pxe_mode=unattended feclora.pxe_job_id={job_id} "
+        f"feclora.pxe_server={parsed} feclora.pxe_control_port={http_port}\n"
         f"initrd {base}/initrd.img\n"
         "boot\n"
     )
