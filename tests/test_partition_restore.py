@@ -114,13 +114,13 @@ class PartitionRestoreTests(unittest.TestCase):
         def runner(command, **kwargs):
             self.runner_calls.append((command, kwargs))
             if "luksUUID" in command:
-                return SimpleNamespace(stdout=luks_uuid + "\\n", stderr="", returncode=0)
+                return SimpleNamespace(stdout=luks_uuid + "\n", stderr="", returncode=0)
             if "luksDump" in command:
                 return SimpleNamespace(
                     stdout=json.dumps({"uuid": luks_uuid, "segments": {"0": {"encryption": "aes-xts-plain64"}}}),
                     stderr="", returncode=0,
                 )
-            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\\n", stderr="", returncode=0)
+            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\n", stderr="", returncode=0)
         proc = FakeProcess()
         proc.stdout = io.BytesIO(self.payload)
         def factory(argv, **opts):
@@ -145,10 +145,10 @@ class PartitionRestoreTests(unittest.TestCase):
         proc.stdout = io.BytesIO(self.payload)
         def runner(command, **kwargs):
             if "luksUUID" in command:
-                return SimpleNamespace(stdout="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\n", stderr="", returncode=0)
+                return SimpleNamespace(stdout="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\n", stderr="", returncode=0)
             if "luksDump" in command:
                 return SimpleNamespace(stdout=json.dumps({"uuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "segments": {"0": {}}}), stderr="", returncode=0)
-            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\\n", stderr="", returncode=0)
+            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\n", stderr="", returncode=0)
         with self.assertRaisesRegex(PartitionRestoreError, "UUID or metadata"):
             restore_partition(
                 self.manifest, self.temp.name, "/dev/sda1",
@@ -265,7 +265,7 @@ class PartitionRestoreTests(unittest.TestCase):
             self.runner_calls.append((command, kwargs))
             if command[0] == "e2fsck":
                 return SimpleNamespace(stdout="", stderr="filesystem errors found", returncode=4)
-            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\\n")
+            return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\n")
         with self.assertRaisesRegex(PartitionRestoreError, "consistency check failed"):
             restore_partition(
                 self.manifest, self.temp.name, "/dev/sda1",
