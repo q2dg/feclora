@@ -35,11 +35,14 @@ trap cleanup EXIT INT TERM
 SOURCE_DISK="$WORK_DIR/source-disk.img"
 TARGET_DISK="$WORK_DIR/target-disk.img"
 KEY_FILE="$WORK_DIR/test.key"
+WRONG_KEY_FILE="$WORK_DIR/wrong-test.key"
 EXPECTED="$WORK_DIR/expected-plaintext.bin"
 REPOSITORY="$WORK_DIR/image-repository"
 mkdir -m 700 "$REPOSITORY"
 printf 'Feclora disposable LUKS2 acceptance key\n' > "$KEY_FILE"
 chmod 600 "$KEY_FILE"
+printf 'deliberately incorrect acceptance key\n' > "$WRONG_KEY_FILE"
+chmod 600 "$WRONG_KEY_FILE"
 
 # Two sparse, equal-size virtual disks with one equal-size 128 MiB partition.
 for disk in "$SOURCE_DISK" "$TARGET_DISK"; do
@@ -165,6 +168,10 @@ PY
 
 # The decisive check: the original key must unlock the restored ciphertext,
 # and the plaintext bytes must match exactly.
+if cryptsetup open --test-passphrase --key-file "$WRONG_KEY_FILE" "$TARGET_PART" >/dev/null 2>&1; then
+  echo "FAIL: restored LUKS2 container accepted an incorrect key." >&2
+  exit 1
+fi
 cryptsetup open --key-file "$KEY_FILE" "$TARGET_PART" "$TARGET_MAPPING"
 dd if="/dev/mapper/$TARGET_MAPPING" of="$WORK_DIR/restored-plaintext.bin" bs=1M count=4 iflag=fullblock status=none
 cmp -- "$EXPECTED" "$WORK_DIR/restored-plaintext.bin"
