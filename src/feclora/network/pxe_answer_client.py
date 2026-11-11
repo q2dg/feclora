@@ -189,7 +189,7 @@ def _mount_nfs_repository(repository_url: str, mountpoint: Path) -> None:
             or parsed.query or parsed.fragment or not path.startswith("/")
             or any(part in {".", ".."} for part in path.split("/"))
             or any(ord(char) < 32 for char in path)
-            or not all(char.isalnum() or char in ".-:" for char in host)):
+            or ":" in host or not all(char.isalnum() or char in ".-" for char in host)):
         raise PXEAnswerClientError("NFS repository URL must be nfs://host/absolute/export/path without credentials or options")
     mount_cmd, umount_cmd, findmnt_cmd = (
         shutil.which("mount"), shutil.which("umount"), shutil.which("findmnt")
