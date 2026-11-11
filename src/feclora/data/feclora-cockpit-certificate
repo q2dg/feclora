@@ -10,7 +10,8 @@ OPENSSL=/usr/bin/openssl
 
 [[ $EUID -eq 0 ]] || { echo "Must run as root" >&2; exit 1; }
 command -v "$OPENSSL" >/dev/null 2>&1 || { echo "OpenSSL is required" >&2; exit 1; }
-install -d -o root -g root -m 0700 "$ROOT" "$COCKPIT_DIR" "$(dirname "$ANCHOR")"
+install -d -o root -g root -m 0700 "$ROOT"
+install -d -o root -g root -m 0755 "$COCKPIT_DIR" "$(dirname "$ANCHOR")"
 
 CA_KEY=$ROOT/ca.key
 CA_CERT=$ROOT/ca.crt
