@@ -17,7 +17,7 @@ from typing import Callable, Any
 
 DEFAULT_ROOT = Path("/etc/credstore.encrypted/feclora")
 _IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
-_KINDS = {"ssh-key", "known-hosts", "smb", "rclone"}
+_KINDS = {"ssh-key", "known-hosts", "smb"}
 
 
 class SystemdCredentialStoreError(RuntimeError):
@@ -133,7 +133,7 @@ class SystemdCredentialStore:
         self._directory(create=True)
         result = []
         for path in sorted(self.root.glob("*.cred")):
-            match = re.fullmatch(r"feclora-([a-z0-9][a-z0-9-]{0,47})-(ssh-key|known-hosts|smb|rclone)\.cred", path.name)
+            match = re.fullmatch(r"feclora-([a-z0-9][a-z0-9-]{0,47})-(ssh-key|known-hosts|smb)\.cred", path.name)
             if not match:
                 continue
             identifier, kind = match.groups()
