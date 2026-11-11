@@ -6,6 +6,7 @@ from feclora.storage.btrfs_inventory import (
     collect_btrfs_topology,
     collect_btrfs_subvolumes,
     parse_filesystem_show,
+    parse_filesystem_profiles,
     parse_subvolume_list,
 )
 
