@@ -161,6 +161,61 @@ def plan_storage_capture(
     if source.get("read_only"):
         warnings.append("The selected source is read-only; capture still requires source-access and consistency checks.")
 
+    storage_metadata: dict[str, Any] = {
+        "schema_version": 1,
+        "capture_scope": capture_scope,
+        "source_layer": "block_device",
+        "dependencies": [],
+    }
+    if source_is_luks_container:
+        storage_metadata["source_layer"] = "luks2_container"
+        source_luks_uuid = next((entry.get("uuid") for entry in
+                                 (inventory.get("luks_metadata") or {}).get("containers", [])
+                                 if entry.get("device") == source_path), None)
+        if source_luks_uuid:
+            storage_metadata["luks_uuid"] = source_luks_uuid
+    elif source.get("type") == "crypt" or "crypt_mapping" in features:
+        storage_metadata["source_layer"] = "active_crypt_mapping"
+    elif fstype == "btrfs":
+        storage_metadata["source_layer"] = "btrfs_filesystem"
+        if source.get("uuid"):
+            storage_metadata["btrfs_uuid"] = source["uuid"]
+
+    for node in nodes.values():
+        if node.get("kind") != "lvm_logical_volume":
+            continue
+        if any(edge.get("source") == node.get("id")
+               and edge.get("target") == "device:" + source_path
+               and edge.get("relation") == "maps_to_block_device" for edge in edges):
+            storage_metadata["source_layer"] = "lvm_logical_volume"
+            if node.get("name"):
+                storage_metadata["lvm_lv_name"] = str(node["name"])
+            if node.get("uuid"):
+                storage_metadata["lvm_lv_uuid"] = str(node["uuid"])
+            vg_edge = next((edge for edge in edges
+                            if edge.get("target") == node.get("id")
+                            and edge.get("relation") == "contains_lv"), None)
+            vg_node = nodes.get(vg_edge.get("source")) if vg_edge else None
+            if vg_node and vg_node.get("name"):
+                storage_metadata["lvm_vg_name"] = str(vg_node["name"])
+            break
+
+    dependency_kinds = {
+        "luks2_metadata", "lvm_pv_metadata", "lvm_vg_members",
+        "lvm_volume_group", "btrfs_filesystem", "btrfs_subvolume",
+    }
+    for dependency in dependencies:
+        kind = dependency.get("kind")
+        if kind not in dependency_kinds:
+            continue
+        identity = (dependency.get("uuid") or dependency.get("vg_name")
+                    or dependency.get("volume_group_node"))
+        if isinstance(identity, str) and identity:
+            storage_metadata["dependencies"].append({
+                "kind": kind, "identity": identity,
+                "included_in_source_bytes": bool(dependency.get("included_in_source_bytes")),
+            })
+
     return {
         "schema_version": 1,
         "source": {
@@ -171,6 +226,7 @@ def plan_storage_capture(
             "serial": source.get("serial"),
         },
         "capture_scope": capture_scope,
+        "manifest_storage": storage_metadata,
         "storage_layers": list(dict.fromkeys(layers)),
         "dependencies": dependencies,
         "blockers": list(dict.fromkeys(blockers)),
