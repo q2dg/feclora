@@ -141,7 +141,7 @@ def _choose_job(
 
     target_bindings: dict[str, dict[str, str | None]] = {}
     if operation == "restore" and target_type == "disk":
-        if require_stable_binding:
+        if require_stable_binding and transport == "unicast":
             bind_choice = "bind"
             dialog_app._message(
                 "PXE unattended target binding required",
