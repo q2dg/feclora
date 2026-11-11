@@ -119,6 +119,9 @@ trap cleanup EXIT
 "$UKIFY" --config="$CONFIG" build \
   --linux="$KERNEL" --initrd="$INITRD" --cmdline="@$CMDLINE" --output="$TMP"
 [[ -s "$TMP" ]] || fail "ukify did not produce a non-empty UKI."
+"$UKIFY" inspect --all "$TMP" > "$TMP_DIR/inspect.txt"
+grep -Eiq 'pcrsig|PCR signature' "$TMP_DIR/inspect.txt" || fail "UKI is missing its embedded PCR signature section."
+grep -Eiq 'pcrpkey|PCR public key' "$TMP_DIR/inspect.txt" || fail "UKI is missing its embedded PCR public-key section."
 CERT="$(python3 - "$CONFIG" <<'PY'
 import configparser, sys
 c = configparser.ConfigParser(interpolation=None)
