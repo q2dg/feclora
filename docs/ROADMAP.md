@@ -64,7 +64,7 @@ hardware, provider services or physical networks have passed acceptance.
   No per-Client identity or removable identity media is part of this design.
   Live-side download/schema validation and NFS-backed whole-disk restore with
   stable-target revalidation are connected. Remaining work includes other
-  provider adapters, replay/expiry controls and physical acceptance.
+  provider adapters, cross-reboot replay/expiry controls and physical acceptance.
 - Unattended restore profiles: a standalone signed single-use executor exists,
   but profile authoring/activation and integration with PXE Server/Client jobs
   are not complete.
