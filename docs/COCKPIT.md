@@ -102,9 +102,12 @@ The root-owned `/usr/libexec/feclora/cockpit-api` wrapper accepts a fixed
 allowlist of actions. Requests are bounded JSON on stdin; device paths,
 operation parameters, image identifiers and typed confirmations are
 validated again by the backend. No shell or arbitrary command execution is
-exposed through the API. Local image keys are generated once and kept under
-`/etc/feclora/pki`; back up private keys securely and offline. Losing an optional age identity makes
-images encrypted to it unrecoverable; losing an optional signing key prevents
+exposed through the API. Optional image-security keys are generated or installed for the current Live
+session under `/etc/feclora/pki`. That directory is ephemeral in the default
+Live appliance. Before reboot, the operator must preserve any age identity
+needed to decrypt existing images and any signing key needed for future
+signatures on separately selected, protected storage. Losing an age identity
+makes images encrypted to it unrecoverable; losing a signing key prevents
 future signatures with that identity. Neither key type is required for basic
 local imaging.
 
