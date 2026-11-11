@@ -74,7 +74,7 @@ class SFTPImageSetTests(unittest.TestCase):
         self.assertEqual(result["publication_marker"], "manifest.json")
 
     @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
-    def test_publish_reports_completed_file_byte_progress(self, verify):
+    def test_publish_reports_artifact_boundary_progress(self, verify):
         progress = []
         self._publish(lambda **kwargs: {"completed": True},
                       progress_callback=lambda done, total: progress.append((done, total)))
