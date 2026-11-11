@@ -106,7 +106,8 @@ Existing foundation: block inventory, read-only LVM reporting, Btrfs/Stratis inv
 - [ ] Normalize read-only topology for image planning: disk → partition → LUKS container/mapping → LVM PV/VG/LV → filesystem; include Btrfs devices, subvolumes and snapshots.
 - [ ] Detect and identify volume groups and logical volumes (VG/LV), including their PV membership, extents, thin-provisioning state and degraded/missing members.
 - [ ] Detect Btrfs snapshots and distinguish snapshots from ordinary subvolumes; record the selected snapshot/subvolume identity and required backing devices.
-- [ ] Detect LUKS1/LUKS2 containers and active device-mapper mappings; distinguish a raw encrypted-container image from a decrypted logical-volume/filesystem image. Never request or persist passphrases in ordinary profiles, logs or browser state.
+- [x] Tag LUKS container signatures and active `crypt` device-mapper mappings in the read-only `lsblk` inventory; no passphrases are requested or stored.
+- [ ] Complete LUKS1/LUKS2 metadata inspection and distinguish a raw encrypted-container image from a decrypted logical-volume/filesystem image; distinguish a raw encrypted-container image from a decrypted logical-volume/filesystem image. Never request or persist passphrases in ordinary profiles, logs or browser state.
 - [ ] Represent unknown, degraded, missing and unsupported layers explicitly; never present discovery as proof that capture or restore is supported.
 - [ ] Define capture choices and manifest metadata for whole-disk, partition, logical-volume, Btrfs snapshot/subvolume and encrypted-container images, with explicit source boundaries and dependencies.
 - [ ] Validate alignment, sector size, geometry and EFI/BIOS/recovery partition roles where a whole-disk restore is planned.
