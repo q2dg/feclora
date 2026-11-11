@@ -95,7 +95,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                     stream.write(b"abc")
                 return path
             with (
-                patch("feclora.deployment.multicast_runtime.os.lstat", side_effect=fake_lstat),
+                patch("feclora.deployment.multicast_runtime.os.stat", side_effect=fake_lstat),
                 patch("feclora.deployment.multicast_runtime.receive_control_message", return_value=offer),
                 patch("feclora.deployment.multicast_runtime.verify_manifest_signature"),
                 patch("feclora.deployment.multicast_runtime.ImageManifest.from_json", return_value=manifest),
