@@ -14,7 +14,8 @@ Status meanings:
 | Area | Capability | Implementation | Cockpit | Verification |
 |---|---|---|---|---|
 | Boot | x86_64 BIOS | Build configuration present | N/A | Operator validation |
-| Boot | x86_64 UEFI | Build configuration present | N/A | Operator validation |\n| Boot/UI | Fedora Server minimal Live appliance | Architecture target documented; current Kickstart remains transitional console-led Live image | Cockpit + planned Firefox/Cage kiosk | Kiosk runtime, secure bootstrap and TLS trust not implemented/validated |
+| Boot | x86_64 UEFI | Build configuration present | N/A | Operator validation |
+| Boot/UI | Fedora Server minimal Live appliance | Architecture target documented; current Kickstart remains transitional console-led Live image | Cockpit + planned Firefox/Cage kiosk | Kiosk runtime, secure bootstrap and TLS trust not implemented/validated |
 | Storage | Block-device and partition inventory | Implemented | Cockpit | Automated tests |
 | Imaging | Whole-disk capture/restore | Implemented | Cockpit | Automated tests; operator validation |
 | Imaging | Partition capture/restore | Implemented | Cockpit | Automated tests; operator validation |
