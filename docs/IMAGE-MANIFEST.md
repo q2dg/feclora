@@ -7,7 +7,7 @@ arbitrary output path.
 
 ## Supported metadata
 
-- `image_type`: whole `disk`, individual `partition`, or a descriptive `logical_volume` image (schema support only; no LV capture/restore engine yet).
+- `image_type`: whole `disk`, individual `partition`, or a `logical_volume` image captured from an already active, uniquely inventoried LV in a healthy VG; restore execution is not yet implemented.
 - Source capacity and logical sector size (512 or 4096 bytes).
 - Partition table type: GPT, MBR, none, or unknown.
 - Artifact filename, semantic role, encoding, compression, byte length and
