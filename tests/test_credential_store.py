@@ -27,9 +27,9 @@ class CredentialStoreTests(unittest.TestCase):
         self.assertEqual((self.root / "nas.smb").read_bytes(), b"old")
 
     def test_explicit_replace_is_atomic_and_preserves_private_mode(self):
-        self.store.put("nas", "rclone", b"old")
-        self.store.put("nas", "rclone", b"new", replace=True)
-        path = self.root / "nas.rclone"
+        self.store.put("nas", "smb", b"old")
+        self.store.put("nas", "smb", b"new", replace=True)
+        path = self.root / "nas.smb"
         self.assertEqual(path.read_bytes(), b"new")
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
