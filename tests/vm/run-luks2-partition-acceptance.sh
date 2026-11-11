@@ -92,6 +92,7 @@ from unittest.mock import patch
 from feclora.deployment.client_runtime import execute_client_image_job
 from feclora.deployment.control import LocalTargetApproval
 from feclora.deployment.job import DeploymentJob
+from feclora.storage.source_safety import check_capture_source_safe
 
 repository, source, target, luks_uuid, _expected_path = sys.argv[1:]
 repo = Path(repository)
@@ -182,10 +183,22 @@ class FakeTLS:
         del self.incoming[:count]
         return chunk
 
+def safe_target(path):
+    if (path != target or not path.startswith("/dev/loop")
+            or not stat.S_ISBLK(os.stat(path).st_mode)):
+        raise RuntimeError("acceptance target escaped the disposable loop partition")
+    check_capture_source_safe(path, effective_uid=os.geteuid)
+
 tls = FakeTLS()
-with patch(
-    "feclora.deployment.client_runtime.receive_image_set",
-    return_value=str(manifest_path),
+with (
+    patch(
+        "feclora.deployment.client_runtime.receive_image_set",
+        return_value=str(manifest_path),
+    ),
+    patch(
+        "feclora.storage.partition_restore.check_capture_source_safe",
+        side_effect=safe_target,
+    ),
 ):
     success, detail = execute_client_image_job(
         job, tls, approval,
