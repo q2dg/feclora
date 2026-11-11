@@ -48,7 +48,8 @@ def set_admin_password(password: str, *, runner=subprocess.run) -> None:
     try:
         result = runner(
             ["/usr/sbin/chpasswd"], input=f"{ADMIN}:{password}\n",
-            text=True, capture_output=True, check=False, timeout=10,
+            text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            check=False, timeout=10,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise BootstrapError("Could not set the administrator password.") from exc
