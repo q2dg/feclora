@@ -33,6 +33,22 @@ CREDS="$(command -v systemd-creds || true)"
 FINDMNT="$(command -v findmnt || true)"
 [[ -n "$CREDS" && -n "$FINDMNT" ]] || fail "systemd-creds and findmnt are required."
 [[ -s /run/systemd/tpm2-pcr-signature.json && -s /run/systemd/tpm2-pcr-public-key.pem ]] || fail "Trusted UKI PCR signature/public-key metadata is not present in /run/systemd."
+python3 - <<'PY'
+import glob, os, stat
+secure_boot = glob.glob("/sys/firmware/efi/efivars/SecureBoot-*")
+if len(secure_boot) != 1:
+    raise SystemExit("ERROR: cannot establish a unique UEFI Secure Boot state")
+st = os.stat(secure_boot[0], follow_symlinks=False)
+if not stat.S_ISREG(st.st_mode):
+    raise SystemExit("ERROR: UEFI Secure Boot variable is not a regular efivar")
+with open(secure_boot[0], "rb") as stream:
+    value = stream.read()
+if len(value) < 5 or value[4] != 1:
+    raise SystemExit("ERROR: UEFI Secure Boot must be enabled; refusing null-key credential fallback")
+st = os.stat("/dev/tpmrm0", follow_symlinks=False)
+if not stat.S_ISCHR(st.st_mode):
+    raise SystemExit("ERROR: TPM2 resource-manager device is unavailable")
+PY
 
 [[ ! -L /run/feclora ]] || fail "/run/feclora must not be a symlink."
 install -d -o root -g root -m 0700 /run/feclora
