@@ -1,6 +1,7 @@
 """Create a manifest-backed partition image set from the generic capture engine."""
 from __future__ import annotations
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -37,8 +38,10 @@ def capture_partition_image(
     inventory: Mapping[str, Any] | None = None,
 ) -> ImageManifest:
     """Capture a partition and publish its data artifact and manifest marker."""
-    if not isinstance(image_id, str) or not image_id or len(image_id) > 128:
-        raise PartitionImageCaptureError("image_id must be a safe non-empty identifier")
+    if not isinstance(image_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
+        raise PartitionImageCaptureError("image_id must be a safe filename-compatible identifier")
+    if not isinstance(partition_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.+-]{0,127}", partition_id):
+        raise PartitionImageCaptureError("partition_id must be a safe filename-compatible identifier")
     repo = os.path.abspath(os.fspath(repository))
     try:
         if not stat.S_ISDIR(os.lstat(repo).st_mode):
