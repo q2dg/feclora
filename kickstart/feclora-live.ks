@@ -17,7 +17,7 @@ clearpart --all --initlabel
 part / --fstype=ext4 --size=8192 --grow
 
 %packages --excludedocs
-@^minimal-environment
+@^server-product-environment
 kernel
 tar
 sudo
