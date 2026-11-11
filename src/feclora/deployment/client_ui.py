@@ -486,22 +486,48 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 raise DeploymentControlError("this Client has no enrolled minisign signing key and cannot create images")
             inventory = collect_inventory()
             target_kind = "partition" if job.target_type == "partition" else "disk"
-            target_label = "Local deployment partition" if target_kind == "partition" else "Local deployment disk"
-            target_help = (
-                "Select the existing destination partition. It must be at least as large as the source image; "
-                "Feclora will not create or resize partitions."
-                if target_kind == "partition" else
-                "Select the whole disk for this job. Root, mounted or busy disks will be rejected before any write."
-            )
-            selected = dialog_app._select_device(inventory, target_kind, target_label, target_help)
-            if selected is None:
-                raise DeploymentControlError("local disk selection cancelled")
+            if job.target_type == "logical_volume":
+                topology = inventory.get("volume_topology", {})
+                if topology.get("status") != "available":
+                    raise DeploymentControlError("LVM topology is unavailable; cannot select a logical-volume target")
+                lv_items = [
+                    (lv, group) for group in topology.get("volume_groups", [])
+                    for lv in group.get("logical_volumes", [])
+                    if isinstance(lv, dict) and lv.get("path")
+                    and lv.get("segment_type") in {"linear", "thin"}
+                    and not lv.get("snapshot") and not lv.get("hidden")
+                ]
+                choices = [
+                    (lv["path"], f"{group.get('name')}/{lv.get('name')} | {lv.get('size_bytes') or '?'} bytes | {lv.get('segment_type')}")
+                    for lv, group in lv_items
+                ]
+                selected_path = dialog_app._menu(
+                    "Local deployment logical volume",
+                    "Choose an existing active LV. It must be unmounted, healthy and large enough; Feclora will not create or resize LVM metadata.",
+                    choices,
+                )
+                selected = next((lv for lv, _group in lv_items if lv.get("path") == selected_path), None)
+                if selected is None:
+                    raise DeploymentControlError("local logical-volume selection cancelled")
+            else:
+                target_label = "Local deployment partition" if target_kind == "partition" else "Local deployment disk"
+                target_help = (
+                    "Select the existing destination partition. It must be at least as large as the source image; "
+                    "Feclora will not create or resize partitions."
+                    if target_kind == "partition" else
+                    "Select the whole disk for this job. Root, mounted or busy disks will be rejected before any write."
+                )
+                selected = dialog_app._select_device(inventory, target_kind, target_label, target_help)
+                if selected is None:
+                    raise DeploymentControlError("local disk selection cancelled")
             path = selected.get("path")
             if not isinstance(path, str):
                 raise DeploymentControlError("selected disk has no stable device path")
             if job.operation == "restore":
                 phrase = f"ERASE {path} FROM {config.server_identity}"
                 prompt = (
+                    "This operation overwrites the selected existing logical volume. Type the exact confirmation phrase:"
+                    if job.target_type == "logical_volume" else
                     "This operation overwrites the selected existing partition. Type the exact confirmation phrase:"
                     if target_kind == "partition" else
                     "This operation overwrites the selected whole disk. Type the exact confirmation phrase:"
@@ -517,7 +543,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 str(value) for value in (
                     selected.get("model"), selected.get("size_bytes"), selected.get("serial"),
                 ) if value
-            ) or "Selected local whole disk"
+            ) or ("Selected local logical volume" if job.target_type == "logical_volume" else "Selected local whole disk")
             if job.operation == "save":
                 compression_choice = dialog_app._menu(
                     "Capture compression", "Choose whole-disk image compression.",
