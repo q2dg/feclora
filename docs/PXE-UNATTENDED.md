@@ -9,8 +9,9 @@ provisioning workflow.
 The PXE Server publishes the Live kernel, initramfs and squashfs through
 Caddy. The existing interactive iPXE entry boots that Live payload and opens
 the normal Feclora Cockpit interface. The answer-specific unattended entry boots the same payload and passes the
-job UUID plus the single answer URL as kernel parameters. A Live boot-time
-downloader must still be added to fetch and validate the JSON.
+job UUID plus the single answer URL as kernel parameters. A conditional Live
+systemd service downloads and validates the JSON; for NFS answers it then
+runs the connected whole-disk restore path.
 
 There is no per-client USB, identity medium, certificate, private key,
 enrollment bundle or manual identity provisioning in this model. The PXE
@@ -41,21 +42,20 @@ no shell commands, Python, arbitrary command-line arguments, local
   "schema_version": 1,
   "operation": "restore",
   "image_id": "fedora-workstation",
-  "repository_url": "sftp://images.example.net/feclora",
+  "repository_url": "nfs://images.example.net/exports/feclora",
   "target": {
     "wwn": "0x5000abcd1234",
     "serial": null
   },
   "confirm_destructive": true,
-  "start": true,
-  "credential_ref": "image-store"
+  "start": true
 }
 ```
 
 The target is selected by stable hardware identity (WWN and/or serial), never
-by a hard-coded device path. The Client must resolve exactly one matching
-whole disk from its current inventory and recheck that identity immediately
-before writing. Missing or ambiguous matches fail closed.
+by a hard-coded device path. The Live client resolves exactly one matching whole disk from its current
+inventory and rechecks that identity immediately before writing. Missing or
+ambiguous matches fail closed.
 
 The schema validator is implemented in `feclora.network.pxe_answer`. It
 rejects duplicate JSON keys, unknown fields, malformed repository URLs,
@@ -66,9 +66,7 @@ one JSON file input; `repository_url` is read from that JSON, with no duplicate
 repository field. The API publishes the validated JSON atomically through Caddy
 over HTTP. No age, minisign, detached signature or client identity is involved. Cockpit can explicitly revoke the published
 answer and its iPXE script by job UUID. A new PXE session also clears stale
-answer files and handoff scripts. This is not yet connected to cancellation/
-expiry of a deployment job, and it is not yet the complete PXE download,
-client-side verification, repository-mount or restore execution path.
+answer files and handoff scripts. Answer revocation is not yet connected to deployment-job cancellation/expiry.
 
 ## Security boundary
 
@@ -87,18 +85,19 @@ signature, encryption layer or per-client identity to this workflow.
 The Live HTTP downloader and schema validation service are conditionally
 started for unattended PXE kernel parameters. The first connected restore
 provider is NFS: Live mounts it read-only, resolves exactly one whole disk by
-WWN/serial, validates the image manifest, rejects encrypted artifacts, and
-calls the existing whole-disk restore engine. The engine rechecks the target
+WWN/serial, validates the image manifest and artifact digest, and calls the
+existing whole-disk restore engine. PXE deliberately does not use age or
+minisign; the image must be unencrypted. The engine rechecks the target
 immediately before writing and performs read-back verification. Other
-repository schemes, credential references and full end-to-end hardware
-acceptance remain outstanding. Do not describe unattended PXE as complete until those
+repository schemes, credential references, expiry/replay controls and physical
+hardware acceptance remain outstanding. Do not describe unattended PXE as complete until those
 pieces are connected and tested.
 
 ## Provider support status
 
 The answer schema accepts URL schemes for SSHFS, SFTP, SMB/CIFS, NFS, WebDAV,
-HTTP(S) and BitTorrent. This is syntax validation only, not a claim that every
-provider is implemented for PXE restores. Current repository support and
+HTTP(S) and BitTorrent. Only NFS is currently connected to PXE restore execution;
+all other schemes fail closed until their Live provider adapters exist. Current repository support and
 limitations are tracked in `REMOTE-REPOSITORIES.md`; WebDAV and BitTorrent
 are not yet complete provider/transport workflows.
 
