@@ -345,10 +345,15 @@ def _verify_restored_luks2(
         metadata = json.loads(getattr(results[1], "stdout", "") or "")
     except (TypeError, json.JSONDecodeError) as exc:
         raise PartitionRestoreError("restored target does not contain valid LUKS2 JSON metadata") from exc
-    if (not isinstance(metadata, dict) or not isinstance(metadata.get("segments"), dict)
+    segments = metadata.get("segments") if isinstance(metadata, dict) else None
+    keyslots = metadata.get("keyslots") if isinstance(metadata, dict) else None
+    if (not isinstance(segments, dict) or not segments
+            or not isinstance(keyslots, dict) or not keyslots
             or reported_uuid.lower() != expected_uuid.lower()
             or str(metadata.get("uuid", "")).lower() != expected_uuid.lower()):
-        raise PartitionRestoreError("restored LUKS2 UUID or metadata does not match the image manifest")
+        raise PartitionRestoreError(
+            "restored LUKS2 UUID, segments or keyslots do not match a usable container header"
+        )
 
 
 def restore_partition(
