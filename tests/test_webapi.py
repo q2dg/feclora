@@ -66,6 +66,8 @@ class WebAPITests(unittest.TestCase):
                  "age_encryption_available": False, "image_signing_available": False,
              }), \
              patch("feclora.webapi._capture_material", return_value=(None, None)), \
+             patch("feclora.webapi._operation_repository", return_value="/tmp/images"), \
+             patch("feclora.webapi._emit"), patch("feclora.webapi._progress"), \
              patch("feclora.storage.inventory.collect_inventory", return_value={"devices": []}) as inventory, \
              patch("feclora.storage.logical_volume_image_capture.capture_logical_volume_image",
                    return_value=manifest) as capture:
