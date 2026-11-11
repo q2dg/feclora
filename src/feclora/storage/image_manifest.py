@@ -45,7 +45,7 @@ def _validate_storage_metadata(value: Any, image_type: str) -> dict[str, Any]:
         raise ManifestValidationError("storage metadata must be a JSON object")
     allowed = {
         "schema_version", "capture_scope", "source_layer", "luks_uuid",
-        "lvm_vg_name", "lvm_lv_name", "lvm_lv_uuid", "btrfs_uuid",
+        "lvm_vg_name", "lvm_vg_uuid", "lvm_lv_name", "lvm_lv_uuid", "btrfs_uuid",
         "btrfs_subvolume_id", "btrfs_subvolume_uuid", "btrfs_parent_uuid",
         "btrfs_received_uuid", "dependencies",
     }
