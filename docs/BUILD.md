@@ -203,8 +203,8 @@ At minimum, verify:
 
 The bootstrap assistant is loopback-only and is not exposed through QEMU
 port forwarding or the LAN. Complete password setup in the VM's local display.
-Cockpit remote access must remain limited to the trusted test network; do not
-expose port 9090 on an untrusted/shared network.
+Cockpit is bound to guest loopback only; QEMU host port forwarding for 9090 is
+not part of the supported kiosk test path.
 
 The Cockpit Terminal page is available for diagnostics. The old `dialog`
 menu is not part of the supported startup flow. Remote Server/Client
