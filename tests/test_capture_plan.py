@@ -36,7 +36,7 @@ class StorageCapturePlanTests(unittest.TestCase):
             "path": "/dev/mapper/secure", "type": "crypt", "filesystem": "ext4",
             "volume_features": ["encrypted", "crypt_mapping"], "children": [],
         })
-        plan = plan_storage_capture(inventory, "/dev/mapper/secure", "partition")
+        plan = plan_storage_capture(inventory, "/dev/mapper/secure", "logical_volume")
         self.assertEqual(plan["capture_scope"], "decrypted_mapping_bytes")
         self.assertTrue(any("not its LUKS header" in warning for warning in plan["warnings"]))
 
@@ -80,6 +80,34 @@ class StorageCapturePlanTests(unittest.TestCase):
                 {"path": "/dev/sda", "type": "disk"},
                 {"path": "/dev/sda", "type": "disk"},
             ]}, "/dev/sda", "disk")
+
+    def test_lvm_logical_volume_reports_missing_volume_group_metadata(self):
+        inventory = base_inventory({
+            "path": "/dev/mapper/vg-data", "type": "lvm", "filesystem": "xfs",
+            "major_minor": "253:4", "children": [],
+        }, storage_graph={
+            "status": "available",
+            "nodes": [{"id": "lvm-lv:lv-1", "kind": "lvm_logical_volume"}],
+            "edges": [
+                {"source": "lvm-lv:lv-1", "target": "device:/dev/mapper/vg-data",
+                 "relation": "maps_to_block_device"},
+                {"source": "lvm-vg:vg0", "target": "lvm-lv:lv-1",
+                 "relation": "contains_lv"},
+            ],
+        })
+        plan = plan_storage_capture(inventory, "/dev/mapper/vg-data", "logical_volume")
+        self.assertIn("lvm_logical_volume", plan["storage_layers"])
+        self.assertFalse(plan["dependencies"][0]["included_in_source_bytes"])
+
+    def test_disk_capture_blocks_when_a_child_partition_is_mounted(self):
+        inventory = base_inventory({
+            "path": "/dev/sda", "type": "disk", "children": [
+                {"path": "/dev/sda1", "type": "part", "mountpoints": ["/"], "children": []}
+            ],
+        })
+        plan = plan_storage_capture(inventory, "/dev/sda", "disk")
+        self.assertFalse(plan["eligible_for_layer_aware_capture"])
+        self.assertTrue(any("descendants is mounted" in item for item in plan["blockers"]))
 
     def test_rejects_unknown_image_type(self):
         with self.assertRaises(CapturePlanError):
