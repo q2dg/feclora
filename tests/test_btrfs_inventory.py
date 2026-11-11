@@ -89,7 +89,7 @@ class BtrfsSubvolumeTests(unittest.TestCase):
         calls = []
         def runner(argv, **kwargs):
             calls.append(argv)
-            if "findmnt" in argv:
+            if any("findmnt" in str(part) for part in argv):
                 return subprocess.CompletedProcess(argv, 0, '{"filesystems":[{"target":"/mnt/data","source":"/dev/sda1","uuid":"01234567-89ab-cdef-0123-456789abcdef"}]}', "")
             return subprocess.CompletedProcess(argv, 0, SUBVOLUMES, "")
         result = collect_btrfs_subvolumes(
