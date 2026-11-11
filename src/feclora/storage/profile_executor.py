@@ -150,6 +150,181 @@ def _matching_target(profile: RestoreProfile, inventory: dict[str, Any]) -> dict
     return target
 
 
+
+def _flatten_inventory_devices(devices: Any) -> list[dict[str, Any]]:
+    flattened: list[dict[str, Any]] = []
+    if not isinstance(devices, list):
+        return flattened
+    pending = list(devices)
+    while pending:
+        device = pending.pop()
+        if not isinstance(device, dict):
+            continue
+        flattened.append(device)
+        children = device.get("children")
+        if isinstance(children, list):
+            pending.extend(children)
+    return flattened
+
+
+def preflight_logical_volume_restore(
+    manifest: ImageManifest,
+    inventory: dict[str, Any],
+    target_path: str,
+) -> dict[str, Any]:
+    """Validate an existing LVM LV destination without activating or writing it.
+
+    This is deliberately a preflight primitive, not a restore executor. The
+    target must already be active and uniquely identifiable in both LVM and
+    lsblk reports. It does not create VGs/LVs, resize thin pools, or restore
+    LVM metadata.
+    """
+    if not isinstance(manifest, ImageManifest) or manifest.image_type != "logical_volume":
+        raise RestoreProfileError("logical-volume preflight requires a logical_volume image manifest")
+    storage = manifest.storage
+    if not isinstance(storage, dict):
+        raise RestoreProfileError("logical-volume manifest has no storage provenance")
+    if (storage.get("capture_scope") != "logical_volume_bytes"
+            or storage.get("source_layer") != "lvm_logical_volume"):
+        raise RestoreProfileError("manifest does not describe raw logical-volume bytes")
+    source_vg = storage.get("lvm_vg_name")
+    source_lv = storage.get("lvm_lv_name")
+    if not isinstance(source_vg, str) or not source_vg or not isinstance(source_lv, str) or not source_lv:
+        raise RestoreProfileError("manifest must identify its source VG and LV")
+    artifacts = [item for item in manifest.artifacts if item.role == "logical-volume-image"]
+    if len(artifacts) != 1:
+        raise RestoreProfileError("manifest must contain exactly one logical-volume-image artifact")
+    if artifacts[0].format == "partclone" and not artifacts[0].filesystem:
+        raise RestoreProfileError("Partclone logical-volume image has no filesystem type")
+
+    dependencies = storage.get("dependencies", [])
+    vg_dependencies = [
+        item for item in dependencies
+        if isinstance(item, dict) and item.get("kind") == "lvm_volume_group"
+    ]
+    if len(vg_dependencies) != 1:
+        raise RestoreProfileError("manifest must declare exactly one external LVM volume-group dependency")
+    if vg_dependencies[0].get("included_in_source_bytes") is not False:
+        raise RestoreProfileError("LV image must not claim that VG metadata is included in its data bytes")
+    if vg_dependencies[0].get("identity") not in {source_vg, storage.get("lvm_lv_uuid")}:
+        raise RestoreProfileError("manifest VG dependency does not match its source VG identity")
+    unsupported = [
+        item.get("kind") for item in dependencies
+        if isinstance(item, dict)
+        and item.get("kind") not in {"lvm_volume_group", "lvm_vg_members", "lvm_pv_metadata"}
+    ]
+    if unsupported:
+        raise RestoreProfileError("manifest contains storage dependencies unsupported by LV restore preflight")
+
+    topology = inventory.get("volume_topology")
+    if not isinstance(topology, dict) or topology.get("status") != "available":
+        raise RestoreProfileError("LVM topology is unavailable; refusing logical-volume restore")
+    groups = topology.get("volume_groups")
+    if not isinstance(groups, list):
+        raise RestoreProfileError("LVM topology has no normalized volume-group inventory")
+    target_matches = []
+    for group in groups:
+        if not isinstance(group, dict):
+            continue
+        for lv in group.get("logical_volumes", []):
+            if isinstance(lv, dict) and lv.get("path") == target_path:
+                target_matches.append((group, lv))
+    if len(target_matches) != 1:
+        raise RestoreProfileError("target path must identify exactly one existing LVM logical volume")
+    group, lv = target_matches[0]
+    if group.get("status") != "healthy" or group.get("missing_pv_count") not in (0, None):
+        raise RestoreProfileError("target volume group is degraded or its PV health is unknown")
+    members = group.get("pv_members")
+    if not isinstance(members, list) or not members:
+        raise RestoreProfileError("target volume group has no verified PV membership")
+    if any(not isinstance(member, dict) or member.get("missing") is not False for member in members):
+        raise RestoreProfileError("target volume group has missing or unverified PV members")
+    reported_pv_count = group.get("pv_count_reported")
+    if reported_pv_count is not None and reported_pv_count != len(members):
+        raise RestoreProfileError("target VG PV membership is incomplete or inconsistent")
+
+    if lv.get("hidden") or lv.get("segment_type") == "thin-pool":
+        raise RestoreProfileError("hidden LVs and thin-pool metadata LVs are not valid restore targets")
+    if lv.get("snapshot") or lv.get("origin"):
+        raise RestoreProfileError("snapshot LVs and snapshot origins are not valid restore targets")
+    lv_name = lv.get("name")
+    if not isinstance(lv_name, str) or not lv_name:
+        raise RestoreProfileError("target LV has no stable name")
+    siblings = group.get("logical_volumes", [])
+    if any(
+        isinstance(other, dict) and other.get("origin") == lv_name
+        for other in siblings
+    ):
+        raise RestoreProfileError("target LV has dependent snapshots; refusing to overwrite their origin")
+    if lv.get("health") not in (None, "", "-", "ok", "healthy"):
+        raise RestoreProfileError("target LV reports an unhealthy state")
+    target_size = lv.get("size_bytes")
+    if isinstance(target_size, bool) or not isinstance(target_size, int) or target_size <= 0:
+        raise RestoreProfileError("target LV capacity is unknown")
+    if target_size < manifest.source_size_bytes:
+        raise RestoreProfileError("target LV is smaller than the image source size")
+
+    if not isinstance(target_path, str) or not target_path.startswith("/dev/"):
+        raise RestoreProfileError("target LV path must be an absolute /dev/ path")
+    block_matches = [
+        device for device in _flatten_inventory_devices(inventory.get("devices", []))
+        if device.get("path") == target_path
+    ]
+    if len(block_matches) != 1:
+        raise RestoreProfileError("target LV must be present exactly once in the active block-device inventory")
+    block = block_matches[0]
+    major_minor = lv.get("major_minor")
+    if not isinstance(major_minor, str) or not major_minor:
+        raise RestoreProfileError("target LV is not active or its kernel device identity is unknown")
+    if block.get("major_minor") != major_minor:
+        raise RestoreProfileError("LVM and block-device identities disagree for the target LV")
+    if block.get("read_only"):
+        raise RestoreProfileError("target LV is read-only")
+    if block.get("mountpoints"):
+        raise RestoreProfileError("target LV is mounted or in use")
+
+    warnings: list[str] = []
+    thin = bool(lv.get("thin_provisioned"))
+    pool_name = lv.get("pool")
+    if thin:
+        if not isinstance(pool_name, str) or not pool_name:
+            raise RestoreProfileError("thin LV has no identifiable thin pool")
+        pools = [
+            item for item in siblings
+            if isinstance(item, dict) and item.get("name") == pool_name
+            and item.get("segment_type") == "thin-pool"
+        ]
+        if len(pools) != 1:
+            raise RestoreProfileError("thin LV pool is missing or ambiguous")
+        pool = pools[0]
+        if pool.get("health") not in (None, "", "-", "ok", "healthy"):
+            raise RestoreProfileError("thin pool reports an unhealthy state")
+        for field in ("data_percent", "metadata_percent"):
+            try:
+                percent = float(pool[field])
+            except (KeyError, TypeError, ValueError):
+                raise RestoreProfileError(f"thin pool {field} is unknown; refusing restore")
+            if not 0 <= percent < 100:
+                raise RestoreProfileError(f"thin pool {field} is exhausted or invalid")
+            if percent >= 90:
+                warnings.append(f"Thin pool {field} is at {percent:g}%; allocation during restore may exhaust it.")
+        warnings.append("Thin-pool free capacity can change during restore; this preflight does not reserve extents.")
+
+    return {
+        "status": "ready",
+        "target_path": target_path,
+        "target_vg": group.get("name"),
+        "target_lv": lv_name,
+        "target_size_bytes": target_size,
+        "image_size_bytes": manifest.source_size_bytes,
+        "thin_provisioned": thin,
+        "thin_pool": pool_name if thin else None,
+        "warnings": warnings,
+        "writes_performed": False,
+        "activation_performed": False,
+    }
+
+
 def execute_unattended_restore_profile(
     profile_path: str | os.PathLike[str],
     *,
