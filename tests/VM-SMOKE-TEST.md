@@ -73,7 +73,7 @@ independent test run. Remove the temporary copy after the test.
 
 Use the VM's local display to complete the first-boot password assistant. It
 binds only to guest loopback and is deliberately unavailable through QEMU
-port forwarding. Firefox then opens Cockpit at `https://localhost:9090/`.
+port forwarding. Firefox then opens Cockpit at `https://localhost:9090/cockpit/@localhost/feclora/index.html`.
 Sign in as `feclora`, open the Feclora application and verify the Operations
 workflow. The browser must not show a certificate interstitial; do not bypass
 TLS validation. Cockpit listens on guest loopback only; no host port forwarding for 9090 is configured.
