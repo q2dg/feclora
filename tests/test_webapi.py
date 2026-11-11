@@ -65,9 +65,9 @@ class WebAPITests(unittest.TestCase):
         expected = {"image_id": "golden", "image_type": "disk", "artifact_count": 2,
                     "signature_verified": True, "artifacts_verified": True, "published": True}
         with patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(
-            st_mode=stat.S_IFREG | 0o644, st_uid=0, st_mode=stat.S_IFREG | 0o644,
-        )), patch("feclora.webapi._repository", return_value=Path("/var/lib/feclora/images")), \\
-             patch("feclora.webapi._client_runtime_config", return_value=None), \\
+            st_mode=stat.S_IFREG | 0o644, st_uid=0,
+        )), patch("feclora.webapi._repository", return_value=Path("/var/lib/feclora/images")), \
+             patch("feclora.webapi._client_runtime_config", return_value=None), \
              patch("feclora.storage.sftp_image_set.fetch_image_set", return_value=expected) as fetch, \\
              patch("feclora.webapi._progress"):
             from feclora.webapi import _execute_operation
@@ -86,7 +86,7 @@ class WebAPITests(unittest.TestCase):
             "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
         }
         expected = {"image_id": "golden", "image_type": "disk", "artifact_count": 2, "published": True}
-        with patch("feclora.webapi._repository", return_value="/var/lib/feclora/images"), \\
+        with patch("feclora.webapi._repository", return_value="/var/lib/feclora/images"), \
              patch("feclora.webapi._publish_captured_image_to_sftp", return_value=expected) as publish, \\
              patch("feclora.webapi._progress"):
             from feclora.webapi import _execute_operation
