@@ -110,10 +110,12 @@ The Client checks its own selected target and reports READY only after local
 preflight and typed confirmation. The Server requires the complete authorized
 READY set and a separate explicit ARM action before it sends START.
 
-PXE boot parameters and the job UUID are public handoff metadata only. The
-unattended PXE flow still requires secure per-Client credential provisioning,
-signed per-Client profile delivery, expiry/replay handling and automatic
-target resolution; these are not supplied by this job schema.
+PXE boot parameters and the job UUID are public handoff metadata only.
+The current unattended PXE path obtains mTLS credentials from a dedicated
+per-Client removable medium, authenticates the enrolled certificate, requires
+a WWN/serial binding for unicast whole-disk restore, and retains this job
+schema's READY/ARM authorization. Partition/multicast unattended execution
+and interrupted-job expiry/replay acceptance remain outside the current path.
 
 ## Managed remote image repository
 
