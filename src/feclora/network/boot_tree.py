@@ -77,7 +77,7 @@ def render_ipxe_script(address: str, http_port: int = 8080) -> str:
         "set live_base " + base + "\n"
         "menu Feclora Live PXE\n"
         "item interactive Boot interactive Feclora Live session\n"
-        "item unattended Unattended job handoff (Server profile required)\n"
+        "item unattended Unattended signed answer-file restore\n"
         "choose pxe_mode || exit\n"
         "goto ${pxe_mode}\n"
         ":interactive\n"
@@ -88,7 +88,7 @@ def render_ipxe_script(address: str, http_port: int = 8080) -> str:
         ":unattended\n"
         f"chain {unattended} || goto unattended_missing\n"
         ":unattended_missing\n"
-        "echo No active unattended deployment boot profile is published by this Server.\n"
+        "echo No active signed unattended answer-file handoff is published by this Server.\n"
         "shell\n"
     )
 
