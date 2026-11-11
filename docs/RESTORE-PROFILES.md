@@ -34,7 +34,7 @@ A separate read-only `preflight_logical_volume_restore()` primitive in
 `profile_executor.py` validates an existing LV destination: LVM report
 completeness, VG/PV health and membership, target LV identity and active
 kernel major/minor mapping, capacity, mounted/read-only state, snapshot
-relationships, and thin-pool health/data/metadata percentages. It resolves
+relationships, and thin-pool health/data/metadata percentages, including a conservative estimate of free data capacity against the image size. It resolves
 `/dev/VG/LV` versus `/dev/mapper/*` aliases only through a unique kernel
 major/minor identity. Thin-pool allocation is dynamic, so the preflight warns
 that it cannot reserve extents. This function performs no activation, write,
