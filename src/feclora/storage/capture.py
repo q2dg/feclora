@@ -45,6 +45,7 @@ _FILESYSTEM_TO_PARTCLONE = {
     "vfat": "partclone.fat",
     "f2fs": "partclone.f2fs",
     "ntfs": "partclone.ntfs",
+    "ntfs3": "partclone.ntfs",
     "xfs": "partclone.xfs",
 }
 
