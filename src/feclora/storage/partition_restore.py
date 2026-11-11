@@ -281,7 +281,7 @@ def _verify_partclone_target(
 
 
 def _luks2_restore_uuid(manifest: ImageManifest) -> str | None:
-    """Return the authenticated LUKS2 container UUID, or reject ambiguous layer semantics."""
+    """Return the manifest-declared LUKS2 UUID, or reject ambiguous layer semantics."""
     storage = manifest.storage
     if storage is None:
         return None
