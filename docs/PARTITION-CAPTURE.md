@@ -1,7 +1,6 @@
 # Partition capture orchestration
 
-`feclora.storage.capture` provides a read-only capture planner and process
-runner for one partition.
+`feclora.storage.partition_image_capture.capture_partition_image` creates a manifest-backed image of one existing partition. It requires a current structured storage inventory; missing or unresolved layer information fails closed. The lower-level `feclora.storage.capture` module provides the read-only source checks and Partclone/raw process runner.
 
 ## Tool selection
 
@@ -45,7 +44,16 @@ choices; neither is required for an ordinary unsigned, unencrypted image.
 This workflow captures one partition only. It does not capture a partition
 table or whole-disk boot areas, create a destination partition, resize a
 filesystem, or provide a coordinated multi-device Btrfs snapshot. Multi-device
-Btrfs sources are rejected rather than partially imaged.
+Btrfs sources are rejected rather than partially imaged. A single-device
+Btrfs partition can be captured with `partclone.btrfs` when the required
+inventory identifies its filesystem UUID and device membership.
+
+A raw LUKS2 container is captured byte-for-byte only after `cryptsetup`
+verifies its version-2 header and UUID. LUKS1 and unknown headers fail closed
+for layer-aware capture. No passphrase or key is read. An opened crypt mapping
+may appear in topology inventory, but a dedicated mapping-image capture
+workflow is not exposed. LVM logical volumes use the separate manifest-backed
+LV capture workflow documented in [the image manifest guide](IMAGE-MANIFEST.html).
 
 In Cockpit's **Operations** workflow, choose partition capture, select the
 source partition, enter a unique image identifier, choose compression and
@@ -54,9 +62,9 @@ read-only. Monitor streamed progress; cancelling stops the producer and
 prevents publication. Verify that the manifest appears in image inventory
 before attempting restore.
 
-**Screenshots are pending.** Follow the [Cockpit screenshot capture plan](assets/screenshots/README.md). Capture the workflow from a real, version-matched
-Fedora Live build and store the images under `docs/assets/screenshots/`. Do not
-substitute mockups or screenshots from a different UI revision.
+Illustrations may be real screenshots from a version-matched build or clearly
+labeled mockups. A mockup is not evidence of runtime acceptance; see the
+[screenshot and mockup policy](assets/screenshots/README.md).
 
 Fedora 45's runtime package set also includes `e2fsprogs`, `xfsprogs`,
 `ntfs-3g`, `dosfstools`, `exfatprogs` and `f2fs-tools`, which provide the
