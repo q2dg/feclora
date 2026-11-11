@@ -108,7 +108,7 @@ class CaptureTests(unittest.TestCase):
                     "snapshot": False, "health": None,
                 }],
             })
-            with self.assertRaisesRegex(CaptureError, "exactly one"):
+            with self.assertRaisesRegex(CaptureError, "multiple logical volumes"):
                 capture_logical_volume(
                     "/dev/vg/root", None, directory, "ambiguous.img", base,
                     {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
