@@ -56,10 +56,12 @@ directory before treating the build as successful.
 - The Kickstart and ISO pipeline are source-level build inputs, not a
   validated Live image. ISO generation and boot acceptance remain operator
   tasks.
-- The Live root filesystem is ephemeral. The first-boot administrator
-  password, completion marker and local CA/private key are regenerated on
-  every fresh boot. A persistent configuration/credential store remains to be
-  designed; Feclora must not select a potential restore target disk implicitly.
+- The Live root filesystem is ephemeral by design. The first-boot administrator
+  password, completion marker, local CA/private key and temporary session
+  configuration are regenerated on every fresh boot. No Live-session
+  persistence is required. Durable images/manifests belong in explicitly
+  selected repositories; Feclora must not select a potential restore target
+  disk implicitly.
 - Cage disables ordinary VT switching by default; tty1–tty6 getty services
   are masked. Physical firmware/boot-menu access and keyboard escape behavior
   still require testing. The authenticated Cockpit Terminal remains an
