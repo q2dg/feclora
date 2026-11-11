@@ -4,11 +4,11 @@ This document is an operator runbook for acceptance testing on disposable
 hardware and independently operated remote-storage services. It does not
 describe new software features and does not make physical testing a
 prerequisite for continuing software development. All SSH/SFTP, NFS, SMB,
-WebDAV, S3 and BitTorrent infrastructure is external to Feclora: the operator
+WebDAV and BitTorrent infrastructure is external to Feclora: the operator
 or service owner provisions and administers it. Feclora tests only its client
 connection, authentication, authorization, transfer/mount behavior, integrity
 checks and failure handling. No test step asks Feclora to install or configure
-a remote server/export/share/bucket/tracker. Record the Feclora commit, host
+a remote server/export/share/tracker. Record the Feclora commit, host
 models, firmware mode, network topology, repository provider/version, test
 date and outcome for every run.
 
@@ -144,34 +144,6 @@ account/export/share and a disposable image. Do not reuse production credentials
    repository definition remains available for a later mount.
 10. Record provider version, mount options, identity/access-mode verification,
     actual I/O outcomes, throughput observations, and all failures. Do not record a passing identity check as a passing health check. Never include secrets in the report.
-
-## 4. S3-compatible repository acceptance
-
-Run read-only inventory/restore acceptance for every S3-compatible endpoint.
-Run write/publication acceptance only when a provider-aware publisher is
-implemented and its conditional no-overwrite and remote read-back guarantees
-have been verified. Never test overwrite.
-
-1. Provision a dedicated S3-compatible test bucket/prefix and a root-owned
-   rclone configuration referencing it. Start with read-only credentials; use
-   separate narrowly scoped write credentials only for a supported publisher.
-2. Add and mount the S3 repository in Feclora.
-3. Confirm Cockpit identifies the expected remote alias/bucket and reports
-   read-only access.
-4. Browse image inventory, inspect manifests and verify image artifacts.
-5. Restore one verified image to a disposable local disk or use it as the
-   source for a disposable multi-client restore.
-6. For read-only configuration, confirm capture and partition-extraction
-   operations cannot target this repository and that no objects changed.
-7. If write publication is explicitly supported, test unique staging keys,
-   conditional create-if-absent for every final object and manifest, multipart
-   completion semantics, remote read-back digest/size verification, interrupted
-   upload cleanup and concurrent read-only restores of the same committed image.
-   Concurrent publishers are outside the product contract. A HEAD/list pre-check
-   is not a safe substitute for server-enforced conditional creation.
-8. Record service/vendor, API compatibility, rclone version and verification
-   results. Do not infer safe publication support from the label
-   S3-compatible.
 
 ## 5. Interrupted operation, disconnect and restart recovery
 
