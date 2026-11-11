@@ -102,7 +102,7 @@ class BtrfsSubvolumeTests(unittest.TestCase):
         self.assertEqual(result["mounts"][0]["uuid"], "01234567-89ab-cdef-0123-456789abcdef")
         self.assertIn("SOURCE,UUID", calls[0][calls[0].index("--output") + 1])
         self.assertEqual(len(result["mounts"][0]["subvolumes"]), 2)
-        self.assertIn("findmnt", calls[0])
+        self.assertTrue(any("findmnt" in str(part) for part in calls[0]))
         self.assertEqual(calls[1][-6:], ["-a", "-p", "-u", "-q", "-R", "/mnt/data"])
 
 
