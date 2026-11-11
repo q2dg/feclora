@@ -5,7 +5,7 @@ import pwd
 from typing import Any, Callable
 
 from feclora.network.boot_assets import stage_ipxe_assets
-from feclora.network.boot_tree import stage_live_boot_assets
+from feclora.network.boot_tree import stage_live_boot_assets, clear_stale_unattended_ipxe_script
 from feclora.network.pxe_config import PXENetworkConfig
 
 
@@ -39,6 +39,7 @@ def stage_pxe_boot_tree(
             address=config.address,
             http_port=config.http_port,
         )
+        clear_stale_unattended_ipxe_script(config.http_root)
     except Exception as exc:
         raise PXEBootTreeError(f"cannot stage PXE boot assets: {exc}") from exc
     return {"tftp": tftp, "http": http}
