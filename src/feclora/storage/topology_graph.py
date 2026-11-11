@@ -225,6 +225,23 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
                                    "reason": "device_path_not_matched"})
 
     subvolumes = inventory.get("btrfs_subvolumes") or {}
+    for mount in subvolumes.get("mounts", []):
+        if not isinstance(mount, dict):
+            continue
+        mount_uuid = mount.get("uuid")
+        filesystem_id = btrfs_fs_ids.get(mount_uuid) if isinstance(mount_uuid, str) else None
+        if filesystem_id is None:
+            continue
+        profiles = mount.get("allocation_profiles")
+        if isinstance(profiles, list):
+            nodes[filesystem_id]["allocation_profiles"] = profiles
+            nodes[filesystem_id]["allocation_profile_inventory"] = "available"
+            nodes[filesystem_id]["has_unknown_allocation_profile"] = any(
+                not isinstance(item, dict) or item.get("known_profile") is not True
+                for item in profiles
+            )
+        else:
+            nodes[filesystem_id]["allocation_profile_inventory"] = "unavailable"
     subvolume_ids: dict[str, str] = {}
     subvolume_parents: list[tuple[str, str]] = []
     for mount in subvolumes.get("mounts", []):
