@@ -278,7 +278,7 @@ provisioned separately; Feclora does not collect access keys or secret material.
 
 Remaining engineering work: add edit/test and health/free-space workflows,
 credential provisioning/rotation and recovery, safe per-repository WebDAV
-credentials, SFTP operator cancellation, resume, multi-directory discovery
+credentials, SFTP continuous byte-level progress, resume, multi-directory discovery
 and live provider acceptance, plus automated coverage for every provider lifecycle. Bounded
 transport retries are implemented for read-only SFTP downloads and inventory;
 publication uploads remain non-retrying because their outcome can be ambiguous.
@@ -407,7 +407,7 @@ The Restore wizard can now use the authenticated remote image directly: after me
 
 ### Automatic SFTP publication after capture
 
-The disk and partition capture forms also provide an optional **SFTP post-capture publication** setting. When enabled, the capture definition stores only the host, remote directory and encrypted credential references in the root-owned durable operation record. The capture must be signed; unsigned capture plus SFTP publication is rejected during job validation. After the native capture completes, the worker verifies the newly written manifest signature and each artifact digest, then publishes the set through the same no-overwrite SFTP image-set publisher. The capture job is reported failed if publication fails, but the successfully captured local image remains in the repository and can be published manually or retried after the remote conflict/connectivity issue is resolved. SFTP upload still has no byte-level progress, cancellation, resume or automatic retry. Upload retries remain operator-controlled because a lost response may follow successful no-overwrite publication.
+The disk and partition capture forms also provide an optional **SFTP post-capture publication** setting. When enabled, the capture definition stores only the host, remote directory and encrypted credential references in the root-owned durable operation record. The capture must be signed; unsigned capture plus SFTP publication is rejected during job validation. After the native capture completes, the worker verifies the newly written manifest signature and each artifact digest, then publishes the set through the same no-overwrite SFTP image-set publisher. The capture job is reported failed if publication fails, but the successfully captured local image remains in the repository and can be published manually or retried after the remote conflict/connectivity issue is resolved. SFTP post-capture publication runs inside the cancellable capture worker and reports artifact-boundary progress, but does not yet expose continuous byte-level progress or resume. Upload retries remain operator-controlled because a lost response may follow successful no-overwrite publication.
 
 ### Cockpit SFTP publication and import
 
