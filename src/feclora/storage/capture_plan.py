@@ -208,8 +208,11 @@ def plan_storage_capture(
         kind = dependency.get("kind")
         if kind not in dependency_kinds:
             continue
-        identity = (dependency.get("uuid") or dependency.get("vg_name")
-                    or dependency.get("volume_group_node"))
+        identity = dependency.get("uuid") or dependency.get("vg_name")
+        if kind == "lvm_volume_group":
+            vg_node = nodes.get(dependency.get("volume_group_node"))
+            identity = ((vg_node or {}).get("uuid") or (vg_node or {}).get("name")
+                        or dependency.get("volume_group_node"))
         if isinstance(identity, str) and identity:
             storage_metadata["dependencies"].append({
                 "kind": kind, "identity": identity,
