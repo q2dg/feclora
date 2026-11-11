@@ -76,6 +76,9 @@ class PXEJobHandoffIntegrationTests(unittest.TestCase):
             config = SimpleNamespace(
                 bind_address="192.0.2.10", port=9443,
                 local_identity="DNS:feclora-server",
+                ca_file="/etc/feclora/pki/ca.crt",
+                certificate_file="/etc/feclora/pki/server.crt",
+                private_key_file="/etc/feclora/pki/server.key",
                 client_identity_to_mac={"URI:client-1": "02:00:00:00:00:01"},
                 repository="/var/lib/feclora/images",
                 server_minisign_public_key=None,
