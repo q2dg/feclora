@@ -203,8 +203,8 @@ Publish task-oriented guides only when the exact workflow is implemented; mark f
 3. [ ] Capture disk image to remote SSHFS repository.
 4. [ ] Restore image from SSHFS to one disk.
 5. [ ] Restore image to multiple remote clients.
-6. [ ] Restore multiple clients using PXE.
-7. [ ] Unattended multi-client PXE restore.
+6. [ ] Restore multiple clients using PXE. The boot tree now offers an interactive Live path and a separate unattended handoff path; the job-bound script builder and kernel-command-line parser validate non-secret job/Server parameters. Remaining: publish/revoke a job script from the active Server job, start the Client service automatically, authenticate mTLS, report READY/progress/results, and exercise BIOS/UEFI PXE VMs.
+7. [ ] Unattended multi-client PXE restore. Bind signed/otherwise independently authenticated profiles to the deployment/job, Client certificate identity, image digest, expiry and stable WWN/serial target; integrate Server-side single-use replay state, dry-run, deterministic target checks and per-Client result reconciliation. Boot parameters alone never authorize writes.
 8. [ ] Initial Server/Client setup, enrollment and trust.
 9. [ ] Repository and credential administration.
 10. [ ] Storage discovery and image fidelity: VG/LV, Btrfs snapshots and LUKS layers.
