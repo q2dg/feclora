@@ -217,7 +217,7 @@ class _CountingReader:
 
 @dataclass(frozen=True)
 class CapturePlan:
-    """A read-only command plan for one partition."""
+    """A read-only command plan for one supported block-storage source."""
 
     executable: str
     argv: tuple[str, ...]
@@ -334,12 +334,18 @@ def capture_partition(
     progress_callback: Callable[[int, int | None], None] | None = None,
     artifact_role: str = "partition-image",
 ) -> ImageArtifact:
-    """Capture one block partition into a repository without overwriting files.
+    """Capture one block source into a repository without overwriting files.
 
     The source is opened by the selected read-only imaging utility. By default
     it must resolve to a block device. A private staging directory prevents a
     failed producer process from publishing a partial artifact.
     """
+    if artifact_role not in {"partition-image", "logical-volume-image"}:
+        raise CaptureError("capture artifact role is not supported")
+    if artifact_role == "partition-image" and (not isinstance(partition_id, str) or not partition_id):
+        raise CaptureError("partition capture requires a partition identifier")
+    if artifact_role == "logical-volume-image" and partition_id is not None:
+        raise CaptureError("logical-volume artifacts must not carry a partition identifier")
     validator = device_validator or _is_block_device
     if not validator(source_path):
         raise CaptureError(f"source is not an accessible block device: {source_path}")
