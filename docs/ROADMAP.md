@@ -1,6 +1,6 @@
 # Roadmap
 
-This roadmap distinguishes code implementation, Cockpit integration and operator-owned validation. Feclora is a Live appliance based on a minimal Fedora Server userspace, without a general-purpose desktop. Its local display is intended to run Firefox in a Cage kiosk session, fixed to Cockpit and the Feclora application; the old local `dialog` menu is not part of the supported interface.
+This roadmap distinguishes code implementation, Cockpit integration and operator-owned validation. Feclora is a Live appliance based on a minimal Fedora Server userspace, without a general-purpose desktop. Its local display is configured to run Firefox in a Cage kiosk session, fixed to Cockpit and the Feclora application; the old local `dialog` menu is not part of the supported interface.
 
 The detailed, dependency-ordered implementation backlog and acceptance criteria live in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md). Operator procedures are indexed in [GUIDES.md](GUIDES.md); only workflows implemented end to end are presented as available. Broader CA rotation and trust migration are deferred and are not offered as an available workflow.
 
