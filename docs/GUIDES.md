@@ -27,10 +27,14 @@ operator tasks; see [the feature matrix](FEATURE-MATRIX.html).
 
 ## Storage-layer images
 
-- **LVM logical-volume capture** — **Implemented in local Cockpit capture**.
-  The source must be an active, uniquely identified, non-hidden,
-  non-snapshot LV in a healthy VG. The resulting image is not a backup of the
-  complete VG and cannot currently be restored by Feclora.
+- **LVM logical-volume capture and restore** — **Implemented in local Cockpit**.
+  Restore writes into an existing active, uniquely identified, unmounted
+  linear or thin LV in a healthy VG. The target must have enough capacity and
+  matching logical sector size. Raw images receive exact read-back byte
+  verification; Partclone images receive a filesystem-specific read-only
+  consistency check. Feclora does not create, resize or repair PVs, VGs or
+  LVs. A logical-volume image contains LV bytes, not a backup of its VG/PV
+  metadata or other dependent storage layers.
 - **LUKS2 container capture** — **Partial**. A partition can be captured as
   raw encrypted bytes after its LUKS2 header and UUID are verified.
   LUKS1/unknown headers fail closed for this layer-aware path. The ordinary
