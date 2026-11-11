@@ -325,7 +325,6 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch("feclora.deployment.client_service._read_private_json", return_value=request), \
                  mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
                  mock.patch("feclora.deployment.client_service.create_mutual_tls_context", return_value=object()), \
-                 mock.patch.object(ClientDeploymentService, "_find_unattended_disk", return_value=selected), \
                  mock.patch.object(ClientDeploymentService, "_find_device", return_value=selected), \
                  mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \
                  mock.patch("feclora.deployment.client_service.os.stat", side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == DEVICE else real_stat(path, *args, **kwargs)), \
