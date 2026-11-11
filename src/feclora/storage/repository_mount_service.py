@@ -24,11 +24,6 @@ def build_mount_argv(repo, bindings: list[tuple[str, str]], credential_directory
         argv[index] = value
     if repo.provider == "sshfs":
         argv.insert(1, "-f")
-    elif repo.provider == "s3":
-        argv = [
-            value for value in argv
-            if value not in {"--daemon", "--daemon-wait", "60s"}
-        ]
     return argv
 
 
