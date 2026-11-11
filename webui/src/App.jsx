@@ -133,8 +133,6 @@ export default function App() {
   const [clientCaFingerprint, setClientCaFingerprint] = useState("");
   const [clientServerFingerprint, setClientServerFingerprint] = useState("");
   const [clientCompleted, setClientCompleted] = useState(null);
-  const [clientPxeMediaDirectory, setClientPxeMediaDirectory] = useState("");
-  const [clientPxeIdentityExport, setClientPxeIdentityExport] = useState(null);
   const [clientRenewalPrepared, setClientRenewalPrepared] = useState(null);
   const [clientRenewalCompleted, setClientRenewalCompleted] = useState(null);
   const [clientRenewalExportDirectory, setClientRenewalExportDirectory] = useState("");
@@ -730,17 +728,6 @@ export default function App() {
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
-  const exportPXEClientIdentity = async () => {
-    setBusy(true); setError(""); setNotice(""); setClientPxeIdentityExport(null);
-    try {
-      const result = await callFeclora("export_pxe_client_identity", {
-        export_directory: clientPxeMediaDirectory
-      });
-      setClientPxeIdentityExport(result); setNotice(result.message);
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
   const prepareClientRenewal = async () => {
     setBusy(true); setError(""); setNotice(""); setClientRenewalPrepared(null);
     try {
@@ -1654,17 +1641,6 @@ export default function App() {
           <Tab eventKey="client" title="Client enrollment">
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Client removable-media enrollment</Title><p>Prepare endpoint-local TLS and age keys, transfer only public request material to the Server, then verify and install the signed response bundle.</p></StackItem>
-              {status?.client_configured && <StackItem><Card><CardBody>
-                <Title headingLevel="h3" size="lg">Prepare PXE identity USB</Title>
-                <Alert variant="warning" title="The USB is a physical bearer credential" isInline>
-                  Exported media contains this Client's TLS private key. Use one dedicated ext4/XFS/Btrfs medium per Client, keep it physically controlled, and revoke the Client certificate immediately if the medium is lost. Do not put this medium in the Server's shared PXE boot tree.
-                </Alert>
-                <Field label="Mounted dedicated Client identity medium">
-                  <input className="pf-v5-c-form-control" value={clientPxeMediaDirectory} onChange={(event) => { setClientPxeMediaDirectory(event.target.value); setClientPxeIdentityExport(null); }} placeholder="/run/media/liveuser/FECLORA-CLIENT" />
-                </Field>
-                <Button variant="primary" onClick={exportPXEClientIdentity} isLoading={busy} isDisabled={busy || !clientPxeMediaDirectory}>Export PXE mTLS identity</Button>
-                {clientPxeIdentityExport && <Alert variant="success" title="PXE identity exported" isInline>{clientPxeIdentityExport.message}<p>{clientPxeIdentityExport.config_file}</p></Alert>}
-              </CardBody></Card></StackItem>}
               {status?.client_configured && <StackItem>
                 <Title headingLevel="h3" size="lg">Refresh Server age recipient inventory</Title>
                 <p>After a Client is revoked or enrolled, export the current inventory from the Server to removable media, then install it here. The file must contain this Client's own age public recipient; private keys remain local.</p>
