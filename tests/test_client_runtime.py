@@ -164,7 +164,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         self.assertIsNone(capture.call_args.kwargs["age_recipients_file"])
         self.assertIsNone(send.call_args.kwargs["trusted_public_key"])
 
-    def test_partition_restore_uses_partition_restore_engine(self):
+    def test_remote_luks2_container_partition_restore_uses_verified_partition_engine(self):
         tls = FakeTLS(control_frame({
             "type": "transfer_offer", "job_id": JOB_ID, "image_id": "golden-image",
         }))
@@ -178,9 +178,13 @@ class ClientImageRuntimeTests(unittest.TestCase):
                 make_job("restore", "partition"), tls, self.approval,
                 server_identity="URI:feclora-server", repository="/repo",
                 trusted_server_public_key="/trusted/server.pub",
+                age_identity_file="/keys/client.age",
             )
         self.assertTrue(result[0])
         restore_partition.assert_called_once()
+        self.assertEqual(restore_partition.call_args.args[2], "/dev/vda")
+        self.assertEqual(restore_partition.call_args.kwargs["confirmation"], "ERASE /dev/vda")
+        self.assertEqual(restore_partition.call_args.kwargs["age_identity_file"], "/keys/client.age")
         restore_disk.assert_not_called()
 
     def test_clone_uses_existing_mutual_tls_socket_and_local_target_approval(self):
