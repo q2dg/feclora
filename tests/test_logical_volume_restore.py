@@ -121,6 +121,18 @@ class LogicalVolumeRestorePreflightTests(unittest.TestCase):
                 make_manifest(), make_inventory(size=7999), "/dev/target/root"
             )
 
+    def test_rejects_unsupported_lv_segment_layout(self):
+        inventory = make_inventory()
+        inventory["volume_topology"]["volume_groups"][0]["logical_volumes"][0]["segment_type"] = "raid1"
+        with self.assertRaisesRegex(RestoreProfileError, "segment type.*not supported"):
+            preflight_logical_volume_restore(make_manifest(), inventory, "/dev/target/root")
+
+    def test_rejects_inconsistent_thin_provisioning_metadata(self):
+        inventory = make_inventory()
+        inventory["volume_topology"]["volume_groups"][0]["logical_volumes"][0]["thin_provisioned"] = True
+        with self.assertRaisesRegex(RestoreProfileError, "metadata are inconsistent"):
+            preflight_logical_volume_restore(make_manifest(), inventory, "/dev/target/root")
+
     def test_rejects_mounted_target(self):
         with self.assertRaisesRegex(RestoreProfileError, "mounted or in use"):
             preflight_logical_volume_restore(
