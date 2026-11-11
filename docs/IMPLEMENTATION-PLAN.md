@@ -103,7 +103,7 @@ Acceptance: browser closure does not stop jobs; history survives Cockpit/API and
 
 ## P1 — Filesystem-aware partition imaging
 
-Existing foundation: filesystem-specific Partclone command selection for ext2/ext3/ext4, XFS, NTFS (including the Linux `ntfs3` FSTYPE alias), FAT12/16/32/vfat and exFAT; raw `dd` fallback for unknown filesystems or unavailable capture utilities; matching restore mappings and post-restore checkers; raw read-back verification.
+Existing foundation: filesystem-specific Partclone command selection for ext2/ext3/ext4, XFS, NTFS (including the Linux `ntfs3` FSTYPE alias), FAT12/16/32/vfat, exFAT, F2FS and Btrfs partition images; raw `dd` fallback for unknown filesystems or unavailable capture utilities; matching restore mappings and post-restore checkers; raw read-back verification.
 
 - [x] Keep capture and restore filesystem-to-Partclone mappings aligned, including NTFS FSTYPE aliases.
 - [x] Require a defined post-restore checker for every filesystem-specific Partclone restore mapping.
