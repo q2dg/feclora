@@ -79,6 +79,7 @@ def collect_stratis_topology(
                 "device": str(fs_entry),
                 "mapper_device": str(resolved),
                 "backing_block_devices": backing,
+                "backing_device_paths": ["/dev/" + name for name in backing],
             })
         pools.append({"name": pool_entry.name, "filesystems": filesystems})
     return {"status": "available", "pools": pools}
