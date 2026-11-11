@@ -28,6 +28,16 @@ remains available; it does not mean persistent across a Live reboot.
 6. Cockpit polls `local_operation_status`; `local_operations` returns
    recent operation summaries and their event history.
 
+SFTP signed-image import and publication use this same durable worker. The
+queue stores only endpoint metadata and encrypted SSH credential references;
+plaintext keys remain inside the transient systemd credential service. The
+worker owns the SFTP child-service lifetime, so cancellation stops and waits
+for that service before image-set staging cleanup. SFTP progress checkpoints
+are currently reported after each verified/downloaded or published artifact,
+not continuously while bytes move within one large file. A cancelled download
+removes its private staging directory; a cancelled publication may leave
+unreferenced remote artifacts, and final-name collisions remain no-overwrite.
+
 ## Recovery and cancellation
 
 The `feclora-local-operation-recovery.service` runs before the Cockpit socket
