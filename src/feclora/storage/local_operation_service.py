@@ -154,7 +154,9 @@ def execute(operation_id: str) -> int:
             safe_result = {
                 key: value for key, value in result.items()
                 if key in {"image_id", "image_type", "source_image_id", "target",
-                           "source", "bytes_copied", "verified", "signed", "encrypted"}
+                           "source", "bytes_copied", "verified", "signed", "encrypted",
+                           "artifact_count", "repository_path", "signature_verified",
+                           "artifacts_verified", "published", "manifest_sha256"}
                 and isinstance(value, (str, int, bool, type(None)))
             }
             if definition["action"] == "sftp_inventory":
