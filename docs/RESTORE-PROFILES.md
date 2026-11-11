@@ -37,9 +37,11 @@ kernel major/minor mapping, capacity, mounted/read-only state, snapshot
 relationships, and thin-pool health/data/metadata percentages, including a conservative estimate of free data capacity against the image size. It resolves
 `/dev/VG/LV` versus `/dev/mapper/*` aliases only through a unique kernel
 major/minor identity. Thin-pool allocation is dynamic, so the preflight warns
-that it cannot reserve extents. This function performs no activation, write,
-LV creation or restore; it is not yet connected to the restore executor or
-Cockpit workflow.
+that it cannot reserve extents. Only linear and thin LVs are currently
+accepted by the preflight; RAID, striped, cache, snapshot and unknown segment
+layouts fail closed until their restore semantics are explicitly validated.
+This function performs no activation, write, LV creation or restore; it is not
+yet connected to the restore executor or Cockpit workflow.
 
 The profile model and unattended whole-disk executor are implemented in src/feclora/storage/restore_profile.py and src/feclora/storage/profile_executor.py. They strictly validate schema fields, reject duplicate JSON keys and path traversal, match WWN/serial identities, verify minisign signatures, and atomically consume single-use authorization immediately before the first write. **Current limitation:** this executor currently requires minisign for profile and image authentication. The project policy is that minisign must remain optional; a configurable verifier/trust interface (with an equally strong alternative authentication path) is still required before unattended restore can satisfy that policy without minisign. UI-based profile authoring, automatic startup/systemd enablement and proportional layout execution remain pending.
 
