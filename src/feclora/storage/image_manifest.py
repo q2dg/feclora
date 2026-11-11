@@ -54,10 +54,10 @@ def _validate_storage_metadata(value: Any, image_type: str) -> dict[str, Any]:
     if value.get("schema_version") != 1 or isinstance(value.get("schema_version"), bool):
         raise ManifestValidationError("Unsupported storage metadata schema_version")
     scope = value.get("capture_scope")
-    if scope not in _STORAGE_SCOPES:
+    if not isinstance(scope, str) or scope not in _STORAGE_SCOPES:
         raise ManifestValidationError("Unsupported storage capture_scope")
     layer = value.get("source_layer")
-    if layer not in _STORAGE_LAYERS:
+    if not isinstance(layer, str) or layer not in _STORAGE_LAYERS:
         raise ManifestValidationError("Unsupported storage source_layer")
     if image_type == "disk" and scope != "whole_disk_bytes":
         raise ManifestValidationError("Disk image storage scope must be whole_disk_bytes")
@@ -68,7 +68,7 @@ def _validate_storage_metadata(value: Any, image_type: str) -> dict[str, Any]:
     }:
         raise ManifestValidationError("Logical-volume image has an incompatible storage scope")
     result = dict(value)
-    for key in allowed - {"schema_version", "capture_scope", "source_layer", "dependencies"}:
+    for key in allowed - {"schema_version", "capture_scope", "source_layer", "dependencies", "btrfs_subvolume_id"}:
         item = value.get(key)
         if item is not None and (
             not isinstance(item, str) or not item or len(item) > 256
@@ -86,7 +86,7 @@ def _validate_storage_metadata(value: Any, image_type: str) -> dict[str, Any]:
     for dependency in dependencies:
         if not isinstance(dependency, dict) or set(dependency) != {"kind", "identity", "included_in_source_bytes"}:
             raise ManifestValidationError("Each storage dependency requires kind, identity and included_in_source_bytes")
-        if dependency["kind"] not in _STORAGE_DEPENDENCIES:
+        if not isinstance(dependency["kind"], str) or dependency["kind"] not in _STORAGE_DEPENDENCIES:
             raise ManifestValidationError("Unsupported storage dependency kind")
         identity = dependency["identity"]
         included = dependency["included_in_source_bytes"]
@@ -255,7 +255,7 @@ class ImageManifest:
         table = value.get("partition_table")
         if not isinstance(table, str) or table not in {"gpt", "mbr", "none", "unknown"}:
             raise ManifestValidationError("partition_table must be gpt, mbr, none, or unknown")
-        if image_type == "partition" and table != "none":
+        if image_type in {"partition", "logical_volume"} and table != "none":
             raise ManifestValidationError("Partition images must use partition_table='none'")
 
         raw_artifacts = value.get("artifacts")
@@ -275,6 +275,10 @@ class ImageManifest:
             raise ManifestValidationError("Partition image requires a partition-image artifact")
         if image_type == "logical_volume" and roles.count("logical-volume-image") != 1:
             raise ManifestValidationError("Logical-volume image requires exactly one logical-volume-image artifact")
+        if image_type != "logical_volume" and "logical-volume-image" in roles:
+            raise ManifestValidationError("logical-volume-image artifacts require image_type='logical_volume'")
+        if image_type == "logical_volume" and "partition-image" in roles:
+            raise ManifestValidationError("Logical-volume manifests cannot contain partition-image artifacts")
         if "disk-image" in roles and any(
             item.role == "disk-image" and item.format != "raw" for item in artifacts
         ):
@@ -285,6 +289,8 @@ class ImageManifest:
             raise ManifestValidationError("Partition/logical-volume images cannot contain whole-disk metadata artifacts")
 
         storage = value.get("storage")
+        if image_type == "logical_volume" and storage is None:
+            raise ManifestValidationError("Logical-volume manifests require storage metadata")
         if storage is not None:
             storage = _validate_storage_metadata(storage, image_type)
 
