@@ -213,11 +213,11 @@ For each run, record:
   unit-test results alone.
 
 
-## 7. Optional BitTorrent distribution acceptance
+## 7. BitTorrent distribution acceptance
 
-BitTorrent is an optional artifact-distribution transport, not a repository
-provider. This procedure applies only after a maintained client implementation
-has been integrated.
+BitTorrent is a first-class artifact-distribution transport at the same priority
+as the other remote transports, not a writable repository provider. This
+procedure applies after a maintained client implementation has been integrated.
 
 1. Publish an immutable test artifact and its manifest through the normal
    trusted repository workflow; record the expected manifest digest.
