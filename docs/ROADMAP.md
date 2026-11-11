@@ -1,21 +1,37 @@
 # Roadmap
 
-This roadmap distinguishes code implementation, Cockpit integration and operator-owned validation. Feclora's primary interface is Cockpit; the old local `dialog` menu is no longer installed in the Live package.
+This roadmap distinguishes code implementation, Cockpit integration and operator-owned validation. Feclora is a Live appliance based on a minimal Fedora Server userspace, without a general-purpose desktop. Its local display is intended to run Firefox in a Cage kiosk session, fixed to Cockpit and the Feclora application; the old local `dialog` menu is not part of the supported interface.
 
 The detailed, dependency-ordered implementation backlog and acceptance criteria live in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md). Operator procedures are indexed in [GUIDES.md](GUIDES.md); only workflows implemented end to end are presented as available. Broader CA rotation and trust migration are deferred and are not offered as an available workflow.
 
 
 ## Maintainer's end-user target
 
-The release target is a bootable Cockpit-first Live system covering six end-to-end workflows: local disk/partition cloning; remote disk/partition cloning with DHCP/static networking; image capture to SSHFS, SFTP, NFS, SMB/CIFS and WebDAV (once provider-specific credential and write capabilities are complete); restore from those repositories to one local target; multi-Client restore with manual Feclora or PXE boot; and unattended multi-Client restore. Measurable acceptance gates, security requirements and guide requirements are maintained in [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md).
+The release target is a bootable Fedora Server minimal Live kiosk appliance, with automatic Cockpit socket activation and Firefox as its fixed local browser, covering six end-to-end workflows: local disk/partition cloning; remote disk/partition cloning with DHCP/static networking; image capture to SSHFS, SFTP, NFS, SMB/CIFS and WebDAV (once provider-specific credential and write capabilities are complete); restore from those repositories to one local target; multi-Client restore with manual Feclora or PXE boot; and unattended multi-Client restore. Measurable acceptance gates, security requirements and guide requirements are maintained in [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md).
 
 BitTorrent is a first-class peer-to-peer distribution transport for immutable, verified image artifacts, with the same implementation priority as SSHFS, SFTP, NFS, SMB/CIFS and WebDAV. It is not a general writable repository. `age` and `minisign` are optional integrations and must not be mandatory installation or release requirements. Their absence must not prevent ordinary local imaging or deployment where another configured trust/integrity mechanism is used.
 
 The present implementation is a foundation, not completion of that target. In particular, SSHFS with SFTP, PXE service lifecycle with PXE job handoff, or signed-profile primitives with unattended fleet deployment. Only advertise a workflow as available when its Cockpit path, backend/runtime, authorization, error handling, tests and published operator guide are complete.
 
+## Runtime architecture and immediate work
+
+The image remains **Live**: it boots from removable media without requiring
+installation to disk. Its operating-system base is a minimal Fedora Server
+userspace, not Fedora Workstation and not a full graphical desktop. Cockpit is
+the administration surface; Firefox runs in kiosk mode under a minimal
+Wayland compositor (Cage). The browser opens the local Cockpit endpoint and
+the Feclora Cockpit application.
+
+The kiosk is not complete merely because Firefox starts fullscreen. The
+following must be implemented and accepted together: secure first-boot
+administrator credential provisioning, a trusted local TLS certificate for
+Cockpit, an unprivileged kiosk account, a restricted Firefox profile/policy,
+automatic service restart, and protection against ordinary TTY/desktop escape
+paths. Cockpit authentication and backend authorization remain mandatory.
+
 ## Completed in source
 
-- [x] Fedora 45 x86_64 Live-image build configuration and BIOS/UEFI boot assets.
+- [x] Fedora 45 x86_64 Live-image build configuration and BIOS/UEFI boot assets.\n- [ ] Replace the transitional console-led Live startup with the Fedora Server minimal + Cage + Firefox kiosk runtime and secure bootstrap described above.
 - [x] Read-only block-device, partition and volume inventory.
 - [x] Manifest-backed whole-disk and partition capture.
 - [x] Verified whole-disk and partition restore engines.
