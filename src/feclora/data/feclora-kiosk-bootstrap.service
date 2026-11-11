@@ -1,0 +1,25 @@
+[Unit]
+Description=Loopback-only Feclora first-boot administrator setup
+After=local-fs.target
+Before=feclora-kiosk.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+Environment=PYTHONPATH=/usr/share/feclora/python
+ExecStart=/usr/bin/python3 -m feclora.kiosk_bootstrap
+Restart=no
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/feclora
+
+[Install]
+WantedBy=multi-user.target
