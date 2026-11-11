@@ -272,7 +272,7 @@ export default function App() {
     return result;
   }, [inventory, devices]);
   const clientRemoteJob = clientRemoteInspection?.job;
-  const clientRemoteDeviceOptions = clientRemoteJob?.target_type === "partition" ? partitions : disks;
+  const clientRemoteDeviceOptions = clientRemoteJob?.target_type === "logical_volume" ? logicalVolumes : clientRemoteJob?.target_type === "partition" ? partitions : disks;
   const clientRemoteConfirmationPhrase = clientRemoteJob && clientRemoteTarget
     ? (clientRemoteJob.operation === "restore" || clientRemoteJob.operation === "clone"
       ? `ERASE ${clientRemoteTarget} FROM ${clientRemoteInspection.server_identity}`
@@ -1721,7 +1721,7 @@ export default function App() {
                     {clientRemoteJob.transport === "multicast" && <label><input type="checkbox" checked={clientRemoteIgmpConfirmed} onChange={(event) => setClientRemoteIgmpConfirmed(event.target.checked)} /> I verified IGMP snooping and an active querier on this VLAN, and confirmed all Clients are on the same multicast network.</label>}
                     {(clientRemoteJob.transport === "unicast" || clientRemoteJob.transport === "multicast") && <>
 
-                      <Field label={clientRemoteJob.target_type === "partition" ? "Local destination partition" : "Local destination disk"} help="The selected block device is rechecked against live inventory immediately before READY. Root, mounted or busy destinations are rejected by the storage engine.">
+                      <Field label={clientRemoteJob.target_type === "logical_volume" ? "Local destination logical volume" : clientRemoteJob.target_type === "partition" ? "Local destination partition" : "Local destination disk"} help={clientRemoteJob.target_type === "logical_volume" ? "Choose an existing healthy linear or thin LV. It must be active, unmounted and large enough; Feclora will not create or resize LVM metadata. The Client rechecks the LVM topology before READY and immediately before writing." : "The selected block device is rechecked against live inventory immediately before READY. Root, mounted or busy destinations are rejected by the storage engine."}>
                         <select className="pf-v5-c-form-control" value={clientRemoteTarget} onChange={(event) => { setClientRemoteTarget(event.target.value); setClientRemoteConfirmation(""); }}>
                           <option value="">Select local target…</option>
                           {clientRemoteDeviceOptions.map((device) => <option key={device.path} value={device.path}>{device.path} · {device.model || device.name || device.type} · {device.size_bytes || ""}</option>)}
