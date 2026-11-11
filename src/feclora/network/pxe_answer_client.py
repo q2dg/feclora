@@ -23,7 +23,7 @@ from feclora.storage.image_manifest import ImageManifest, ManifestValidationErro
 from feclora.storage.restore_profile import RestoreTargetSelector
 from feclora.storage.inventory import collect_inventory
 from feclora.storage.disk_restore import restore_disk
-from feclora.storage.operation_log import operation_record
+from feclora.storage.operation_log import operation_record, record_progress
 from feclora.network.pxe_boot_request import (
     PXEBootRequestError,
     parse_pxe_boot_request,
@@ -206,7 +206,7 @@ def _mount_nfs_repository(repository_url: str, mountpoint: Path) -> None:
     try:
         subprocess.run(
             [mount_cmd, "-t", "nfs", "-o",
-             "ro,nosuid,nodev,noexec,vers=4.2,timeo=30,retrans=2", source, str(mountpoint)],
+             "ro,nosuid,nodev,noexec,proto=tcp,timeo=30,retrans=2", source, str(mountpoint)],
             check=True, capture_output=True, text=True, timeout=45,
         )
         check = subprocess.run(
@@ -276,8 +276,6 @@ def execute_live_pxe_restore(
             raise PXEAnswerClientError("PXE answer requires a matching whole-disk image manifest")
         if any(item.encryption != "none" for item in manifest.artifacts):
             raise PXEAnswerClientError("PXE unattended restore currently requires an unencrypted image set")
-        if os.path.lexists(str(manifest_path) + ".minisig"):
-            raise PXEAnswerClientError("PXE restore does not use minisign; use an unsigned image set")
         with operation_record(
             "restore_disk", target_path, image_id=answer["image_id"], log_path=operation_log,
         ):
@@ -288,6 +286,8 @@ def execute_live_pxe_restore(
                 restore_disk(
                     str(manifest_path), str(repository), target_path,
                     confirmation=f"ERASE {target_path}",
+                    ignore_signature=True,
+                    progress_callback=record_progress,
                     pre_write_callback=before_write,
                 )
             except Exception as exc:
