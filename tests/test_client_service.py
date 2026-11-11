@@ -270,6 +270,69 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             self.assertIn("insufficient Client staging capacity before READY", status["detail"])
             self.assertNotEqual(status["phase"], "ready")
 
+    def test_unattended_pxe_request_resolves_bound_disk_and_uses_handoff_port(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path = root / (JOB_ID + ".request.json")
+            request_path.write_text("{}", encoding="utf-8")
+            request_path.chmod(0o600)
+            service = ClientDeploymentService(JOB_ID)
+            service.request_path = request_path
+            service.status_path = root / (JOB_ID + ".status.json")
+            service.lock_path = root / (JOB_ID + ".lock")
+            request = {
+                "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
+                "port": 9555, "device_path": None, "confirmation": None,
+                "compression": "none", "network_interface": None,
+                "igmp_confirmed": False, "image_encrypt": False,
+                "image_sign": False, "unattended": True,
+            }
+            config = SimpleNamespace(
+                host="192.0.2.10", port=9443, local_identity="URI:feclora-client-lab",
+                server_identity=SERVER_IDENTITY, mac_address="52:54:00:12:34:56",
+                ca_file="/ca.crt", certificate_file="/client.crt",
+                private_key_file="/client.key", trusted_server_public_key=None,
+                local_minisign_secret_key=None, local_minisign_public_key=None,
+                age_identity_file=None, age_recipients_file=None,
+                repository="/var/lib/feclora/images",
+            )
+            selected = {
+                "type": "disk", "path": DEVICE, "wwn": "wwn-01",
+                "serial": "serial-01", "model": "Test disk", "size_bytes": 1024,
+            }
+            job = self._job(target_bindings={
+                "52:54:00:12:34:56": {"wwn": "wwn-01", "serial": "serial-01"},
+            })
+            block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
+            real_stat = os.stat
+
+            def fake_join(host, port, context, **kwargs):
+                approval = kwargs["prepare_local_target"](job)
+                self.assertEqual(approval.device_path, DEVICE)
+                self.assertEqual(approval.confirmation, f"ERASE {DEVICE} FROM {SERVER_IDENTITY}")
+                return job, True, "restore completed"
+
+            with mock.patch.object(service, "_acquire_lock"), \
+                 mock.patch("feclora.deployment.service.recover_stale_runtime_artifacts"), \
+                 mock.patch("feclora.deployment.client_service.CLIENT_JOB_DIRECTORY", root), \
+                 mock.patch("feclora.deployment.client_service._ensure_directory"), \
+                 mock.patch("feclora.deployment.client_service._read_private_json", return_value=request), \
+                 mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
+                 mock.patch("feclora.deployment.client_service.create_mutual_tls_context", return_value=object()), \
+                 mock.patch.object(ClientDeploymentService, "_find_unattended_disk", return_value=selected), \
+                 mock.patch.object(ClientDeploymentService, "_find_device", return_value=selected), \
+                 mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \
+                 mock.patch("feclora.deployment.client_service.os.stat", side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == DEVICE else real_stat(path, *args, **kwargs)), \
+                 mock.patch("feclora.deployment.client_service.join_deployment", side_effect=fake_join) as join:
+                service.run()
+
+            join.assert_called_once()
+            self.assertEqual(join.call_args.args[0], "192.0.2.10")
+            self.assertEqual(join.call_args.args[1], 9555)
+            status = json.loads(service.status_path.read_text(encoding="utf-8"))
+            self.assertEqual(status["phase"], "completed")
+            self.assertTrue(status["success"])
+
     def test_orderly_signal_does_not_interrupt_active_block_device_io(self):
         service = ClientDeploymentService(JOB_ID)
         service._phase = "running"
