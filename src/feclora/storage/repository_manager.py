@@ -641,7 +641,10 @@ class RemoteRepositoryManager:
             raise RepositoryManagerError("findmnt could not verify repository mount state")
         fields = result.stdout.strip().split(None, 3)
         if len(fields) != 4 or fields[0] != mountpoint:
-            raise RepositoryManagerError("findmnt returned an unexpected mountpoint record")
+            raise RepositoryManagerError(
+                "findmnt returned an unexpected mountpoint record "
+                f"(expected target {mountpoint!r}; received {fields!r})"
+            )
         return fields[1], fields[2], fields[3]
 
     def _is_mounted(self, mountpoint: str) -> bool:
