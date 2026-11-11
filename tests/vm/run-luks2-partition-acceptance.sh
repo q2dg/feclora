@@ -88,7 +88,7 @@ from pathlib import Path
 from feclora.storage.partition_restore import restore_partition
 from feclora.storage.source_safety import check_capture_source_safe
 
-repository, source, target, luks_uuid, expected_path = sys.argv[1:]
+repository, source, target, luks_uuid, _expected_path = sys.argv[1:]
 repo = Path(repository)
 artifact_name = "luks2-acceptance.img"
 artifact_path = repo / artifact_name
@@ -97,7 +97,11 @@ with artifact_path.open("wb") as output:
         ["dd", f"if={source}", "bs=4M", "iflag=fullblock", "status=none"],
         check=True, stdout=output,
     )
-digest = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+digest_state = hashlib.sha256()
+with artifact_path.open("rb") as artifact_stream:
+    for chunk in iter(lambda: artifact_stream.read(1024 * 1024), b""):
+        digest_state.update(chunk)
+digest = digest_state.hexdigest()
 size = artifact_path.stat().st_size
 manifest = {
     "schema_version": 1,
