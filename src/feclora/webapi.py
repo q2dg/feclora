@@ -1332,7 +1332,7 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         "job_id": job_id,
         "answer_url": published["answer_url"],
         "boot_script_url": f"http://{address}:{port}/unattended-answer.ipxe",
-        "message": "Answer validated and published over HTTP with an identity-free iPXE handoff. Live-side download and execution are not yet implemented.",
+        "message": "Answer validated and published over HTTP with an identity-free iPXE handoff. Live downloads and validates the JSON; repository access and restore execution are not yet connected.",
     }
 
 
