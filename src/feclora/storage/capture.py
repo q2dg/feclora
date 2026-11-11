@@ -280,7 +280,6 @@ def capture_logical_volume(
     topology = inventory.get("volume_topology")
     if not isinstance(topology, Mapping) or topology.get("status") != "available":
         raise CaptureError("LVM topology is unavailable; refusing logical-volume capture")
-    source_devices = []
     def walk(items):
         for item in items:
             if not isinstance(item, Mapping):
@@ -336,8 +335,8 @@ def capture_logical_volume(
     if not logical_volume.get("major_minor"):
         raise CaptureError("logical volume is not active; refusing capture")
     source_size = source_device.get("size_bytes")
-    if isinstance(source_size, int) and not isinstance(source_size, bool) and source_size != size:
-        raise CaptureError("LVM and block-inventory logical-volume sizes disagree")
+    if isinstance(source_size, bool) or not isinstance(source_size, int) or source_size != size:
+        raise CaptureError("LVM and block-inventory logical-volume sizes are unknown or disagree")
     return capture_partition(
         source_path, filesystem, repository, filename, None, executables,
         compression=compression, compression_level=compression_level,
