@@ -104,7 +104,7 @@ streaming write and read-back SHA-256 verification.
 
 The current unattended executor supports whole-disk images with the
 `preserve` layout policy. It rejects `proportional` rather than silently
-pretending to resize partitions. The Local rescue TUI can create and sign unattended profiles. Automatic startup scheduling/systemd enablement is not enabled by default; an operator must explicitly configure it after mounting persistent profile, image, trust and audit storage.
+pretending to resize partitions. Profile creation/signing is not exposed in the supported Cockpit workflow; the old dialog-based rescue UI is not part of the Live interface. PXE Server/Client job integration, profile delivery and session-scoped replay protection remain unfinished. Automatic startup scheduling/systemd enablement is not enabled by default; an operator must explicitly configure it after mounting persistent profile, image, trust and audit storage.
 
 
 ## Optional boot-time execution
