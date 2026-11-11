@@ -119,6 +119,30 @@ class LvmTopologyTests(unittest.TestCase):
         })
         self.assertEqual(summary["volume_groups"][0]["status"], "unknown")
 
+    def test_vg_partial_flag_uses_the_documented_attribute_position(self):
+        partial = summarize_lvm_topology({
+            "status": "available", "pvs": [],
+            "vgs": [{"vg_name": "partial", "vg_attr": "wz-pn-", "vg_missing_pv_count": "0"}],
+            "lvs": [],
+        })
+        self.assertEqual(partial["volume_groups"][0]["status"], "degraded")
+
+        # A p in the allocation-policy position is not the partial flag.
+        healthy = summarize_lvm_topology({
+            "status": "available", "pvs": [],
+            "vgs": [{"vg_name": "healthy", "vg_attr": "wz--p-", "vg_missing_pv_count": "0"}],
+            "lvs": [],
+        })
+        self.assertEqual(healthy["volume_groups"][0]["status"], "healthy")
+
+    def test_vg_with_zero_missing_pvs_but_unknown_attributes_is_not_healthy(self):
+        summary = summarize_lvm_topology({
+            "status": "available", "pvs": [],
+            "vgs": [{"vg_name": "vg0", "vg_missing_pv_count": "0"}],
+            "lvs": [],
+        })
+        self.assertEqual(summary["volume_groups"][0]["status"], "unknown")
+
     def test_rejects_non_object_lvm_rows(self):
         with self.assertRaises(VolumeTopologyError):
             summarize_lvm_topology({"pvs": ["bad"], "vgs": [], "lvs": []})
