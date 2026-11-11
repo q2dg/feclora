@@ -184,55 +184,50 @@ collected. The remote repository's files must satisfy Feclora's root-owned
 image-manifest checks; NFS root-squash may prevent this.
 
 
-## PXE-to-restore workflow
+## PXE Live and unattended answer workflow
 
-The embedded PXE stack boots the same Fedora Live environment over the
-deployment interface; it does not embed credentials, a disk target, or a
-destructive job command in DHCP, TFTP, HTTP or the iPXE script.
+The embedded PXE stack boots the same Fedora Live kernel, initramfs and
+squashfs used by the Feclora ISO. The interactive PXE entry opens the normal
+Live Cockpit interface; operators do not need to boot the ISO manually.
 
 1. On the Server, select the deployment interface and run PXE preflight.
    Prefer ProxyDHCP on an existing LAN; use isolated DHCP only on a dedicated
    subnet after confirming Feclora is authoritative there.
 2. Activate PXE. Feclora stages the packaged BIOS/UEFI iPXE firmware and the
-   current Live kernel, initramfs and squashfs into read-only TFTP/HTTP trees.
-   BIOS and UEFI clients chainload iPXE and boot that Live environment.
-3. In the Server's Remote jobs tab, create a restore job. Select the local
-   Server image repository or a mounted, verified remote repository, choose
-   an image authenticated under the configured trust policy, select one Client for unicast or at least two for UDPcast
-   multicast, and save the job definition.
-4. On each PXE-booted Client, enter Client mode in Cockpit, enter the job UUID,
-   authenticate to the Server, select the local destination device and type
-   the exact destructive confirmation. Each Client reports READY only after
-   its local target checks pass.
-5. The Server operator reviews the complete READY set and types the exact
-   job-specific ARM confirmation. For a remote save, the Client operator
-   chooses compression and per-image protection (none, age, minisign or both)
-   before capture. Unicast sends the authenticated image set to one Client;
-   multicast sends the same artifacts to all authorized READY Clients on the
-   multicast segment. Age encryption is applied only when selected.
-6. Each Client stages and verifies the artifact before invoking its normal
-   protected restore engine. The Server collects an independent terminal
-   result for every Client.
+   Live boot payload into the TFTP/HTTP trees. BIOS and UEFI clients chainload
+   iPXE and boot that Live environment.
+3. For unattended preparation, open Server setup, enter the image repository
+   URL and upload the prewritten JSON answer file. The URL must match the
+   repository_url inside that document. The Server validates the schema,
+   signs the answer with its protected minisign key, verifies the signature
+   against the configured public key, and publishes the answer plus detached
+   signature under a generated job UUID through Caddy. No Client MAC, USB
+   identity medium, certificate, key or enrollment is requested by this form.
+4. The operator can explicitly revoke the published answer from Cockpit.
+   Automatic revocation on deployment cancellation/expiry is not connected
+   yet. Clients do not yet download or execute this answer: the Live-side
+   downloader, signature verification, repository adapters, stable target
+   revalidation and unattended restore engine remain implementation work.
+5. The existing Remote jobs workflow is a separate authenticated mTLS
+   workflow. It still uses enrolled Clients and local target approval; it is
+   not the new identity-free PXE answer workflow and must not be used as proof
+   that unattended answer execution is complete.
 
-### What the Server authorization means
+### Destructive-operation security boundary
 
-“ARM” is the literal word used at the final Server-side authorization gate; it
-is not a PXE command, a boot mode, or a network signal. The operator enters
-the exact job-specific phrase shown by Cockpit after reviewing the complete
-READY set. The service checks the job UUID and confirmation phrase, verifies
-that every authorized Client is READY, and performs the multicast network
-preflight when applicable. Only then does it start the existing deployment
-engine and send START to the authenticated Client sessions.
+The answer JSON is declarative data, not shell code. It identifies the image,
+repository and stable whole-disk WWN/serial selector and explicitly requests
+restore/start. The Server signs it after validation. Before any future
+unattended write, the Live image must verify that signature against a public
+key provisioned independently of the downloaded answer, validate the answer
+again, resolve exactly one matching disk and recheck its identity immediately
+before the write. A URL, DHCP lease, MAC address, job UUID or successful
+download is not authorization by itself.
 
-Each Client's local destructive confirmation is a separate prerequisite. For
-a disk clone, the Server phrase also binds the approved source device to the
-enrolled receiver identity. For multicast restore, it explicitly includes
-the IGMP-verification acknowledgement. Neither a PXE boot, a DHCP lease, a
-MAC address, nor knowledge of the job UUID can substitute for these checks.
-
-PXE boot itself never arms or starts a restore. The interactive iPXE choice boots the Live environment without job parameters. If the Server has published a restore-job handoff, the separate unattended choice chains a public script that passes only the job UUID, Server IPv4 address and mTLS control port as kernel parameters. The Client currently validates/parses these non-secret parameters but does not automatically start the Client service, authenticate and bind the job/profile, select a stable target, or reach READY. The operator still uses Cockpit to inspect the job, approve the local destination and wait for the Server's explicit ARM. A job UUID, DHCP lease or MAC address is not authorization to overwrite a disk. Stop PXE services after deployment if
-the network boot window is temporary.
-
+The current implementation publishes and revokes signed answer files; it does
+not yet perform the Live-side handoff or destructive restore. Do not use the
+new answer form for production unattended restores until the complete client
+path and hardware acceptance tests are implemented.
 
 ### Durable Client progress and restart history
 
