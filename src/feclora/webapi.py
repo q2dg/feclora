@@ -1320,7 +1320,8 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
             or key_info.st_uid != 0 or key_info.st_mode & 0o077):
         raise WebAPIError("a root-owned private Server signing key and independently configured public key are required")
     from feclora.storage.image_security import sign_manifest, verify_manifest_signature
-    from feclora.network.pxe_answer_store import publish_pxe_answer
+    from feclora.network.pxe_answer_store import publish_pxe_answer, revoke_pxe_answer
+    from feclora.network.boot_tree import publish_unattended_answer_ipxe_script
     import tempfile
 
     with tempfile.TemporaryDirectory(prefix="feclora-pxe-answer-") as temporary:
@@ -1339,13 +1340,22 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
             verify_signature=lambda raw, signature: raw == raw_answer and signature == detached_signature,
             address=address, http_port=port,
         )
+        boot_script = publish_unattended_answer_ipxe_script(
+            http_root, address, job_id,
+            published["answer_url"], published["signature_url"], port,
+        )
     except Exception as exc:
-        raise WebAPIError(f"PXE answer publication failed: {exc}") from exc
+        try:
+            revoke_pxe_answer(http_root, job_id)
+        except Exception:
+            pass
+        raise WebAPIError(f"PXE answer/boot publication failed: {exc}") from exc
     return {
         "job_id": job_id,
         "answer_url": published["answer_url"],
         "signature_url": published["signature_url"],
-        "message": "Answer validated, signed by the Server, and published through Caddy. Live-side verification and execution are not yet implemented.",
+        "boot_script_url": f"http://{address}:{port}/unattended-answer.ipxe",
+        "message": "Answer validated, signed by the Server, and published with an identity-free iPXE handoff. Live-side verification and execution are not yet implemented.",
     }
 
 
@@ -1355,7 +1365,9 @@ def _revoke_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError("revoke_pxe_answer requires exactly job_id")
     job_id = _text(params, "job_id", maximum=36)
     from feclora.network.pxe_answer_store import revoke_pxe_answer
+    from feclora.network.boot_tree import revoke_unattended_answer_ipxe_script
     try:
+        revoke_unattended_answer_ipxe_script("/srv/feclora/http", job_id)
         revoked = revoke_pxe_answer("/srv/feclora/http", job_id)
     except Exception as exc:
         raise WebAPIError(f"PXE answer revocation failed: {exc}") from exc
