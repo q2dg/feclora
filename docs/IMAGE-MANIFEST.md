@@ -86,7 +86,8 @@ The optional `storage` object has its own schema version and validates
 capture scope, source layer, supported LUKS/LVM/Btrfs identifiers (including
 the positive Btrfs device count) and a restricted dependency list. Unknown fields, invalid types, incompatible
 scopes and unsupported dependency kinds are rejected. Legacy disk/partition
-manifests without `storage` remain readable.
+manifests without `storage` remain readable; legacy Btrfs partition images without
+single-device topology provenance are intentionally refused by the restore preflight.
 
 ## Integrity, encryption and signatures
 
