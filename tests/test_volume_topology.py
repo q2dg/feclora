@@ -54,7 +54,7 @@ class LvmTopologyTests(unittest.TestCase):
             "pvs": [
                 {"pv_name": "/dev/sda2", "pv_uuid": "pv-a", "vg_name": "vg0",
                  "pv_size": "100000", "pv_free": "20000",
-                 "pv_pe_count": "25", "pv_pe_alloc_count": "20"},
+                 "pv_pe_count": "25", "pv_pe_alloc_count": "20", "pv_missing": ""},
             ],
             "vgs": [
                 {"vg_name": "vg0", "vg_uuid": "vg-uuid", "pv_count": "2",
@@ -80,6 +80,19 @@ class LvmTopologyTests(unittest.TestCase):
         self.assertEqual(vg["logical_volumes"][0]["data_percent"], "42.5")
         self.assertTrue(vg["logical_volumes"][1]["snapshot"])
         self.assertEqual(summary["lvs"], raw["lvs"])
+
+
+    def test_missing_pv_attribute_marks_group_degraded_when_count_is_unknown(self):
+        summary = summarize_lvm_topology({
+            "status": "available",
+            "pvs": [{"pv_name": "[unknown]", "vg_name": "vg0", "pv_missing": "missing"}],
+            "vgs": [{"vg_name": "vg0", "vg_attr": "wz-pn-"}],
+            "lvs": [],
+        })
+        vg = summary["volume_groups"][0]
+        self.assertEqual(vg["status"], "degraded")
+        self.assertEqual(vg["missing_pv_count"], 1)
+        self.assertTrue(vg["pv_members"][0]["missing"])
 
     def test_unknown_health_fields_are_not_reported_as_healthy(self):
         summary = summarize_lvm_topology({
