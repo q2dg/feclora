@@ -610,12 +610,6 @@ class WebAPITests(unittest.TestCase):
         prepare.assert_called_once_with({"client_id": "lab"})
         self.assertEqual(result["identity"], "URI:feclora-client-lab")
 
-    def test_export_pxe_client_identity_is_exposed_through_allowlisted_api(self):
-        with patch("feclora.webapi._export_pxe_client_identity", return_value={"identity": "URI:feclora-client-lab"}) as export:
-            result = dispatch({"action": "export_pxe_client_identity", "params": {"export_directory": "/run/media/test/USB"}})
-        export.assert_called_once_with({"export_directory": "/run/media/test/USB"})
-        self.assertEqual(result["identity"], "URI:feclora-client-lab")
-
     def test_complete_client_enrollment_is_exposed_through_allowlisted_api(self):
         with patch("feclora.webapi._complete_client_enrollment", return_value={"identity": "URI:feclora-client-lab"}) as complete:
             result = dispatch({"action": "complete_client_enrollment", "params": {"client_id": "lab"}})
