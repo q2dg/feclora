@@ -70,7 +70,7 @@ def render_ipxe_script(address: str, http_port: int = 8080) -> str:
     if isinstance(http_port, bool) or not isinstance(http_port, int) or not 1 <= http_port <= 65535:
         raise LiveBootAssetError("PXE HTTP port is invalid")
     base = f"http://{parsed}:{http_port}/live"
-    unattended = f"http://{parsed}:{http_port}/unattended.ipxe"
+    unattended = f"http://{parsed}:{http_port}/unattended-answer.ipxe"
     return (
         "#!ipxe\n"
         "dhcp\n"
@@ -93,11 +93,26 @@ def render_ipxe_script(address: str, http_port: int = 8080) -> str:
     )
 
 
-def render_unattended_ipxe_script(
-    address: str, job_id: str, http_port: int = 8080, control_port: int = 9443,
-) -> str:
-    """Render a job-bound Live boot handoff; the job ID is not authorization."""
+def _answer_job_id(job_id: str) -> str:
     import uuid
+    try:
+        canonical = str(uuid.UUID(job_id))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise LiveBootAssetError("unattended PXE answer job ID must be a UUID") from exc
+    if canonical != job_id:
+        raise LiveBootAssetError("unattended PXE answer job ID must use canonical UUID notation")
+    return canonical
+
+
+def render_unattended_answer_ipxe_script(
+    address: str,
+    job_id: str,
+    answer_url: str,
+    signature_url: str,
+    http_port: int = 8080,
+) -> str:
+    """Render an identity-free Live boot handoff to a signed answer document."""
+    from urllib.parse import urlsplit
 
     try:
         parsed = ipaddress.ip_address(address)
@@ -107,58 +122,70 @@ def render_unattended_ipxe_script(
         raise LiveBootAssetError("PXE boot address must be usable unicast IPv4")
     if isinstance(http_port, bool) or not isinstance(http_port, int) or not 1 <= http_port <= 65535:
         raise LiveBootAssetError("PXE HTTP port is invalid")
-    if isinstance(control_port, bool) or not isinstance(control_port, int) or not 1024 <= control_port <= 65535:
-        raise LiveBootAssetError("deployment control port must be between 1024 and 65535")
-    try:
-        canonical_job_id = str(uuid.UUID(job_id))
-    except (ValueError, TypeError, AttributeError) as exc:
-        raise LiveBootAssetError("unattended PXE job ID must be a UUID") from exc
-    if canonical_job_id != job_id:
-        raise LiveBootAssetError("unattended PXE job ID must use canonical UUID notation")
-    base = f"http://{parsed}:{http_port}/live"
+    canonical_job_id = _answer_job_id(job_id)
+    base_url = f"http://{parsed}:{http_port}/answers/{canonical_job_id}"
+    expected_answer = base_url + "/answer.json"
+    expected_signature = base_url + "/answer.minisig"
+    if answer_url != expected_answer or signature_url != expected_signature:
+        raise LiveBootAssetError("PXE answer URLs must match this Server, port and canonical job UUID")
+    for value, label in ((answer_url, "answer"), (signature_url, "signature")):
+        parsed_url = urlsplit(value)
+        if (parsed_url.scheme != "http" or parsed_url.username is not None
+                or parsed_url.password is not None or parsed_url.query or parsed_url.fragment):
+            raise LiveBootAssetError(f"PXE {label} URL is not a plain Caddy answer URL")
+    live_base = f"http://{parsed}:{http_port}/live"
     return (
-        "#!ipxe\n"
-        "dhcp\n"
-        f"kernel {base}/vmlinuz root=live:{base}/squashfs.img ro rd.live.image "
-        f"ip=dhcp rd.neednet=1 feclora.pxe_mode=unattended feclora.pxe_job_id={job_id} "
-        f"feclora.pxe_server={parsed} feclora.pxe_control_port={control_port}\n"
-        f"initrd {base}/initrd.img\n"
-        "boot\n"
+        "#!ipxe\\n"
+        "dhcp\\n"
+        f"kernel {live_base}/vmlinuz root=live:{live_base}/squashfs.img ro rd.live.image "
+        f"ip=dhcp rd.neednet=1 feclora.pxe_mode=unattended-answer "
+        f"feclora.pxe_job_id={canonical_job_id} "
+        f"feclora.pxe_answer_url={answer_url} "
+        f"feclora.pxe_signature_url={signature_url}\\n"
+        f"initrd {live_base}/initrd.img\\n"
+        "boot\\n"
     )
 
 
-
-def publish_unattended_ipxe_script(
-    http_root: str,
-    address: str,
-    job_id: str,
-    http_port: int = 8080,
-    control_port: int = 9443,
-) -> str:
-    """Atomically publish a public, non-secret job handoff script."""
-    target_root = Path(http_root)
+def _safe_http_root(http_root: str) -> Path:
+    root = Path(http_root)
     try:
-        info = target_root.lstat()
+        info = root.lstat()
     except OSError as exc:
         raise LiveBootAssetError(f"PXE HTTP root is unavailable: {exc}") from exc
     if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
             or info.st_uid != os.geteuid() or info.st_mode & 0o022):
-        raise LiveBootAssetError("PXE HTTP root must be owned by the service user and not group/other-writable")
-    destination = target_root / "unattended.ipxe"
-    content = render_unattended_ipxe_script(address, job_id, http_port, control_port)
+        raise LiveBootAssetError("PXE HTTP root must be owned by the publisher and not group/other-writable")
+    return root
+
+
+def publish_unattended_answer_ipxe_script(
+    http_root: str,
+    address: str,
+    job_id: str,
+    answer_url: str,
+    signature_url: str,
+    http_port: int = 8080,
+) -> str:
+    """Atomically publish one answer-specific, identity-free iPXE script."""
+    target_root = _safe_http_root(http_root)
+    content = render_unattended_answer_ipxe_script(
+        address, job_id, answer_url, signature_url, http_port,
+    )
+    destination = target_root / "unattended-answer.ipxe"
     if os.path.lexists(destination):
         existing = destination.lstat()
         if (not stat.S_ISREG(existing.st_mode) or stat.S_ISLNK(existing.st_mode)
                 or existing.st_uid != os.geteuid() or existing.st_mode & 0o022):
-            raise LiveBootAssetError("refusing to replace an unsafe unattended boot script")
+            raise LiveBootAssetError("refusing to replace an unsafe unattended answer boot script")
         try:
             current = destination.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as exc:
-            raise LiveBootAssetError(f"cannot inspect existing unattended boot script: {exc}") from exc
+            raise LiveBootAssetError(f"cannot inspect existing unattended answer script: {exc}") from exc
         if current != content:
-            raise LiveBootAssetError("a different unattended PXE job is already published")
+            raise LiveBootAssetError("a different unattended PXE answer job is already published")
         return str(destination)
-    fd, temporary = tempfile.mkstemp(prefix=".unattended.ipxe.", dir=target_root)
+    fd, temporary = tempfile.mkstemp(prefix=".unattended-answer.ipxe.", dir=target_root)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as output:
             output.write(content)
@@ -166,15 +193,11 @@ def publish_unattended_ipxe_script(
             os.fsync(output.fileno())
         os.chmod(temporary, 0o444)
         try:
-            # link() is atomic and fails if another job won the publication
-            # race. os.replace() would silently overwrite an active job.
             os.link(temporary, destination)
         except FileExistsError as exc:
-            raise LiveBootAssetError("another unattended PXE job was published concurrently") from exc
+            raise LiveBootAssetError("another unattended PXE answer job was published concurrently") from exc
         os.unlink(temporary)
-        directory_fd = os.open(
-            target_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
-        )
+        directory_fd = os.open(target_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
             os.fsync(directory_fd)
         finally:
@@ -190,53 +213,41 @@ def publish_unattended_ipxe_script(
             os.unlink(temporary)
         except OSError:
             pass
-        raise LiveBootAssetError(f"cannot publish unattended PXE boot script: {exc}") from exc
+        raise LiveBootAssetError(f"cannot publish unattended PXE answer script: {exc}") from exc
     return str(destination)
 
 
-def revoke_unattended_ipxe_script(
-    http_root: str,
-    address: str,
-    job_id: str,
-    http_port: int = 8080,
-    control_port: int = 9443,
-) -> bool:
-    """Remove only the exact job script being revoked; never delete a newer job."""
-    target_root = Path(http_root)
-    try:
-        root_info = target_root.lstat()
-    except OSError as exc:
-        raise LiveBootAssetError(f"PXE HTTP root is unavailable: {exc}") from exc
-    if (not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode)
-            or root_info.st_uid != os.geteuid() or root_info.st_mode & 0o022):
-        raise LiveBootAssetError("PXE HTTP root must be owned by the service user and not group/other-writable")
-    destination = target_root / "unattended.ipxe"
+def revoke_unattended_answer_ipxe_script(http_root: str, job_id: str) -> bool:
+    """Remove only a safe answer-specific script whose public job ID matches."""
+    target_root = _safe_http_root(http_root)
+    canonical_job_id = _answer_job_id(job_id)
+    destination = target_root / "unattended-answer.ipxe"
     try:
         info = destination.lstat()
     except FileNotFoundError:
         return False
     except OSError as exc:
-        raise LiveBootAssetError(f"cannot inspect unattended PXE boot script: {exc}") from exc
+        raise LiveBootAssetError(f"cannot inspect unattended answer boot script: {exc}") from exc
     if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != os.geteuid() or info.st_mode & 0o022):
-        raise LiveBootAssetError("unattended PXE boot script is not a safe regular file")
-    expected = render_unattended_ipxe_script(address, job_id, http_port, control_port)
+            or info.st_uid != os.geteuid() or info.st_mode & 0o022 or info.st_size > 8192):
+        raise LiveBootAssetError("unattended answer boot script is not a safe regular file")
     try:
-        actual = destination.read_text(encoding="utf-8")
+        current = destination.read_text(encoding="utf-8")
     except (OSError, UnicodeError) as exc:
-        raise LiveBootAssetError(f"cannot read unattended PXE boot script: {exc}") from exc
-    if actual != expected:
-        raise LiveBootAssetError("unattended PXE boot script belongs to a different job; refusing to revoke it")
+        raise LiveBootAssetError(f"cannot read unattended answer boot script: {exc}") from exc
+    if (not current.startswith("#!ipxe\\n")
+            or current.count(f"feclora.pxe_job_id={canonical_job_id}") != 1
+            or "feclora.pxe_mode=unattended-answer" not in current
+            or f"/answers/{canonical_job_id}/answer.json" not in current
+            or f"/answers/{canonical_job_id}/answer.minisig" not in current):
+        raise LiveBootAssetError("unattended answer boot script belongs to a different job; refusing to revoke it")
     destination.unlink()
-    directory_fd = os.open(
-        target_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
-    )
+    directory_fd = os.open(target_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
     try:
         os.fsync(directory_fd)
     finally:
         os.close(directory_fd)
     return True
-
 
 
 def clear_stale_unattended_ipxe_script(http_root: str) -> bool:
