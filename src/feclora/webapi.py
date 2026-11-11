@@ -1349,6 +1349,25 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
 
 
 
+
+def _revoke_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"job_id"}:
+        raise WebAPIError("revoke_pxe_answer requires exactly job_id")
+    job_id = _text(params, "job_id", maximum=36)
+    from feclora.network.pxe_answer_store import revoke_pxe_answer
+    try:
+        revoked = revoke_pxe_answer("/srv/feclora/http", job_id)
+    except Exception as exc:
+        raise WebAPIError(f"PXE answer revocation failed: {exc}") from exc
+    return {
+        "job_id": job_id,
+        "revoked": revoked,
+        "message": "PXE answer and detached signature revoked from the Caddy document root."
+        if revoked else "No published PXE answer existed for this job.",
+    }
+
+
+
 def _prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
     from feclora.deployment.cockpit_client import prepare_client_request
     try:
@@ -2951,6 +2970,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _stop_pxe_services()
     if action == "publish_pxe_answer":
         return _publish_pxe_answer(params)
+    if action == "revoke_pxe_answer":
+        return _revoke_pxe_answer(params)
     if action == "pxe_service_status":
         if params:
             raise WebAPIError("pxe_service_status does not accept parameters")
