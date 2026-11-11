@@ -268,7 +268,7 @@ def _consume_answer_once(job_id: str, directory: str | os.PathLike[str]) -> None
             0o600,
         )
         with os.fdopen(fd, "w", encoding="ascii") as output:
-            output.write("consumed\\n")
+            output.write("consumed\n")
             output.flush()
             os.fsync(output.fileno())
         directory_fd = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
