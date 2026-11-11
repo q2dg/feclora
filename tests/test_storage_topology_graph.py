@@ -32,6 +32,7 @@ class StorageTopologyGraphTests(unittest.TestCase):
             },
             "btrfs_topology": {"filesystems": []},
             "btrfs_subvolumes": {"mounts": []},
+            "stratis_topology": {"status": "available", "pools": []},
         }
         graph = build_storage_graph(inventory)
         relations = {(e["source"], e["target"], e["relation"]) for e in graph["edges"]}
@@ -71,7 +72,8 @@ class StorageTopologyGraphTests(unittest.TestCase):
     def test_received_subvolume_and_snapshot_provenance_are_preserved(self):
         graph = build_storage_graph({
             "devices": [],
-            "btrfs_subvolumes": {"mounts": [{"mountpoint": "/mnt/data", "subvolumes": [
+            "btrfs_topology": {"status": "available", "filesystems": [{"uuid": "fs-uuid", "devices": []}]},
+            "btrfs_subvolumes": {"mounts": [{"mountpoint": "/mnt/data", "uuid": "fs-uuid", "subvolumes": [
                 {"id": 256, "uuid": "subvol-1", "path": "@", "kind": "subvolume",
                  "parent_uuid": None, "received_uuid": None},
                 {"id": 257, "uuid": "subvol-2", "path": "@snap", "kind": "snapshot",
@@ -84,3 +86,35 @@ class StorageTopologyGraphTests(unittest.TestCase):
         self.assertEqual(by_uuid["subvol-1"]["subvolume_kind"], "subvolume")
         relations = {(e["source"], e["target"], e["relation"]) for e in graph["edges"]}
         self.assertIn(("btrfs-subvolume:subvol-2", "btrfs-subvolume:subvol-1", "snapshot_of"), relations)
+        self.assertIn(("btrfs:fs-uuid", "btrfs-subvolume:subvol-1", "contains_subvolume"), relations)
+
+    def test_joins_stratis_pool_filesystem_mapper_and_backing_device(self):
+        graph = build_storage_graph({
+            "devices": [{"path": "/dev/dm-3", "type": "lvm", "children": []},
+                        {"path": "/dev/sda1", "type": "part", "children": []}],
+            "stratis_topology": {"status": "available", "pools": [{
+                "name": "poolA", "filesystems": [{
+                    "name": "fs1", "device": "/dev/stratis/poolA/fs1",
+                    "mapper_device": "/dev/dm-3",
+                    "backing_device_paths": ["/dev/sda1"],
+                }]
+            }]},
+        })
+        relations = {(e["source"], e["target"], e["relation"]) for e in graph["edges"]}
+        self.assertIn(("stratis-pool:poolA", "stratis-filesystem:poolA/fs1", "contains_filesystem"), relations)
+        self.assertIn(("stratis-filesystem:poolA/fs1", "device:/dev/dm-3", "maps_to_block_device"), relations)
+        self.assertIn(("stratis-filesystem:poolA/fs1", "device:/dev/sda1", "backed_by"), relations)
+
+    def test_reports_incomplete_sources_and_unmatched_lvm_lv_paths(self):
+        graph = build_storage_graph({
+            "devices": [{"path": "/dev/mapper/vg-root", "type": "lvm", "children": []}],
+            "volume_topology": {"status": "available", "pvs": [], "volume_groups": [{
+                "name": "vg", "logical_volumes": [{"path": "/dev/vg/root", "name": "root"}]
+            }]},
+            "luks_metadata": {"status": "permission_required", "containers": []},
+        })
+        self.assertEqual(graph["status"], "partial")
+        self.assertIn({"layer": "lvm_lv", "path": "/dev/vg/root",
+                       "reason": "lv_path_not_exactly_matched_to_lsblk"}, graph["unresolved"])
+        self.assertIn({"source": "luks_metadata", "status": "permission_required"},
+                      graph["source_statuses"])
