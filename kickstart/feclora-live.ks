@@ -145,6 +145,8 @@ install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-rest
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-restore-profile.service" "$TARGET_ROOT/etc/systemd/system/feclora-restore-profile.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-deployment@.service" "$TARGET_ROOT/etc/systemd/system/feclora-deployment@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-client@.service" "$TARGET_ROOT/etc/systemd/system/feclora-client@.service"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-pxe-client@.service" "$TARGET_ROOT/etc/systemd/system/feclora-pxe-client@.service"
+install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/run-feclora-pxe\\x2didentity.mount" "$TARGET_ROOT/etc/systemd/system/mnt-feclora\\x2dpxe\\x2didentity.mount"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation@.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation@.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-local-operation-recovery.service" "$TARGET_ROOT/etc/systemd/system/feclora-local-operation-recovery.service"
 install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-cockpit-certificate" "$TARGET_ROOT/usr/libexec/feclora/feclora-cockpit-certificate"
@@ -172,6 +174,7 @@ systemctl --root="$TARGET_ROOT" enable feclora-cockpit-certificate.service feclo
 systemctl --root="$TARGET_ROOT" set-default graphical.target
 systemctl --root="$TARGET_ROOT" mask getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service
 install -d -m 0700 "$TARGET_ROOT/var/lib/feclora/images"
+install -d -m 0700 "$TARGET_ROOT/mnt/feclora-pxe-identity"
 chown --reference="$TARGET_ROOT/home/feclora" "$TARGET_ROOT/home/feclora/profiles" "$TARGET_ROOT/home/feclora/logs"
 chown root:root "$TARGET_ROOT/var/lib/feclora/images"
 chmod 0700 "$TARGET_ROOT/var/lib/feclora/images"
