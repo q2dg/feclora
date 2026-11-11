@@ -9,7 +9,7 @@ import re
 from typing import Any
 
 
-_DEVICE_PATH = re.compile(r"(/dev/[^\\s,()]+)")
+_DEVICE_PATH = re.compile(r"(/dev/[^\s,()]+)")
 
 
 def _walk_devices(devices: list[dict[str, Any]]):
