@@ -58,6 +58,47 @@ def parse_filesystem_show(payload: str) -> list[dict[str, Any]]:
 
 
 
+_PROFILE = re.compile(
+    r"^\\s*(Data|Metadata|System|GlobalReserve),\\s*([^:]+):\\s*"
+    r"total=(\\d+)\\s+used=(\\d+)\\s*$", re.IGNORECASE,
+)
+_KNOWN_PROFILES = {
+    "single", "dup", "raid0", "raid1", "raid1c3", "raid1c4",
+    "raid10", "raid5", "raid6",
+}
+
+
+def parse_filesystem_profiles(payload: str) -> list[dict[str, Any]]:
+    """Parse allocation profiles from 'btrfs filesystem df --raw'."""
+    profiles: list[dict[str, Any]] = []
+    for line in payload.splitlines():
+        if not line.strip():
+            continue
+        match = _PROFILE.match(line)
+        if match is None:
+            # df output may include harmless non-profile lines, but malformed
+            # rows that look like allocation profiles must not be guessed.
+            if re.match(r"^\\s*(Data|Metadata|System|GlobalReserve)\\s*,", line, re.IGNORECASE):
+                raise BtrfsInventoryError("Btrfs returned an unrecognized allocation-profile row")
+            continue
+        kind, profile, total, used = match.groups()
+        normalized = profile.strip().lower()
+        if not normalized or int(total) < 0 or int(used) < 0 or int(used) > int(total):
+            raise BtrfsInventoryError("Btrfs returned invalid allocation-profile sizes")
+        profiles.append({
+            "type": kind.lower(),
+            "profile": normalized,
+            "total_bytes": int(total),
+            "used_bytes": int(used),
+            "known_profile": normalized in _KNOWN_PROFILES,
+        })
+    if not any(item["type"] == "data" for item in profiles):
+        raise BtrfsInventoryError("Btrfs allocation report has no Data profile")
+    if not any(item["type"] == "metadata" for item in profiles):
+        raise BtrfsInventoryError("Btrfs allocation report has no Metadata profile")
+    return profiles
+
+
 _SUBVOLUME = re.compile(
     r"^ID\s+(\d+)\s+gen\s+(\d+)\s+parent\s+(\d+)\s+top level\s+(\d+)"
     r"\s+parent_uuid\s+(\S+)\s+received_uuid\s+(\S+)\s+uuid\s+(\S+)"
@@ -137,11 +178,16 @@ def collect_btrfs_subvolumes(
                 [*prefix, btrfs, "subvolume", "list", "-a", "-p", "-u", "-q", "-R", target],
                 check=True, capture_output=True, text=True, timeout=30,
             )
+            usage = runner(
+                [*prefix, btrfs, "filesystem", "df", "--raw", target],
+                check=True, capture_output=True, text=True, timeout=30,
+            )
             mounts.append({
                 "mountpoint": target,
                 "source": entry.get("source"),
                 "uuid": entry.get("uuid"),
                 "subvolumes": parse_subvolume_list(listed.stdout),
+                "allocation_profiles": parse_filesystem_profiles(usage.stdout),
             })
     except subprocess.TimeoutExpired as exc:
         raise BtrfsInventoryError("Btrfs subvolume inspection timed out") from exc
