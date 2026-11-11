@@ -113,7 +113,7 @@ class PartitionImageCaptureTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             def runner(command, **kwargs):
                 if command[0] == "lsblk":
-                    return SimpleNamespace(stdout="4096 512 part btrfs\\n")
+                    return SimpleNamespace(stdout="4096 512 part btrfs\n")
                 return SimpleNamespace(stdout=btrfs_show, returncode=0)
             inventory = make_inventory("/dev/fake1", 4096, "btrfs")
             inventory["btrfs_topology"] = {"status": "available", "filesystems": [{
