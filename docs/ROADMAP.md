@@ -59,9 +59,12 @@ hardware, provider services or physical networks have passed acceptance.
   transfers remain limited (single configured directory, synchronous
   metadata/artifact steps, no complete byte-progress/resume workflow).
 - PXE job handoff: the active Server restore-job lifecycle publishes/revokes
-  the handoff script. Boot parameters are not authorization. The Client does
-  not yet automatically authenticate, inspect and bind the job/profile,
-  determine a stable target, reach READY or execute unattended.
+  the handoff script. An opt-in signed UKI/PCR builder and TPM2-only local
+  credential seal/unseal helpers now exist, but are not integrated into the
+  default PXE asset pipeline or Client startup. Boot parameters are not
+  authorization. The Client does not yet automatically authenticate, inspect
+  and bind the job/profile, determine a stable target, reach READY or execute
+  unattended.
 - Unattended restore profiles: a standalone signed single-use executor exists,
   but profile authoring/activation and integration with PXE Server/Client jobs
   are not complete.
