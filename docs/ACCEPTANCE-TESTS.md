@@ -213,6 +213,45 @@ For each run, record:
   unit-test results alone.
 
 
+## 9. Filesystem-aware partition capture and restore
+
+Run each case on a disposable VM disk/partition formatted with the named
+filesystem. Use the exact Partclone and filesystem-checker packages included
+in the target Feclora Live image. Record package versions and tool paths.
+
+| Filesystem | Expected capture/restore utility | Post-restore check |
+|---|---|---|
+| ext2 / ext3 | partclone.extfs | e2fsck -f -n |
+| ext4 | partclone.ext4 | e2fsck -f -n |
+| XFS | partclone.xfs | xfs_repair -n |
+| NTFS (including ntfs3 kernel FSTYPE) | partclone.ntfs | ntfsfix --no-action |
+| FAT12 / FAT16 / FAT32 / vfat | partclone.fat | fsck.fat -n |
+| exFAT | partclone.exfat | fsck.exfat -n |
+
+For each row:
+
+1. Create a disposable filesystem with representative files, directories,
+   permissions/metadata supported by that filesystem, and known checksums.
+2. Ensure the source is in a safe, quiescent state. Record how Feclora prevents
+   or detects mounted/in-use writes and filesystem inconsistency.
+3. Capture a partition image and confirm the selected engine is the expected
+   Partclone executable. Record artifact format, filesystem identifier, size
+   and SHA-256.
+4. Restore to an equal-or-larger disposable partition with compatible logical
+   sector geometry. Confirm Feclora runs the declared read-only checker.
+5. Mount the restored filesystem read-only where supported and compare file
+   contents, directory structure and metadata that the filesystem preserves.
+6. Repeat with the matching Partclone executable deliberately unavailable.
+   Confirm capture selects raw dd explicitly, and raw restore verifies the
+   destination by read-back rather than claiming filesystem-aware capture.
+7. Repeat with an unknown FSTYPE and confirm the raw fallback is selected.
+   A missing checker must reject a Partclone restore before target writes.
+8. Record pass/fail/not-run separately for each filesystem and tool version.
+   Unit tests and command-map coverage alone do not constitute acceptance.
+
+Do not mark a filesystem supported for a release until its real capture/restore
+round trip and integrity checks have passed on the target runtime.
+
 ## 8. Btrfs subvolume and snapshot discovery acceptance
 
 Run this check in a disposable VM with a Btrfs filesystem already mounted and
