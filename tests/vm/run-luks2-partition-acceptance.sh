@@ -80,6 +80,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -129,7 +130,8 @@ manifest_path = repo / "luks2-acceptance.manifest.json"
 manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 def safe_target(path):
-    if path != target or not path.startswith("/dev/loop"):
+    if (path != target or not path.startswith("/dev/loop")
+            or not stat.S_ISBLK(os.stat(path).st_mode)):
         raise RuntimeError("acceptance target escaped the disposable loop partition")
 
 restore_partition(
@@ -144,7 +146,10 @@ restore_partition(
     },
     runner=subprocess.run,
     popen_factory=subprocess.Popen,
-    device_validator=lambda path: path == target and os.path.exists(path),
+    device_validator=lambda path: (
+        path == target and os.path.exists(path)
+        and stat.S_ISBLK(os.stat(path).st_mode)
+    ),
     target_safety_check=safe_target,
     effective_uid=os.geteuid,
 )
