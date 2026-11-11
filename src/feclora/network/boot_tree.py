@@ -154,7 +154,8 @@ def _safe_http_root(http_root: str) -> Path:
     except OSError as exc:
         raise LiveBootAssetError(f"PXE HTTP root is unavailable: {exc}") from exc
     if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != os.geteuid() or info.st_mode & 0o022):
+            or info.st_uid != os.geteuid() or info.st_mode & 0o022
+            or info.st_mode & 0o005 != 0o005):
         raise LiveBootAssetError("PXE HTTP root must be owned by the publisher and not group/other-writable")
     return root
 
