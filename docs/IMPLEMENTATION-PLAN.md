@@ -123,7 +123,8 @@ Existing foundation: block inventory, read-only LVM reporting, Btrfs/Stratis inv
 - [x] Discover subvolumes on already-mounted Btrfs filesystems and distinguish snapshots from ordinary subvolumes using parent UUID metadata; record received UUID provenance separately without assuming every received subvolume is a snapshot.
 - [ ] Extend Btrfs discovery to unmounted filesystems without mounting them, capture snapshot/subvolume ancestry and backing-device/profile dependencies, and validate snapshot consistency.
 - [x] Tag LUKS container signatures and active `crypt` device-mapper mappings in the read-only `lsblk` inventory; no passphrases are requested or stored.
-- [ ] Complete LUKS1/LUKS2 metadata inspection and distinguish a raw encrypted-container image from a decrypted logical-volume/filesystem image. Never request or persist passphrases in ordinary profiles, logs or browser state.
+- [x] Inspect LUKS1/LUKS2 headers read-only with `cryptsetup`: version, UUID, cipher/mode, sector size where available, and keyslot/token/segment counts. Do not expose token payloads or request/store passphrases.
+- [ ] Distinguish a raw encrypted-container image from a decrypted logical-volume/filesystem image in capture planning. Never request or persist passphrases in ordinary profiles, logs or browser state.
 - [ ] Represent unknown, degraded, missing and unsupported layers explicitly; never present discovery as proof that capture or restore is supported.
 - [ ] Define capture choices and manifest metadata for whole-disk, partition, logical-volume, Btrfs snapshot/subvolume and encrypted-container images, with explicit source boundaries and dependencies.
 - [ ] Validate alignment, sector size, geometry and EFI/BIOS/recovery partition roles where a whole-disk restore is planned.
