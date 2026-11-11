@@ -99,7 +99,7 @@ Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer pr
 - [x] Provide Cockpit fields for the repository URL and answer-file upload; require exact equality between the field and the signed document.
 - [x] Sign uploaded answers with the protected Server minisign key, verify against the configured public key, publish answer and detached signature atomically through Caddy, and support explicit revocation.
 - [ ] Embed/provision the corresponding trusted public key independently in the Feclora Live image; never trust a key downloaded beside the answer.
-- [ ] Publish an unattended iPXE entry that boots the same Fedora Live kernel, initramfs and squashfs as the ISO and passes only the answer URL/job scope.
+- [x] Publish an answer-specific iPXE entry that boots the same Fedora Live kernel, initramfs and squashfs as the ISO and passes only the job UUID and answer/signature URLs.
 - [ ] Download the answer and detached signature from Caddy in Live, verify the signature before parsing or acting, enforce schema/version/size limits, and fail closed on missing, expired, tampered or revoked content.
 - [ ] Connect the repository URL to supported provider adapters and separately protected credential references; reject unsupported schemes rather than accepting syntax as implementation.
 - [ ] Resolve exactly one whole-disk target by WWN and/or serial, verify capacity and device safety, and recheck stable identity immediately before the first write.
