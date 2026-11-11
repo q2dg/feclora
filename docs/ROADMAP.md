@@ -59,8 +59,8 @@ hardware, provider services or physical networks have passed acceptance.
   transfers remain limited (single configured directory, synchronous
   metadata/artifact steps, no complete byte-progress/resume workflow).
 - PXE Live boot and initial shared-answer publication: Cockpit accepts a
-  JSON answer and repository URL; the Server signs it with its protected
-  minisign key and publishes/revokes the answer and signature through Caddy.
+  single JSON answer containing the repository URL; the Server validates it
+  and publishes/revokes it through Caddy over HTTP.
   No per-Client identity or removable identity media is part of this design.
   Live-side download, independent trust-root provisioning, provider adapters,
   stable-target revalidation, replay/expiry controls and restore execution
