@@ -144,7 +144,11 @@ files are never overwritten.
 
 The script is deliberately separate from the default ISO/PXE build: it does
 not guess the Live kernel command line, alter the current iPXE menu, enroll a
-firmware trust key, or publish the UKI. The operator must provide:
+firmware trust key, or publish the UKI. Build a distinct UKI for each job when
+the non-secret Server endpoint/job handoff parameters differ. Embed those
+parameters in the signed `.cmdline` section; do not pass overrides as EFI load
+options, because an embedded command line under Secure Boot is immutable and
+is included in the UKI's measured content. The operator must provide:
 
 - A root-protected ukify configuration with `[UKI]` Secure Boot key/certificate
   and one or more `[PCRSignature:name]` sections containing PCR private/public
