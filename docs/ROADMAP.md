@@ -65,8 +65,6 @@ hardware, provider services or physical networks have passed acceptance.
   unique whole disk by per-Client WWN/serial, and retains Server READY/ARM.
   Boot parameters are not authorization. Partition/multicast unattended
   execution and physical BIOS/UEFI acceptance remain pending.
-  and bind the job/profile, determine a stable target, reach READY or execute
-  unattended.
 - Unattended restore profiles: a standalone signed single-use executor exists,
   but profile authoring/activation and integration with PXE Server/Client jobs
   are not complete.
