@@ -84,12 +84,16 @@ import json
 import os
 import shutil
 import stat
+import json
+import struct
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
-from feclora.storage.partition_restore import restore_partition
-from feclora.storage.source_safety import check_capture_source_safe
+from feclora.deployment.client_runtime import execute_client_image_job
+from feclora.deployment.control import LocalTargetApproval
+from feclora.deployment.job import DeploymentJob
 
 repository, source, target, luks_uuid, _expected_path = sys.argv[1:]
 repo = Path(repository)
@@ -137,31 +141,68 @@ manifest = {
 manifest_path = repo / "luks2-acceptance.manifest.json"
 manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
-def safe_target(path):
-    if (path != target or not path.startswith("/dev/loop")
-            or not stat.S_ISBLK(os.stat(path).st_mode)):
-        raise RuntimeError("acceptance target escaped the disposable loop partition")
-    check_capture_source_safe(path, effective_uid=os.geteuid)
-
-restore_partition(
-    manifest_path=manifest_path,
-    repository=repo,
-    target_path=target,
-    confirmation=f"ERASE {target}",
-    executables={
-        "lsblk": shutil.which("lsblk"),
-        "dd": shutil.which("dd"),
-        "cryptsetup": shutil.which("cryptsetup"),
-    },
-    runner=subprocess.run,
-    popen_factory=subprocess.Popen,
-    device_validator=lambda path: (
-        path == target and os.path.exists(path)
-        and stat.S_ISBLK(os.stat(path).st_mode)
-    ),
-    target_safety_check=safe_target,
-    effective_uid=os.geteuid,
+# Exercise the real unicast Client runtime and its locally approved
+# partition target. Only the network artifact receiver is replaced: it returns
+# this locally generated manifest, while restore_partition performs real I/O.
+job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+job = DeploymentJob.from_dict({
+    "schema_version": 1,
+    "job_id": job_id,
+    "operation": "restore",
+    "image_id": "luks2-acceptance",
+    "target_type": "partition",
+    "authorized_clients": ["52:54:00:12:34:56"],
+    "network_interface": "lo",
+    "transport": "unicast",
+    "multicast_group": None,
+    "multicast_port": None,
+    "start_policy": "manual",
+    "expected_clients": None,
+    "start_deadline": None,
+})
+server_identity = "URI:feclora-acceptance-server"
+approval = LocalTargetApproval(
+    target, "Disposable LUKS2 loop partition",
+    f"ERASE {target} FROM {server_identity}",
 )
+offer = {
+    "type": "transfer_offer",
+    "job_id": job_id,
+    "image_id": "luks2-acceptance",
+}
+encoded_offer = json.dumps(offer, separators=(",", ":")).encode("ascii")
+
+class FakeTLS:
+    def __init__(self):
+        self.incoming = bytearray(struct.pack("!I", len(encoded_offer)) + encoded_offer)
+
+    def settimeout(self, _timeout):
+        pass
+
+    def recv(self, count):
+        chunk = bytes(self.incoming[:count])
+        del self.incoming[:count]
+        return chunk
+
+tls = FakeTLS()
+with patch(
+    "feclora.deployment.client_runtime.receive_image_set",
+    return_value=str(manifest_path),
+):
+    success, detail = execute_client_image_job(
+        job, tls, approval,
+        server_identity=server_identity,
+        repository=repo,
+        trusted_server_public_key=None,
+        executables={
+            "lsblk": shutil.which("lsblk"),
+            "dd": shutil.which("dd"),
+            "cryptsetup": shutil.which("cryptsetup"),
+        },
+    )
+if not success:
+    raise RuntimeError(f"unicast Client runtime reported failure: {detail}")
+print(f"Unicast Client runtime: {detail}")
 print(f"Restored LUKS2 UUID: {luks_uuid}")
 print(f"Raw container bytes restored and read back: {size}")
 PY
