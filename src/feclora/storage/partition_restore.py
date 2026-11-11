@@ -417,6 +417,8 @@ def restore_partition(
         raise PartitionRestoreError("manifest must contain exactly one partition-image artifact")
     artifact = artifacts[0]
     luks2_uuid = _luks2_restore_uuid(manifest)
+    if luks2_uuid is not None and manifest.source_size_bytes % manifest.logical_sector_size:
+        raise PartitionRestoreError("LUKS2 container image size is not aligned to its logical sector size")
     available = executables or {}
     lsblk = available.get("lsblk") or shutil.which("lsblk")
     if not lsblk:
