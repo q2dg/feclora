@@ -1298,53 +1298,6 @@ class WebAPITests(unittest.TestCase):
 
 
 
-zstd",
-            "encrypt": False,
-            "sftp_publish": {
-                "host": "backup.example.net", "username": "backup",
-                "remote_directory": "/images/captured", "port": 2222,
-                "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-                "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-            },
-        }
-        with patch("feclora.webapi._device", return_value="/dev/sda"), patch(
-            "feclora.webapi._security_material", return_value={
-                "age_encryption_available": False,
-            }
-        ), patch("feclora.webapi._capture_material", return_value=None), patch(
-            "feclora.webapi._operation_repository", return_value=repository
-        ), patch(
-            "feclora.storage.disk_capture.capture_disk", return_value=manifest
-        ) as capture, patch(
-            "feclora.webapi._publish_captured_image_to_sftp",
-            return_value={"image_id": "captured", "published": True},
-        ) as publish:
-            result = __import__("feclora.webapi", fromlist=["_execute_operation"])._execute_operation(
-                "capture_disk", params, "operation-1"
-            )
-        self.assertTrue(result["sftp_publication"]["published"])
-        capture.assert_called_once()
-        publish.assert_called_once_with("captured", repository, params["sftp_publish"], progress_callback=ANY)
-
-ze_bytes": 1024, "logical_sector_size": 512,
-                "artifact_count": 2, "artifacts": [], 
-            }
-            params = {
-                "host": "backup.example.net", "username": "backup",
-                "remote_directory": "/images", "port": 22,
-                "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-                "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-            }
-            with patch("feclora.webapi._client_runtime_config", return_value=None), \
-                 patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(st_mode=0o100600, st_uid=0)), \
-                 patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("inspect-123")), \
-                 patch("feclora.storage.sftp_image_set.inspect_remote_image_set", return_value=expected) as inspect:
-                result = dispatch({"action": "inspect_sftp_image_set", "params": params})
-            self.assertEqual(result, {"operation_id": "inspect-123", **expected})
-            self.assertNotIn("public_key", inspect.call_args.kwargs)
-            self.assertEqual(inspect.call_args.kwargs["remote_directory"], "/images")
-
-
     def test_plain_restore_uses_tls_transport_authentication(self):
         from feclora.webapi import _execute_operation
         with tempfile.TemporaryDirectory() as directory:
@@ -1686,3 +1639,4 @@ ze_bytes": 1024, "logical_sector_size": 512,
 
 if __name__ == "__main__":
     unittest.main()
+
