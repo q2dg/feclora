@@ -121,7 +121,7 @@ class ImageSecurityTests(unittest.TestCase):
             self.skipTest("age CLI is not installed")
         source = os.path.join(self.root, "plain.img")
         encrypted = os.path.join(self.root, "plain.img.age")
-        payload = b"Feclora PXE symmetric age integration test\\x00" * 128
+        payload = b"Feclora PXE symmetric age integration test\x00" * 128
         with open(source, "wb") as stream:
             stream.write(payload)
         pid, master = pty.fork()
@@ -142,7 +142,7 @@ class ImageSecurityTests(unittest.TestCase):
                     if chunk:
                         transcript.extend(chunk)
                         if not sent and b"passphrase" in transcript.lower():
-                            os.write(master, b"test passphrase 123\\n")
+                            os.write(master, b"test passphrase 123\n")
                             sent = True
                 waited, child_status = os.waitpid(pid, os.WNOHANG)
                 if waited == pid:
