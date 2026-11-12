@@ -142,7 +142,6 @@ exec /usr/bin/python3 -m feclora.storage.profile_executor "$@"
 EOF
 chmod 0755 "$TARGET_ROOT/usr/local/bin/feclora-restore-profile"
 install -d "$TARGET_ROOT/usr/local/libexec" "$TARGET_ROOT/etc/systemd/system"
-install -m 0755 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-restore-profile-env" "$TARGET_ROOT/usr/local/libexec/feclora-restore-profile-env"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-restore-profile.service" "$TARGET_ROOT/etc/systemd/system/feclora-restore-profile.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-pxe-answer.service" "$TARGET_ROOT/etc/systemd/system/feclora-pxe-answer.service"
 install -m 0644 "$TARGET_ROOT/usr/share/feclora/python/feclora/data/feclora-deployment@.service" "$TARGET_ROOT/etc/systemd/system/feclora-deployment@.service"
