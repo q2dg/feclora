@@ -492,8 +492,7 @@ class ControlFramingTests(unittest.TestCase):
         with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
             inspected = inspect_deployment_job(
                 "192.0.2.10", 9443, context,
-                local_identity="URI:feclora-client",
-                expected_server_identity="URI:feclora-server",
+                                expected_server_identity="URI:feclora-server",
                 mac_address=MAC, job_id=JOB_ID,
             )
         self.assertEqual(inspected.job_id, JOB_ID)
@@ -548,8 +547,7 @@ class ClientJoinTests(unittest.TestCase):
         with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
             received, success, detail = join_deployment(
                 "192.0.2.10", 9443, context,
-                local_identity="URI:feclora-client",
-                expected_server_identity="URI:feclora-server",
+                                expected_server_identity="URI:feclora-server",
                 mac_address=MAC, job_id=JOB_ID,
                 prepare_local_target=lambda offered: LocalTargetApproval(
                     "/dev/vda", "Samsung SSD 1 TB", "ERASE /dev/vda",
@@ -589,8 +587,7 @@ class ClientJoinTests(unittest.TestCase):
         with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
             join_deployment(
                 "192.0.2.10", 9443, context,
-                local_identity="URI:feclora-client",
-                expected_server_identity="URI:feclora-server",
+                                expected_server_identity="URI:feclora-server",
                 mac_address=MAC, job_id=JOB_ID,
                 prepare_local_target=lambda offered: approval,
                 execute_job=lambda offered, tls, local: (
@@ -628,8 +625,7 @@ class ClientJoinTests(unittest.TestCase):
         with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
             join_deployment(
                 "192.0.2.10", 9443, context,
-                local_identity="URI:feclora-client",
-                expected_server_identity="URI:feclora-server",
+                                expected_server_identity="URI:feclora-server",
                 mac_address=MAC, job_id=JOB_ID,
                 prepare_local_target=lambda offered: approval,
                 execute_job=lambda offered, tls, local: (True, "clone verified"),
@@ -656,8 +652,7 @@ class ClientJoinTests(unittest.TestCase):
             with self.assertRaisesRegex(DeploymentControlError, "typed target confirmation"):
                 join_deployment(
                     "192.0.2.10", 9443, context,
-                    local_identity="URI:feclora-client",
-                    expected_server_identity="URI:feclora-server",
+                                        expected_server_identity="URI:feclora-server",
                     mac_address=MAC, job_id=JOB_ID,
                     prepare_local_target=lambda offered: LocalTargetApproval(
                         "/dev/vda", "Virtual disk 1", "ERASE /dev/vdb",
@@ -682,8 +677,7 @@ class ClientJoinTests(unittest.TestCase):
             with self.assertRaisesRegex(DeploymentControlError, "did not arm"):
                 join_deployment(
                     "192.0.2.10", 9443, context,
-                    local_identity="URI:feclora-client",
-                    expected_server_identity="URI:feclora-server",
+                                        expected_server_identity="URI:feclora-server",
                     mac_address=MAC, job_id=JOB_ID,
                     prepare_local_target=lambda offered: LocalTargetApproval(
                         "/dev/vda", "Local virtual disk",
@@ -967,8 +961,7 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
             def client():
                 client_result.append(join_deployment(
                     host, port, client_context,
-                    local_identity="URI:feclora-client",
-                    expected_server_identity="URI:feclora-server",
+                                        expected_server_identity="URI:feclora-server",
                     mac_address=MAC, job_id=JOB_ID,
                     prepare_local_target=lambda offered: approval,
                     execute_job=lambda offered, tls, local: self._receive_test_image(
@@ -1050,8 +1043,7 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
                 try:
                     client_result.append(join_deployment(
                         "127.0.0.1", port, client_context,
-                        local_identity="URI:feclora-client",
-                        expected_server_identity="URI:feclora-server",
+                                                expected_server_identity="URI:feclora-server",
                         mac_address=MAC, job_id=JOB_ID,
                         prepare_local_target=lambda job: LocalTargetApproval(
                             "/dev/vda", "Virtual disk 1", "ERASE /dev/vda",
@@ -1160,8 +1152,7 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
                 try:
                     join_deployment(
                         host, port, client_context,
-                        local_identity="URI:feclora-client",
-                        expected_server_identity="URI:feclora-server",
+                                                expected_server_identity="URI:feclora-server",
                         mac_address=MAC, job_id=JOB_ID,
                         prepare_local_target=lambda job: LocalTargetApproval(
                             "/dev/vda", "Disposable VM disk",

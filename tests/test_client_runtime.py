@@ -205,8 +205,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
             result = execute_client_image_job(
                 job, FakeTLS(), self.approval,
                 server_identity="URI:feclora-server",
-                local_identity="URI:feclora-client",
-                repository="/repo",
+                                repository="/repo",
                 trusted_server_public_key="/trusted/server.pub",
             )
         self.assertTrue(result[0])
