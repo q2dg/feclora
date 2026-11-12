@@ -127,7 +127,7 @@ class ImageSecurityTests(unittest.TestCase):
         pid, master = pty.fork()
         if pid == 0:
             os.execv(age, [age, "--passphrase", "--output", encrypted, source])
-        sent = False
+        sent_count = 0
         transcript = bytearray()
         status = None
         deadline = time.monotonic() + 30
@@ -141,9 +141,10 @@ class ImageSecurityTests(unittest.TestCase):
                         chunk = b""
                     if chunk:
                         transcript.extend(chunk)
-                        if not sent and b"passphrase" in transcript.lower():
+                        prompt_count = transcript.lower().count(b"passphrase")
+                        while sent_count < min(prompt_count, 2):
                             os.write(master, b"test passphrase 123\n")
-                            sent = True
+                            sent_count += 1
                 waited, child_status = os.waitpid(pid, os.WNOHANG)
                 if waited == pid:
                     status = child_status
@@ -151,10 +152,10 @@ class ImageSecurityTests(unittest.TestCase):
             if status is None:
                 os.kill(pid, 9)
                 os.waitpid(pid, 0)
-                self.fail("age encryption timed out")
+                self.fail("age encryption timed out: " + transcript.decode("utf-8", errors="replace"))
         finally:
             os.close(master)
-        self.assertTrue(sent, transcript.decode("utf-8", errors="replace"))
+        self.assertGreaterEqual(sent_count, 1, transcript.decode("utf-8", errors="replace"))
         self.assertTrue(os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0,
                         transcript.decode("utf-8", errors="replace"))
         with open(encrypted, "rb") as stream:
