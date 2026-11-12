@@ -87,7 +87,11 @@ reached, new MAC addresses are refused; after the time deadline, all admission
 and boot-script requests are refused. The ledger is root-owned and persists
 for the lifetime of the PXE session. This is an operational admission limit,
 not authentication: a client can spoof a MAC address. The admission gate does
-not stop an already-running restore or revoke the JSON answer file itself.
+not stop an already-running restore, invalidate a boot script already
+retrieved by a client, or revoke the JSON answer file itself. The JSON answer
+URL remains a public job-scoped locator until explicit revocation or stale
+session cleanup; the MAC limit is an operational admission control, not a
+security boundary.
 
 Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
