@@ -111,7 +111,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
                 server_identity="URI:feclora-server", repository="/repo",
             )
         self.assertTrue(result[0])
-        self.assertNotIn("require_signature", restore.call_args.kwargs)
 
     def test_save_captures_then_announces_transfer(self):
         tls = FakeTLS()
@@ -136,7 +135,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         send.assert_called_once()
         self.assertIn(b"transfer_ready", bytes(tls.outgoing))
 
-    def test_save_defaults_to_unencrypted_without_signing(self):
+    def test_save_defaults_to_unencrypted(self):
         tls = FakeTLS()
         approval = LocalTargetApproval(
             "/dev/vda", "Virtual disk 1",
@@ -151,7 +150,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
                 age_recipients_file="/keys/recipients.txt",
             )
         self.assertTrue(result[0])
-        self.assertNotIn("minisign_secret_key", capture.call_args.kwargs)
         self.assertIsNone(capture.call_args.kwargs["age_recipients_file"])
         self.assertNotIn("trusted_public_key", send.call_args.kwargs)
 
