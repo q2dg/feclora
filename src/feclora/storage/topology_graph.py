@@ -204,6 +204,63 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
 
     btrfs = inventory.get("btrfs_topology") or {}
     btrfs_fs_ids: dict[str, str] = {}
+    subvolume_ids: dict[str, str] = {}
+    subvolume_ids_by_local_id: dict[tuple[str, int], str] = {}
+    subvolume_parents: list[tuple[str, str]] = []
+    subvolume_parent_ids: list[tuple[str, str, int]] = []
+
+    def register_subvolume(
+        filesystem_uuid: str,
+        filesystem_id: str,
+        subvolume: dict[str, Any],
+        *,
+        mountpoint: str | None = None,
+    ) -> str:
+        uuid = subvolume.get("uuid")
+        local_id = subvolume.get("id")
+        identity = (
+            str(uuid) if isinstance(uuid, str) and uuid
+            else f"{filesystem_uuid}:{local_id}"
+        )
+        node_id = "btrfs-subvolume:" + identity
+        attributes = {
+            "uuid": uuid,
+            "subvolume_id": local_id,
+            "path": subvolume.get("path"),
+            "subvolume_kind": subvolume.get("kind"),
+            "parent_uuid": subvolume.get("parent_uuid"),
+            "received_uuid": subvolume.get("received_uuid"),
+            "parent_subvolume_id": subvolume.get("parent_subvolume_id"),
+            "parent_id": subvolume.get("parent_id"),
+            "parent_dirid": subvolume.get("parent_dirid"),
+            "name": subvolume.get("name"),
+            "generation": subvolume.get("generation"),
+            "bytes_used": subvolume.get("bytes_used"),
+            "readonly": subvolume.get("readonly"),
+            "is_snapshot": subvolume.get("is_snapshot"),
+            "root_item_offset": subvolume.get("root_item_offset"),
+            "metadata_complete": subvolume.get("metadata_complete"),
+        }
+        add_node(node_id, "btrfs_subvolume", **attributes)
+        node = nodes[node_id]
+        for key, value in attributes.items():
+            if value is not None and node.get(key) is None:
+                node[key] = value
+        if mountpoint:
+            node["mountpoint"] = mountpoint
+        add_edge(filesystem_id, node_id, "contains_subvolume")
+        if isinstance(uuid, str) and uuid:
+            subvolume_ids[uuid] = node_id
+        if isinstance(local_id, int):
+            subvolume_ids_by_local_id[(filesystem_uuid, local_id)] = node_id
+        parent_uuid = subvolume.get("parent_uuid")
+        if isinstance(parent_uuid, str) and parent_uuid:
+            subvolume_parents.append((node_id, parent_uuid))
+        parent_subvolume_id = subvolume.get("parent_subvolume_id")
+        if isinstance(parent_subvolume_id, int):
+            subvolume_parent_ids.append((node_id, filesystem_uuid, parent_subvolume_id))
+        return node_id
+
     for filesystem in btrfs.get("filesystems", []):
         if not isinstance(filesystem, dict) or not filesystem.get("uuid"):
             continue
@@ -213,6 +270,11 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
             label=filesystem.get("label"), total_devices=filesystem.get("total_devices"),
         )
         btrfs_fs_ids[uuid] = fs_id
+        members_by_devid = {
+            member.get("devid"): member
+            for member in filesystem.get("devices", [])
+            if isinstance(member, dict) and isinstance(member.get("devid"), int)
+        }
         for member in filesystem.get("devices", []):
             if not isinstance(member, dict):
                 continue
@@ -224,6 +286,72 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
                 unresolved.append({"layer": "btrfs_member", "path": path,
                                    "reason": "device_path_not_matched"})
 
+        fs_node = nodes[fs_id]
+        unmounted_profiles = filesystem.get("allocation_profiles")
+        profile_status = filesystem.get("allocation_profile_status", "unavailable")
+        fs_node["unmounted_allocation_profiles"] = (
+            unmounted_profiles if isinstance(unmounted_profiles, list) else []
+        )
+        fs_node["unmounted_allocation_profile_inventory"] = profile_status
+        if isinstance(unmounted_profiles, list):
+            fs_node["allocation_profiles"] = unmounted_profiles
+            fs_node["allocation_profile_inventory"] = profile_status
+            fs_node["has_unknown_allocation_profile"] = any(
+                not isinstance(item, dict) or item.get("known_profile") is not True
+                for item in unmounted_profiles
+            )
+        if profile_status == "error":
+            unresolved.append({
+                "layer": "btrfs_allocation_profile",
+                "path": uuid,
+                "reason": str(filesystem.get("allocation_profile_error") or "chunk_tree_inspection_failed"),
+            })
+
+        for chunk in filesystem.get("chunks", []):
+            if not isinstance(chunk, dict):
+                continue
+            logical_start = chunk.get("logical_start")
+            if not isinstance(logical_start, int):
+                continue
+            chunk_id = f"btrfs-chunk:{uuid}:{logical_start}"
+            add_node(
+                chunk_id, "btrfs_chunk",
+                logical_start=logical_start,
+                length_bytes=chunk.get("length_bytes"),
+                type=chunk.get("type"),
+                profile=chunk.get("profile"),
+                known_profile=chunk.get("known_profile"),
+                stripe_len_bytes=chunk.get("stripe_len_bytes"),
+                num_stripes=chunk.get("num_stripes"),
+                sub_stripes=chunk.get("sub_stripes"),
+                device_ids=chunk.get("device_ids"),
+                stripes=chunk.get("stripes"),
+                device_mapping_complete=chunk.get("device_mapping_complete"),
+            )
+            add_edge(fs_id, chunk_id, "contains_chunk")
+            for devid in chunk.get("device_ids", []):
+                member = members_by_devid.get(devid)
+                path = member.get("path") if isinstance(member, dict) else None
+                device_id = path_ids.get(path) if isinstance(path, str) else None
+                if device_id:
+                    add_edge(chunk_id, device_id, "stripes_on")
+                else:
+                    unresolved.append({
+                        "layer": "btrfs_chunk_stripe",
+                        "path": str(path or f"devid:{devid}"),
+                        "reason": "chunk_device_not_matched",
+                    })
+
+        if filesystem.get("subvolume_inventory_status") == "error":
+            unresolved.append({
+                "layer": "btrfs_subvolume",
+                "path": uuid,
+                "reason": str(filesystem.get("subvolume_inventory_error") or "root_tree_inspection_failed"),
+            })
+        for subvolume in filesystem.get("subvolumes", []):
+            if isinstance(subvolume, dict):
+                register_subvolume(uuid, fs_id, subvolume)
+
     subvolumes = inventory.get("btrfs_subvolumes") or {}
     for mount in subvolumes.get("mounts", []):
         if not isinstance(mount, dict):
@@ -231,46 +359,29 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
         mount_uuid = mount.get("uuid")
         filesystem_id = btrfs_fs_ids.get(mount_uuid) if isinstance(mount_uuid, str) else None
         if filesystem_id is None:
+            unresolved.append({"layer": "btrfs_mount", "path": str(mount.get("mountpoint") or ""),
+                               "reason": "mount_source_uuid_not_matched"})
             continue
         profiles = mount.get("allocation_profiles")
+        fs_node = nodes[filesystem_id]
         if isinstance(profiles, list):
-            nodes[filesystem_id]["allocation_profiles"] = profiles
-            nodes[filesystem_id]["allocation_profile_inventory"] = "available"
-            nodes[filesystem_id]["has_unknown_allocation_profile"] = any(
+            fs_node["mounted_allocation_profiles"] = profiles
+            fs_node["mounted_allocation_profile_inventory"] = "available"
+            fs_node["allocation_profiles"] = profiles
+            fs_node["allocation_profile_inventory"] = "available"
+            fs_node["has_unknown_allocation_profile"] = any(
                 not isinstance(item, dict) or item.get("known_profile") is not True
                 for item in profiles
             )
         else:
-            nodes[filesystem_id]["allocation_profile_inventory"] = "unavailable"
-    subvolume_ids: dict[str, str] = {}
-    subvolume_parents: list[tuple[str, str]] = []
-    for mount in subvolumes.get("mounts", []):
-        if not isinstance(mount, dict):
-            continue
-        mountpoint = mount.get("mountpoint")
-        mount_uuid = mount.get("uuid")
-        fs_id = btrfs_fs_ids.get(mount_uuid) if isinstance(mount_uuid, str) else None
-        if fs_id is None:
-            unresolved.append({"layer": "btrfs_mount", "path": str(mountpoint or ""),
-                               "reason": "mount_source_uuid_not_matched"})
+            fs_node["mounted_allocation_profile_inventory"] = "unavailable"
         for subvolume in mount.get("subvolumes", []):
-            if not isinstance(subvolume, dict):
-                continue
-            uuid = subvolume.get("uuid")
-            subvol_id = add_node(
-                "btrfs-subvolume:" + str(uuid or subvolume.get("id")),
-                "btrfs_subvolume", uuid=uuid,
-                subvolume_id=subvolume.get("id"), path=subvolume.get("path"),
-                subvolume_kind=subvolume.get("kind"), parent_uuid=subvolume.get("parent_uuid"),
-                received_uuid=subvolume.get("received_uuid"), mountpoint=mountpoint,
-            )
-            if fs_id:
-                add_edge(fs_id, subvol_id, "contains_subvolume")
-            if isinstance(uuid, str) and uuid:
-                subvolume_ids[uuid] = subvol_id
-            parent_uuid = subvolume.get("parent_uuid")
-            if isinstance(parent_uuid, str) and parent_uuid:
-                subvolume_parents.append((subvol_id, parent_uuid))
+            if isinstance(subvolume, dict):
+                register_subvolume(
+                    str(mount_uuid), filesystem_id, subvolume,
+                    mountpoint=mount.get("mountpoint"),
+                )
+
     for child_id, parent_uuid in subvolume_parents:
         parent_id = subvolume_ids.get(parent_uuid)
         if parent_id:
@@ -278,6 +389,18 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
         else:
             unresolved.append({"layer": "btrfs_snapshot_parent", "path": parent_uuid,
                                "reason": "parent_subvolume_not_in_inventory"})
+    for child_id, filesystem_uuid, parent_subvolume_id in subvolume_parent_ids:
+        if parent_subvolume_id == 5:
+            continue
+        parent_id = subvolume_ids_by_local_id.get((filesystem_uuid, parent_subvolume_id))
+        if parent_id:
+            add_edge(child_id, parent_id, "nested_under")
+        else:
+            unresolved.append({
+                "layer": "btrfs_nested_parent",
+                "path": f"{filesystem_uuid}:{parent_subvolume_id}",
+                "reason": "parent_subvolume_not_in_inventory",
+            })
 
     stratis = inventory.get("stratis_topology") or {}
     for pool in stratis.get("pools", []):
