@@ -538,6 +538,36 @@ class WebAPITests(unittest.TestCase):
         execute.assert_called_once_with("extract_partition_image", params, "operation-123")
         self.assertEqual(result, {"image_id": "whole-disk-part-123"})
 
+    def test_symmetric_disk_capture_accepts_one_shot_passphrase(self):
+        operation_id = "00000000-0000-4000-8000-000000000001"
+        store = Mock()
+        store.definition.return_value = {
+            "action": "capture_disk",
+            "params": {"encrypt_passphrase": True},
+        }
+        store.status.return_value = {"state": "running"}
+        with patch("feclora.webapi._local_operation_store", return_value=store), \
+             patch("feclora.storage.capture_passphrase.provide") as provide:
+            result = dispatch({"action": "provide_capture_passphrase", "params": {
+                "operation_id": operation_id, "passphrase": "capture secret",
+            }})
+        self.assertEqual(result, {"operation_id": operation_id, "provided": True})
+        provide.assert_called_once_with(operation_id, "capture secret")
+
+    def test_symmetric_disk_capture_rejects_passphrase_for_other_operation(self):
+        store = Mock()
+        store.definition.return_value = {
+            "action": "capture_partition",
+            "params": {"encrypt_passphrase": True},
+        }
+        store.status.return_value = {"state": "running"}
+        with patch("feclora.webapi._local_operation_store", return_value=store):
+            with self.assertRaisesRegex(WebAPIError, "not awaiting a passphrase-encrypted disk capture"):
+                dispatch({"action": "provide_capture_passphrase", "params": {
+                    "operation_id": "00000000-0000-4000-8000-000000000001",
+                    "passphrase": "capture secret",
+                }})
+
     def test_cancel_local_operation_stops_active_worker_unit(self):
         operation_id = "00000000-0000-4000-8000-000000000001"
         store = Mock()
