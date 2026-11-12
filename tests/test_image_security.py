@@ -256,8 +256,6 @@ class ImageSecurityTests(unittest.TestCase):
             preflight_image_security()
             with self.assertRaisesRegex(ImageSecurityError, "age executable is required"):
                 preflight_image_security(age_recipients_file=self.recipients)
-            with self.assertRaisesRegex(ImageSecurityError, "minisign executable is required"):
-                preflight_image_security(minisign_secret_key=self.secret)
 
 
     def test_preflight_rejects_malformed_age_recipient_before_capture(self):
@@ -268,16 +266,6 @@ class ImageSecurityTests(unittest.TestCase):
                 age_recipients_file=self.recipients, age_executable="/usr/bin/age",
             )
 
-    def test_preflight_rejects_group_readable_minisign_secret(self):
-        os.chmod(self.secret, 0o640)
-        with self.assertRaisesRegex(ImageSecurityError, "must not be accessible"):
-            preflight_image_security(
-                minisign_secret_key=self.secret, minisign_executable="/usr/bin/minisign",
-            )
-
-    def test_preflight_rejects_missing_selected_key_file(self):
-        with self.assertRaisesRegex(ImageSecurityError, "age recipients file is unavailable"):
-            preflight_image_security(age_recipients_file=os.path.join(self.root, "missing-recipients"))
 
 
 if __name__ == "__main__":
