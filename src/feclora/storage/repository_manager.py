@@ -626,6 +626,13 @@ class RemoteRepositoryManager:
         if not valid_source or not valid_type:
             raise RepositoryManagerError("mounted filesystem source or type does not match the saved repository definition")
         option_set = set(options.split(","))
+        required_safety_options = {"nosuid", "nodev", "noexec"}
+        missing_safety_options = required_safety_options - option_set
+        if missing_safety_options:
+            raise RepositoryManagerError(
+                "repository mount is missing restrictive safety options: "
+                + ", ".join(sorted(missing_safety_options))
+            )
         if "ro" not in option_set and "rw" not in option_set:
             raise RepositoryManagerError(
                 f"mounted filesystem does not report its access mode (options={options!r})"
