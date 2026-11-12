@@ -1164,8 +1164,7 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
 
             client_thread = threading.Thread(target=run_client, daemon=True)
             try:
-                with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
-                    client_thread.start()
+                client_thread.start()
                     deadline = time.monotonic() + 12
                     while time.monotonic() < deadline:
                         clients = coordinator.clients()
@@ -1179,7 +1178,7 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
                     results = server.run_one_client_job(
                         destination,
                     )
-                    client_thread.join(10)
+                client_thread.join(10)
                 self.assertFalse(client_thread.is_alive(), "save Client did not report its result")
                 self.assertFalse(client_errors, str(client_errors))
                 self.assertEqual(results, {MAC: "succeeded"})
