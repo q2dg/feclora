@@ -299,7 +299,7 @@ export default function App() {
   const isLogicalVolume = operation === "capture_logical_volume" || operation === "restore_logical_volume";
   const deviceOptions = isDisk ? disks : isLogicalVolume ? logicalVolumes : partitions;
   const selectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId) || s3Repositories.find((repo) => repo.id === selectedRepositoryId);
-  const remoteSelectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified);
+  const remoteSelectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified) || s3Repositories.find((repo) => repo.id === selectedRepositoryId);
   const availableImages = selectedRepositoryId ? repositoryImages : images;
   const remoteAvailableImages = remoteSelectedRepository ? repositoryImages : images;
   const matchingImages = availableImages.filter((item) => item.image_type === (isDisk ? "disk" : isLogicalVolume ? "logical_volume" : "partition"));
@@ -699,7 +699,7 @@ export default function App() {
         ...(remoteOperation === "clone" ? { source_device: remoteSourceDevice, target_type: remoteTargetType } : { target_type: remoteTargetType }),
         authorized_clients: authorizedClients, network_interface: remoteInterface.split("|")[0],
         transport: remoteTransport,
-        ...(remoteOperation === "restore" && remoteSelectedRepository ? { repository_id: remoteSelectedRepository.id } : {}),
+        ...((remoteOperation === "restore" || remoteOperation === "save") && remoteSelectedRepository ? { repository_id: remoteSelectedRepository.id } : {}),
         multicast_group: remoteTransport === "multicast" ? remoteMulticastGroup : null,
         multicast_port: remoteTransport === "multicast" ? Number(remoteMulticastPort) : null,
         start_policy: "manual", expected_clients: null, start_deadline: null
@@ -1050,10 +1050,11 @@ export default function App() {
                       <option value="clone">Clone a Server disk or partition directly to one Client</option>
                     </select>
                   </Field>
-                  {remoteOperation === "restore" && <Field label="Image repository">
+                  {(remoteOperation === "restore" || remoteOperation === "save") && <Field label="Image repository" help={remoteOperation === "save" ? "Client captures are staged on the Server and published to S3 only after a successful TLS transfer." : "The Server fetches and verifies the image from this repository before transmitting it to Clients over authenticated TLS."}>
                     <select className="pf-v5-c-form-control" value={remoteSelectedRepository?.id || ""} disabled={busy} onChange={(e) => { selectImageRepository(e.target.value); setRemoteImageId(""); }}>
                       <option value="">Local Server repository</option>
-                      {remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
+                      {remoteRepositories.filter((repo) => remoteOperation === "restore" && repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
+                      {s3Repositories.filter((repo) => remoteOperation === "restore" || !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · S3 object storage</option>)}
                     </select>
                   </Field>}
                   {remoteOperation === "clone" ? <Field label={remoteTargetType === "disk" ? "Server source disk" : "Server source partition"} help="Select a source already marked read-only. Feclora independently validates its type, geometry and in-use state before streaming.">
