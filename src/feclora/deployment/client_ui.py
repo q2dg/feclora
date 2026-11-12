@@ -53,7 +53,8 @@ def _local_target_confirmation(job: Any, path: str, target_kind: str) -> tuple[s
     return phrase, "This operation reads the selected whole disk to create an image. Type the exact confirmation phrase:"
 
 
-def _elevate() -> int:    sudo = shutil.which("sudo")
+def _elevate() -> int:
+    sudo = shutil.which("sudo")
     if not sudo:
         dialog_app._message(
             "Client mode requires root",
