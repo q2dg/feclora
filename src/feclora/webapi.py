@@ -2320,8 +2320,6 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             definition = {key: params[key] for key in required - {"id"}}
             for key in ("provider", "host", "remote_path"):
                 _text(definition, key, maximum=512)
-            if definition["provider"] == "webdav":
-                raise WebAPIError("WebDAV repository setup is unavailable until its per-repository encrypted credential lifecycle is implemented")
             for key in ("username", "credential_file", "identity_file", "known_hosts_file"):
                 if definition[key] is not None and (
                     not isinstance(definition[key], str) or not definition[key]
