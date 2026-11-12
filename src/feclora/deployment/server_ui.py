@@ -25,6 +25,8 @@ from feclora.network.remote_clone_protocol import create_tls_context
 from feclora.network.multicast_preflight import inspect_multicast_interface
 from feclora.network.pxe_config import PXENetworkConfig
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
+from feclora.storage.inventory import collect_inventory
+from feclora.storage.source_safety import check_capture_source_safe, SourceSafetyError
 from feclora.ui import dialog_app
 
 
@@ -46,6 +48,18 @@ def _available_images(
     return found
 
 
+def _flatten_devices(devices: Any) -> list[dict[str, Any]]:
+    flattened: list[dict[str, Any]] = []
+    if not isinstance(devices, list):
+        return flattened
+    for item in devices:
+        if not isinstance(item, dict):
+            continue
+        flattened.append(item)
+        flattened.extend(_flatten_devices(item.get("children")))
+    return flattened
+
+
 def _choose_job(
     config: ServerRuntimeConfig, interface: str,
 ) -> tuple[DeploymentJob, str | None, list[str]]:
@@ -65,6 +79,7 @@ def _choose_job(
         [
             ("restore", "Restore an image to one Client disk or partition"),
             ("save", "Capture one Client disk and store an image"),
+            ("clone", "Clone a Server disk or partition directly to one Client"),
         ]
     )
     operation = dialog_app._menu(
@@ -95,6 +110,32 @@ def _choose_job(
         if selected_manifest is None:
             raise DeploymentControlError("selected image is no longer available")
         manifest_path = os.path.join(config.repository, selected_manifest)
+    elif operation == "clone":
+        target_type = dialog_app._menu(
+            "Clone source type", "Choose the Server-local source block-device type.",
+            [("disk", "Whole disk"), ("partition", "Partition")],
+        )
+        if target_type is None:
+            raise DeploymentControlError("clone source type selection cancelled")
+        inventory = collect_inventory()
+        expected_type = "disk" if target_type == "disk" else "part"
+        sources = [
+            item for item in _flatten_devices(inventory.get("devices", []))
+            if item.get("type") == expected_type and item.get("read_only") is True
+            and isinstance(item.get("path"), str)
+        ]
+        source_device = dialog_app._menu(
+            "Server clone source",
+            "Choose a source already marked read-only. Feclora will also check geometry and in-use state.",
+            [(item["path"], f'{item["path"]} | {item.get("model") or expected_type} | {item.get("size_bytes", "?")} bytes') for item in sources],
+        )
+        if source_device is None:
+            raise DeploymentControlError("clone source selection cancelled")
+        try:
+            check_capture_source_safe(source_device)
+        except (SourceSafetyError, OSError) as exc:
+            raise DeploymentControlError(f"clone source is unsafe or in use: {exc}") from exc
+        image_id = None
     else:
         target_type = "disk"
         image_id = dialog_app._input("New image identifier", "Enter a unique image identifier:")
@@ -180,6 +221,7 @@ def _choose_job(
         "operation": operation,
         "image_id": image_id,
         "target_type": target_type,
+        **({"source_device": source_device} if operation == "clone" else {}),
         "authorized_clients": selected_macs,
         "network_interface": interface,
         "transport": transport,
