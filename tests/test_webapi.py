@@ -861,6 +861,7 @@ class WebAPITests(unittest.TestCase):
             "mode": "proxy", "pool_start": "192.0.2.100", "pool_end": "192.0.2.150",
             "lease_time": "1h", "gateway": "", "dns_server": "192.0.2.1",
             "http_port": 8080, "authoritative_confirmed": False,
+            "max_clients": 20, "max_duration_seconds": None,
         }
         with patch("feclora.webapi._validate_pxe_profile"), \
              patch("feclora.network.pxe_config.PXENetworkConfig", return_value=SimpleNamespace(interface="enp1s0")), \
