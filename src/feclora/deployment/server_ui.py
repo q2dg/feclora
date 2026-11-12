@@ -239,6 +239,28 @@ def _choose_job(
     return job, manifest_path, selected_macs
 
 
+def _run_unicast_job(
+    control: DeploymentControlServer,
+    config: ServerRuntimeConfig,
+    job: DeploymentJob,
+    selected_mac: str,
+    manifest_path: str | None,
+) -> dict[str, str]:
+    """Dispatch the selected unicast operation to its matching runtime."""
+    if job.operation == "clone":
+        return control.run_remote_clone_job()
+    trusted_key = (
+        config.server_minisign_public_key
+        if job.operation == "restore"
+        else config.client_minisign_public_keys.get(selected_mac)
+    )
+    return control.run_one_client_job(
+        config.repository,
+        trusted_public_key=trusted_key,
+        manifest_path=manifest_path,
+    )
+
+
 def _journal_directory() -> str:
     path = "/var/lib/feclora/deployments"
     os.makedirs(path, mode=0o700, exist_ok=True)
@@ -454,16 +476,8 @@ def run_deployment_server_ui(
                         udpcast_config=multicast_config,
                     )
                 else:
-                    selected_mac = selected_macs[0]
-                    trusted_key = (
-                        config.server_minisign_public_key
-                        if job.operation == "restore"
-                        else config.client_minisign_public_keys.get(selected_mac)
-                    )
-                    results = control.run_one_client_job(
-                        config.repository,
-                        trusted_public_key=trusted_key,
-                        manifest_path=manifest_path,
+                    results = _run_unicast_job(
+                        control, config, job, selected_macs[0], manifest_path,
                     )
                 dialog_app._message(
                     "Deployment result",
