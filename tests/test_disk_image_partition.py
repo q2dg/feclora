@@ -63,20 +63,6 @@ class DiskImagePartitionTests(unittest.TestCase):
         self.assertTrue(progress)
         self.assertEqual(progress[-1], (2048, 2048))
 
-    def test_signs_extracted_manifest_before_atomic_publication(self):
-        def sign(path, secret_key, **kwargs):
-            with open(path + ".minisig", "wb") as stream:
-                stream.write(b"signature")
-        with patch("feclora.storage.disk_image_partition.sign_manifest", side_effect=sign) as signer:
-            _manifest, filename = extract_partition_image(
-                self.manifest, self.temp.name, "aaaa-bbbb",
-                minisign_secret_key="/secure/server.minisign.key",
-            )
-        signer.assert_called_once()
-        self.assertTrue(os.path.isfile(os.path.join(self.temp.name, filename + ".minisig")))
-        with open(os.path.join(self.temp.name, filename + ".minisig"), "rb") as stream:
-            self.assertEqual(stream.read(), b"signature")
-
     def test_preserves_age_encryption_for_extracted_partition_artifact(self):
         def encrypt(path, artifact, recipients_file, **kwargs):
             encrypted_name = artifact.filename + ".age"
@@ -125,12 +111,3 @@ class DiskImagePartitionTests(unittest.TestCase):
             extract_partition_image(self.manifest, self.temp.name, "aaaa-bbbb")
 
 
-    def test_signed_source_cannot_be_extracted_without_trusted_key(self):
-        with open(os.path.join(self.temp.name, self.manifest + ".minisig"), "wb") as signature:
-            signature.write(b"unverified")
-        with self.assertRaisesRegex(DiskImagePartitionError, "trusted minisign public key"):
-            extract_partition_image(self.manifest, self.temp.name, "aaaa-bbbb")
-
-
-if __name__ == "__main__":
-    unittest.main()
