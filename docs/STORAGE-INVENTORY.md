@@ -50,10 +50,15 @@ subvolume UUIDs, snapshot parent UUIDs, received UUIDs and ROOT_BACKREF parent
 relationships. Subvolume paths are resolved only when the parent chain and
 names are present and unambiguous.
 
-The unmounted root-tree scan does not inspect file contents. Data/Metadata/
-System/GlobalReserve allocation profiles and the detailed `btrfs subvolume
-list` view are still collected only for filesystems already mounted, through
-`findmnt` and read-only Btrfs queries. Unmounted allocation-profile discovery,
-coordinated snapshot-consistent capture and multi-device/profile capture
+The unmounted chunk-tree scan also records DATA/METADATA/SYSTEM chunk
+types, allocation profiles, logical chunk lengths, stripe counts, and the
+device IDs/offsets backing each chunk. Per-profile totals represent logical
+allocated bytes and the union of member device IDs; unmounted used-byte
+accounting is not inferred (`used_bytes` remains null). The mounted
+`btrfs filesystem df` view continues to provide used-byte observations and
+GlobalReserve information. The root/chunk tree queries do not read file data;
+the root tree does expose subvolume names used to resolve paths.
+
+Coordinated snapshot-consistent capture and multi-device/profile imaging
 remain pending. Incomplete or ambiguous device sets are not flattened into
 standalone partition images.
