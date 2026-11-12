@@ -111,7 +111,7 @@ def _operation_repository_context(
     """Resolve a filesystem repository or stage S3 objects in a private work directory."""
     repository_id = params.get("repository_id")
     if repository_id is None:
-        yield _repository(create=create_local)
+        yield _operation_repository(params, write=write, create_local=create_local)
         return
     if (not isinstance(repository_id, str)
             or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", repository_id)):
