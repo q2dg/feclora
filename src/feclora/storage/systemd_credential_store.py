@@ -5,6 +5,7 @@ Plaintext is supplied to systemd-creds over stdin and is never written here.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -17,7 +18,7 @@ from typing import Callable, Any
 
 DEFAULT_ROOT = Path("/etc/credstore.encrypted/feclora")
 _IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
-_KINDS = {"ssh-key", "known-hosts", "smb"}
+_KINDS = {"ssh-key", "known-hosts", "smb", "s3"}
 
 
 class SystemdCredentialStoreError(RuntimeError):
@@ -70,6 +71,18 @@ class SystemdCredentialStore:
         name = self._name(identifier, kind)
         if not isinstance(content, bytes) or not content or len(content) > 1024 * 1024 or b"\x00" in content:
             raise SystemdCredentialStoreError("credential content must be 1 byte to 1 MiB and contain no NUL")
+        if kind == "s3":
+            try:
+                payload = json.loads(content)
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise SystemdCredentialStoreError("S3 credential must be a JSON object") from exc
+            if (not isinstance(payload, dict)
+                    or set(payload) != {"access_key_id", "secret_access_key"}
+                    or not isinstance(payload["access_key_id"], str)
+                    or not isinstance(payload["secret_access_key"], str)
+                    or not 8 <= len(payload["access_key_id"]) <= 128
+                    or not 8 <= len(payload["secret_access_key"]) <= 256):
+                raise SystemdCredentialStoreError("S3 credential JSON must contain valid access_key_id and secret_access_key strings")
         executable = self.which("systemd-creds")
         if not executable:
             raise SystemdCredentialStoreError("systemd-creds is required")
@@ -140,6 +153,28 @@ class SystemdCredentialStore:
             self._validate_existing(path)
             result.append({"id": identifier, "kind": kind, "name": self._name(identifier, kind), "path": str(path)})
         return result
+
+    def read(self, identifier: str, kind: str) -> bytes:
+        """Decrypt a registered credential into process memory only."""
+        if self.effective_uid() != 0:
+            raise SystemdCredentialStoreError("credential access requires root")
+        name = self._name(identifier, kind)
+        self._directory(create=False)
+        path = self._path(identifier, kind)
+        self._validate_existing(path)
+        executable = self.which("systemd-creds")
+        if not executable:
+            raise SystemdCredentialStoreError("systemd-creds is required")
+        try:
+            result = self.runner(
+                [executable, "decrypt", f"--name={name}", str(path), "-"],
+                stdin=subprocess.DEVNULL, capture_output=True, check=False, timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise SystemdCredentialStoreError("encrypted credential could not be decrypted") from exc
+        if result.returncode != 0 or not result.stdout or len(result.stdout) > 1024 * 1024:
+            raise SystemdCredentialStoreError("encrypted credential could not be authenticated or decrypted")
+        return result.stdout
 
     def remove(self, identifier: str, kind: str) -> None:
         if self.effective_uid() != 0:
