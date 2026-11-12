@@ -118,7 +118,7 @@ inventory, image inventory, deployment journal summaries and system status.
 Cockpit now includes an initial Server identity bootstrap step. It discovers
 active IPv4 interface addresses, warns when NetworkManager reports an existing
 DHCP server, verifies the selected address is still assigned to the interface,
-and initializes or validates the managed CA and mTLS Server identity, plus any
+and initializes or validates the managed CA and Server TLS identity, plus any
 optional age recipient/signing material configured by the operator, without
 enabling DHCP/PXE services.
 
@@ -132,7 +132,7 @@ services, alter firewall rules or persist a network profile.
 
 The Server **Remote jobs** tab now provides the persistent deployment
 lifecycle for supported jobs. Cockpit can start a non-boot-enabled
-`feclora-deployment@<UUID>.service`, inspect its mTLS listener and live
+`feclora-deployment@<UUID>.service`, inspect its Server-authenticated TLS listener and live
 per-Client READY/running/terminal states, disk-operation byte progress and
 sampled throughput reported over each authenticated TLS control session, with
 Cockpit refreshing active service status every two seconds. The Client's local
@@ -162,7 +162,7 @@ and verifies every artifact's manifest/digest and any configured encryption
 or signature before writing its local disk.
 Confirm switch IGMP snooping and an active querier on the same VLAN before
 arming. UDPcast data packets themselves are not encrypted or authenticated;
-mTLS protects the control channel, not the multicast payload. Multicast
+Server-authenticated TLS protects the control channel, not the multicast payload. Multicast
 capture and concurrent unicast deployments remain out of scope.
 
 The Server service is never enabled at boot and never resumes an interrupted
@@ -180,11 +180,11 @@ claimed by source-level checks.
 
 ## Client remote jobs
 
-On an enrolled Client, the **Client jobs** tab can inspect a Server job over
-mTLS without registering the Client or changing the Server journal. It then
+On a configured Client, the **Client jobs** tab can inspect a Server job over
+Server-authenticated TLS. The Client does not present a certificate or authenticate individually. It then
 lists local disks/partitions, displays the exact Server-bound authorization
 phrase, and starts a non-boot-enabled `feclora-client@<UUID>.service`.
-The Client repeats the authenticated job handshake, rechecks the selected
+The Client repeats the Server-authenticated TLS job handshake, rechecks the selected
 block device against live inventory and mounted/root-device safety, and only
 then reports READY. It waits for the Server's explicit ARM command before
 starting disk I/O. Cockpit can inspect the Client's phase, target description,
@@ -259,54 +259,24 @@ age identity when none is configured. The encrypted CA-backup action is a
 separate optional workflow and asks for an age recipient because encryption
 is its purpose.
 
-The Server setup tab also exposes the enrolled Client trust inventory. It shows
-each stable TLS URI identity, its authorized unicast MAC and any configured
-optional image-signing trust. Revocation requires typing the exact
-`REVOKE <identity>` phrase. The backend removes the identity-to-MAC
-authorization and any associated optional image-signing/age-recipient material
-from future operations. When age encryption is enabled, refresh the remaining
-Clients' recipient inventory.
-
-This is an authorization and future-encryption change, not a retroactive
-network revocation: established TLS sessions are not forcibly terminated,
-previously exported recipient lists remain unchanged, and old encrypted
-images remain decryptable by any identity already included in them. Operators
-must stop/inspect active work and distribute the refreshed recipient inventory
-through the existing removable-media process.
-
-
-## Client enrollment
-
-The **Client enrollment** tab provides both stages of the removable-media
-ceremony. On a not-yet-enrolled Client, prepare a request by choosing a stable
-Client ID and a mounted media directory. The Client creates its TLS private key
-locally. It creates an age identity and/or image-signing key only when the
-corresponding optional feature is enabled, and exports public material only.
-
-After the Server approves the CSR, return the media and provide the Server
-address, Client unicast MAC, response bundle directory and CA SHA-256
-fingerprint. Verify any configured optional image-authentication fingerprints
-as well. Cockpit verifies the CA chain, certificate SAN and private-key match,
-then installs the identity and writes the Client runtime configuration.
-
-The renewal and enrollment forms carry optional age-recipient and minisign
-public-key material only when those capabilities are configured. Neither
-`age` nor `minisign` is required to issue, renew or install the TLS
-certificate. Existing Client configuration and partial identity files are
-not overwritten. This wizard does not initiate a remote deployment job.
+When age encryption is enabled, the Server setup tab can export the current
+public recipient inventory. Each Client can refresh its local recipient list
+from that public inventory after verifying that it includes the Client's own
+age identity. Private age identities remain local. This is an image-encryption
+recipient-management feature, not Client authentication or revocation.
 
 
 ## Cockpit deployment-job API
 
 The Server Cockpit API can validate and persist a deployment-job definition in the
-root-owned hash-chained journal. Creation verifies enrolled Client MACs, the
+root-owned hash-chained journal. Creation validates selected Client MACs, the
 selected interface and image type, and verifies any manifest signature or
 age-encrypted artifact when present. Client signing keys and age recipient
 registrations are required only when the operator selects those protections
 for a specific image.
 Persisting a job does not contact Clients, arm the job, or start disk I/O.
 The persistent systemd service can now load a fresh definition, verify its
-journal/configuration, bind the TLS 1.3 mTLS listener and expose root-only local
+journal/configuration, bind the Server-authenticated TLS listener and expose root-only local
 IPC to Cockpit. It owns one active job at a time and continues if the browser
 disconnects. It refuses interrupted journals and never recreates TLS sessions
 or resumes storage work after a service/process restart.
@@ -316,12 +286,11 @@ or resumes storage work after a service/process restart.
 
 The **Remote jobs** tab creates and lists validated Server-side job definitions.
 For restore, select an existing disk or partition image; signed and unsigned
-images are both available. Select already enrolled Client MAC addresses, the
+images are both available. Select Client MAC addresses for this job, the
 Server interface and unicast or multicast restore transport. The backend
-revalidates enrollment and image type, verifies a detached signature when one
+revalidates job MAC selection and image type, verifies a detached signature when one
 is present, and checks registered age recipients only when the image is
-age-encrypted. Unsigned manifests are bound to the authorized Server through
-the mTLS control session. Client save jobs may also run unsigned; if a Client
+age-encrypted. Unsigned manifests are transferred over the Server-authenticated TLS control session; Clients are not individually authenticated. Client save jobs may also run unsigned; if a Client
 chooses to sign, its public key must be enrolled so the Server can verify it.
 
 The persisted-job table also shows each Client's last journaled state,
@@ -337,8 +306,8 @@ and multicast capture remain out of scope.
 
 For each fresh job, use **Start / connect service** to start its
 non-boot-enabled `feclora-deployment@<UUID>.service` instance. The service
-holds the mTLS listener and journal independently of the browser. Clients
-connect with their enrolled certificates and select a local target and type
+holds the Server-authenticated TLS listener and journal independently of the browser. Clients
+verify the Server certificate, then select a local target and type
 its destructive/read confirmation through the Cockpit **Client jobs** tab
 before reporting READY. For multicast, each Client also selects its receive
 interface and confirms the VLAN's IGMP snooping/querier configuration.
@@ -375,9 +344,12 @@ Disk restore also presents a read-only layout preview after selecting a signed/u
 
 Cockpit image inventory provides an on-demand read-only verification report for every artifact. It verifies any present configured signature against local trust, stored artifact SHA-256 and size, age authentication when the artifact is age-encrypted, compression integrity and decoded whole-disk size. Unsigned images are explicitly reported as unsigned.
 
-Client certificate renewal is available from the Cockpit Client enrollment tab. The Client reuses its existing TLS private key and exports only a renewal CSR plus any configured optional public age/signing material. On the Server, select the renewal mode, inspect the CSR and require the exact `RENEW URI:feclora-client-...` confirmation. Renewal is restricted to the already-enrolled identity and exact existing MAC; the Server also compares the CSR public-key fingerprint with the root-owned pin recorded at initial Cockpit enrollment. Any configured age recipient and minisign public key must remain unchanged. Clients enrolled before Server-side key pinning was introduced have no continuity pin and must be explicitly re-enrolled before Cockpit can safely renew them. The Server exports a distinct renewal response bundle without changing enrollment mappings. Back on the same Client, verify the CA and Server signing-key fingerprints, verify that the bundle still contains the Client's own age recipient, and install the renewed certificate. The Client's existing private keys never leave the endpoint.
+Client certificates and Client certificate renewal are not used. Cockpit
+reports the expiry of the locally configured Server TLS certificate and its
+deployment CA. This is read-only; Server certificate renewal remains available
+in the Server setup tab.
 
-Cockpit also reports the local managed Server and/or Client TLS certificate expiry and the associated deployment CA expiry. Certificates with 30 days or fewer remaining are flagged for renewal; expired leaf certificates or CA certificates and configuration/inspection errors are surfaced as critical status. This is read-only and does not rotate certificates automatically.
+Cockpit also reports the local managed Server TLS certificate expiry and the associated deployment CA expiry. Certificates with 30 days or fewer remaining are flagged for renewal; expired Server or CA certificates and configuration/inspection errors are surfaced as critical status. This is read-only and does not rotate certificates automatically.
 
 Server TLS certificate renewal is also available in the Cockpit Server setup tab. It requires typing `RENEW SERVER CERTIFICATE`, refuses to proceed while any deployment service is active, renews the certificate using the existing CA and Server private key, verifies the resulting chain, SAN and key match, and atomically replaces `server.crt`. The CA, Server identity, Client trust and image-signing keys are unchanged. This is certificate renewal, not CA rotation or Server key rotation.
 

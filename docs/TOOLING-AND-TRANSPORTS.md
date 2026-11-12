@@ -12,7 +12,7 @@ when a maintained system tool already provides the required capability.
 | Raw block I/O | Linux block devices and established system utilities | Device identity/safety checks, geometry validation, bounded I/O, confirmation and recovery state |
 | Multicast artifact distribution | UDPcast | Job authorization, recipient readiness, staging, manifest/artifact verification and per-client results |
 | Network configuration | NetworkManager | Use its D-Bus API, connection profiles and checkpoint/rollback facilities; do not edit network configuration behind its back |
-| TLS and X.509 | OpenSSL and platform TLS libraries | CA/certificate lifecycle, validation policy, mTLS identity binding and authorization |
+| TLS and X.509 | OpenSSL and platform TLS libraries | CA/Server-certificate lifecycle and Client-side Server-certificate validation |
 | Services and durable workers | systemd | Units, transient services, supervision, credentials, lifecycle and restart boundaries |
 | SSH and file transfer | OpenSSH SSH/SFTP | Pinned host keys, protected key references, non-interactive transfers and Feclora-level job orchestration |
 | Network filesystems | NFS utilities and mount helpers; CIFS/SMB utilities; SSHFS | Provider-specific mount lifecycle, credential isolation, mount identity verification and operation leases |
@@ -60,8 +60,8 @@ not a product requirement.
   configurable verifier or an explicitly documented SSH-host/root-owned-local
   trust policy is still needed before those features can be used without
   minisign.
-- TLS/X.509 identity, mTLS peer authentication and Feclora job authorization
-  are separate from optional image encryption/signing. Never substitute one
+- Server TLS certificate validation, job-scoped MAC selection and Feclora's
+  local device confirmations are separate from optional image encryption/signing. Clients are not authenticated individually. Never substitute one
   key type or security role for another.
 
 ## Engineering rules

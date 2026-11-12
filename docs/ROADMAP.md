@@ -104,7 +104,7 @@ hardware, provider services or physical networks have passed acceptance.
    Multicast Client dispatch is covered by automated runtime tests and the
    existing two-Client UDPcast operator runbook; the runbook must be used for
    actual multicast/IGMP acceptance. The loop-device harness does not perform
-   a live mTLS handshake or network routing, and has not yet been executed on
+   a live Server-authenticated TLS handshake or network routing, and has not yet been executed on
    a Fedora/Linux host. The LUKS2 implementation scope is therefore closed;
    remaining work is operator acceptance plus explicitly unsupported modes,
    not further LUKS2 feature development.

@@ -5,7 +5,7 @@ This document defines the release target for the bootable Feclora Live system. C
 ## Operating modes
 
 - **Local/rescue:** boot Feclora on the machine whose storage is being operated; discover local devices and perform local clone, capture and restore from Cockpit.
-- **Server:** boot Feclora as deployment Server, configure networking, manage repositories and enrolled Clients, and orchestrate jobs from Cockpit.
+- **Server:** boot Feclora as deployment Server, configure networking, manage repositories and selected Client MACs, and orchestrate jobs from Cockpit.
 - **Client:** boot Feclora on each receiver, configure networking, enroll/authorize it, select and locally approve its target, and receive a Server job.
 - **PXE Client:** the Server provides the configured PXE/iPXE path so a receiver boots the Feclora Client runtime without manual USB/DVD selection. PXE boot is discovery/transport, never destructive authorization.
 
@@ -41,7 +41,7 @@ DHCP and static IPv4 must be supported independently on Server and Client where 
 
 Storage-source clarification: LVM logical volumes, raw LUKS2 containers, opened LUKS mappings and Btrfs filesystems are image sources/layers, not repository types. Capture and restore support must describe the exact byte scope and dependencies. Btrfs is imaged at filesystem/block-device level (including supported multi-device sets), not as separate subvolume artifacts. Remote repositories and distribution transports remain the distinct external destinations used to store or deliver those images.
 
-Current-source note: local Cockpit capture supports eligible active LVM logical volumes, verified raw LUKS2 partition containers and single-device Btrfs partition images. Local Cockpit LV restore now supports existing active, unmounted linear/thin targets with raw read-back verification or a read-only Partclone filesystem check; it does not provision or resize LVM metadata. Deployment-job LV restore is implemented in unicast and multicast source paths but still requires exact-commit automated and multi-Client hardware acceptance. Deployment-job LV capture, dedicated opened-mapping capture, coordinated multi-device Btrfs capture, snapshot-assisted capture, opened-mapping restore, LUKS2-on-LV restore, LUKS2 provisioning/rekeying and Btrfs layer-aware restore remain incomplete. Local partition restore supports only raw LUKS2 container images with matching manifest UUID/dependency, exact raw read-back and post-write LUKS2 UUID/JSON header verification; the container remains closed and credentials are not captured or used. An opt-in disposable loop-device acceptance harness additionally runs the unicast Client runtime and Feclora's framed control/artifact transfer protocol over a local socket pair, then tests rejection of a wrong key, unlock with the original key and byte-for-byte plaintext recovery. It does not validate live mTLS negotiation or routed networking. Multicast LUKS2 Client dispatch is covered by automated runtime tests; actual UDPcast/IGMP and two-Client block-device behavior must be recorded using the existing multi-client VM runbook. The loop-device harness has not yet been run on a real Fedora/Linux host, so its execution and recorded host/kernel/cryptsetup/commit remain operator acceptance tasks. The multi-device Btrfs wording above is a release target, not a claim of current support.
+Current-source note: local Cockpit capture supports eligible active LVM logical volumes, verified raw LUKS2 partition containers and single-device Btrfs partition images. Local Cockpit LV restore now supports existing active, unmounted linear/thin targets with raw read-back verification or a read-only Partclone filesystem check; it does not provision or resize LVM metadata. Deployment-job LV restore is implemented in unicast and multicast source paths but still requires exact-commit automated and multi-Client hardware acceptance. Deployment-job LV capture, dedicated opened-mapping capture, coordinated multi-device Btrfs capture, snapshot-assisted capture, opened-mapping restore, LUKS2-on-LV restore, LUKS2 provisioning/rekeying and Btrfs layer-aware restore remain incomplete. Local partition restore supports only raw LUKS2 container images with matching manifest UUID/dependency, exact raw read-back and post-write LUKS2 UUID/JSON header verification; the container remains closed and credentials are not captured or used. An opt-in disposable loop-device acceptance harness additionally runs the unicast Client runtime and Feclora's framed control/artifact transfer protocol over a local socket pair, then tests rejection of a wrong key, unlock with the original key and byte-for-byte plaintext recovery. It does not validate live Server-authenticated TLS negotiation or routed networking. Multicast LUKS2 Client dispatch is covered by automated runtime tests; actual UDPcast/IGMP and two-Client block-device behavior must be recorded using the existing multi-client VM runbook. The loop-device harness has not yet been run on a real Fedora/Linux host, so its execution and recorded host/kernel/cryptsetup/commit remain operator acceptance tasks. The multi-device Btrfs wording above is a release target, not a claim of current support.
 
 ## 3. Capture images to remote repositories
 
@@ -85,7 +85,7 @@ Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer pr
 - [ ] Do not start until every required Client is accounted for and independently authorizes its exact destination; missing, duplicate or unexpected Clients block or require explicit resolution.
 - [ ] Unicast and multicast modes show eligibility, network requirements and per-Client status. Multicast acceptance includes switch IGMP snooping/querier behavior.
 - [ ] PXE/iPXE supports the documented DHCP/ProxyDHCP or isolated-network model, boot delivery, architecture/firmware selection and safe Client handoff.
-- [ ] For the existing authenticated multi-Client mTLS workflow, PXE discovery/boot never authorizes destructive restore; enrolled identity and job-bound authorization remain mandatory. This is separate from the identity-free unattended answer workflow.
+- [ ] For the existing multi-Client Remote jobs workflow, PXE discovery/boot never authorizes destructive restore; local target confirmation and explicit Server ARM remain mandatory. Clients are not individually authenticated. This is separate from the identity-free unattended answer workflow.
 - [ ] Provide per-Client progress, throughput, terminal verification, failures and exportable deployment report.
 - [ ] Define failure isolation: one Client's failure must not misreport other Clients' results.
 - [ ] Automated tests cover groups, duplicate/unknown identity, partial readiness, authorization expiry, retry and per-Client reconciliation; VM PXE tests cover BIOS and UEFI. Record physical switch/network acceptance separately.
@@ -111,7 +111,7 @@ Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer pr
 - [ ] Adversarial and hardware tests cover modified HTTP answers, replay, ambiguous or changed disks, provider outage, interrupted download and interrupted restore.
 - [ ] Validate BIOS and UEFI PXE boot and real hardware restore acceptance before describing the workflow as production-ready.
 
-Per-client TLS identity, USB identity media, manual enrollment and per-client key provisioning are explicitly out of scope for this unattended PXE answer workflow. The existing mTLS Remote jobs workflow remains a separate, identity-based feature.
+Per-client TLS identity, USB identity media, manual enrollment and per-client key provisioning are explicitly out of scope. The Remote jobs workflow also does not use Client identity or client authentication.
 
 ## Documentation and website acceptance
 
@@ -129,7 +129,7 @@ The maintainer builds the ISO; the project must not generate or publish it. Soft
 ## Global safety and definition of done
 
 - Never overwrite a source or unapproved destination.
-- DHCP/PXE discovery, mTLS authentication or possession of a profile alone never authorizes destructive writes.
+- DHCP/PXE discovery, TLS Server authentication, MAC selection or possession of a profile alone never authorizes destructive writes.
 - Never store secrets in browser state, ordinary config, logs or journals.
 - Never report a destination valid after partial or unverified writes.
 - Never automatically resume destructive disk writes after interruption.
