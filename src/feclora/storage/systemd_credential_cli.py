@@ -18,7 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
     put = commands.add_parser("put", help="Encrypt a protected local credential file")
     put.add_argument("--id", required=True)
-    put.add_argument("--kind", required=True, choices=("ssh-key", "known-hosts", "smb"))
+    put.add_argument("--kind", required=True, choices=("ssh-key", "known-hosts", "smb", "s3"))
     put.add_argument("--source", required=True, help="Root-owned private source file")
     put.add_argument("--replace", action="store_true")
     remove = commands.add_parser("remove", help="Remove an encrypted credential")
