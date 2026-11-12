@@ -5,11 +5,15 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from feclora.storage.repository import RemoteRepository, RepositoryError
-from feclora.storage.repository_mount_service import build_mount_argv
+from feclora.storage.repository_mount_service import build_mount_argv, mount_command_timeout
 from feclora.storage.repository_manager import RemoteRepositoryManager, RepositoryManagerError
 
 
 class RepositoryMountServiceTests(unittest.TestCase):
+    def test_one_shot_mount_helpers_are_bounded_but_sshfs_is_persistent(self):
+        self.assertIsNone(mount_command_timeout("sshfs"))
+        self.assertEqual(mount_command_timeout("nfs"), 60)
+        self.assertEqual(mount_command_timeout("smb"), 60)
     def test_sshfs_uses_private_systemd_credential_and_stays_foreground(self):
         encrypted = "/etc/credstore.encrypted/feclora/feclora-nas-ssh-key.cred"
         repo = RemoteRepository(
