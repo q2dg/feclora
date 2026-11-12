@@ -1,6 +1,6 @@
 """Client-side image save/restore execution over Server-authenticated TLS.
 
-The caller must first complete the mTLS control handshake and obtain explicit
+The caller must first complete the Server-authenticated TLS control handshake and obtain explicit
 local device authorization. The selected /dev path and typed confirmation stay
 inside this Client process; only a human-readable target description is sent
 to the Server. Image payloads are transferred over the same Server-authenticated TLS
