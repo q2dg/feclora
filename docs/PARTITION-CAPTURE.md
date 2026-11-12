@@ -31,13 +31,7 @@ Cancelling the Cockpit operation stops the producer and prevents publication.
 
 ## Manifest-backed image capture
 
-`feclora.storage.partition_image_capture.capture_partition_image` wraps the
-capture engine and publishes a complete schema-v1 partition `ImageManifest`.
-It records source size, logical sector size, filesystem and the raw or
-Partclone artifact. It supports none, gzip, xz, zstd and lz4 outer compression.
-When requested, age encryption is applied after compression and minisign signs
-the completed manifest. Encryption and signing are independent optional
-choices; neither is required for an ordinary unsigned, unencrypted image.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 ## Scope and operator procedure
 
