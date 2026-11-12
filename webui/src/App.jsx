@@ -76,6 +76,14 @@ export default function App() {
   const [operations, setOperations] = useState([]);
   const [cancellingOperationId, setCancellingOperationId] = useState("");
   const [remoteRepositories, setRemoteRepositories] = useState([]);
+  const [s3Repositories, setS3Repositories] = useState([]);
+  const [s3RepositoryId, setS3RepositoryId] = useState("");
+  const [s3Endpoint, setS3Endpoint] = useState("");
+  const [s3Region, setS3Region] = useState("us-east-1");
+  const [s3Bucket, setS3Bucket] = useState("");
+  const [s3Prefix, setS3Prefix] = useState("feclora");
+  const [s3CredentialId, setS3CredentialId] = useState("");
+  const [s3ReadOnly, setS3ReadOnly] = useState(true);
   const [systemdCredentials, setSystemdCredentials] = useState([]);
   const [credentialId, setCredentialId] = useState("");
   const [credentialKind, setCredentialKind] = useState("ssh-key");
@@ -211,10 +219,10 @@ export default function App() {
   const refresh = useCallback(async () => {
     setBusy(true); setError("");
     try {
-      const [s, i, j, op, inv, net, profiles, pxe, remote, repositories, credentials] = await Promise.all([
-        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("network_connection_profiles"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("remote_repositories"), callFeclora("systemd_credentials")
+      const [s, i, j, op, inv, net, profiles, pxe, remote, repositories, credentials, s3repos] = await Promise.all([
+        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("network_connection_profiles"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("remote_repositories"), callFeclora("systemd_credentials"), callFeclora("s3_repositories")
       ]);
-      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setNetworkProfiles(profiles.profiles || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setRemoteRepositories(repositories.repositories || []); setSystemdCredentials(credentials.credentials || []);
+      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setNetworkProfiles(profiles.profiles || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setRemoteRepositories(repositories.repositories || []); setSystemdCredentials(credentials.credentials || []); setS3Repositories(s3repos.repositories || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   }, []);
