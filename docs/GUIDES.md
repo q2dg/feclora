@@ -62,7 +62,7 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
 - **Interactive PXE boot** — boot-tree staging and service activation exist;
   BIOS/UEFI network-boot acceptance remains pending. It is intended to boot
   the same Live environment as ISO, then use Cockpit interactively.
-- **Unattended PXE answer workflow** — **Partial, end-to-end NFS whole-disk
+- **Unattended PXE answer workflow** — **Partial, end-to-end NFS and credential-free HTTPS whole-disk
   path implemented**. The iPXE menu offers an answer-file entry. Cockpit
   publishes one validated JSON answer and an answer-specific script through
   Caddy over HTTP. Live downloads and validates the answer, then invokes the
