@@ -131,14 +131,14 @@ def render_unattended_answer_ipxe_script(
         raise LiveBootAssetError("PXE answer URL is not a plain Caddy answer URL")
     live_base = f"http://{parsed}:{http_port}/live"
     return (
-        "#!ipxe\\n"
-        "dhcp\\n"
+        "#!ipxe\n"
+        "dhcp\n"
         f"kernel {live_base}/vmlinuz root=live:{live_base}/squashfs.img ro rd.live.image "
         f"ip=dhcp rd.neednet=1 feclora.pxe_mode=unattended-answer "
         f"feclora.pxe_job_id={canonical_job_id} "
-        f"feclora.pxe_answer_url={answer_url}\\n"
-        f"initrd {live_base}/initrd.img\\n"
-        "boot\\n"
+        f"feclora.pxe_answer_url={answer_url}\n"
+        f"initrd {live_base}/initrd.img\n"
+        "boot\n"
     )
 
 
