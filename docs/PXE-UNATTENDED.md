@@ -93,8 +93,10 @@ existing whole-disk restore engine. Artifacts may be unencrypted or age-encrypte
 with a symmetric passphrase. This PXE passphrase path applies only to age
 passphrase-encrypted artifacts; recipient-encrypted age artifacts require an
 identity and are not unlocked by this flow. The current capture UI still creates
-recipient-based age artifacts, so creating symmetric-passphrase image sets
-through Cockpit remains a follow-up. When a supported artifact is encrypted,
+whole-disk capture also supports symmetric age passphrases through Cockpit; the
+passphrase is delivered once to the durable worker and is not stored in the
+image manifest or operation journal. Partition and logical-volume capture
+remain recipient-based. When a supported artifact is encrypted,
 the restore worker waits for the operator to enter the passphrase in Cockpit on
 that Live client.
 Cockpit submits it once through the privileged local API; it is held briefly in
@@ -139,7 +141,7 @@ are not yet complete provider/transport workflows.
 - [x] Keep answer files reusable; explicit revocation and stale-session cleanup remain available. Successful deployment-job cancellation revokes its published answer.
 - [x] Connect NFS URL to a read-only Live mount for whole-disk restore.
 - [x] Support age symmetric decryption with one-shot Cockpit passphrase handoff on the Live client.
-- [ ] Add Cockpit image-capture support for symmetric age passphrases; current capture remains recipient-based.
+- [x] Support symmetric age passphrase encryption for whole-disk capture through Cockpit; partition and logical-volume capture remain recipient-based.
 - [ ] Connect remaining repository URL schemes to provider and credential facilities.
 - [x] Implement exact whole-disk target resolution, pre-write revalidation and
       execution through the existing verified whole-disk restore engine for NFS.
