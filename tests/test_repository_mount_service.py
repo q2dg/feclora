@@ -197,6 +197,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
                 "fuse.sshfs", "backup@nas.example.net:/images",
                 "ro,relatime,nosuid,nodev,noexec",
             )
+            manager._encrypted_credential_bindings = lambda _repo: [("nas-key", "/encrypted/nas-key.cred")]
             manager._is_mounted = lambda _path: True
             with self.assertRaisesRegex(RepositoryManagerError, "service state could not be verified"):
                 manager.unmount("nas")
