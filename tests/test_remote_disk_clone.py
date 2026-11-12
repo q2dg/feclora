@@ -159,6 +159,53 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         self.assertEqual(header.receiver_target_device, "/dev/target")
         self.assertEqual(len(header.session_id), 36)
 
+    def test_header_builder_accepts_partition_geometry(self):
+        with patch("feclora.network.remote_clone._partition_geometry",
+                   return_value=(len(self.payload), 512, True)):
+            header = build_remote_clone_header(
+                "/dev/source1", "/dev/target1",
+                executables={"lsblk": "/usr/bin/lsblk"},
+                device_type="partition",
+            )
+        self.assertEqual(header.device_type, "partition")
+        self.assertEqual(header.source_size_bytes, len(self.payload))
+
+    def test_receiver_clones_partition_without_disk_partition_table_repair(self):
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
+        self.header = CloneSessionHeader(
+            session_id=self.header.session_id,
+            source_device="/dev/source1",
+            receiver_target_device="/dev/target1",
+            source_size_bytes=len(self.payload),
+            logical_sector_size=512,
+            chunk_size_bytes=65536,
+            device_type="partition",
+        )
+        source = self._start_source(left)
+        digest = hashlib.sha256(self.payload).hexdigest()
+        commands = []
+
+        def run(command, **kwargs):
+            commands.append(command)
+            return type("Result", (), {"stdout": "", "returncode": 0})()
+
+        with patch("feclora.network.remote_clone._geometry_for",
+                   return_value=(len(self.payload) + 4096, 512, False, "")), \\
+             patch("feclora.network.remote_clone._readback_digest", return_value=digest), \\
+             patch("feclora.network.remote_clone.subprocess.run", side_effect=run):
+            result = self._receive(
+                right, geometry=None,
+                process_factory=lambda *a, **k: FakeProcess(**k),
+                executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
+            )
+        source.join(timeout=5)
+        self.assertFalse(source.is_alive())
+        self.assertEqual(result.status, "verified")
+        self.assertEqual(result.byte_count, len(self.payload))
+        self.assertEqual(commands, [])
+
     def test_header_builder_rejects_writable_source(self):
         with patch("feclora.network.remote_clone._geometry", return_value=(len(self.payload), 512, False, "gpt")):
             with self.assertRaisesRegex(RemoteDiskCloneError, "marked read-only"):
