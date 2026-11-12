@@ -33,7 +33,6 @@ TOOL_GROUPS = {
     "compression": ("gzip", "pigz", "zstd", "xz", "lz4"),
     "integrity": ("sha256sum",),
     "encryption": ("cryptsetup", "age"),
-    "image_signing": ("minisign",),
     "volume_management": ("lvm", "pvs", "vgs", "lvs", "dmsetup", "stratis"),
     "btrfs": ("btrfs",),
     "hardware_diagnostics": ("smartctl",),
