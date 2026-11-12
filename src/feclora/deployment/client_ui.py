@@ -138,7 +138,7 @@ def _sha256_file(path: str) -> str:
     return digest.hexdigest()
 
 
-def _client_enrollment_wizard(config_path: str) -> bool:
+def _client_server_trust_wizard(config_path: str) -> bool:
     """Configure Server trust; Clients do not enroll or present certificates."""
     host = dialog_app._input("Feclora Server address", "Enter the Server IPv4 address or hostname:")
     if not host:
@@ -278,7 +278,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
         return _elevate()
     try:
         if not os.path.exists(config_path):
-            if not _client_enrollment_wizard(config_path):
+            if not _client_server_trust_wizard(config_path):
                 return 0
         config = load_client_runtime_config(config_path)
         identity_choices = [("join", "Join deployment job")]
