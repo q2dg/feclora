@@ -312,7 +312,7 @@ def _wait_for_age_passphrase(
         except OSError as exc:
             raise PXEAnswerClientError("cannot remove one-shot age passphrase after reading") from exc
         if (not value or len(value.encode("utf-8")) > 1024
-                or any(char in value for char in "\\r\\n\\x00")):
+                or any(char in value for char in "\r\n\x00")):
             raise PXEAnswerClientError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
         return value
     raise PXEAnswerClientError("timed out waiting for the age passphrase in Live Cockpit")
@@ -381,6 +381,8 @@ def execute_live_pxe_restore(
                 )
             except Exception as exc:
                 raise PXEAnswerClientError(f"PXE whole-disk restore failed: {exc}") from exc
+            finally:
+                age_passphrase = None
         return target_path
     finally:
         umount_cmd = shutil.which("umount") or "umount"
