@@ -24,7 +24,6 @@ class ServerUIDeviceSelectionTests(unittest.TestCase):
         _run_unicast_job(control, config, job, "02:00:00:00:00:01", "/srv/images/os.manifest.json")
         control.run_one_client_job.assert_called_once_with(
             "/srv/images",
-            trusted_public_key="/etc/feclora/server.pub",
             manifest_path="/srv/images/os.manifest.json",
         )
         control.run_remote_clone_job.assert_not_called()
