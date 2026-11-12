@@ -521,7 +521,6 @@ class DeploymentControlServer:
         repository: str,
         manifest_path: str,
         *,
-        trusted_public_key: str | os.PathLike[str] | None = None,
     ) -> ImageManifest:
         """Send an image set to one running restore Client."""
         tls_socket = self._running_session(mac_address, "restore")
@@ -534,7 +533,6 @@ class DeploymentControlServer:
             return send_image_set(
                 tls_socket, repository, manifest_path,
                 expected_image_id=self.coordinator.job.image_id,
-                trusted_public_key=trusted_public_key,
             )
         except (ImageTransferError, OSError, DeploymentControlError) as exc:
             self._record_transfer_failure(mac_address, f"restore image transfer failed: {exc}")
@@ -576,8 +574,7 @@ class DeploymentControlServer:
             return receive_image_set(
                 tls_socket, repository,
                 expected_image_id=self.coordinator.job.image_id,
-                trusted_public_key=trusted_public_key,
-            )
+                )
         except (ImageTransferError, OSError, DeploymentControlError) as exc:
             self._record_transfer_failure(mac_address, f"saved image transfer failed: {exc}")
             if isinstance(exc, DeploymentControlError):
@@ -608,11 +605,10 @@ class DeploymentControlServer:
             if self.coordinator.job.operation == "restore":
                 self.send_restore_image(
                     mac, repository, manifest_path,
-                    trusted_public_key=trusted_public_key,
                 )
             else:
                 self.receive_saved_image(
-                    mac, repository, trusted_public_key=trusted_public_key,
+                    mac, repository,
                 )
         except (DeploymentControlError, ImageTransferError):
             # The transfer method records a terminal failed result and closes
@@ -684,7 +680,6 @@ class DeploymentControlServer:
         repository: str,
         manifest_path: str,
         *,
-        trusted_public_key: str | os.PathLike[str] | None,
         udpcast_config: UDPcastConfig,
         result_timeout: float = 86400,
     ) -> dict[str, str]:
