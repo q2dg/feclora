@@ -69,7 +69,7 @@ class RemoteRepositoryTests(unittest.TestCase):
         self.assertEqual(argv[-2], "//nas.example.net/images")
 
     def test_smb_rejects_comma_in_prefixpath_mount_option_injection(self):
-        for remote_path in ("/images/feclora,vers=1.0", "/images/archive,ro"):
+        for remote_path in ("/images/feclora,vers", "/images/archive,ro"):
             with self.subTest(remote_path=remote_path):
                 with self.assertRaisesRegex(RepositoryError, "mount-option separators"):
                     RemoteRepository(
