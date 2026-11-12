@@ -110,7 +110,7 @@ The underlying Python storage engines include safety checks, manifest-backed
 artifact publication, compression, integrity verification, and restore
 preflight. The remote deployment stack includes persistent Server/Client
 services, Server-authenticated TLS control and unicast image transfer without Client authentication, with optional minisign signatures,
-UDPcast multicast restore, and direct whole-disk remote cloning. Cockpit
+UDPcast multicast restore, and direct whole-disk and partition-to-partition remote cloning. Cockpit
 exposes Server/Client lifecycle and job workflows, per-client status, initial
 Server identity bootstrap, and PXE network-profile preflight/activation for
 ProxyDHCP or isolated DHCP. PXE boot-tree staging and interactive Live boot are implemented. Cockpit can upload one declarative unattended JSON answer (including its repository URL); the Server validates it and publishes/revokes it through Caddy over HTTP together with an answer-specific iPXE handoff script. This answer workflow does not use per-Client identity, USB media, certificates or enrollment. Live downloads and schema-validates the answer, and the first NFS-backed whole-disk path uses the existing restore engine with WWN/serial revalidation and read-back verification. PXE can unlock passphrase-encrypted age artifacts through Live Cockpit; whole-disk capture can create symmetric age-encrypted images through Cockpit, while partition and logical-volume capture remain recipient-based; other repository adapters and hardware acceptance remain pending; the existing Server-authenticated TLS Remote jobs workflow remains separate. See [the PXE unattended design](docs/PXE-UNATTENDED.md).
