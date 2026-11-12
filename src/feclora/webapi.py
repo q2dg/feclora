@@ -1441,54 +1441,6 @@ def _revoke_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
 
 
 
-def _prepare_client_request(params: dict[str, Any]) -> dict[str, Any]:
-    from feclora.deployment.cockpit_client import prepare_client_request
-    try:
-        return prepare_client_request(params)
-    except Exception as exc:
-        raise WebAPIError(f"Client enrollment request preparation failed: {exc}") from exc
-
-
-def _complete_client_enrollment(params: dict[str, Any]) -> dict[str, Any]:
-    from feclora.deployment.cockpit_client import complete_client_enrollment
-    try:
-        return complete_client_enrollment(params)
-    except Exception as exc:
-        raise WebAPIError(f"Client enrollment completion failed: {exc}") from exc
-
-
-def _prepare_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
-    from feclora.deployment.cockpit_client import prepare_client_renewal
-    try:
-        return prepare_client_renewal(params)
-    except Exception as exc:
-        raise WebAPIError(f"Client renewal request preparation failed: {exc}") from exc
-
-
-def _complete_client_renewal(params: dict[str, Any]) -> dict[str, Any]:
-    from feclora.deployment.cockpit_client import complete_client_renewal
-    try:
-        return complete_client_renewal(params)
-    except Exception as exc:
-        raise WebAPIError(f"Client renewal installation failed: {exc}") from exc
-
-
-def _inspect_client_csr(params: dict[str, Any]) -> dict[str, str]:
-    from feclora.deployment.cockpit_enrollment import inspect_client_request
-    try:
-        return inspect_client_request(params)
-    except Exception as exc:
-        raise WebAPIError(f"Client CSR inspection failed: {exc}") from exc
-
-
-def _approve_client_csr(params: dict[str, Any]) -> dict[str, Any]:
-    from feclora.deployment.cockpit_enrollment import approve_client_csr
-    try:
-        return approve_client_csr(params)
-    except Exception as exc:
-        raise WebAPIError(f"Client CSR approval failed: {exc}") from exc
-
-
 def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish", "encrypt_passphrase", "age_passphrase"},
@@ -2884,29 +2836,6 @@ def _refresh_client_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError(f"Client age recipient refresh failed: {exc}") from exc
 
 
-def _revoke_server_client(params: dict[str, Any]) -> dict[str, Any]:
-    if set(params) != {"identity", "confirmation"}:
-        raise WebAPIError("Client revocation requires exactly identity and confirmation")
-    identity, confirmation = params["identity"], params["confirmation"]
-    if not isinstance(identity, str) or not identity.startswith("URI:feclora-client-"):
-        raise WebAPIError("Client identity is invalid")
-    if not isinstance(confirmation, str) or confirmation != f"REVOKE {identity}":
-        raise WebAPIError("revocation confirmation does not match")
-    from feclora.deployment.enrollment import revoke_client_certificate
-    from feclora.deployment.cockpit_enrollment import remove_client_certificate_pin
-    try:
-        mac = revoke_client_certificate(
-            "/etc/feclora/deployment-server.json", identity,
-            confirmation=confirmation,
-        )
-        pin_removed = remove_client_certificate_pin(identity)
-    except Exception as exc:
-        raise WebAPIError(f"Client revocation failed: {exc}") from exc
-    return {"identity": identity, "mac_address": mac, "revoked": True, "certificate_pin_removed": pin_removed}
-
-
-
-
 def _remote_repository_manager():
     from feclora.storage.repository_manager import RemoteRepositoryManager
     return RemoteRepositoryManager()
@@ -3061,18 +2990,6 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _renew_server_certificate(params)
     if action == "rotate_server_keypair":
         return _rotate_server_keypair(params)
-    if action == "prepare_client_request":
-        return _prepare_client_request(params)
-    if action == "complete_client_enrollment":
-        return _complete_client_enrollment(params)
-    if action == "prepare_client_renewal":
-        return _prepare_client_renewal(params)
-    if action == "complete_client_renewal":
-        return _complete_client_renewal(params)
-    if action == "inspect_client_csr":
-        return _inspect_client_csr(params)
-    if action == "approve_client_csr":
-        return _approve_client_csr(params)
     if action == "validate_pxe_profile":
         return _validate_pxe_profile(params)
     if action == "start_pxe_services":
