@@ -21,7 +21,7 @@ from .disk_restore import (
     _verify_stored_artifact,
 )
 from .image_manifest import ImageManifest, ManifestValidationError
-from .image_security import ImageSecurityError, encrypt_artifact, sign_manifest, verify_manifest_signature
+from .image_security import ImageSecurityError, encrypt_artifact
 from .partition_range import PartitionRangeError, parse_sfdisk_dump, select_partition_range
 
 
@@ -51,9 +51,6 @@ def extract_partition_image(
     selector: str,
     *,
     age_identity_file: str | os.PathLike[str] | None = None,
-    minisign_public_key: str | os.PathLike[str] | None = None,
-    require_signature: bool = False,
-    minisign_secret_key: str | os.PathLike[str] | None = None,
     age_recipients_file: str | os.PathLike[str] | None = None,
     executables: dict[str, str | None] | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
@@ -82,24 +79,6 @@ def extract_partition_image(
         raise DiskImagePartitionError("manifest must contain exactly one raw disk-image artifact")
     if len(table_artifacts) != 1 or table_artifacts[0].format != "raw":
         raise DiskImagePartitionError("manifest must contain exactly one raw partition-table artifact")
-    signature_path = manifest_file + ".minisig"
-    signature_present = os.path.lexists(signature_path)
-    if require_signature and not signature_present:
-        raise DiskImagePartitionError("a minisign signature is required but this image has none")
-    if signature_present and minisign_public_key is None:
-        raise DiskImagePartitionError("image is signed; a trusted minisign public key is required before extraction")
-    if minisign_public_key is not None:
-        if not signature_present:
-            raise DiskImagePartitionError("minisign signature is missing")
-        try:
-            verify_manifest_signature(
-                manifest_file, minisign_public_key, signature_path=signature_path,
-                minisign_executable=(executables or {}).get("minisign"),
-            )
-        except (ImageSecurityError, OSError) as exc:
-            raise DiskImagePartitionError(f"manifest signature verification failed: {exc}") from exc
-    elif require_signature:
-        raise DiskImagePartitionError("a trusted signature is required")
 
     table_artifact = table_artifacts[0]
     if table_artifact.encryption != "none" or table_artifact.compression != "none":
@@ -197,18 +176,8 @@ def extract_partition_image(
             stream.write(extracted_manifest.to_json())
             stream.flush()
             os.fsync(stream.fileno())
-        if minisign_secret_key is not None:
-            sign_manifest(staged_manifest, minisign_secret_key, minisign_executable=(executables or {}).get("minisign"))
-        directory_fd = os.open(
-            repo, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
-        )
-        publish_names = [artifact_name, manifest_name]
-        if minisign_secret_key is not None:
-            publish_names.append(manifest_name + ".minisig")
-        for name in publish_names:
-            os.link(os.path.join(stage, name), name, dst_dir_fd=directory_fd, follow_symlinks=False)
-            published.append(name)
-        os.fsync(directory_fd)
+        from .image_publication import publish_image_set
+        publish_image_set(repo, stage, [artifact_name, manifest_name])
         return extracted_manifest, manifest_name
     except (ArtifactWriteError, DiskRestoreError, ImageSecurityError, OSError, ManifestValidationError) as exc:
         for name in reversed(published):
