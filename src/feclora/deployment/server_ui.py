@@ -430,9 +430,14 @@ def run_deployment_server_ui(
         )
         bound_address, port = control.start(config.bind_address, config.port)
         selected_mac_text = ", ".join(selected_macs)
+        source_summary = (
+            f"Source device: {job.source_device} ({job.target_type})"
+            if job.operation == "clone"
+            else f"Image: {job.image_id}"
+        )
         dialog_app._message(
             "Deployment listener",
-            f"Job: {job.job_id}\nOperation: {job.operation}\nImage: {job.image_id}\n"
+            f"Job: {job.job_id}\nOperation: {job.operation}\n{source_summary}\n"
             f"Selected Client MACs: {selected_mac_text}\nTransport: {job.transport}\nControl endpoint: {bound_address}:{port}\nJournal: {journal_path}\n"
             + "\n\nThe listener uses TLS with Server-certificate verification only; Clients present no certificate and have no individual identity. "
             "Each selected Client enters this job UUID, selects its local target and types the exact confirmation. "
