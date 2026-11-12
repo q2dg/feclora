@@ -7,23 +7,22 @@ This document is the dependency-ordered implementation backlog and acceptance co
 
 The maintainer's end-user requirements and measurable release gates are defined in [USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md). The target workflows cover local and remote disk/partition cloning, image capture to SSHFS/NFS/SMB or S3, single-target restore, multi-Client restore and unattended PXE. S3 is an object-storage repository using an HTTPS API, not a mounted filesystem. The Live image uses a minimal Fedora Server userspace; Cage launches Firefox in kiosk mode against the local Cockpit endpoint.
 
-Do not mark a workflow complete because an engine, command builder, protocol primitive or operator acceptance recipe exists. Completion requires an end-to-end Cockpit path, backend/runtime integration, safe authorization and failure handling, progress/results, automated software tests, operator acceptance procedure and a matching published step-by-step guide. the new PXE answer path now downloads and validates JSON in Live and connects NFS-backed whole-disk restore to the existing engine with stable-target revalidation. Remaining PXE work includes other repository providers, Cockpit result reporting and physical acceptance. The standalone signed restore-profile executor is separate from this PXE answer workflow.
+Do not mark a workflow complete because an engine, command builder, protocol primitive or operator acceptance recipe exists. Completion requires an end-to-end Cockpit path, backend/runtime integration, safe authorization and failure handling, progress/results, automated software tests, operator acceptance procedure and a matching published step-by-step guide. The PXE answer path downloads and validates JSON in Live and connects NFS-backed whole-disk restore to the existing engine with stable-target revalidation. Remaining PXE work includes additional repository providers, Cockpit result reporting and physical acceptance. The standalone signed restore-profile executor is separate from this PXE answer workflow.
 
 ## Explicit follow-up queue (do not drop)
 
 This short list keeps the remaining cross-cutting work visible; the detailed acceptance criteria below remain authoritative.
 
 1. **Close unattended PXE:** obtain a clean static/unit CI run for the exact commit, then validate actual Fedora Live boot, Cockpit passphrase handoff, wrong-passphrase failure before writes, BIOS/UEFI boot, revocation, result reporting and hardware restore. Extend beyond NFS to the implemented file providers and S3 after its object API workflow is integrated. See [PXE design and acceptance](PXE-UNATTENDED.md).
-
 2. **Btrfs remains unfinished:** unmounted root-tree inspection and subvolume ancestry/provenance discovery are implemented without mounting filesystems. Allocation-profile discovery is still limited to mounted filesystems; snapshot-consistent capture, coordinated multi-device/profile imaging and layer-aware restore remain unimplemented. Do not silently flatten a multi-device filesystem or claim consistent capture from a mounted/in-use source. See **P1 — Storage discovery and image fidelity** below.
 3. **Finish repository providers and lifecycle:** complete SSHFS/NFS/SMB failure, root-squash, stale-mount, interruption, concurrency and cleanup acceptance; implement the S3 object API lifecycle with multipart cleanup, scoped credentials and conditional manifest-last publication. See **P0 — Remote repositories and credentials** below.
-
 4. **Close storage-layer gaps:** deployment-job LV capture, LUKS2-on-LV and opened-mapping restore, snapshot-assisted LVM/Btrfs capture, and the remaining layer-aware Btrfs/LUKS2 restore paths. Keep provisioning/rekeying and unsupported plaintext mapping restores explicitly out of scope unless separately specified.
 5. **Complete fleet and release acceptance:** two-machine integration tests, real Fedora Live package/firmware tests, Server-authenticated TLS and multicast/IGMP switch acceptance, durable worker supervision, byte-level progress/throughput reporting, operation-history export, and recovery/interruption drills.
 
 Do not mark any of these complete from unit tests alone; retain the operator acceptance gates and per-provider/per-filesystem records.
 
 ## Delivery principles
+1. Reuse established tools and libraries; do not reimplement storage protocols.
 2. A feature is complete only when runtime, privileged API, Cockpit workflow, failure handling, automated tests and documentation agree.
 3. Destructive operations fail closed, require explicit authorization and verify results.
 4. Never persist passwords, private keys or `age` identities in profiles, journals, logs or browser storage. Age encryption is optional; artifact integrity is checked with SHA-256 and repository/transport trust controls access to manifests.
