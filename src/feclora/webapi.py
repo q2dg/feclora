@@ -1287,113 +1287,115 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         from feclora.storage.disk_image_partition import extract_partition_image
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         selector = _text(params, "selector", maximum=256)
-        repository = _operation_repository(params, write=False)
-        manifest_path = _image_manifest(image_id, repository)
-        try:
+        with _operation_repository_context(params, write=True, image_id=image_id, upload_new_images=True) as repository:
+        with _operation_repository_context(params, write=False, image_id=image_id) as repository:
+                repository = _operation_repository(params, write=False)
+                manifest_path = _image_manifest(image_id, repository)
+                try:
+                    manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+                except Exception as exc:
+                    raise WebAPIError(f"cannot read selected disk image manifest: {exc}") from exc
+                if manifest.image_id != image_id or manifest.image_type != "disk":
+                    raise WebAPIError("partition extraction requires the selected disk image manifest")
+                encrypted = any(item.encryption == "age" for item in manifest.artifacts)
+                security = _security_material()
+                pki = Path("/etc/feclora/pki")
+                identity_paths: list[Path] = []
+                if security["age_decryption_available"]:
+                    identity_paths.append(pki / "server.age")
+                client_config = _client_runtime_config()
+                if client_config and client_config.age_identity_file:
+                    identity_paths.append(Path(client_config.age_identity_file))
+                if encrypted and not identity_paths:
+                    raise WebAPIError("age-encrypted disk image requires an enrolled Client or local Feclora age identity")
+                recipients_file = _capture_material()
+                if encrypted and not security["age_encryption_available"]:
+                    raise WebAPIError("extracting an age-encrypted disk image requires an available age recipient inventory for the new partition image")
+                identity_context = tempfile.TemporaryDirectory(prefix="feclora-age-identities-") if encrypted and len(identity_paths) > 1 else None
+                try:
+                    if identity_context:
+                        identity_file = Path(identity_context.name) / "identities.txt"
+                        identity_file.write_text(
+                            "\n".join(path.read_text(encoding="ascii").strip() for path in identity_paths) + "\n",
+                            encoding="ascii",
+                        )
+                        os.chmod(identity_file, 0o600)
+                    else:
+                        identity_file = identity_paths[0] if encrypted else None
+                    extracted, extracted_manifest = extract_partition_image(
+                        manifest_path, repository, selector,
+                        age_identity_file=identity_file,
+                        age_recipients_file=recipients_file if encrypted else None,
+                        progress_callback=_progress,
+                    )
+                except Exception as exc:
+                    raise WebAPIError(f"partition extraction failed: {exc}") from exc
+                finally:
+                    if identity_context:
+                        identity_context.cleanup()
+                result = {
+                    "source_image_id": image_id, "image_id": extracted.image_id,
+                    "image_type": extracted.image_type, "manifest": extracted_manifest,
+                    "encrypted": any(item.encryption == "age" for item in extracted.artifacts),
+                }
+        elif action in {"restore_disk", "restore_partition", "restore_logical_volume"}:
+            image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+            target = _device(params["target"], "target")
+            expected = f"ERASE {target}"
+            if params["confirmation"] != expected:
+                raise WebAPIError(f"explicit confirmation required: {expected}")
+            repository = _operation_repository(params, write=False)
+            manifest_path = _image_manifest(image_id, repository)
             manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            raise WebAPIError(f"cannot read selected disk image manifest: {exc}") from exc
-        if manifest.image_id != image_id or manifest.image_type != "disk":
-            raise WebAPIError("partition extraction requires the selected disk image manifest")
-        encrypted = any(item.encryption == "age" for item in manifest.artifacts)
-        security = _security_material()
-        pki = Path("/etc/feclora/pki")
-        identity_paths: list[Path] = []
-        if security["age_decryption_available"]:
-            identity_paths.append(pki / "server.age")
-        client_config = _client_runtime_config()
-        if client_config and client_config.age_identity_file:
-            identity_paths.append(Path(client_config.age_identity_file))
-        if encrypted and not identity_paths:
-            raise WebAPIError("age-encrypted disk image requires an enrolled Client or local Feclora age identity")
-        recipients_file = _capture_material()
-        if encrypted and not security["age_encryption_available"]:
-            raise WebAPIError("extracting an age-encrypted disk image requires an available age recipient inventory for the new partition image")
-        identity_context = tempfile.TemporaryDirectory(prefix="feclora-age-identities-") if encrypted and len(identity_paths) > 1 else None
-        try:
-            if identity_context:
-                identity_file = Path(identity_context.name) / "identities.txt"
-                identity_file.write_text(
-                    "\n".join(path.read_text(encoding="ascii").strip() for path in identity_paths) + "\n",
-                    encoding="ascii",
-                )
-                os.chmod(identity_file, 0o600)
-            else:
-                identity_file = identity_paths[0] if encrypted else None
-            extracted, extracted_manifest = extract_partition_image(
-                manifest_path, repository, selector,
-                age_identity_file=identity_file,
-                age_recipients_file=recipients_file if encrypted else None,
-                progress_callback=_progress,
-            )
-        except Exception as exc:
-            raise WebAPIError(f"partition extraction failed: {exc}") from exc
-        finally:
-            if identity_context:
-                identity_context.cleanup()
-        result = {
-            "source_image_id": image_id, "image_id": extracted.image_id,
-            "image_type": extracted.image_type, "manifest": extracted_manifest,
-            "encrypted": any(item.encryption == "age" for item in extracted.artifacts),
-        }
-    elif action in {"restore_disk", "restore_partition", "restore_logical_volume"}:
-        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-        target = _device(params["target"], "target")
-        expected = f"ERASE {target}"
-        if params["confirmation"] != expected:
-            raise WebAPIError(f"explicit confirmation required: {expected}")
-        repository = _operation_repository(params, write=False)
-        manifest_path = _image_manifest(image_id, repository)
-        manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
-        expected_type = {"restore_disk": "disk", "restore_partition": "partition", "restore_logical_volume": "logical_volume"}[action]
-        if manifest.image_type != expected_type:
-            raise WebAPIError(f"selected image is not a {expected_type} image")
-        security = _security_material()
-        encrypted = any(item.encryption == "age" for item in manifest.artifacts)
-        pki = Path("/etc/feclora/pki")
-        identity_paths: list[Path] = []
-        if security["age_decryption_available"]:
-            identity_paths.append(pki / "server.age")
-        client_config = _client_runtime_config()
-        if client_config and client_config.age_identity_file:
-            identity_paths.append(Path(client_config.age_identity_file))
-        if encrypted and not identity_paths:
-            raise WebAPIError("age-encrypted image requires an enrolled Client or local Feclora age identity")
-        identity_context = tempfile.TemporaryDirectory(prefix="feclora-age-identities-") if encrypted and len(identity_paths) > 1 else None
-        try:
-            if identity_context:
-                identity_file = Path(identity_context.name) / "identities.txt"
-                contents = []
-                for identity_path in identity_paths:
-                    contents.append(identity_path.read_text(encoding="ascii").strip())
-                identity_file.write_text("\n".join(contents) + "\n", encoding="ascii")
-                os.chmod(identity_file, 0o600)
-            else:
-                identity_file = identity_paths[0] if encrypted else None
-            if action == "restore_disk":
-                from feclora.storage.disk_restore import restore_disk
-                restore_disk(
-                    manifest_path, repository, target, confirmation=expected,
-                    progress_callback=_progress, age_identity_file=identity_file,
-                )
-            elif action == "restore_partition":
-                from feclora.storage.partition_restore import restore_partition
-                restore_partition(
-                    manifest_path, repository, target, confirmation=expected,
-                    progress_callback=_progress, age_identity_file=identity_file,
-                )
-            else:
-                from feclora.storage.inventory import collect_inventory
-                from feclora.storage.logical_volume_restore import restore_logical_volume
-                restore_logical_volume(
-                    manifest_path, repository, target, confirmation=expected,
-                    inventory_provider=collect_inventory,
-                    progress_callback=_progress, age_identity_file=identity_file,
-                )
-        finally:
-            if identity_context:
-                identity_context.cleanup()
-        result = {"image_id": image_id, "target": target, "verified": True}
+            expected_type = {"restore_disk": "disk", "restore_partition": "partition", "restore_logical_volume": "logical_volume"}[action]
+            if manifest.image_type != expected_type:
+                raise WebAPIError(f"selected image is not a {expected_type} image")
+            security = _security_material()
+            encrypted = any(item.encryption == "age" for item in manifest.artifacts)
+            pki = Path("/etc/feclora/pki")
+            identity_paths: list[Path] = []
+            if security["age_decryption_available"]:
+                identity_paths.append(pki / "server.age")
+            client_config = _client_runtime_config()
+            if client_config and client_config.age_identity_file:
+                identity_paths.append(Path(client_config.age_identity_file))
+            if encrypted and not identity_paths:
+                raise WebAPIError("age-encrypted image requires an enrolled Client or local Feclora age identity")
+            identity_context = tempfile.TemporaryDirectory(prefix="feclora-age-identities-") if encrypted and len(identity_paths) > 1 else None
+            try:
+                if identity_context:
+                    identity_file = Path(identity_context.name) / "identities.txt"
+                    contents = []
+                    for identity_path in identity_paths:
+                        contents.append(identity_path.read_text(encoding="ascii").strip())
+                    identity_file.write_text("\n".join(contents) + "\n", encoding="ascii")
+                    os.chmod(identity_file, 0o600)
+                else:
+                    identity_file = identity_paths[0] if encrypted else None
+                if action == "restore_disk":
+                    from feclora.storage.disk_restore import restore_disk
+                    restore_disk(
+                        manifest_path, repository, target, confirmation=expected,
+                        progress_callback=_progress, age_identity_file=identity_file,
+                    )
+                elif action == "restore_partition":
+                    from feclora.storage.partition_restore import restore_partition
+                    restore_partition(
+                        manifest_path, repository, target, confirmation=expected,
+                        progress_callback=_progress, age_identity_file=identity_file,
+                    )
+                else:
+                    from feclora.storage.inventory import collect_inventory
+                    from feclora.storage.logical_volume_restore import restore_logical_volume
+                    restore_logical_volume(
+                        manifest_path, repository, target, confirmation=expected,
+                        inventory_provider=collect_inventory,
+                        progress_callback=_progress, age_identity_file=identity_file,
+                    )
+            finally:
+                if identity_context:
+                    identity_context.cleanup()
+            result = {"image_id": image_id, "target": target, "verified": True}
     elif action == "clone_disk":
         from feclora.storage.disk_clone import clone_disk
         source, target = _device(params["source"], "source"), _device(params["target"], "target")
