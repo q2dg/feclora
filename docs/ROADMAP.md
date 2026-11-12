@@ -66,8 +66,7 @@ transport. Age encryption is optional.
   selection, multi-interface behavior, browser/API disconnect recovery and
   complete Server/Client workflow acceptance remain open.
 - **PKI:** managed CA bootstrap, enrollment/renewal, trust inventory/revocation,
-  Server leaf renewal/keypair rotation exist. PKI backup and restore are
-  excluded from the project scope.
+  Server leaf renewal/keypair rotation exist.
 - **Monitoring:** local operation journals and byte progress, plus Server-side
   per-Client operation progress/throughput, exist. Standardized
   phase/diagnostic telemetry, history export, detached-worker supervision and
@@ -105,6 +104,3 @@ boot, multicast switch/IGMP behavior and representative hardware acceptance
 must be performed and recorded by an operator. Unit tests and static
 validation do not establish those results.
 
-The PKI scope is managed CA bootstrap, enrollment/renewal, trust
-inventory/revocation and Server TLS leaf/keypair lifecycle under the existing
-CA. PKI backup and restore are out of scope.
