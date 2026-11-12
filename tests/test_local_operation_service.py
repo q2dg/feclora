@@ -45,10 +45,10 @@ class LocalOperationWorkerTests(unittest.TestCase):
                 forwarder = _ProgressForwarder(store, operation_id)
                 forwarder.write(json.dumps({
                     "event": "progress", "bytes_done": 2048, "bytes_total": 8192,
-                }) + "\\n")
+                }) + "\n")
                 forwarder.write(json.dumps({
                     "event": "progress", "bytes_done": 4096, "bytes_total": 8192,
-                }) + "\\n")
+                }) + "\n")
             progress = [
                 event for event in store.status(operation_id)["events"]
                 if event["state"] == "progress"
@@ -73,7 +73,7 @@ class LocalOperationWorkerTests(unittest.TestCase):
                 for done in (8192, 1024, 2048):
                     forwarder.write(json.dumps({
                         "event": "progress", "bytes_done": done, "bytes_total": 8192,
-                    }) + "\\n")
+                    }) + "\n")
             progress = [
                 event for event in store.status(operation_id)["events"]
                 if event["state"] == "progress"
