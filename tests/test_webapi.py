@@ -87,7 +87,7 @@ class WebAPITests(unittest.TestCase):
             "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
         }
         expected = {"image_id": "golden", "image_type": "disk", "artifact_count": 2,
-                    "signature_verified": True, "artifacts_verified": True, "published": True}
+                     "artifacts_verified": True, "published": True}
         with patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(
             st_mode=stat.S_IFREG | 0o644, st_uid=0,
         )), patch("feclora.webapi._repository", return_value=Path("/var/lib/feclora/images")), \
@@ -125,13 +125,13 @@ class WebAPITests(unittest.TestCase):
         manifest = SimpleNamespace(image_id="root-image", image_type="logical_volume")
         params = {
             "source": "/dev/vg/root", "image_id": "root-image",
-            "compression": "none", "encrypt": False, "sign": False,
+            "compression": "none", "encrypt": False,
         }
         with patch("feclora.webapi._device", return_value="/dev/vg/root"), \
              patch("feclora.webapi._security_material", return_value={
-                 "age_encryption_available": False, "image_signing_available": False,
+                 "age_encryption_available": False,
              }), \
-             patch("feclora.webapi._capture_material", return_value=(None, None)), \
+             patch("feclora.webapi._capture_material", return_value=None), \
              patch("feclora.webapi._operation_repository", return_value="/tmp/images"), \
              patch("feclora.webapi._emit"), patch("feclora.webapi._progress"), \
              patch("feclora.storage.inventory.collect_inventory", return_value={"devices": []}) as inventory, \
@@ -347,9 +347,9 @@ class WebAPITests(unittest.TestCase):
             "feclora.webapi.os.path.isfile", return_value=False
         ), patch(
             "feclora.webapi._security_material",
-            return_value={"age_decryption_available": False, "image_verification_available": False, "image_signing_available": False},
+            return_value={"age_decryption_available": False,  "image_signing_available": False},
         ), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
-            "feclora.webapi._capture_material", return_value=(None, None)
+            "feclora.webapi._capture_material", return_value=None
         ), patch("feclora.webapi._repository", return_value=Path("/repo")), patch(
             "feclora.storage.disk_image_partition.extract_partition_image",
             return_value=(extracted, "source-part-abc123.manifest.json"),
@@ -358,7 +358,7 @@ class WebAPITests(unittest.TestCase):
                 "extract_partition_image", {"image_id": "source", "selector": "PARTUUID=abc"}, "operation-1"
             )
         self.assertEqual(result["image_id"], "source-part-abc123")
-        self.assertFalse(result["signed"])
+        self.assertNotIn("signed", result)
         self.assertEqual(result["source_image_id"], "source")
         extract.assert_called_once()
 
@@ -378,7 +378,7 @@ class WebAPITests(unittest.TestCase):
             "feclora.webapi.os.path.isfile", return_value=False
         ), patch("feclora.webapi._security_material", return_value={
             "age_decryption_available": True, "age_encryption_available": True,
-            "image_verification_available": False, "image_signing_available": False,
+             
         }), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
             "feclora.webapi._capture_material",
             return_value=(Path("/etc/feclora/pki/age-recipients.txt"), None),
@@ -418,7 +418,7 @@ class WebAPITests(unittest.TestCase):
         ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
             "feclora.webapi.os.path.isfile", return_value=False
         ), patch("feclora.webapi._security_material", return_value={
-            "image_verification_available": False, "age_decryption_available": False,
+             "age_decryption_available": False,
         }), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
             "feclora.webapi._repository", return_value=Path("/repo")
         ), patch(
@@ -429,7 +429,7 @@ class WebAPITests(unittest.TestCase):
                 {"image_id": "verified"}
             )
         self.assertTrue(report["verified"])
-        self.assertEqual(report["signature"], "unsigned")
+        self.assertNotIn("signature", report)
         self.assertEqual(report["artifacts"][0]["stored_digest"], "verified")
         self.assertEqual(report["artifacts"][0]["decoded_bytes"], 4)
 
@@ -450,7 +450,7 @@ class WebAPITests(unittest.TestCase):
         ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
             "feclora.webapi.os.path.isfile", return_value=False
         ), patch("feclora.webapi._security_material", return_value={
-            "image_verification_available": False, "age_decryption_available": False,
+             "age_decryption_available": False,
         }), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
             "feclora.webapi._repository", return_value=Path("/repo")
         ), patch(
@@ -1414,7 +1414,7 @@ class WebAPITests(unittest.TestCase):
         repository = Path("/var/lib/feclora/images")
         params = {
             "source": "/dev/sda", "image_id": "captured", "compression": "zstd",
-            "encrypt": False, "sign": True,
+            "encrypt": False,
             "sftp_publish": {
                 "host": "backup.example.net", "username": "backup",
                 "remote_directory": "/images/captured", "port": 2222,
@@ -1424,9 +1424,9 @@ class WebAPITests(unittest.TestCase):
         }
         with patch("feclora.webapi._device", return_value="/dev/sda"), patch(
             "feclora.webapi._security_material", return_value={
-                "age_encryption_available": False, "image_signing_available": True,
+                "age_encryption_available": False,
             }
-        ), patch("feclora.webapi._capture_material", return_value=(None, Path("/etc/feclora/pki/server.minisign.key"))), patch(
+        ), patch("feclora.webapi._capture_material", return_value=None), patch(
             "feclora.webapi._operation_repository", return_value=repository
         ), patch(
             "feclora.storage.disk_capture.capture_disk", return_value=manifest
@@ -1506,7 +1506,7 @@ class WebAPITests(unittest.TestCase):
             expected = {
                 "image_id": "remote-image", "image_type": "disk",
                 "source_size_bytes": 1024, "logical_sector_size": 512,
-                "artifact_count": 2, "artifacts": [], "signature_verified": True,
+                "artifact_count": 2, "artifacts": [], 
             }
             params = {
                 "host": "backup.example.net", "username": "backup",
@@ -1514,13 +1514,13 @@ class WebAPITests(unittest.TestCase):
                 "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
                 "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
             }
-            with patch("feclora.webapi._client_runtime_config", return_value=SimpleNamespace(trusted_server_public_key=str(key))), \
+            with patch("feclora.webapi._client_runtime_config", return_value=None), \
                  patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(st_mode=0o100600, st_uid=0)), \
                  patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("inspect-123")), \
                  patch("feclora.storage.sftp_image_set.inspect_remote_image_set", return_value=expected) as inspect:
                 result = dispatch({"action": "inspect_sftp_image_set", "params": params})
             self.assertEqual(result, {"operation_id": "inspect-123", **expected})
-            self.assertEqual(inspect.call_args.kwargs["public_key"], key)
+            self.assertNotIn("public_key", inspect.call_args.kwargs)
             self.assertEqual(inspect.call_args.kwargs["remote_directory"], "/images")
 
 
@@ -1531,7 +1531,7 @@ class WebAPITests(unittest.TestCase):
             root = Path(directory)
             manifest_path = root / "gold.manifest.json"
             manifest_path.write_text("{}", encoding="utf-8")
-            Path(str(manifest_path) + ".minisig").write_text("signature", encoding="utf-8")
+            
             manifest = SimpleNamespace(image_id="gold", image_type="disk", artifacts=[])
             params = {
                 "image_id": "gold", "target": "/dev/sdb",
@@ -1635,7 +1635,7 @@ class WebAPITests(unittest.TestCase):
                  patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
                  patch("feclora.webapi._security_material", return_value={
                      "age_decryption_available": False,
-                     "image_verification_available": False,
+                     
                  }), \
                  patch("feclora.webapi._client_runtime_config", return_value=client), \
                  patch("feclora.storage.disk_restore.restore_disk") as restore, \
@@ -1654,8 +1654,8 @@ class WebAPITests(unittest.TestCase):
             availability = {
                 "age_encryption_available": False,
                 "age_decryption_available": False,
-                "image_signing_available": False,
-                "image_verification_available": False,
+                
+                
             }
             with patch("feclora.webapi.Path", side_effect=lambda _value: root), \
                  patch("feclora.deployment.managed_pki.initialize_server_pki") as initialize_tls, \
@@ -1688,7 +1688,7 @@ class WebAPITests(unittest.TestCase):
         ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), patch(
             "feclora.webapi.os.path.isfile", return_value=False
         ), patch("feclora.webapi._security_material", return_value={
-            "image_verification_available": False, "age_decryption_available": False,
+             "age_decryption_available": False,
         }), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
             "feclora.webapi._operation_repository", return_value=Path("/repo")
         ), patch(
