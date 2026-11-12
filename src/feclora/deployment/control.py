@@ -587,9 +587,11 @@ class DeploymentControlServer:
                     or transfer.get("job_id") != self.coordinator.job.job_id
                     or transfer.get("image_id") != self.coordinator.job.image_id):
                 raise DeploymentControlError("client image-transfer readiness is not bound to this job")
+            expected_type = {"disk": "disk", "partition": "partition", "logical_volume": "logical_volume"}[self.coordinator.job.target_type]
             manifest_path = receive_image_set(
                 tls_socket, repository,
                 expected_image_id=self.coordinator.job.image_id,
+                expected_image_type=expected_type,
             )
             if on_received is not None:
                 try:
