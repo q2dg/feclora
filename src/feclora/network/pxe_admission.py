@@ -42,8 +42,6 @@ class PXEAdmission:
         self.boot_script_path = Path(boot_script_path)
         self.max_clients = self._positive(max_clients, "max_clients")
         self.max_duration_seconds = self._positive(max_duration_seconds, "max_duration_seconds")
-        if self.max_clients is None and self.max_duration_seconds is None:
-            raise PXEAdmissionError("at least one PXE admission limit is required")
         self.clock = clock
         self.state_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.state_path.parent.is_symlink() or not self.state_path.parent.is_dir():
@@ -148,7 +146,9 @@ class PXEAdmission:
             if not self._within_time_limit(state):
                 return False, "PXE serving time limit has elapsed"
             known = normalized in state["macs"]
-            if not known and self.max_clients is not None and len(state["macs"]) >= self.max_clients:
+            if self.max_clients is None:
+                return True, "admitted without a client-count limit"
+            if not known and len(state["macs"]) >= self.max_clients:
                 return False, "PXE client limit has been reached"
             if not known:
                 state["macs"].append(normalized)
@@ -165,7 +165,9 @@ class PXEAdmission:
         try:
             fcntl.flock(fd, fcntl.LOCK_SH)
             state = self._read()
-            return mac.lower() in state["macs"] and self._within_time_limit(state)
+            return self._within_time_limit(state) and (
+                self.max_clients is None or mac.lower() in state["macs"]
+            )
         finally:
             fcntl.flock(fd, fcntl.LOCK_UN)
             os.close(fd)
@@ -190,7 +192,7 @@ class PXEAdmission:
             state = self._read()
             elapsed = max(0.0, self.clock() - float(state["started_at"]))
             return {
-                "clients_served": len(state["macs"]),
+                "clients_served": len(state["macs"]) if self.max_clients is not None else None,
                 "max_clients": self.max_clients,
                 "elapsed_seconds": int(elapsed),
                 "max_duration_seconds": self.max_duration_seconds,
