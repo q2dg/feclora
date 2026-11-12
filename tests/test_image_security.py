@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from feclora.storage.image_manifest import ImageArtifact
 from feclora.storage.image_security import (
     ImageSecurityError, decrypt_artifact_to_temp, decrypt_artifact_stream_with_passphrase_to_temp,
-    encrypt_artifact, sign_manifest, verify_manifest_signature, preflight_image_security,
+    encrypt_artifact, encrypt_artifact_with_passphrase, sign_manifest, verify_manifest_signature, preflight_image_security,
 )
 
 
@@ -188,6 +188,45 @@ class ImageSecurityTests(unittest.TestCase):
                     source, "wrong", self.root, age_executable=fake_age,
                 )
         self.assertFalse(any(name.startswith(".feclora-age-") for name in os.listdir(self.root)))
+
+    def test_real_age_passphrase_encryption_round_trip_when_age_is_installed(self):
+        age = shutil.which("age")
+        if not age:
+            self.skipTest("age CLI is not installed")
+        source = os.path.join(self.root, "capture.raw.gz")
+        payload = b"Feclora symmetric capture integration test\x00" * 128
+        with open(source, "wb") as stream:
+            stream.write(payload)
+        artifact = ImageArtifact(
+            filename="capture.raw.gz", role="disk-image", format="raw",
+            compression="gzip", size_bytes=len(payload),
+            sha256="0" * 64,
+        )
+        encrypted = encrypt_artifact_with_passphrase(
+            source, artifact, "capture passphrase 123", age_executable=age,
+        )
+        self.assertEqual(encrypted.encryption, "age")
+        self.assertEqual(encrypted.filename, "capture.raw.gz.age")
+        self.assertFalse(os.path.exists(source))
+        encrypted_path = os.path.join(self.root, encrypted.filename)
+        self.assertEqual(os.stat(encrypted_path).st_mode & 0o777, 0o600)
+        with open(encrypted_path, "rb") as stream:
+            staged = decrypt_artifact_stream_with_passphrase_to_temp(
+                stream, "capture passphrase 123", self.root, age_executable=age,
+            )
+        try:
+            with open(staged, "rb") as stream:
+                self.assertEqual(stream.read(), payload)
+        finally:
+            os.unlink(staged)
+            os.rmdir(os.path.dirname(staged))
+
+    def test_passphrase_encryption_rejects_invalid_secret(self):
+        with self.assertRaisesRegex(ImageSecurityError, "passphrase must"):
+            encrypt_artifact_with_passphrase(
+                self.source, self.artifact, "bad\npassphrase", age_executable="/usr/bin/age",
+            )
+        self.assertTrue(os.path.exists(self.source))
 
     def test_sign_and_verify_manifest(self):
         signature = self.manifest + ".minisig"
