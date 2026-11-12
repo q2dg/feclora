@@ -343,6 +343,7 @@ class S3ObjectRepository:
                         "image_id": manifest.image_id,
                         "image_type": manifest.image_type,
                         "source_size_bytes": manifest.source_size_bytes,
+                        "artifact_bytes": sum(artifact.size_bytes for artifact in manifest.artifacts),
                         "logical_sector_size": manifest.logical_sector_size,
                         "encrypted": any(
                             artifact.encryption == "age" for artifact in manifest.artifacts
