@@ -30,7 +30,7 @@ class PXEAnswerAPITests(unittest.TestCase):
 
     def test_age_passphrase_requires_a_nonempty_single_line_secret(self):
         with self.assertRaisesRegex(WebAPIError, "1-1024 UTF-8 bytes"):
-            _provide_pxe_age_passphrase({"passphrase": "bad\\nsecret"})
+            _provide_pxe_age_passphrase({"passphrase": "bad\nsecret"})
         with self.assertRaisesRegex(WebAPIError, "requires exactly passphrase"):
             _provide_pxe_age_passphrase({"passphrase": "secret", "job_id": self.JOB_ID})
 
