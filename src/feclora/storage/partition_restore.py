@@ -14,7 +14,7 @@ import zlib
 from contextlib import contextmanager
 from typing import Any, Callable
 from .image_manifest import ImageManifest, ManifestValidationError
-from .image_security import ImageSecurityError, decrypt_artifact_stream_to_temp, verify_manifest_signature
+from .image_security import decrypt_artifact_stream_to_temp
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 from .compression import CompressionError, ExternalDecompressionStream
@@ -405,8 +405,6 @@ def restore_partition(
     effective_uid: Callable[[], int] | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
-    minisign_public_key: str | os.PathLike[str] | None = None,
-    require_signature: bool = False,
 ) -> ImageManifest:
     """Restore one partition image; confirmation must be ERASE /dev/partition."""
     if not isinstance(target_path, str) or not target_path.startswith("/dev/"):
@@ -434,22 +432,6 @@ def restore_partition(
             manifest = ImageManifest.from_json(source.read())
     except (OSError, UnicodeError, ManifestValidationError) as exc:
         raise PartitionRestoreError(f"cannot load valid partition manifest: {exc}") from exc
-    signature_path = manifest_file + ".minisig"
-    signature_present = os.path.lexists(signature_path)
-    if require_signature and not signature_present:
-        raise PartitionRestoreError("a minisign signature is required but this image has none")
-    if signature_present and minisign_public_key is None:
-        raise PartitionRestoreError("image is signed; a trusted minisign public key is required before restore")
-    if minisign_public_key is not None:
-        if not signature_present:
-            raise PartitionRestoreError("minisign public key supplied but image signature is missing")
-        try:
-            verify_manifest_signature(manifest_file, minisign_public_key, signature_path=signature_path, minisign_executable=(executables or {}).get("minisign"))
-        except ImageSecurityError as exc:
-            raise PartitionRestoreError(f"manifest signature verification failed: {exc}") from exc
-    elif require_signature:
-        raise PartitionRestoreError("signature verification requires a trusted minisign public key")
-
     if manifest.image_type != "partition":
         raise PartitionRestoreError("partition restore requires a partition image manifest")
     artifacts = [item for item in manifest.artifacts if item.role == "partition-image"]
