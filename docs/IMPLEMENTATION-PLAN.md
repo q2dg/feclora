@@ -25,7 +25,7 @@ Do not mark any of these complete from unit tests alone; retain the operator acc
 1. Reuse existing engines and mature system tools; inspect current code before creating parallel implementations. Prefer Partclone for supported filesystems, UDPcast for multicast, NetworkManager for network configuration/checkpoints, OpenSSL for TLS/X.509 operations, systemd for services/workers/credentials, and established SSH/SFTP, NFS, SMB, davfs2 implementations for transport/storage. Use an S3 SDK/CLI with SigV4 for object storage and the Linux NVMe host stack/nvme-cli for NVMe-oF; do not reimplement either protocol.
 2. A feature is complete only when runtime, privileged API, Cockpit workflow, failure handling, automated tests and documentation agree.
 3. Destructive operations fail closed, require explicit authorization and verify results.
-4. Never persist passwords, private keys, `age` identities or `minisign` secret keys in profiles, journals, logs or browser storage. `age` and `minisign` are optional integrations, not mandatory packages or release gates; preserve a safe non-age/non-minisign workflow and document the configured authenticity mechanism.
+4. Never persist passwords, private keys or `age` identities in profiles, journals, logs or browser storage. Age encryption is optional; artifact integrity is checked with SHA-256 and repository/transport trust controls access to manifests.
 5. Interrupted writes are never silently resumed; affected destinations remain untrusted until verified or restored.
 6. Keep local rescue and Server/Client fleet orchestration separate while sharing storage engines.
 7. Treat kiosk confinement as defense in depth; never use it as a replacement for Cockpit authentication, OS account separation or backend authorization.
@@ -90,7 +90,7 @@ Acceptance still requires operator execution: a cold BIOS/UEFI boot must reach t
 Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the existing persistent Server/Client deployment services.
 - [x] Add remote clone as a distinct operation to the existing Server/Client service lifecycle; do not create parallel daemons, IPC or job journals.
 - [x] Reuse the existing Server-authenticated TLS control session, job-scoped MAC selection, local device approvals, service locks, durable job records and Cockpit status plumbing.
-- [x] Keep the direct block-stream data plane separate from UDPcast: the current UDPcast wrapper transfers signed image artifacts to private staging files for multicast restore; it does not implement direct block-device cloning.
+- [x] Keep the direct block-stream data plane separate from UDPcast: the current UDPcast wrapper transfers image artifacts to private staging files for multicast restore; it does not implement direct block-device cloning.
 - [x] Extend the existing job definition and privileged API validation for a Server-local read-only source disk; reuse the existing inspect/start/status/arm API and local IPC rather than adding parallel actions.
 - [x] Add Cockpit source/peer selection, Client-local target selection, exact destructive confirmation and independent source/receiver authorization.
 - [x] Add local Cockpit DHCP/static IPv4 configuration for the currently managed Server or Client, with NetworkManager checkpoint rollback and profile/address verification.
@@ -112,8 +112,8 @@ Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS ke
 - [x] Validate Client leaf certificates against any explicitly fingerprinted CA anchor in an imported PEM bundle and retain the complete bundle as the Client trust file.
 - [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
 - [x] Make age identity/recipient provisioning optional for baseline enrollment, renewal and deployment. TLS-only enrollment/renewal accepts no age material; renewal does not create an age identity when none is configured. The CA-backup operation remains a separate, explicitly age-encrypted optional feature.
-- [x] Remove mandatory minisign from baseline unicast save/restore and multicast restore. These paths transfer the manifest over the Server-authenticated TLS session and verify a detached minisign signature when present; age decryption is required only for artifacts marked age-encrypted.
-- [ ] Introduce a configurable signature-verifier interface for the optional signed unattended-profile and SFTP image-set workflows; minisign remains their current implementation and is not a baseline deployment dependency.
+- [x] Remove manifest signing and signature verification from capture, restore, SFTP, unicast and multicast workflows. Manifests travel over the authenticated control/SSH transport; artifact integrity is verified with SHA-256. Age decryption is required only for artifacts marked age-encrypted.
+- [x] Replace signed unattended-profile authorization with a root-owned mode-0600 profile in a root-owned, non-group/other-writable directory, plus expiry, single-use replay protection and target identity checks.
 - [ ] If configured, specify and implement signing-key rotation and age recipient/identity rotation separately from TLS PKI. These optional integrations must not block the baseline product or release.
 - [x] Add encrypted offline CA backup to mounted removable media using an independently supplied age recipient; private CA material remains in root-only staging until encrypted.
 - [x] Add non-destructive Cockpit backup inspection: age decryption, strict archive/manifest validation, CA fingerprint and key-pair checks; never installs material.
@@ -129,13 +129,13 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 - [x] Add root-managed SSHFS/NFS/SMB mount lifecycle and Cockpit actions; keep this separate from image-engine integration.
 - [x] Report mounted state separately from verified provider/source/type/access-mode identity in Cockpit.
 - [x] Add an initial standalone OpenSSH SFTP file-transfer primitive with pinned host keys, staged hard-link no-overwrite upload, and SHA-256-verified download; keep it separate from SSHFS mounts.
-- [x] Add systemd-creds-backed SFTP transfer execution and signed image-set publish/fetch primitives with minisign and artifact digest verification.
+- [x] Add systemd-creds-backed SFTP transfer execution and image-set publish/fetch primitives with manifest validation and artifact digest verification.
 - [ ] Close SSHFS/NFS/SMB provider acceptance gaps as a shared mounted-filesystem track: stale-mount and network-loss recovery, provider health/free-space telemetry, single-publisher publication behavior, concurrent reader/restore access, interrupted capture/publication cleanup, permission semantics and end-to-end Cockpit capture/restore tests. Mount identity inspection is bounded to five seconds, but does not probe remote filesystem I/O; never add unbounded stat/statvfs probes for hard-mounted NFS. Add NFS root-squash/ownership coverage without weakening manifest ownership checks.
   - Partial progress: explicit NFS unmount now retries with `umount --force` only after the exclusive repository-use lease is acquired and a normal unmount fails. SSHFS/SMB are never force-detached. Automated tests cover both branches. This does not establish remote I/O health or complete network-loss recovery; the remaining provider acceptance items stay open.
   - All managed SSHFS/NFS/SMB mount commands request `nosuid,nodev,noexec`; repository resolution now also verifies that all three flags are present in the active mount options, so an externally replaced or weakened mount is never trusted for image operations. Unit tests cover a missing flag. Live helper/kernel compatibility remains part of provider acceptance.
   - Added an automated root-squash regression test: a manifest whose NFS-visible owner is the anonymous UID is rejected by the existing root-owned regular-file check. This deliberately preserves the trust boundary; NFS exports must provide compatible ownership for Feclora-managed manifests.
   - Added a shared manifest-last publisher for whole-disk, partition and logical-volume image sets. It pins the repository/staging directory inodes, verifies the staging directory is a direct child of the repository, and rolls back only final links whose inode still matches the staged file. A concurrent replacement is never unlinked during rollback; tests cover collision rollback and this replacement race. This protects per-attempt publication integrity but does not yet provide a cross-host single-publisher lease or stale staging-directory janitor.
-  - SFTP image-set import now uses that same directory-FD-pinned publisher for the local repository handoff, with artifacts and signature first and the native manifest last. This closes a separate unsafe rollback path that could previously unlink a concurrent replacement; a regression test injects that race. Remote SFTP publication still has no cross-host publisher lease.
+  - SFTP image-set import now uses that same directory-FD-pinned publisher for the local repository handoff, with artifacts first and the native manifest last. This closes a separate unsafe rollback path that could previously unlink a concurrent replacement; a regression test injects that race. Remote SFTP publication still has no cross-host publisher lease.
 - [ ] Complete SFTP as a distinct file-transfer track: multi-directory inventory/discovery, continuous byte-level progress within files, safe recovery/resume policy, provider health checks and operational acceptance. Inventory, import and publication are durable/cancellable; metadata inspection remains synchronous. Artifact-boundary progress is journaled. Bounded retries for transient read-only transfers are implemented; upload retries remain deliberately disabled.
 - [ ] Complete safe WebDAV per-repository credential isolation and provider lifecycle; do not depend on the global davfs2 secrets file. Keep the provider unavailable until isolated credentials and HTTPS certificate validation are tested.
 - [x] Add optional repository-ID routing for whole-disk/partition capture, restore and partition extraction; resolve only mounted, verified repositories and enforce read-only mounts for writes. Local repository remains the backward-compatible default.
@@ -211,7 +211,7 @@ Existing foundation: block inventory, read-only LVM reporting, Btrfs/Stratis inv
 - [ ] Implement snapshot-assisted Btrfs capture and coordinated multi-device/profile image sets with layer-aware restore. Btrfs remains a filesystem/block-device image using `partclone.btrfs`; Feclora will not create separate per-subvolume image artifacts. Unmounted subvolume ancestry and chunk profiles/stripe dependencies are inventoried, and the planner blocks mounted, incomplete or unknown-profile sources; it does not create snapshots or image multi-device sets.
 - [x] Add a read-only logical-volume restore preflight for an existing LV target: require complete/healthy VG and PV membership, sufficient LV capacity, active and uniquely resolved kernel device identity, no read-only/mounted target, and no snapshot/origin overwrite. Validate thin-pool health and data/metadata percentages; warn that dynamic allocation cannot be reserved by preflight. No activation or writes occur.
 - [x] Add a low-level logical-volume capture entry point that requires one active, uniquely inventoried LV in a healthy VG, a known positive LV byte size and a non-hidden, non-snapshot source; it emits the distinct `logical-volume-image` artifact role and uses the existing Partclone/raw stream, source-safety and atomic artifact publication path.
-- [x] Add manifest-backed logical-volume image-set orchestration: run the layer-aware capture planner, reject blockers/unknown geometry, capture the LV, optionally encrypt/sign, validate the `logical_volume` manifest and atomically publish artifact/signature/manifest. Unit tests cover successful publication and fail-closed preflight; the local durable-operation API and Cockpit operation wizard expose LV capture. Deployment-job LV capture remains pending. Deployment-job LV restore is implemented through unicast and multicast Client flows with local target selection and fresh topology preflight; operator acceptance remains outstanding.
+- [x] Add manifest-backed logical-volume image-set orchestration: run the layer-aware capture planner, reject blockers/unknown geometry, capture the LV, optionally encrypt, validate the `logical_volume` manifest and atomically publish artifact/signature/manifest. Unit tests cover successful publication and fail-closed preflight; the local durable-operation API and Cockpit operation wizard expose LV capture. Deployment-job LV capture remains pending. Deployment-job LV restore is implemented through unicast and multicast Client flows with local target selection and fresh topology preflight; operator acceptance remains outstanding.
 - [x] Connect logical-volume restore preflight to a safe LV restore engine and local Cockpit workflow. Restore only into an existing active, unmounted linear or thin LV; verify raw bytes by read-back and Partclone filesystems with a read-only checker. No LVM metadata provisioning/resizing is performed. Deployment-job LV restore is now wired through unicast and multicast Client flows, with local LV selection and fresh inventory preflight. Deployment-job LV capture, opened-mapping restore, LUKS2-on-LV restore, LUKS2 provisioning/rekeying and Btrfs layer-aware restore remain pending. Raw LUKS2 container partition restore now requires explicit encrypted-container provenance, a matching header-included UUID dependency, raw bytes, and post-write cryptsetup UUID/JSON verification; it never opens the mapping. The manifest schema, planner and LV preflight are safety/metadata primitives only; they do not create snapshots, activate storage, or perform writes.
 - [x] Add fail-closed raw LUKS2 container partition restore: require `encrypted_container_bytes` + `luks2_container` provenance, a valid manifest UUID and exactly one matching dependency marked included in source bytes; require raw image bytes; retain the closed encrypted container (including its header/keyslots); verify exact raw read-back and then verify the target's LUKS2 UUID/JSON metadata with `cryptsetup` without opening it. Reject opened-mapping plaintext images and inconsistent layer metadata before writing. Local and existing Server/Client partition restore paths use this shared engine. Automated tests cover UUID match/mismatch and mapping rejection. An opt-in disposable loop-device acceptance harness now creates a LUKS2 source, sends the image through Feclora's real unicast control and artifact-transfer protocol over a local socket pair, runs `execute_client_image_job` and restores its raw container to a second loop partition. It verifies wrong-key rejection, opens with the original key and compares plaintext byte-for-byte. The socket pair substitutes for an TLS stream: live Server-authenticated TLS negotiation and routed network transfer are not covered. Multicast Client dispatch is covered by runtime tests; actual UDPcast/IGMP behavior is covered by the existing two-Client VM operator runbook. The harness has not yet been executed on a real Fedora/Linux host; record OS, kernel, cryptsetup version and exact commit when run.
 - [ ] Validate alignment, sector size, geometry and EFI/BIOS/recovery partition roles where a whole-disk restore is planned.
@@ -303,64 +303,23 @@ not yet acceptance-tested.
 
 ## SFTP image-set integration checkpoint
 
-A standalone `sftp_image_set.py` publisher validates the v1 manifest,
-verifies its minisign signature with an independently trusted public key,
-checks each artifact's size and SHA-256, then uploads artifacts, detached
-signature and manifest in that order. The manifest is the final visibility
-marker; inventory requires its adjacent signature to exist, so readers never
-discover a set between the two metadata uploads. A failed transfer may leave
-orphan files, but cannot expose an incomplete set through inventory.
+SFTP image-set publication and import do not use detached signatures. The sender validates the manifest and every local artifact's size and SHA-256 digest before transfer. The receiver downloads into a private staging directory, validates the manifest and each artifact digest, then publishes artifacts first and the native manifest last through the shared no-overwrite directory-FD publisher. The manifest is the visibility marker. SFTP server identity is established with pinned SSH host keys; SSH credentials are supplied through encrypted systemd credential references.
 
-- [x] Validate the existing signed manifest and every local artifact before transfer.
-- [x] Publish artifact files and detached signature before the manifest commit marker.
-- [x] Add unit coverage for ordering, digest mismatch, signature failure and interrupted upload.
-- [x] Fetch manifest/signature into a private staging set and enforce metadata size limits.
-- [x] Verify downloaded manifest signature before fetching listed artifacts; verify size and SHA-256 for every artifact.
-- [x] Integrate SFTP image-set publication with disk/partition capture operations, retaining durable capture-job tracking and requiring signed manifests.
-- [x] Integrate authenticated SFTP image selection with durable disk/partition restore jobs, binding the inspected image ID and manifest digest before artifact retrieval.
+- [x] Validate the manifest schema and every local artifact before transfer.
+- [x] Publish artifact files before the manifest commit marker.
+- [x] Cover ordering, digest mismatch, interrupted upload and collision behavior.
+- [x] Fetch manifest into a private staging set and enforce metadata size limits.
+- [x] Validate downloaded manifest before requesting listed artifacts; verify size and SHA-256 for every artifact.
+- [x] Integrate SFTP image-set publication with disk/partition capture operations.
+- [x] Integrate SFTP image selection with durable restore jobs, binding image ID and expected manifest SHA-256 before artifact retrieval.
 - [x] Add bounded retries for transient SFTP download and inventory transport failures; never retry uploads automatically when publication outcome may be ambiguous.
-- [x] Route SFTP image import and publication through the durable local-operation worker, with Operation log state and orderly cancellation of the transient SFTP child service.
-- [x] Persist artifact-boundary progress checkpoints for verified downloads and published uploads.
+- [x] Route SFTP import and publication through the durable local-operation worker.
+- [x] Persist artifact-boundary progress checkpoints.
 - [ ] Add continuous byte-level progress within individual files, safe resume semantics, remote orphan discovery/cleanup and complete recovery behavior.
 - [x] Expose one-shot SFTP endpoint and encrypted SSH-key/known_hosts credential selection through Cockpit.
 - [x] Add reusable saved SFTP endpoint definitions and encrypted credential references.
 - [ ] Add provider health checks and multi-directory inventory/discovery.
 - [ ] Add operator guide and screenshots or clearly labeled mockups after the complete workflow exists.
 
-SFTP is available in Cockpit for signed-image publication, import and direct disk/partition restore. Named endpoint definitions and encrypted credential references are saved in a root-owned registry. Remote manifest-marker inventory, signed-image import and publication are submitted as durable local operations and can be cancelled from the Operation log. Import/publication progress is checkpointed at artifact boundaries; continuous byte-level progress within a file and resume are still missing. Transient read-only downloads and inventory retry connection faults up to twice; uploads are not automatically retried. Unit tests exist; live provider acceptance remains outstanding.
+SFTP import/publication is available in Cockpit and uses the shared safe local publisher for import. Remote inventory is limited to one configured directory. Import/publication run as durable cancellable operations with artifact-boundary progress; continuous byte-level progress within files and resume are still missing. Transient read-only downloads and inventory retry connection faults up to twice; uploads are not automatically retried. Live provider acceptance remains outstanding.
 
-
-### SFTP authenticated image-set retrieval checkpoint
-
-The standalone fetch primitive downloads manifest and detached signature into
-a private staging directory without treating either as trusted. It checks
-metadata size limits, validates manifest v1 and verifies minisign against an
-independently trusted public key before requesting artifacts. Each artifact
-download is checked against the signed SHA-256 and byte count. It then imports
-artifacts into the native flat Feclora repository layout, publishes the
-signature, and publishes `<image_id>.manifest.json` last using no-overwrite
-hard links. This matches the current Cockpit inventory/restore filename
-contract. It is manifest-last multi-file publication, not one atomic
-transaction; on a collision, files created by the attempt are removed and
-pre-existing files are preserved.
-
-- [x] Add restricted transient-service mode for unverified manifest/signature downloads.
-- [x] Verify signed manifest before downloading any image artifacts.
-- [x] Download and verify every artifact against signed size and SHA-256.
-- [x] Import verified files into the native local image repository, with signature and manifest published last and no-overwrite hard links.
-- [x] Test metadata-first ordering, bad signature rejection, digest mismatch, collision refusal, staging cleanup and rejection of artifact names in the native manifest-marker namespace.
-- [x] Add safe Cockpit remote manifest-marker listing and authenticated signed-manifest metadata inspection before artifact retrieval; multi-directory catalog discovery remains pending.
-- [x] Connect authenticated SFTP fetch/import to a journaled Cockpit API action and local image inventory.
-- [x] Connect signed-image publication to disk/partition capture and existing Cockpit upload actions.
-- [x] Add bounded retries for transient SFTP download and inventory transport failures; never retry uploads automatically when publication outcome may be ambiguous.
-- [ ] Add transfer byte progress, operator cancellation, resume and complete recovery semantics.
-- [x] Expose one-shot Cockpit SFTP image import and signed-image publication forms with encrypted SSH-key/known_hosts selection and local signing trust.
-- [x] Add a private root-owned registry and Cockpit save/select/remove controls for named SFTP endpoints with encrypted credential references.
-- [ ] Add multi-directory inventory/discovery and provider health checks.
-- [x] Add a Cockpit/API action to publish an existing locally signed image set to SFTP, verifying the local minisign signature and artifact digests before upload.
-- [x] Add optional automatic SFTP publication to durable disk/partition capture jobs, requiring a signed manifest and registered encrypted SSH-key/known_hosts credentials.
-- [x] Integrate authenticated SFTP image selection with durable disk/partition restore jobs; bind the requested image ID and inspected manifest SHA-256 to the signed remote manifest, then verify all artifacts before destructive restore starts.
-- [ ] Implement continuous byte-level progress within files, safe resume and full provider acceptance for SFTP-backed restore jobs. Restore fetches already run in the durable worker with cancellation and artifact-boundary progress; bounded retry for transient read-only transfers is already implemented.
-- [ ] Add operational guide and version-matched screenshots or clearly labeled mockups after Cockpit workflow acceptance.
-
-Automated tests are present; check CI for the exact commit before reporting a passing result. Cockpit can preview remote image metadata only after verifying the detached minisign signature against the configured independent trust key. Both explicit import and direct restore fetch artifact content and verify signed sizes and SHA-256 values before the image is made available to the restore engine. SFTP publication is also integrated with manual Cockpit upload and optional post-capture publication. This is not yet a complete reusable SFTP provider: inventory is limited to one configured directory; the underlying SFTP child transfers are synchronous, while image import/publication are queued as durable cancellable operations with artifact-boundary progress. Continuous byte-level progress within a file, safe resume and multi-directory catalog discovery remain pending. Bounded retries apply only to transient read-only transport failures.
