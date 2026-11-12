@@ -301,7 +301,7 @@ The image repository panel also exposes extraction of a selected partition from 
 
 Disk restore also presents a read-only layout preview after selecting a signed/unsigned whole-disk image and destination disk. It verifies the manifest and partition-table artifact, displays the source partitions and compares the source image size with the selected target capacity. The current restore preserves the captured partition layout; larger target disks retain unused trailing capacity. No automatic partition or filesystem growth is performed.
 
-Cockpit image inventory provides an on-demand read-only verification report for every artifact. It verifies stored artifact SHA-256 and size, age authentication when the artifact is age-encrypted, compression integrity and decoded whole-disk size. Unsigned images are explicitly reported as unsigned.
+Cockpit image inventory provides an on-demand read-only verification report for every artifact. It verifies stored artifact SHA-256 and size, age authentication when the artifact is age-encrypted, compression integrity and decoded whole-disk size. Images are reported as verified only when every stored digest and decoded artifact check succeeds.
 
 Client certificates and Client certificate renewal are not used. Cockpit
 reports the expiry of the locally configured Server TLS certificate and its
