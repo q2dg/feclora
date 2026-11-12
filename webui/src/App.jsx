@@ -1189,6 +1189,23 @@ export default function App() {
                   {!systemdCredentials.length && <Tr><Td colSpan={4}>No encrypted credentials imported.</Td></Tr>}
                 </Tbody></Table>
               </StackItem>
+              <StackItem><Title headingLevel="h2" size="lg">S3 object repositories</Title>
+                <p>S3 is object storage, not a filesystem mount. This panel manages definitions and tests connectivity; capture and restore integration through the worker is still pending.</p>
+                <Card><CardBody><form onSubmit={saveS3Repository}>
+                  <Field label="Repository ID"><input className="pf-v5-c-form-control" value={s3RepositoryId} onChange={(e) => setS3RepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
+                  <Field label="S3 endpoint URL (optional; empty for AWS S3)"><input className="pf-v5-c-form-control" value={s3Endpoint} onChange={(e) => setS3Endpoint(e.target.value)} placeholder="https://s3.example.net" /></Field>
+                  <Field label="Region"><input className="pf-v5-c-form-control" value={s3Region} onChange={(e) => setS3Region(e.target.value)} maxLength={64} required /></Field>
+                  <Field label="Bucket"><input className="pf-v5-c-form-control" value={s3Bucket} onChange={(e) => setS3Bucket(e.target.value)} maxLength={63} required /></Field>
+                  <Field label="Object prefix"><input className="pf-v5-c-form-control" value={s3Prefix} onChange={(e) => setS3Prefix(e.target.value)} maxLength={512} /></Field>
+                  <Field label="Encrypted S3 credential"><select className="pf-v5-c-form-control" value={s3CredentialId} onChange={(e) => setS3CredentialId(e.target.value)} required><option value="">Select imported S3 key pair</option>{systemdCredentials.filter((item) => item.kind === "s3").map((item) => <option key={item.id} value={item.id}>{item.id}</option>)}</select></Field>
+                  <Field label="Access"><select className="pf-v5-c-form-control" value={s3ReadOnly ? "ro" : "rw"} onChange={(e) => setS3ReadOnly(e.target.value === "ro")}><option value="ro">Read-only</option><option value="rw">Read/write</option></select></Field>
+                  <Button type="submit" variant="primary" isDisabled={busy || !s3RepositoryId || !s3Bucket || !s3CredentialId}>Save S3 repository</Button>
+                </form></CardBody></Card>
+                <Table aria-label="S3 object repositories" variant="compact"><Thead><Tr><Th>ID</Th><Th>Endpoint</Th><Th>Bucket / prefix</Th><Th>Access</Th><Th>Actions</Th></Tr></Thead><Tbody>
+                  {s3Repositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.endpoint_url || "AWS S3"} · {repo.region}</Td><Td>{repo.bucket}/{repo.prefix}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td><Button size="sm" variant="secondary" isDisabled={busy} onClick={() => runS3RepositoryAction("check_s3_repository", repo.id)}>Test connection</Button>{" "}<Button size="sm" variant="danger" isDisabled={busy} onClick={() => runS3RepositoryAction("remove_s3_repository", repo.id)}>Remove</Button></Td></Tr>)}
+                  {!s3Repositories.length && <Tr><Td colSpan={5}>No S3 object repositories configured.</Td></Tr>}
+                </Tbody></Table>
+              </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Configured repositories</Title>
                 <p>“Identity verified” confirms only that findmnt reports the expected source, filesystem type and access mode. It does not test live network connectivity, read/write I/O, latency, free space or quota; use an actual repository operation to validate access.</p>
                 <Table aria-label="Remote image repositories" variant="compact"><Thead><Tr><Th>ID</Th><Th>Provider</Th><Th>Remote location</Th><Th>Access</Th><Th>Mount identity</Th><Th>Actions</Th></Tr></Thead><Tbody>
