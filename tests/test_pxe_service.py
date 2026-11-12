@@ -75,9 +75,10 @@ class PxeServiceTests(unittest.TestCase):
             manager = PXEServiceManager(tmp, runner=runner, preflight=lambda _config: None, firewall=firewall, boot_stager=lambda _config: None)
             manager.start(config())
             starts = [call for call in calls if call[0].endswith("systemd-run")]
-            self.assertEqual(len(starts), 2)
+            self.assertEqual(len(starts), 3)
             self.assertTrue(any(arg.startswith("--unit=feclora-dnsmasq-") for arg in starts[0]))
-            self.assertTrue(any(arg.startswith("--unit=feclora-caddy-") for arg in starts[1]))
+            self.assertTrue(any(arg.startswith("--unit=feclora-pxe-admission-") for arg in starts[1]))
+            self.assertTrue(any(arg.startswith("--unit=feclora-caddy-") for arg in starts[2]))
             self.assertEqual((Path(tmp) / "dnsmasq.conf").stat().st_mode & 0o777, 0o600)
             self.assertEqual((Path(tmp) / "Caddyfile").stat().st_mode & 0o777, 0o644)
             self.assertNotIn("enable", " ".join(calls[0]))
@@ -156,7 +157,7 @@ class PxeServiceTests(unittest.TestCase):
             with self.assertRaisesRegex(PXEServiceError, "firewall recovery"):
                 second.stop()
             stopped = [argv[-1] for argv in calls if argv[:2] == ["/usr/bin/systemctl", "stop"]]
-            self.assertEqual(len(stopped), 2)
+            self.assertEqual(len(stopped), 3)
             self.assertTrue((Path(tmp) / "active.json").exists())
 
     def test_rejects_symlink_runtime_directory(self):
