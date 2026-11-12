@@ -148,15 +148,24 @@ def plan_storage_capture(
             })
             warnings.append("A logical-volume image is not a self-contained VG backup; restore requires a separately validated LV layout.")
 
+    mounted_btrfs_uuids = {
+        mount.get("uuid")
+        for mount in (inventory.get("btrfs_subvolumes") or {}).get("mounts", [])
+        if isinstance(mount, dict) and isinstance(mount.get("uuid"), str)
+    }
     for filesystem in (inventory.get("btrfs_topology") or {}).get("filesystems", []):
-        member_paths = {item.get("path") for item in filesystem.get("devices", [])
-                        if isinstance(item, dict) and isinstance(item.get("path"), str)}
+        member_records = [
+            item for item in filesystem.get("devices", [])
+            if isinstance(item, dict) and isinstance(item.get("path"), str)
+        ]
+        member_paths = {item["path"] for item in member_records}
         if not (member_paths & included_paths):
             continue
         layers.append("btrfs_filesystem")
         complete = member_paths.issubset(included_paths)
+        filesystem_uuid = filesystem.get("uuid")
         dependencies.append({
-            "kind": "btrfs_filesystem", "uuid": filesystem.get("uuid"),
+            "kind": "btrfs_filesystem", "uuid": filesystem_uuid,
             "required_device_paths": sorted(member_paths),
             "total_devices": filesystem.get("total_devices"),
             "included_in_source_bytes": complete,
@@ -164,6 +173,56 @@ def plan_storage_capture(
         })
         if not complete:
             blockers.append("The selected source omits one or more devices belonging to this Btrfs filesystem.")
+        if isinstance(filesystem_uuid, str) and filesystem_uuid in mounted_btrfs_uuids:
+            blockers.append("The Btrfs filesystem is mounted; a consistent snapshot has not been established.")
+        mount_inventory = inventory.get("btrfs_subvolumes")
+        if isinstance(mount_inventory, dict) and mount_inventory.get("status") not in (None, "available"):
+            blockers.append("Btrfs mount state could not be verified; refusing a layer-aware consistency claim.")
+
+        profile_status = filesystem.get("allocation_profile_status")
+        profiles = filesystem.get("allocation_profiles")
+        chunks = filesystem.get("chunks")
+        if profile_status is not None:
+            if profile_status != "available":
+                blockers.append("Btrfs allocation-profile and stripe inventory is unavailable.")
+            elif not isinstance(profiles, list) or not profiles or not isinstance(chunks, list) or not chunks:
+                blockers.append("Btrfs allocation-profile or chunk dependency inventory is incomplete.")
+            else:
+                if any(
+                    not isinstance(profile, dict) or profile.get("known_profile") is not True
+                    for profile in profiles
+                ):
+                    blockers.append("Btrfs uses an unknown allocation profile; refusing layer-aware capture.")
+                member_ids = {
+                    item.get("devid") for item in member_records
+                    if isinstance(item.get("devid"), int)
+                }
+                invalid_chunks = [
+                    chunk for chunk in chunks
+                    if not isinstance(chunk, dict)
+                    or chunk.get("device_mapping_complete") is not True
+                    or not isinstance(chunk.get("device_ids"), list)
+                    or not chunk.get("device_ids")
+                    or not set(chunk.get("device_ids", [])).issubset(member_ids)
+                ]
+                if invalid_chunks:
+                    blockers.append("Btrfs chunk stripe-to-device dependencies are incomplete or ambiguous.")
+                dependencies.append({
+                    "kind": "btrfs_allocation_profiles",
+                    "filesystem_uuid": filesystem_uuid,
+                    "profiles": profiles,
+                    "chunk_dependencies": [
+                        {
+                            "logical_start": chunk.get("logical_start"),
+                            "type": chunk.get("type"),
+                            "profile": chunk.get("profile"),
+                            "device_ids": chunk.get("device_ids"),
+                        }
+                        for chunk in chunks if isinstance(chunk, dict)
+                    ],
+                    "included_in_source_bytes": complete and not invalid_chunks,
+                    "restore_note": "Chunk profiles and stripe membership are recorded for compatibility checks; unmounted used-byte accounting is unknown.",
+                })
 
     for pool in (inventory.get("stratis_topology") or {}).get("pools", []):
         for filesystem in pool.get("filesystems", []):
