@@ -1229,7 +1229,7 @@ export default function App() {
                       <option value="disk">Whole disk</option><option value="partition">Partition</option>
                     </select>
                   </Field>}
-                  <Field label="Enrolled Client MAC addresses" help={remoteOperation === "clone" ? "Enter exactly one enrolled Client MAC. That Client independently selects and confirms its destination disk." : "Enter exactly one MAC for unicast, or at least two for multicast restore. Server verifies each is enrolled."}>
+                  <Field label="Selected Client MAC addresses" help={remoteOperation === "clone" ? "Enter exactly one selected Client MAC. That Client independently selects and confirms its destination disk." : "Enter exactly one MAC for unicast, or at least two for multicast restore. Server checks that each MAC is selected for this job; MAC is not authentication."}>
                     <textarea className="pf-v5-c-form-control" rows={3} value={remoteClients} onChange={(e) => setRemoteClients(e.target.value)} required placeholder="52:54:00:12:34:56" />
                   </Field>
                   <Field label="Server network interface">

@@ -365,7 +365,7 @@ def run_deployment_server_ui(
         dialog_app._message(
             "Deployment listener",
             f"Job: {job.job_id}\nOperation: {job.operation}\nImage: {job.image_id}\n"
-            f"Authorized Client MACs: {selected_mac_text}\nTransport: {job.transport}\nControl endpoint: {bound_address}:{port}\nJournal: {journal_path}\n"
+            f"Selected Client MACs: {selected_mac_text}\nTransport: {job.transport}\nControl endpoint: {bound_address}:{port}\nJournal: {journal_path}\n"
             + "\n\nThe listener uses TLS with Server-certificate verification only; Clients present no certificate and have no individual identity. "
             "Each selected Client enters this job UUID, selects its local target and types the exact confirmation. "
             "For all jobs, the Server operator explicitly arms the job before any image write.",
