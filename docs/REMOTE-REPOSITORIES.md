@@ -58,6 +58,49 @@ provider supports them. Provider compatibility tests must verify the required
 conditional-write and multipart semantics; an endpoint is not considered
 supported merely because it accepts basic S3 uploads.
 
+### Distributed deployment jobs
+
+The persistent Cockpit deployment service can use an S3 repository for both
+unicast/multicast restore sources and unicast Client capture destinations.
+For restore, the Server acquires a repository usage lease, downloads the
+committed image into a private temporary directory, verifies every artifact,
+and only then makes it available to the deployment transfer engine. The
+existing Server-authenticated TLS control/data channel delivers the image to
+Clients; no S3 endpoint, access key or secret is sent to a Client.
+
+For Client capture, the Server receives the complete image set over the
+authenticated TLS channel into private local staging. It verifies the
+manifest, sizes and SHA-256 digests, then uploads the artifacts and publishes
+the S3 manifest last. The job is not reported successful if S3 publication
+fails. Temporary staging is removed when the service exits. Repository
+update/removal is blocked while a deployment holds its usage lease.
+
+The Cockpit deployment form allows S3 selection as a restore source or as a
+writable Client-capture destination. A read-only S3 definition may be used
+only as a restore source. The current network capture path remains whole-disk
+and unicast; the existing restore transports retain their own target and
+multicast constraints.
+
+### Live endpoint acceptance
+
+An opt-in integration test exercises conditional object creation, manifest
+commit, inventory, download and SHA-256 verification against a real
+S3-compatible endpoint. Configure these environment variables on a trusted
+test host (never commit them):
+
+- `FECLORA_S3_TEST_ENDPOINT` — HTTPS endpoint URL.
+- `FECLORA_S3_TEST_REGION` — signing region (Garage commonly uses its configured region; R2 uses `auto`).
+- `FECLORA_S3_TEST_BUCKET` — pre-created test bucket.
+- `FECLORA_S3_TEST_ACCESS_KEY_ID` and `FECLORA_S3_TEST_SECRET_ACCESS_KEY` — scoped test credentials.
+- `FECLORA_S3_TEST_PREFIX` — optional dedicated prefix for the probe.
+
+Run `python3 -m unittest tests.test_s3_live_compatibility -v`. The test
+creates a uniquely named test image below
+`feclora-compatibility-tests/` and deletes its objects in a `finally` block.
+The credential policy needs list, get, put and delete rights only within that
+test bucket/prefix. Run the test independently against each intended provider;
+a successful AWS test does not establish Garage or R2 compatibility.
+
 ### Self-hosted and managed endpoints
 
 For a self-hosted endpoint, Garage is a lightweight S3-compatible server
