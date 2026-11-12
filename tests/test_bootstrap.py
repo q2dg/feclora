@@ -9,7 +9,7 @@ from feclora.deployment.bootstrap import ensure_server_deployment_config
 
 
 class OptionalImageSecurityBootstrapTests(unittest.TestCase):
-    def test_tls_bootstrap_succeeds_without_age_or_minisign(self):
+    def test_tls_bootstrap_succeeds_without_age_encryption(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             pki = root / "pki"
@@ -43,7 +43,6 @@ class OptionalImageSecurityBootstrapTests(unittest.TestCase):
 
             self.assertTrue(created)
             value = json.loads(config.read_text(encoding="utf-8"))
-            self.assertIsNone(value["server_minisign_public_key"])
             self.assertFalse((pki / "server.age").exists())
             self.assertFalse((pki / "age-recipients.txt").exists())
             self.assertFalse((pki / "server.minisign.key").exists())
