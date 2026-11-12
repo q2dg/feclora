@@ -70,8 +70,9 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
   existing whole-disk restore engine with stable-target revalidation and
   read-back verification. Before unattended boot, iPXE submits its MAC to a
   loopback admission service behind Caddy. The Server counts distinct MACs,
-  permits retries from an already registered MAC, and stops admitting clients
-  at the configured client cap and/or serving-time deadline. The boot script
+  permits retries from an already registered MAC, and can stop admitting
+  clients at an administrator-configured client cap and/or serving-time
+  deadline. Neither limit is enabled by default. The boot script
   is served only through that gate. MAC is spoofable and is not authentication.
   Other repository providers, richer result reporting and physical acceptance
   remain pending.
