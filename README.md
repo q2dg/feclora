@@ -102,8 +102,9 @@ The main implementation boundaries are:
 
 Feclora's primary operator interface is Cockpit (React + PatternFly); the old
 `dialog` local-rescue menu is no longer part of the Live package. The current
-web application provides local whole-disk and partition image capture,
-restoration, whole-disk and partition cloning, device and image inventories,
+web application provides local whole-disk and partition image capture and
+restoration, eligible active LVM logical-volume capture and restoration,
+whole-disk and partition cloning, device and image inventories,
 operation journals, streamed progress, and optional age artifact encryption. SHA-256 digests provide artifact integrity checks; Feclora does not sign image manifests. Age encryption is optional and is not a prerequisite for local imaging or Feclora installation.
 
 The underlying Python storage engines include safety checks, manifest-backed
