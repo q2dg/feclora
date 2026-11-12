@@ -18,7 +18,7 @@ class PXEAnswerStoreTests(unittest.TestCase):
     def answer(self):
         return json.dumps({
             "schema_version": 1, "operation": "restore",
-            "image_id": "fedora", "repository_url": "sftp://repo.example/images",
+            "image_id": "fedora", "repository_url": "nfs://repo.example/images",
             "target": {"wwn": "0x5000abcd", "serial": None},
             "confirm_destructive": True, "start": True,
         }).encode()
