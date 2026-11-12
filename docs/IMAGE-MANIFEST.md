@@ -14,7 +14,7 @@ It is not an executable restore plan and never authorizes a target write.
 
 These are **image source types/layers**, not repository types. A repository is
 the explicitly selected local or remote destination holding the image files.
-SSHFS, SFTP, NFS, SMB/CIFS and WebDAV are remote storage/transfer mechanisms;
+SSHFS, NFS, SMB/CIFS and WebDAV are remote storage/transfer mechanisms;
 LVM, LUKS2 and Btrfs describe the source storage being imaged.
 
 ## Storage-layer scope
