@@ -74,23 +74,19 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
 - **Interactive PXE boot** — boot-tree staging and service activation exist;
   BIOS/UEFI network-boot acceptance remains pending. It is intended to boot
   the same Live environment as ISO, then use Cockpit interactively.
-- **HTTP answer PXE handoff** — **Partial**. The iPXE menu offers an
-  unattended answer-file entry. Cockpit publishes one validated JSON answer
-  and an answer-specific script containing its URL. Live downloads and validates the answer, then supports NFS-backed whole-disk
-  restore through the existing engine with stable-target revalidation and
-  read-back verification. Other repository providers and hardware acceptance
-  remain pending.
-- **Unattended PXE answer workflow** — **Partially implemented**. Cockpit accepts
-  one prewritten JSON answer containing the repository URL; the Server validates
-  and publishes it through Caddy over HTTP. This path has no per-Client identity
-  or enrollment. Live-side download/schema validation and NFS whole-disk execution are
-  implemented. Other provider integration and physical acceptance remain
+- **Unattended PXE answer workflow** — **Partial, end-to-end NFS whole-disk
+  path implemented**. The iPXE menu offers an answer-file entry. Cockpit
+  publishes one validated JSON answer and an answer-specific script through
+  Caddy over HTTP. Live downloads and validates the answer, then invokes the
+  existing whole-disk restore engine with stable-target revalidation and
+  read-back verification. This workflow deliberately has no per-Client
+  identity or enrollment. Other repository providers, cross-reboot expiry and
+  replay protection, richer result reporting and physical acceptance remain
   pending.
 
-PXE boot alone never authorizes a destructive write. The existing mTLS Remote
-jobs workflow retains local Client approval and the Server's explicit ARM. The
-new answer workflow is intended to pre-answer the deployment questions, but
-NFS-backed whole-disk execution is connected to the existing verified restore engine; remaining providers and physical acceptance are pending.
+PXE boot or possession of an answer URL alone never authorizes a destructive
+write. The authenticated mTLS Remote-jobs workflow remains separate and retains
+local Client approval and the Server's explicit ARM step.
 
 ## Build, security and acceptance
 
