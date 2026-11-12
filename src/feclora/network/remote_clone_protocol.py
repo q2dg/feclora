@@ -1,9 +1,9 @@
 """Bounded framing and integrity primitives for one-to-one remote disk cloning.
 
 TLS setup and local device authorization are deliberately separate concerns.
-Callers must wrap the socket in a mutually authenticated TLS session, verify
-both peer identities, obtain explicit authorization at both endpoints, and
-pass only already-validated streams/devices to these functions.
+Callers must use TLS that authenticates the Server certificate only. Client
+identity is not authenticated; explicit local authorization at both endpoints
+and validated streams/devices remain required.
 """
 from __future__ import annotations
 

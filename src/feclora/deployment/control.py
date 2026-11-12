@@ -424,7 +424,7 @@ class DeploymentControlServer:
         return tls_socket
 
     def _record_client_progress(self, mac_address: str, message: dict[str, Any]) -> None:
-        """Validate and retain a progress frame received on the TLS session."""
+        """Validate and retain a progress frame received on the Server-authenticated TLS session."""
         expected = {"type", "job_id", "phase", "completed_bytes", "total_bytes"}
         if set(message) != expected or message.get("type") != "progress":
             raise DeploymentControlError("client progress frame has missing or unknown fields")
@@ -445,7 +445,7 @@ class DeploymentControlServer:
         mac = mac_address.lower()
         record = next((item for item in self.coordinator.clients() if item.mac_address == mac), None)
         if record is None or record.state is not ClientState.RUNNING:
-            raise DeploymentControlError("progress is accepted only from a running authenticated Client")
+            raise DeploymentControlError("progress is accepted only on a running Client session for this job")
         now = time.monotonic()
         with self._lock:
             previous = self._progress.get(mac)
@@ -626,7 +626,7 @@ class DeploymentControlServer:
         operation_log_path: str | None = None,
         result_timeout: float = 86400,
     ) -> dict[str, str]:
-        """Clone the Server-local source to one READY Client over its existing TLS session."""
+        """Clone the Server-local source to one READY Client over its existing Server-authenticated TLS session."""
         job = self.coordinator.job
         if job.operation != "clone" or job.transport != "unicast":
             raise DeploymentControlError("remote disk clone requires a unicast clone job")
@@ -702,7 +702,7 @@ class DeploymentControlServer:
                 or any(item.state is not ClientState.READY for item in clients)):
             raise DeploymentControlError("every authorized Client must be READY before multicast arming")
         if udpcast_config.min_receivers != len(clients):
-            raise DeploymentControlError("UDPcast receiver threshold must equal the enrolled READY Client count")
+            raise DeploymentControlError("UDPcast receiver threshold must equal the selected READY Client count")
         signature_path = manifest_path + ".minisig"
         try:
             with open(manifest_path, "rb") as stream:

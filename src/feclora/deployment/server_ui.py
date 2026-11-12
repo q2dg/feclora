@@ -16,13 +16,8 @@ from feclora.deployment.job import DeploymentJob
 from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
 from feclora.deployment.multicast_runtime import udpcast_config_for_job
 from feclora.deployment.bootstrap import ensure_server_deployment_config
-from feclora.deployment.managed_pki import (
-    PKIError, ca_fingerprint, inspect_client_csr, issue_client_certificate, register_age_recipient,
-)
-from feclora.deployment.enrollment import (
-    enroll_client_certificate, inspect_client_certificate,
-    revoke_client_certificate,
-)
+from feclora.deployment.managed_pki import ca_fingerprint
+
 from feclora.deployment.runtime_config import (
     RuntimeConfigError, ServerRuntimeConfig, load_server_runtime_config,
 )
@@ -303,9 +298,9 @@ def run_deployment_server_ui(
             fingerprint = ca_fingerprint(config.ca_file)
             dialog_app._message(
                 "Feclora deployment CA created",
-                "A local deployment CA and Server identity have been created. Record and verify this SHA-256 fingerprint before approving Clients:\n\n"
+                "A local deployment CA and Server identity have been created. Record and verify this SHA-256 fingerprint; install the CA certificate and Server identity on each Client:\n\n"
                 + fingerprint + "\n\nThe CA private key stays on this Server. Back it up encrypted and offline. "
-                "Use the Trusted Clients screen to approve each Client CSR.",
+                "Clients do not present certificates or authenticate individually.",
             )
         if config.bind_address != address:
             raise RuntimeConfigError(
@@ -342,7 +337,7 @@ def run_deployment_server_ui(
                 "Ensure switch IGMP snooping has a working querier, multicast is not filtered "
                 "by Wi-Fi/client isolation, and the selected interface is correct. "
                 "Cross-VLAN multicast routing is not supported by this TTL=1 profile. "
-                "Age encryption is optional and should be enabled when artifact confidentiality is required. The mTLS control session authenticates the manifest; any detached signature is additionally checked when present, and every received artifact is checked against its manifest digest. UDPcast itself does not encrypt or authenticate datagrams, so an on-path attacker can still observe metadata or cause denial of service. "
+                "Age encryption is optional and should be enabled when artifact confidentiality is required. The Server-authenticated TLS control session protects the manifest in transit; any detached signature is additionally checked when present, and every received artifact is checked against its manifest digest. UDPcast itself does not encrypt or authenticate datagrams, so an on-path attacker can still observe metadata or cause denial of service. "
                 "Feclora will temporarily open only the two UDPcast ports and IGMP on this interface.",
             )
             confirmation = dialog_app._input(
@@ -368,11 +363,11 @@ def run_deployment_server_ui(
         bound_address, port = control.start(config.bind_address, config.port)
         selected_mac_text = ", ".join(selected_macs)
         dialog_app._message(
-            "Authenticated deployment listener",
+            "Deployment listener",
             f"Job: {job.job_id}\nOperation: {job.operation}\nImage: {job.image_id}\n"
             f"Authorized Client MACs: {selected_mac_text}\nTransport: {job.transport}\nControl endpoint: {bound_address}:{port}\nJournal: {journal_path}\n"
-            + "\n\nThe listener requires TLS 1.3 mutual authentication. For interactive jobs, the Client uses "
-            "its enrolled certificate, enters this job UUID, selects its local target and types the exact confirmation. "
+            + "\n\nThe listener uses TLS with Server-certificate verification only; Clients present no certificate and have no individual identity. "
+            "Each selected Client enters this job UUID, selects its local target and types the exact confirmation. "
             "For all jobs, the Server operator explicitly arms the job before any image write.",
         )
         while True:
@@ -384,9 +379,9 @@ def run_deployment_server_ui(
             if control.listener_errors:
                 state_text += "\nRecent listener errors: " + " | ".join(control.listener_errors[-3:])
             choice = dialog_app._menu(
-                "Authenticated deployment",
+                "Deployment job",
                 f"Job state: {coordinator.state.value}\n{state_text}\n\n"
-                f"Refresh to wait for {len(selected_macs)} enrolled Client(s), or explicitly arm the job.",
+                f"Refresh to wait for {len(selected_macs)} selected Client(s), or explicitly arm the job.",
                 [
                     ("refresh", "Refresh Client readiness"),
                     ("arm", "ARM and execute the deployment job"),

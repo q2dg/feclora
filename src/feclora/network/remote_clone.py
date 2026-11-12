@@ -1,7 +1,7 @@
 """One-to-one remote whole-disk cloning over a pre-established mutual-TLS socket.
 
 The caller is responsible for creating the TLS socket with
-create_mutual_tls_context(), completing the handshake, and supplying the
+create_tls_context(), completing the handshake, and supplying the
 expected identities. This module owns local device validation, explicit
 per-endpoint authorization, bounded dd streaming, and receiver read-back.
 """
