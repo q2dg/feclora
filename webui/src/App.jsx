@@ -1518,7 +1518,7 @@ export default function App() {
               </CardBody></Card></StackItem>}
               {status?.server_configured && <StackItem><Card><CardBody>
                 <Title headingLevel="h3" size="lg">Rotate Server TLS keypair</Title>
-                <Alert variant="warning" title="New Server private key; existing CA retained" isInline>This is separate from certificate renewal. All deployment jobs must be stopped. The new key and certificate are validated before installation; configured Clients continue to trust the existing CA and Server identity. This does not rotate the CA or image-signing key.</Alert>
+                <Alert variant="warning" title="New Server private key; existing CA retained" isInline>This is separate from certificate renewal. All deployment jobs must be stopped. The new key and certificate are validated before installation; configured Clients continue to trust the existing CA and Server identity. This does not rotate the CA.</Alert>
                 <Field label="Type exactly: ROTATE SERVER TLS KEYPAIR">
                   <input className="pf-v5-c-form-control" value={serverRotateConfirmation} onChange={(event) => setServerRotateConfirmation(event.target.value)} />
                 </Field>
