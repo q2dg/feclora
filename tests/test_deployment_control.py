@@ -806,6 +806,19 @@ class CoordinatorControlTests(unittest.TestCase):
             )
         self.assertEqual(path, "/repo/golden.manifest.json")
         self.assertEqual(receive.call_args.kwargs["expected_image_id"], "golden")
+        self.assertEqual(receive.call_args.kwargs["expected_image_type"], "disk")
+
+    def test_save_server_requires_logical_volume_manifest_for_lv_job(self):
+        coordinator, server, fake = self._server(make_job(
+            operation="save", image_id="golden", target_type="logical_volume",
+        ))
+        fake.incoming.extend(frame({
+            "type": "transfer_ready", "job_id": JOB_ID, "image_id": "golden",
+        }))
+        with patch("feclora.deployment.control.receive_image_set", return_value="/repo/golden.manifest.json") as receive:
+            path = server.receive_saved_image(MAC, "/repo")
+        self.assertEqual(path, "/repo/golden.manifest.json")
+        self.assertEqual(receive.call_args.kwargs["expected_image_type"], "logical_volume")
 
     def test_save_server_commits_destination_before_returning_transfer_success(self):
         coordinator, server, fake = self._server(make_job(operation="save", image_id="golden"))
