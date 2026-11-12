@@ -1,6 +1,6 @@
 # Remote image repositories
 
-**All remote services are external to Feclora.** SSH/SFTP servers, NFS exports,
+**All remote services are external to Feclora.** SSH servers, NFS exports,
 SMB shares, WebDAV endpoints and S3 buckets are provisioned, operated,
 patched, backed up and authorized by their
 respective administrators. Feclora is only a client: it stores access
@@ -15,7 +15,7 @@ manifests, compression, encryption, checksums and restore code continue to use
 the same repository API.
 
 **Remote image distribution follows a single-publisher / multi-reader model
-across SSHFS, SFTP, NFS, SMB/CIFS, WebDAV and S3:** one
+across SSHFS, NFS, SMB/CIFS, WebDAV and S3:** one
 Client publishes each image; any number of Clients may concurrently discover,
 fetch and restore that immutable published image. Concurrent remote publishers
 for the same image are outside the product contract. Publication still needs
@@ -32,12 +32,9 @@ cross-host publisher lease is implied by this local filesystem transaction.
 
 ## Provider contract
 
-SFTP is intentionally not represented as a mounted filesystem provider. Feclora exposes durable image-set import and publication actions in Cockpit, using pinned host keys and encrypted systemd credential references. The workflow transfers an already captured image to an existing SFTP directory, or fetches a remote image into the local repository. Manifests are schema-validated and every artifact is checked against its recorded byte count and SHA-256 digest. There are no detached image signatures or signing keys. Named endpoint definitions, one-directory inventory, import and direct disk/partition restore routing are integrated. Artifact-boundary progress and operator cancellation are integrated; continuous byte-level progress, resume, multi-directory discovery and full provider acceptance remain pending.
-
 | Provider | Helper | Authentication material |
 |---|---|---|
 | SSH filesystem | sshfs | Dedicated SSH private key; verified host keys |
-| SFTP | OpenSSH SFTP batch adapter; SHA-256-validated image-set import and publication from Cockpit | Registered encrypted SSH key and known_hosts references loaded by transient systemd credentials; one-shot local-repository transfer actions |
 | NFS | mount.nfs, NFSv4.2 | Server/export policy |
 | SMB/CIFS | mount.cifs, SMB 3.1.1 | Protected credentials file |
 | WebDAV | Disabled in the repository manager | No mount is accepted until per-repository encrypted credentials and isolated davfs2 service configuration are implemented |
@@ -49,20 +46,19 @@ command builders. A provider is not complete until its Cockpit workflow,
 authorization, failure handling, automated tests and operator acceptance cover
 the same image lifecycle.
 
-| Capability | SSHFS | NFS | SMB/CIFS | WebDAV | SFTP | S3 |
+| Capability | SSHFS | NFS | SMB/CIFS | WebDAV | S3 |
 |---|---|---|---|---|---|---|
-| Connection / mount or transport | Integrated mount lifecycle | Integrated mount lifecycle | Integrated mount lifecycle | Disabled | OpenSSH batch transfer | Not implemented; object API required |
-| Protected credentials | SSH key + pinned host keys | Export/server policy | Encrypted SMB credential | Missing isolated per-repository model | Encrypted SSH key + pinned host keys | Scoped access/secret references not implemented |
-| Inventory / read / restore | Via verified mounted repository | Via verified mounted repository | Via verified mounted repository | Unavailable | SHA-256 manifest inventory and authenticated fetch/restore | Not implemented |
-| Capture / publish | Writable mount path exists; end-to-end provider acceptance pending | Writable mount path exists; root-squash/ownership acceptance pending | Writable mount path exists; provider acceptance pending | Blocked | SHA-256-validated no-overwrite image-set publication/import and authenticated restore routing; import/publication durable and cancellable with artifact-boundary progress | Not implemented |
-| Durable Cockpit lifecycle | Local operation engine for image work; mount lifecycle is separate | Same | Same | Unavailable | Inventory, import, publication and restore durable/cancellable with artifact-boundary progress; metadata inspection synchronous | Not implemented |
-| Byte progress / transfer resume | No provider-specific network telemetry or safe write resume acceptance | Same | Same | Unavailable | Byte progress and resume pending | Not implemented |
-| Health, interruption and recovery acceptance | Pending live server/network tests | Pending live server/network tests, including root-squash | Pending live server/network tests | Pending design | Multi-directory discovery, health checks and live acceptance pending | Design, API lifecycle and acceptance pending |
+| Connection / mount or transport | Integrated mount lifecycle | Integrated mount lifecycle | Integrated mount lifecycle | Disabled  Not implemented; object API required |
+| Protected credentials | SSH key + pinned host keys | Export/server policy | Encrypted SMB credential | Missing isolated per-repository model  Scoped access/secret references not implemented |
+| Inventory / read / restore | Via verified mounted repository | Via verified mounted repository | Via verified mounted repository | Unavailable  Not implemented |
+| Capture / publish | Writable mount path exists; end-to-end provider acceptance pending | Writable mount path exists; root-squash/ownership acceptance pending | Writable mount path exists; provider acceptance pending | Blocked  Not implemented |
+| Durable Cockpit lifecycle | Local operation engine for image work; mount lifecycle is separate | Same | Same | Unavailable  Not implemented |
+| Byte progress / transfer resume | No provider-specific network telemetry or safe write resume acceptance | Same | Same | Unavailable  Not implemented |
+| Health, interruption and recovery acceptance | Pending live server/network tests | Pending live server/network tests, including root-squash | Pending live server/network tests | Pending design  Design, API lifecycle and acceptance pending |
 
 **Interpretation:** SSHFS, NFS and SMB share the mounted-filesystem integration
 but are not yet at production acceptance parity. WebDAV remains fail-closed.
-SFTP has richer signed file-transfer workflows than the mounted providers in
-some areas, but still lacks durable byte-level transfer controls. S3 is not
+S3 is not
 implemented; it requires a separate object-storage adapter rather than a
 filesystem mount.
 
@@ -293,8 +289,7 @@ provisioned separately; Feclora does not collect access keys or secret material.
 
 Remaining engineering work: add edit/test and health/free-space workflows,
 credential provisioning/rotation and recovery, safe per-repository WebDAV
-credentials, SFTP continuous byte-level progress, resume, multi-directory discovery
-and live provider acceptance, plus automated coverage for every provider lifecycle. Bounded
+credentials and live provider acceptance, plus automated coverage for every provider lifecycle. Bounded
 transport retries are implemented for read-only SFTP downloads and inventory;
 publication uploads remain non-retrying because their outcome can be ambiguous.
 acceptance tests. SFTP file transfer is distinct from SSHFS and is not a
@@ -357,52 +352,3 @@ IDs. Restore reads source artifacts from the selected mount but stages age
 decryption and partition decompression on the local temporary filesystem; a
 read-only remote mount is therefore not used as a scratch directory. Ensure
 not image capture.
-
-## SFTP transfer adapter status
-
-The initial adapter provides `upload_file` and `download_file` for individual
-regular files. It uses OpenSSH SFTP in batch mode with `-F /dev/null`,
-`BatchMode=yes`, `IdentitiesOnly=yes`, `StrictHostKeyChecking=yes`, an
-explicit `UserKnownHostsFile`, and an explicit identity file. It does not
-accept passwords, invoke a shell, or consult the operator's SSH configuration.
-Upload first writes a random hidden staging name and then creates the final name with the OpenSSH SFTP hard-link extension (which fails if the destination exists), removing the staging name only after success;
-download writes to a random sibling temporary file, checks the caller-supplied
-SHA-256 (normally obtained from a signed Feclora manifest), and publishes with
-a no-overwrite hard link.
-
-The adapter has a companion runner, `sftp_transfer_service.py`, which resolves registered `ssh-key` and `known-hosts` encrypted credential references and executes transfers in synchronous transient systemd services using `LoadCredentialEncrypted=`. Plaintext credentials exist only in the service's private `CREDENTIALS_DIRECTORY`; the API-side invocation contains only encrypted blob paths and non-secret transfer parameters. Cockpit exposes image inventory/inspection, import and publication actions; named SFTP endpoints can be saved, and SFTP fetch is integrated with durable disk/partition restore jobs. Import and publication are submitted to the durable local-operation worker.
-
-This is still not a complete SFTP repository provider. OpenSSH SFTP does not provide a portable server-side SHA-256 operation, so upload checks local artifact digests before sending and import verifies received bytes against the manifest. Image-set import and publication are durable operations and can be cancelled from Cockpit's Operation log; the worker stops its transient SFTP child before cleaning local staging. Progress is checkpointed at artifact boundaries, not continuously within a large file. There is still no byte-level progress, resume protocol or multi-directory catalog discovery. Transient connection failures during read-only downloads and inventory receive bounded retries; uploads are not automatically retried because the remote outcome may be ambiguous.
-
-### Signed SFTP image-set publication primitive
-
- `sftp_image_set.py` provides image-set publication for manifest v1. Before network transfer it parses the manifest and checks every local artifact's regular-file type, byte count and SHA-256 digest against the manifest. It uploads each artifact and publishes `manifest.json` last. The manifest is the visibility/commit marker. A consumer validates the manifest schema and independently checks every artifact's size and digest before restore.
-
-Each individual upload retains the adapter's random staging name and uses the OpenSSH hard-link extension for atomic no-overwrite publication; servers that do not support that extension fail closed. Artifact filenames are barred from the native local repository's manifest-marker namespace so an artifact cannot collide with another image's discovery metadata during import. This is not a multi-file atomic transaction: failed publication can leave unreferenced remote artifacts, but without the manifest they remain invisible to inventory and must be rejected. The publisher does not automatically retry ambiguous uploads.
-
-The same module includes `fetch_image_set()`. It downloads `manifest.json` into a private staging directory, enforces metadata size limits and validates the manifest schema before requesting any image artifact. Artifacts are downloaded and checked against their manifest SHA-256 values and byte counts. The validated set is imported into the native Feclora repository layout with artifact files first and `<image_id>.manifest.json` as the final commit marker.
-
-The metadata download mode is restricted by the transient-service CLI to the
-two metadata filenames; it never marks them as verified. Artifact download
-results explicitly report digest verification. The destination root must
-already exist and must not contain symlinked path components. The remote
-directory must already exist on the SFTP server.
-
-Cockpit exposes a one-shot **Fetch, verify and import image** form. The operator selects an encrypted SSH private-key reference and a pinned `known_hosts` reference; the API resolves those references through the systemd credential inventory and runs the transfer in a transient service. The import validates the manifest and every artifact digest before publishing into the native local image repository. The operation is recorded in the local operation journal. No plaintext SSH material is sent through Cockpit.
-
-The SFTP Cockpit workflow supports durable image import and publication, optional post-capture publication, remote manifest inventory and **Inspect remote image metadata**. Metadata inspection downloads the manifest into a private temporary directory and validates its schema. It does not download artifact bytes; artifact SHA-256 and size verification occurs during import. Inventory is submitted from Cockpit as a durable local operation and runs in the root-owned local-operation worker; its queued/running/terminal state is visible in Operation log and can be cancelled.
-
-The Restore wizard can use a remote image directly: after metadata inspection, the operator selects **Fetch and verify the SFTP image before restoring it**. The durable restore definition stores only the remote endpoint and encrypted credential references. Before destructive restore starts, the worker fetches the image set into the protected local repository, requires the fetched manifest image ID and SHA-256 to match the metadata preview, and verifies every artifact's size and digest before import. The normal restore path then revalidates the local manifest and performs the existing target confirmation and restore checks. A failed fetch does not start destructive restore; a successfully imported image remains local if the subsequent restore fails.
-
-### Automatic SFTP publication after capture
-
-The disk and partition capture forms provide an optional **SFTP post-capture publication** setting. When enabled, the capture definition stores only the host, remote directory and encrypted credential references in the root-owned durable operation record. After native capture completes, the worker validates the manifest and each artifact digest, then publishes the set through the no-overwrite SFTP image-set publisher. The capture job is reported failed if publication fails, but the successfully captured local image remains in the repository and can be published manually or retried after the remote conflict/connectivity issue is resolved.
-
-### Cockpit SFTP publication and import
-
-The Remote Repositories tab exposes two explicit operations:
-
-- **Publish an image set** selects an already captured image from the local repository. The API validates the manifest and every artifact's size and SHA-256 digest, then uploads artifacts and the manifest last using encrypted SSH-key and pinned `known_hosts` credentials. The manifest is the inventory visibility marker.
-- **Import an image set** fetches the manifest first, validates its schema, then downloads and verifies each artifact before importing the files into the local repository.
-
-The destination directory must already exist. Remote files are never overwritten. A failed publication can leave unreferenced remote artifacts; because overwrite is refused, an operator may need to remove those orphaned files before retrying. Import and publication are durable local operations with Operation log cancellation and artifact-boundary progress checkpoints. There is no continuous byte-level progress within a file or resume policy. Transient read-only download/inventory failures receive bounded retries; publication is not automatically retried. Saved SFTP connection definitions are available, but multi-directory remote inventory discovery remains pending. Publication accepts images whose manifests validate and whose artifact byte counts and SHA-256 digests match.
