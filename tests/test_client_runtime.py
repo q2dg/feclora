@@ -112,7 +112,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
                 server_identity="URI:feclora-server", repository="/repo",
             )
         self.assertTrue(result[0])
-        self.assertIsNone(restore.call_args.kwargs["minisign_public_key"])
+        self.assertNotIn("minisign_public_key", restore.call_args.kwargs)
         self.assertNotIn("require_signature", restore.call_args.kwargs)
 
     def test_save_captures_then_announces_transfer(self):
@@ -134,7 +134,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
             )
         self.assertTrue(result[0])
         capture.assert_called_once()
-        self.assertEqual(capture.call_args.kwargs["minisign_secret_key"], "/keys/client.key")
+        self.assertNotIn("minisign_secret_key", capture.call_args.kwargs)
         self.assertEqual(capture.call_args.kwargs["age_recipients_file"], "/keys/recipients.txt")
         send.assert_called_once()
         self.assertIn(b"transfer_ready", bytes(tls.outgoing))
@@ -154,9 +154,9 @@ class ClientImageRuntimeTests(unittest.TestCase):
                 age_recipients_file="/keys/recipients.txt",
             )
         self.assertTrue(result[0])
-        self.assertIsNone(capture.call_args.kwargs["minisign_secret_key"])
+        self.assertNotIn("minisign_secret_key", capture.call_args.kwargs)
         self.assertIsNone(capture.call_args.kwargs["age_recipients_file"])
-        self.assertIsNone(send.call_args.kwargs["trusted_public_key"])
+        self.assertNotIn("trusted_public_key", send.call_args.kwargs)
 
     def test_remote_luks2_container_partition_restore_uses_verified_partition_engine(self):
         tls = FakeTLS(control_frame({
