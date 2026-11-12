@@ -302,12 +302,17 @@ def decrypt_artifact_stream_with_passphrase_to_temp(
     *,
     age_executable: str | None = None,
 ) -> str:
-    """Decrypt a passphrase-encrypted age stream using a private pseudo-terminal.
+    """Decrypt a passphrase-encrypted age stream through a controlling PTY.
 
-    The passphrase is sent through the PTY, never argv or environment. The
-    encrypted input is exposed to age through the already-open file descriptor.
+    The passphrase is sent only after age displays its terminal prompt. It is
+    never passed in argv, environment variables, or a pipe separate from the
+    controlling terminal.
     """
+    import errno
     import pty
+    import select
+    import signal
+    import time
     import tty
 
     if (not isinstance(passphrase, str) or not passphrase
@@ -322,47 +327,120 @@ def decrypt_artifact_stream_with_passphrase_to_temp(
     age = age_executable or shutil.which("age")
     if not age:
         raise ImageSecurityError("age executable is required for image decryption")
-    fd, temporary = tempfile.mkstemp(prefix=".feclora-decrypted-", dir=target_dir)
-    os.close(fd)
-    os.unlink(temporary)
-    master = slave = None
+
+    # Keep the output in a private directory below the selected temp directory.
+    # age can safely create/overwrite the file without a symlink race from
+    # another local user, even when the parent temp directory is shared.
+    private_dir = tempfile.mkdtemp(prefix=".feclora-age-", dir=target_dir)
+    os.chmod(private_dir, 0o700)
+    output_fd, temporary = tempfile.mkstemp(prefix="plaintext-", dir=private_dir)
+    os.fchmod(output_fd, 0o600)
+    os.close(output_fd)
+
+    input_fd = encrypted_stream.fileno()
+    was_inheritable = os.get_inheritable(input_fd)
+    master = None
+    child_pid = None
+    sent = False
+    transcript = bytearray()
+    wait_status = None
     try:
-        master, slave = pty.openpty()
-        tty.setraw(slave)
-        input_fd = encrypted_stream.fileno()
-        command = [age, "--decrypt", "--output", temporary, f"/proc/self/fd/{input_fd}"]
-        process = subprocess.Popen(
-            command, stdin=slave, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-            pass_fds=(input_fd,), close_fds=True,
-        )
-        os.close(slave)
-        slave = None
-        os.write(master, passphrase.encode("utf-8") + b"\n")
-        _, stderr = process.communicate()
-        if process.returncode != 0:
-            detail = (stderr or b"").decode("utf-8", errors="replace").strip()[:500]
-            raise ImageSecurityError("age passphrase decryption/authentication failed" + (f": {detail}" if detail else ""))
+        os.set_inheritable(input_fd, True)
+        child_pid, master = pty.fork()
+        if child_pid == 0:
+            try:
+                tty.setraw(0)
+                os.umask(0o077)
+                os.execv(age, [age, "--decrypt", "--output", temporary,
+                               f"/proc/self/fd/{input_fd}"])
+            except BaseException as exc:
+                try:
+                    os.write(2, f"age exec failed: {exc}\n".encode("utf-8", errors="replace"))
+                finally:
+                    os._exit(127)
+
+        deadline = time.monotonic() + 180.0
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ImageSecurityError("age decryption timed out while waiting for terminal input")
+            readable, _, _ = select.select([master], [], [], min(0.25, remaining))
+            if readable:
+                try:
+                    chunk = os.read(master, 4096)
+                except OSError as exc:
+                    if exc.errno == errno.EIO:
+                        chunk = b""
+                    else:
+                        raise
+                if chunk:
+                    transcript.extend(chunk)
+                    if len(transcript) > 8192:
+                        del transcript[:-8192]
+                    if not sent and b"passphrase:" in bytes(transcript).lower():
+                        os.write(master, passphrase.encode("utf-8") + b"\n")
+                        sent = True
+                elif wait_status is not None:
+                    break
+            waited, status = os.waitpid(child_pid, os.WNOHANG)
+            if waited == child_pid:
+                wait_status = status
+                # Drain any final diagnostic text from the PTY.
+                try:
+                    tail = os.read(master, 4096)
+                except OSError as exc:
+                    if exc.errno == errno.EIO:
+                        tail = b""
+                    else:
+                        raise
+                if tail:
+                    transcript.extend(tail)
+                    continue
+                break
+
+        if wait_status is None:
+            _, wait_status = os.waitpid(child_pid, 0)
+        if not sent:
+            detail = bytes(transcript).decode("utf-8", errors="replace")[-500:]
+            raise ImageSecurityError("age did not request a passphrase on its controlling terminal" +
+                                     (f": {detail}" if detail else ""))
+        if not os.WIFEXITED(wait_status) or os.WEXITSTATUS(wait_status) != 0:
+            detail = bytes(transcript).decode("utf-8", errors="replace").strip()[-500:]
+            raise ImageSecurityError("age passphrase decryption/authentication failed" +
+                                     (f": {detail}" if detail else ""))
         info = os.lstat(temporary)
-        if not stat.S_ISREG(info.st_mode) or info.st_size <= 0:
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_size <= 0:
             raise ImageSecurityError("age produced no non-empty plaintext artifact")
         os.chmod(temporary, 0o600)
         with open(temporary, "rb") as output:
             os.fsync(output.fileno())
         return temporary
     except ImageSecurityError:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
         raise
     except (OSError, subprocess.SubprocessError) as exc:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
         raise ImageSecurityError(f"could not decrypt passphrase-encrypted age artifact: {exc}") from exc
     finally:
+        os.set_inheritable(input_fd, was_inheritable)
+        if child_pid is not None and wait_status is None:
+            try:
+                os.kill(child_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                os.waitpid(child_pid, 0)
+            except ChildProcessError:
+                pass
         if master is not None:
             os.close(master)
-        if slave is not None:
-            os.close(slave)
+        # On success, the caller owns the plaintext file and removes it.
+        if not (child_pid is not None and wait_status is not None
+                and os.WIFEXITED(wait_status) and os.WEXITSTATUS(wait_status) == 0
+                and os.path.exists(temporary)):
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+            try:
+                os.rmdir(private_dir)
+            except OSError:
+                pass
