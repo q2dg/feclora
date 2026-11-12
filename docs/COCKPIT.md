@@ -105,10 +105,8 @@ validated again by the backend. No shell or arbitrary command execution is
 exposed through the API. Optional image-security keys are generated or installed for the current Live
 session under `/etc/feclora/pki`. That directory is ephemeral in the default
 Live appliance. Before reboot, the operator must preserve any age identity
-needed to decrypt existing images and any signing key needed for future
-signatures on separately selected, protected storage. Losing an age identity
-makes images encrypted to it unrecoverable; losing a signing key prevents
-future signatures with that identity. Neither key type is required for basic
+needed to decrypt existing images. Losing an age identity
+makes images encrypted to it unrecoverable. Age is not required for basic
 local imaging.
 
 ## Current scope and limitations
@@ -159,7 +157,7 @@ before receiving artifacts. This is a point-in-time preflight, so operators must
 avoid concurrent use of the staging filesystem during deployment.
 The Server arms only when every selected Client is READY; each Client stages
 and verifies every artifact's manifest/digest and any configured encryption
-or signature before writing its local disk.
+before writing its local disk.
 Confirm switch IGMP snooping and an active querier on the same VLAN before
 arming. UDPcast data packets themselves are not encrypted or authenticated;
 Server-authenticated TLS protects the control channel, not the multicast payload. Multicast
@@ -235,7 +233,7 @@ confidentiality recipients only; it is not Client authentication or revocation.
 
 The Server Cockpit API can validate and persist a deployment-job definition in the
 root-owned hash-chained journal. Creation validates selected Client MACs, the
-selected interface and image type, and verifies any manifest signature or
+selected interface and image type, and validates manifest SHA-256 digests and authenticates any
 age-encrypted artifact when present. Client signing keys and age recipient
 registrations are required only when the operator selects those protections
 for a specific image.
@@ -299,11 +297,11 @@ When age encryption is enabled, the Server trust panel can export the current pu
 
 ## Partition extraction
 
-The image repository panel also exposes extraction of a selected partition from a whole-disk image. The operator selects a disk image, reviews a verified read-only partition-table preview (including start sectors and sizes), and selects the unambiguous partition node from the preview (the underlying engine also accepts PARTUUID and PARTLABEL selectors). Feclora verifies the source manifest and any configured authenticity evidence, decrypts and decompresses the disk artifact as needed, extracts the exact byte range, and publishes a separate partition manifest/artifact transactionally. If the source artifact was age-encrypted, the extracted partition artifact is re-encrypted only when the optional age feature is enabled and recipients are configured. When a local signing key is available, the extracted manifest is signed using the configured optional signature integration. The source image is never modified.
+The image repository panel also exposes extraction of a selected partition from a whole-disk image. The operator selects a disk image, reviews a verified read-only partition-table preview (including start sectors and sizes), and selects the unambiguous partition node from the preview (the underlying engine also accepts PARTUUID and PARTLABEL selectors). Feclora verifies the source manifest and any configured authenticity evidence, decrypts and decompresses the disk artifact as needed, extracts the exact byte range, and publishes a separate partition manifest/artifact transactionally. If the source artifact was age-encrypted, the extracted partition artifact is re-encrypted only when the optional age feature is enabled and recipients are configured. The source image is never modified.
 
 Disk restore also presents a read-only layout preview after selecting a signed/unsigned whole-disk image and destination disk. It verifies the manifest and partition-table artifact, displays the source partitions and compares the source image size with the selected target capacity. The current restore preserves the captured partition layout; larger target disks retain unused trailing capacity. No automatic partition or filesystem growth is performed.
 
-Cockpit image inventory provides an on-demand read-only verification report for every artifact. It verifies any present configured signature against local trust, stored artifact SHA-256 and size, age authentication when the artifact is age-encrypted, compression integrity and decoded whole-disk size. Unsigned images are explicitly reported as unsigned.
+Cockpit image inventory provides an on-demand read-only verification report for every artifact. It verifies stored artifact SHA-256 and size, age authentication when the artifact is age-encrypted, compression integrity and decoded whole-disk size. Unsigned images are explicitly reported as unsigned.
 
 Client certificates and Client certificate renewal are not used. Cockpit
 reports the expiry of the locally configured Server TLS certificate and its
@@ -312,7 +310,7 @@ in the Server setup tab.
 
 Cockpit also reports the local managed Server TLS certificate expiry and the associated deployment CA expiry. Certificates with 30 days or fewer remaining are flagged for renewal; expired Server or CA certificates and configuration/inspection errors are surfaced as critical status. This is read-only and does not rotate certificates automatically.
 
-Server TLS certificate renewal is also available in the Cockpit Server setup tab. It requires typing `RENEW SERVER CERTIFICATE`, refuses to proceed while any deployment service is active, renews the certificate using the existing CA and Server private key, verifies the resulting chain, SAN and key match, and atomically replaces `server.crt`. The CA, Server identity and image-signing keys are unchanged. This is certificate renewal, not CA rotation or Server key rotation.
+Server TLS certificate renewal is also available in the Cockpit Server setup tab. It requires typing `RENEW SERVER CERTIFICATE`, refuses to proceed while any deployment service is active, renews the certificate using the existing CA and Server private key, verifies the resulting chain, SAN and key match, and atomically replaces `server.crt`. The CA and Server identity remain unchanged. This is certificate renewal, not CA rotation or Server key rotation.
 
 ## Network configuration status
 
