@@ -18,7 +18,19 @@ class ImagePublicationTests(unittest.TestCase):
             with open(os.path.join(stage, "manifest.json"), "wb") as stream:
                 stream.write(b"manifest")
 
-            publish_image_set(repository, stage, ["payload.img", "manifest.json"])
+            real_link = os.link
+            observed = []
+
+            def observe_publication(src, dst, *args, **kwargs):
+                observed.append(os.path.basename(os.fspath(dst)))
+                if os.path.basename(os.fspath(dst)) == "manifest.json":
+                    self.assertTrue(os.path.isfile(os.path.join(repository, "payload.img")))
+                    self.assertFalse(os.path.exists(os.path.join(repository, "manifest.json")))
+                return real_link(src, dst, *args, **kwargs)
+
+            with patch("feclora.storage.image_publication.os.link", side_effect=observe_publication):
+                publish_image_set(repository, stage, ["payload.img", "manifest.json"])
+            self.assertEqual(observed, ["payload.img", "manifest.json"])
 
             with open(os.path.join(repository, "payload.img"), "rb") as stream:
                 self.assertEqual(stream.read(), b"image")
