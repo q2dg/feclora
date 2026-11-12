@@ -215,7 +215,6 @@ Existing foundation: block inventory, read-only LVM reporting, Btrfs/Stratis inv
 - [ ] Add Cockpit topology views and a read-only capture/restore compatibility preview. Feclora does not create/resize VGs or LVs, manage Btrfs snapshots, format LUKS devices, or otherwise administer those external storage stacks.
 Acceptance: inventory accurately identifies VG/LV, Btrfs snapshots and LUKS layers; capture plans state exactly what bytes and metadata are included; unsupported/degraded layouts fail closed before destructive work; successful restores verify the resulting topology and data.
 
-undefined
 
 ## P1 — GitHub Pages guides
 Publish task-oriented guides only when the exact workflow is implemented; mark future workflows as planned.
@@ -270,28 +269,13 @@ This does not waive software-level checks: Python tests, static checks, frontend
 - No multicast capture, concurrent unicast fleet deployment or Wake-on-LAN unless separately approved.
 - No mandatory ISO build or physical lab run for software-backlog completion.
 
-## Network configuration implementation checkpoint
+## Network configuration status
 
-A read-only NetworkManager connection-profile inventory is available to the
-Cockpit API. It reports sanitized profile metadata and IPv4 configuration
-without returning connection secrets. This is preparatory infrastructure only.
-Still required for the DHCP/static networking acceptance gate:
-
-- Cockpit controls to select the Server or Client role and a NetworkManager
-  connection profile;
-- validated DHCP and static IPv4 configuration, including prefix, gateway
-  and DNS handling;
-- safeguards against changing the management path without explicit warning
-  and a recoverable apply/rollback strategy;
-- post-apply address, route and DNS verification, with clear failure reporting;
-- Client-side configuration integrated with enrollment and remote-job
-  interface selection;
-- automated tests for validation, command construction, failure and rollback,
-  followed by non-E2E operational acceptance on Fedora hardware.
-
-The inventory endpoint does not apply network changes and does not close this
-acceptance gate.
-
+DHCP/static IPv4 configuration is implemented in Cockpit for the active
+NetworkManager profile on the current Server or Client host. The detailed
+implementation and remaining runtime-acceptance limitations are recorded in
+the following checkpoint. Do not treat profile application as proof of
+gateway reachability, DNS resolution or end-to-end Server/Client connectivity.
 
 ## DHCP/static NetworkManager apply checkpoint
 
