@@ -83,20 +83,19 @@ class UDPcastConfigTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as directory:
             source = os.path.join(directory, "disk.img")
-            signature = os.path.join(directory, "image.manifest.json")
-            key = os.path.join(directory, "server.pub")
-            for path in (source, signature, key):
+            manifest_path = os.path.join(directory, "image.manifest.json")
+            for path in (source, manifest_path):
                 with open(path, "wb") as stream:
                     stream.write(b"x")
             with (
-                patch("feclora.network.udpcast._load_manifest_with_optional_signature", return_value=manifest),
+                patch("feclora.network.udpcast._load_manifest", return_value=manifest),
                 patch("feclora.network.udpcast.verify_artifact_file"),
                 patch("feclora.network.udpcast.shutil.which", return_value="/usr/bin/udp-sender"),
                 patch("feclora.network.udpcast.multicast_firewall_scope", return_value=nullcontext()),
                 patch("feclora.network.udpcast._run_process") as run,
             ):
                 send_multicast_artifact(
-                    coordinator, source, signature, key, self.config, firewall=Mock(),
+                    coordinator, source, manifest_path, self.config, firewall=Mock(),
                 )
             run.assert_called_once()
 
