@@ -186,80 +186,95 @@ def publish_unattended_answer_ipxe_script(
     answer_url: str,
     http_port: int = 8080,
 ) -> str:
-    """Atomically publish one answer-specific, identity-free iPXE script."""
+    """Publish the admission wrapper and the protected-by-admission boot script."""
     target_root = _safe_http_root(http_root)
-    content = render_unattended_answer_ipxe_script(
-        address, job_id, answer_url, http_port,
-    )
-    destination = target_root / "unattended-answer.ipxe"
-    if os.path.lexists(destination):
-        existing = destination.lstat()
-        if (not stat.S_ISREG(existing.st_mode) or stat.S_ISLNK(existing.st_mode)
-                or existing.st_uid != os.geteuid() or existing.st_mode & 0o022):
-            raise LiveBootAssetError("refusing to replace an unsafe unattended answer boot script")
-        try:
-            current = destination.read_text(encoding="utf-8")
-        except (OSError, UnicodeError) as exc:
-            raise LiveBootAssetError(f"cannot inspect existing unattended answer script: {exc}") from exc
-        if current != content:
-            raise LiveBootAssetError("a different unattended PXE answer job is already published")
-        return str(destination)
-    fd, temporary = tempfile.mkstemp(prefix=".unattended-answer.ipxe.", dir=target_root)
+    boot_content = render_unattended_answer_ipxe_script(address, job_id, answer_url, http_port)
+    wrapper_content = render_unattended_answer_admission_ipxe_script(address, http_port)
+    published: list[Path] = []
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as output:
-            output.write(content)
-            output.flush()
-            os.fsync(output.fileno())
-        os.chmod(temporary, 0o444)
-        try:
-            os.link(temporary, destination)
-        except FileExistsError as exc:
-            raise LiveBootAssetError("another unattended PXE answer job was published concurrently") from exc
-        os.unlink(temporary)
+        for name, content in (
+            ("unattended-answer-boot.ipxe", boot_content),
+            ("unattended-answer.ipxe", wrapper_content),
+        ):
+            destination = target_root / name
+            if os.path.lexists(destination):
+                existing = destination.lstat()
+                if (not stat.S_ISREG(existing.st_mode) or stat.S_ISLNK(existing.st_mode)
+                        or existing.st_uid != os.geteuid() or existing.st_mode & 0o022):
+                    raise LiveBootAssetError(f"refusing to replace an unsafe {name}")
+                try:
+                    current = destination.read_text(encoding="utf-8")
+                except (OSError, UnicodeError) as exc:
+                    raise LiveBootAssetError(f"cannot inspect existing {name}: {exc}") from exc
+                if current != content:
+                    raise LiveBootAssetError(f"a different unattended PXE job is already published in {name}")
+                published.append(destination)
+                continue
+            fd, temporary = tempfile.mkstemp(prefix=f".{name}.", dir=target_root)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as output:
+                    output.write(content)
+                    output.flush()
+                    os.fsync(output.fileno())
+                os.chmod(temporary, 0o444)
+                try:
+                    os.link(temporary, destination)
+                except FileExistsError as exc:
+                    raise LiveBootAssetError(f"another unattended PXE job was published concurrently in {name}") from exc
+                published.append(destination)
+            finally:
+                try:
+                    os.unlink(temporary)
+                except FileNotFoundError:
+                    pass
         directory_fd = os.open(target_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
             os.fsync(directory_fd)
         finally:
             os.close(directory_fd)
-    except LiveBootAssetError:
-        try:
-            os.unlink(temporary)
-        except OSError:
-            pass
+    except Exception:
+        # Remove only files created by this call; pre-existing identical files
+        # are not ours to roll back.
+        for path in published:
+            try:
+                if path.name in {"unattended-answer-boot.ipxe", "unattended-answer.ipxe"}:
+                    path.unlink()
+            except OSError:
+                pass
         raise
-    except OSError as exc:
-        try:
-            os.unlink(temporary)
-        except OSError:
-            pass
-        raise LiveBootAssetError(f"cannot publish unattended PXE answer script: {exc}") from exc
-    return str(destination)
+    return str(target_root / "unattended-answer.ipxe")
 
 
 def revoke_unattended_answer_ipxe_script(http_root: str, job_id: str) -> bool:
-    """Remove only a safe answer-specific script whose public job ID matches."""
+    """Remove both answer scripts only when both belong to the selected job."""
     target_root = _safe_http_root(http_root)
     canonical_job_id = _answer_job_id(job_id)
-    destination = target_root / "unattended-answer.ipxe"
-    try:
-        info = destination.lstat()
-    except FileNotFoundError:
+    wrapper = target_root / "unattended-answer.ipxe"
+    boot = target_root / "unattended-answer-boot.ipxe"
+    if not wrapper.exists() and not boot.exists():
         return False
-    except OSError as exc:
-        raise LiveBootAssetError(f"cannot inspect unattended answer boot script: {exc}") from exc
-    if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != os.geteuid() or info.st_mode & 0o022 or info.st_size > 8192):
-        raise LiveBootAssetError("unattended answer boot script is not a safe regular file")
-    try:
-        current = destination.read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as exc:
-        raise LiveBootAssetError(f"cannot read unattended answer boot script: {exc}") from exc
-    if (not current.startswith("#!ipxe\n")
-            or current.count(f"feclora.pxe_job_id={canonical_job_id}") != 1
-            or "feclora.pxe_mode=unattended-answer" not in current
-            or f"/answers/{canonical_job_id}/answer.json" not in current):
-        raise LiveBootAssetError("unattended answer boot script belongs to a different job; refusing to revoke it")
-    destination.unlink()
+    contents = {}
+    for path in (wrapper, boot):
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            raise LiveBootAssetError("unattended answer script pair is incomplete; refusing partial revocation")
+        if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != os.geteuid() or info.st_mode & 0o022 or info.st_size > 8192):
+            raise LiveBootAssetError("unattended answer boot script is not a safe regular file")
+        try:
+            contents[path.name] = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise LiveBootAssetError(f"cannot read unattended answer boot script: {exc}") from exc
+    boot_content = contents["unattended-answer-boot.ipxe"]
+    wrapper_content = contents["unattended-answer.ipxe"]
+    if (boot_content.count(f"feclora.pxe_job_id={canonical_job_id}") != 1
+            or f"/answers/{canonical_job_id}/answer.json" not in boot_content
+            or not wrapper_content.startswith("#!ipxe\\n")
+            or "/pxe/admit/${net0/mac}" not in wrapper_content):
+        raise LiveBootAssetError("unattended answer boot scripts belong to a different job; refusing to revoke them")
+    wrapper.unlink()
+    boot.unlink()
     directory_fd = os.open(target_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
     try:
         os.fsync(directory_fd)
@@ -272,7 +287,7 @@ def clear_stale_unattended_ipxe_script(http_root: str) -> bool:
     """Remove stale legacy and answer-specific handoff scripts before PXE starts."""
     target_root = _safe_http_root(http_root)
     removed = False
-    for name in ("unattended.ipxe", "unattended-answer.ipxe"):
+    for name in ("unattended.ipxe", "unattended-answer.ipxe", "unattended-answer-boot.ipxe"):
         destination = target_root / name
         try:
             info = destination.lstat()
