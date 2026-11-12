@@ -1391,26 +1391,21 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         source = _device(params["source"], "source")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         compression = _text(params, "compression", pattern=r"(?:none|gzip|xz|zstd|lz4)")
-        encrypt, sign = params["encrypt"], params["sign"]
-        if not isinstance(encrypt, bool) or not isinstance(sign, bool):
-            raise WebAPIError("encrypt and sign must be boolean values")
+        encrypt = params["encrypt"]
+        if not isinstance(encrypt, bool):
+            raise WebAPIError("encrypt must be a boolean value")
         security = _security_material()
         if encrypt and not security["age_encryption_available"]:
             raise WebAPIError("initialize Feclora security keys before enabling age encryption")
-        if sign and not security["image_signing_available"]:
-            raise WebAPIError("initialize Feclora security keys before enabling image signatures")
-        recipients_file, signing_key = _capture_material()
+        recipients_file = _capture_material()
         inventory = collect_inventory()
         manifest = capture_logical_volume_image(
             source, image_id, _operation_repository(params, write=True, create_local=True),
             inventory, compression=compression, progress_callback=_progress,
             age_recipients_file=recipients_file if encrypt else None,
-            minisign_secret_key=signing_key if sign else None,
         )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
         if "sftp_publish" in params:
-            if not sign:
-                raise WebAPIError("SFTP post-capture publication requires a signed image manifest")
             result["sftp_publication"] = _publish_captured_image_to_sftp(
                 manifest.image_id, _operation_repository(params, write=True), params["sftp_publish"],
                 progress_callback=_progress,
@@ -1536,7 +1531,6 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 restore_partition(
                     manifest_path, repository, target, confirmation=expected,
                     progress_callback=_progress, age_identity_file=identity_file,
-                    minisign_public_key=trusted_key, require_signature=signed,
                 )
             else:
                 from feclora.storage.inventory import collect_inventory
@@ -1746,7 +1740,7 @@ def _local_operations(params: dict[str, Any]) -> dict[str, Any]:
 def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
     operation_fields = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
