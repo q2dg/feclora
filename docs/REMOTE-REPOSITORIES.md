@@ -29,7 +29,7 @@ distribution model is one publisher per image and multiple concurrent readers.
 
 ## S3-compatible object repositories
 
-S3 is an object-store integration, not a filesystem mount. Feclora will use
+S3 is an object-store integration, not a filesystem mount. Initial upload, multipart, manifest-last, inventory and verified-download primitives are implemented; the repository-manager, encrypted-credential, API and Cockpit integration remains in progress. The completed integration will use
 the S3 HTTPS API directly and will not require FUSE. The same provider
 configuration is intended to work with AWS S3, Cloudflare R2, Garage and
 other services implementing the required S3 API operations.
