@@ -19,8 +19,6 @@ class ServerUIDeviceSelectionTests(unittest.TestCase):
         control = Mock()
         config = SimpleNamespace(
             repository="/srv/images",
-            server_minisign_public_key="/etc/feclora/server.pub",
-            client_minisign_public_keys={},
         )
         job = SimpleNamespace(operation="restore")
         _run_unicast_job(control, config, job, "02:00:00:00:00:01", "/srv/images/os.manifest.json")
