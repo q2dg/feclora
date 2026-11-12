@@ -94,8 +94,15 @@ mountpoint is occupied by the expected provider source, filesystem type and
 access mode. This is an identity/configuration check only: it does not probe
 remote read/write connectivity, latency, free space, quota or service health.
 A verified mount can still be stale or unable to complete I/O after a network
-failure. Cockpit exposes add/edit/check/mount/unmount/remove and never receives
-credential contents. Registry mutations (`add`, `update` and `remove`) are serialized across
+failure. The identity check deliberately does not issue filesystem I/O, because
+a probe against a hard-mounted NFS export can block in the kernel. For an
+explicit NFS unmount, Feclora first attempts a normal unmount; if that fails,
+and only after acquiring the exclusive repository-use lease (so no Feclora
+restore is using the mount), it retries with the kernel-supported forced NFS
+unmount. SSHFS and SMB are never force-detached automatically. This is a
+recovery action, not a connectivity or data-integrity health check. Cockpit
+exposes add/edit/check/mount/unmount/remove and never receives credential
+contents. Registry mutations (`add`, `update` and `remove`) are serialized across
 processes with a separate root-owned, mode-0600 lock file opened without
 following symlinks. `update` and `remove` reload the registry after acquiring that lock, so concurrent changes
 to different repository IDs are not lost through stale read-modify-write
