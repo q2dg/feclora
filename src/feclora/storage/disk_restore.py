@@ -13,7 +13,7 @@ import zlib
 from contextlib import contextmanager
 from typing import Any, Callable
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
-from .image_security import (decrypt_artifact_stream_to_temp,
+from .image_security import (ImageSecurityError, decrypt_artifact_stream_to_temp,
                              decrypt_artifact_stream_with_passphrase_to_temp)
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
