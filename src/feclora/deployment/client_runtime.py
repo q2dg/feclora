@@ -64,16 +64,14 @@ def execute_client_image_job(
         raise ClientImageRuntimeError("local device selection must resolve to a block device")
     tls_socket.settimeout(86400)
     if job.operation == "clone":
-        if not isinstance(local_identity, str) or not local_identity:
-            raise ClientImageRuntimeError("Client certificate identity is required for remote clone")
-        required = f"ERASE {local_device_path} FROM {server_identity}"
+        required = f"ERASE {local_device_path}"
         if confirmation != required:
             raise ClientImageRuntimeError(f"explicit local clone-target confirmation required: {required}")
         try:
             result = receive_remote_disk(
                 tls_socket,
-                local_identity=local_identity or "",
-                expected_peer_identity=server_identity,
+                local_identity="Client",
+                expected_peer_identity="Server",
                 target_path=local_device_path,
                 confirmation=confirmation,
                 progress_callback=progress_callback,
@@ -86,7 +84,7 @@ def execute_client_image_job(
         except Exception as exc:
             raise ClientImageRuntimeError(f"remote disk clone failed: {exc}") from exc
     if job.operation == "restore":
-        required = f"ERASE {local_device_path} FROM {server_identity}"
+        required = f"ERASE {local_device_path}"
         if confirmation != required:
             raise ClientImageRuntimeError(f"explicit local restore confirmation required: {required}")
         try:

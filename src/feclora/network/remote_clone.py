@@ -22,7 +22,7 @@ from feclora.storage.disk_clone import DiskCloneError, _geometry
 from feclora.storage.privilege import PrivilegeError, privileged_argv
 from feclora.storage.source_safety import SourceSafetyError, check_capture_source_safe
 
-from .tls import accept_mutual_tls, connect_mutual_tls
+from .tls import accept_tls, connect_tls
 from .remote_clone_protocol import (
     DEFAULT_CHUNK_BYTES,
     CloneSessionHeader,
@@ -41,7 +41,6 @@ from .remote_clone_protocol import (
     send_terminal_result,
     send_verification_result,
     validate_endpoint_authorization,
-    verify_peer_identity,
 )
 
 CHUNK_SIZE_BYTES = 1024 * 1024
@@ -237,7 +236,6 @@ def _send_remote_disk_impl(
                 "remote clone source must be marked read-only for the duration of the transfer"
             )
         _check_safe(header.source_device, safety)
-        verify_peer_identity(tls_socket, expected_peer_identity)
         approval = authorize_endpoint(
             header, role="source", local_identity=local_identity,
             expected_peer_identity=expected_peer_identity, confirmation=confirmation,
@@ -331,7 +329,6 @@ def _receive_remote_disk_impl(
     if target_path != header.receiver_target_device:
         raise RemoteDiskCloneError("locally selected target device differs from the session header")
     try:
-        verify_peer_identity(tls_socket, expected_peer_identity)
         approval = authorize_endpoint(
             header, role="receiver", local_identity=local_identity,
             expected_peer_identity=expected_peer_identity, confirmation=confirmation,
@@ -505,7 +502,6 @@ def send_remote_disk(
         raise RemoteDiskCloneError("expected receiver identity is required")
     target = f"{header.source_device} -> {header.receiver_identity}:{header.receiver_target_device}"
     try:
-        verify_peer_identity(tls_socket, expected_peer_identity)
         with operation_record(
             "remote-disk-send", target, image_id=header.session_id,
             log_path=operation_log_path,
@@ -527,7 +523,6 @@ def receive_remote_disk(
     if not isinstance(expected_peer_identity, str):
         raise RemoteDiskCloneError("expected source identity is required")
     try:
-        verify_peer_identity(tls_socket, expected_peer_identity)
         header = receive_session_header(tls_socket)
         target = header.receiver_target_device
         with operation_record(
@@ -584,9 +579,7 @@ def serve_remote_clone_once(
                 # Signals may interrupt accept() before the cancellation event
                 # is observed. Re-enter the bounded poll loop and check it again.
                 continue
-        tls_socket = accept_mutual_tls(
-            tls_context, accepted, expected_peer_identity=expected_peer_identity,
-        )
+        tls_socket = accept_tls(tls_context, accepted)
         with tls_socket:
             return send_remote_disk(
                 tls_socket, header,
@@ -611,7 +604,7 @@ def connect_remote_clone(
     **kwargs: Any,
 ) -> CloneVerificationResult:
     """Connect as the receiver, complete mTLS, and run one destructive clone session."""
-    tls_socket = connect_mutual_tls(
+    tls_socket = connect_tls(
         tls_context, host, port,
         expected_peer_identity=expected_peer_identity,
         cancel_check=kwargs.get("cancel_check"),

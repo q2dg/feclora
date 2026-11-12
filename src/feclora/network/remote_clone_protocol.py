@@ -153,12 +153,12 @@ def authorize_endpoint(
         expected_local = header.source_identity
         expected_peer = header.receiver_identity
         device_path = header.source_device
-        required_phrase = f"READ {device_path} TO {expected_peer}"
+        required_phrase = f"READ {device_path}"
     elif role == "receiver":
         expected_local = header.receiver_identity
         expected_peer = header.source_identity
         device_path = header.receiver_target_device
-        required_phrase = f"ERASE {device_path} FROM {expected_peer}"
+        required_phrase = f"ERASE {device_path}"
     else:
         raise RemoteCloneProtocolError("endpoint role must be 'source' or 'receiver'")
     if local_identity != expected_local or expected_peer_identity != expected_peer:

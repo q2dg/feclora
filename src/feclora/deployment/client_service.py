@@ -395,7 +395,7 @@ class ClientDeploymentService:
                     except ClientJobServiceError as exc:
                         raise DeploymentControlError(str(exc)) from exc
                     device_path = resolved["path"]
-                    confirmation = f"ERASE {device_path} FROM {config.server_identity}"
+                    confirmation = f"ERASE {device_path}"
                 if job.operation != "save" and (image_encrypt or image_sign):
                     raise DeploymentControlError("per-image encryption/signing selections are valid only for a save job")
                 if job.job_id != self.job_id or job.transport not in {"unicast", "multicast"}:
@@ -457,9 +457,9 @@ class ClientDeploymentService:
                 except SourceSafetyError as exc:
                     raise DeploymentControlError(f"selected local target is unsafe or in use: {exc}") from exc
                 required = (
-                    f"ERASE {device_path} FROM {config.server_identity}"
+                    f"ERASE {device_path}"
                     if job.operation in {"restore", "clone"}
-                    else f"READ {device_path} TO {config.server_identity}"
+                    else f"READ {device_path}"
                 )
                 if confirmation != required:
                     raise DeploymentControlError("local typed target confirmation does not match the selected device and Server")

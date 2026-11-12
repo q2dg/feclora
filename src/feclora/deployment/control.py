@@ -643,15 +643,15 @@ class DeploymentControlServer:
         mac = clients[0].mac_address
         with self._lock:
             target_device = self._target_devices.get(mac)
-            receiver_identity = self._identities.get(mac)
+            receiver_identity = "Client"
             tls_socket = self._sessions.get(mac)
-        if not target_device or not receiver_identity or tls_socket is None:
+        if not target_device or tls_socket is None:
             raise DeploymentControlError("Client clone target approval or authenticated session is unavailable")
         if not job.source_device:
             raise DeploymentControlError("clone job has no approved Server source device")
         header = build_remote_clone_header(
             job.source_device, target_device,
-            source_identity=self.local_identity,
+            source_identity="Server",
             receiver_identity=receiver_identity,
         )
         started = self.arm_and_start()
@@ -673,10 +673,10 @@ class DeploymentControlServer:
                     }
 
             kwargs: dict[str, Any] = {
-                "local_identity": self.local_identity,
+                "local_identity": "Server",
                 "expected_peer_identity": receiver_identity,
                 "source_path": job.source_device,
-                "confirmation": f"READ {job.source_device} TO {receiver_identity}",
+                "confirmation": f"READ {job.source_device}",
                 "progress_callback": report_progress,
             }
             if operation_log_path is not None:
