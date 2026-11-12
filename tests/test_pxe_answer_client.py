@@ -113,6 +113,37 @@ class PXEAnswerClientTests(unittest.TestCase):
             self.assertTrue((log_dir / "operations.jsonl").is_file())
             self.assertTrue((log_dir / "consumed" / JOB).is_file())
 
+    def test_age_encrypted_pxe_image_requests_passphrase_and_forwards_it_to_restore(self):
+        with tempfile.TemporaryDirectory() as root:
+            mountpoint = Path(root) / "repository"
+            mountpoint.mkdir(mode=0o700)
+            (mountpoint / "golden.manifest.json").write_text("{}", encoding="utf-8")
+            log_dir = Path(root) / "state"
+            log_dir.mkdir(mode=0o700)
+            manifest = SimpleNamespace(
+                image_id="golden", image_type="disk",
+                artifacts=(SimpleNamespace(encryption="age"),),
+            )
+            target = {"path": "/dev/sdb", "type": "disk", "wwn": "0x5000c50012345678", "serial": None}
+            def restore(*args, **kwargs):
+                kwargs["pre_write_callback"]()
+            provider = unittest.mock.Mock(return_value="correct horse battery staple")
+            with patch("feclora.network.pxe_answer_client._mount_nfs_repository"), \
+                 patch("feclora.network.pxe_answer_client._resolve_target", return_value=target), \
+                 patch("feclora.network.pxe_answer_client._revalidate_target"), \
+                 patch("feclora.network.pxe_answer_client.ImageManifest.from_json", return_value=manifest), \
+                 patch("feclora.network.pxe_answer_client.restore_disk", side_effect=restore) as restore_call, \
+                 patch("feclora.network.pxe_answer_client.subprocess.run"):
+                execute_live_pxe_restore({
+                    "image_id": "golden",
+                    "repository_url": "nfs://nfs.example/images",
+                    "target": {"wwn": "0x5000c50012345678", "serial": None},
+                    "_pxe_job_id": JOB,
+                }, mountpoint=mountpoint, operation_log=log_dir / "operations.jsonl",
+                consumption_dir=log_dir / "consumed", passphrase_provider=provider)
+            provider.assert_called_once_with()
+            self.assertEqual(restore_call.call_args.kwargs["age_passphrase"], "correct horse battery staple")
+
     def test_wait_for_age_passphrase_consumes_private_one_shot_file(self):
         with tempfile.TemporaryDirectory() as root:
             secret = Path(root) / "age-passphrase"
