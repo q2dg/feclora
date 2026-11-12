@@ -1337,6 +1337,42 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
 
 
 
+def _provide_pxe_age_passphrase(params: dict[str, Any]) -> dict[str, Any]:
+    """Submit a one-shot symmetric age passphrase to the local PXE Live worker."""
+    if set(params) != {"passphrase"}:
+        raise WebAPIError("provide_pxe_age_passphrase requires exactly passphrase")
+    passphrase = params.get("passphrase")
+    if (not isinstance(passphrase, str) or not passphrase
+            or len(passphrase.encode("utf-8")) > 1024
+            or any(char in passphrase for char in "\\r\\n\\x00")):
+        raise WebAPIError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
+    try:
+        cmdline = Path("/proc/cmdline").read_text(encoding="ascii")
+    except OSError as exc:
+        raise WebAPIError("cannot verify PXE Live boot mode") from exc
+    if "feclora.pxe_mode=unattended-answer" not in cmdline.split():
+        raise WebAPIError("age passphrases can only be submitted on an unattended PXE Live client")
+    directory = Path("/run/feclora/pxe")
+    try:
+        info = os.lstat(directory)
+        if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != 0 or info.st_mode & 0o077):
+            raise WebAPIError("PXE Live runtime directory is not secure")
+        secret = directory / "age-passphrase"
+        fd = os.open(secret, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
+            output.write(passphrase)
+            output.flush()
+            os.fsync(output.fileno())
+        return {"submitted": True, "message": "Passphrase delivered once to the waiting PXE restore worker."}
+    except FileExistsError as exc:
+        raise WebAPIError("an age passphrase is already pending; wait for the restore worker") from exc
+    except WebAPIError:
+        raise
+    except OSError as exc:
+        raise WebAPIError(f"cannot submit age passphrase to PXE Live: {exc}") from exc
+
+
 def _revoke_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"job_id"}:
         raise WebAPIError("revoke_pxe_answer requires exactly job_id")
@@ -2961,6 +2997,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _publish_pxe_answer(params)
     if action == "revoke_pxe_answer":
         return _revoke_pxe_answer(params)
+    if action == "provide_pxe_age_passphrase":
+        return _provide_pxe_age_passphrase(params)
     if action == "pxe_service_status":
         if params:
             raise WebAPIError("pxe_service_status does not accept parameters")
