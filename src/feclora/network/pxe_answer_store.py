@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import ipaddress
+import json
 import os
 import shutil
 import stat
 import tempfile
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from feclora.network.pxe_answer import PXEAnswerError, parse_pxe_answer
@@ -61,9 +63,15 @@ def publish_pxe_answer(
     if isinstance(http_port, bool) or not isinstance(http_port, int) or not 1 <= http_port <= 65535:
         raise PXEAnswerStoreError("PXE answer HTTP port is invalid")
     try:
-        parse_pxe_answer(raw_answer)
+        answer = parse_pxe_answer(raw_answer)
     except PXEAnswerError as exc:
         raise PXEAnswerStoreError(f"PXE answer validation failed: {exc}") from exc
+    if "expires_at" in answer:
+        raise PXEAnswerStoreError("PXE answer expiry is assigned by the Server, not the uploaded document")
+    answer["expires_at"] = (
+        datetime.now(timezone.utc) + timedelta(hours=24)
+    ).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+    raw_answer = (json.dumps(answer, sort_keys=True, separators=(",", ":")) + "\\n").encode("utf-8")
 
     answers = root / "answers"
     answers.mkdir(mode=0o755, exist_ok=True)
