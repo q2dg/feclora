@@ -159,6 +159,7 @@ def receive_image_set(
     repository: str | os.PathLike[str],
     *,
     expected_image_id: str,
+    expected_image_type: str | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
 ) -> str:
     """Receive and atomically publish an image set over authenticated TLS."""
@@ -186,6 +187,8 @@ def receive_image_set(
             raise ImageTransferError(f"received manifest is invalid: {exc}") from exc
         if manifest.image_id != expected_image_id:
             raise ImageTransferError("received image identifier does not match the armed deployment job")
+        if expected_image_type is not None and manifest.image_type != expected_image_type:
+            raise ImageTransferError("received image type does not match the armed deployment job")
         if len(manifest.artifacts) > _MAX_ARTIFACTS:
             raise ImageTransferError("image set contains too many artifacts")
         reserved_names = {manifest.image_id + ".manifest.json"}
