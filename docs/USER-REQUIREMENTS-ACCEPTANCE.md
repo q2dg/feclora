@@ -92,11 +92,12 @@ Feclora does not sign image manifests or use detached signature sidecars. Artifa
 - [x] Publish an answer-specific iPXE entry that boots the same Fedora Live kernel, initramfs and squashfs as the ISO and passes only the job UUID and answer URL.
 - [x] Download the answer from Caddy in Live, validate schema/version/size limits, and fail closed on missing or invalid content.
 - [x] Connect NFS repository URLs to a read-only mount; reject unsupported schemes rather than accepting syntax as implementation.
+- [x] Connect credential-free HTTPS object prefixes using the S3-compatible image-key layout; verify TLS, reject redirects, and verify each downloaded artifact's declared size and SHA-256 before restore.
 - [ ] Connect remaining provider adapters and separately protected credential references.
 - [x] Resolve exactly one whole-disk target by WWN and/or serial, verify capacity and device safety through the existing restore engine, and recheck stable identity immediately before the first write.
 - [x] Consume the job authorization atomically immediately before the first write to prevent a second write from the same authorization during the current Live session.
 - [x] Add optional Server-side PXE serving limits: Cockpit asks the administrator for a distinct-client cap and/or elapsed-time deadline; both are unset by default, so no MAC-count or time limit is imposed unless explicitly configured. The iPXE MAC is registered on first admission when a client cap is enabled, and retries from an already registered MAC do not consume another slot. The protected boot script cannot be fetched directly around the admission endpoint. MAC is an operational identifier, not authentication; a client can spoof it.
-- [x] Execute NFS-backed whole-disk restores through the existing restore engine with post-write read-back verification and a local operation journal.
+- [x] Execute NFS- and credential-free HTTPS-backed whole-disk restores through the existing restore engine with post-write read-back verification and a local operation journal.
 - [ ] Expose the PXE restore result in the normal Cockpit interface.
 - [ ] Ensure the interactive PXE boot opens the same Cockpit experience as ISO Live and does not require the answer file.
 - [ ] Adversarial and hardware tests cover modified HTTP answers, repeated answer requests, ambiguous or changed disks, provider outage, interrupted download and interrupted restore.
