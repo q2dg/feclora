@@ -1,100 +1,121 @@
-# Authenticated deployment control protocol
+# Deployment control protocol
 
-The Server/Client control-plane implementation is in `feclora.deployment.control`. It uses TLS helpers and the existing DeploymentCoordinator. Image-set transfer and local capture/restore callbacks are implemented in `artifact_transfer.py` and `client_runtime.py`. Detached minisign signatures are verified when present; unsigned image sets are accepted only inside the authenticated mTLS session.
+The Server/Client control plane uses TLS, the deployment coordinator and the
+existing image-transfer and storage engines. TLS authenticates the Server to
+each Client. Clients do not present certificates and the Server does not
+authenticate individual Clients.
 
-## Trust and enrollment
+## Trust and job selection
 
-The managed local CA and Server identity bootstrap are documented in [Certificate management](CERTIFICATE-MANAGEMENT.md) and [ADR 0009](adr/0009-managed-deployment-certificates.md). Client CSR approval, certificate issuance/import, and Client-side certificate installation are exposed through Cockpit and the text-mode Client workflow. The current allowlist revocation is not CRL/OCSP revocation.
+- The Server presents its TLS certificate. Each Client validates its chain
+  against the configured CA and checks the configured Server SAN identity (or
+  certificate pin).
+- The Server does not request or validate a Client certificate. There is no
+  Client certificate enrollment, client identity mapping, per-Client token or
+  client authentication.
+- The job contains an explicit list of selected Client MAC addresses. A
+  connecting Client reports its MAC and job UUID; the Server checks both
+  against the active job. This is job scoping and inventory selection, not
+  proof of Client identity.
+- The job UUID correlates messages and state. It is not a credential.
+- A Client selects its own target locally and types the exact READ or ERASE
+  confirmation before READY. The Server operator must explicitly arm the job
+  before any storage operation starts.
+- TLS protects the control channel and remote clone stream. Image integrity
+  is independently checked using manifest SHA-256 digests and, when
+  configured, detached minisign signatures. Age encryption is optional and
+  provides artifact confidentiality.
 
-- TLS is restricted to TLS 1.3 and requires a certificate from the configured CA on both endpoints.
-- The Server maps an exact client certificate SAN identity (URI, DNS, IP or EMAIL) or SHA-256 certificate fingerprint to one enrolled Client MAC.
-- The MAC is checked against the job allowlist only after certificate authentication. A MAC address, DHCP lease, PXE UUID or source IP is never an authentication factor.
-- The Client pins the expected Server SAN identity or SHA-256 certificate fingerprint after CA validation.
-- Server-side primitives support CA-verified Client CSR inspection, certificate issuance/import, renewal, rotation and allowlist revocation. Age recipient registration and Client minisign public-key registration are optional image-security features. A missing Client signing key does not prevent unsigned save jobs. Protect CA private keys and endpoint private keys outside the repository; never place them in PXE/TFTP/HTTP boot assets.
+The managed CA/Server certificate setup is described in
+[Certificate management](CERTIFICATE-MANAGEMENT.md). Never place the CA
+private key or Server private key in PXE/TFTP/HTTP boot assets.
 
 ## Framing and lifecycle
 
-Control messages are length-prefixed JSON with a 16 KiB maximum frame, strict message types, duplicate-key rejection and exact field-set validation at each state transition.
+Control messages are length-prefixed JSON with a 16 KiB maximum frame, strict
+message types, duplicate-key rejection and exact field-set validation.
 
-1. Client opens mTLS and sends HELLO with job UUID, its inventory MAC and configured certificate identity.
-2. Server derives the certificate identity from the authenticated TLS peer, maps it to an enrolled MAC and checks the HELLO and job allowlist.
-3. Server sends the validated immutable job document.
-4. Client returns a LocalTargetApproval binding its selected /dev path to the exact typed confirmation (ERASE for restore, READ for save). Only a human-readable target description is sent to Server; the path and confirmation remain local.
-5. Server registers READY in DeploymentCoordinator. The operator explicitly arms the job; only then does Server send START.
-6. For restore, Server sends a transfer offer and authenticated image set. Client receives the manifest over the authenticated mTLS session. If a detached signature is present, it must verify against an independently trusted public key; otherwise the authenticated TLS peer and session bind the manifest to the authorized Server. It verifies every artifact's exact size/SHA-256, stages the set privately, then invokes the protected restore workflow with a local typed ERASE confirmation and destination read-back. Encrypted artifacts additionally require the configured age identity.
-7. For save, Client captures a locally selected disk without modifying it. Before capture, the Client operator selects compression and the image-security mode (none, age, minisign or both); unavailable tools/keys are not offered. If signing is enabled, the Client signs the manifest and the Server verifies it against the Client's enrolled public key; otherwise the mTLS-authenticated Client session binds the manifest to the enrolled identity. The Server verifies every artifact before atomically publishing the set.
-8. Client returns a bounded per-client result. Server records the result in the coordinator.
+1. Client establishes TLS, verifies the Server certificate, and sends its MAC
+   address and job UUID.
+2. Server checks that the job UUID matches the active job and that the MAC is
+   selected in that job. This check does not authenticate the Client.
+3. Server sends the validated job document.
+4. Client independently selects a local target and returns READY only after
+   its local target checks and typed confirmation succeed. The selected
+   device path and confirmation remain local except where a clone operation
+   needs the receiver path to address the destination.
+5. Server records READY. The operator explicitly arms the job; only then does
+   Server send START.
+6. For restore, Server sends the manifest and image artifacts over the
+   Server-authenticated TLS channel. Client verifies artifact sizes and
+   SHA-256 digests, checks a detached signature when one is present and
+   independently trusted, stages the set privately, then invokes the
+   protected restore engine with local confirmation and destination read-back.
+7. For save, Client captures the locally selected disk without modifying it.
+   Optional age encryption and minisign signing are selected per image. Server
+   verifies every artifact before atomically publishing the image set.
+8. Client returns a bounded result correlated with the job UUID. Server
+   records the result in the job journal.
 
-For multicast restore, every selected Client first completes the same mTLS HELLO/JOB/READY exchange and independently selects/authorizes its local disk and receive interface. Server refuses to arm unless every selected Client is READY. After explicit arming, Server sends the manifest and optional detached signature over the authenticated control channel; UDPcast then sends each artifact to all Clients using a 239.0.0.0/8 data group and a distinct derived rendezvous group. Each Client stages the full image set privately, verifies any present signature and every size/SHA-256, then invokes the same protected restore/read-back path. UDPcast bytes are not treated as authenticated and are never written directly to a block device.
-UDPcast does not authenticate or encrypt the artifact data plane. Manifest signatures and SHA-256 digests provide integrity checks before disk writes, not confidentiality or receiver identity. Use a trusted isolated multicast segment. `age` encryption is optional and should be enabled when confidentiality is required; it must not be a mandatory dependency for ordinary Feclora operation.
+For multicast restore, each selected Client completes the same
+Server-authenticated TLS HELLO/JOB/READY exchange and independently approves
+its local disk and receive interface. Server refuses to arm unless every
+selected Client is READY. UDPcast then sends the artifacts to all Clients.
+UDPcast itself does not encrypt or authenticate datagrams; use a trusted,
+isolated multicast segment. Manifest signatures and SHA-256 are checked before
+disk writes. Enable age encryption when artifact confidentiality is required.
 
-## Local service IPC foundation
+## Remote disk clone
 
-`feclora.deployment.local_control` defines a bounded, length-prefixed JSON protocol
-for a future persistent deployment service. It accepts only `status`, `arm`
-and `cancel`; mutating requests must carry both a job UUID and an operator
-confirmation. The Unix listener checks Linux peer credentials (UID 0 by
-default), requires a root-owned non-writable parent directory, refuses to
-replace an existing socket, and creates the socket with mode 0600. It does not
-provide a shell or arbitrary method dispatch.
+Remote clone reuses the same Server-authenticated TLS control session. The
+Server is the source; the Client is the receiver. Both operators make local
+device choices and confirmations. There is no Client certificate identity
+binding or mutual TLS. The receiver revalidates its block device, streams
+bounded chunks, checks SHA-256 and reads back the written range before
+reporting success. See [Remote disk clone](REMOTE-DISK-CLONE.md).
 
-The primitive is now used by `feclora.deployment.service`, installed as
-the non-boot-enabled systemd template `feclora-deployment@.service` and
-controlled through the Cockpit API. A service instance loads one fresh,
-verified job journal, validates the Server interface and restore image and its configured authenticity evidence,
-owns a single-job lock, starts the existing TLS control listener and exposes
-status/arm/cancel over the root-only socket. It can adopt the existing PXE
-firewall zone on the same interface so the deployment TCP port is added and
-removed without replacing PXE rules.
+## Persistent service and recovery
 
-Cockpit can start/connect to the service, inspect live Client readiness, arm
-with an exact job-specific phrase, cancel only before arming, and stop the
-service only when no Client is actively writing. Unicast save/restore and
-multicast restore use the existing control-plane execution methods; the daemon
-does not duplicate the storage engines. The service is not enabled at boot,
-supports one job per Server, and refuses to start from an interrupted journal.
-A fresh definition is not considered interrupted until a service session has
-started; a clean unarmed stop is restartable only when no Client session was
-recorded. The listener's temporary firewall ownership and Unix-socket path are persisted/validated, and
-systemd's `ExecStopPost` removes only stale root-owned socket/firewall artifacts after exit while
-holding the single-service lock. No TLS session or storage operation is
-resumed after a process crash. If the service exits during an armed/running
-job, manual disk inspection and audit reconciliation are required. Automated
-unit/CI checks do not establish real-network, VM or destructive storage
+The persistent Server service uses the existing coordinator, control listener,
+storage engines, local root-only IPC and hash-chained job journal. It is not
+enabled at boot and runs one job per Server. It never resumes a TLS session or
+storage operation after a process crash.
+
+A clean unarmed stop can be restarted only when no Client session was
+recorded. An interrupted job requires manual inspection of every affected
+device and explicit operator reconciliation. Reconciliation records an
+operator assertion; it does not roll back, resume or verify storage writes.
+Automated tests do not establish real-network or destructive-storage
 acceptance.
 
 ## Implemented and remaining
 
 Implemented:
-- TLS 1.3 mTLS context enforcement and exact peer identity verification;
-- identity-to-MAC enrollment mapping and job allowlist enforcement;
-- managed TCP listener start/stop lifecycle, pending-handshake cleanup, listener error reporting and interface-scoped firewalld port lifecycle;
-- framed HELLO/JOB/READY/START/RESULT/CANCEL and transfer-offer/readiness messages;
-- coordinator registration, readiness, explicit arming, running and per-client result transitions, one-client unicast orchestration and multi-client UDPcast whole-disk restore orchestration;
-- private append-only SHA-256 hash-chained job journal; coordinator transitions are fsync-persisted before in-memory state changes, journal failures fail closed, verified journals can reconstruct the recorded coordinator/client state for audit, and interrupted jobs require explicit operator reconciliation. Reconstruction does not recreate TLS sessions, mark Clients READY, or resume storage work;
-- mTLS-bound manifest transfer, optional minisign verification when a detached signature is present, exact artifact size/SHA-256 checks, private staging and no-overwrite publication;
-- Client whole-disk save/restore callback integration with capture_disk and restore_disk, local typed confirmations, optional minisign verification/age decryption and destination read-back;
-- Client unicast and multicast partition restore dispatch through the shared partition engine, including raw LUKS2 encrypted-container images; the engine enforces provenance/header UUID checks, raw read-back and LUKS2 metadata verification. The container remains closed and no LUKS passphrase is transported. This is code-level integration; remote multi-host LUKS2 acceptance on real/disposable block devices is still pending;
-- Server runtime is now exposed through the persistent Cockpit service for unicast save/restore and multi-client multicast restore. Client runtime now has a read-only mTLS job-inspection handshake and a persistent Cockpit-driven unicast service. Cockpit selects the local disk/partition, displays the exact Server-bound confirmation phrase, and starts a non-boot-enabled Client unit. The service rechecks the live block-device inventory and root/mount safety before READY, then waits for the Server's explicit ARM before I/O. It records byte progress and terminal/interrupted status without automatic reconnect or resume. Cockpit Client multicast receive remains pending; the existing Client runtime still handles multicast restore.
-- tests for framing, invalid messages, image transfer integrity, Client save/restore callbacks, scoped firewall lifecycle and a loopback TLS 1.3 client/server handshake using ephemeral test certificates.
+- Server-authenticated TLS with CA and exact Server identity validation on
+  Clients; no Client certificate request or client authentication;
+- job UUID correlation, selected-MAC job scoping, READY/ARM/START/RESULT
+  lifecycle and per-Client result journaling;
+- bounded control framing, pending-connection cleanup and interface-scoped
+  firewall lifecycle;
+- unicast save/restore, multicast restore, artifact integrity checks and
+  optional age/minisign integrations;
+- remote disk clone over the existing control session with local device
+  approval, bounded streaming, SHA-256 and receiver read-back;
+- persistent Cockpit service, root-only local IPC and durable job journal.
 
 Still required:
-- automated integration tests that execute real capture/restore against disposable block devices over mTLS and UDPcast;
-- automated PXE BIOS/UEFI VM boot, multi-client multicast execution, packet-loss/interrupt scenarios and full end-to-end acceptance. The libvirt harness and runbooks create/describe the lab; they do not execute the tests automatically or imply they passed;
-- automated multicast network capability detection, per-client live progress, unicast multi-client fan-out, multicast save, CRL/OCSP integration, certificate/key provisioning and rotation on Client endpoints, and post-job power policies.
-## PXE VM test lab
+- physical multi-host acceptance for save, restore, multicast and remote clone;
+- BIOS/UEFI PXE VM boot and failure/packet-loss acceptance;
+- automated tests that execute capture/restore against disposable block
+  devices over the network;
+- multicast live progress, unicast multi-client fan-out, multicast save and
+  post-job power policies.
 
-See [tests/vm/README.md](../tests/vm/README.md) and [run-pxe-matrix.sh](../tests/vm/run-pxe-matrix.sh). The lab uses an isolated libvirt network without libvirt DHCP so Feclora can be the only DHCP/PXE authority. Never use authoritative DHCP on a shared network.
+## Optional cryptographic integrations
 
-## Optional cryptographic integrations and current gap
-
-TLS certificates and mTLS endpoint authorization are core deployment security;
-`age` and `minisign` are not substitutes for TLS and are not mandatory
-installation dependencies. `age` is an optional image-confidentiality layer.
-`minisign` is the current detached-manifest/profile signature implementation,
-but the project requirement is to support an equivalent configured trust
-mechanism without requiring that executable. Until the verifier abstraction
-exists, document which existing deployment actions still depend on minisign
-and do not claim those particular actions work when it is absent. SHA-256
-alone detects corruption but cannot authenticate a publisher or prevent
-malicious replacement.
+Age is an optional image-confidentiality layer. Minisign is the current
+detached-manifest/profile signature implementation, but it is not a
+mandatory installation dependency. SHA-256 detects corruption; without a
+trusted signature it does not authenticate the publisher or prevent malicious
+replacement. TLS authenticates the Server endpoint only, not individual
+Clients.
