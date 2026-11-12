@@ -587,20 +587,6 @@ export default function App() {
     finally { setBusy(false); }
   };
 
-  const revokeTrustedClient = async () => {
-    if (!revokeIdentity || revokeConfirmation !== `REVOKE ${revokeIdentity}`) return;
-    setBusy(true); setError(""); setNotice("");
-    try {
-      const result = await callFeclora("revoke_server_client", {
-        identity: revokeIdentity, confirmation: revokeConfirmation
-      });
-      setNotice(`Revoked ${result.identity}; future image encryption will exclude this Client.`);
-      setRevokeIdentity(""); setRevokeConfirmation("");
-      await refresh();
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
   const inspectRestoreLayout = async (sourceImageId) => {
     setRestoreLayoutPreview(null);
     if (!sourceImageId) return;
@@ -733,82 +719,6 @@ export default function App() {
     finally { setBusy(false); }
   };
 
-  const prepareClientRequest = async () => {
-    setBusy(true); setError(""); setNotice(""); setClientPrepared(null);
-    try {
-      const result = await callFeclora("prepare_client_request", {
-        client_id: clientId, export_directory: clientExportDirectory, image_signing: clientImageSigning, age_encryption: clientAgeEncryption
-      });
-      setClientPrepared(result); setNotice(result.message);
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
-  const completeClientEnrollment = async () => {
-    setBusy(true); setError(""); setNotice(""); setClientCompleted(null);
-    try {
-      const result = await callFeclora("complete_client_enrollment", {
-        client_id: clientId, host: clientHost, mac_address: clientMacInput,
-        bundle_directory: clientBundleDirectory, ca_fingerprint: clientCaFingerprint,
-        ...(clientServerFingerprint.trim() ? { server_minisign_sha256: clientServerFingerprint.trim() } : {})
-      });
-      setClientCompleted(result); setNotice(result.message);
-      await refresh();
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-  const prepareClientRenewal = async () => {
-    setBusy(true); setError(""); setNotice(""); setClientRenewalPrepared(null);
-    try {
-      const result = await callFeclora("prepare_client_renewal", {
-        export_directory: clientRenewalExportDirectory
-      });
-      setClientRenewalPrepared(result); setNotice(result.message);
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
-  const completeClientRenewal = async () => {
-    setBusy(true); setError(""); setNotice(""); setClientRenewalCompleted(null);
-    try {
-      const result = await callFeclora("complete_client_renewal", {
-        bundle_directory: clientRenewalBundleDirectory,
-        ca_fingerprint: clientCaFingerprint,
-        ...(clientServerFingerprint.trim() ? { server_minisign_sha256: clientServerFingerprint.trim() } : {})
-      });
-      setClientRenewalCompleted(result); setNotice(result.message);
-      await refresh();
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
-  const inspectClientCSR = async () => {
-    setBusy(true); setError(""); setNotice(""); setCsrReview(null); setCsrConfirmation("");
-    try {
-      const result = await callFeclora("inspect_client_csr", {
-        csr_path: csrPath, age_recipient_path: ageRecipientPath, mac_address: clientMac,
-        minisign_public_path: clientMinisignPath || null, renewal: csrRenewal
-      });
-      setCsrReview(result);
-      setNotice(csrRenewal ? "Renewal CSR inspected; existing trust mappings remain unchanged until the new certificate is installed." : "CSR signature and Client identity inspected. Optional image-security material is checked only when supplied. No trust changes have been made.");
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
-  const approveClientCSR = async () => {
-    if (!csrReview || csrConfirmation !== csrReview.confirmation_phrase) return;
-    setBusy(true); setError(""); setNotice("");
-    try {
-      const result = await callFeclora("approve_client_csr", {
-        csr_path: csrPath, age_recipient_path: ageRecipientPath, mac_address: clientMac,
-        minisign_public_path: clientMinisignPath || null, confirmation: csrConfirmation, renewal: csrRenewal
-      });
-      setNotice(result.message + " Bundle: " + result.bundle_directory);
-      setCsrReview(null); setCsrConfirmation(""); setCsrApprovalResult(result);
-      await refresh();
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
   const publishPXEAnswer = async () => {
     if (!pxeAnswerFile) return;
     setBusy(true); setError(""); setNotice(""); setPxeAnswerPublished(null);
@@ -1755,82 +1665,27 @@ export default function App() {
               </CardBody></Card></StackItem>}
             </Stack>
           </Tab>
-          <Tab eventKey="client" title="Client enrollment">
-            <Stack hasGutter className="pf-v5-u-pt-lg">
-              <StackItem><Title headingLevel="h2" size="xl">Client removable-media enrollment</Title><p>Prepare endpoint-local TLS and age keys, transfer only public request material to the Server, then verify and install the signed response bundle.</p></StackItem>
-              {status?.client_configured && <StackItem>
-                <Title headingLevel="h3" size="lg">Refresh Server age recipient inventory</Title>
-                <p>After a Client is revoked or enrolled, export the current inventory from the Server to removable media, then install it here. The file must contain this Client's own age public recipient; private keys remain local.</p>
-                <Field label="Mounted removable-media age-recipients.txt path">
-                  <input className="pf-v5-c-form-control" value={clientAgeInventoryPath} onChange={(event) => { setClientAgeInventoryPath(event.target.value); setClientAgeInventoryResult(null); }} placeholder="/run/media/liveuser/USB/age-recipients.txt" />
-                </Field>
-                <Button variant="primary" onClick={refreshClientAgeRecipients} isLoading={busy} isDisabled={busy || !clientAgeInventoryPath}>Verify and refresh inventory</Button>
-                {clientAgeInventoryResult && <Alert variant="success" title="Age recipient inventory refreshed" isInline>{clientAgeInventoryResult.message} · {clientAgeInventoryResult.recipient_count} recipients · SHA-256 {clientAgeInventoryResult.sha256}</Alert>}
-              </StackItem>}
-              {status?.client_configured ? <StackItem><Card><CardBody>
-                <Title headingLevel="h3" size="lg">Renew Client TLS certificate</Title>
-                <Alert variant="info" title="Key-preserving renewal" isInline>The existing TLS private key, age identity, MAC authorization and image-signing key are retained. Only the TLS certificate is replaced after verifying the Server CA fingerprint and response bundle.</Alert>
-                <Field label="Mounted removable-media directory for renewal request"><input className="pf-v5-c-form-control" value={clientRenewalExportDirectory} onChange={(event) => { setClientRenewalExportDirectory(event.target.value); setClientRenewalPrepared(null); }} placeholder="/run/media/liveuser/USB" /></Field>
-                <Button variant="primary" onClick={prepareClientRenewal} isLoading={busy} isDisabled={busy || !clientRenewalExportDirectory}>Prepare renewal CSR</Button>
-                {clientRenewalPrepared && <Alert variant="success" title="Renewal request prepared" isInline>{clientRenewalPrepared.message}<p>Identity: {clientRenewalPrepared.identity}</p><p>CSR: {clientRenewalPrepared.csr_file}</p><p>Age recipient: {clientRenewalPrepared.age_recipient_file}</p>{clientRenewalPrepared.minisign_public_file && <p>Existing public minisign key: {clientRenewalPrepared.minisign_public_file}</p>}</Alert>}
-                <Field label="Mounted Server renewal response bundle directory"><input className="pf-v5-c-form-control" value={clientRenewalBundleDirectory} onChange={(event) => setClientRenewalBundleDirectory(event.target.value)} placeholder="/run/media/liveuser/USB" /></Field>
-                <Field label="Feclora CA SHA-256 fingerprint"><input className="pf-v5-c-form-control" value={clientCaFingerprint} onChange={(event) => setClientCaFingerprint(event.target.value)} /></Field>
-                <Field label="Server minisign public-key SHA-256 fingerprint (optional)" help="Leave blank when image-signature verification is not configured."><input className="pf-v5-c-form-control" value={clientServerFingerprint} onChange={(event) => setClientServerFingerprint(event.target.value)} /></Field>
-                <Button variant="danger" onClick={completeClientRenewal} isLoading={busy} isDisabled={busy || !clientRenewalBundleDirectory || !clientCaFingerprint}>Verify and install renewed certificate</Button>
-                {clientRenewalCompleted && <Alert variant="success" title="Client certificate renewed" isInline>{clientRenewalCompleted.message}</Alert>}
-              </CardBody></Card></StackItem> : <>
-                <StackItem>
-                  <Title headingLevel="h3" size="lg">1. Prepare enrollment request</Title>
-                  <Field label="Client identifier"><input className="pf-v5-c-form-control" value={clientId} onChange={(e) => { setClientId(e.target.value); setClientPrepared(null); }} placeholder="lab-01" /></Field>
-                  <Field label="Mounted removable-media directory" help="For example /run/media/liveuser/USB. The directory must be an actual mounted filesystem.">
-                    <input className="pf-v5-c-form-control" value={clientExportDirectory} onChange={(e) => setClientExportDirectory(e.target.value)} placeholder="/run/media/liveuser/USB" />
-                  </Field>
-                  <label><input type="checkbox" checked={clientImageSigning} onChange={(e) => setClientImageSigning(e.target.checked)} /> Enable this Client's minisign image-signing key. Unsigned image capture remains available without it.</label>
-                  <label><input type="checkbox" checked={clientAgeEncryption} onChange={(e) => setClientAgeEncryption(e.target.checked)} /> Enable age decryption on this Client (generates a local identity and registers its public recipient). Encrypted images remain optional per capture.</label>
-                  <Button variant="primary" onClick={prepareClientRequest} isLoading={busy} isDisabled={busy || !clientId || !clientExportDirectory}>Prepare request</Button>
-                  {clientPrepared && <Card className="pf-v5-u-mt-md"><CardBody>
-                    <Alert variant="success" title="Enrollment request prepared" isInline>{clientPrepared.message}</Alert>
-                    <p>Identity: {clientPrepared.identity}</p><p>CSR: {clientPrepared.csr_file}</p>
-                    <p>Public age recipient: {clientPrepared.age_recipient_file}</p>
-                    {clientPrepared.minisign_public_file && <p>Public minisign key: {clientPrepared.minisign_public_file}</p>}
-                    <p>Private TLS key remains at {clientPrepared.private_key_stays_local}; it was not exported.</p>
-                  </CardBody></Card>}
-                </StackItem>
-                <StackItem>
-                  <Title headingLevel="h3" size="lg">2. Complete enrollment from Server response</Title>
-                  <Field label="Client identifier (same as preparation)"><input className="pf-v5-c-form-control" value={clientId} onChange={(e) => setClientId(e.target.value)} /></Field>
-                  <Field label="Feclora Server address"><input className="pf-v5-c-form-control" value={clientHost} onChange={(e) => setClientHost(e.target.value)} placeholder="192.0.2.1 or hostname" /></Field>
-                  <Field label="This Client unicast MAC address"><input className="pf-v5-c-form-control" value={clientMacInput} onChange={(e) => setClientMacInput(e.target.value)} placeholder="02:11:22:33:44:55" /></Field>
-                  <Field label="Mounted Server response bundle directory"><input className="pf-v5-c-form-control" value={clientBundleDirectory} onChange={(e) => setClientBundleDirectory(e.target.value)} placeholder="/run/media/liveuser/USB" /></Field>
-                  <Field label="Feclora CA SHA-256 fingerprint" help="Copy the fingerprint displayed in the Server approval result."><input className="pf-v5-c-form-control" value={clientCaFingerprint} onChange={(e) => setClientCaFingerprint(e.target.value)} /></Field>
-                  <Field label="Server minisign public-key SHA-256 fingerprint (optional)" help="Copy the fingerprint only when the Server provides server.pub. Leave blank otherwise."><input className="pf-v5-c-form-control" value={clientServerFingerprint} onChange={(e) => setClientServerFingerprint(e.target.value)} /></Field>
-                  <Button variant="primary" onClick={completeClientEnrollment} isLoading={busy} isDisabled={busy || !clientId || !clientHost || !clientMacInput || !clientBundleDirectory || !clientCaFingerprint}>Verify and install Client identity</Button>
-                  {clientCompleted && <Alert variant="success" title="Client enrollment complete" isInline>{clientCompleted.message} Identity: {clientCompleted.identity}. Image signing: {clientCompleted.image_signing_enabled ? "enrolled" : "not enrolled"}. Age encryption to Server: {clientCompleted.age_encryption_enabled ? "available" : "not configured"}. Age decryption on Client: {clientCompleted.age_decryption_enabled ? "enabled" : "not enabled"}.</Alert>}
-                </StackItem>
-              </>}
-            </Stack>
-          </Tab>
           <Tab eventKey="client-jobs" title="Client jobs">
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Remote job on this Client</Title>
-                <p>Inspect the Server job over enrolled mTLS, choose this machine's local target, type the exact destructive/read confirmation, then connect. The Client reports READY after approval and waits for the Server operator to authorize and start the operation.</p>
+                <p>Inspect the Server job over TLS; the Client does not authenticate itself, choose this machine's local target, type the exact destructive/read confirmation, then connect. The Client reports READY after approval and waits for the Server operator to authorize and start the operation.</p>
               </StackItem>
-              {!status?.client_configured && <StackItem><Alert variant="warning" title="Client enrollment required" isInline>Complete Client removable-media enrollment before inspecting or joining a remote job.</Alert></StackItem>}
+              {!status?.client_configured && <StackItem><Alert variant="warning" title="Client enrollment required" isInline>Configure Server trust on this Client before inspecting or joining a remote job.</Alert></StackItem>}
               {status?.client_configured && <>
                 <StackItem>
-                  <Field label="Server host override" help="Leave blank to use the enrolled Server host. The enrolled Server certificate identity is still verified.">
+                  <Field label="Server host override" help="Leave blank to use the enrolled Server host. The configured Server certificate identity is still verified.">
                     <input className="pf-v5-c-form-control" value={clientRemoteHost} onChange={(event) => setClientRemoteHost(event.target.value)} placeholder="Use enrolled Server host" />
                   </Field>
                   <Field label="Remote job UUID">
                     <input className="pf-v5-c-form-control" value={clientRemoteJobId} onChange={(event) => { setClientRemoteJobId(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); }} placeholder="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" />
                   </Field>
-                  <Field label="Local multicast receive interface (also used for the authenticated Server connection)" help="Select the local IPv4 interface/address used for the authenticated Server connection and, for multicast jobs, the UDPcast receive interface. The address and interface are revalidated before connection or receive startup.">
+                  <Field label="Local multicast receive interface (also used for the Server connection)" help="Select the local IPv4 interface/address used for the Server connection and, for multicast jobs, the UDPcast receive interface. The address and interface are revalidated before connection or receive startup.">
                     <select className="pf-v5-c-form-control" value={clientRemoteInterface} onChange={(event) => { setClientRemoteInterface(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); setClientRemoteIgmpConfirmed(false); }}>
                       <option value="">Select Client interface/address…</option>
                       {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
                     </select>
                   </Field>
-                  <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Preflight binds the TCP/TLS connection to this Client IPv4 address, verifies the enrolled Server identity and fetches the job before any local target is approved or storage operation starts.</p>
+                  <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Preflight binds the TCP/TLS connection to this Client IPv4 address, verifies the configured Server identity and fetches the job before any local target is approved or storage operation starts.</p>
                   <Button variant="primary" onClick={inspectClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteJobId || !clientRemoteInterface}>Test connectivity and inspect authenticated job</Button>
                   <Button variant="link" onClick={refreshClientRemoteJobStatus} isLoading={busy} isDisabled={busy || !clientRemoteJobId}>Check existing Client job status</Button>
                 </StackItem>
