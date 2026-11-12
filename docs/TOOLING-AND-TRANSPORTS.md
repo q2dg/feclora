@@ -12,7 +12,7 @@ reimplementing storage and network protocols.
 | SMB/CIFS | `mount.cifs` | SMB 3.1.1, signing/encryption and protected credentials |
 | S3 | S3-compatible object API | SigV4, scoped credentials, multipart transfer and manifest-last publication; not a filesystem mount |
 
-S3 support is implemented as an object-store adapter, not as a FUSE mount.
+Initial S3 transfer primitives use an object-store adapter, not a FUSE mount. The full repository-manager, encrypted-credential, API and Cockpit workflow remains in progress.
 Self-hosted Garage and managed S3-compatible services can expose the same API.
 The endpoint, bucket and prefix are configured per repository.
 
