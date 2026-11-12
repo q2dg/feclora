@@ -83,17 +83,6 @@ export default function App() {
   const [cancellingOperationId, setCancellingOperationId] = useState("");
   const [remoteRepositories, setRemoteRepositories] = useState([]);
   const [systemdCredentials, setSystemdCredentials] = useState([]);
-  const [sftpRepositories, setSftpRepositories] = useState([]);
-  const [sftpRepositoryId, setSftpRepositoryId] = useState("");
-  const [sftpHost, setSftpHost] = useState("");
-  const [sftpUsername, setSftpUsername] = useState("");
-  const [sftpRemoteDirectory, setSftpRemoteDirectory] = useState("/images");
-  const [sftpPort, setSftpPort] = useState("22");
-  const [sftpIdentity, setSftpIdentity] = useState("");
-  const [sftpKnownHosts, setSftpKnownHosts] = useState("");
-  const [sftpPublishImageId, setSftpPublishImageId] = useState("");
-  const [sftpRemoteInventory, setSftpRemoteInventory] = useState(null);
-  const [sftpRemoteInspection, setSftpRemoteInspection] = useState(null);
   const [publishAfterCapture, setPublishAfterCapture] = useState(false);
   const [credentialId, setCredentialId] = useState("");
   const [credentialKind, setCredentialKind] = useState("ssh-key");
@@ -187,7 +176,6 @@ export default function App() {
   const [source, setSource] = useState("");
   const [target, setTarget] = useState("");
   const [imageId, setImageId] = useState("");
-  const [restoreFromSftp, setRestoreFromSftp] = useState(false);
   const [partitionId, setPartitionId] = useState("");
   const [compression, setCompression] = useState("zstd");
   const [confirmation, setConfirmation] = useState("");
@@ -228,10 +216,10 @@ export default function App() {
   const refresh = useCallback(async () => {
     setBusy(true); setError("");
     try {
-      const [s, i, j, op, inv, net, profiles, pxe, remote, repositories, credentials, sftpSaved] = await Promise.all([
-        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("network_connection_profiles"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("remote_repositories"), callFeclora("systemd_credentials"), callFeclora("sftp_repositories")
+      const [s, i, j, op, inv, net, profiles, pxe, remote, repositories, credentials] = await Promise.all([
+        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("network_connection_profiles"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("remote_repositories"), callFeclora("systemd_credentials")
       ]);
-      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setNetworkProfiles(profiles.profiles || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setRemoteRepositories(repositories.repositories || []); setSystemdCredentials(credentials.credentials || []); setSftpRepositories(sftpSaved.repositories || []);
+      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setNetworkProfiles(profiles.profiles || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setRemoteRepositories(repositories.repositories || []); setSystemdCredentials(credentials.credentials || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   }, []);
@@ -310,17 +298,6 @@ export default function App() {
   const selectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId);
   const availableImages = selectedRepositoryId ? repositoryImages : images;
   const matchingImages = availableImages.filter((item) => item.image_type === (isDisk ? "disk" : isLogicalVolume ? "logical_volume" : "partition"));
-  const sftpInspectionMatchesCurrent = Boolean(sftpRemoteInspection?.connection
-    && sftpRemoteInspection.connection.host === sftpHost
-    && sftpRemoteInspection.connection.username === sftpUsername
-    && sftpRemoteInspection.connection.remote_directory === sftpRemoteDirectory
-    && sftpRemoteInspection.connection.port === Number(sftpPort)
-    && sftpRemoteInspection.connection.identity_credential === sftpIdentity
-    && sftpRemoteInspection.connection.known_hosts_credential === sftpKnownHosts);
-  useEffect(() => {
-    if (!sftpInspectionMatchesCurrent) setRestoreFromSftp(false);
-  }, [sftpInspectionMatchesCurrent]);
-
   const expectedConfirmation = operation === "clone_partition"
     ? (source && target ? `ERASE ${target} FROM ${source}` : "")
     : (isRestore || operation.startsWith("clone_")) && target ? `ERASE ${target}` : "";
@@ -331,25 +308,13 @@ export default function App() {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setProgress(null); setOperationResult(null);
     try {
       let params;
-      const sftpPublish = publishAfterCapture ? {
-        host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
-        port: Number(sftpPort), identity_credential: sftpIdentity,
-        known_hosts_credential: sftpKnownHosts
-      } : null;
-      if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt: encrypt || encryptPassphraseMode, ...(encryptPassphraseMode ? { encrypt_passphrase: true } : {}), ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
-      else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
-      else if (operation === "capture_logical_volume") params = { source, image_id: imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
+      if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt: encrypt || encryptPassphraseMode, ...(encryptPassphraseMode ? { encrypt_passphrase: true } : {}), ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
+      else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
+      else if (operation === "capture_logical_volume") params = { source, image_id: imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else if (isRestore) {
-        const sftpSource = !isLogicalVolume && restoreFromSftp && sftpInspectionMatchesCurrent ? {
-          host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
-          port: Number(sftpPort), identity_credential: sftpIdentity,
-          known_hosts_credential: sftpKnownHosts,
-          expected_manifest_sha256: sftpRemoteInspection.manifest_sha256
-        } : null;
-        if (restoreFromSftp && !sftpSource) throw new Error("Re-inspect the SFTP image after changing its connection settings.");
         params = {
           image_id: imageId, target, confirmation,
-          ...(sftpSource ? { sftp_source: sftpSource } : selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
+          ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
         };
       }
       else params = { source, target, confirmation };
@@ -395,7 +360,6 @@ export default function App() {
 
   const selectImageRepository = async (id) => {
     setSelectedRepositoryId(id); setRepositoryImages([]); setImageVerification({});
-    if (id) setRestoreFromSftp(false);
     setExtractLayout(null); setExtractPartitionSelector(""); setExtractPartitionResult(null);
     setRestoreLayoutPreview(null);
     if (!id) return;
@@ -427,117 +391,6 @@ export default function App() {
       await callFeclora("remove_systemd_credential", { id: credential.id, kind: credential.kind });
       setNotice("Removed encrypted credential " + credential.id + " (" + credential.kind + ").");
       await refresh();
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
-  const selectSftpRepository = (identifier) => {
-    setSftpRepositoryId(identifier);
-    const saved = sftpRepositories.find((item) => item.id === identifier);
-    if (!saved) return;
-    setSftpHost(saved.host); setSftpUsername(saved.username);
-    setSftpRemoteDirectory(saved.remote_directory); setSftpPort(String(saved.port));
-    setSftpIdentity(saved.identity_credential); setSftpKnownHosts(saved.known_hosts_credential);
-    setSftpRemoteInspection(null); setSftpRemoteInventory(null); setRestoreFromSftp(false);
-  };
-
-  const saveSftpRepository = async () => {
-    setBusy(true); setError(""); setNotice("");
-    try {
-      const result = await callFeclora("save_sftp_repository", {
-        id: sftpRepositoryId, host: sftpHost, username: sftpUsername,
-        remote_directory: sftpRemoteDirectory, port: Number(sftpPort),
-        identity_credential: sftpIdentity, known_hosts_credential: sftpKnownHosts
-      });
-      setNotice("Saved SFTP repository " + result.repository.id + ".");
-      await refresh();
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
-  const removeSftpRepository = async () => {
-    if (!sftpRepositoryId) return;
-    setBusy(true); setError(""); setNotice("");
-    try {
-      await callFeclora("remove_sftp_repository", { id: sftpRepositoryId });
-      setNotice("Removed saved SFTP repository " + sftpRepositoryId + ".");
-      setSftpRepositoryId("");
-      await refresh();
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
-  const listSftpImageManifests = async () => {
-    setBusy(true); setError(""); setNotice(""); setSftpRemoteInventory(null);
-    try {
-      const operationParams = {
-        host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
-        port: Number(sftpPort), identity_credential: sftpIdentity,
-        known_hosts_credential: sftpKnownHosts
-      };
-      const result = await callFeclora("submit_local_operation", {
-        operation: "sftp_inventory", operation_params: operationParams
-      });
-      setNotice("SFTP inventory queued as durable operation " + result.operation_id + ". Follow its state and cancellation controls in Operation log.");
-      const history = await callFeclora("local_operations");
-      setOperations(history.operations || []);
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
-  const inspectSftpImageSet = async () => {
-    setBusy(true); setError(""); setNotice(""); setSftpRemoteInspection(null); setRestoreFromSftp(false);
-    try {
-      const result = await callFeclora("inspect_sftp_image_set", {
-        host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
-        port: Number(sftpPort), identity_credential: sftpIdentity,
-        known_hosts_credential: sftpKnownHosts
-      });
-      setSftpRemoteInspection({
-        ...result,
-        connection: {
-          host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
-          port: Number(sftpPort), identity_credential: sftpIdentity,
-          known_hosts_credential: sftpKnownHosts
-        }
-      });
-      setNotice("Remote image manifest validated for " + result.image_id + ".");
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
-  const fetchSftpImageSet = async (event) => {
-    event.preventDefault(); setBusy(true); setError(""); setNotice("");
-    try {
-      const operationParams = {
-        host: sftpHost, username: sftpUsername, remote_directory: sftpRemoteDirectory,
-        port: Number(sftpPort), identity_credential: sftpIdentity,
-        known_hosts_credential: sftpKnownHosts
-      };
-      const result = await callFeclora("submit_local_operation", {
-        operation: "sftp_fetch", operation_params: operationParams
-      });
-      setNotice("SFTP image import queued as durable operation " + result.operation_id + ". Follow progress and cancellation in Operation log.");
-      const history = await callFeclora("local_operations");
-      setOperations(history.operations || []);
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
-  const publishSftpImageSet = async (event) => {
-    event.preventDefault(); setBusy(true); setError(""); setNotice("");
-    try {
-      const operationParams = {
-        image_id: sftpPublishImageId, host: sftpHost, username: sftpUsername,
-        remote_directory: sftpRemoteDirectory, port: Number(sftpPort),
-        identity_credential: sftpIdentity, known_hosts_credential: sftpKnownHosts
-      };
-      const result = await callFeclora("submit_local_operation", {
-        operation: "sftp_publish", operation_params: operationParams
-      });
-      setNotice("SFTP image publication queued as durable operation " + result.operation_id + ". Follow progress and cancellation in Operation log.");
-      const history = await callFeclora("local_operations");
-      setOperations(history.operations || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -1015,7 +868,7 @@ export default function App() {
                 <Card><CardBody>
                   <form onSubmit={runOperation}>
                     <Field label="Operation">
-                      <select className="pf-v5-c-form-control" value={operation} onChange={(e) => { setOperation(e.target.value); setSource(""); setTarget(""); setImageId(""); setRestoreFromSftp(false); setPartitionId(""); setRestoreLayoutPreview(null); setConfirmation(""); setOperationResult(null); }}>
+                      <select className="pf-v5-c-form-control" value={operation} onChange={(e) => { setOperation(e.target.value); setSource(""); setTarget(""); setImageId(""); setPartitionId(""); setRestoreLayoutPreview(null); setConfirmation(""); setOperationResult(null); }}>
                         {Object.entries(OPERATION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                       </select>
                     </Field>
@@ -1075,7 +928,7 @@ export default function App() {
                           if (!isLogicalVolume && sftpInspectionMatchesCurrent && value === sftpRemoteInspection.image_id) {
                             setRestoreFromSftp(true); setImageId(value); setRestoreLayoutPreview(null);
                           } else {
-                            setRestoreFromSftp(false); setImageId(value);
+                            setImageId(value);
                             if (isDisk) inspectRestoreLayout(value); else setRestoreLayoutPreview(null);
                           }
                         }}>
