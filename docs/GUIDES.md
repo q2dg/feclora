@@ -62,7 +62,7 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
   workflows for Server certificate trust, deployment jobs and Client-local target approval.
 - [Remote whole-disk and partition cloning](REMOTE-DISK-CLONE.html) — **Implemented in
   source/Cockpit**; real two-machine acceptance remains outstanding.
-- **Remote partition-to-partition cloning** — **Not implemented**.
+- **Remote partition-to-partition cloning** — **Implemented in source/Cockpit**; two-host acceptance remains outstanding.
 - [Deployment control (Server-authenticated TLS)](DEPLOYMENT-CONTROL.html) — protocol,
   job authorization and lifecycle details.
 - [Remote repositories](REMOTE-REPOSITORIES.html) — **Partial**. SSHFS, NFS
