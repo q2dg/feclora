@@ -74,8 +74,9 @@ An answer file can authorize a destructive operation, so it must not be
 treated as harmless configuration. It is published only after administrator
 action through Cockpit, is scoped to one generated job UUID, and can currently
 be revoked explicitly from the same Cockpit form. A new PXE session clears
-stale published answer directories. Automatic removal when a deployment job
-expires or is cancelled is not implemented yet. Clients must validate its
+stale published answer directories. Successful explicit deployment-job
+cancellation revokes its answer; automatic cleanup after the 24-hour expiry is
+not implemented yet. Clients must validate its
 schema and repository integrity metadata before any write. For this deployment, the operator explicitly chooses to trust the answer
 served by the configured HTTP server. This is an operational trust assumption,
 not cryptographic authenticity: an attacker able to modify HTTP traffic or the
