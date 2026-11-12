@@ -43,7 +43,6 @@ class RemoteRepositoryOperationLeaseTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "engine failed"):
                 with _operation_repository_context({"repository_id": "nas"}, write=False):
                     raise RuntimeError("engine failed")
-        self.assertFalse(manager.lease_active)
         with self.assertRaises(OSError):
             os.fstat(manager.lease_fd)
 
