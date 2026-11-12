@@ -23,7 +23,7 @@ WWN_RE = re.compile(r"^[A-Za-z0-9_.:-]{4,128}$")
 SERIAL_RE = re.compile(r"^[A-Za-z0-9_.:+/-]{1,128}$")
 REPOSITORY_SCHEMES = {
     "sshfs", "sftp", "smb", "cifs", "nfs", "webdav", "webdavs",
-    "http", "https", "bittorrent", "magnet",
+    "http", "https", "s3",
 }
 
 
@@ -50,10 +50,7 @@ def _repository_url(value: object) -> str:
         raise PXEAnswerError("repository_url scheme is not supported")
     if parsed.username is not None or parsed.password is not None:
         raise PXEAnswerError("repository_url must not embed usernames or passwords")
-    if parsed.scheme.lower() == "magnet":
-        if not value.startswith("magnet:?") or "xt=urn:btih:" not in value:
-            raise PXEAnswerError("magnet repository URL must identify a BitTorrent info hash")
-    elif not parsed.hostname:
+    if not parsed.hostname:
         raise PXEAnswerError("repository_url must contain a host")
     if port is not None and not 1 <= port <= 65535:
         raise PXEAnswerError("repository_url port is invalid")
