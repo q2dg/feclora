@@ -773,6 +773,28 @@ class CoordinatorControlTests(unittest.TestCase):
         self.assertEqual(offer["image_id"], "golden")
         self.assertEqual(send.call_args.kwargs["expected_image_id"], "golden")
 
+    def test_restore_transfer_progress_is_persisted_by_server_without_tls_frames(self):
+        coordinator, server, _fake = self._server(make_job(image_id="golden"))
+        server._progress_event_sink = Mock()
+        server._last_persisted_progress = {}
+        def transfer(_socket, _repository, _manifest, *, expected_image_id, progress_callback):
+            self.assertEqual(expected_image_id, "golden")
+            progress_callback(0, 8192)
+            progress_callback(4096, 8192)
+            progress_callback(8192, 8192)
+            return "manifest"
+        with patch("feclora.deployment.control.send_image_set", side_effect=transfer) as send:
+            result = server.send_restore_image(MAC, "/images", "golden.manifest.json")
+        self.assertEqual(result, "manifest")
+        self.assertIn("progress_callback", send.call_args.kwargs)
+        progress = server.client_progress()[MAC]
+        self.assertEqual(progress["phase"], "transfer")
+        self.assertEqual(progress["completed_bytes"], 8192)
+        self.assertEqual(progress["total_bytes"], 8192)
+        saved = server._progress_event_sink.call_args_list[-1].args[0]
+        self.assertEqual(saved["progress"]["phase"], "transfer")
+        self.assertEqual(saved["progress"]["completed_bytes"], 8192)
+
     def test_save_server_receives_job_bound_transfer_and_publishes(self):
         coordinator, server, fake = self._server(make_job(operation="save", image_id="golden"))
         fake.incoming.extend(frame({
