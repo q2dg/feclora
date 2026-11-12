@@ -177,7 +177,6 @@ supported Cockpit workflow.
 No ISO build, hardware restore, PXE boot or multi-machine laboratory test is
 claimed by source-level checks.
 
-
 ## Client remote jobs
 
 On a configured Client, the **Client jobs** tab can inspect a Server job over
@@ -224,7 +223,6 @@ must only be activated on a dedicated VLAN where Feclora is the sole DHCP
 server. A missing DHCP server in the NetworkManager lease is not proof of
 network isolation.
 
-
 ## Optional age recipient inventory
 
 When age encryption is enabled, the Server setup tab can export the current
@@ -247,7 +245,6 @@ journal/configuration, bind the Server-authenticated TLS listener and expose roo
 IPC to Cockpit. It owns one active job at a time and continues if the browser
 disconnects. It refuses interrupted journals and never recreates TLS sessions
 or resumes storage work after a service/process restart.
-
 
 ## Remote deployment job definitions
 
@@ -296,18 +293,15 @@ but switch IGMP snooping/querier and VLAN isolation still require operator
 validation. UDPcast multicast data is not encrypted or authenticated; only
 the control plane uses Server-authenticated TLS; Clients are not authenticated individually.
 
-
 ## Optional age recipient inventory refresh
 
 When age encryption is enabled, the Server trust panel can export the current public `age-recipients.txt` to mounted removable media without overwriting an existing file. Each remaining Client verifies that the inventory includes its own age identity before refreshing the local recipient list. Private identities remain local. This workflow is optional; deployments that do not use age do not need recipient inventories.
-
 
 ## Partition extraction
 
 The image repository panel also exposes extraction of a selected partition from a whole-disk image. The operator selects a disk image, reviews a verified read-only partition-table preview (including start sectors and sizes), and selects the unambiguous partition node from the preview (the underlying engine also accepts PARTUUID and PARTLABEL selectors). Feclora verifies the source manifest and any configured authenticity evidence, decrypts and decompresses the disk artifact as needed, extracts the exact byte range, and publishes a separate partition manifest/artifact transactionally. If the source artifact was age-encrypted, the extracted partition artifact is re-encrypted only when the optional age feature is enabled and recipients are configured. When a local signing key is available, the extracted manifest is signed using the configured optional signature integration. The source image is never modified.
 
 Disk restore also presents a read-only layout preview after selecting a signed/unsigned whole-disk image and destination disk. It verifies the manifest and partition-table artifact, displays the source partitions and compares the source image size with the selected target capacity. The current restore preserves the captured partition layout; larger target disks retain unused trailing capacity. No automatic partition or filesystem growth is performed.
-
 
 Cockpit image inventory provides an on-demand read-only verification report for every artifact. It verifies any present configured signature against local trust, stored artifact SHA-256 and size, age authentication when the artifact is age-encrypted, compression integrity and decoded whole-disk size. Unsigned images are explicitly reported as unsigned.
 
@@ -331,7 +325,6 @@ configuration workflow: Cockpit does not modify connection profiles, switch
 Server or Client addressing, or perform connectivity verification/rollback.
 Do not treat the DHCP/static Server-and-Client requirement as complete.
 
-
 ### DHCP and static IPv4 profile application
 
 The Network tab exposes active NetworkManager profiles on the current host
@@ -353,14 +346,9 @@ policy are not configured here.
 
 See [Remote image repositories](REMOTE-REPOSITORIES.md) for the Cockpit encrypted-credential import, selection, rotation and removal workflow.
 
-
 ## Optional image security and repository transports
 
-`age` encryption and `minisign` signatures are optional image-security
-integrations, not mandatory Feclora dependencies. SHA-256 is used for artifact
-integrity; it does not authenticate the publisher. Any destructive or
-unattended workflow must authenticate the manifest through the configured
-independent trust mechanism and bind its digest to the authorized job/profile.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 Remote file-repository types in the intended scope are SSHFS, SFTP, NFS,
 SMB/CIFS, WebDAV and S3. WebDAV requires isolated per-repository credentials;
