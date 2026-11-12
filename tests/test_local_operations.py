@@ -169,7 +169,7 @@ class LocalOperationStoreTests(unittest.TestCase):
                 with self.assertRaisesRegex(LocalOperationError, "absolute and normalized"):
                     validate_definition(definition)
 
-    def test_capture_sftp_publication_requires_signed_manifest(self):
+    def test_capture_sftp_publication_does_not_require_image_signing(self):
         definition = {
             "schema_version": 1,
             "operation_id": "00000000-0000-4000-8000-000000000001",
@@ -185,8 +185,7 @@ class LocalOperationStoreTests(unittest.TestCase):
                 },
             },
         }
-        with self.assertRaisesRegex(LocalOperationError, "requires a signed image"):
-            validate_definition(definition)
+        validate_definition(definition)
 
     def test_enforces_state_machine_and_hash_chain(self):
         with tempfile.TemporaryDirectory() as root:
