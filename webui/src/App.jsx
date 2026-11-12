@@ -320,7 +320,7 @@ export default function App() {
     ? (source && target ? `ERASE ${target} FROM ${source}` : "")
     : (isRestore || operation.startsWith("clone_")) && target ? `ERASE ${target}` : "";
 
-  useEffect(() => { setConfirmation(""); setProgress(null); setOperationResult(null); }, [operation, source, target, imageId]);
+  useEffect(() => { setConfirmation(""); setProgress(null); setOperationResult(null); if (operation !== "capture_disk") { setEncryptPassphraseMode(false); setCapturePassphrase(""); } }, [operation, source, target, imageId]);
 
   const runOperation = async (event) => {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setProgress(null); setOperationResult(null);
