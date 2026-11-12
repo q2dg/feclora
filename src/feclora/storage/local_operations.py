@@ -85,9 +85,9 @@ def validate_definition(value: Any) -> dict[str, Any]:
         raise LocalOperationError("operation_id must use canonical UUID form")
     action, params = value["action"], value["params"]
     fields = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish", "encrypt_passphrase"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
-        "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish", "encrypt_passphrase"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id", "sftp_publish"},
+        "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
@@ -204,8 +204,8 @@ def validate_definition(value: Any) -> dict[str, Any]:
     if action in {"capture_disk", "capture_partition"}:
         if params.get("compression") not in {"none", "gzip", "zstd", "lz4"}:
             raise LocalOperationError("unsupported compression")
-        if not all(isinstance(params.get(key), bool) for key in ("encrypt", "sign")):
-            raise LocalOperationError("encrypt and sign must be boolean")
+        if not all(isinstance(params.get(key), bool) for key in ("encrypt")):
+            raise LocalOperationError("encrypt must be boolean")
         if "encrypt_passphrase" in params:
             if not isinstance(params["encrypt_passphrase"], bool):
                 raise LocalOperationError("encrypt_passphrase must be boolean")
@@ -237,8 +237,6 @@ def validate_definition(value: Any) -> dict[str, Any]:
             port = config.get("port", 22)
             if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
                 raise LocalOperationError("SFTP publication port is invalid")
-            if not params.get("sign"):
-                raise LocalOperationError("SFTP publication requires a signed image manifest")
     if action == "extract_partition_image" and (
         not isinstance(params.get("selector"), str) or not params["selector"] or len(params["selector"]) > 256
     ):
