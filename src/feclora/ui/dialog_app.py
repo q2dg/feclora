@@ -577,9 +577,6 @@ def _save_unattended_profile(filename: str, manifest: ImageManifest, target: dic
     ])
     if action is None:
         return
-    secret_key = _input("Profile signing key", "Path to the minisign secret key (must be mode 0600):")
-    if not secret_key:
-        return
     initial_path = f"/mnt/restore-media/profiles/{manifest.image_id}.json"
     destination = _input(
         "Profile destination",
@@ -602,13 +599,13 @@ def _save_unattended_profile(filename: str, manifest: ImageManifest, target: dic
             single_use=True,
         )
         saved = save_unattended_restore_profile(
-            profile, destination, minisign_secret_key=secret_key,
+            profile, destination,
         )
         _message(
             "Restore profile saved",
-            f"Signed, single-use profile created:\n{saved}\n\n"
-            "Keep the profile, image, trusted public keys and replay ledger on persistent storage. "
-            "The image must also have its own minisign signature. Proportional resizing is not yet supported by the unattended executor.",
+            f"Root-authorized, single-use profile created:\n{saved}\n\n"
+            "Keep the profile, image and replay ledger on persistent storage. The profile and its directory must remain root-owned and protected. "
+            "Proportional resizing is not yet supported by the unattended executor.",
         )
     except (RestoreProfileError, OSError) as exc:
         _message("Profile creation failed", str(exc))
@@ -649,9 +646,9 @@ def _restore(inventory: dict[str, Any]) -> None:
         return
 
     if action == "whole-disk":
-        profile_action = _menu("Restore execution", "Execute now or save choices as a signed unattended profile.", [
+        profile_action = _menu("Restore execution", "Execute now or save choices as a root-authorized unattended profile.", [
             ("execute", "Restore now (interactive confirmation)"),
-            ("save-profile", "Save signed unattended profile"),
+            ("save-profile", "Save root-authorized unattended profile"),
             ("cancel", "Cancel"),
         ])
         if profile_action == "save-profile":
