@@ -507,7 +507,7 @@ class DeploymentService:
                         (lambda _manifest_path: self._s3_object_repository.upload_image_set(
                             self.repository_path, self.job.image_id,
                         ))
-                        if self.job.operation == "save" and self._s3_object_repository is not None
+                        if self.job.operation == "save" and getattr(self, "_s3_object_repository", None) is not None
                         else None
                     ),
                 )
@@ -527,7 +527,7 @@ class DeploymentService:
         s3_usage_lock_fd = None
         s3_temporary = None
         try:
-            if self._s3_repository_id is not None:
+            if getattr(self, "_s3_repository_id", None) is not None:
                 try:
                     s3_usage_lock_fd = self._s3_manager.acquire_usage_lock(self._s3_repository_id)
                     self._s3_object_repository = self._s3_manager.repository(self._s3_repository_id)
