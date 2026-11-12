@@ -284,7 +284,12 @@ class S3ObjectRepository:
                 raise S3RepositoryError(f"image artifact is unavailable: {artifact.filename}") from exc
             if size != artifact.size_bytes or digest != artifact.sha256:
                 raise S3RepositoryError(f"image artifact failed local integrity verification: {artifact.filename}")
-            self._put_file(path, self._artifact_key(image_id, artifact.filename), digest, size)
+            key = self._artifact_key(image_id, artifact.filename)
+            self._put_file(path, key, digest, size)
+            uploaded = self._head(key)
+            if (uploaded is None or uploaded.get("ContentLength") != size
+                    or uploaded.get("Metadata", {}).get("sha256") != digest):
+                raise S3RepositoryError(f"S3 object failed post-upload verification: {artifact.filename}")
             completed += size
             self._report(completed, total)
 
