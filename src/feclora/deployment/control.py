@@ -630,10 +630,10 @@ class DeploymentControlServer:
         """Clone the Server-local source to one READY Client over its existing Server-authenticated TLS session."""
         job = self.coordinator.job
         if job.operation != "clone" or job.transport != "unicast":
-            raise DeploymentControlError("remote disk clone requires a unicast clone job")
+            raise DeploymentControlError("remote clone requires a unicast clone job")
         clients = self.coordinator.clients()
         if len(clients) != 1 or clients[0].state is not ClientState.READY:
-            raise DeploymentControlError("remote disk clone requires exactly one READY Client")
+            raise DeploymentControlError("remote clone requires exactly one READY Client")
         mac = clients[0].mac_address
         with self._lock:
             target_device = self._target_devices.get(mac)
