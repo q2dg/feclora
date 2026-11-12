@@ -15,7 +15,7 @@ from typing import Callable, Mapping
 from .artifact_writer import ArtifactWriteError, write_artifact
 from .capture import CaptureError, _is_block_device
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
-from .image_security import ImageSecurityError, encrypt_artifact, encrypt_artifact_with_passphrase, preflight_image_security, sign_manifest
+from .image_security import ImageSecurityError, encrypt_artifact, encrypt_artifact_with_passphrase, preflight_image_security
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 
@@ -79,7 +79,6 @@ def capture_disk(
     progress_callback: Callable[[int, int | None], None] | None = None,
     age_recipients_file: str | os.PathLike[str] | None = None,
     age_passphrase: str | None = None,
-    minisign_secret_key: str | os.PathLike[str] | None = None,
 ) -> ImageManifest:
     """Capture a complete disk as raw bytes plus sfdisk metadata.
 
@@ -119,9 +118,7 @@ def capture_disk(
     try:
         preflight_image_security(
             age_recipients_file=age_recipients_file,
-            minisign_secret_key=minisign_secret_key,
             age_executable=available.get("age"),
-            minisign_executable=available.get("minisign"),
         )
     except ImageSecurityError as exc:
         raise DiskCaptureError(f"image security preflight failed: {exc}") from exc
@@ -247,12 +244,6 @@ def capture_disk(
             stream.flush()
             os.fsync(stream.fileno())
         signature_filename = None
-        if minisign_secret_key is not None:
-            sign_manifest(manifest_temp, minisign_secret_key, minisign_executable=available.get("minisign"))
-            signature_filename = manifest_filename + ".minisig"
-
-        # Publish payload and signature before the manifest commit marker.
-        from .image_publication import ImagePublicationError, publish_image_set
         publish_names = [table_filename, disk_filename]
         if signature_filename is not None:
             publish_names.append(signature_filename)
