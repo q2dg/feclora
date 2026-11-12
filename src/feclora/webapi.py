@@ -2291,7 +2291,7 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
                     if remote_image["image_type"] != expected_type:
                         raise WebAPIError(f"selected image is not a {expected_type} image")
                     if job.transport == "multicast":
-                        job = replace(job, staging_required_bytes=remote_image["source_size_bytes"])
+                        job = replace(job, staging_required_bytes=remote_image["artifact_bytes"])
                 except WebAPIError:
                     raise
                 except Exception as exc:
