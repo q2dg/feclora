@@ -1413,6 +1413,16 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             )
     elif action == "extract_partition_image":
         from feclora.storage.disk_image_partition import extract_partition_image
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        selector = _text(params, "selector", maximum=256)
+        repository = _operation_repository(params, write=False)
+        manifest_path = _image_manifest(image_id, repository)
+        try:
+            manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise WebAPIError(f"cannot read selected disk image manifest: {exc}") from exc
+        if manifest.image_id != image_id or manifest.image_type != "disk":
+            raise WebAPIError("partition extraction requires the selected disk image manifest")
         encrypted = any(item.encryption == "age" for item in manifest.artifacts)
         security = _security_material()
         pki = Path("/etc/feclora/pki")
