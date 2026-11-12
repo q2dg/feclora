@@ -65,9 +65,9 @@ class DiskCloneTests(unittest.TestCase):
             device_validator=lambda _path: True, runner=self.runner,
             device_safety_check=lambda _path: None, effective_uid=lambda: 0,
             popen_factory=lambda *a, **k: proc,
-            progress_callback=lambda percent, detail: progress.append(percent),
+            progress_callback=lambda done, total, detail: progress.append((done, total)),
         )
-        self.assertEqual(progress, [50, 100])
+        self.assertEqual(progress, [(50000, 100000), (100000, 100000)])
     def test_progress_dialog_closure_cancels_dd(self):
         proc = FakeProcess(returncode=None, stderr=b"50000 bytes copied\r")
         with self.assertRaises(DiskCloneCancelled):
