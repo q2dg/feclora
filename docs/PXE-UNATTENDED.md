@@ -66,7 +66,7 @@ one JSON file input; `repository_url` is read from that JSON, with no duplicate
 repository field. The API publishes the validated JSON atomically through Caddy
 over HTTP. No minisign, detached signature or per-client identity is involved. Optional age symmetric encryption is supported; the passphrase is entered on the Live client through Cockpit and is not included in the JSON. Cockpit can explicitly revoke the published
 answer and its iPXE script by job UUID. A new PXE session also clears stale
-answer files and handoff scripts. Successful deployment-job cancellation now revokes that job's published answer. The Server stamps each published answer with a 24-hour UTC expiry; Live refuses expired or unstamped answers. Automatic expiry cleanup remains unimplemented.
+answer files and handoff scripts. Successful deployment-job cancellation now revokes that job's published answer. Published answers have no time-based expiry. They remain available until explicitly revoked or removed when a new PXE session starts.
 
 ## Security boundary
 
@@ -140,14 +140,14 @@ are not yet complete provider/transport workflows.
 - [x] Consume each answer job UUID atomically immediately before the first write
       to prevent replay during the current Live session.
 - [x] Stamp published answers with a Server-assigned 24-hour UTC expiry and reject expired/unstamped answers in Live.
-- [ ] Add persistent cross-reboot one-time consumption and automatic expiry cleanup. Successful explicit deployment-job cancellation now revokes its published answer.
+- [x] Keep answer files reusable; explicit revocation and stale-session cleanup remain available. Successful deployment-job cancellation revokes its published answer.
 - [x] Connect NFS URL to a read-only Live mount for whole-disk restore.
 - [x] Support age symmetric decryption with one-shot Cockpit passphrase handoff on the Live client.
 - [ ] Add Cockpit image-capture support for symmetric age passphrases; current capture remains recipient-based.
 - [ ] Connect remaining repository URL schemes to provider and credential facilities.
 - [x] Implement exact whole-disk target resolution, pre-write revalidation and
       execution through the existing verified whole-disk restore engine for NFS.
-- [ ] Add other repository providers and lifecycle/replay controls.
+- [ ] Add other repository providers and lifecycle support.
 - [x] Use the operator-selected HTTP trust assumption; no cryptographic integrity mechanism is provided.
 - [ ] Validate BIOS and UEFI PXE boot, Caddy publication/revocation, wrong or
       tampered answer files, wrong age passphrase, repository outage, ambiguous
