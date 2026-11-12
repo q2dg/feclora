@@ -15,7 +15,7 @@ class LocalOperationWorkerTests(unittest.TestCase):
             store = LocalOperationStore(os.path.join(root, "jobs"))
             operation_id = store.submit("capture_disk", {
                 "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                "encrypt": False, "sign": False,
+                "encrypt": False, 
             })
             store.append(operation_id, "preflight")
             store.append(operation_id, "running")
@@ -36,7 +36,7 @@ class LocalOperationWorkerTests(unittest.TestCase):
             store = LocalOperationStore(os.path.join(root, "jobs"))
             operation_id = store.submit("capture_disk", {
                 "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                "encrypt": False, "sign": False,
+                "encrypt": False, 
             })
             store.append(operation_id, "preflight")
             store.append(operation_id, "running")
@@ -63,7 +63,7 @@ class LocalOperationWorkerTests(unittest.TestCase):
             store = LocalOperationStore(os.path.join(root, "jobs"))
             operation_id = store.submit("capture_disk", {
                 "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                "encrypt": False, "sign": False,
+                "encrypt": False, 
             })
             store.append(operation_id, "preflight")
             store.append(operation_id, "running")
@@ -90,7 +90,7 @@ class LocalOperationWorkerTests(unittest.TestCase):
             store = LocalOperationStore(os.path.join(root, "jobs"))
             operation_id = store.submit("capture_disk", {
                 "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                "encrypt": False, "sign": False,
+                "encrypt": False, 
             })
             store.append(operation_id, "preflight")
             store.append(operation_id, "running")
@@ -173,7 +173,7 @@ class LocalOperationWorkerTests(unittest.TestCase):
             print(json.dumps({"event": "progress", "bytes_done": 8192, "bytes_total": 8192}))
             return {
                 "image_id": "golden", "image_type": "disk", "artifact_count": 2,
-                "signature_verified": True, "artifacts_verified": True, "published": True,
+"artifacts_verified": True, "published": True,
             }
         with patch("feclora.storage.local_operation_service.os.geteuid", return_value=0), \
              patch("feclora.storage.local_operation_service.LocalOperationStore", return_value=store), \
@@ -186,7 +186,6 @@ class LocalOperationWorkerTests(unittest.TestCase):
         self.assertEqual(progress[-1]["bytes_total"], 8192)
         completed = store.append.call_args_list[-1].args[2]
         self.assertEqual(completed["artifact_count"], 2)
-        self.assertTrue(completed["signature_verified"])
         self.assertTrue(completed["artifacts_verified"])
 
     def test_recovery_continues_after_one_damaged_journal(self):
@@ -208,7 +207,7 @@ class LocalOperationWorkerTests(unittest.TestCase):
             store = LocalOperationStore(os.path.join(root, "jobs"))
             operation_id = store.submit("capture_disk", {
                 "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                "encrypt": False, "sign": False,
+                "encrypt": False, 
             })
             store.append(operation_id, "preflight")
             store.append(operation_id, "running")
