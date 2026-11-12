@@ -146,7 +146,7 @@ class SystemdCredentialStore:
         self._directory(create=True)
         result = []
         for path in sorted(self.root.glob("*.cred")):
-            match = re.fullmatch(r"feclora-([a-z0-9][a-z0-9-]{0,47})-(ssh-key|known-hosts|smb)\.cred", path.name)
+            match = re.fullmatch(r"feclora-([a-z0-9][a-z0-9-]{0,47})-(ssh-key|known-hosts|smb|s3)\.cred", path.name)
             if not match:
                 continue
             identifier, kind = match.groups()
