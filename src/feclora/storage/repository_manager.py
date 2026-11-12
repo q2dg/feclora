@@ -473,7 +473,7 @@ class RemoteRepositoryManager:
         except BlockingIOError as exc:
             if "fd" in locals():
                 os.close(fd)
-            raise RepositoryManagerError("repository is in use by an active deployment restore") from exc
+            raise RepositoryManagerError("repository is in use by an active image operation or deployment job") from exc
         except RepositoryManagerError:
             if "fd" in locals():
                 os.close(fd)
