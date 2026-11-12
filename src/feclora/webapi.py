@@ -1721,8 +1721,6 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
         )
     except (DeploymentControlError, OSError, ValueError) as exc:
         raise WebAPIError(f"could not inspect Server job: {exc}") from exc
-    if job.operation == "save" and job.target_type != "disk":
-        raise WebAPIError("Client-side capture currently supports whole-disk jobs only")
     return {
         "host": host,
         "port": config.port,
