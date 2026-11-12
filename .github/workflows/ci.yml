@@ -27,7 +27,7 @@ jobs:
       - name: Install ShellCheck
         run: |
           sudo apt-get update
-          sudo apt-get install --yes shellcheck
+          sudo apt-get install --yes shellcheck age
       - name: Check Bash syntax and project inputs
         run: |
           bash -n build/*.sh
