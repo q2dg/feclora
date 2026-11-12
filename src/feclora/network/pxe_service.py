@@ -208,7 +208,8 @@ class PXEServiceManager:
             admission_argv = [
                 self.systemd_run, f"--unit={self._admission_unit}", "--collect",
                 "--property=Restart=no", "--property=KillMode=mixed", "--",
-                "/usr/libexec/feclora/feclora-pxe-admission",
+                "--setenv=PYTHONPATH=/usr/share/feclora/python",
+                "/usr/bin/python3", "-m", "feclora.network.pxe_admission",
                 "--state", str(self.runtime_dir / "admission.json"),
                 "--bind", "127.0.0.1", "--port", "8765",
                 "--boot-url-prefix", f"http://{config.address}:{config.http_port}/pxe/boot/",
