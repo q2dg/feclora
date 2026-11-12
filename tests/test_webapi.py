@@ -1092,7 +1092,7 @@ class WebAPITests(unittest.TestCase):
             age_recipients_file=None, local_minisign_secret_key=None,
         )
         with patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config), \
-             patch("feclora.network.remote_clone_protocol.create_mutual_tls_context", return_value=object()), \
+             patch("feclora.network.remote_clone_protocol.create_tls_context", return_value=object()), \
              patch("feclora.network.interface_discovery.discover_interface_addresses", return_value=[
                  SimpleNamespace(address="192.0.2.20"),
              ]), \
@@ -1937,7 +1937,7 @@ class WebAPITests(unittest.TestCase):
         for job in jobs:
             with self.subTest(operation=job.operation, transport=job.transport), patch(
                 "feclora.deployment.runtime_config.load_client_runtime_config", return_value=config
-            ), patch("feclora.network.remote_clone_protocol.create_mutual_tls_context", return_value=object()), patch(
+            ), patch("feclora.network.remote_clone_protocol.create_tls_context", return_value=object()), patch(
                 "feclora.deployment.control.inspect_deployment_job", return_value=job
             ):
                 result = dispatch({
@@ -2043,7 +2043,7 @@ class WebAPITests(unittest.TestCase):
         for job in jobs:
             with self.subTest(operation=job.operation, transport=job.transport), patch(
                 "feclora.deployment.runtime_config.load_client_runtime_config", return_value=config
-            ), patch("feclora.network.remote_clone_protocol.create_mutual_tls_context", return_value=object()), patch(
+            ), patch("feclora.network.remote_clone_protocol.create_tls_context", return_value=object()), patch(
                 "feclora.deployment.control.inspect_deployment_job", return_value=job
             ):
                 result = dispatch({

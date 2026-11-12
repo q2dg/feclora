@@ -112,7 +112,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                      "compression": "gzip", "network_interface": "enp1s0", "source_address": "192.0.2.20", "igmp_confirmed": False, "image_encrypt": False, "image_sign": False,
                  }), \
                  mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
-                 mock.patch("feclora.deployment.client_service.create_mutual_tls_context", return_value=object()), \
+                 mock.patch("feclora.deployment.client_service.create_tls_context", return_value=object()), \
                  mock.patch.object(ClientDeploymentService, "_find_device", return_value={
                      "model": "Test disk", "size_bytes": 1024,
                     "serial": "SN-1", "wwn": "wwn-test-1",
@@ -183,7 +183,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                      "igmp_confirmed": True,
                  }), \
                  mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
-                 mock.patch("feclora.deployment.client_service.create_mutual_tls_context", return_value=object()), \
+                 mock.patch("feclora.deployment.client_service.create_tls_context", return_value=object()), \
                  mock.patch.object(ClientDeploymentService, "_find_device", return_value={"model": "Test disk"}), \
                  mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \
                  mock.patch("feclora.deployment.client_service.os.stat",
@@ -251,7 +251,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                      "igmp_confirmed": True,
                  }), \
                  mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
-                 mock.patch("feclora.deployment.client_service.create_mutual_tls_context", return_value=object()), \
+                 mock.patch("feclora.deployment.client_service.create_tls_context", return_value=object()), \
                  mock.patch.object(ClientDeploymentService, "_find_device", return_value={"model": "Test disk"}), \
                  mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \
                  mock.patch("feclora.deployment.client_service.os.lstat",
@@ -325,7 +325,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch("feclora.deployment.client_service._read_private_json", return_value=request), \
                  mock.patch("feclora.deployment.client_service._write_private_json", side_effect=lambda path, value: Path(path).write_text(json.dumps(value), encoding="utf-8")), \
                  mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
-                 mock.patch("feclora.deployment.client_service.create_mutual_tls_context", return_value=object()), \
+                 mock.patch("feclora.deployment.client_service.create_tls_context", return_value=object()), \
                  mock.patch.object(ClientDeploymentService, "_find_device", return_value=selected), \
                  mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \
                  mock.patch("feclora.deployment.client_service.os.stat", side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == DEVICE else real_stat(path, *args, **kwargs)), \

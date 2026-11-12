@@ -50,7 +50,7 @@ class PXEJobHandoffIntegrationTests(unittest.TestCase):
                  patch("feclora.deployment.server_ui._journal_directory", return_value=journal_dir), \
                  patch("feclora.deployment.server_ui._review_previous_journals"), \
                  patch("feclora.deployment.server_ui._choose_job", return_value=(job, None, ["02:00:00:00:00:01"])), \
-                 patch("feclora.deployment.server_ui.create_mutual_tls_context", return_value=object()), \
+                 patch("feclora.deployment.server_ui.create_tls_context", return_value=object()), \
                  patch("feclora.deployment.server_ui.DeploymentJournal"), \
                  patch("feclora.deployment.server_ui.DeploymentCoordinator", return_value=coordinator), \
                  patch("feclora.deployment.server_ui.DeploymentControlServer", FakeControl), \
