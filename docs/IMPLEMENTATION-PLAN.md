@@ -160,6 +160,7 @@ Existing foundation: deployment journals, persistent Server service lifecycle, r
 - [x] Persist queued, preflight, running, verifying, completed, failed and interrupted states; active destructive writes are deliberately non-cancellable.
 - [x] Persist monotonic elapsed time and sampled bytes/second with local byte-progress checkpoints when consecutive counters are comparable; omit the rate for the first sample or after a counter reset.
 - [ ] Report bytes, phase, throughput, timestamps and bounded diagnostic categories consistently across every local operation; standardize phase and diagnostic categories across all operation engines.
+  - The durable journal boundary now normalizes incoming progress phases to a fixed vocabulary and accepts only bounded diagnostic categories; engines still need to emit meaningful phase/category values and Server-side transfer progress remains pending.
 - [x] Detect unfinished local operations across reboot and mark them interrupted for manual review; never resume destructive I/O automatically. Verify and harden detached-worker supervision on live systemd hosts.
 - [x] Add process-independent per-device locks/conflict detection while preserving the existing host-wide storage/deployment exclusion.
 - [x] Expose local operation history and event detail in Cockpit; export and richer filtering remain pending.
