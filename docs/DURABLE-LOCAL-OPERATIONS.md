@@ -24,7 +24,10 @@ remains available; it does not mean persistent across a Live reboot.
    bypassing the same-device exclusion.
 5. The existing storage engine performs its own preflight, repository and
    destructive-confirmation checks before I/O. Progress and terminal state
-   are appended to the durable journal.
+   are appended to the durable journal. Each valid byte-progress checkpoint
+   also records monotonic elapsed time; sampled bytes/second is persisted only
+   when two consecutive counters are comparable and time advanced. The first
+   sample and a counter reset deliberately have no throughput estimate.
 6. Cockpit polls `local_operation_status`; `local_operations` returns
    recent operation summaries and their event history.
 
