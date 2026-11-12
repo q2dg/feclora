@@ -8,9 +8,10 @@ from feclora.network.pxe_admission import PXEAdmission, PXEAdmissionError
 class PXEAdmissionTests(unittest.TestCase):
     def test_unique_macs_consume_slots_once_and_retries_are_allowed(self):
         with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "boot.ipxe").write_text("#!ipxe\\necho boot\\n", encoding="utf-8")
             admission = PXEAdmission(
                 str(Path(tmp) / "state.json"),
-                answer_boot_url="http://192.0.2.1:8080/unattended-answer-boot.ipxe",
+                boot_url_prefix="http://192.0.2.1:8080/pxe/boot/", boot_script_path=str(Path(tmp) / "boot.ipxe"),
                 max_clients=2, max_duration_seconds=None,
             )
             self.assertEqual(admission.admit("AA:BB:CC:DD:EE:01"), (True, "registered"))
@@ -24,10 +25,11 @@ class PXEAdmissionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             admission = PXEAdmission(
                 str(Path(tmp) / "state.json"),
-                answer_boot_url="http://192.0.2.1:8080/unattended-answer-boot.ipxe",
+                boot_url_prefix="http://192.0.2.1:8080/pxe/boot/", boot_script_path=str(Path(tmp) / "boot.ipxe"),
                 max_clients=None, max_duration_seconds=60, clock=lambda: now[0],
             )
             self.assertTrue(admission.admit("aa:bb:cc:dd:ee:01")[0])
+            self.assertTrue(admission.is_admitted("aa:bb:cc:dd:ee:01"))
             now[0] = 1060.0
             self.assertFalse(admission.admit("aa:bb:cc:dd:ee:01")[0])
             self.assertFalse(admission.status()["accepting"])
@@ -36,9 +38,10 @@ class PXEAdmissionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = str(Path(tmp) / "state.json")
             kwargs = dict(
-                answer_boot_url="http://192.0.2.1:8080/unattended-answer-boot.ipxe",
+                boot_url_prefix="http://192.0.2.1:8080/pxe/boot/", boot_script_path=str(Path(tmp) / "boot.ipxe"),
                 max_clients=1, max_duration_seconds=None,
             )
+            (Path(tmp) / "boot.ipxe").write_text("#!ipxe\\necho boot\\n", encoding="utf-8")
             first = PXEAdmission(path, **kwargs)
             self.assertTrue(first.admit("aa:bb:cc:dd:ee:01")[0])
             second = PXEAdmission(path, **kwargs)
@@ -50,12 +53,12 @@ class PXEAdmissionTests(unittest.TestCase):
             with self.assertRaises(PXEAdmissionError):
                 PXEAdmission(
                     str(Path(tmp) / "state.json"),
-                    answer_boot_url="http://192.0.2.1:8080/unattended-answer-boot.ipxe",
+                    boot_url_prefix="http://192.0.2.1:8080/pxe/boot/", boot_script_path=str(Path(tmp) / "boot.ipxe"),
                     max_clients=None, max_duration_seconds=None,
                 )
             admission = PXEAdmission(
                 str(Path(tmp) / "state.json"),
-                answer_boot_url="http://192.0.2.1:8080/unattended-answer-boot.ipxe",
+                boot_url_prefix="http://192.0.2.1:8080/pxe/boot/", boot_script_path=str(Path(tmp) / "boot.ipxe"),
                 max_clients=2, max_duration_seconds=None,
             )
             self.assertFalse(admission.admit("not-a-mac")[0])
