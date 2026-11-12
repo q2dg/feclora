@@ -7,13 +7,14 @@ It does not discover disks, invoke `partclone`/`dd`, or write to block devices.
 ## Guarantees
 
 - Safe basename validation; no caller-supplied subdirectory paths.
-- Destination directory must exist and must not be a symlink.
+- Destination directory must exist and must not be a symlink; its inode is rechecked after opening to reject a directory swap during inspection.
 - Temporary file is created in that directory with mode 0600 and exclusive
   creation; existing artifact names are never overwritten.
 - Data is streamed in bounded chunks. The stored bytes are hashed with SHA-256
   and counted, including compression framing.
 - The temporary file and containing directory are fsynced; a hard-link
   publishes the complete file atomically without replacing an existing name.
+- If publication creates the final hard link but removing the staging name or syncing the directory fails, the writer rolls back its own final link and removes the staging file. A rollback unlink failure is deliberately not hidden by deleting any unrelated name.
 - Temporary files are removed on errors.
 
 ## Compression support
@@ -28,8 +29,7 @@ The caller owns the input stream and must check the imaging process exit status
 before accepting the artifact as a valid capture. A failed producer can emit
 partial bytes before exiting; this writer cannot infer producer success.
 The caller must also validate role/format/partition metadata by constructing
-an `ImageManifest` before publishing a complete image set. Repository-level
-manifest commit/rollback and device capture orchestration are not implemented.
+an `ImageManifest` before publishing a complete image set. Repository-level manifest commit/rollback and device capture orchestration are handled by the higher-level capture services, not by this single-artifact writer.
 
 
 ## External codecs
