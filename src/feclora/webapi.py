@@ -1226,12 +1226,15 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             raise WebAPIError("the one-shot capture passphrase was not delivered to the worker")
         if not symmetric and passphrase is not None:
             raise WebAPIError("unexpected passphrase for recipient-based encryption")
-        manifest = capture_disk(
-            source, image_id, _operation_repository(params, write=True, create_local=True), compression=compression,
-            progress_callback=_progress,
-            age_recipients_file=recipients_file if encrypt and not symmetric else None,
-            age_passphrase=passphrase if symmetric else None,
-        )
+        with _operation_repository_context(
+            params, write=True, create_local=True, upload_image_id=image_id,
+        ) as repository:
+            manifest = capture_disk(
+                source, image_id, repository, compression=compression,
+                progress_callback=_progress,
+                age_recipients_file=recipients_file if encrypt and not symmetric else None,
+                age_passphrase=passphrase if symmetric else None,
+            )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
     elif action == "capture_partition":
         from feclora.storage.inventory import collect_inventory
@@ -1248,11 +1251,14 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             raise WebAPIError("initialize Feclora security keys before enabling age encryption")
         recipients_file = _capture_material()
         inventory = collect_inventory()
-        manifest = capture_partition_image(
-            source, image_id, partition_id, _operation_repository(params, write=True, create_local=True),
-            compression=compression, progress_callback=_progress, inventory=inventory,
-            age_recipients_file=recipients_file if encrypt else None,
-        )
+        with _operation_repository_context(
+            params, write=True, create_local=True, upload_image_id=image_id,
+        ) as repository:
+            manifest = capture_partition_image(
+                source, image_id, partition_id, repository,
+                compression=compression, progress_callback=_progress, inventory=inventory,
+                age_recipients_file=recipients_file if encrypt else None,
+            )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
     elif action == "capture_logical_volume":
         from feclora.storage.inventory import collect_inventory
@@ -1268,11 +1274,14 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             raise WebAPIError("initialize Feclora security keys before enabling age encryption")
         recipients_file = _capture_material()
         inventory = collect_inventory()
-        manifest = capture_logical_volume_image(
-            source, image_id, _operation_repository(params, write=True, create_local=True),
-            inventory, compression=compression, progress_callback=_progress,
-            age_recipients_file=recipients_file if encrypt else None,
-        )
+        with _operation_repository_context(
+            params, write=True, create_local=True, upload_image_id=image_id,
+        ) as repository:
+            manifest = capture_logical_volume_image(
+                source, image_id, repository,
+                inventory, compression=compression, progress_callback=_progress,
+                age_recipients_file=recipients_file if encrypt else None,
+            )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
     elif action == "extract_partition_image":
         from feclora.storage.disk_image_partition import extract_partition_image
