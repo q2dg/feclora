@@ -157,9 +157,16 @@ class DeploymentJobTests(unittest.TestCase):
                 with self.assertRaises(JobValidationError):
                     DeploymentJob.from_dict(valid_job(target_bindings=bindings))
 
-    def test_repository_id_is_rejected_for_non_restore_and_invalid_values(self):
-        with self.assertRaisesRegex(JobValidationError, "only for restore"):
-            DeploymentJob.from_dict(valid_job(operation="save", repository_id="nas-images"))
+    def test_repository_id_is_allowed_for_capture_and_restore_but_not_clone(self):
+        capture = DeploymentJob.from_dict(valid_job(operation="save", repository_id="s3-archive"))
+        self.assertEqual(capture.repository_id, "s3-archive")
+        restore = DeploymentJob.from_dict(valid_job(repository_id="nas-images"))
+        self.assertEqual(restore.repository_id, "nas-images")
+        with self.assertRaisesRegex(JobValidationError, "only for save or restore"):
+            DeploymentJob.from_dict(valid_job(
+                operation="clone", image_id=None, source_device="/dev/sda",
+                repository_id="s3-archive",
+            ))
         for invalid in ("../images", "", "UpperCase"):
             with self.subTest(repository_id=invalid):
                 with self.assertRaisesRegex(JobValidationError, "repository_id"):
