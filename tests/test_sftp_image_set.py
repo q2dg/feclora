@@ -176,6 +176,41 @@ class SFTPImageSetTests(unittest.TestCase):
         self.assertTrue((self.root / "test-image.manifest.json.minisig").is_file())
         self.assertEqual(len(list(self.root.glob(".feclora-sftp-incoming-*"))), 0)
 
+    @patch("feclora.storage.sftp_image_set.verify_manifest_signature")
+    def test_fetch_rollback_preserves_concurrent_replacement(self, verify):
+        remote = self._remote_set()
+        def transfer(**kwargs):
+            filename = kwargs["remote_path"].rsplit("/", 1)[-1]
+            Path(kwargs["local_path"]).write_bytes(remote[filename])
+            return {"verified": kwargs["expected_sha256"] is not None}
+
+        import feclora.storage.image_publication as publication
+        original_link = os.link
+        calls = 0
+        replacement = b"concurrent writer replacement"
+
+        def racing_link(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                result = original_link(*args, **kwargs)
+                target = self.root / "part-1.img"
+                target.unlink()
+                target.write_bytes(replacement)
+                return result
+            raise FileExistsError("simulated concurrent publication collision")
+
+        with patch.object(publication.os, "link", side_effect=racing_link):
+            with self.assertRaises(SFTPImageSetError):
+                fetch_image_set(
+                    remote_directory="/images/test-image", destination_root=self.root,
+                    public_key=self.public_key, host="backup.example", username="backup",
+                    identity_credential="key-ref", known_hosts_credential="hosts-ref",
+                    transfer=transfer,
+                )
+        self.assertEqual((self.root / "part-1.img").read_bytes(), replacement)
+        self.assertFalse((self.root / "test-image.manifest.json").exists())
+
     @patch("feclora.storage.sftp_image_set.verify_manifest_signature",
            side_effect=ImageSecurityError("bad signature"))
     def test_fetch_rejects_bad_signature_before_artifact_download(self, verify):
