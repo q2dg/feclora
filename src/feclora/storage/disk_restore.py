@@ -68,6 +68,8 @@ def _verified_artifact_stream(repository: str, artifact: ImageArtifact,
             return
         if artifact.encryption != "age":
             raise DiskRestoreError("unsupported image encryption")
+        if age_identity_file is not None and age_passphrase is not None:
+            raise DiskRestoreError("choose either an age identity file or a symmetric passphrase, not both")
         try:
             # The source repository may be a read-only remote mount. Keep
             # authenticated plaintext in the local temporary filesystem instead.
