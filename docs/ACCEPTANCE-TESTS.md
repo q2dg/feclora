@@ -3,7 +3,7 @@
 This document is an operator runbook for acceptance testing on disposable
 hardware and independently operated remote-storage services. It does not
 describe new software features and does not make physical testing a
-prerequisite for continuing software development. All SSH/SFTP, NFS, SMB,
+prerequisite for continuing software development. All SSH, NFS, SMB,
 WebDAV and S3 infrastructure, and NVMe-oF target subsystems/namespaces, are external to Feclora: the operator
 or service owner provisions and administers them. Feclora tests only its client
 connection, authentication, authorization, transfer/mount behavior, integrity
