@@ -37,7 +37,7 @@ class PXENetworkConfig:
     gateway: str | None = None
     dns_server: str | None = None
     authoritative_confirmed: bool = False
-    max_clients: int | None = 20
+    max_clients: int | None = None
     max_duration_seconds: int | None = None
 
     def validated(self) -> "PXENetworkConfig":
@@ -74,8 +74,6 @@ class PXENetworkConfig:
             raise PXEConfigError("Maximum PXE clients must be between 1 and 4096, or null")
         if self.max_duration_seconds is not None and (isinstance(self.max_duration_seconds, bool) or not isinstance(self.max_duration_seconds, int) or not 60 <= self.max_duration_seconds <= 604800):
             raise PXEConfigError("Maximum PXE serving time must be between 60 and 604800 seconds, or null")
-        if self.max_clients is None and self.max_duration_seconds is None:
-            raise PXEConfigError("Configure a maximum PXE client count and/or serving time")
         for label, value in (("gateway", self.gateway), ("DNS server", self.dns_server)):
             if value is not None:
                 try:
