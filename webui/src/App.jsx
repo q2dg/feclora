@@ -354,10 +354,10 @@ export default function App() {
       const accepted = await callFeclora(operation, params);
       if (encryptPassphraseMode) {
         const oneShotPassphrase = capturePassphrase;
-        setCapturePassphrase("");
         await callFeclora("provide_capture_passphrase", {
           operation_id: accepted.operation_id, passphrase: oneShotPassphrase
         });
+        setCapturePassphrase("");
       }
       setOperations((current) => [{
         operation_id: accepted.operation_id, action: operation, state: "queued",
