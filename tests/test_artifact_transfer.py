@@ -196,6 +196,31 @@ class ImageTransferTests(unittest.TestCase):
                 self.assertEqual(stream.read(), b"pre-existing")
 
 
+    def test_receiver_rejects_image_type_that_differs_from_deployment_job(self):
+        with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
+            manifest_path = make_image_set(source)
+            left, right = socket.socketpair()
+            sender_errors = []
+            def sender():
+                try:
+                    send_image_set(left, source, manifest_path, expected_image_id="golden")
+                except Exception as exc:
+                    sender_errors.append(exc)
+                finally:
+                    left.close()
+            thread = threading.Thread(target=sender, daemon=True)
+            thread.start()
+            with self.assertRaisesRegex(ImageTransferError, "image type does not match"):
+                receive_image_set(
+                    right, target, expected_image_id="golden",
+                    expected_image_type="logical_volume",
+                )
+            right.close()
+            thread.join(5)
+            self.assertFalse(thread.is_alive())
+            self.assertEqual(sender_errors, [])
+            self.assertEqual(os.listdir(target), [])
+
     def test_receiver_rejects_wrong_job_image_id_without_publishing(self):
         with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
             manifest_path = make_image_set(source)
