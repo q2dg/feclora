@@ -24,6 +24,7 @@ kernel
 tar
 sudo
 python3
+python3-boto3
 kbd
 psmisc
 NetworkManager
