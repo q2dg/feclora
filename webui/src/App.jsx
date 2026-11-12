@@ -1182,7 +1182,7 @@ export default function App() {
               <StackItem><Table aria-label="Feclora image repository" variant="compact"><Thead><Tr><Th>Image</Th><Th>Type</Th><Th>Source size</Th><Th>Encryption</Th><Th>Artifacts</Th><Th>Verification</Th></Tr></Thead><Tbody>
                 {images.map((item) => {
                   const verification = imageVerification[item.image_id];
-                  return <Tr key={item.image_id}><Td>{item.image_id}</Td><Td>{item.image_type}</Td><Td>{formatBytes(item.source_size_bytes)}</Td><Td></Td><Td><Label color={item.encrypted ? "green" : "orange"}>{item.encrypted ? "age" : "Plain"}</Label></Td><Td>{item.artifact_count}</Td><Td>
+                  return <Tr key={item.image_id}><Td>{item.image_id}</Td><Td>{item.image_type}</Td><Td>{formatBytes(item.source_size_bytes)}</Td><Td><Label color={item.encrypted ? "green" : "orange"}>{item.encrypted ? "age" : "Plain"}</Label></Td><Td>{item.artifact_count}</Td><Td>
                     <Button size="sm" variant="secondary" isDisabled={busy || verification?.loading} isLoading={verification?.loading} onClick={() => verifyImage(item.image_id)}>Verify</Button>
                     {verification?.report && <div className="pf-v5-u-mt-sm">
                       <Label color="green">Verified</Label> Manifest: {verification.report.manifest} · {verification.report.artifact_count} artifacts · {formatBytes(verification.report.total_decoded_bytes)}
@@ -1191,7 +1191,7 @@ export default function App() {
                     {verification?.error && <Alert variant="danger" title="Verification failed" isInline>{verification.error}</Alert>}
                   </Td></Tr>;
                 })}
-                {!availableImages.length && <Tr><Td colSpan={7}>No manifest-backed images found in this repository.</Td></Tr>}
+                {!availableImages.length && <Tr><Td colSpan={6}>No manifest-backed images found in this repository.</Td></Tr>}
               </Tbody></Table></StackItem>
             </Stack>
           </Tab>
