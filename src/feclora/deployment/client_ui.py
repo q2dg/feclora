@@ -14,9 +14,8 @@ import sys
 from typing import Any
 
 from feclora.deployment.client_runtime import execute_client_image_job
-from feclora.deployment.managed_pki import (
-    PKIError, certificate_expiry_days, create_client_csr, install_client_certificate,
-)
+from feclora.deployment.managed_pki import PKIError
+
 from feclora.deployment.multicast_runtime import execute_multicast_restore
 from feclora.deployment.control import (
     DeploymentControlError, LocalTargetApproval, join_deployment,
@@ -140,64 +139,7 @@ def _sha256_file(path: str) -> str:
 
 
 def _client_enrollment_wizard(config_path: str) -> bool:
-    """Bootstrap a Client from a CSR response bundle without exporting its key."""
-    choice = dialog_app._menu(
-        "Client certificate setup",
-        "The Client has no deployment identity yet. Prepare a CSR or install a Server-approved response bundle.",
-        [
-            ("prepare", "Prepare enrollment request (first step)"),
-            ("complete", "Complete enrollment from Server response"),
-            ("cancel", "Cancel"),
-        ],
-    )
-    if choice in (None, "cancel"):
-        return False
-    pki_directory = "/etc/feclora/pki"
-    if choice == "prepare":
-        client_id = dialog_app._input(
-            "Client identity",
-            "Choose a short lowercase identifier (letters, digits and hyphens):",
-        )
-        if not client_id:
-            return False
-        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", client_id):
-            raise PKIError("Client identifier must contain 1-48 lowercase letters, digits or hyphens")
-        capability = dialog_app._menu(
-            "Client capability",
-            "Restore-only is recommended. Enable image capture only if this Client should send images back to the Server.",
-            [
-                ("restore", "Restore-only Client"),
-                ("save", "Allow this Client to capture and send images"),
-            ],
-        )
-        if capability is None:
-            return False
-        export_directory = dialog_app._input(
-            "Export enrollment request",
-            "Path to an existing removable-media directory. Only the CSR will be copied there; the private key stays on this Client:",
-        )
-        if not export_directory:
-            return False
-        identity, _private_key, exported_csr = create_client_csr(
-            pki_directory, export_directory, client_id,
-            age_keygen=shutil.which("age-keygen"),
-        )
-        if capability == "save":
-            _generate_client_minisign_keypair(pki_directory, export_directory, client_id)
-        dialog_app._message(
-            "Enrollment request prepared",
-            f"Identity: {identity}\nCSR: {exported_csr}\n\n"
-            "Take the removable media to the Feclora Server and choose Trusted Clients → Approve Client CSR. "
-            "Do not copy or export the private key. After the Server returns the signed certificate bundle, "
-            "bring that media back and choose Complete enrollment.",
-        )
-        return False
-
-    client_id = dialog_app._input("Client identity", "Enter the same lowercase identifier used when preparing the CSR:")
-    if not client_id:
-        return False
-    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", client_id):
-        raise PKIError("Client identifier must contain 1-48 lowercase letters, digits or hyphens")
+    """Configure Server trust; Clients do not enroll or present certificates."""
     host = dialog_app._input("Feclora Server address", "Enter the Server IPv4 address or hostname:")
     if not host:
         return False
@@ -205,114 +147,86 @@ def _client_enrollment_wizard(config_path: str) -> bool:
     if not mac:
         return False
     bundle = dialog_app._input(
-        "Server response bundle",
-        "Path to the removable-media directory containing feclora-<id>.crt and ca.crt; optional image-security files may also be present:",
+        "Server trust bundle",
+        "Path to a directory containing the Server CA certificate (ca.crt), optionally server.pub and age-recipients.txt:",
     )
     if not bundle or not os.path.isdir(bundle) or os.path.islink(bundle):
-        raise PKIError("Server response bundle must be an existing real directory")
-    certificate = os.path.join(bundle, f"feclora-{client_id}.crt")
-    ca_file = os.path.join(bundle, "ca.crt")
-    server_public_key = os.path.join(bundle, "server.pub")
-    age_recipients_bundle = os.path.join(bundle, "age-recipients.txt")
-    local_key = os.path.join(pki_directory, f"client-{client_id}.key")
-    try:
-        local_key_info = os.lstat(local_key)
-    except OSError as exc:
-        raise PKIError("locally generated Client private key is missing; prepare the CSR on this Client first") from exc
-    if not stat.S_ISREG(local_key_info.st_mode) or stat.S_ISLNK(local_key_info.st_mode) or local_key_info.st_uid != 0 or local_key_info.st_mode & 0o077:
-        raise PKIError("locally generated Client private key is not a protected root-owned regular file")
-    ca_expected = dialog_app._input(
-        "Verify Feclora CA fingerprint",
-        "Enter the SHA-256 fingerprint displayed by the Server when its CA was created (hexadecimal, colons optional):",
+        raise PKIError("Server trust bundle must be an existing real directory")
+    ca_source = os.path.join(bundle, "ca.crt")
+    if not os.path.isfile(ca_source) or os.path.islink(ca_source):
+        raise PKIError("Server trust bundle must contain ca.crt")
+    fingerprint = _sha256_file(ca_source)
+    expected = dialog_app._input(
+        "Verify Server CA fingerprint",
+        "Compare the SHA-256 fingerprint with the value shown by the Server, then type it exactly:
+" + fingerprint,
     )
-    if not ca_expected:
-        return False
-    has_server_key = os.path.lexists(server_public_key)
-    if has_server_key:
-        info = os.lstat(server_public_key)
-        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
-            raise PKIError("Server minisign public key must be a regular file, not a symlink")
-        server_fingerprint = _sha256_file(server_public_key)
-        expected_server_key = dialog_app._input(
-            "Verify optional Server image-signing key",
-            "Compare this SHA-256 fingerprint with the one shown by the Server, then type it exactly. Leave no bypass if the key is present:\n" + server_fingerprint,
-        )
-        if expected_server_key != server_fingerprint:
-            raise PKIError("Server image-signing key fingerprint did not match")
-    has_recipients = os.path.lexists(age_recipients_bundle)
-    if has_recipients:
-        info = os.lstat(age_recipients_bundle)
-        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
-            raise PKIError("Server age recipient inventory must be a regular file, not a symlink")
-        with open(age_recipients_bundle, encoding="ascii") as recipient_stream:
-            recipients = [line.strip() for line in recipient_stream if line.strip()]
-        if not recipients or len(recipients) != len(set(recipients)) or any(
-            not re.fullmatch(r"age1[0-9a-z]{20,}", item) for item in recipients
-        ):
-            raise PKIError("Server age recipient inventory is empty, duplicated or malformed")
-    age_identity = os.path.join(pki_directory, f"client-{client_id}.age")
-    has_age_identity = os.path.lexists(age_identity)
-    if has_age_identity:
-        age_info = os.lstat(age_identity)
-        if not stat.S_ISREG(age_info.st_mode) or stat.S_ISLNK(age_info.st_mode) or age_info.st_uid != 0:
-            raise PKIError("locally generated age identity must be a root-owned regular file")
-        os.chmod(age_identity, 0o600)
-    installed = install_client_certificate(
-        certificate, ca_file, local_key, pki_directory,
-        f"URI:feclora-client-{client_id}", ca_expected,
-    )
-    installed_server_key = os.path.join(pki_directory, "server.pub")
-    installed_recipients = os.path.join(pki_directory, "age-recipients.txt")
-    if has_server_key:
-        if os.path.lexists(installed_server_key):
-            raise PKIError("existing trusted Server minisign key already exists; inspect it before retrying")
-        shutil.copyfile(server_public_key, installed_server_key)
-        os.chmod(installed_server_key, 0o644)
-    if has_recipients:
-        if os.path.lexists(installed_recipients):
-            raise PKIError("existing age recipient inventory already exists; inspect it before retrying")
-        shutil.copyfile(age_recipients_bundle, installed_recipients)
-        os.chmod(installed_recipients, 0o600)
+    if expected is None or expected.replace(":", "").lower() != fingerprint.lower():
+        raise PKIError("Server CA fingerprint did not match")
+    server_identity = dialog_app._input(
+        "Server certificate identity",
+        "Expected SAN identity of the Server certificate (normally URI:feclora-server):",
+    ) or "URI:feclora-server"
+    pki_directory = "/etc/feclora/pki"
+    os.makedirs(pki_directory, mode=0o700, exist_ok=True)
+    ca_file = os.path.join(pki_directory, "ca.crt")
+    if os.path.lexists(ca_file):
+        raise PKIError("Server CA file already exists; inspect it before replacing trust material")
+    shutil.copyfile(ca_source, ca_file)
+    os.chmod(ca_file, 0o644)
+    server_key_source = os.path.join(bundle, "server.pub")
+    trusted_server_key = None
+    if os.path.isfile(server_key_source) and not os.path.islink(server_key_source):
+        trusted_server_key = os.path.join(pki_directory, "server.pub")
+        if os.path.lexists(trusted_server_key):
+            raise PKIError("trusted Server image-signing key already exists")
+        shutil.copyfile(server_key_source, trusted_server_key)
+        os.chmod(trusted_server_key, 0o644)
+    recipients_source = os.path.join(bundle, "age-recipients.txt")
+    recipients_file = None
+    age_identity = None
+    if os.path.isfile(recipients_source) and not os.path.islink(recipients_source):
+        recipients_file = os.path.join(pki_directory, "age-recipients.txt")
+        if os.path.lexists(recipients_file):
+            raise PKIError("age recipient inventory already exists")
+        shutil.copyfile(recipients_source, recipients_file)
+        os.chmod(recipients_file, 0o600)
+        age_keygen = shutil.which("age-keygen")
+        if age_keygen:
+            age_identity = os.path.join(pki_directory, "client.age")
+            if os.path.lexists(age_identity):
+                raise PKIError("Client age identity already exists")
+            result = subprocess.run(
+                [age_keygen, "-o", age_identity], stdin=subprocess.DEVNULL,
+                capture_output=True, text=True, check=False, timeout=60,
+            )
+            if result.returncode != 0:
+                raise PKIError("could not create optional Client age identity")
+            os.chmod(age_identity, 0o600)
     repository = "/var/lib/feclora/images"
     os.makedirs(repository, mode=0o700, exist_ok=True)
-    repository_info = os.lstat(repository)
-    if not stat.S_ISDIR(repository_info.st_mode) or stat.S_ISLNK(repository_info.st_mode) or repository_info.st_uid != 0:
-        raise PKIError("Client image repository must be a root-owned real directory")
     os.chmod(repository, 0o700)
-    minisign_secret = os.path.join(pki_directory, f"client-{client_id}.minisign.key")
-    minisign_public = os.path.join(pki_directory, f"client-{client_id}.minisign.pub")
-    if os.path.exists(minisign_secret) != os.path.exists(minisign_public):
-        raise PKIError("Client minisign keypair is incomplete")
-    if os.path.exists(minisign_secret):
-        for path in (minisign_secret, minisign_public):
-            info = os.lstat(path)
-            if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0:
-                raise PKIError("Client minisign key files must be root-owned regular files")
-        if os.stat(minisign_secret).st_mode & 0o077:
-            raise PKIError("Client minisign secret key must be private")
     config = {
         "schema_version": 1,
         "host": host,
         "port": 9443,
-        "local_identity": f"URI:feclora-client-{client_id}",
-        "server_identity": "URI:feclora-server",
+        "server_identity": server_identity,
         "mac_address": mac.lower(),
-        "ca_file": installed["ca_file"],
-        "certificate_file": installed["certificate_file"],
-        "private_key_file": installed["private_key_file"],
-        "trusted_server_public_key": installed_server_key if has_server_key else None,
-        "local_minisign_secret_key": minisign_secret if os.path.exists(minisign_secret) else None,
-        "local_minisign_public_key": minisign_public if os.path.exists(minisign_public) else None,
-        "age_identity_file": age_identity if has_age_identity else None,
-        "age_recipients_file": installed_recipients if has_recipients else None,
+        "ca_file": ca_file,
+        "trusted_server_public_key": trusted_server_key,
+        "local_minisign_secret_key": None,
+        "local_minisign_public_key": None,
+        "age_identity_file": age_identity,
+        "age_recipients_file": recipients_file,
         "repository": repository,
     }
     _write_client_config(config_path, config)
     dialog_app._message(
-        "Client enrollment complete",
-        f"Client identity {config['local_identity']} is installed and trusted over mTLS. Optional age and minisign image-protection material is configured only when supplied. Unsigned images can be transferred over the authenticated TLS session.",
+        "Client configured",
+        "Server certificate verification is configured. The Client presents no certificate and has no individual authentication identity.",
     )
     return True
+
 
 def _refresh_client_age_recipients(config: ClientRuntimeConfig) -> None:
     if not config.age_identity_file or not config.age_recipients_file:
@@ -396,49 +310,16 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             if not _client_enrollment_wizard(config_path):
                 return 0
         config = load_client_runtime_config(config_path)
-        expiry_days = certificate_expiry_days(config.certificate_file)
-        expiry_label = (
-            f"expires in {expiry_days} days" if expiry_days >= 0
-            else f"expired {-expiry_days} days ago"
-        )
-        managed_prefix = "URI:feclora-client-"
-        managed_client_id = (
-            config.local_identity[len(managed_prefix):]
-            if config.local_identity.startswith(managed_prefix) else ""
-        )
-        managed_identity = bool(re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", managed_client_id))
-        if managed_identity:
-            for suffix in (".key", ".age"):
-                path = os.path.join("/etc/feclora/pki", f"client-{managed_client_id}{suffix}")
-                try:
-                    info = os.lstat(path)
-                except OSError:
-                    managed_identity = False
-                    break
-                if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
-                    managed_identity = False
-                    break
         identity_choices = [("join", "Join deployment job")]
-        if managed_identity:
-            identity_choices.extend([
-                ("renew", "Prepare certificate renewal request"),
-                ("install", "Install Server-approved certificate response"),
-            ])
-            if config.age_identity_file and config.age_recipients_file:
-                identity_choices.append(("refresh-age", "Refresh age recipient inventory"))
+        if config.age_identity_file and config.age_recipients_file:
+            identity_choices.append(("refresh-age", "Refresh age recipient inventory"))
         identity_choices.append(("cancel", "Cancel"))
         identity_action = dialog_app._menu(
-            "Client identity",
-            f"TLS certificate {expiry_label}. Renew it before expiry; private keys remain local.",
+            "Client",
+            "Server certificate verification is enabled; no Client certificate or individual authentication is used.",
             identity_choices,
         )
         if identity_action in (None, "cancel"):
-            return 0
-        if identity_action == "renew":
-            _prepare_client_renewal(config)
-            return 0
-        if identity_action == "install":
-            _client_enrollment_wizard(config_path)
             return 0
         if identity_action == "refresh-age":
             _refresh_client_age_recipients(config)

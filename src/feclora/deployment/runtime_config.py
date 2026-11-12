@@ -156,12 +156,12 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
 class ClientRuntimeConfig:
     host: str
     port: int
-    local_identity: str
+    local_identity: str | None
     server_identity: str
     mac_address: str
     ca_file: str
-    certificate_file: str
-    private_key_file: str
+    certificate_file: str | None
+    private_key_file: str | None
     trusted_server_public_key: str | None
     local_minisign_secret_key: str | None
     local_minisign_public_key: str | None
@@ -172,8 +172,8 @@ class ClientRuntimeConfig:
 
 def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
     fields = {
-        "schema_version", "host", "port", "local_identity", "server_identity",
-        "mac_address", "ca_file", "certificate_file", "private_key_file",
+        "schema_version", "host", "port", "server_identity",
+        "mac_address", "ca_file",
         "trusted_server_public_key", "local_minisign_secret_key",
         "local_minisign_public_key", "age_identity_file", "age_recipients_file", "repository",
     }
@@ -202,12 +202,12 @@ def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
     return ClientRuntimeConfig(
         host=host,
         port=_port(value["port"]),
-        local_identity=_identity(value["local_identity"], "Client certificate identity"),
+        local_identity=None,
         server_identity=_identity(value["server_identity"], "Server certificate identity"),
         mac_address=_mac(value["mac_address"]),
         ca_file=_secure_file(value["ca_file"], "deployment CA certificate"),
-        certificate_file=_secure_file(value["certificate_file"], "Client certificate"),
-        private_key_file=_secure_file(value["private_key_file"], "Client private key", private=True),
+        certificate_file=None,
+        private_key_file=None,
         trusted_server_public_key=(_secure_file(value["trusted_server_public_key"], "trusted Server minisign public key") if value["trusted_server_public_key"] is not None else None),
         local_minisign_secret_key=checked_minisign_secret,
         local_minisign_public_key=checked_minisign_public,
