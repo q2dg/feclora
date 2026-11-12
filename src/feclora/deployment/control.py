@@ -529,9 +529,22 @@ class DeploymentControlServer:
                 "type": "transfer_offer", "job_id": self.coordinator.job.job_id,
                 "image_id": self.coordinator.job.image_id,
             })
+            def report_transfer_progress(completed: int, total: int) -> None:
+                # This callback runs on the Server while it sends the image
+                # payload. Persist it through the existing journal boundary;
+                # never inject telemetry frames into the TLS artifact stream.
+                self._record_client_progress(mac_address, {
+                    "type": "progress",
+                    "job_id": self.coordinator.job.job_id,
+                    "phase": "transfer",
+                    "completed_bytes": completed,
+                    "total_bytes": total,
+                })
+
             return send_image_set(
                 tls_socket, repository, manifest_path,
                 expected_image_id=self.coordinator.job.image_id,
+                progress_callback=report_transfer_progress,
             )
         except (ImageTransferError, OSError, DeploymentControlError) as exc:
             self._record_transfer_failure(mac_address, f"restore image transfer failed: {exc}")
