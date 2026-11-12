@@ -318,7 +318,7 @@ class PartitionRestoreTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
 
     def test_open_crypt_mapping_image_is_not_written_as_luks_container(self):
-        self.write_luks2_manifest(scope="decrypted_mapping_bytes", source_layer="active_crypt_mapping")
+        self.write_luks2_manifest(scope="partition_bytes", source_layer="active_crypt_mapping")
         with self.assertRaisesRegex(PartitionRestoreError, "plaintext from an opened crypt mapping"):
             self.restore()
         self.assertEqual(self.calls, [])
