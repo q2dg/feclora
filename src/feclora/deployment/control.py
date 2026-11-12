@@ -637,7 +637,7 @@ class DeploymentControlServer:
         mac = clients[0].mac_address
         with self._lock:
             target_device = self._target_devices.get(mac)
-                tls_socket = self._sessions.get(mac)
+            tls_socket = self._sessions.get(mac)
         if not target_device or tls_socket is None:
             raise DeploymentControlError("Client clone target approval or control session is unavailable")
         if not job.source_device:

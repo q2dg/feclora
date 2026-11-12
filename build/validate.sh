@@ -92,23 +92,14 @@ fi
 if ! grep -q '"start_pxe_services", "stop_pxe_services", "pxe_service_status"' "$ROOT_DIR/webui/src/api.js"; then
   fail "Cockpit API client does not allow PXE service lifecycle actions."
 fi
-if ! grep -q 'inspect_client_csr|approve_client_csr' "$ROOT_DIR/kickstart/feclora-live.ks"; then
-  fail "Kickstart Cockpit API wrapper does not allow Client CSR trust actions."
+if grep -q 'inspect_client_csr|approve_client_csr|prepare_client_request|complete_client_enrollment' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "Kickstart must not expose Client certificate enrollment actions."
 fi
-if ! grep -q '"approve_client_csr", "inspect_client_csr"' "$ROOT_DIR/webui/src/api.js"; then
-  fail "Cockpit API client does not allow Client CSR trust actions."
+if grep -q '"approve_client_csr", "inspect_client_csr"\|"prepare_client_request", "complete_client_enrollment"' "$ROOT_DIR/webui/src/api.js"; then
+  fail "Cockpit API must not expose Client certificate enrollment actions."
 fi
-if ! grep -q 'prepare_client_request|complete_client_enrollment' "$ROOT_DIR/kickstart/feclora-live.ks"; then
-  fail "Kickstart Cockpit API wrapper does not allow Client enrollment lifecycle actions."
-fi
-if ! grep -q '"prepare_client_request", "complete_client_enrollment"' "$ROOT_DIR/webui/src/api.js"; then
-  fail "Cockpit API client does not allow Client enrollment lifecycle actions."
-fi
-if ! grep -q 'def _complete_client_enrollment' "$ROOT_DIR/src/feclora/webapi.py"; then
-  fail "Cockpit backend is missing Client enrollment completion."
-fi
-if ! grep -q 'def _approve_client_csr' "$ROOT_DIR/src/feclora/webapi.py"; then
-  fail "Cockpit backend is missing Client CSR approval."
+if grep -q 'def _complete_client_enrollment\|def _approve_client_csr' "$ROOT_DIR/src/feclora/webapi.py"; then
+  fail "Backend must not expose Client certificate enrollment actions."
 fi
 if ! grep -q 'def _start_pxe_services' "$ROOT_DIR/src/feclora/webapi.py"; then
   fail "Cockpit backend is missing PXE service activation."
@@ -291,7 +282,7 @@ if ! grep -q 'def _record_client_progress' "$ROOT_DIR/src/feclora/deployment/con
   fail "Server-side Client progress validation is missing."
 fi
 if ! grep -q '"phase": phase' "$ROOT_DIR/src/feclora/deployment/client_service.py"; then
-  fail "Client service is not reporting disk-operation and transfer progress over mTLS."
+  fail "Client service is not reporting disk-operation and transfer progress over TLS."
 fi
 if ! grep -q 'transfer_progress_callback=transfer_progress' "$ROOT_DIR/src/feclora/deployment/client_service.py"; then
   fail "Client service is not tracking its local image-transfer phase."
