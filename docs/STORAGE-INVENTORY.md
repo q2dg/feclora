@@ -62,3 +62,11 @@ the root tree does expose subvolume names used to resolve paths.
 Coordinated snapshot-consistent capture and multi-device/profile imaging
 remain pending. Incomplete or ambiguous device sets are not flattened into
 standalone partition images.
+
+The read-only capture planner consumes these observations before imaging. It
+requires every Btrfs member device and complete chunk-to-device stripe mapping,
+rejects unknown allocation profiles, and blocks a filesystem found mounted
+through either block-device mountpoints or Btrfs mount inventory. It does not
+create snapshots: capture is only considered when the filesystem is cleanly
+unmounted and remains quiescent. Snapshot-assisted capture and coordinated
+multi-device imaging/restoration remain unimplemented.
