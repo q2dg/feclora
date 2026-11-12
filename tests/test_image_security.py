@@ -76,7 +76,8 @@ class ImageSecurityTests(unittest.TestCase):
                 encrypted, self.identity, self.root, age_executable="/usr/bin/age"
             )
         self.addCleanup(lambda: os.path.exists(staged) and os.unlink(staged))
-        self.assertEqual(open(staged, "rb").read(), b"compressed bytes")
+        with open(staged, "rb") as decrypted:
+            self.assertEqual(decrypted.read(), b"compressed bytes")
         self.assertEqual(os.stat(staged).st_mode & 0o777, 0o600)
 
     def test_symmetric_age_decryption_uses_private_pty_and_authenticates(self):
@@ -106,7 +107,8 @@ class ImageSecurityTests(unittest.TestCase):
             if os.path.isdir(os.path.dirname(staged)):
                 os.rmdir(os.path.dirname(staged))
         self.addCleanup(cleanup_staged)
-        self.assertEqual(open(staged, "rb").read(), b"ciphertext")
+        with open(staged, "rb") as decrypted:
+            self.assertEqual(decrypted.read(), b"ciphertext")
         self.assertEqual(os.stat(staged).st_mode & 0o777, 0o600)
 
     def test_symmetric_age_decryption_rejects_wrong_passphrase(self):
