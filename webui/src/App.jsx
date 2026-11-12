@@ -1191,7 +1191,7 @@ export default function App() {
                 </Tbody></Table>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">S3 object repositories</Title>
-                <p>S3 is object storage, not a filesystem mount. This panel manages definitions and tests connectivity; capture and restore integration through the worker is still pending.</p>
+                <p>S3 is object storage, not a filesystem mount. Local capture, inventory, inspection, verification, extraction and restore use private staging and verified object transfers. Distributed Server-to-Client restore from S3 is not yet supported.</p>
                 <Card><CardBody><form onSubmit={saveS3Repository}>
                   <Field label="Repository ID"><input className="pf-v5-c-form-control" value={s3RepositoryId} onChange={(e) => setS3RepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
                   <Field label="S3 endpoint URL (optional; empty for AWS S3)"><input className="pf-v5-c-form-control" value={s3Endpoint} onChange={(e) => setS3Endpoint(e.target.value)} placeholder="https://s3.example.net" /></Field>
