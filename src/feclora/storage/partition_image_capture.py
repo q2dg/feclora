@@ -140,9 +140,7 @@ def capture_partition_image(
     artifact_name = f"{stem}.img{suffix}"
     manifest_name = f"{image_id}.manifest.json"
     stage = tempfile.mkdtemp(prefix=".feclora-partition-set-", dir=repo)
-    published: list[str] = []
     committed = False
-    repository_fd = None
     try:
         artifact = capture_partition(
             source_path, filesystem, stage, artifact_name, partition_id,
