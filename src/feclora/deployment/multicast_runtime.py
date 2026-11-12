@@ -88,7 +88,6 @@ def execute_multicast_restore(
     *,
     server_identity: str,
     repository: str | os.PathLike[str],
-    trusted_server_public_key: str | os.PathLike[str] | None,
     firewall: Any,
     network_interface: str | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
