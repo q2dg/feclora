@@ -843,7 +843,6 @@ def inspect_deployment_job(
 ) -> DeploymentJob:
     """Read an authorized job offer without registering a Client or becoming READY."""
     if not isinstance(local_identity, str) or not local_identity or len(local_identity) > 256:
-        raise DeploymentControlError("local certificate identity is required")
     if not isinstance(mac_address, str) or not mac_address or len(mac_address) > 32:
         raise DeploymentControlError("client MAC address is required")
     if not isinstance(job_id, str) or not job_id or len(job_id) > 64:
@@ -889,14 +888,12 @@ def join_deployment(
     network_interface: str | None = None,
 ) -> tuple[DeploymentJob, bool, str]:
     """Authenticate, receive a job, obtain local target approval, then execute on START."""
-    _require_tls13_mtls(tls_context)
     if not isinstance(local_identity, str) or not local_identity or len(local_identity) > 256:
-        raise DeploymentControlError("local certificate identity is required")
     if not isinstance(mac_address, str) or not mac_address or len(mac_address) > 32:
         raise DeploymentControlError("client MAC address is required")
     if not isinstance(job_id, str) or not job_id or len(job_id) > 64:
         raise DeploymentControlError("deployment job UUID is required")
-    tls_socket = connect_mutual_tls(
+    tls_socket = connect_tls(
         tls_context, host, port, expected_peer_identity=expected_server_identity,
         timeout=15, io_timeout=timeout, source_address=source_address,
         network_interface=network_interface,
