@@ -785,6 +785,30 @@ class CoordinatorControlTests(unittest.TestCase):
         self.assertEqual(path, "/repo/golden.manifest.json")
         self.assertEqual(receive.call_args.kwargs["expected_image_id"], "golden")
 
+    def test_save_server_commits_destination_before_returning_transfer_success(self):
+        coordinator, server, fake = self._server(make_job(operation="save", image_id="golden"))
+        fake.incoming.extend(frame({
+            "type": "transfer_ready", "job_id": JOB_ID, "image_id": "golden",
+        }))
+        committed = []
+        with patch("feclora.deployment.control.receive_image_set", return_value="/repo/golden.manifest.json"):
+            path = server.receive_saved_image(MAC, "/repo", on_received=committed.append)
+        self.assertEqual(path, "/repo/golden.manifest.json")
+        self.assertEqual(committed, [path])
+        self.assertEqual(coordinator.state, JobState.RUNNING)
+
+    def test_save_server_marks_job_failed_when_destination_commit_fails(self):
+        coordinator, server, fake = self._server(make_job(operation="save", image_id="golden"))
+        fake.incoming.extend(frame({
+            "type": "transfer_ready", "job_id": JOB_ID, "image_id": "golden",
+        }))
+        def reject_commit(_path):
+            raise RuntimeError("S3 commit failed")
+        with patch("feclora.deployment.control.receive_image_set", return_value="/repo/golden.manifest.json"):
+            with self.assertRaisesRegex(DeploymentControlError, "destination repository"):
+                server.receive_saved_image(MAC, "/repo", on_received=reject_commit)
+        self.assertEqual(coordinator.state, JobState.FAILED)
+
     def test_save_server_records_client_failure_before_transfer(self):
         coordinator, server, fake = self._server(make_job(operation="save"))
         fake.incoming.extend(frame({
