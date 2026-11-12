@@ -48,19 +48,17 @@ class PXEAdmissionTests(unittest.TestCase):
             self.assertFalse(second.admit("aa:bb:cc:dd:ee:02")[0])
             self.assertTrue(second.admit("aa:bb:cc:dd:ee:01")[0])
 
-    def test_invalid_mac_and_unbounded_profile_are_rejected(self):
+    def test_unlimited_profile_admits_any_valid_mac_without_counting(self):
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(PXEAdmissionError):
-                PXEAdmission(
-                    str(Path(tmp) / "state.json"),
-                    boot_url_prefix="http://192.0.2.1:8080/pxe/boot/", boot_script_path=str(Path(tmp) / "boot.ipxe"),
-                    max_clients=None, max_duration_seconds=None,
-                )
             admission = PXEAdmission(
                 str(Path(tmp) / "state.json"),
                 boot_url_prefix="http://192.0.2.1:8080/pxe/boot/", boot_script_path=str(Path(tmp) / "boot.ipxe"),
-                max_clients=2, max_duration_seconds=None,
+                max_clients=None, max_duration_seconds=None,
             )
+            self.assertTrue(admission.admit("aa:bb:cc:dd:ee:01")[0])
+            self.assertTrue(admission.admit("aa:bb:cc:dd:ee:02")[0])
+            self.assertTrue(admission.is_admitted("aa:bb:cc:dd:ee:ff"))
+            self.assertIsNone(admission.status()["clients_served"])
             self.assertFalse(admission.admit("not-a-mac")[0])
 
 
