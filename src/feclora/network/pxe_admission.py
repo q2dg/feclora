@@ -34,7 +34,7 @@ class PXEAdmission:
         boot_script_path: str,
         max_clients: int | None,
         max_duration_seconds: int | None,
-        clock: Callable[[], float] = time.time,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.state_path = Path(state_path)
         self.lock_path = self.state_path.with_suffix(".lock")
