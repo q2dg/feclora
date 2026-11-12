@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from feclora.storage.image_manifest import ImageArtifact
 from feclora.storage.image_security import (
     ImageSecurityError, decrypt_artifact_to_temp, decrypt_artifact_stream_with_passphrase_to_temp,
-    encrypt_artifact, encrypt_artifact_with_passphrase, sign_manifest, verify_manifest_signature, preflight_image_security,
+    encrypt_artifact, encrypt_artifact_with_passphrase, preflight_image_security,
 )
 
 
