@@ -103,7 +103,9 @@ class RemoteRepository:
         paths = executables or {}
         def exe(name: str) -> str:
             return paths.get(name, name)
-        options = ["ro"] if self.read_only else ["rw"]
+        # Repository mounts carry data only; never permit setuid/device use
+        # or execution from remotely administered storage.
+        options = (["ro"] if self.read_only else ["rw"]) + ["nosuid", "nodev", "noexec"]
         if self.provider == "sshfs":
             options += ["reconnect", "ServerAliveInterval=15", "ServerAliveCountMax=3",
                         "StrictHostKeyChecking=yes",
