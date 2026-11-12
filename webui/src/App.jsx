@@ -50,12 +50,6 @@ export default function App() {
   const [revokeConfirmation, setRevokeConfirmation] = useState("");
   const [ageRecipientExportDirectory, setAgeRecipientExportDirectory] = useState("");
   const [ageRecipientExport, setAgeRecipientExport] = useState(null);
-  const [caBackupDirectory, setCaBackupDirectory] = useState("");
-  const [caBackupRecipient, setCaBackupRecipient] = useState("");
-  const [caBackupResult, setCaBackupResult] = useState(null);
-  const [caBackupInspectionFile, setCaBackupInspectionFile] = useState("");
-  const [caBackupIdentityFile, setCaBackupIdentityFile] = useState("");
-  const [caBackupInspection, setCaBackupInspection] = useState(null);
   const [clientAgeInventoryPath, setClientAgeInventoryPath] = useState("");
   const [clientAgeInventoryResult, setClientAgeInventoryResult] = useState(null);
   const [extractImageId, setExtractImageId] = useState("");
@@ -484,29 +478,6 @@ export default function App() {
     finally { setBusy(false); setProgress(null); }
   };
 
-  const exportServerCABackup = async () => {
-    setBusy(true); setError(""); setNotice(""); setCaBackupResult(null);
-    try {
-      const result = await callFeclora("export_server_ca_backup", {
-        export_directory: caBackupDirectory,
-        age_recipient: caBackupRecipient.trim()
-      });
-      setCaBackupResult(result); setNotice(result.message);
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
-
-  const inspectServerCABackup = async () => {
-    setBusy(true); setError(""); setNotice(""); setCaBackupInspection(null);
-    try {
-      const result = await callFeclora("inspect_server_ca_backup", {
-        backup_file: caBackupInspectionFile,
-        identity_file: caBackupIdentityFile
-      });
-      setCaBackupInspection(result); setNotice(result.message);
-    } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
-  };
 
   const exportServerAgeRecipients = async () => {
     setBusy(true); setError(""); setNotice(""); setAgeRecipientExport(null);
@@ -1277,27 +1248,7 @@ export default function App() {
               {status?.server_configured && <StackItem><Alert variant="success" title="Server configuration exists" isInline>The existing configuration is not overwritten by this wizard. Continue with the remaining Server and PXE setup once those Cockpit workflows are available.</Alert></StackItem>}
               {status?.server_configured && <StackItem><Alert variant="info" title="Client authentication disabled" isInline>Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.</Alert></StackItem>}
               {status?.server_configured && <StackItem><Card><CardBody>
-                <Title headingLevel="h3" size="lg">Encrypted offline CA backup</Title>
-                <Alert variant="warning" title="Protect the root CA signing key" isInline>The backup contains the CA private key and certificate, encrypted to the age recipient below. Keep the matching age identity separately and offline. Without that identity, the backup cannot be recovered. Never store the decryption identity beside this backup.</Alert>
-                <Field label="Mounted removable-media directory" help="Use a mounted USB filesystem under /run/media, /media or /mnt.">
-                  <input className="pf-v5-c-form-control" value={caBackupDirectory} onChange={(event) => { setCaBackupDirectory(event.target.value); setCaBackupResult(null); }} placeholder="/run/media/.../BACKUPS" />
-                </Field>
-                <Field label="age public recipient" help="Use a recovery recipient whose private identity is held separately and securely.">
-                  <input className="pf-v5-c-form-control" value={caBackupRecipient} onChange={(event) => { setCaBackupRecipient(event.target.value); setCaBackupResult(null); }} placeholder="age1..." />
-                </Field>
-                <Button variant="primary" onClick={exportServerCABackup} isLoading={busy} isDisabled={busy || !caBackupDirectory || !/^age1[0-9a-z]{20,}$/.test(caBackupRecipient.trim())}>Create encrypted CA backup</Button>
-                {caBackupResult && <Alert variant="success" title="Encrypted CA backup created" isInline>{caBackupResult.backup_file} · SHA-256 {caBackupResult.sha256} · CA fingerprint {caBackupResult.ca_fingerprint}</Alert>}
-                <hr />
-                <Title headingLevel="h4" size="md">Verify an offline CA backup</Title>
-                <Alert variant="info" title="Verification only" isInline>This decrypts into a private temporary directory and validates the archive, manifest, CA certificate and matching private key. It does not install or replace any live PKI files. Select the encrypted archive and its age identity from mounted removable media. Keep the identity on separate media from the archive.</Alert>
-                <Field label="Encrypted CA backup file" help="Mounted removable-media file under /run/media, /media or /mnt; maximum 16 MiB.">
-                  <input className="pf-v5-c-form-control" value={caBackupInspectionFile} onChange={(event) => { setCaBackupInspectionFile(event.target.value); setCaBackupInspection(null); }} placeholder="/run/media/.../feclora-ca-backup.tar.age" />
-                </Field>
-                <Field label="age decryption identity file" help="The root-owned identity file corresponding to the backup recipient; keep it separate from the archive.">
-                  <input className="pf-v5-c-form-control" value={caBackupIdentityFile} onChange={(event) => { setCaBackupIdentityFile(event.target.value); setCaBackupInspection(null); }} placeholder="/run/media/.../recovery-identity.txt" />
-                </Field>
-                <Button variant="secondary" onClick={inspectServerCABackup} isLoading={busy} isDisabled={busy || !caBackupInspectionFile || !caBackupIdentityFile}>Decrypt and verify backup</Button>
-                {caBackupInspection && <Alert variant="success" title="CA backup verified; live PKI unchanged" isInline>CA fingerprint {caBackupInspection.ca_fingerprint}. {caBackupInspection.message}</Alert>}
+
               </CardBody></Card></StackItem>}
               {status?.server_configured && <StackItem><Card><CardBody>
                 <Title headingLevel="h3" size="lg">Rotate Server TLS keypair</Title>
