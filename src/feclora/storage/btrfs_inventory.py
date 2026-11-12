@@ -310,6 +310,138 @@ def parse_root_tree_subvolumes(payload: str) -> list[dict[str, Any]]:
         item["path"] = resolve_path(item["id"], set())
     return sorted(result, key=lambda item: item["id"])
 
+
+_CHUNK_HEADER = re.compile(
+    r"^\s*item\s+\d+\s+key\s+\((?:FIRST_CHUNK_TREE|\d+)\s+CHUNK_ITEM\s+(\d+)\)"
+)
+_CHUNK_DATA = re.compile(
+    r"^\s*length\s+(\d+)\s+owner\s+(\d+)\s+stripe_len\s+(\d+)\s+type\s+([A-Z0-9_|.x]+)\s*$"
+)
+_CHUNK_STRIPE_COUNT = re.compile(r"^\s*num_stripes\s+(\d+)\s+sub_stripes\s+(\d+)\s*$")
+_CHUNK_STRIPE = re.compile(r"^\s*stripe\s+(\d+)\s+devid\s+(\d+)\s+offset\s+(\d+)\s*$")
+
+
+def _allocation_type_and_profile(type_flags: str) -> tuple[str, str, bool]:
+    tokens = [token.strip().upper() for token in type_flags.split("|") if token.strip()]
+    kinds = [token.lower() for token in tokens if token in {"DATA", "METADATA", "SYSTEM"}]
+    if not kinds:
+        raise BtrfsInventoryError("Btrfs chunk has no recognized allocation type")
+    profile_tokens = [
+        token.lower() for token in tokens
+        if token not in {"DATA", "METADATA", "SYSTEM", "METADATA_REMAP"}
+    ]
+    profile = profile_tokens[0] if profile_tokens else "single"
+    return "+".join(sorted(kinds)), profile, profile in _KNOWN_PROFILES
+
+
+def parse_chunk_tree(
+    payload: str,
+    *,
+    known_device_ids: set[int] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Parse unmounted chunk-tree layout into per-chunk and profile summaries."""
+    chunks: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+
+    def finish_chunk() -> None:
+        if current is None:
+            return
+        if current.get("length_bytes") is None or current.get("num_stripes") is None:
+            raise BtrfsInventoryError("Btrfs chunk-tree item is incomplete")
+        stripes = current["stripes"]
+        if len(stripes) != current["num_stripes"]:
+            raise BtrfsInventoryError(
+                f"Btrfs chunk at {current['logical_start']} reports {current['num_stripes']} stripes but lists {len(stripes)}"
+            )
+        if len({stripe["index"] for stripe in stripes}) != len(stripes):
+            raise BtrfsInventoryError("Btrfs chunk contains duplicate stripe indexes")
+        kind, profile, known_profile = _allocation_type_and_profile(current["type_flags"])
+        device_ids = sorted({stripe["devid"] for stripe in stripes})
+        complete = (
+            known_device_ids is None
+            or all(device_id in known_device_ids for device_id in device_ids)
+        )
+        chunks.append({
+            **current,
+            "type": kind,
+            "profile": profile,
+            "known_profile": known_profile,
+            "device_ids": device_ids,
+            "device_mapping_complete": complete,
+        })
+
+    for line in payload.splitlines():
+        header = _CHUNK_HEADER.match(line)
+        if header:
+            finish_chunk()
+            current = {
+                "logical_start": int(header.group(1)),
+                "length_bytes": None,
+                "owner": None,
+                "stripe_len_bytes": None,
+                "type_flags": None,
+                "num_stripes": None,
+                "sub_stripes": None,
+                "stripes": [],
+            }
+            continue
+        if current is None:
+            continue
+        match = _CHUNK_DATA.match(line)
+        if match:
+            length, owner, stripe_len, type_flags = match.groups()
+            current.update({
+                "length_bytes": int(length),
+                "owner": int(owner),
+                "stripe_len_bytes": int(stripe_len),
+                "type_flags": type_flags,
+            })
+            continue
+        match = _CHUNK_STRIPE_COUNT.match(line)
+        if match:
+            current["num_stripes"], current["sub_stripes"] = (
+                int(value) for value in match.groups()
+            )
+            if current["num_stripes"] < 1 or current["sub_stripes"] < 1:
+                raise BtrfsInventoryError("Btrfs chunk reports an invalid stripe count")
+            continue
+        match = _CHUNK_STRIPE.match(line)
+        if match:
+            index, devid, offset = (int(value) for value in match.groups())
+            if devid < 1:
+                raise BtrfsInventoryError("Btrfs chunk references an invalid device ID")
+            current["stripes"].append({
+                "index": index, "devid": devid, "offset_bytes": offset,
+            })
+    finish_chunk()
+
+    aggregates: dict[tuple[str, str], dict[str, Any]] = {}
+    for chunk in chunks:
+        key = (chunk["type"], chunk["profile"])
+        summary = aggregates.setdefault(key, {
+            "type": chunk["type"],
+            "profile": chunk["profile"],
+            "known_profile": chunk["known_profile"],
+            "chunk_count": 0,
+            "total_bytes": 0,
+            "used_bytes": None,
+            "device_ids": set(),
+            "device_mapping_complete": True,
+            "source": "unmounted_chunk_tree",
+        })
+        summary["chunk_count"] += 1
+        summary["total_bytes"] += chunk["length_bytes"]
+        summary["device_ids"].update(chunk["device_ids"])
+        summary["device_mapping_complete"] = (
+            summary["device_mapping_complete"] and chunk["device_mapping_complete"]
+        )
+    profiles = []
+    for summary in aggregates.values():
+        summary["device_ids"] = sorted(summary["device_ids"])
+        profiles.append(summary)
+    profiles.sort(key=lambda item: (item["type"], item["profile"]))
+    return chunks, profiles
+
 def collect_btrfs_subvolumes(
     *,
     which: Callable[[str], str | None] = shutil.which,
@@ -413,18 +545,40 @@ def collect_btrfs_topology(
             )
             filesystem["subvolumes"] = parse_root_tree_subvolumes(dump.stdout)
             filesystem["subvolume_inventory_status"] = "available"
+            chunk_dump = runner(
+                [*prefix, executable, "inspect-internal", "dump-tree",
+                 "--noscan", "-t", "chunk", *device_paths],
+                check=True, capture_output=True, text=True, timeout=60,
+            )
+            known_device_ids = {
+                device["devid"] for device in filesystem["devices"]
+            }
+            chunks, profiles = parse_chunk_tree(
+                chunk_dump.stdout, known_device_ids=known_device_ids,
+            )
+            filesystem["chunks"] = chunks
+            filesystem["allocation_profiles"] = profiles
+            filesystem["allocation_profile_status"] = "available"
         except subprocess.TimeoutExpired:
             filesystem["subvolumes"] = []
             filesystem["subvolume_inventory_status"] = "error"
-            filesystem["subvolume_inventory_error"] = "Btrfs root-tree inspection timed out"
+            filesystem["subvolume_inventory_error"] = "Btrfs root/chunk-tree inspection timed out"
+            filesystem["chunks"] = []
+            filesystem["allocation_profiles"] = []
+            filesystem["allocation_profile_status"] = "error"
         except subprocess.CalledProcessError as exc:
+            detail = (exc.stderr or "").strip() or "Btrfs root/chunk-tree inspection failed"
             filesystem["subvolumes"] = []
             filesystem["subvolume_inventory_status"] = "error"
-            filesystem["subvolume_inventory_error"] = (
-                (exc.stderr or "").strip() or "Btrfs root-tree inspection failed"
-            )
+            filesystem["subvolume_inventory_error"] = detail
+            filesystem["chunks"] = []
+            filesystem["allocation_profiles"] = []
+            filesystem["allocation_profile_status"] = "error"
         except BtrfsInventoryError as exc:
             filesystem["subvolumes"] = []
             filesystem["subvolume_inventory_status"] = "error"
             filesystem["subvolume_inventory_error"] = str(exc)
+            filesystem["chunks"] = []
+            filesystem["allocation_profiles"] = []
+            filesystem["allocation_profile_status"] = "error"
     return {"status": "available", "filesystems": filesystems}
