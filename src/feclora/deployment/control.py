@@ -545,7 +545,6 @@ class DeploymentControlServer:
         mac_address: str,
         repository: str,
         *,
-        trusted_public_key: str | os.PathLike[str] | None = None,
     ) -> str:
         """Receive an image set from one running save Client."""
         tls_socket = self._running_session(mac_address, "save")
@@ -597,7 +596,7 @@ class DeploymentControlServer:
             raise DeploymentControlError("initial unicast runtime requires exactly one selected READY Client")
         mac = clients[0].mac_address
         if self.coordinator.job.operation == "restore" and not manifest_path:
-            raise DeploymentControlError("restore job requires the signed image manifest path")
+            raise DeploymentControlError("restore job requires an image manifest path")
         started = self.arm_and_start()
         if started != (mac,):
             return self.collect_results(timeout=result_timeout)
