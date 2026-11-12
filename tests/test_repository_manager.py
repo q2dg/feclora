@@ -112,7 +112,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.manager.add("images", self.definition)
         lease = self.manager.acquire_usage_lock("images")
         try:
-            with self.assertRaisesRegex(RepositoryManagerError, "active deployment restore"):
+            with self.assertRaisesRegex(RepositoryManagerError, "active image operation or deployment job"):
                 self.manager.update("images", dict(self.definition, remote_path="/archive"))
         finally:
             os.close(lease)
@@ -137,7 +137,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.manager.add("images", self.definition)
         lease = self.manager.acquire_usage_lock("images")
         try:
-            with self.assertRaisesRegex(RepositoryManagerError, "active deployment restore"):
+            with self.assertRaisesRegex(RepositoryManagerError, "active image operation or deployment job"):
                 self.manager.mount("images")
         finally:
             os.close(lease)
@@ -298,7 +298,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         )
         lease_fd = self.manager.acquire_usage_lock("images")
         try:
-            with self.assertRaisesRegex(RepositoryManagerError, "active deployment restore"):
+            with self.assertRaisesRegex(RepositoryManagerError, "active image operation or deployment job"):
                 self.manager.unmount("images")
         finally:
             os.close(lease_fd)
@@ -313,7 +313,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         other_manager._is_mounted = lambda _path: True
         lease_fd = self.manager.acquire_usage_lock("images")
         try:
-            with self.assertRaisesRegex(RepositoryManagerError, "active deployment restore"):
+            with self.assertRaisesRegex(RepositoryManagerError, "active image operation or deployment job"):
                 other_manager.unmount("images")
         finally:
             os.close(lease_fd)
@@ -326,7 +326,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.manager.add("images", self.definition)
         lease_fd = self.manager.acquire_usage_lock("images")
         try:
-            with self.assertRaisesRegex(RepositoryManagerError, "active deployment restore"):
+            with self.assertRaisesRegex(RepositoryManagerError, "active image operation or deployment job"):
                 self.manager.remove("images")
             self.assertIn("images", self.manager._load())
             self.assertTrue((self.mount_root / "images").is_dir())
