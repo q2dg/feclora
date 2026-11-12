@@ -40,9 +40,9 @@ class LocalOperationWorkerTests(unittest.TestCase):
             })
             store.append(operation_id, "preflight")
             store.append(operation_id, "running")
-            forwarder = _ProgressForwarder(store, operation_id)
             with patch("feclora.storage.local_operation_service.time.monotonic",
-                       side_effect=[101.0, 103.0]):
+                       side_effect=[100.0, 101.0, 103.0]):
+                forwarder = _ProgressForwarder(store, operation_id)
                 forwarder.write(json.dumps({
                     "event": "progress", "bytes_done": 2048, "bytes_total": 8192,
                 }) + "\\n")
@@ -67,9 +67,9 @@ class LocalOperationWorkerTests(unittest.TestCase):
             })
             store.append(operation_id, "preflight")
             store.append(operation_id, "running")
-            forwarder = _ProgressForwarder(store, operation_id)
             with patch("feclora.storage.local_operation_service.time.monotonic",
-                       side_effect=[101.0, 103.0, 105.0]):
+                       side_effect=[100.0, 101.0, 103.0, 105.0]):
+                forwarder = _ProgressForwarder(store, operation_id)
                 for done in (8192, 1024, 2048):
                     forwarder.write(json.dumps({
                         "event": "progress", "bytes_done": done, "bytes_total": 8192,
