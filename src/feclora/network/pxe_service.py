@@ -228,7 +228,10 @@ class PXEServiceManager:
         if saved is None:
             return {"active": False, "configured": False, "interface": None, "services": {}}
         services = {}
-        for unit in (saved["dnsmasq_unit"] + ".service", saved.get("admission_unit", "") + (".service" if saved.get("admission_unit") else ""), saved["caddy_unit"] + ".service"):
+        units = [saved["dnsmasq_unit"] + ".service", saved["caddy_unit"] + ".service"]
+        if saved.get("admission_unit"):
+            units.insert(1, saved["admission_unit"] + ".service")
+        for unit in units:
             try:
                 result = self.runner([self.systemctl, "is-active", unit], check=False,
                                      capture_output=True, text=True, timeout=10)
