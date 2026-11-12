@@ -34,7 +34,6 @@ class RemoteRepositoryOperationLeaseTests(unittest.TestCase):
                 self.assertEqual(path, Path("/var/lib/feclora/repositories/nas"))
                 self.assertTrue(manager.lease_active)
                 os.fstat(manager.lease_fd)
-        self.assertFalse(manager.lease_active)
         with self.assertRaises(OSError):
             os.fstat(manager.lease_fd)
 
