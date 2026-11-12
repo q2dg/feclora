@@ -92,11 +92,9 @@ class ImageTransferTests(unittest.TestCase):
             with open(os.path.join(source, "disk.raw"), "wb") as stream:
                 stream.write(b"evil")
             fake = type("Sink", (), {"sendall": lambda self, data: None})()
-            with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
-                with self.assertRaisesRegex(ImageTransferError, "SHA-256"):
-                    send_image_set(
-                        fake, source, manifest_path, expected_image_id="golden", trusted_public_key="/trusted/server.pub",
-                    )
+            with self.assertRaisesRegex(ImageTransferError, "SHA-256"):
+                send_image_set(
+                    fake, source, manifest_path, expected_image_id="golden", )
 
     def test_receiver_rejects_insufficient_staging_space_before_payload(self):
         with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
@@ -108,13 +106,12 @@ class ImageTransferTests(unittest.TestCase):
                 )
                 left.close()
             thread = threading.Thread(target=sender, daemon=True)
-            with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
-                thread.start()
-                with patch("feclora.deployment.artifact_transfer.shutil.disk_usage", return_value=type("Usage", (), {"free": 1})()):
-                    with self.assertRaisesRegex(ImageTransferError, "insufficient staging space"):
-                        receive_image_set(
-                            right, target, expected_image_id="golden",
-                        )
+            thread.start()
+            with patch("feclora.deployment.artifact_transfer.shutil.disk_usage", return_value=type("Usage", (), {"free": 1})()):
+                with self.assertRaisesRegex(ImageTransferError, "insufficient staging space"):
+                    receive_image_set(
+                        right, target, expected_image_id="golden",
+                    )
             right.close()
             thread.join(5)
 
@@ -143,21 +140,19 @@ class ImageTransferTests(unittest.TestCase):
                 try:
                     send_image_set(
                         DisconnectAfterPartialPayload(left), source, manifest_path,
-                        expected_image_id="golden", trusted_public_key="/trusted/server.pub",
-                    )
+                        expected_image_id="golden", )
                 except Exception as exc:
                     sender_errors.append(exc)
                 finally:
                     left.close()
 
-            with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
-                thread = threading.Thread(target=sender, daemon=True)
-                thread.start()
-                with self.assertRaisesRegex(ImageTransferError, "peer closed"):
-                    receive_image_set(
-                        right, target, expected_image_id="golden",
-                    )
-                thread.join(5)
+            thread = threading.Thread(target=sender, daemon=True)
+            thread.start()
+            with self.assertRaisesRegex(ImageTransferError, "peer closed"):
+                receive_image_set(
+                    right, target, expected_image_id="golden",
+                )
+            thread.join(5)
             right.close()
 
             self.assertFalse(thread.is_alive())
@@ -178,23 +173,21 @@ class ImageTransferTests(unittest.TestCase):
 
             def sender():
                 try:
-                    with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
-                        send_image_set(
-                            left, source, manifest_path, expected_image_id="golden",
-                        )
-                except Exception as exc:
-                    sender_errors.append(exc)
-                finally:
-                    left.close()
-
-            with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
-                thread = threading.Thread(target=sender, daemon=True)
-                thread.start()
-                with self.assertRaisesRegex(ImageTransferError, "could not publish"):
-                    receive_image_set(
-                        right, target, expected_image_id="golden",
+                    send_image_set(
+                        left, source, manifest_path, expected_image_id="golden",
                     )
-                thread.join(5)
+            except Exception as exc:
+                sender_errors.append(exc)
+            finally:
+                left.close()
+
+            thread = threading.Thread(target=sender, daemon=True)
+            thread.start()
+            with self.assertRaisesRegex(ImageTransferError, "could not publish"):
+                receive_image_set(
+                    right, target, expected_image_id="golden",
+                )
+            thread.join(5)
             right.close()
 
             self.assertFalse(thread.is_alive())
@@ -211,14 +204,12 @@ class ImageTransferTests(unittest.TestCase):
             errors = []
             def sender():
                 try:
-                    with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
-                        send_image_set(
-                            left, source, manifest_path, expected_image_id="golden", trusted_public_key="/trusted/server.pub",
-                        )
-                except Exception as exc:
-                    errors.append(exc)
-                finally:
-                    left.close()
+                    send_image_set(
+                        left, source, manifest_path, expected_image_id="golden", )
+            except Exception as exc:
+                errors.append(exc)
+            finally:
+                left.close()
             thread = threading.Thread(target=sender, daemon=True)
             thread.start()
             with self.assertRaisesRegex(ImageTransferError, "does not match"):
