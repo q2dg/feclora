@@ -12,11 +12,11 @@ membership, source IP or MAC address is never proof of identity.
 - strict IPv4 multicast/interface/port/TTL/bitrate/FEC configuration validation;
 - shell-free `udp-sender` and `udp-receiver` argv builders;
 - a sender gate requiring the deployment coordinator to be explicitly armed,
-  plus optional manifest-signature verification and source artifact size/SHA-256 checks;
+  plus source artifact size/SHA-256 checks;
 - receiver staging into a private mode-0600 temporary file, with a free-space
   preflight and exact expected-size check;
-- a separate post-reception verification step that verifies a detached signature when present and a trusted key is configured,
-  parses the manifest and checks the complete staged artifact SHA-256 and byte
+- a separate post-reception verification step that parses the manifest and checks
+  the complete staged artifact SHA-256 and byte
   count.
 
 The adapter does **not** write to block devices, select a restore target,
@@ -28,8 +28,7 @@ bind the peer certificate identity to an authorized job client, collect local
 target authorization/readiness, and call the coordinator before the sender
 function. On the receiver, the authenticated control service must deliver the
 expected manifest metadata and target authorization over the authenticated
-TLS channel independently of UDPcast. A present signature must verify before
-restore. Only after `verify_staged_multicast_artifact` succeeds may the
+TLS channel independently of UDPcast. Only after `verify_staged_multicast_artifact` succeeds may the
 existing protected restore workflow be called. Keep the staged file until the
 restore workflow has completed and recorded its per-client result.
 
@@ -56,7 +55,7 @@ and [upstream command-line documentation](https://www.udpcast.linux.lu/cmd.html)
 ## Integrated behavior and remaining acceptance work
 
 The authenticated control service, persistent job journal, Client-side
-whole-disk and partition restore dispatch, manifest delivery with optional signatures, private
+whole-disk and partition restore dispatch, manifest delivery over the authenticated control channel, private
 staging, verified artifacts and per-client terminal results are
 integrated. Unsigned manifests are accepted when delivered through the
 Server-authenticated TLS control channel; detached minisign signatures are verified
@@ -90,12 +89,14 @@ when present and require an independently trusted key.
   tests passed.
 
 
-## Optional crypto policy
+## Optional encryption and integrity
 
-UDPcast is a transport and does not encrypt/authenticate its data plane. Feclora
-must not require `age` or `minisign` as global installation dependencies.
-`age` may be enabled for confidentiality. The Server-authenticated TLS control channel provides manifest authenticity for
-deployment transfers. A detached minisign signature, when present, adds an
-independent verification layer and requires a separately trusted public key.
-SHA-256 alone is not an authenticity mechanism; it is safe here because the
-expected manifest digest metadata is delivered over the Server-authenticated TLS channel.
+UDPcast is a transport and does not encrypt or authenticate its data plane.
+Feclora does not use manifest signatures. Age may be enabled for artifact
+confidentiality; when disabled, UDPcast provides no payload confidentiality, so
+use a trusted isolated network or another configured encryption layer.
+
+The manifest arrives over the Server-authenticated TLS control channel. SHA-256
+checks detect artifact corruption and bind received bytes to the manifest
+provided over that channel, but they do not provide per-datagram authentication
+or prevent denial of service.
