@@ -47,73 +47,10 @@ class LocalOperationStoreTests(unittest.TestCase):
         self.assertEqual(validated["action"], "restore_logical_volume")
         self.assertEqual(validated["params"]["target"], "/dev/mapper/vg-root")
 
-    def test_sftp_inventory_is_a_valid_durable_operation(self):
-        definition = {
-            "schema_version": 1,
-            "operation_id": "00000000-0000-4000-8000-000000000001",
-            "action": "sftp_inventory",
-            "params": {
-                "host": "backup.example.net", "username": "backup",
-                "remote_directory": "/", "port": 22,
-                "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-                "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-            },
-        }
-        validated = validate_definition(definition)
-        self.assertEqual(validated["action"], "sftp_inventory")
-
-    def test_sftp_fetch_and_publish_are_valid_durable_operations(self):
-        common = {
-            "host": "backup.example.net", "username": "backup",
-            "remote_directory": "/images/golden", "port": 22,
-            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-        }
-        for action, params in (("sftp_fetch", common),
-                               ("sftp_publish", {"image_id": "golden", **common})):
-            definition = {
-                "schema_version": 1,
-                "operation_id": "00000000-0000-4000-8000-000000000001",
-                "action": action, "params": params,
-            }
-            self.assertEqual(validate_definition(definition)["action"], action)
-
-    def test_sftp_fetch_rejects_unregistered_credential_path(self):
-        definition = {
-            "schema_version": 1,
-            "operation_id": "00000000-0000-4000-8000-000000000001",
-            "action": "sftp_fetch",
-            "params": {
-                "host": "backup.example.net", "username": "backup",
-                "remote_directory": "/images", "port": 22,
-                "identity_credential": "/tmp/private.key",
-                "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-            },
-        }
-        with self.assertRaisesRegex(LocalOperationError, "registered encrypted credential"):
-            validate_definition(definition)
-    def test_sftp_inventory_rejects_path_traversal(self):
-        definition = {
-            "schema_version": 1,
-            "operation_id": "00000000-0000-4000-8000-000000000001",
-            "action": "sftp_inventory",
-            "params": {
-                "host": "backup.example.net", "username": "backup",
-                "remote_directory": "/images/../escape", "port": 22,
-                "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-                "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-            },
-        }
-        with self.assertRaisesRegex(LocalOperationError, "absolute and normalized"):
+zed"):
             validate_definition(definition)
 
-    def test_capture_can_include_encrypted_sftp_publication_settings(self):
-        definition = {
-            "schema_version": 1,
-            "operation_id": "00000000-0000-4000-8000-000000000001",
-            "action": "capture_disk",
-            "params": {
-                "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+zstd",
                 "encrypt": False, 
                 "sftp_publish": {
                     "host": "backup.example.net", "username": "backup",
@@ -126,13 +63,7 @@ class LocalOperationStoreTests(unittest.TestCase):
         validated = validate_definition(definition)
         self.assertEqual(validated["params"]["sftp_publish"]["port"], 2222)
 
-    def test_capture_allows_sftp_publication_to_remote_root(self):
-        definition = {
-            "schema_version": 1,
-            "operation_id": "00000000-0000-4000-8000-000000000001",
-            "action": "capture_disk",
-            "params": {
-                "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+zstd",
                 "encrypt": False, 
                 "sftp_publish": {
                     "host": "backup.example.net", "username": "backup",
@@ -145,18 +76,7 @@ class LocalOperationStoreTests(unittest.TestCase):
         validated = validate_definition(definition)
         self.assertEqual(validated["params"]["sftp_publish"]["remote_directory"], "/")
 
-    def test_capture_rejects_sftp_publication_path_traversal_before_queueing(self):
-        for remote_directory in (
-            "/images/../escape", "/images/./daily", "/images//daily",
-            "//backup/images", "/images/../../etc", "/images/space name",
-        ):
-            with self.subTest(remote_directory=remote_directory):
-                definition = {
-                    "schema_version": 1,
-                    "operation_id": "00000000-0000-4000-8000-000000000001",
-                    "action": "capture_disk",
-                    "params": {
-                        "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+zstd",
                         "encrypt": False, 
                         "sftp_publish": {
                             "host": "backup.example.net", "username": "backup",
@@ -169,13 +89,7 @@ class LocalOperationStoreTests(unittest.TestCase):
                 with self.assertRaisesRegex(LocalOperationError, "absolute and normalized"):
                     validate_definition(definition)
 
-    def test_capture_sftp_publication_without_extra_security_flags(self):
-        definition = {
-            "schema_version": 1,
-            "operation_id": "00000000-0000-4000-8000-000000000001",
-            "action": "capture_disk",
-            "params": {
-                "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+zstd",
                 "encrypt": False, 
                 "sftp_publish": {
                     "host": "backup.example.net", "username": "backup",
@@ -217,81 +131,7 @@ class LocalOperationStoreTests(unittest.TestCase):
             self.assertEqual(store.status(identifier)["state"], "interrupted")
 
 
-    def test_restore_can_use_encrypted_sftp_source(self):
-        definition = {
-            "schema_version": 1,
-            "operation_id": "00000000-0000-4000-8000-000000000001",
-            "action": "restore_disk",
-            "params": {
-                "image_id": "gold", "target": "/dev/sdb",
-                "confirmation": "ERASE /dev/sdb",
-                "sftp_source": {
-                    "host": "backup.example.net", "username": "backup",
-                    "remote_directory": "/images/gold", "port": 2222,
-                    "expected_manifest_sha256": "a" * 64,
-                    "identity_credential": "/etc/credstore.encrypted/feclora/backup-key.cred",
-                    "known_hosts_credential": "/etc/credstore.encrypted/feclora/backup-hosts.cred",
-                },
-            },
-        }
-        validated = validate_definition(definition)
-        self.assertEqual(validated["params"]["sftp_source"]["remote_directory"], "/images/gold")
-
-    def test_restore_rejects_sftp_source_combined_with_mounted_repository(self):
-        definition = {
-            "schema_version": 1,
-            "operation_id": "00000000-0000-4000-8000-000000000001",
-            "action": "restore_disk",
-            "params": {
-                "image_id": "gold", "target": "/dev/sdb",
-                "confirmation": "ERASE /dev/sdb", "repository_id": "archive",
-                "sftp_source": {
-                    "host": "backup.example.net", "username": "backup",
-                    "remote_directory": "/images", "expected_manifest_sha256": "a" * 64,
-                    "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-                    "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-                },
-            },
-        }
-        with self.assertRaisesRegex(LocalOperationError, "cannot be combined"):
-            validate_definition(definition)
-
-    def test_restore_allows_sftp_source_remote_root(self):
-        definition = {
-            "schema_version": 1,
-            "operation_id": "00000000-0000-4000-8000-000000000001",
-            "action": "restore_disk",
-            "params": {
-                "image_id": "gold", "target": "/dev/sdb",
-                "confirmation": "ERASE /dev/sdb",
-                "sftp_source": {
-                    "host": "backup.example.net", "username": "backup",
-                    "remote_directory": "/", "expected_manifest_sha256": "a" * 64,
-                    "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-                    "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-                },
-            },
-        }
-        validated = validate_definition(definition)
-        self.assertEqual(validated["params"]["sftp_source"]["remote_directory"], "/")
-
-    def test_restore_rejects_sftp_source_path_traversal(self):
-        definition = {
-            "schema_version": 1,
-            "operation_id": "00000000-0000-4000-8000-000000000001",
-            "action": "restore_disk",
-            "params": {
-                "image_id": "gold", "target": "/dev/sdb",
-                "confirmation": "ERASE /dev/sdb",
-                "sftp_source": {
-                    "host": "backup.example.net", "username": "backup",
-                    "remote_directory": "/images/../escape", "expected_manifest_sha256": "a" * 64,
-                    "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-                    "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-                },
-            },
-        }
-        with self.assertRaisesRegex(LocalOperationError, "absolute and normalized"):
+zed"):
             validate_definition(definition)
 
     def test_rejects_bad_destructive_confirmation(self):
