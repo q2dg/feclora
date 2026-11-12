@@ -159,8 +159,6 @@ def receive_image_set(
     repository: str | os.PathLike[str],
     *,
     expected_image_id: str,
-    trusted_public_key: str | os.PathLike[str] | None = None,
-    require_signature: bool = False,
     progress_callback: Callable[[int, int], None] | None = None,
 ) -> str:
     """Receive and atomically publish an image set over authenticated TLS."""
@@ -176,7 +174,6 @@ def receive_image_set(
         raise ImageTransferError("expected image identifier is required")
     stage = tempfile.mkdtemp(prefix=".feclora-transfer-", dir=repo)
     os.chmod(stage, 0o700)
-    published: list[str] = []
     try:
         magic = _recv_exact(tls_socket, len(_MAGIC))
         if magic != _MAGIC:
