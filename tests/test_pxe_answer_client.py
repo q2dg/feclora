@@ -21,7 +21,7 @@ JOB = "3b241101-e2bb-4255-8caf-4136c566a962"
 URL = f"http://192.0.2.10:8080/answers/{JOB}/answer.json"
 
 
-def answer() -> bytes:
+def answer(expires_at: str = "2099-01-01T00:00:00Z") -> bytes:
     return json.dumps({
         "schema_version": 1,
         "operation": "restore",
@@ -30,7 +30,7 @@ def answer() -> bytes:
         "target": {"wwn": "0x5000c50012345678", "serial": None},
         "confirm_destructive": True,
         "start": True,
-        "expires_at": "2099-01-01T00:00:00Z",
+        "expires_at": expires_at,
     }).encode("utf-8")
 
 
@@ -61,6 +61,32 @@ class PXEAnswerClientTests(unittest.TestCase):
             self.assertEqual(destination.read_bytes(), answer())
             self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
             self.assertEqual(destination.parent.stat().st_mode & 0o777, 0o700)
+
+    def test_expired_server_answer_is_rejected_before_publication(self):
+        with tempfile.TemporaryDirectory() as root:
+            destination = Path(root) / "pxe" / "answer.json"
+            with self.assertRaisesRegex(PXEAnswerClientError, "has expired"):
+                fetch_live_pxe_answer(
+                    f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB} "
+                    f"feclora.pxe_answer_url={URL}",
+                    destination=destination,
+                    downloader=lambda _url: answer("2000-01-01T00:00:00Z"),
+                )
+            self.assertFalse(destination.exists())
+
+    def test_answer_without_server_expiry_is_rejected(self):
+        with tempfile.TemporaryDirectory() as root:
+            destination = Path(root) / "pxe" / "answer.json"
+            raw = json.loads(answer())
+            raw.pop("expires_at")
+            with self.assertRaisesRegex(PXEAnswerClientError, "no Server-assigned expiry"):
+                fetch_live_pxe_answer(
+                    f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB} "
+                    f"feclora.pxe_answer_url={URL}",
+                    destination=destination,
+                    downloader=lambda _url: json.dumps(raw).encode(),
+                )
+            self.assertFalse(destination.exists())
 
     def test_invalid_download_is_not_published(self):
         with tempfile.TemporaryDirectory() as root:
