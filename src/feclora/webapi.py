@@ -1344,7 +1344,7 @@ def _provide_pxe_age_passphrase(params: dict[str, Any]) -> dict[str, Any]:
     passphrase = params.get("passphrase")
     if (not isinstance(passphrase, str) or not passphrase
             or len(passphrase.encode("utf-8")) > 1024
-            or any(char in passphrase for char in "\\r\\n\\x00")):
+            or any(char in passphrase for char in "\r\n\x00")):
         raise WebAPIError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
     try:
         cmdline = Path("/proc/cmdline").read_text(encoding="ascii")
