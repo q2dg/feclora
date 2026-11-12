@@ -13,6 +13,7 @@ from feclora.network.pxe_answer_client import (
     fetch_live_pxe_answer,
     execute_live_pxe_restore,
     _consume_answer_once,
+    _wait_for_age_passphrase,
 )
 
 
@@ -111,6 +112,25 @@ class PXEAnswerClientTests(unittest.TestCase):
             self.assertTrue(restore_call.call_args.kwargs["ignore_signature"])
             self.assertTrue((log_dir / "operations.jsonl").is_file())
             self.assertTrue((log_dir / "consumed" / JOB).is_file())
+
+    def test_wait_for_age_passphrase_consumes_private_one_shot_file(self):
+        with tempfile.TemporaryDirectory() as root:
+            secret = Path(root) / "age-passphrase"
+            secret.write_text("correct horse battery staple", encoding="utf-8")
+            secret.chmod(0o600)
+            with patch("feclora.network.pxe_answer_client.os.geteuid", return_value=os.geteuid()):
+                value = _wait_for_age_passphrase(secret, timeout=1)
+            self.assertEqual(value, "correct horse battery staple")
+            self.assertFalse(secret.exists())
+
+    def test_wait_for_age_passphrase_rejects_unsafe_file_mode(self):
+        with tempfile.TemporaryDirectory() as root:
+            secret = Path(root) / "age-passphrase"
+            secret.write_text("secret", encoding="utf-8")
+            secret.chmod(0o644)
+            with patch("feclora.network.pxe_answer_client.os.geteuid", return_value=os.geteuid()):
+                with self.assertRaisesRegex(PXEAnswerClientError, "unsafe"):
+                    _wait_for_age_passphrase(secret, timeout=1)
 
     def test_non_nfs_provider_fails_closed(self):
         with self.assertRaisesRegex(PXEAnswerClientError, "NFS repositories only"):
