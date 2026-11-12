@@ -168,6 +168,7 @@ export default function App() {
   const [pxeProfile, setPxeProfile] = useState(null);
   const [pxeAnswerFile, setPxeAnswerFile] = useState(null);
   const [pxeAnswerPublished, setPxeAnswerPublished] = useState(null);
+  const [pxeAgePassphrase, setPxeAgePassphrase] = useState("");
   const [pxeStatus, setPxeStatus] = useState({ active: false, configured: false });
   const [security, setSecurity] = useState({});
   const [encrypt, setEncrypt] = useState(false);
@@ -801,6 +802,17 @@ export default function App() {
         answer_base64: encode(answerBuffer)
       });
       setPxeAnswerPublished(result);
+      setNotice(result.message);
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const submitPXEAgePassphrase = async () => {
+    if (!pxeAgePassphrase) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora("provide_pxe_age_passphrase", { passphrase: pxeAgePassphrase });
+      setPxeAgePassphrase("");
       setNotice(result.message);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -1683,6 +1695,16 @@ export default function App() {
                     <p>{pxeAnswerPublished.message}</p>
                     <Button variant="danger" size="sm" onClick={revokePXEAnswer} isLoading={busy} isDisabled={busy}>Revoke published answer</Button>
                   </Alert>}
+                </CardBody></Card>
+              </StackItem>
+              <StackItem>
+                <Card><CardBody>
+                  <Title headingLevel="h3" size="lg">Unlock an encrypted PXE image</Title>
+                  <p>On an unattended PXE Live client, the restore worker waits here when the selected image uses symmetric age encryption. Enter the passphrase on that Live machine; it is sent once over Cockpit's local privileged API, held in a root-only runtime file, and removed when read. It is never added to the answer JSON or command line.</p>
+                  <Field label="age symmetric passphrase">
+                    <input className="pf-v5-c-form-control" type="password" autoComplete="off" value={pxeAgePassphrase} onChange={(event) => setPxeAgePassphrase(event.target.value)} />
+                  </Field>
+                  <Button variant="primary" onClick={submitPXEAgePassphrase} isLoading={busy} isDisabled={busy || !pxeAgePassphrase}>Submit passphrase to this Live client</Button>
                 </CardBody></Card>
               </StackItem>
               {pxePreflight && <StackItem><Card><CardBody>
