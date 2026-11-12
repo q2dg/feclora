@@ -117,7 +117,6 @@ def fetch_image_set(
     *,
     remote_directory: str,
     destination_root: str | os.PathLike[str],
-    public_key: str | os.PathLike[str],
     host: str,
     username: str,
     identity_credential: str,
@@ -131,7 +130,6 @@ def fetch_image_set(
 ) -> dict[str, Any]:
     """Fetch and import a SHA-256-verified image set without overwriting files."""
     remote = _remote_directory(remote_directory)
-    key_file = _regular_file(public_key, "trusted minisign public key")
     root = os.path.abspath(os.fspath(destination_root))
     try:
         root_info = os.lstat(root)
