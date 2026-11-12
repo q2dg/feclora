@@ -170,5 +170,38 @@ class RepositoryMountServiceTests(unittest.TestCase):
 
 
 
+    def test_unmount_fails_closed_when_systemd_cannot_report_service_state(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            calls = []
+
+            def runner(argv, **kwargs):
+                calls.append(argv)
+                if argv[0].endswith("systemctl") and argv[1] == "is-active":
+                    return SimpleNamespace(returncode=1, stdout="", stderr="systemd unavailable")
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+            manager = RemoteRepositoryManager(
+                registry=root / "etc" / "repositories.json",
+                mount_root=root / "mounts", runner=runner,
+                which=lambda name: "/usr/bin/" + name,
+                effective_uid=lambda: 0, owner_uid=os.getuid(),
+            )
+            manager.add("nas", {
+                "provider": "sshfs", "host": "nas.example.net",
+                "remote_path": "/images", "username": "backup",
+                "credential_file": None, "identity_file": None,
+                "known_hosts_file": None, "port": 22, "read_only": True,
+            })
+            manager._mount_record = lambda _path: (
+                "fuse.sshfs", "backup@nas.example.net:/images",
+                "ro,relatime,nosuid,nodev,noexec",
+            )
+            manager._is_mounted = lambda _path: True
+            with self.assertRaisesRegex(RepositoryManagerError, "service state could not be verified"):
+                manager.unmount("nas")
+            self.assertFalse(any(call[0].endswith("umount") for call in calls))
+
+
 if __name__ == "__main__":
     unittest.main()
