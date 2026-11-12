@@ -15,7 +15,7 @@ boot creates fresh local credentials, certificates and temporary configuration.
 Durable images and manifests belong in repositories explicitly selected by the
 operator. Persistent Live-session storage is not a product requirement.
 
-Storage layers and repositories are different concepts. LVM logical volumes, raw LUKS2 containers and Btrfs filesystems are possible image sources. SSHFS, NFS and SMB/CIFS are implemented mounted-repository providers. S3 object storage is the next repository integration. Feclora is a client of external storage services and does not provision or administer them.
+Storage layers and repositories are different concepts. LVM logical volumes, raw LUKS2 containers and Btrfs filesystems are possible image sources. SSHFS, NFS and SMB/CIFS are implemented mounted-repository providers. S3 is implemented as a separate object-storage provider, including local and distributed capture/restore workflows. Feclora is a client of external storage services and does not provision or administer them.
 
 ## Implemented in source
 
@@ -43,9 +43,9 @@ transport. Age encryption is optional.
   administrator-configured client-count and/or elapsed-time limits; neither
   limit is enabled by default. MAC is an operational identifier, not authentication. This answer workflow is separate
   from authenticated Server/Client Remote jobs.
-- **Remote repositories:** SSHFS, NFS and SMB/CIFS mount lifecycle and image-engine integration exist. Provider-specific permissions, NFS root-squash, stale mounts, outages, interrupted publication, cleanup, concurrency and live health behavior still need acceptance. S3 object transfer, credential isolation and manifest-last publication are in progress.
+- **Remote repositories:** SSHFS, NFS and SMB/CIFS mount lifecycle and image-engine integration exist; automated hardening and software integration coverage remain. S3 object transfer, encrypted credentials, manifest-last publication and distributed TLS staging are implemented. The remaining S3 live-provider checks are optional operator acceptance, not a software-backlog gate.
 
-## Operator-owned acceptance
+## Optional operator acceptance
 
 The maintainer builds the ISO. This project documentation describes the
 process; ISO generation and publication are not part of the source-validation
