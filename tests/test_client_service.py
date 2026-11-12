@@ -120,7 +120,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \
                  mock.patch("feclora.network.interface_discovery.discover_interface_addresses", return_value=[SimpleNamespace(address="192.0.2.20")]), \
                  mock.patch("feclora.deployment.client_service.os.stat",
-                            side_effect=lambda path: block_info if os.fspath(path) == DEVICE else real_lstat(path)), \
+                            side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == DEVICE else real_lstat(path, *args, **kwargs)), \
                  mock.patch("feclora.deployment.client_service.join_deployment", side_effect=fake_join), \
                  mock.patch("feclora.deployment.client_service.execute_client_image_job",
                             return_value=(True, "image restored and verified")) as execute:
@@ -323,6 +323,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch("feclora.deployment.client_service.CLIENT_JOB_DIRECTORY", root), \
                  mock.patch("feclora.deployment.client_service._ensure_directory"), \
                  mock.patch("feclora.deployment.client_service._read_private_json", return_value=request), \
+                 mock.patch("feclora.deployment.client_service._write_private_json", side_effect=lambda path, value: Path(path).write_text(json.dumps(value), encoding="utf-8")), \
                  mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
                  mock.patch("feclora.deployment.client_service.create_mutual_tls_context", return_value=object()), \
                  mock.patch.object(ClientDeploymentService, "_find_device", return_value=selected), \
