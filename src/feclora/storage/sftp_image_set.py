@@ -218,6 +218,13 @@ def fetch_image_set(
         manifest_name = f"{manifest.image_id}.manifest.json"
         signature_name = manifest_name + ".minisig"
         publication_names = [item.filename for item in manifest.artifacts]
+        # SFTP metadata is downloaded under protocol-standard names. Rename
+        # it inside the private staging directory to Feclora's native names
+        # before handing the complete set to the shared publisher.
+        staged_manifest = os.path.join(staging, "manifest.json")
+        staged_signature = staged_manifest + ".minisig"
+        os.rename(staged_signature, os.path.join(staging, signature_name))
+        os.rename(staged_manifest, os.path.join(staging, manifest_name))
         publication_names.extend((signature_name, manifest_name))
         try:
             publish_local_image_set(root, staging, publication_names)
