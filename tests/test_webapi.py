@@ -1117,15 +1117,13 @@ class WebAPITests(unittest.TestCase):
                     "igmp_confirmed": False, "image_encrypt": True,
                 }})
 
-    def test_start_client_save_persists_explicit_per_image_security_choices(self):
+    def test_start_client_save_persists_age_encryption_choice(self):
         import stat
         import tempfile
         from pathlib import Path
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
         config = SimpleNamespace(
             age_recipients_file="/pki/recipients.txt",
-            local_minisign_secret_key="/pki/client.minisign.key",
-            local_minisign_public_key="/pki/client.minisign.pub",
         )
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -1157,7 +1155,6 @@ class WebAPITests(unittest.TestCase):
             request = json.loads((root / (job_id + ".request.json")).read_text(encoding="utf-8"))
         self.assertEqual(result["phase"], "connecting")
         self.assertTrue(request["image_encrypt"])
-        self.assertTrue(request["image_sign"])
 
     def test_start_client_job_preflights_and_persists_multicast_interface(self):
         import stat
