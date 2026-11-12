@@ -57,7 +57,6 @@ description: Fedora-based disk imaging, cloning and recovery.
       <li><a href="./FEATURE-MATRIX.html">Features and compatibility</a></li>
       <li><a href="./CERTIFICATE-MANAGEMENT.html">Security and certificates</a></li>
       <li><a href="./DEPLOYMENT-SETUP.html">Network deployment setup</a></li>
-      <li><a href="./CLONEZILLA-FEATURE-PARITY.html">Clonezilla feature comparison</a></li>
     </ul>
   </section>
 
