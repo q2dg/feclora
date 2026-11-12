@@ -85,7 +85,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         raise LocalOperationError("operation_id must use canonical UUID form")
     action, params = value["action"], value["params"]
     fields = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish", "encrypt_passphrase"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
@@ -107,6 +107,8 @@ def validate_definition(value: Any) -> dict[str, Any]:
     else:
         accepted = (allowed, allowed - {"repository_id"}, allowed - {"sftp_publish"},
                     allowed - {"repository_id", "sftp_publish"})
+    if action == "capture_disk":
+        accepted = accepted + tuple(item - {"encrypt_passphrase"} for item in accepted)
     if set(params) not in accepted and not (action in {"sftp_inventory", "sftp_fetch", "sftp_publish"} and set(params) == allowed - {"port"}):
         raise LocalOperationError("operation parameters do not match the selected operation")
     if "sftp_source" in params and "repository_id" in params:
@@ -204,6 +206,13 @@ def validate_definition(value: Any) -> dict[str, Any]:
             raise LocalOperationError("unsupported compression")
         if not all(isinstance(params.get(key), bool) for key in ("encrypt", "sign")):
             raise LocalOperationError("encrypt and sign must be boolean")
+        if "encrypt_passphrase" in params:
+            if not isinstance(params["encrypt_passphrase"], bool):
+                raise LocalOperationError("encrypt_passphrase must be boolean")
+            if params["encrypt_passphrase"] and not params.get("encrypt"):
+                raise LocalOperationError("passphrase encryption requires encrypt=true")
+            if action != "capture_disk" and params["encrypt_passphrase"]:
+                raise LocalOperationError("passphrase encryption is currently supported only for whole-disk capture")
         if "sftp_publish" in params:
             config = params["sftp_publish"]
             required_sftp = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential"}
