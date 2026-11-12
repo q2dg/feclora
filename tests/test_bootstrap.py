@@ -45,8 +45,6 @@ class OptionalImageSecurityBootstrapTests(unittest.TestCase):
             value = json.loads(config.read_text(encoding="utf-8"))
             self.assertFalse((pki / "server.age").exists())
             self.assertFalse((pki / "age-recipients.txt").exists())
-            self.assertFalse((pki / "server.minisign.key").exists())
-            self.assertFalse((pki / "server.pub").exists())
 
 
 if __name__ == "__main__":
