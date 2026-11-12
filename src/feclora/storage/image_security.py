@@ -312,7 +312,7 @@ def decrypt_artifact_stream_with_passphrase_to_temp(
 
     if (not isinstance(passphrase, str) or not passphrase
             or len(passphrase.encode("utf-8")) > 1024
-            or any(char in passphrase for char in "\\r\\n\\x00")):
+            or any(char in passphrase for char in "\r\n\x00")):
         raise ImageSecurityError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
     if not hasattr(encrypted_stream, "fileno"):
         raise ImageSecurityError("age encrypted input must be an open file stream")
@@ -335,7 +335,7 @@ def decrypt_artifact_stream_with_passphrase_to_temp(
         )
         os.close(slave)
         slave = None
-        os.write(master, passphrase.encode("utf-8") + b"\\n")
+        os.write(master, passphrase.encode("utf-8") + b"\n")
         _, stderr = process.communicate()
         if process.returncode != 0:
             detail = (stderr or b"").decode("utf-8", errors="replace").strip()[:500]
