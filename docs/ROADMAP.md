@@ -42,9 +42,10 @@ transport. Age encryption is optional.
 ## Remaining engineering work
 
 - **Unattended PXE:** the first NFS-backed whole-disk restore path is integrated.
-  Other repository providers, cross-reboot expiry/replay protection, richer
-  Cockpit result reconciliation, wrong-passphrase end-to-end acceptance and
-  BIOS/UEFI/physical validation remain open. This answer workflow is separate
+  Other repository providers, a configurable PXE serving window (maximum
+  client count and/or elapsed-time limit), richer Cockpit result
+  reconciliation, wrong-passphrase end-to-end acceptance and BIOS/UEFI/
+  physical validation remain open. This answer workflow is separate
   from authenticated Server/Client Remote jobs.
 - **Remote repositories:** SSHFS, NFS and SMB/CIFS mount lifecycle and image
   engine integration exist. Provider-specific permissions, NFS root-squash,
@@ -65,9 +66,8 @@ transport. Age encryption is optional.
   selection, multi-interface behavior, browser/API disconnect recovery and
   complete Server/Client workflow acceptance remain open.
 - **PKI:** managed CA bootstrap, enrollment/renewal, trust inventory/revocation,
-  Server leaf renewal/keypair rotation and encrypted CA backup inspection
-  exist. Verified CA backup restore/compromise recovery and broader CA
-  migration are not implemented.
+  Server leaf renewal/keypair rotation exist. PKI backup and restore are
+  excluded from the project scope.
 - **Monitoring:** local operation journals and byte progress, plus Server-side
   per-Client operation progress/throughput, exist. Standardized
   phase/diagnostic telemetry, history export, detached-worker supervision and
@@ -105,6 +105,6 @@ boot, multicast switch/IGMP behavior and representative hardware acceptance
 must be performed and recorded by an operator. Unit tests and static
 validation do not establish those results.
 
-Broader CA rotation and trust migration are deferred. The current PKI scope is
-managed CA bootstrap, enrollment/renewal, trust inventory/revocation and
-Server TLS leaf/keypair lifecycle under the existing CA.
+The PKI scope is managed CA bootstrap, enrollment/renewal, trust
+inventory/revocation and Server TLS leaf/keypair lifecycle under the existing
+CA. PKI backup and restore are out of scope.
