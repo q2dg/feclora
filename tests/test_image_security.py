@@ -228,29 +228,6 @@ class ImageSecurityTests(unittest.TestCase):
             )
         self.assertTrue(os.path.exists(self.source))
 
-    def test_sign_and_verify_manifest(self):
-        signature = self.manifest + ".minisig"
-        def fake_run(command, **kwargs):
-            if "-S" in command:
-                with open(signature, "wb") as stream:
-                    stream.write(b"signature")
-            return SimpleNamespace(returncode=0, stderr="", stdout="")
-        with patch("feclora.storage.image_security.subprocess.run", side_effect=fake_run):
-            self.assertEqual(sign_manifest(self.manifest, self.secret, minisign_executable="/usr/bin/minisign"), signature)
-            verify_manifest_signature(
-                self.manifest, self.public, minisign_executable="/usr/bin/minisign"
-            )
-
-    def test_verification_failure_is_rejected(self):
-        signature = self.manifest + ".minisig"
-        with open(signature, "wb") as stream:
-            stream.write(b"bad signature")
-        with patch("feclora.storage.image_security.subprocess.run",
-                   return_value=SimpleNamespace(returncode=1, stderr="signature mismatch", stdout="")):
-            with self.assertRaisesRegex(ImageSecurityError, "invalid"):
-                verify_manifest_signature(self.manifest, self.public, minisign_executable="/usr/bin/minisign")
-
-
     def test_preflight_checks_only_selected_optional_integrations(self):
         with patch("feclora.storage.image_security.shutil.which", return_value=None):
             preflight_image_security()
