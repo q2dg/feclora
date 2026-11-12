@@ -1643,7 +1643,7 @@ class WebAPITests(unittest.TestCase):
                 result = _execute_operation("restore_disk", params, "restore-plain")
             restore.assert_called_once()
             self.assertNotIn("minisign_public_key", restore.call_args.kwargs)
-            self.assertFalse(restore.call_args.kwargs["require_signature"])
+            self.assertNotIn("require_signature", restore.call_args.kwargs)
             self.assertTrue(result["verified"])
 
 
