@@ -30,6 +30,7 @@ def answer() -> bytes:
         "target": {"wwn": "0x5000c50012345678", "serial": None},
         "confirm_destructive": True,
         "start": True,
+        "expires_at": "2099-01-01T00:00:00Z",
     }).encode("utf-8")
 
 
