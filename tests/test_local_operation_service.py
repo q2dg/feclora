@@ -31,6 +31,56 @@ class LocalOperationWorkerTests(unittest.TestCase):
             self.assertEqual(report["events"][-1]["details"]["bytes_done"], 4096)
             self.assertEqual(report["events"][-1]["details"]["bytes_total"], 8192)
 
+    def test_progress_persists_elapsed_time_and_sampled_throughput(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            operation_id = store.submit("capture_disk", {
+                "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                "encrypt": False, "sign": False,
+            })
+            store.append(operation_id, "preflight")
+            store.append(operation_id, "running")
+            forwarder = _ProgressForwarder(store, operation_id)
+            with patch("feclora.storage.local_operation_service.time.monotonic",
+                       side_effect=[101.0, 103.0]):
+                forwarder.write(json.dumps({
+                    "event": "progress", "bytes_done": 2048, "bytes_total": 8192,
+                }) + "\\n")
+                forwarder.write(json.dumps({
+                    "event": "progress", "bytes_done": 4096, "bytes_total": 8192,
+                }) + "\\n")
+            progress = [
+                event for event in store.status(operation_id)["events"]
+                if event["state"] == "progress"
+            ]
+            self.assertEqual(progress[0]["details"]["elapsed_seconds"], 1.0)
+            self.assertNotIn("bytes_per_second", progress[0]["details"])
+            self.assertEqual(progress[1]["details"]["elapsed_seconds"], 3.0)
+            self.assertEqual(progress[1]["details"]["bytes_per_second"], 1024.0)
+
+    def test_progress_counter_reset_does_not_report_negative_throughput(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            operation_id = store.submit("capture_disk", {
+                "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                "encrypt": False, "sign": False,
+            })
+            store.append(operation_id, "preflight")
+            store.append(operation_id, "running")
+            forwarder = _ProgressForwarder(store, operation_id)
+            with patch("feclora.storage.local_operation_service.time.monotonic",
+                       side_effect=[101.0, 103.0, 105.0]):
+                for done in (8192, 1024, 2048):
+                    forwarder.write(json.dumps({
+                        "event": "progress", "bytes_done": done, "bytes_total": 8192,
+                    }) + "\\n")
+            progress = [
+                event for event in store.status(operation_id)["events"]
+                if event["state"] == "progress"
+            ]
+            self.assertNotIn("bytes_per_second", progress[1]["details"])
+            self.assertEqual(progress[2]["details"]["bytes_per_second"], 512.0)
+
     def test_sigterm_handler_requests_orderly_worker_cancellation(self):
         with self.assertRaisesRegex(LocalOperationCancelled, "cancellation requested"):
             _cancel_on_sigterm(15, None)
