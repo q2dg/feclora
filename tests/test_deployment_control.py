@@ -1129,8 +1129,6 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
             manifest_path = os.path.join(source, "golden-image.manifest.json")
             with open(manifest_path, "w", encoding="utf-8") as stream:
                 json.dump(manifest, stream)
-            with open(manifest_path + ".minisig", "wb") as stream:
-                stream.write(b"test signature")
 
             coordinator = DeploymentCoordinator(make_job(operation="save"))
             server = DeploymentControlServer(
