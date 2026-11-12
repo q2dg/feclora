@@ -1,74 +1,44 @@
-# Tool reuse and transport strategy
+# Tooling and transports
 
-Feclora is an orchestration and safety layer. It should reuse maintained
-storage, networking, cryptography, service-management and transport software.
+Feclora reuses established Linux utilities and libraries rather than
+reimplementing storage and network protocols.
 
-## Reuse policy
+## Repository providers
 
-| Area | Preferred tool or subsystem | Feclora's responsibility |
+| Provider | Mechanism | Notes |
 |---|---|---|
-| Filesystem-aware imaging | Partclone | Select supported filesystem engines, validate source/target, provide explicit raw fallback, orchestrate and verify |
-| Raw block I/O | Linux block devices and established system utilities | Device identity/safety checks, geometry validation, bounded I/O, confirmation and recovery state |
-| Multicast artifact distribution | UDPcast | Job authorization, recipient readiness, staging, manifest/artifact verification and per-client results |
-| Network configuration | NetworkManager | D-Bus profiles and checkpoint/rollback; do not edit configuration behind its back |
-| TLS and X.509 | OpenSSL and platform TLS libraries | CA/Server-certificate lifecycle and Client-side Server-certificate validation |
-| Services and durable workers | systemd | Units, transient services, supervision, credentials, lifecycle and restart boundaries |
-| SSH filesystem access | OpenSSH SSH and SSHFS | Pinned host keys, protected key references and mounted repository access |
-| Network filesystems | NFS utilities, CIFS/SMB utilities and SSHFS | Provider-specific mount lifecycle, credential isolation, mount identity and operation leases |
-| WebDAV | davfs2 or another maintained WebDAV client | HTTPS validation and isolated per-repository credentials; never use the global davfs2 secrets file as a multi-repository secret store |
-| S3 object storage | AWS SDK/CLI with SigV4 support | Object-key mapping, multipart upload/download, manifest-last publication, conditional no-overwrite semantics, integrity and credential isolation |
-| NVMe over Fabrics | Linux kernel NVMe host and nvme-cli | Discover/connect/disconnect externally provisioned namespaces, validate subsystem/NQN/NSID identity, expose safe block devices to existing storage engines |
+| SSHFS | `sshfs` | Host-key verification and protected SSH credentials |
+| NFS | `mount.nfs` | NFSv4.2; server-side export permissions remain external |
+| SMB/CIFS | `mount.cifs` | SMB 3.1.1, signing/encryption and protected credentials |
+| S3 | S3-compatible object API | SigV4, scoped credentials, multipart transfer and manifest-last publication; not a filesystem mount |
 
-## Storage and transport taxonomy
+S3 support is implemented as an object-store adapter, not as a FUSE mount.
+Self-hosted Garage and managed S3-compatible services can expose the same API.
+The endpoint, bucket and prefix are configured per repository.
 
-These technologies are not interchangeable:
+## Design constraints
 
-- **SSHFS, NFS and SMB/CIFS** are mounted filesystem repositories.
-- **WebDAV** is a filesystem-style repository; isolated credentials and
-  HTTPS validation are required before it can be enabled.
-- **S3** is object storage. It must use an object API, not pretend to be a
-  POSIX mount. Publication needs multipart lifecycle handling, abort/cleanup,
-  immutable object keys, conditional manifest commit, and independent
-  manifest authenticity plus artifact digest verification.
-- **NVMe-oF** is a remote block-device transport. A connected namespace appears
-  as a Linux block device and can be selected as an image source or target
-  after the normal topology, mounted/in-use, capacity and identity checks.
-  Feclora is an NVMe host/client; it must not configure or administer the
-  remote NVMe target/subsystem.
+- Remote services are provisioned and administered by their owners.
+- Secrets are never accepted inline in repository definitions or returned by
+  the management API.
+- File-system mounts use restrictive `nosuid,nodev,noexec` options and
+  verify the mounted source before image operations.
+- Object storage uses immutable artifact keys, verifies SHA-256 and byte
+  counts, aborts failed multipart uploads, and publishes the manifest last.
+- TLS certificate validation remains enabled for HTTPS endpoints.
+- Repository operations must preserve cancellation, progress reporting and
+  failure visibility.
 
-S3 and NVMe-oF are planned integrations, not currently supported Cockpit
-providers. Do not infer support from a URL scheme, installed package, command
-builder or connected kernel device alone. The current unattended PXE execution
-path is NFS-only.
+## Existing system tools
 
-## Repository model
+| Function | Existing tool |
+|---|---|
+| SSH file access | `sshfs`, OpenSSH |
+| NFS access | `mount.nfs` |
+| SMB access | `mount.cifs` |
+| Encrypted service credentials | `systemd-creds`, `systemd-run` |
+| S3 object API | AWS SDK for Python (SigV4) |
+| TLS reverse proxy for self-hosted endpoints | Caddy |
 
-The intended file-repository set is SSHFS, NFS, SMB/CIFS, WebDAV and S3.
-They have different capabilities; do not assume every provider supports
-listing, publishing, conditional writes, resume or deletion. The distribution
-model is single-publisher / multi-reader: one Client publishes an image set,
-while multiple Clients may concurrently read and restore committed images.
-Concurrent publishers for the same image are out of scope.
-
-NVMe-oF is deliberately outside this repository list. It exposes a block
-namespace, not an image-set catalog. Its lifecycle and safety checks belong in
-a separate block-device transport workflow.
-
-## Optional cryptographic integrations
-
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
-
-## Engineering rules
-
-1. Inspect the existing implementation and selected tool's documented
-   interfaces before adding code.
-2. Prefer stable command-line or D-Bus/API interfaces and argument vectors;
-   never build shell command strings from user-controlled input.
-3. Keep Feclora focused on orchestration, authorization, safety, capability
-   detection, durable state, progress, diagnostics and recovery.
-4. Expose provider capabilities explicitly and fail closed when unsupported.
-5. Test both tool-present and tool-absent behavior for optional dependencies.
-6. Pin/document supported Fedora package versions and verify helper
-   availability on the project baseline.
-7. Never advertise a feature solely because a wrapper, command builder,
-   URL parser or kernel device exists.
+The Cockpit interface manages Feclora's client-side repository configuration;
+it does not deploy or administer the remote storage service.
