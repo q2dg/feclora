@@ -86,13 +86,13 @@ class ImageSecurityTests(unittest.TestCase):
         fake_age = os.path.join(self.root, "fake-age")
         with open(fake_age, "w", encoding="utf-8") as script:
             script.write(
-                "#!/usr/bin/python3\\n"
-                "import shutil, sys\\n"
-                "args = sys.argv[1:]\\n"
-                "output = args[args.index('--output') + 1]\\n"
-                "source = args[-1]\\n"
-                "if sys.stdin.buffer.readline() != b'secret\\n': sys.exit(3)\\n"
-                "with open(source, 'rb') as src, open(output, 'wb') as dst: shutil.copyfileobj(src, dst)\\n"
+                "#!/usr/bin/python3\n"
+                "import shutil, sys\n"
+                "args = sys.argv[1:]\n"
+                "output = args[args.index('--output') + 1]\n"
+                "source = args[-1]\n"
+                "if sys.stdin.buffer.readline() != b'secret\n': sys.exit(3)\n"
+                "with open(source, 'rb') as src, open(output, 'wb') as dst: shutil.copyfileobj(src, dst)\n"
             )
         os.chmod(fake_age, 0o700)
         with open(encrypted, "rb") as source:
@@ -110,9 +110,9 @@ class ImageSecurityTests(unittest.TestCase):
         fake_age = os.path.join(self.root, "fake-age")
         with open(fake_age, "w", encoding="utf-8") as script:
             script.write(
-                "#!/usr/bin/python3\\n"
-                "import sys\\n"
-                "if sys.stdin.buffer.readline() != b'secret\\n': sys.exit(3)\\n"
+                "#!/usr/bin/python3\n"
+                "import sys\n"
+                "if sys.stdin.buffer.readline() != b'secret\n': sys.exit(3)\n"
             )
         os.chmod(fake_age, 0o700)
         with open(encrypted, "rb") as source:
