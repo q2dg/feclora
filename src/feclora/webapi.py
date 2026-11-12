@@ -120,10 +120,19 @@ def _operation_repository_context(
     manager = S3RepositoryManager()
     s3_definition = next((item for item in manager.list() if item["id"] == repository_id), None)
     if s3_definition is None:
+        manager = _remote_repository_manager()
+        lease_fd = None
         try:
-            yield Path(_remote_repository_manager().resolve(repository_id, write=write))
+            lease_fd = manager.acquire_usage_lock(repository_id)
+            repository = Path(manager.resolve(repository_id, write=write))
         except Exception as exc:
+            if lease_fd is not None:
+                os.close(lease_fd)
             raise WebAPIError(f"selected image repository is not safely available: {exc}") from exc
+        try:
+            yield repository
+        finally:
+            os.close(lease_fd)
         return
     try:
         object_repository = manager.repository(repository_id, progress=_progress)
