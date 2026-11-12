@@ -445,6 +445,10 @@ def execute_live_pxe_restore(
             "credential_ref is not available in the identity-free Live PXE client; refusing to ignore it"
         )
     scheme = urlsplit(repository_url).scheme.lower()
+    if scheme not in {"nfs", "https"}:
+        raise PXEAnswerClientError(
+            "PXE restore supports NFS and credential-free HTTPS repositories; other schemes fail closed"
+        )
     selector = RestoreTargetSelector(**answer["target"])
     target = _resolve_target(answer)
     target_path = target["path"]
