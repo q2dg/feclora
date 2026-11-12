@@ -23,7 +23,7 @@ class S3RepositoryError(RuntimeError):
 
 _IMAGE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _BUCKET = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
-_ACCESS_KEY = re.compile(r"^[A-Za-z0-9/+=]{16,128}$")
+_ACCESS_KEY = re.compile(r"^[A-Za-z0-9/+=_-]{8,128}$")
 _PREFIX_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.=-]{0,127}$")
 _CHUNK = 1024 * 1024
 _DEFAULT_PART_SIZE = 64 * 1024 * 1024
@@ -49,12 +49,15 @@ class S3RepositoryConfig:
                 raise S3RepositoryError("S3 endpoint must be an HTTPS URL without user info, query or fragment")
         if not isinstance(self.region, str) or not re.fullmatch(r"[A-Za-z0-9-]{1,64}", self.region):
             raise S3RepositoryError("S3 region is invalid")
-        if not isinstance(self.bucket, str) or not _BUCKET.fullmatch(self.bucket):
+        if (not isinstance(self.bucket, str) or not _BUCKET.fullmatch(self.bucket)
+                or ".." in self.bucket or ".-" in self.bucket or "-." in self.bucket
+                or re.fullmatch(r"\\d+\\.\\d+\\.\\d+\\.\\d+", self.bucket)):
             raise S3RepositoryError("S3 bucket name is invalid")
         if not isinstance(self.prefix, str) or len(self.prefix) > 512:
             raise S3RepositoryError("S3 prefix is invalid")
-        components = [item for item in self.prefix.strip("/").split("/") if item]
-        if any(item in {".", ".."} or not _PREFIX_COMPONENT.fullmatch(item) for item in components):
+        normalized_prefix = self.prefix.strip("/")
+        components = normalized_prefix.split("/") if normalized_prefix else []
+        if any(not _PREFIX_COMPONENT.fullmatch(item) for item in components):
             raise S3RepositoryError("S3 prefix contains an unsafe path component")
         if not isinstance(self.access_key_id, str) or not _ACCESS_KEY.fullmatch(self.access_key_id):
             raise S3RepositoryError("S3 access key ID is invalid")
@@ -113,6 +116,11 @@ class S3ObjectRepository:
         if not isinstance(image_id, str) or not _IMAGE_ID.fullmatch(image_id):
             raise S3RepositoryError("image identifier is invalid")
         return self._key(f"{image_id}.manifest.json")
+
+    def _artifact_key(self, image_id: str, filename: str) -> str:
+        if not isinstance(image_id, str) or not _IMAGE_ID.fullmatch(image_id):
+            raise S3RepositoryError("image identifier is invalid")
+        return self._key(f"{image_id}/{filename}")
 
     def _report(self, done: int, total: int) -> None:
         if self.progress is not None:
@@ -232,7 +240,7 @@ class S3ObjectRepository:
                 raise S3RepositoryError(f"image artifact is unavailable: {artifact.filename}") from exc
             if size != artifact.size_bytes or digest != artifact.sha256:
                 raise S3RepositoryError(f"image artifact failed local integrity verification: {artifact.filename}")
-            self._put_file(path, self._key(artifact.filename), digest, size)
+            self._put_file(path, self._artifact_key(image_id, artifact.filename), digest, size)
             completed += size
             self._report(completed, total)
 
@@ -270,7 +278,7 @@ class S3ObjectRepository:
                             continue
                         complete = True
                         for artifact in manifest.artifacts:
-                            head = self._head(self._key(artifact.filename))
+                            head = self._head(self._artifact_key(manifest.image_id, artifact.filename))
                             if (head is None or head.get("ContentLength") != artifact.size_bytes
                                     or head.get("Metadata", {}).get("sha256") != artifact.sha256):
                                 complete = False
@@ -324,7 +332,7 @@ class S3ObjectRepository:
             size = 0
             try:
                 response = self.client.get_object(
-                    Bucket=self.config.bucket, Key=self._key(artifact.filename),
+                    Bucket=self.config.bucket, Key=self._artifact_key(image_id, artifact.filename),
                 )
                 with temporary.open("xb") as output:
                     body = response["Body"]
