@@ -138,17 +138,17 @@ def capture_logical_volume_image(
                 minisign_executable=available.get("minisign"),
             )
             signature_name = manifest_name + ".minisig"
-        repository_fd = os.open(
-            repo, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
-        )
+        from .image_publication import ImagePublicationError, publish_image_set
         names = [artifact_name]
         if signature_name is not None:
             names.append(signature_name)
         names.append(manifest_name)
-        for name in names:
-            os.link(os.path.join(stage, name), name, dst_dir_fd=repository_fd, follow_symlinks=False)
-            published.append(name)
-        os.fsync(repository_fd)
+        try:
+            publish_image_set(repo, stage, names)
+        except FileExistsError as exc:
+            raise LogicalVolumeImageCaptureError("image artifact already exists") from exc
+        except ImagePublicationError as exc:
+            raise LogicalVolumeImageCaptureError(str(exc)) from exc
         committed = True
         return manifest
     except CaptureCancelled:
@@ -156,17 +156,6 @@ def capture_logical_volume_image(
     except (CaptureError, ImageSecurityError, ManifestValidationError, OSError) as exc:
         raise LogicalVolumeImageCaptureError(f"logical-volume image capture failed: {exc}") from exc
     finally:
-        if not committed:
-            for name in reversed(published):
-                try:
-                    if repository_fd is not None:
-                        os.unlink(name, dir_fd=repository_fd)
-                    else:
-                        os.unlink(os.path.join(repo, name))
-                except FileNotFoundError:
-                    pass
-        if repository_fd is not None:
-            os.close(repository_fd)
         shutil.rmtree(stage, ignore_errors=True)
 
 
