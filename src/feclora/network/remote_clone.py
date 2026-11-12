@@ -233,7 +233,7 @@ def _send_remote_disk_impl(
     cancel_check: Callable[[], bool] | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
 ) -> CloneVerificationResult:
-    """Read and send a source disk; success requires receiver read-back acknowledgement."""
+    """Read and send a source block device; success requires receiver read-back acknowledgement."""
     available = executables or {}
     if source_path != header.source_device:
         raise RemoteDiskCloneError("approved source device differs from the session header")
@@ -245,7 +245,7 @@ def _send_remote_disk_impl(
         identity = _device_identity(header.source_device, validator, inspect_real_device=device_validator is None)
         size, sector, read_only, _pttype = _geometry_for(header.source_device, lsblk, runner or subprocess.run, header.device_type)
         if size != header.source_size_bytes or sector != header.logical_sector_size:
-            raise RemoteDiskCloneError("source disk geometry differs from the approved session header")
+            raise RemoteDiskCloneError("source block-device geometry differs from the approved session header")
         if not read_only:
             raise RemoteDiskCloneError(
                 "remote clone source must be marked read-only for the duration of the transfer"
@@ -331,7 +331,7 @@ def _receive_remote_disk_impl(
     progress_callback: Callable[[int, int], None] | None = None,
     header: CloneSessionHeader | None = None,
 ) -> CloneVerificationResult:
-    """Receive one disk, write it with dd, and verify the complete read-back."""
+    """Receive one disk or partition, write it with dd, and verify the complete read-back."""
     available = executables or {}
     validator = device_validator or (lambda path: stat.S_ISBLK(os.stat(path).st_mode))
     safety = safety_check or check_capture_source_safe
@@ -351,9 +351,9 @@ def _receive_remote_disk_impl(
         identity = _device_identity(target, validator, inspect_real_device=device_validator is None)
         target_size, target_sector, read_only, _pttype = _geometry_for(target, lsblk, runner or subprocess.run, header.device_type)
         if read_only:
-            raise RemoteDiskCloneError("receiver target disk is read-only")
+            raise RemoteDiskCloneError("receiver target block device is read-only")
         if target_size < header.source_size_bytes:
-            raise RemoteDiskCloneError("receiver target disk is smaller than the source disk")
+            raise RemoteDiskCloneError("receiver target block device is smaller than the source")
         if target_sector != header.logical_sector_size:
             raise RemoteDiskCloneError("receiver target logical sector size differs from source")
         _check_safe(target, safety)
@@ -437,7 +437,7 @@ def _receive_remote_disk_impl(
                 byte_count=header.source_size_bytes,
                 stream_sha256=stream_result.sha256,
                 readback_sha256=readback,
-                error="receiver disk read-back SHA-256 differs from the received stream",
+                error="receiver block-device read-back SHA-256 differs from the received stream",
             )
             raise RemoteDiskCloneError(failure.error)
         if header.device_type == "disk" and target_size > header.source_size_bytes:
