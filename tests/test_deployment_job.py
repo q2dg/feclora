@@ -115,8 +115,8 @@ class DeploymentJobTests(unittest.TestCase):
             "wwn": "0x5000cca123456789", "serial": "DISK-001",
         }))
 
-    def test_stable_target_bindings_must_cover_every_authorized_client(self):
-        with self.assertRaisesRegex(JobValidationError, "every authorized Client"):
+    def test_stable_target_bindings_must_cover_every_selected_client(self):
+        with self.assertRaisesRegex(JobValidationError, "every selected Client"):
             DeploymentJob.from_dict(valid_job(target_bindings={
                 "52:54:00:12:34:56": {"wwn": "wwn-1", "serial": None},
             }))
