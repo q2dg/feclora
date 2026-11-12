@@ -85,7 +85,7 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
   pending.
 
 PXE boot or possession of an answer URL alone never authorizes a destructive
-write. The authenticated mTLS Remote-jobs workflow remains separate and retains
+write. The Server-authenticated TLS Remote-jobs workflow remains separate and uses
 local Client approval and the Server's explicit ARM step.
 
 ## Build, security and acceptance

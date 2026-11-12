@@ -97,3 +97,12 @@ authorization to read or erase a disk.
   read-back acknowledgement. It is not yet a complete interactive feature:
   persistent journal integration, listener lifecycle, packaged-ISO wiring,
   and physical-device end-to-end validation remain outstanding.
+
+
+## Superseded authentication assumption
+
+The original mutual-TLS requirement is superseded by the current implementation.
+The Client verifies the Server certificate, but does not present a certificate
+or authenticate individually. Both endpoints still require explicit local
+device approval. See [Remote disk clone](../REMOTE-DISK-CLONE.md) for the
+current protocol.
