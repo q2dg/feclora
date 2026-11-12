@@ -299,7 +299,9 @@ export default function App() {
   const isLogicalVolume = operation === "capture_logical_volume" || operation === "restore_logical_volume";
   const deviceOptions = isDisk ? disks : isLogicalVolume ? logicalVolumes : partitions;
   const selectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId) || s3Repositories.find((repo) => repo.id === selectedRepositoryId);
-  const remoteSelectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified) || s3Repositories.find((repo) => repo.id === selectedRepositoryId);
+  const remoteSelectedRepository = remoteOperation === "save"
+    ? s3Repositories.find((repo) => repo.id === selectedRepositoryId && !repo.read_only)
+    : remoteRepositories.find((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified) || s3Repositories.find((repo) => repo.id === selectedRepositoryId);
   const availableImages = selectedRepositoryId ? repositoryImages : images;
   const remoteAvailableImages = remoteSelectedRepository ? repositoryImages : images;
   const matchingImages = availableImages.filter((item) => item.image_type === (isDisk ? "disk" : isLogicalVolume ? "logical_volume" : "partition"));
