@@ -26,7 +26,7 @@ DEVICE_LOCKS = RUNTIME / "local-operation-locks"
 # Stable vocabulary shared by every engine and the Cockpit operation history.
 _PROGRESS_PHASES = frozenset({
     "preflight", "reading", "capturing", "compressing", "encrypting",
-    "signing", "transferring", "publishing", "verifying", "restoring",
+    "transferring", "publishing", "verifying", "restoring",
     "cloning", "checking", "finalizing", "working",
 })
 _DIAGNOSTIC_CATEGORIES = frozenset({
@@ -53,7 +53,7 @@ def _diagnostic_category(exc: BaseException) -> str:
     name = type(exc).__name__.lower()
     if "credential" in name or "secret" in name:
         return "credentials"
-    if "integrity" in name or "digest" in name or "signature" in name:
+    if "integrity" in name or "digest" in name:
         return "integrity"
     if "sftp" in name or "ssh" in name or "network" in name:
         return "network"
@@ -223,8 +223,8 @@ def execute(operation_id: str) -> int:
             safe_result = {
                 key: value for key, value in result.items()
                 if key in {"image_id", "image_type", "source_image_id", "target",
-                           "source", "bytes_copied", "verified", "signed", "encrypted",
-                           "artifact_count", "repository_path", "signature_verified",
+                           "source", "bytes_copied", "verified", "encrypted",
+                           "artifact_count", "repository_path",
                            "artifacts_verified", "published", "manifest_sha256"}
                 and isinstance(value, (str, int, bool, type(None)))
             }
