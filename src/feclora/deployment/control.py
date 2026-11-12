@@ -473,6 +473,10 @@ class DeploymentControlServer:
                     or previous_saved["total_bytes"] != total
                     or completed - previous_saved["completed_bytes"] >= 1024 * 1024
                     or now - previous_saved["monotonic"] >= 5.0
+                    or (
+                        total is not None and completed == total
+                        and previous_saved["completed_bytes"] != completed
+                    )
                 )
             )
             if should_persist:
