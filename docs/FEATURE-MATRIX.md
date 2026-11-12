@@ -56,6 +56,6 @@ creation and laboratory validation are operator-owned steps.
 
 | Area | Capability | Implementation | Cockpit | Verification |
 |---|---|---|---|---|
-| Repositories | S3 object storage | Planned object API adapter; not a mounted filesystem. Requires scoped SigV4 credentials, multipart lifecycle, conditional manifest-last publication and independent manifest authenticity | Not available | API lifecycle, encrypted credential integration, Cockpit workflow and live S3-compatible service acceptance pending |
+| Repositories | S3 object storage | Implemented as a separate object API, never a filesystem mount; see the S3 object repository row above. Remote deployment Server-to-Client workflows are not yet wired to S3. | Cockpit local image workflow | Live S3-compatible provider acceptance and distributed deployment integration pending |
 
 Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
