@@ -157,7 +157,6 @@ export default function App() {
   const [csrPath, setCsrPath] = useState("");
   const [ageRecipientPath, setAgeRecipientPath] = useState("");
   const [clientMac, setClientMac] = useState("");
-  const [clientMinisignPath, setClientMinisignPath] = useState("");
   const [csrReview, setCsrReview] = useState(null);
   const [csrConfirmation, setCsrConfirmation] = useState("");
   const [csrApprovalResult, setCsrApprovalResult] = useState(null);
@@ -1180,7 +1179,7 @@ export default function App() {
                   </Alert>}
                 </CardBody></Card>
               </StackItem>
-              <StackItem><Table aria-label="Feclora image repository" variant="compact"><Thead><Tr><Th>Image</Th><Th>Type</Th><Th>Source size</Th><Th>Signature</Th><Th>Encryption</Th><Th>Artifacts</Th><Th>Verification</Th></Tr></Thead><Tbody>
+              <StackItem><Table aria-label="Feclora image repository" variant="compact"><Thead><Tr><Th>Image</Th><Th>Type</Th><Th>Source size</Th><Th>Encryption</Th><Th>Artifacts</Th><Th>Verification</Th></Tr></Thead><Tbody>
                 {images.map((item) => {
                   const verification = imageVerification[item.image_id];
                   return <Tr key={item.image_id}><Td>{item.image_id}</Td><Td>{item.image_type}</Td><Td>{formatBytes(item.source_size_bytes)}</Td><Td></Td><Td><Label color={item.encrypted ? "green" : "orange"}>{item.encrypted ? "age" : "Plain"}</Label></Td><Td>{item.artifact_count}</Td><Td>
