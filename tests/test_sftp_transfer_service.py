@@ -326,5 +326,23 @@ class SFTPTransferServiceTests(unittest.TestCase):
         pause.assert_not_called()
 
 
+    def test_unverified_download_is_limited_to_manifest_metadata_path(self):
+        from feclora.storage import sftp_transfer_service as service
+
+        with patch.dict(os.environ, {"CREDENTIALS_DIRECTORY": "/run/credentials/test"}), \
+             patch.object(service, "_credential_path", side_effect=["/key", "/known"]), \
+             patch.object(service, "download_file") as download, \
+             patch("sys.stderr", new_callable=io.StringIO):
+            result = service.main([
+                "download", "--host", "sftp.example.net", "--username", "backup",
+                "--remote-path", "/images/not-manifest.json",
+                "--local-path", "/run/stage/manifest.json",
+                "--identity-credential-name", "feclora-backup-ssh-key",
+                "--known-hosts-credential-name", "feclora-backup-known-hosts",
+                "--allow-unverified-metadata",
+            ])
+        self.assertEqual(result, 1)
+        download.assert_not_called()
+
 if __name__ == "__main__":
     unittest.main()
