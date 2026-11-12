@@ -222,7 +222,7 @@ class RemoteCloneProtocolTests(unittest.TestCase):
                 if binary_form:
                     return b"test certificate bytes"
                 return {"subjectAltName": (("DNS", "source.example"),)}
-        verify_peer_identity(FakeTlsSocket(), "Server")
+        verify_peer_identity(FakeTlsSocket(), "DNS:source.example")
         with self.assertRaisesRegex(RemoteCloneProtocolError, "exact SAN"):
             verify_peer_identity(FakeTlsSocket(), "DNS:other.example")
 

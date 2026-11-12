@@ -24,7 +24,7 @@ from feclora.deployment.control import (
 )
 from feclora.deployment.coordinator import DeploymentCoordinator, JobState
 from feclora.deployment.job import DeploymentJob
-from feclora.network.remote_clone_protocol import create_mutual_tls_context
+from feclora.network.remote_clone_protocol import create_tls_context
 from feclora.network.udpcast import UDPcastConfig
 from feclora.deployment.coordinator import ClientState
 
@@ -106,8 +106,7 @@ class ListenerShutdownRaceTests(unittest.TestCase):
              "locally_authorized": True},
         ]
         with patch("feclora.deployment.control._certificate_identity", return_value="URI:feclora-client"), \
-             patch("feclora.deployment.control.verify_peer_identity"), \
-             patch("feclora.deployment.control.receive_control_message", side_effect=messages), \
+                          patch("feclora.deployment.control.receive_control_message", side_effect=messages), \
              patch("feclora.deployment.control.send_control_message"):
             with self.assertRaisesRegex(DeploymentControlError, "stopped during Client admission"):
                 server.accept_ready_client(listener)
@@ -553,7 +552,7 @@ class ClientJoinTests(unittest.TestCase):
                 expected_server_identity="URI:feclora-server",
                 mac_address=MAC, job_id=JOB_ID,
                 prepare_local_target=lambda offered: LocalTargetApproval(
-                    "/dev/vda", "Samsung SSD 1 TB", "ERASE /dev/vda FROM URI:feclora-server",
+                    "/dev/vda", "Samsung SSD 1 TB", "ERASE /dev/vda",
                 ),
                 execute_job=lambda offered, tls, approval: (True, "restore verified"),
             )
@@ -584,7 +583,7 @@ class ClientJoinTests(unittest.TestCase):
         context.verify_mode = ssl.CERT_REQUIRED
         approval = LocalTargetApproval(
             "/dev/vda", "Virtual disk 1",
-            "ERASE /dev/vda FROM URI:feclora-server",
+            "ERASE /dev/vda",
         )
         observed = []
         with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
@@ -624,7 +623,7 @@ class ClientJoinTests(unittest.TestCase):
         context.verify_mode = ssl.CERT_REQUIRED
         approval = LocalTargetApproval(
             "/dev/vdb", "Destination disk",
-            "ERASE /dev/vdb FROM URI:feclora-server",
+            "ERASE /dev/vdb",
         )
         with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
             join_deployment(
@@ -661,7 +660,7 @@ class ClientJoinTests(unittest.TestCase):
                     expected_server_identity="URI:feclora-server",
                     mac_address=MAC, job_id=JOB_ID,
                     prepare_local_target=lambda offered: LocalTargetApproval(
-                        "/dev/vda", "Virtual disk 1", "ERASE /dev/vdb FROM URI:feclora-server",
+                        "/dev/vda", "Virtual disk 1", "ERASE /dev/vdb",
                     ),
                     execute_job=lambda offered, tls, approval: (True, "unexpected"),
                 )
@@ -688,7 +687,7 @@ class ClientJoinTests(unittest.TestCase):
                     mac_address=MAC, job_id=JOB_ID,
                     prepare_local_target=lambda offered: LocalTargetApproval(
                         "/dev/vda", "Local virtual disk",
-                        "ERASE /dev/vda FROM URI:feclora-server",
+                        "ERASE /dev/vda",
                     ),
                     execute_job=lambda offered, tls, approval: (True, "unexpected"),
                 )
@@ -750,7 +749,7 @@ class CoordinatorControlTests(unittest.TestCase):
         self.assertEqual(send.call_args.kwargs["source_path"], "/dev/sda")
         self.assertEqual(
             send.call_args.kwargs["confirmation"],
-            "READ /dev/sda TO URI:feclora-client",
+            "READ /dev/sda",
         )
 
     def test_restore_server_sends_job_bound_transfer_offer_before_image(self):
@@ -925,8 +924,7 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
                 private_key_file=server_key,
             )
             client_context = create_mutual_tls_context(
-                "client", ca_file=ca_cert, certificate_file=client_cert,
-                private_key_file=client_key,
+                "client", ca_file=ca_cert,
             )
             source = os.path.join(directory, "source")
             destination = os.path.join(directory, "destination")
@@ -967,7 +965,7 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
             client_result = []
             approval = LocalTargetApproval(
                 "/dev/vda", "Disposable VM disk",
-                "ERASE /dev/vda FROM URI:feclora-server",
+                "ERASE /dev/vda",
             )
             def client():
                 client_result.append(join_deployment(
@@ -1042,7 +1040,6 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
             )
             client_context = create_mutual_tls_context(
                 "client", ca_file=ca_cert,
-                certificate_file=client_cert, private_key_file=client_key,
             )
             coordinator = DeploymentCoordinator(make_job())
             server = DeploymentControlServer(
@@ -1061,7 +1058,7 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
                         expected_server_identity="URI:feclora-server",
                         mac_address=MAC, job_id=JOB_ID,
                         prepare_local_target=lambda job: LocalTargetApproval(
-                            "/dev/vda", "Virtual disk 1", "ERASE /dev/vda FROM URI:feclora-server",
+                            "/dev/vda", "Virtual disk 1", "ERASE /dev/vda",
                         ),
                         execute_job=lambda job, tls, approval: (True, "simulated protected operation verified"),
                         timeout=10,
@@ -1114,8 +1111,7 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
                 private_key_file=server_key,
             )
             client_context = create_mutual_tls_context(
-                "client", ca_file=ca_cert, certificate_file=client_cert,
-                private_key_file=client_key,
+                "client", ca_file=ca_cert,
             )
             source = os.path.join(directory, "client-image")
             destination = os.path.join(directory, "server-repository")
@@ -1174,7 +1170,7 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
                         mac_address=MAC, job_id=JOB_ID,
                         prepare_local_target=lambda job: LocalTargetApproval(
                             "/dev/vda", "Disposable VM disk",
-                            "READ /dev/vda TO URI:feclora-server",
+                            "READ /dev/vda",
                         ),
                         execute_job=execute_save, timeout=15,
                     )

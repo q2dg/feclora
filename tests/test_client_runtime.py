@@ -53,7 +53,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
     def setUp(self):
         self.approval = LocalTargetApproval(
             "/dev/vda", "Virtual disk 1",
-            "ERASE /dev/vda FROM URI:feclora-server",
+            "ERASE /dev/vda",
         )
         self.block_device = SimpleNamespace(st_mode=stat.S_IFBLK)
 
@@ -122,7 +122,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         tls = FakeTLS()
         approval = LocalTargetApproval(
             "/dev/vda", "Virtual disk 1",
-            "READ /dev/vda TO URI:feclora-server",
+            "READ /dev/vda",
         )
         with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
              patch("feclora.deployment.client_runtime.shutil.which", return_value="/usr/bin/tool"), \
@@ -149,7 +149,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         tls = FakeTLS()
         approval = LocalTargetApproval(
             "/dev/vda", "Virtual disk 1",
-            "READ /dev/vda TO URI:feclora-server",
+            "READ /dev/vda",
         )
         with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
              patch("feclora.deployment.client_runtime.capture_disk") as capture, \
@@ -218,14 +218,14 @@ class ClientImageRuntimeTests(unittest.TestCase):
         self.assertEqual(receive.call_args.kwargs["target_path"], "/dev/vda")
         self.assertEqual(
             receive.call_args.kwargs["confirmation"],
-            "ERASE /dev/vda FROM URI:feclora-server",
+            "ERASE /dev/vda",
         )
 
     def test_restore_rejects_wrong_local_confirmation_before_network_read(self):
         tls = FakeTLS()
         wrong = LocalTargetApproval(
             "/dev/vda", "Virtual disk 1",
-            "ERASE /dev/vdb FROM URI:feclora-server",
+            "ERASE /dev/vdb",
         )
         with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device):
             with self.assertRaisesRegex(ClientImageRuntimeError, "confirmation required"):

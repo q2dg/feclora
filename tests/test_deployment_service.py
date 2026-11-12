@@ -107,16 +107,15 @@ class DeploymentServiceCommandTests(unittest.TestCase):
                     "job_id": service.job.job_id, "confirmation": "ARM wrong",
                 })
 
-    def test_clone_arm_requires_source_and_enrolled_peer_confirmation(self):
+    def test_clone_arm_requires_source_and_device_confirmation(self):
         mac = "02:00:00:00:00:01"
         client = SimpleNamespace(mac_address=mac, state=ClientState.READY, detail=None)
         service = make_service(clients=(client,))
         service.job.operation = "clone"
         service.job.source_device = "/dev/sda"
-        service.config = SimpleNamespace(client_identity_to_mac={"URI:feclora-client": mac})
         expected = (
             "ARM " + service.job.job_id
-            + " AND READ /dev/sda TO URI:feclora-client"
+            + " AND READ /dev/sda"
         )
         with self.assertRaisesRegex(DeploymentServiceError, "exact job-specific"):
             service._handle_ipc("arm", {
