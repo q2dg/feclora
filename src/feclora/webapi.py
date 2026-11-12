@@ -182,8 +182,6 @@ def _security_material() -> dict[str, bool]:
     files = {
         "age_encryption_available": directory / "age-recipients.txt",
         "age_decryption_available": directory / "server.age",
-        "image_signing_available": directory / "server.minisign.key",
-        "image_verification_available": directory / "server.pub",
     }
     result = {"age_executable_available": bool(shutil.which("age"))}
     for label, path in files.items():
@@ -192,8 +190,7 @@ def _security_material() -> dict[str, bool]:
             result[label] = (
                 stat.S_ISREG(info.st_mode) and not stat.S_ISLNK(info.st_mode)
                 and info.st_uid == 0
-                and (label not in {"age_decryption_available", "image_signing_available"}
-                     or not info.st_mode & 0o077)
+                and (label != "age_decryption_available" or not info.st_mode & 0o077)
             )
         except OSError:
             result[label] = False
@@ -201,8 +198,6 @@ def _security_material() -> dict[str, bool]:
     if client:
         result["age_encryption_available"] = result["age_encryption_available"] or bool(client.age_recipients_file)
         result["age_decryption_available"] = result["age_decryption_available"] or bool(client.age_identity_file)
-        result["image_signing_available"] = result["image_signing_available"] or bool(client.local_minisign_secret_key)
-        result["image_verification_available"] = result["image_verification_available"] or bool(client.trusted_server_public_key)
     return result
 
 
@@ -245,7 +240,7 @@ def _renew_server_certificate(params: dict[str, Any]) -> dict[str, Any]:
         "certificate_file": renewed["certificate_file"],
         "ca_fingerprint": renewed["ca_fingerprint"], "expiry_days": days,
         "ca_expiry_days": renewed["ca_expiry_days"],
-        "message": "Server TLS certificate renewed with the existing CA and private key. The CA, Server identity, Client trust and image-signing keys were not changed.",
+        "message": "Server TLS certificate renewed with the existing CA and private key. The CA, Server identity and Client trust were not changed.",
     }
 
 
@@ -341,10 +336,9 @@ def _publish_generated_keypair(staged_paths: tuple[Path, ...], final_paths: tupl
 
 
 def _initialize_security() -> dict[str, Any]:
-    """Initialize TLS identity and opportunistically provision image-security keys.
+    """Initialize TLS identity and optional age encryption material.
 
-    age and minisign are optional image-protection integrations. Their absence
-    must never prevent Server TLS bootstrap or ordinary imaging workflows.
+    Age encryption is optional and must never prevent TLS bootstrap or ordinary imaging.
     """
     from feclora.deployment.managed_pki import initialize_server_pki
 
@@ -389,38 +383,13 @@ def _initialize_security() -> dict[str, Any]:
             )
             created = True
 
-    signing_secret = pki / "server.minisign.key"
-    signing_public = pki / "server.pub"
-    if os.path.lexists(signing_secret) != os.path.lexists(signing_public):
-        raise WebAPIError("partial minisign keypair exists; refusing to regenerate trust material")
-    minisign = shutil.which("minisign")
-    if not os.path.lexists(signing_secret) and minisign:
-        with tempfile.TemporaryDirectory(prefix=".feclora-minisign-keys-", dir=pki) as staging:
-            staged_secret = Path(staging) / "server.minisign.key"
-            staged_public = Path(staging) / "server.pub"
-            generated = subprocess.run(
-                [minisign, "-G", "-s", str(staged_secret), "-p", str(staged_public), "-W"],
-                stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                check=False, timeout=60,
-            )
-            if generated.returncode != 0 or not staged_secret.is_file() or not staged_public.is_file():
-                raise WebAPIError("minisign failed while creating the optional local image-signing key")
-            os.chmod(staged_secret, 0o600)
-            os.chmod(staged_public, 0o644)
-            _publish_generated_keypair(
-                (staged_secret, staged_public), (signing_secret, signing_public),
-            )
-            created = True
-
     security = _security_material()
     unavailable = []
     if not age_keygen:
         unavailable.append("age-keygen")
-    if not minisign:
-        unavailable.append("minisign")
     message = "TLS identity is ready."
     if unavailable:
-        message += " Optional image protection unavailable because these tools are not installed: " + ", ".join(unavailable) + ". Ordinary imaging remains available."
+        message += " Optional age encryption unavailable because this tool is not installed: " + ", ".join(unavailable) + ". Ordinary imaging remains available."
     return {"created": created, **security, "message": message}
 
 
@@ -609,7 +578,6 @@ def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
             "image_type": manifest.image_type,
             "source_size_bytes": manifest.source_size_bytes,
             "logical_sector_size": manifest.logical_sector_size,
-            "signed": os.path.isfile(str(manifest_path) + ".minisig"),
             "encrypted": bool(manifest.artifacts) and all(
                 artifact.encryption == "age" for artifact in manifest.artifacts
             ),
@@ -632,25 +600,6 @@ def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError("selected image manifest identifier does not match its repository name")
     if manifest.image_type != "disk":
         raise WebAPIError("layout inspection requires a whole-disk image")
-    signed = os.path.isfile(str(manifest_path) + ".minisig")
-    if signed:
-        from feclora.storage.image_security import verify_manifest_signature
-        security = _security_material()
-        pki = Path("/etc/feclora/pki")
-        trusted_keys = [pki / "server.pub"] if security["image_verification_available"] else []
-        client_config = _client_runtime_config()
-        if client_config and client_config.trusted_server_public_key:
-            trusted_keys.insert(0, Path(client_config.trusted_server_public_key))
-        verified = False
-        for candidate in dict.fromkeys(trusted_keys):
-            try:
-                verify_manifest_signature(manifest_path, candidate)
-                verified = True
-                break
-            except Exception:
-                continue
-        if not verified:
-            raise WebAPIError("signed disk image does not verify against any locally trusted Feclora signing key")
     disk_artifacts = [item for item in manifest.artifacts if item.role == "disk-image"]
     if len(disk_artifacts) != 1 or disk_artifacts[0].format != "raw":
         raise WebAPIError("whole-disk image must contain exactly one raw disk-image artifact")
@@ -711,29 +660,7 @@ def _verify_image(params: dict[str, Any]) -> dict[str, Any]:
     if manifest.image_id != image_id:
         raise WebAPIError("selected image manifest identifier does not match its repository name")
 
-    from feclora.storage.image_security import verify_manifest_signature
-    signed = os.path.isfile(str(manifest_path) + ".minisig")
-    trusted_keys: list[Path] = []
-    security = _security_material()
-    pki = Path("/etc/feclora/pki")
-    if security["image_verification_available"]:
-        trusted_keys.append(pki / "server.pub")
-    client_config = _client_runtime_config()
-    if client_config and client_config.trusted_server_public_key:
-        trusted_keys.insert(0, Path(client_config.trusted_server_public_key))
-    signature_status = "unsigned"
-    if signed:
-        verified_key = None
-        for candidate in dict.fromkeys(trusted_keys):
-            try:
-                verify_manifest_signature(manifest_path, candidate)
-                verified_key = candidate
-                break
-            except Exception:
-                continue
-        if verified_key is None:
-            raise WebAPIError("manifest signature is present but does not verify against any locally trusted signing key")
-        signature_status = "verified"
+    signature_status = "not-used"
 
     encrypted = any(item.encryption == "age" for item in manifest.artifacts)
     identities: list[Path] = []
