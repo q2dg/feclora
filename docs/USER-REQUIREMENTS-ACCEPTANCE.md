@@ -97,7 +97,7 @@ Feclora does not sign image manifests or use detached signature sidecars. Artifa
 - [ ] Connect remaining provider adapters and separately protected credential references.
 - [x] Resolve exactly one whole-disk target by WWN and/or serial, verify capacity and device safety through the existing restore engine, and recheck stable identity immediately before the first write.
 - [x] Consume the job authorization atomically immediately before the first write to prevent a second write from the same authorization during the current Live session.
-- [ ] Add Server-side PXE serving limits: stop offering the unattended boot/answer workflow after a configured number of clients have been served and/or a configured elapsed-time deadline. The client-count limit is an operational cap, not client authentication; the time limit bounds the exposure window.
+- [ ] Add Server-side PXE serving limits: register each unattended boot by the MAC reported by iPXE and stop admitting new MAC addresses after a configured number of distinct clients and/or an elapsed-time deadline. Repeated requests from an already registered MAC do not consume another slot. MAC is an operational identifier, not authentication; a client can spoof it.
 - [x] Execute NFS-backed whole-disk restores through the existing restore engine with post-write read-back verification and a local operation journal.
 - [ ] Expose the PXE restore result in the normal Cockpit interface.
 - [ ] Ensure the interactive PXE boot opens the same Cockpit experience as ISO Live and does not require the answer file.
