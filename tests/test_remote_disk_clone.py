@@ -177,7 +177,7 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         self.header = CloneSessionHeader(
             session_id=self.header.session_id,
             source_device="/dev/source1",
-            receiver_target_device="/dev/target1",
+            receiver_target_device="/dev/target",
             source_size_bytes=len(self.payload),
             logical_sector_size=512,
             chunk_size_bytes=65536,
