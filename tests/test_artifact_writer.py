@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from feclora.storage.artifact_writer import ArtifactWriteError, write_artifact
 
@@ -109,6 +110,27 @@ class ArtifactWriterTests(unittest.TestCase):
         with self.assertRaises(ArtifactWriteError):
             write_artifact(link, "image.raw", io.BytesIO(self.payload),
                            role="disk-image", image_format="raw")
+
+    def test_rolls_back_final_link_if_staging_unlink_fails(self):
+        real_unlink = os.unlink
+        failed = False
+
+        def fail_staging_unlink(path, *args, **kwargs):
+            nonlocal failed
+            if isinstance(path, str) and path.endswith(".tmp") and not failed:
+                failed = True
+                raise OSError("simulated staging unlink failure")
+            return real_unlink(path, *args, **kwargs)
+
+        with patch("feclora.storage.artifact_writer.os.unlink", side_effect=fail_staging_unlink):
+            with self.assertRaises(ArtifactWriteError):
+                write_artifact(
+                    self.temp.name, "interrupted.img", io.BytesIO(self.payload),
+                    role="disk-image", image_format="raw",
+                )
+
+        self.assertFalse(os.path.lexists(os.path.join(self.temp.name, "interrupted.img")))
+        self.assertEqual(os.listdir(self.temp.name), [])
 
     def test_rejects_empty_input_and_removes_temporary_file(self):
         with self.assertRaisesRegex(ArtifactWriteError, "empty"):
