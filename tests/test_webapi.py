@@ -1183,7 +1183,8 @@ class WebAPITests(unittest.TestCase):
             "known_hosts_file": "/etc/feclora/known_hosts", "port": 22,
             "read_only": True,
         }
-        with patch("feclora.webapi._remote_repository_manager", return_value=manager):
+        with patch("feclora.webapi._remote_repository_manager", return_value=manager), \
+             patch("feclora.storage.s3_repository_manager.S3RepositoryManager.list", return_value=[]):
             self.assertEqual(dispatch({"action": "remote_repositories"}), {
                 "repositories": [{"id": "images", "mounted": False}],
             })
@@ -1212,7 +1213,8 @@ class WebAPITests(unittest.TestCase):
             "credential_file": None, "identity_file": None, "known_hosts_file": None,
             "port": None, "read_only": True,
         }
-        with patch("feclora.webapi._remote_repository_manager", return_value=manager):
+        with patch("feclora.webapi._remote_repository_manager", return_value=manager), \
+             patch("feclora.storage.s3_repository_manager.S3RepositoryManager.list", return_value=[]):
             self.assertEqual(dispatch({"action": "update_remote_repository", "params": definition}),
                              {"id": "images", "updated": True})
             self.assertEqual(dispatch({"action": "check_remote_repository", "params": {"id": "images"}}),
