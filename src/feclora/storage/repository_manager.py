@@ -502,6 +502,7 @@ class RemoteRepositoryManager:
         entries = self._load()
         if identifier not in entries:
             raise RepositoryManagerError("unknown repository ID")
+        repo = _repository(identifier, entries[identifier], owner_uid=self.owner_uid)
         lock_fd = self._acquire_usage_lock(identifier, exclusive=True)
         try:
             mountpoint = self.mount_root / identifier
@@ -528,11 +529,22 @@ class RemoteRepositoryManager:
                         detail = (stopped.stderr or stopped.stdout or "").strip()[:512]
                         raise RepositoryManagerError("repository mount service could not stop" + (f": {detail}" if detail else ""))
                 if self._is_mounted(str(mountpoint)):
+                    umount = self.which("umount") or "umount"
                     result = self.runner(
-                        [self.which("umount") or "umount", "--", str(mountpoint)],
+                        [umount, "--", str(mountpoint)],
                         stdin=subprocess.DEVNULL, capture_output=True, text=True,
                         check=False, timeout=30,
                     )
+                    # A disconnected hard-mounted NFS export can reject a
+                    # normal unmount. Once the exclusive usage lease is held,
+                    # no Feclora restore can be using this mount; retry only
+                    # NFS with the kernel-supported forced-unmount operation.
+                    if result.returncode != 0 and repo.provider == "nfs":
+                        result = self.runner(
+                            [umount, "--force", "--", str(mountpoint)],
+                            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                            check=False, timeout=30,
+                        )
                 else:
                     result = type("Result", (), {"returncode": 0, "stderr": "", "stdout": ""})()
             except (OSError, subprocess.SubprocessError) as exc:
