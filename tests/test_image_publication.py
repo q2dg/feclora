@@ -9,6 +9,15 @@ from feclora.storage.image_publication import (
 
 
 class ImagePublicationTests(unittest.TestCase):
+    def test_rejects_path_separators_and_nul_in_publication_names(self):
+        with tempfile.TemporaryDirectory() as repository:
+            stage = os.path.join(repository, ".stage")
+            os.mkdir(stage)
+            for name in ("nested/payload.img", "nested\\\\payload.img", "payload\\x00.img"):
+                with self.subTest(name=repr(name)):
+                    with self.assertRaises(ImagePublicationError):
+                        publish_image_set(repository, stage, [name])
+
     def test_publishes_manifest_last_and_preserves_payload(self):
         with tempfile.TemporaryDirectory() as repository:
             stage = os.path.join(repository, ".stage")
