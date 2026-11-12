@@ -347,7 +347,7 @@ See [Remote image repositories](REMOTE-REPOSITORIES.md) for the Cockpit encrypte
 
 Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
-Remote file-repository types in the intended scope are SSHFS, SFTP, NFS,
+Remote file-repository types in the intended scope are SSHFS, NFS,
 SMB/CIFS, WebDAV and S3. WebDAV requires isolated per-repository credentials;
 the global davfs2 secrets file is not an acceptable workaround. S3 requires a
 dedicated object API adapter and is not currently implemented. NVMe-oF is a
