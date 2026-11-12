@@ -29,12 +29,9 @@ class ImageSecurityTests(unittest.TestCase):
             (self.recipients, ("age1" + "a" * 40 + "\n").encode("ascii")),
             (self.identity, b"AGE-SECRET-KEY-1EXAMPLE\n"),
             (self.manifest, b'{"schema_version":1}\n'),
-            (self.secret, b"untrusted test key placeholder"),
-            (self.public, b"untrusted test public placeholder"),
         ):
             with open(path, "wb") as stream:
                 stream.write(data)
-        os.chmod(self.secret, 0o600)
         self.artifact = ImageArtifact(
             filename="disk.raw.gz", role="disk-image", format="raw",
             compression="gzip", size_bytes=len(b"compressed bytes"),
