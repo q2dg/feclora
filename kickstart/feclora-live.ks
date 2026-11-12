@@ -62,6 +62,7 @@ syslinux
 fuse-sshfs
 nfs-utils
 cifs-utils
+age
 partclone
 zstd
 lz4
