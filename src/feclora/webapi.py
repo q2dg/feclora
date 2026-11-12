@@ -484,10 +484,15 @@ def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
 
 
 def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
+    image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+    with _operation_repository_context(params, write=False, image_id=image_id) as repository:
+        return _inspect_image_layout_from_repository(params, repository)
+
+
+def _inspect_image_layout_from_repository(params: dict[str, Any], repository: Path) -> dict[str, Any]:
     if set(params) not in ({"image_id"}, {"image_id", "repository_id"}):
         raise WebAPIError("inspect_image_layout requires image_id and optional repository_id")
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-    repository = _operation_repository(params, write=False)
     manifest_path = _image_manifest(image_id, repository)
     try:
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
@@ -544,11 +549,16 @@ def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _verify_image(params: dict[str, Any]) -> dict[str, Any]:
+    image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+    with _operation_repository_context(params, write=False, image_id=image_id) as repository:
+        return _verify_image_from_repository(params, repository)
+
+
+def _verify_image_from_repository(params: dict[str, Any], repository: Path) -> dict[str, Any]:
     """Read-only, end-to-end verification of every stored image artifact."""
     if set(params) not in ({"image_id"}, {"image_id", "repository_id"}):
         raise WebAPIError("verify_image requires image_id and optional repository_id")
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-    repository = _operation_repository(params, write=False)
     manifest_path = _image_manifest(image_id, repository)
     try:
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
