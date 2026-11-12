@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-from feclora.storage.profile_executor import _consume_profile_once, _matching_target, _require_persistent_ledger
+from feclora.storage.profile_executor import _consume_profile_once, _matching_target, _require_persistent_ledger, main
 from feclora.storage.restore_profile import RestoreProfileError
 
 
@@ -82,6 +82,54 @@ class ProfileConsumptionLedgerTests(unittest.TestCase):
             with self.assertRaises(RestoreProfileError):
                 _consume_profile_once("profile-789", link)
 
+
+
+class ProfileExecutorCliTests(unittest.TestCase):
+    def test_environment_file_values_are_used_as_cli_defaults(self):
+        environment = {
+            "FECLORA_PROFILE": "/profiles/restore.json",
+            "FECLORA_IMAGE_REPOSITORY": "/mnt/images",
+            "FECLORA_CONSUMPTION_LEDGER": "/mnt/audit/consumed.jsonl",
+            "FECLORA_OPERATION_LOG": "/mnt/audit/operations.jsonl",
+            "FECLORA_AGE_IDENTITY": "/etc/feclora/identity.txt",
+        }
+        manifest = type("Manifest", (), {"image_id": "image-1"})()
+        with patch.dict(os.environ, environment, clear=True), patch(
+            "feclora.storage.profile_executor.execute_unattended_restore_profile",
+            return_value=manifest,
+        ) as execute:
+            self.assertEqual(main([]), 0)
+        execute.assert_called_once_with(
+            "/profiles/restore.json",
+            consumption_ledger="/mnt/audit/consumed.jsonl",
+            operation_log_path="/mnt/audit/operations.jsonl",
+            repository="/mnt/images",
+            age_identity_file="/etc/feclora/identity.txt",
+        )
+
+    def test_explicit_cli_arguments_override_environment_defaults(self):
+        environment = {
+            "FECLORA_PROFILE": "/profiles/from-env.json",
+            "FECLORA_CONSUMPTION_LEDGER": "/mnt/audit/from-env.jsonl",
+            "FECLORA_OPERATION_LOG": "/mnt/audit/from-env-ops.jsonl",
+        }
+        manifest = type("Manifest", (), {"image_id": "image-2"})()
+        with patch.dict(os.environ, environment, clear=True), patch(
+            "feclora.storage.profile_executor.execute_unattended_restore_profile",
+            return_value=manifest,
+        ) as execute:
+            self.assertEqual(main([
+                "--profile", "/profiles/explicit.json",
+                "--consumption-ledger", "/mnt/audit/explicit.jsonl",
+                "--operation-log", "/mnt/audit/explicit-ops.jsonl",
+            ]), 0)
+        execute.assert_called_once_with(
+            "/profiles/explicit.json",
+            consumption_ledger="/mnt/audit/explicit.jsonl",
+            operation_log_path="/mnt/audit/explicit-ops.jsonl",
+            repository="/home/feclora/images",
+            age_identity_file=None,
+        )
 
 if __name__ == "__main__":
     unittest.main()
