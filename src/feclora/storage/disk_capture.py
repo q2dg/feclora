@@ -167,9 +167,7 @@ def capture_disk(
     manifest_filename = image_id + ".manifest.json"
     stage = tempfile.mkdtemp(prefix=".feclora-disk-", dir=repo)
     process = None
-    published: list[str] = []
     committed = False
-    repository_fd = None
     try:
         table_artifact = write_artifact(
             stage, table_filename, __import__("io").BytesIO(table_text.encode("utf-8")),
