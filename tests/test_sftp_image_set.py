@@ -108,7 +108,7 @@ class SFTPImageSetTests(unittest.TestCase):
 
     def test_fetch_never_overwrites_existing_repository_artifact(self):
         remote = self._remote_files()
-        marker = self.root / "part-1.img"
+        marker = self.root / "repository" / "part-1.img"
         marker.write_bytes(b"keep")
         def transfer(**kw):
             name = kw["remote_path"].rsplit("/", 1)[-1]
