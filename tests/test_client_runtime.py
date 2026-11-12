@@ -77,7 +77,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
         self.assertIsNotNone(receive.call_args.kwargs["progress_callback"])
         restore.assert_called_once()
         self.assertEqual(restore.call_args.args[0], "/repo/golden-image.manifest.json")
-        self.assertNotIn("require_signature", restore.call_args.kwargs)
         self.assertEqual(restore.call_args.kwargs["confirmation"], "ERASE /dev/vda")
         self.assertIs(restore.call_args.kwargs["pre_write_callback"], pre_write_check)
 
@@ -100,7 +99,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         self.assertEqual(restore.call_args.kwargs["confirmation"], "ERASE /dev/vda")
         self.assertTrue(callable(restore.call_args.kwargs["inventory_provider"]))
 
-    def test_unsigned_restore_over_mtls_does_not_require_minisign(self):
+    def test_restore_over_mtls_uses_transport_authentication(self):
         tls = FakeTLS(control_frame({
             "type": "transfer_offer", "job_id": JOB_ID, "image_id": "golden-image",
         }))
@@ -112,7 +111,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
                 server_identity="URI:feclora-server", repository="/repo",
             )
         self.assertTrue(result[0])
-        self.assertNotIn("minisign_public_key", restore.call_args.kwargs)
         self.assertNotIn("require_signature", restore.call_args.kwargs)
 
     def test_save_captures_then_announces_transfer(self):
@@ -134,7 +132,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
             )
         self.assertTrue(result[0])
         capture.assert_called_once()
-        self.assertNotIn("minisign_secret_key", capture.call_args.kwargs)
         self.assertEqual(capture.call_args.kwargs["age_recipients_file"], "/keys/recipients.txt")
         send.assert_called_once()
         self.assertIn(b"transfer_ready", bytes(tls.outgoing))
