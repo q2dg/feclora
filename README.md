@@ -23,7 +23,7 @@ It is not a fork of Clonezilla and does not depend on its repository, branches, 
 4. **Safe operations:** make destructive actions explicit, validate source and target devices, and provide dry-run or confirmation paths where feasible.
 5. **Reproducibility:** pin build inputs where practical and record package versions and build metadata.
 6. **Tested compatibility:** document filesystem, partition-table, encryption, transport, firmware, and hardware coverage rather than assuming parity.
-7. **Reuse mature system tools:** orchestrate Partclone, UDPcast, NetworkManager, OpenSSL, systemd, SSH/SFTP, NFS, SMB and davfs2 instead of reimplementing their capabilities. Integrate maintained transports such as BitTorrent as first-class distribution paths where they meet the product's security and acceptance requirements.
+7. **Reuse mature system tools:** orchestrate Partclone, UDPcast, NetworkManager, OpenSSL, systemd, SSH/SFTP, NFS, SMB and davfs2 instead of reimplementing their capabilities. Integrate S3 through a maintained object-storage API and NVMe-oF through the Linux NVMe host stack; treat object repositories and remote block namespaces as distinct storage abstractions.
 
 ## Build and test
 
