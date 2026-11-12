@@ -117,7 +117,7 @@ Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS ke
 - [x] Remove image-manifest signing and key management entirely; retain age recipient/identity rotation separately from TLS PKI.
 - [ ] Expose preflight, per-client status, expiry, progress and rollback in Cockpit.
 - [ ] Test mixed-version clients, interrupted rotation, expiry, wrong SAN/fingerprint and lost Server state.
-Acceptance: certificate enrollment, renewal, trust and revocation remain auditable; private material never enters logs/browser state. PKI backup/restore is not a project requirement.
+Acceptance: certificate enrollment, renewal, trust and revocation remain auditable; private material never enters logs/browser state.
 
 ## P0 — Remote repositories and credentials
 Repository-related abstractions/tests already exist; inspect and extend them rather than creating a second implementation. Architectural boundary: every SSH/ NFS, SMB/CIFS, WebDAV and S3 service, and every NVMe-oF subsystem/namespace, is external and independently administered. Feclora implements client-side connection, credential handling, mount/transfer, integrity, lifecycle of its own client processes, and failure reporting only; it does not deploy or configure remote servers, exports, shares, buckets or NVMe-oF subsystems.
