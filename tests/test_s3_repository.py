@@ -137,6 +137,30 @@ class S3RepositoryTests(unittest.TestCase):
             self.assertEqual(downloaded_manifest.name, "lv-one.manifest.json")
             self.assertEqual((destination / "lv-one.raw").read_bytes(), payload)
 
+    def test_inventory_ignores_noncanonical_nested_manifest_keys(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            payload = b"image"
+            (root / "lv-one.raw").write_bytes(payload)
+            artifact = ImageArtifact(
+                filename="lv-one.raw", role="partition-image", format="raw",
+                compression="none", size_bytes=len(payload), partition_id="p1",
+                sha256=hashlib.sha256(payload).hexdigest(),
+            )
+            manifest = ImageManifest(
+                image_id="lv-one", image_type="partition",
+                source_size_bytes=len(payload), logical_sector_size=512,
+                partition_table="none", artifacts=(artifact,),
+            )
+            (root / "lv-one.manifest.json").write_text(manifest.to_json(), encoding="utf-8")
+            client = _S3()
+            repository = S3ObjectRepository(_config(), client=client)
+            repository.upload_image_set(root, "lv-one")
+            manifest_key = "server-a/images/lv-one.manifest.json"
+            data, metadata = client.objects.pop(manifest_key)
+            client.objects["server-a/images/nested/lv-one.manifest.json"] = (data, metadata)
+            self.assertEqual(repository.list_images(), [])
+
     def test_upload_refuses_existing_manifest_and_read_only(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
