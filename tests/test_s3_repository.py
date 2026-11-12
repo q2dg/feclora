@@ -143,12 +143,12 @@ class S3RepositoryTests(unittest.TestCase):
             payload = b"image"
             (root / "lv-one.raw").write_bytes(payload)
             artifact = ImageArtifact(
-                filename="lv-one.raw", role="logical-volume-image", format="raw",
-                compression="none", size_bytes=len(payload),
+                filename="lv-one.raw", role="partition-image", format="raw",
+                compression="none", size_bytes=len(payload), partition_id="p1",
                 sha256=hashlib.sha256(payload).hexdigest(),
             )
             manifest = ImageManifest(
-                image_id="lv-one", image_type="logical_volume",
+                image_id="lv-one", image_type="partition",
                 source_size_bytes=len(payload), logical_sector_size=512,
                 partition_table="none", artifacts=(artifact,),
             )
