@@ -13,8 +13,8 @@ import zlib
 from contextlib import contextmanager
 from typing import Any, Callable
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
-from .image_security import (ImageSecurityError, decrypt_artifact_stream_to_temp,
-                             decrypt_artifact_stream_with_passphrase_to_temp, verify_manifest_signature)
+from .image_security import (decrypt_artifact_stream_to_temp,
+                             decrypt_artifact_stream_with_passphrase_to_temp)
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 from .compression import CompressionError, ExternalDecompressionStream
@@ -173,17 +173,11 @@ def restore_disk(
     progress_callback: Callable[[int, int], None] | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
     age_passphrase: str | None = None,
-    minisign_public_key: str | os.PathLike[str] | None = None,
-    require_signature: bool = False,
-    ignore_signature: bool = False,
     pre_write_callback: Callable[[], None] | None = None,
 ) -> ImageManifest:
     """Restore a verified raw whole-disk image to a whole-disk block device.
 
     confirmation must equal the exact phrase ERASE followed by target_path.
-    ignore_signature explicitly skips an optional minisign sidecar and is
-    reserved for callers that use a different operator-selected trust model.
-    It cannot be combined with required or configured signature verification.
     """
     if not isinstance(target_path, str) or not target_path.startswith("/dev/"):
         raise DiskRestoreError("target must be an absolute /dev/ path")
@@ -218,42 +212,6 @@ def restore_disk(
             manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
     except (OSError, UnicodeError, ManifestValidationError) as exc:
         raise DiskRestoreError(f"cannot load valid image manifest: {exc}") from exc
-
-    if not isinstance(ignore_signature, bool):
-        raise DiskRestoreError("ignore_signature must be a boolean")
-    if ignore_signature and (require_signature or minisign_public_key is not None):
-        raise DiskRestoreError("ignore_signature cannot be combined with required or configured signature verification")
-    signature_path = manifest_file + ".minisig"
-    signature_present = os.path.lexists(signature_path)
-    if not ignore_signature and require_signature and not signature_present:
-        raise DiskRestoreError("a minisign signature is required but this image has none")
-    if not ignore_signature and signature_present and minisign_public_key is None:
-        raise DiskRestoreError("image is signed; a trusted minisign public key is required before restore")
-    if not ignore_signature and minisign_public_key is not None:
-        if not signature_present:
-            raise DiskRestoreError("minisign public key supplied but image signature is missing")
-        staged_manifest = None
-        try:
-            with tempfile.NamedTemporaryFile(prefix="feclora-manifest-verify-", delete=False) as staged:
-                staged.write(manifest_bytes)
-                staged.flush()
-                os.fsync(staged.fileno())
-                staged_manifest = staged.name
-            verify_manifest_signature(
-                staged_manifest, minisign_public_key,
-                signature_path=signature_path,
-                minisign_executable=(executables or {}).get("minisign"),
-            )
-        except (ImageSecurityError, OSError) as exc:
-            raise DiskRestoreError(f"manifest signature verification failed: {exc}") from exc
-        finally:
-            if staged_manifest is not None:
-                try:
-                    os.unlink(staged_manifest)
-                except FileNotFoundError:
-                    pass
-    elif not ignore_signature and require_signature:
-        raise DiskRestoreError("signature verification requires a trusted minisign public key")
 
     if manifest.image_type != "disk":
         raise DiskRestoreError("whole-disk restore requires a disk image manifest")
