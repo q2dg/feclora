@@ -293,7 +293,7 @@ export default function App() {
   const clientRemoteDeviceOptions = clientRemoteJob?.target_type === "logical_volume" ? logicalVolumes : clientRemoteJob?.target_type === "partition" ? partitions : disks;
   const clientRemoteConfirmationPhrase = clientRemoteJob && clientRemoteTarget
     ? (clientRemoteJob.operation === "restore" || clientRemoteJob.operation === "clone"
-      ? `ERASE ${clientRemoteTarget} FROM ${clientRemoteInspection.server_identity}`
+      ? `ERASE ${clientRemoteTarget}`
       : `READ ${clientRemoteTarget} TO ${clientRemoteInspection.server_identity}`)
     : "";
   const isCapture = operation.startsWith("capture_");
