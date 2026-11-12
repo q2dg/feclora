@@ -13,7 +13,7 @@ class ImagePublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as repository:
             stage = os.path.join(repository, ".stage")
             os.mkdir(stage)
-            for name in ("nested/payload.img", "nested\\\\payload.img", "payload\\x00.img"):
+            for name in ("nested/payload.img", "nested\\payload.img", "payload\x00.img"):
                 with self.subTest(name=repr(name)):
                     with self.assertRaises(ImagePublicationError):
                         publish_image_set(repository, stage, [name])
