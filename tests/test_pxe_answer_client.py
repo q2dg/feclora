@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import io
 import json
 import os
 import tempfile
@@ -13,6 +15,7 @@ from feclora.network.pxe_answer_client import (
     fetch_live_pxe_answer,
     execute_live_pxe_restore,
     _wait_for_age_passphrase,
+    _download_https_object,
 )
 
 
@@ -122,6 +125,85 @@ class PXEAnswerClientTests(unittest.TestCase):
             self.assertTrue(restore_call.call_args.kwargs["ignore_signature"])
             self.assertTrue((log_dir / "operations.jsonl").is_file())
 
+    def test_https_repository_uses_verified_temporary_staging_and_existing_restore_engine(self):
+        with tempfile.TemporaryDirectory() as root:
+            log_dir = Path(root) / "state"
+            log_dir.mkdir(mode=0o700)
+            manifest = SimpleNamespace(image_id="golden", image_type="disk", artifacts=())
+            target = {"path": "/dev/sdb", "type": "disk", "wwn": "0x5000c50012345678", "serial": None}
+            staged = []
+            def stage(url, image_id, directory):
+                staged.append((url, image_id, directory))
+                path = directory / "golden.manifest.json"
+                path.write_text("{}", encoding="utf-8")
+                return path
+            def restore(*args, **kwargs):
+                kwargs["pre_write_callback"]()
+            with patch("feclora.network.pxe_answer_client._stage_https_repository", side_effect=stage), \
+                 patch("feclora.network.pxe_answer_client._resolve_target", return_value=target), \
+                 patch("feclora.network.pxe_answer_client._revalidate_target") as revalidate, \
+                 patch("feclora.network.pxe_answer_client.ImageManifest.from_json", return_value=manifest), \
+                 patch("feclora.network.pxe_answer_client.restore_disk", side_effect=restore) as restore_call:
+                resolved = execute_live_pxe_restore({
+                    "image_id": "golden",
+                    "repository_url": "https://objects.example.net/feclora/images",
+                    "target": {"wwn": "0x5000c50012345678", "serial": None},
+                }, operation_log=log_dir / "operations.jsonl")
+            self.assertEqual(resolved, "/dev/sdb")
+            self.assertEqual(len(staged), 1)
+            self.assertEqual(staged[0][0], "https://objects.example.net/feclora/images")
+            self.assertTrue(staged[0][2].is_dir() is False)
+            revalidate.assert_called_once()
+            self.assertTrue(restore_call.call_args.kwargs["ignore_signature"])
+            self.assertTrue((log_dir / "operations.jsonl").is_file())
+
+    def test_https_object_download_checks_size_and_sha256(self):
+        payload = b"verified artifact bytes"
+        class Headers(dict):
+            pass
+        class Response(io.BytesIO):
+            status = 200
+            headers = Headers({"Content-Length": str(len(payload))})
+            def __enter__(self):
+                return self
+            def __exit__(self, *_args):
+                self.close()
+        class Opener:
+            def open(self, *_args, **_kwargs):
+                return Response(payload)
+        with patch("feclora.network.pxe_answer_client.urllib.request.build_opener", return_value=Opener()):
+            result = _download_https_object(
+                "https://objects.example.net/prefix/golden/disk.img",
+                max_bytes=len(payload), expected_size=len(payload),
+                expected_sha256=hashlib.sha256(payload).hexdigest(),
+            )
+        self.assertEqual(result, payload)
+
+    def test_https_object_download_rejects_checksum_mismatch_and_removes_partial_file(self):
+        payload = b"untrusted artifact"
+        class Headers(dict):
+            pass
+        class Response(io.BytesIO):
+            status = 200
+            headers = Headers({"Content-Length": str(len(payload))})
+            def __enter__(self):
+                return self
+            def __exit__(self, *_args):
+                self.close()
+        class Opener:
+            def open(self, *_args, **_kwargs):
+                return Response(payload)
+        with tempfile.TemporaryDirectory() as root:
+            destination = Path(root) / "artifact.img"
+            with patch("feclora.network.pxe_answer_client.urllib.request.build_opener", return_value=Opener()):
+                with self.assertRaisesRegex(PXEAnswerClientError, "SHA-256"):
+                    _download_https_object(
+                        "https://objects.example.net/prefix/golden/disk.img",
+                        destination=destination, max_bytes=len(payload),
+                        expected_size=len(payload), expected_sha256="0" * 64,
+                    )
+            self.assertFalse(destination.exists())
+
     def test_age_encrypted_pxe_image_requests_passphrase_and_forwards_it_to_restore(self):
         with tempfile.TemporaryDirectory() as root:
             mountpoint = Path(root) / "repository"
@@ -172,7 +254,7 @@ class PXEAnswerClientTests(unittest.TestCase):
                     _wait_for_age_passphrase(secret, timeout=1)
 
     def test_non_nfs_provider_fails_closed(self):
-        with self.assertRaisesRegex(PXEAnswerClientError, "NFS repositories only"):
+        with self.assertRaisesRegex(PXEAnswerClientError, "supports NFS and credential-free HTTPS"):
             execute_live_pxe_restore({
                 "image_id": "golden",
                 "repository_url": "sftp://repo.example/images",
