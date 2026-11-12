@@ -423,7 +423,7 @@ export default function App() {
     setRepositoryId(""); setRepositoryEditing(false); setRepositoryProvider("sshfs");
     setRepositoryHost(""); setRepositoryPath("/images"); setRepositoryUsername("");
     setRepositoryIdentity(""); setRepositoryKnownHosts(""); setRepositoryCredentials("");
-    setRepositoryRcloneRemote(""); setRepositoryPort("22"); setRepositoryReadOnly(true);
+    setRepositoryPort("22"); setRepositoryReadOnly(true);
   };
 
   const runRemoteRepositoryAction = async (action, id) => {
