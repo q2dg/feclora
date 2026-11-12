@@ -91,6 +91,7 @@ class ImageSecurityTests(unittest.TestCase):
                 "args = sys.argv[1:]\n"
                 "output = args[args.index('--output') + 1]\n"
                 "source = args[-1]\n"
+                "sys.stderr.write('Enter passphrase:'); sys.stderr.flush()\n"
                 "if sys.stdin.buffer.readline() != b'secret' + bytes([10]): sys.exit(3)\n"
                 "with open(source, 'rb') as src, open(output, 'wb') as dst: shutil.copyfileobj(src, dst)\n"
             )
@@ -99,7 +100,12 @@ class ImageSecurityTests(unittest.TestCase):
             staged = decrypt_artifact_stream_with_passphrase_to_temp(
                 source, "secret", self.root, age_executable=fake_age,
             )
-        self.addCleanup(lambda: os.path.exists(staged) and os.unlink(staged))
+        def cleanup_staged():
+            if os.path.exists(staged):
+                os.unlink(staged)
+            if os.path.isdir(os.path.dirname(staged)):
+                os.rmdir(os.path.dirname(staged))
+        self.addCleanup(cleanup_staged)
         self.assertEqual(open(staged, "rb").read(), b"ciphertext")
         self.assertEqual(os.stat(staged).st_mode & 0o777, 0o600)
 
@@ -112,6 +118,7 @@ class ImageSecurityTests(unittest.TestCase):
             script.write(
                 "#!/usr/bin/python3\n"
                 "import sys\n"
+                "sys.stderr.write('Enter passphrase:'); sys.stderr.flush()\n"
                 "if sys.stdin.buffer.readline() != b'secret' + bytes([10]): sys.exit(3)\n"
             )
         os.chmod(fake_age, 0o700)
@@ -120,7 +127,7 @@ class ImageSecurityTests(unittest.TestCase):
                 decrypt_artifact_stream_with_passphrase_to_temp(
                     source, "wrong", self.root, age_executable=fake_age,
                 )
-        self.assertFalse(any(name.startswith(".feclora-decrypted-") for name in os.listdir(self.root)))
+        self.assertFalse(any(name.startswith(".feclora-age-") for name in os.listdir(self.root)))
 
     def test_sign_and_verify_manifest(self):
         signature = self.manifest + ".minisig"
