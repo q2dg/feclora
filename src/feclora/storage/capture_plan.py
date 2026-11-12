@@ -197,14 +197,17 @@ def plan_storage_capture(
                     item.get("devid") for item in member_records
                     if isinstance(item.get("devid"), int)
                 }
-                invalid_chunks = [
-                    chunk for chunk in chunks
-                    if not isinstance(chunk, dict)
-                    or chunk.get("device_mapping_complete") is not True
-                    or not isinstance(chunk.get("device_ids"), list)
-                    or not chunk.get("device_ids")
-                    or not set(chunk.get("device_ids", [])).issubset(member_ids)
-                ]
+                def chunk_mapping_is_valid(chunk: Any) -> bool:
+                    if not isinstance(chunk, dict) or chunk.get("device_mapping_complete") is not True:
+                        return False
+                    device_ids = chunk.get("device_ids")
+                    return (
+                        isinstance(device_ids, list) and bool(device_ids)
+                        and all(isinstance(value, int) and not isinstance(value, bool) for value in device_ids)
+                        and set(device_ids).issubset(member_ids)
+                    )
+
+                invalid_chunks = [chunk for chunk in chunks if not chunk_mapping_is_valid(chunk)]
                 if invalid_chunks:
                     blockers.append("Btrfs chunk stripe-to-device dependencies are incomplete or ambiguous.")
                 dependencies.append({
