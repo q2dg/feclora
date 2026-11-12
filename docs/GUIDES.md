@@ -53,8 +53,7 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
 - [Deployment control (Server-authenticated TLS)](DEPLOYMENT-CONTROL.html) — protocol,
   job authorization and lifecycle details.
 - [Remote repositories](REMOTE-REPOSITORIES.html) — **Partial**. SSHFS, NFS
-  and SMB/CIFS mounted-provider integration exists. WebDAV and S3 are not
-  complete provider workflows; NVMe-oF host access is not implemented.
+  and SMB/CIFS mounted-provider integration exists. S3 object-repository integration is in progress.
 - [Acceptance procedures](ACCEPTANCE-TESTS.html) — operator-run tests for
   remote services, multiple Clients, interruption and physical networks.
 
