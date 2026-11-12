@@ -717,7 +717,7 @@ class DeploymentControlServer:
                 raise DeploymentControlError("multicast image manifest contains no artifacts")
             for artifact in manifest.artifacts:
                 verify_artifact_file(os.path.join(repository, artifact.filename), artifact)
-        except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError, UDPcastError) as exc:
+        except (OSError, UnicodeError, ManifestValidationError, UDPcastError) as exc:
             raise DeploymentControlError(f"cannot verify multicast image manifest: {exc}") from exc
         expected_macs = tuple(sorted(job.authorized_clients))
         started = self.arm_and_start()
