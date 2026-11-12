@@ -47,5 +47,4 @@ Clients have no certificates.
 - No trust-on-first-network-contact.
 - No export or transfer of the CA or Server private key.
 - No OCSP/CRL requirement or public Internet dependency.
-- No PKI backup or restore workflow.
 - No conflation of TLS keys with optional image-signing or encryption keys.
