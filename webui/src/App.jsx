@@ -151,7 +151,6 @@ export default function App() {
   const [clientRemoteConfirmation, setClientRemoteConfirmation] = useState("");
   const [clientRemoteCompression, setClientRemoteCompression] = useState("gzip");
   const [clientRemoteEncrypt, setClientRemoteEncrypt] = useState(false);
-  const [clientRemoteSign, setClientRemoteSign] = useState(false);
   const [clientRemoteInterface, setClientRemoteInterface] = useState("");
   const [clientRemoteIgmpConfirmed, setClientRemoteIgmpConfirmed] = useState(false);
   const [clientRemoteJobStatus, setClientRemoteJobStatus] = useState(null);
@@ -339,7 +338,7 @@ export default function App() {
         known_hosts_credential: sftpKnownHosts
       } : null;
       if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt: encrypt || encryptPassphraseMode, ...(encryptPassphraseMode ? { encrypt_passphrase: true } : {}), ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
-      else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
+      else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (operation === "capture_logical_volume") params = { source, image_id: imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (isRestore) {
         const sftpSource = !isLogicalVolume && restoreFromSftp && sftpInspectionMatchesCurrent ? {
@@ -952,7 +951,6 @@ export default function App() {
         device_path: clientRemoteTarget, confirmation: clientRemoteConfirmation,
         compression: clientRemoteCompression,
         image_encrypt: clientRemoteEncrypt,
-        image_sign: clientRemoteSign,
         network_interface: networkInterfaces.find((item) => item.binding === clientRemoteInterface)?.interface || null,
         source_address: networkInterfaces.find((item) => item.binding === clientRemoteInterface)?.address || null,
         igmp_confirmed: clientRemoteJob.transport === "multicast" ? clientRemoteIgmpConfirmed : false,
@@ -1389,7 +1387,7 @@ export default function App() {
                 <Card><CardBody><form onSubmit={publishSftpImageSet}>
                   <Field label="Local image"><select className="pf-v5-c-form-control" value={sftpPublishImageId} onChange={(e) => setSftpPublishImageId(e.target.value)} required>
                     <option value="">Select a local image…</option>
-                    {images.filter((item) => item.signed).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {item.image_type}</option>)}
+                    {images.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {item.image_type}</option>)}
                   </select></Field>
                   <Field label="SFTP host"><input className="pf-v5-c-form-control" value={sftpHost} onChange={(e) => setSftpHost(e.target.value)} maxLength={253} required /></Field>
                   <Field label="SSH username"><input className="pf-v5-c-form-control" value={sftpUsername} onChange={(e) => setSftpUsername(e.target.value)} maxLength={64} required /></Field>
@@ -1654,7 +1652,6 @@ export default function App() {
                         <Field label="Protect this image (optional)">
                           <label><input type="checkbox" checked={clientRemoteEncrypt} disabled={!clientRemoteInspection.image_security?.age_encryption_available} onChange={(event) => setClientRemoteEncrypt(event.target.checked)} /> Encrypt this image with age</label>
                           <br />
-                          <label><input type="checkbox" checked={false} disabled /> Image signing is not used</label>
                           {(!clientRemoteInspection.image_security?.age_encryption_available ) && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Unavailable options are disabled because this Client has no usable key material or executable. Leaving encryption unchecked creates an unencrypted image with SHA-256 integrity checks.</p>}
                         </Field>
                       </>}
