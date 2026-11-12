@@ -504,6 +504,7 @@ class WebAPITests(unittest.TestCase):
                 "mode": "proxy", "pool_start": None, "pool_end": None,
                 "lease_time": "1h", "gateway": None, "dns_server": None,
                 "http_port": 8080, "authoritative_confirmed": False,
+                "max_clients": 20, "max_duration_seconds": None,
             }})
         preflight.assert_called_once()
         self.assertTrue(result["valid"])
@@ -519,6 +520,7 @@ class WebAPITests(unittest.TestCase):
                     "mode": "isolated", "pool_start": "192.0.2.100", "pool_end": "192.0.2.180",
                     "lease_time": "1h", "gateway": None, "dns_server": None,
                     "http_port": 8080, "authoritative_confirmed": True,
+                    "max_clients": 20, "max_duration_seconds": None,
                 }})
 
     def test_start_pxe_services_requires_successful_preflight_and_uses_manager(self):
