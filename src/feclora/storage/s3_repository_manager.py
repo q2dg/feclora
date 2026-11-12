@@ -115,7 +115,7 @@ class S3RepositoryManager:
             with os.fdopen(fd, "w", encoding="utf-8") as stream:
                 json.dump({"schema_version": 1, "repositories": entries}, stream,
                           sort_keys=True, separators=(",", ":"))
-                stream.write("\\n")
+                stream.write("\n")
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary, self.registry)
@@ -165,7 +165,8 @@ class S3RepositoryManager:
 
     def list(self):
         return [{"id": identifier, **definition, "provider": "s3",
-                 "credential_ref": f"feclora-{definition['credential_id']}-s3"}
+                 "credential_ref": f"feclora-{definition['credential_id']}-s3",
+                 "credential_refs": [str(self.credentials._path(definition["credential_id"], "s3"))]}
                 for identifier, definition in sorted(self._load().items())]
 
     def add(self, identifier, definition):
