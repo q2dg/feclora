@@ -173,7 +173,7 @@ def render_caddy(config: PXENetworkConfig) -> str:
         "        reverse_proxy 127.0.0.1:8765\n"
         "    }\n"
         "    handle /unattended-answer-boot.ipxe {\n"
-        "        respond \\"Not found\\" 404\n"
+        "        respond Not-found 404\n"
         "    }\n"
         "    file_server\n"
         "    log {\n"
