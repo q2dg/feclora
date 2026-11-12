@@ -324,10 +324,24 @@ def _wait_for_age_passphrase(
             return value
         raise PXEAnswerClientError("timed out waiting for the age passphrase in Live Cockpit")
     finally:
+        for stale in (path, marker):
+            try:
+                stale.unlink()
+            except FileNotFoundError:
+                pass
+
+
+def _clear_stale_age_passphrase_files(directory: str | os.PathLike[str] = "/run/feclora/pxe") -> None:
+    """Remove one-shot secret files left by an interrupted Cockpit/API process."""
+    root = Path(directory)
+    for candidate in [root / "age-passphrase", *root.glob(".age-passphrase-*")]:
         try:
-            marker.unlink()
+            info = os.lstat(candidate)
         except FileNotFoundError:
-            pass
+            continue
+        if (stat.S_ISREG(info.st_mode) and not stat.S_ISLNK(info.st_mode)
+                and info.st_uid == os.geteuid() and not info.st_mode & 0o077):
+            candidate.unlink()
 
 
 def execute_live_pxe_restore(
@@ -409,6 +423,7 @@ def execute_live_pxe_restore(
 
 def main() -> int:
     try:
+        _clear_stale_age_passphrase_files()
         answer = fetch_live_pxe_answer()
     except (PXEAnswerClientError, ValueError, OSError) as exc:
         print(f"feclora-pxe-answer: {exc}", file=sys.stderr)
