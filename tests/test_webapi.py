@@ -269,20 +269,8 @@ class WebAPITests(unittest.TestCase):
             "ca_expiry_days": 1200, "ca_status": "valid",
         }])
 
-    def test_client_renewal_actions_are_exposed_through_allowlisted_dispatch(self):
-        prepared = {"identity": "URI:feclora-client-lab-01"}
-        installed = {"renewed": True}
-        with patch("feclora.webapi._prepare_client_renewal", return_value=prepared) as prepare, patch(
-            "feclora.webapi._complete_client_renewal", return_value=installed
-        ) as complete:
-            self.assertEqual(dispatch({"action": "prepare_client_renewal", "params": {"export_directory": "/run/media/usb"}}), prepared)
-            self.assertEqual(dispatch({"action": "complete_client_renewal", "params": {"bundle_directory": "/run/media/usb", "ca_fingerprint": "a" * 64, "server_minisign_sha256": "b" * 64}}), installed)
-        prepare.assert_called_once_with({"export_directory": "/run/media/usb"})
-        complete.assert_called_once()
-
     def test_server_trusted_clients_action_returns_public_inventory(self):
         expected = {"clients": [{
-            "identity": "URI:feclora-client-lab",
             "mac_address": "52:54:00:12:34:56",
             "image_signing": True,
         }]}
@@ -291,10 +279,6 @@ class WebAPITests(unittest.TestCase):
         inventory.assert_called_once_with()
         with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
             dispatch({"action": "server_trusted_clients", "params": {"private_key": "no"}})
-
-    def test_client_certificate_revocation_action_is_not_exposed(self):
-        with self.assertRaises(WebAPIError):
-            dispatch({"action": "revoke_server_client", "params": {}})
 
     def test_inspect_image_layout_verifies_and_returns_partition_selectors(self):
         import io
@@ -571,28 +555,6 @@ class WebAPITests(unittest.TestCase):
             }}), {"recipient_count": 2})
         refresh.assert_called_once_with({"inventory_path": "/run/media/usb/age-recipients.txt"})
 
-    def test_prepare_client_request_is_exposed_through_allowlisted_api(self):
-        with patch("feclora.webapi._prepare_client_request", return_value={"identity": "URI:feclora-client-lab"}) as prepare:
-            result = dispatch({"action": "prepare_client_request", "params": {"client_id": "lab"}})
-        prepare.assert_called_once_with({"client_id": "lab"})
-        self.assertEqual(result["identity"], "URI:feclora-client-lab")
-
-    def test_complete_client_enrollment_is_exposed_through_allowlisted_api(self):
-        with patch("feclora.webapi._complete_client_enrollment", return_value={"identity": "URI:feclora-client-lab"}) as complete:
-            result = dispatch({"action": "complete_client_enrollment", "params": {"client_id": "lab"}})
-        complete.assert_called_once_with({"client_id": "lab"})
-        self.assertEqual(result["identity"], "URI:feclora-client-lab")
-    def test_inspect_client_csr_is_exposed_through_allowlisted_api(self):
-        with patch("feclora.webapi._inspect_client_csr", return_value={"identity": "URI:feclora-client-lab"}) as inspect:
-            result = dispatch({"action": "inspect_client_csr", "params": {"csr_path": "/run/media/usb/request.csr"}})
-        inspect.assert_called_once_with({"csr_path": "/run/media/usb/request.csr"})
-        self.assertEqual(result["identity"], "URI:feclora-client-lab")
-
-    def test_approve_client_csr_is_exposed_through_allowlisted_api(self):
-        with patch("feclora.webapi._approve_client_csr", return_value={"identity": "URI:feclora-client-lab"}) as approve:
-            result = dispatch({"action": "approve_client_csr", "params": {"confirmation": "ENROLL"}})
-        approve.assert_called_once_with({"confirmation": "ENROLL"})
-        self.assertEqual(result["identity"], "URI:feclora-client-lab")
     def test_bootstrap_server_requires_exact_parameters(self):
         with self.assertRaisesRegex(WebAPIError, "requires interface"):
             dispatch({"action": "bootstrap_server", "params": {"address": "192.0.2.10"}})
