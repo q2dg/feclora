@@ -11,6 +11,7 @@ import re
 import stat
 import sys
 import signal
+import time
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,9 @@ class _ProgressForwarder:
         self.store = store
         self.operation_id = operation_id
         self.buffer = ""
+        self.started_at = time.monotonic()
+        self.last_progress_at: float | None = None
+        self.last_bytes_done: int | None = None
 
     def write(self, value: str) -> int:
         self.buffer += value
@@ -64,6 +68,21 @@ class _ProgressForwarder:
             value = event.get(key)
             if value is None or (isinstance(value, int) and not isinstance(value, bool) and value >= 0):
                 details[key] = value
+        now = time.monotonic()
+        details["elapsed_seconds"] = round(max(0.0, now - self.started_at), 3)
+        bytes_done = details.get("bytes_done")
+        if isinstance(bytes_done, int) and not isinstance(bytes_done, bool):
+            if (self.last_bytes_done is not None and self.last_progress_at is not None
+                    and bytes_done >= self.last_bytes_done and now > self.last_progress_at):
+                details["bytes_per_second"] = round(
+                    (bytes_done - self.last_bytes_done) / (now - self.last_progress_at), 1,
+                )
+            self.last_bytes_done = bytes_done
+            self.last_progress_at = now
+        else:
+            # A missing or non-numeric counter breaks the sampling interval.
+            self.last_bytes_done = None
+            self.last_progress_at = None
         if isinstance(event.get("message"), str):
             details["message"] = event["message"][:256]
         self.store.append(self.operation_id, "progress", details)
