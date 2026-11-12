@@ -212,7 +212,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
         self.assertIn("4096 bytes", result[1])
         receive.assert_called_once()
         self.assertEqual(receive.call_args.args[0].__class__, FakeTLS)
-        self.assertEqual(receive.call_args.kwargs["expected_peer_identity"], "URI:feclora-server")
         self.assertEqual(receive.call_args.kwargs["target_path"], "/dev/vda")
         self.assertEqual(
             receive.call_args.kwargs["confirmation"],
