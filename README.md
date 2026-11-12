@@ -104,12 +104,12 @@ Feclora's primary operator interface is Cockpit (React + PatternFly); the old
 `dialog` local-rescue menu is no longer part of the Live package. The current
 web application provides local whole-disk and partition image capture,
 restoration, whole-disk and partition cloning, device and image inventories,
-operation journals, streamed progress, and optional artifact encryption/signing integrations. `age` encryption and `minisign` signatures are optional capabilities, not prerequisites for local imaging or Feclora installation.
+operation journals, streamed progress, and optional age artifact encryption. SHA-256 digests provide artifact integrity checks; Feclora does not sign image manifests. Age encryption is optional and is not a prerequisite for local imaging or Feclora installation.
 
 The underlying Python storage engines include safety checks, manifest-backed
 artifact publication, compression, integrity verification, and restore
 preflight. The remote deployment stack includes persistent Server/Client
-services, Server-authenticated TLS control and unicast image transfer without Client authentication, with optional minisign signatures,
+services, Server-authenticated TLS control and unicast image transfer without Client authentication, with SHA-256 artifact integrity checks,
 UDPcast multicast restore, and direct whole-disk and partition-to-partition remote cloning. Cockpit
 exposes Server/Client lifecycle and job workflows, per-client status, initial
 Server identity bootstrap, and PXE network-profile preflight/activation for
