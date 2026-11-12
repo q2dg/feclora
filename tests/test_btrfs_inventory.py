@@ -167,7 +167,7 @@ class BtrfsSubvolumeTests(unittest.TestCase):
         unknown = CHUNK_TREE.replace("DATA|RAID1", "DATA|FUTURE_RAID")
         _chunks, profiles = parse_chunk_tree(unknown, known_device_ids={1, 2})
         self.assertFalse(next(item for item in profiles if item["type"] == "data")["known_profile"])
-        incomplete = CHUNK_TREE.replace("stripe 1 devid 2 offset 0\n", "")
+        incomplete = CHUNK_TREE.split("item 1", 1)[0].replace("stripe 1 devid 2 offset 0", "")
         with self.assertRaisesRegex(BtrfsInventoryError, "reports 2 stripes"):
             parse_chunk_tree(incomplete)
 
