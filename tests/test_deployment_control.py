@@ -1165,19 +1165,19 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
             client_thread = threading.Thread(target=run_client, daemon=True)
             try:
                 client_thread.start()
-                    deadline = time.monotonic() + 12
-                    while time.monotonic() < deadline:
-                        clients = coordinator.clients()
-                        if clients and clients[0].state.value == "ready":
-                            break
-                        if client_errors:
-                            self.fail(str(client_errors))
-                        time.sleep(0.05)
-                    self.assertTrue(coordinator.clients(), "save Client did not connect")
-                    self.assertEqual(coordinator.clients()[0].state.value, "ready")
-                    results = server.run_one_client_job(
+                deadline = time.monotonic() + 12
+                while time.monotonic() < deadline:
+                    clients = coordinator.clients()
+                    if clients and clients[0].state.value == "ready":
+                        break
+                    if client_errors:
+                        self.fail(str(client_errors))
+                    time.sleep(0.05)
+                self.assertTrue(coordinator.clients(), "save Client did not connect")
+                self.assertEqual(coordinator.clients()[0].state.value, "ready")
+                results = server.run_one_client_job(
                         destination,
-                    )
+                )
                 client_thread.join(10)
                 self.assertFalse(client_thread.is_alive(), "save Client did not report its result")
                 self.assertFalse(client_errors, str(client_errors))
