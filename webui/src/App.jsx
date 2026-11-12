@@ -169,6 +169,7 @@ export default function App() {
   const [pxeAnswerFile, setPxeAnswerFile] = useState(null);
   const [pxeAnswerPublished, setPxeAnswerPublished] = useState(null);
   const [pxeAgePassphrase, setPxeAgePassphrase] = useState("");
+  const [pxeAgePassphraseStatus, setPxeAgePassphraseStatus] = useState({ available: false, waiting: false, submitted: false });
   const [pxeStatus, setPxeStatus] = useState({ active: false, configured: false });
   const [security, setSecurity] = useState({});
   const [encrypt, setEncrypt] = useState(false);
@@ -230,6 +231,19 @@ export default function App() {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    let active = true;
+    const refreshPXEAgePassphraseStatus = () => {
+      callFeclora("pxe_age_passphrase_status")
+        .then((status) => { if (active) setPxeAgePassphraseStatus(status); })
+        .catch(() => { if (active) setPxeAgePassphraseStatus({ available: false, waiting: false, submitted: false }); });
+    };
+    refreshPXEAgePassphraseStatus();
+    const timer = window.setInterval(refreshPXEAgePassphraseStatus, 1500);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
+
 
   const cancelLocalOperation = async (operationId) => {
     if (!window.confirm("Request cancellation of this operation? A running restore or clone cannot be rolled back and may leave its destination partially written.")) return;
@@ -814,6 +828,7 @@ export default function App() {
       const result = await callFeclora("provide_pxe_age_passphrase", { passphrase: pxeAgePassphrase });
       setPxeAgePassphrase("");
       setNotice(result.message);
+      setPxeAgePassphraseStatus({ available: true, waiting: false, submitted: true });
     } catch (err) { setError(err?.message || String(err)); }
     finally { setPxeAgePassphrase(""); setBusy(false); }
   };
@@ -1697,16 +1712,20 @@ export default function App() {
                   </Alert>}
                 </CardBody></Card>
               </StackItem>
-              <StackItem>
+              {pxeAgePassphraseStatus.available && (pxeAgePassphraseStatus.waiting || pxeAgePassphraseStatus.submitted) && <StackItem>
                 <Card><CardBody>
-                  <Title headingLevel="h3" size="lg">Unlock an encrypted PXE image</Title>
-                  <p>On an unattended PXE Live client, the restore worker waits here when the selected image uses symmetric age encryption. Enter the passphrase on that Live machine; it is sent once over Cockpit's local privileged API, held in a root-only runtime file, and removed when read. It is never added to the answer JSON or command line.</p>
-                  <Field label="age symmetric passphrase">
-                    <input className="pf-v5-c-form-control" type="password" autoComplete="off" value={pxeAgePassphrase} onChange={(event) => setPxeAgePassphrase(event.target.value)} />
-                  </Field>
-                  <Button variant="primary" onClick={submitPXEAgePassphrase} isLoading={busy} isDisabled={busy || !pxeAgePassphrase}>Submit passphrase to this Live client</Button>
+                  <Title headingLevel="h3" size="lg">Unlock encrypted PXE restore</Title>
+                  {pxeAgePassphraseStatus.waiting
+                    ? <>
+                        <p>The PXE Live restore worker is waiting for the symmetric age passphrase. Enter it on this Live client. Cockpit submits it once through the local privileged API; it is not added to the answer JSON, URL or kernel command line.</p>
+                        <Field label="age symmetric passphrase">
+                          <input className="pf-v5-c-form-control" type="password" autoComplete="off" value={pxeAgePassphrase} onChange={(event) => setPxeAgePassphrase(event.target.value)} />
+                        </Field>
+                        <Button variant="primary" onClick={submitPXEAgePassphrase} isLoading={busy} isDisabled={busy || !pxeAgePassphrase}>Submit passphrase to this Live client</Button>
+                      </>
+                    : <Alert variant="info" title="Passphrase submitted" isInline>The Live restore worker has received the one-time passphrase and is continuing the authenticated restore preflight.</Alert>}
                 </CardBody></Card>
-              </StackItem>
+              </StackItem>}
               {pxePreflight && <StackItem><Card><CardBody>
                 <Alert variant="success" title="PXE preflight passed" isInline>{pxePreflight.message}</Alert>
                 <p>Interface: {pxePreflight.interface} · {pxePreflight.address}/{pxePreflight.prefix_length}</p>
