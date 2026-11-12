@@ -1945,8 +1945,6 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError(f"cannot inspect selected local target: {exc}") from exc
     if not stat.S_ISBLK(device_info.st_mode):
         raise WebAPIError("selected local target is no longer a block device")
-    if job["operation"] == "save" and job["target_type"] != "disk":
-        raise WebAPIError("Client capture currently supports whole-disk jobs only")
     request_path, status_path = _client_job_paths(params["job_id"])
     if os.path.lexists(status_path):
         raise WebAPIError("a status record already exists for this job; interrupted Client jobs are never restarted")
