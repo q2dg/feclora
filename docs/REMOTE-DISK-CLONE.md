@@ -1,6 +1,6 @@
-# One-to-one remote disk cloning
+# One-to-one remote disk and partition cloning
 
-Feclora implements direct whole-disk cloning as a distinct clone operation
+Feclora implements direct whole-disk and partition-to-partition cloning as distinct clone-operation target types
 inside the persistent Server/Client deployment lifecycle. The Server is the
 source and the Client is the receiver. No second daemon, listener, IPC
 protocol or job journal is created.
@@ -26,9 +26,9 @@ that a Client is online or reachable.
 
 ## Roles and local approvals
 
-- Server/source: selects a whole disk already marked read-only and types
+- Server/source: selects a whole disk or partition already marked read-only and types
   READ /dev/SOURCE.
-- Client/receiver: selects its destination disk locally and types
+- Client/receiver: selects its destination disk or partition locally and types
   ERASE /dev/DEVICE before READY.
 - Server operator: explicitly arms the job after the Client is READY.
 
@@ -40,7 +40,7 @@ before writing. A smaller target is rejected.
 
 ## Source precondition
 
-The source disk must already report RO=1 in lsblk. The runtime never
+The selected source disk or partition must already report RO=1 in lsblk. The runtime never
 changes a source disk's write-protection state automatically. An operator may
 use a hardware write blocker or deliberately mark an offline source read-only
 with blockdev --setro /dev/DEVICE; keep it read-only for the entire session.
@@ -49,14 +49,16 @@ check the source device.
 
 ## Session sequence
 
-1. The Server operator creates a unicast clone job, selects a read-only source
-   disk and selects the receiver MAC for this job.
+1. The Server operator creates a unicast clone job, selects the device type (disk
+   or partition), chooses a matching read-only source device and selects the
+   receiver MAC for this job.
 2. The Client verifies the Server certificate, inspects the job, selects a
    local whole-disk destination and types the exact destructive confirmation.
 3. The Server records READY. The operator explicitly arms the job.
-4. The Server creates a fresh session UUID and source geometry. The receiver
-   revalidates its block-device identity, capacity, logical sector size and
-   writable/safety state.
+4. The Server creates a fresh session UUID and source geometry. Protocol v2
+   binds the device type (`disk` or `partition`) into the session header. The
+   receiver independently checks that its selected target has the same type,
+   sufficient capacity, matching logical sector size and writable/safe state.
 5. The source streams exactly the declared number of bytes. The receiver
    writes incrementally while calculating SHA-256. Memory use is bounded by
    the configured chunk size and TLS/socket buffers.
@@ -65,8 +67,10 @@ check the source device.
    values with its in-flight count and digest.
 7. The receiver flushes the target and reads back the transferred byte count.
    It calculates a second SHA-256 and compares it with the transfer digest.
-   If the target is larger and the copied table is GPT, it relocates the backup
-   GPT header to the physical end of the target and validates the table.
+   For whole-disk clones only, a larger GPT target receives backup-header
+   relocation and partition-table validation. Partition clones copy exactly
+   the source partition length; any extra bytes at the end of a larger target
+   partition are left unchanged and no partition-table repair is attempted.
 8. The receiver records its durable operation result and reports the terminal
    result through the deployment control protocol. The Server records it in
    the deployment job journal.
@@ -98,7 +102,7 @@ journals before starting another operation.
 
 ## Implementation boundaries
 
-- DeploymentJob validates the clone operation, source disk, unicast
+- DeploymentJob validates the clone operation, source device type, source path, unicast
   transport and absence of an image identifier.
 - DeploymentControlServer and join_deployment reuse the persistent
   Server-authenticated TLS session and READY/START/result lifecycle.
@@ -106,8 +110,9 @@ journals before starting another operation.
   explicit source-side ARM authorization.
 - ClientDeploymentService owns local target selection, safety checks,
   explicit receiver authorization, progress and terminal status.
-- The remote clone engine provides bounded block streaming, SHA-256 validation,
-  receiver read-back and GPT relocation.
+- The remote clone engine provides bounded disk/partition streaming, SHA-256
+  validation and receiver read-back; GPT relocation is restricted to whole-disk
+  clones.
 
 Physical two-machine tests and hardware-specific validation remain operator
 acceptance activities; CI does not imply they have passed.
