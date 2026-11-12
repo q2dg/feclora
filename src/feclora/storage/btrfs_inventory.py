@@ -141,6 +141,175 @@ def parse_subvolume_list(payload: str) -> list[dict[str, Any]]:
     return subvolumes
 
 
+
+_ROOT_ITEM_HEADER = re.compile(r"^\s*item\s+\d+\s+key\s+\((\d+)\s+ROOT_ITEM\s+(\d+)\)")
+_ROOT_BACKREF_HEADER = re.compile(r"^\s*item\s+\d+\s+key\s+\((\d+)\s+ROOT_BACKREF\s+(\d+)\)")
+_ROOT_DATA = re.compile(
+    r"^\s*generation\s+(\d+)\s+root_dirid\s+(\d+)\s+bytenr\s+(\d+)"
+    r"\s+byte_limit\s+(\d+)\s+bytes_used\s+(\d+)\s*$"
+)
+_ROOT_FLAGS = re.compile(
+    r"^\s*last_snapshot\s+(\d+)\s+flags\s+(0x[0-9a-fA-F]+)\(([^)]*)\)\s+refs\s+(\d+)\s*$"
+)
+_ROOT_BACKREF_DATA = re.compile(
+    r"^\s*root backref key dirid\s+(\d+)\s+sequence\s+(\d+)\s+name\s+(.*)$"
+)
+_UUID_VALUE = re.compile(r"^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
+_ZERO_UUID = "00000000-0000-0000-0000-000000000000"
+
+
+def _optional_uuid(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if not _UUID_VALUE.fullmatch(value):
+        raise BtrfsInventoryError("Btrfs root tree contains an invalid subvolume UUID")
+    normalized = value.lower()
+    return None if normalized == _ZERO_UUID else normalized
+
+
+def parse_root_tree_subvolumes(payload: str) -> list[dict[str, Any]]:
+    """Parse current subvolume roots and their ancestry from an unmounted root-tree dump.
+
+    Only ROOT_ITEM entries and ROOT_BACKREF records are consumed. File-tree
+    contents are deliberately ignored. ROOT_ITEM key offsets are retained;
+    btrfs-progs uses a non-zero offset to identify snapshot roots.
+    """
+    roots: dict[int, dict[str, Any]] = {}
+    backrefs: dict[int, dict[str, Any]] = {}
+    current_root: dict[str, Any] | None = None
+    current_backref_id: int | None = None
+
+    for line in payload.splitlines():
+        root_header = _ROOT_ITEM_HEADER.match(line)
+        backref_header = _ROOT_BACKREF_HEADER.match(line)
+        if root_header:
+            subvolume_id, root_offset = (int(value) for value in root_header.groups())
+            current_backref_id = None
+            current_root = None
+            if subvolume_id < 256:
+                continue
+            if subvolume_id in roots:
+                raise BtrfsInventoryError(
+                    f"Btrfs root tree contains duplicate current ROOT_ITEM for subvolume {subvolume_id}"
+                )
+            current_root = {
+                "id": subvolume_id,
+                "root_item_offset": root_offset,
+                "generation": None,
+                "root_dirid": None,
+                "bytenr": None,
+                "byte_limit": None,
+                "bytes_used": None,
+                "flags": None,
+                "readonly": False,
+                "refs": None,
+                "uuid": None,
+                "parent_uuid": None,
+                "received_uuid": None,
+            }
+            roots[subvolume_id] = current_root
+            continue
+        if backref_header:
+            child_id, parent_id = (int(value) for value in backref_header.groups())
+            current_root = None
+            current_backref_id = child_id if child_id >= 256 else None
+            if current_backref_id is not None:
+                candidate = {"parent_id": parent_id, "parent_dirid": None, "sequence": None, "name": None}
+                previous = backrefs.get(child_id)
+                if previous is not None and previous["parent_id"] != parent_id:
+                    raise BtrfsInventoryError(
+                        f"Btrfs subvolume {child_id} has conflicting parent ROOT_BACKREF records"
+                    )
+                backrefs[child_id] = candidate
+            continue
+        if current_root is not None:
+            match = _ROOT_DATA.match(line)
+            if match:
+                (current_root["generation"], current_root["root_dirid"],
+                 current_root["bytenr"], current_root["byte_limit"],
+                 current_root["bytes_used"]) = (int(value) for value in match.groups())
+                continue
+            match = _ROOT_FLAGS.match(line)
+            if match:
+                last_snapshot, flags, flag_names, refs = match.groups()
+                current_root["flags"] = int(flags, 16)
+                current_root["readonly"] = "RDONLY" in flag_names.split("|")
+                current_root["refs"] = int(refs)
+                current_root["last_snapshot"] = int(last_snapshot)
+                continue
+            for field in ("uuid", "parent_uuid", "received_uuid"):
+                prefix = field + " "
+                if line.strip().startswith(prefix):
+                    current_root[field] = _optional_uuid(line.strip()[len(prefix):])
+                    break
+        if current_backref_id is not None:
+            match = _ROOT_BACKREF_DATA.match(line)
+            if match:
+                parent_dirid, sequence, name = match.groups()
+                backrefs[current_backref_id].update({
+                    "parent_dirid": int(parent_dirid),
+                    "sequence": int(sequence),
+                    "name": name if name and not any(ord(char) < 32 for char in name) else None,
+                })
+                current_backref_id = None
+
+    uuid_to_id = {
+        root["uuid"]: subvolume_id
+        for subvolume_id, root in roots.items()
+        if root["uuid"] is not None
+    }
+    result: list[dict[str, Any]] = []
+    for subvolume_id, root in roots.items():
+        if root["generation"] is None or root["bytes_used"] is None:
+            raise BtrfsInventoryError(
+                f"Btrfs ROOT_ITEM for subvolume {subvolume_id} is incomplete"
+            )
+        parent_uuid = root["parent_uuid"]
+        received_uuid = root["received_uuid"]
+        is_snapshot = parent_uuid is not None or root["root_item_offset"] > 0
+        if root["uuid"] is None:
+            kind = "unknown"
+        elif is_snapshot:
+            kind = "snapshot"
+        elif received_uuid is not None:
+            kind = "received_subvolume"
+        else:
+            kind = "subvolume"
+        record = dict(root)
+        record.update({
+            "kind": kind,
+            "is_snapshot": is_snapshot,
+            "parent_subvolume_id": uuid_to_id.get(parent_uuid) if parent_uuid else None,
+            "parent_id": None,
+            "parent_dirid": None,
+            "sequence": None,
+            "name": None,
+            "path": None,
+            "metadata_complete": root["uuid"] is not None,
+        })
+        record.update(backrefs.get(subvolume_id, {}))
+        result.append(record)
+
+    by_id = {item["id"]: item for item in result}
+
+    def resolve_path(subvolume_id: int, visiting: set[int]) -> str | None:
+        if subvolume_id in visiting:
+            raise BtrfsInventoryError("Btrfs ROOT_BACKREF ancestry contains a cycle")
+        item = by_id[subvolume_id]
+        parent_id, name = item.get("parent_id"), item.get("name")
+        if not isinstance(parent_id, int) or not isinstance(name, str) or not name:
+            return None
+        if parent_id == 5:
+            return name
+        if parent_id not in by_id:
+            return None
+        parent_path = resolve_path(parent_id, visiting | {subvolume_id})
+        return f"{parent_path}/{name}" if parent_path else None
+
+    for item in result:
+        item["path"] = resolve_path(item["id"], set())
+    return sorted(result, key=lambda item: item["id"])
+
 def collect_btrfs_subvolumes(
     *,
     which: Callable[[str], str | None] = shutil.which,
@@ -231,4 +400,31 @@ def collect_btrfs_topology(
     except subprocess.CalledProcessError as exc:
         detail = (exc.stderr or "").strip()
         raise BtrfsInventoryError(detail or f"{executable} filesystem show failed") from exc
-    return {"status": "available", "filesystems": parse_filesystem_show(completed.stdout)}
+    filesystems = parse_filesystem_show(completed.stdout)
+    for filesystem in filesystems:
+        device_paths = [device["path"] for device in filesystem["devices"]]
+        dump_argv = [
+            *prefix, executable, "inspect-internal", "dump-tree",
+            "--noscan", "-t", "root", *device_paths,
+        ]
+        try:
+            dump = runner(
+                dump_argv, check=True, capture_output=True, text=True, timeout=60,
+            )
+            filesystem["subvolumes"] = parse_root_tree_subvolumes(dump.stdout)
+            filesystem["subvolume_inventory_status"] = "available"
+        except subprocess.TimeoutExpired:
+            filesystem["subvolumes"] = []
+            filesystem["subvolume_inventory_status"] = "error"
+            filesystem["subvolume_inventory_error"] = "Btrfs root-tree inspection timed out"
+        except subprocess.CalledProcessError as exc:
+            filesystem["subvolumes"] = []
+            filesystem["subvolume_inventory_status"] = "error"
+            filesystem["subvolume_inventory_error"] = (
+                (exc.stderr or "").strip() or "Btrfs root-tree inspection failed"
+            )
+        except BtrfsInventoryError as exc:
+            filesystem["subvolumes"] = []
+            filesystem["subvolume_inventory_status"] = "error"
+            filesystem["subvolume_inventory_error"] = str(exc)
+    return {"status": "available", "filesystems": filesystems}
