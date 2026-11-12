@@ -160,7 +160,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 repository="/var/lib/feclora/images",
             )
             block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
-            real_lstat = os.lstat
+            real_stat = os.stat
 
             def fake_join(host, port, context, **kwargs):
                 job = self._job("multicast")
@@ -186,8 +186,8 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch("feclora.deployment.client_service.create_mutual_tls_context", return_value=object()), \
                  mock.patch.object(ClientDeploymentService, "_find_device", return_value={"model": "Test disk"}), \
                  mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \
-                 mock.patch("feclora.deployment.client_service.os.lstat",
-                            side_effect=lambda path: block_info if os.fspath(path) == DEVICE else real_lstat(path)), \
+                 mock.patch("feclora.deployment.client_service.os.stat",
+                            side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == DEVICE else real_stat(path, *args, **kwargs)), \
                  mock.patch("feclora.deployment.client_service.inspect_multicast_interface", return_value=preflight) as inspect, \
                  mock.patch("feclora.deployment.client_service.shutil.disk_usage", return_value=SimpleNamespace(free=1024 * 1024 * 1024)), \
                  mock.patch("feclora.deployment.client_service.join_deployment", side_effect=fake_join), \
