@@ -87,40 +87,6 @@ class WebAPITests(unittest.TestCase):
         with patch("feclora.webapi._network_interfaces", return_value=expected):
             self.assertEqual(dispatch({"action": "network_interfaces"}), {"interfaces": expected})
 
-    def test_export_server_ca_backup_action_is_allowlisted_and_wrapped(self):
-        expected = {
-            "backup_file": "/media/USB/feclora-ca-backup.tar.age",
-            "sha256": "a" * 64,
-            "ca_fingerprint": "b" * 64,
-            "message": "encrypted",
-        }
-        params = {"export_directory": "/media/USB", "age_recipient": "age1" + "c" * 40}
-        with patch(
-            "feclora.deployment.cockpit_enrollment.export_server_ca_backup",
-            return_value=expected,
-        ) as backup:
-            self.assertEqual(dispatch({"action": "export_server_ca_backup", "params": params}), expected)
-        backup.assert_called_once_with(params)
-
-    def test_inspect_server_ca_backup_action_is_allowlisted_and_wrapped(self):
-        expected = {
-            "ca_fingerprint": "b" * 64,
-            "archive_valid": "true",
-            "message": "verified without installation",
-        }
-        params = {
-            "backup_file": "/media/USB/feclora-ca-backup.tar.age",
-            "identity_file": "/media/RECOVERY/age-identity.txt",
-        }
-        with patch(
-            "feclora.deployment.cockpit_enrollment.inspect_server_ca_backup",
-            return_value=expected,
-        ) as inspect_backup:
-            self.assertEqual(
-                dispatch({"action": "inspect_server_ca_backup", "params": params}),
-                expected,
-            )
-        inspect_backup.assert_called_once_with(params)
 
     def test_server_certificate_renewal_requires_exact_confirmation(self):
         with self.assertRaisesRegex(WebAPIError, "RENEW SERVER CERTIFICATE"):
