@@ -1,9 +1,6 @@
 # Feature and compatibility matrix
 
-Remote-service boundary: SSH/SFTP, NFS, SMB/CIFS, WebDAV and S3 infrastructure are external systems operated
-by their owners. Feclora is a client only; its implementation covers outbound
-access, credentials, mounts/transfers, integrity and client-side failure
-handling. It does not deploy or administer those remote services.
+Remote-service boundary: SSH/SFTP, NFS, SMB/CIFS, WebDAV and S3 infrastructure, plus NVMe-oF subsystems/namespaces, are external systems operated by their owners. Feclora is a client only; it implements outbound access, credentials, mounts/transfers, integrity and client-side failure handling. It does not deploy or administer remote services or NVMe targets.
 
 Status meanings:
 - **Implemented**: code path exists.
