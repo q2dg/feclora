@@ -51,7 +51,7 @@ class PXEAnswerTests(unittest.TestCase):
                 with self.assertRaises(PXEAnswerError):
                     validate_pxe_answer(answer)
 
-    def test_rejects_sftp_scheme(self):
+    def test_rejects_unsupported_legacy_scheme(self):
         answer = self.valid_answer()
         answer["repository_url"] = "sftp://images.example.net/images"
         with self.assertRaises(PXEAnswerError):
