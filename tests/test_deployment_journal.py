@@ -185,7 +185,7 @@ class DeploymentJournalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             journal = DeploymentJournal(os.path.join(directory, "job.jsonl"), JOB_ID)
             coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
-            coordinator.register_client(MAC, authenticated=True)
+            coordinator.register_client(MAC)
             coordinator.mark_ready(MAC)
             coordinator.arm()
             coordinator.mark_running(MAC)
@@ -194,7 +194,7 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertEqual(
                 [event["event"] for event in journal.events],
                 [
-                    "job_created", "client_authenticated", "client_ready",
+                    "job_created", "client_connected", "client_ready",
                     "job_armed", "client_running", "client_result",
                 ],
             )
@@ -205,7 +205,7 @@ class DeploymentJournalTests(unittest.TestCase):
             path = os.path.join(directory, "job.jsonl")
             journal = DeploymentJournal(path, JOB_ID)
             coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
-            coordinator.register_client(MAC, authenticated=True)
+            coordinator.register_client(MAC)
             coordinator.mark_ready(MAC)
             coordinator.arm()
             coordinator.mark_running(MAC)
@@ -220,7 +220,7 @@ class DeploymentJournalTests(unittest.TestCase):
             path = os.path.join(directory, "job.jsonl")
             journal = DeploymentJournal(path, JOB_ID)
             coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
-            coordinator.register_client(MAC, authenticated=True)
+            coordinator.register_client(MAC)
             coordinator.mark_ready(MAC)
             coordinator.arm()
             coordinator.mark_running(MAC)
@@ -244,7 +244,7 @@ class DeploymentJournalTests(unittest.TestCase):
             path = os.path.join(directory, "job.jsonl")
             journal = DeploymentJournal(path, JOB_ID)
             coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
-            coordinator.register_client(MAC, authenticated=True)
+            coordinator.register_client(MAC)
             coordinator.mark_ready(MAC)
             coordinator.arm()
             coordinator.mark_running(MAC)
@@ -276,7 +276,7 @@ class DeploymentJournalTests(unittest.TestCase):
             path = os.path.join(directory, "job.jsonl")
             journal = DeploymentJournal(path, JOB_ID)
             coordinator = DeploymentCoordinator(make_job(), event_sink=journal)
-            coordinator.register_client(MAC, authenticated=True)
+            coordinator.register_client(MAC)
             coordinator.mark_ready(MAC)
             coordinator.arm()
             coordinator.mark_running(MAC)
@@ -296,7 +296,7 @@ class DeploymentJournalTests(unittest.TestCase):
             if event["event"] == "client_ready":
                 raise OSError("disk full")
         coordinator = DeploymentCoordinator(make_job(), event_sink=failing_sink)
-        coordinator.register_client(MAC, authenticated=True)
+        coordinator.register_client(MAC)
         with self.assertRaisesRegex(CoordinatorError, "could not persist"):
             coordinator.mark_ready(MAC)
         self.assertEqual(coordinator.clients()[0].state, ClientState.CONNECTED)
