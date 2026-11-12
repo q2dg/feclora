@@ -209,6 +209,12 @@ def capture_disk(
                         age_recipients_file, age_executable=available.get("age"),
                     )
                     disk_filename = disk_artifact.filename
+                elif age_passphrase is not None:
+                    disk_artifact = encrypt_artifact_with_passphrase(
+                        os.path.join(stage, disk_filename), disk_artifact,
+                        age_passphrase, age_executable=available.get("age"),
+                    )
+                    disk_filename = disk_artifact.filename
             except ArtifactWriteError as exc:
                 stop_process(process)
                 raise DiskCaptureError(f"could not store disk stream: {exc}") from exc
