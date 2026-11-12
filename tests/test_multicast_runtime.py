@@ -148,7 +148,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                     stream.write(b"abc")
                 return path
             with (
-                patch("feclora.deployment.multicast_runtime.os.lstat", side_effect=fake_lstat),
+                patch("feclora.deployment.multicast_runtime.os.stat", side_effect=fake_lstat),
                 patch("feclora.deployment.multicast_runtime.receive_control_message", return_value=offer),
                 patch("feclora.deployment.multicast_runtime.verify_manifest_signature"),
                 patch("feclora.deployment.multicast_runtime.ImageManifest.from_json", return_value=manifest),
@@ -198,7 +198,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                     stream.write(b"abc")
                 return staged
             with (
-                patch("feclora.deployment.multicast_runtime.os.lstat", side_effect=fake_lstat),
+                patch("feclora.deployment.multicast_runtime.os.stat", side_effect=fake_lstat),
                 patch("feclora.deployment.multicast_runtime.receive_control_message", return_value=offer),
                 patch("feclora.deployment.multicast_runtime.verify_manifest_signature"),
                 patch("feclora.deployment.multicast_runtime.ImageManifest.from_json", return_value=manifest),
@@ -244,7 +244,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                     return SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
                 return real_lstat(path, **kwargs)
             with (
-                patch("feclora.deployment.multicast_runtime.os.lstat", side_effect=fake_lstat),
+                patch("feclora.deployment.multicast_runtime.os.stat", side_effect=fake_lstat),
                 patch("feclora.deployment.multicast_runtime.receive_control_message", return_value=offer),
                 patch("feclora.deployment.multicast_runtime.verify_manifest_signature",
                       side_effect=ImageSecurityError("bad signature")),
@@ -267,7 +267,7 @@ class MulticastRuntimeTests(unittest.TestCase):
             "/dev/feclora-test", "Disposable test disk", "ERASE /dev/other FROM URI:feclora-server",
         )
         with tempfile.TemporaryDirectory() as repository:
-            with patch("feclora.deployment.multicast_runtime.os.lstat") as lstat:
+            with patch("feclora.deployment.multicast_runtime.os.stat") as lstat:
                 lstat.return_value = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
                 with self.assertRaisesRegex(MulticastDeploymentError, "confirmation"):
                     execute_multicast_restore(
