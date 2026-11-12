@@ -18,8 +18,7 @@ operator. Persistent Live-session storage is not a product requirement.
 
 Storage layers and repositories are different concepts. LVM logical volumes,
 raw LUKS2 containers and Btrfs filesystems are possible image sources.
-SSHFS, NFS and SMB/CIFS are mounted repository providers; SFTP is a separate
-file-transfer provider. WebDAV and S3 are planned file-repository providers;
+SSHFS, NFS and SMB/CIFS are mounted repository providers. WebDAV and S3 are planned file-repository providers;
 S3 requires an object API rather than a mount. NVMe-oF is a separate planned
 remote block-device transport. Remote servers, exports, shares, buckets and
 NVMe subsystems remain external systems administered by their owners.
@@ -37,8 +36,7 @@ acceptance.
 - **Remote repositories:** SSHFS, NFS and SMB/CIFS mount lifecycle and image
   engine integration exist. Provider-specific permissions, NFS root-squash,
   stale mounts, outages, interrupted publication, cleanup, concurrency and
-  live health behavior still need acceptance. SFTP supports signed-image
-  listing/inspection, import, publication and direct restore integration,
+  live health behavior still need acceptance.
   with durable cancellable operations and artifact-boundary progress. It
   remains limited to one configured directory and lacks continuous in-file
   progress, safe resume and multi-directory discovery. WebDAV's isolated
