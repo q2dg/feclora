@@ -24,6 +24,8 @@ operator tasks; see [the feature matrix](FEATURE-MATRIX.html).
   in Cockpit**.
 - [Partition extraction](PARTITION-EXTRACTION.html) — **Implemented in
   Cockpit**; creates a separate partition image from a verified disk image.
+- **Local partition-to-partition cloning** — **Implemented in Cockpit**;
+  operator acceptance remains separate.
 
 ## Storage-layer images
 
@@ -60,6 +62,7 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
   workflows for Server certificate trust, deployment jobs and Client-local target approval.
 - [Remote whole-disk cloning](REMOTE-DISK-CLONE.html) — **Implemented in
   source/Cockpit**; real two-machine acceptance remains outstanding.
+- **Remote partition-to-partition cloning** — **Not implemented**.
 - [Deployment control (Server-authenticated TLS)](DEPLOYMENT-CONTROL.html) — protocol,
   job authorization and lifecycle details.
 - [Remote repositories](REMOTE-REPOSITORIES.html) — **Partial**. SSHFS, NFS
@@ -79,10 +82,12 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
   publishes one validated JSON answer and an answer-specific script through
   Caddy over HTTP. Live downloads and validates the answer, then invokes the
   existing whole-disk restore engine with stable-target revalidation and
-  read-back verification. This workflow deliberately has no per-Client
-  identity or enrollment. Other repository providers, cross-reboot expiry and
-  replay protection, richer result reporting and physical acceptance remain
-  pending.
+  read-back verification. The job authorization is consumed atomically before
+  the first write, preventing replay within the current Live session; this is
+  not cross-reboot expiry/replay protection. The workflow deliberately has no
+  per-Client identity or enrollment. Other repository providers, durable
+  expiry/replay controls, richer result reporting and physical acceptance
+  remain pending.
 
 PXE boot or possession of an answer URL alone never authorizes a destructive
 write. The Server-authenticated TLS Remote-jobs workflow remains separate and uses
