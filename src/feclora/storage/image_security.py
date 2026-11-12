@@ -143,6 +143,154 @@ def encrypt_artifact(
             pass
 
 
+
+def encrypt_artifact_with_passphrase(
+    artifact_path: str | os.PathLike[str],
+    artifact: ImageArtifact,
+    passphrase: str,
+    *,
+    age_executable: str | None = None,
+) -> ImageArtifact:
+    """Encrypt one compressed artifact using age's interactive passphrase mode.
+
+    The passphrase is supplied only through age's controlling terminal. It is
+    never included in argv, environment variables, temporary files or logs.
+    """
+    import errno
+    import pty
+    import select
+    import signal
+    import time
+    import tty
+
+    source = _regular_file(artifact_path, "artifact")
+    if (not isinstance(passphrase, str) or not passphrase
+            or len(passphrase.encode("utf-8")) > 1024
+            or any(char in passphrase for char in "\r\n\x00")):
+        raise ImageSecurityError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
+    age = age_executable or shutil.which("age")
+    if not age:
+        raise ImageSecurityError("age executable is required for image encryption")
+    if artifact.encryption != "none":
+        raise ImageSecurityError("artifact is already marked as encrypted")
+    encrypted_name = artifact.filename + ".age"
+    encrypted_path = os.path.join(os.path.dirname(source), encrypted_name)
+    if os.path.lexists(encrypted_path):
+        raise ImageSecurityError("encrypted artifact destination already exists")
+    fd, temporary = tempfile.mkstemp(prefix=".feclora-age-", dir=os.path.dirname(source))
+    os.fchmod(fd, 0o600)
+    os.close(fd)
+    master = None
+    child_pid = None
+    wait_status = None
+    sent = 0
+    transcript = bytearray()
+    committed = False
+    try:
+        child_pid, master = pty.fork()
+        if child_pid == 0:
+            try:
+                tty.setraw(0)
+                os.umask(0o077)
+                os.execv(age, [age, "--passphrase", "--output", temporary, source])
+            except BaseException as exc:
+                try:
+                    os.write(2, f"age exec failed: {exc}\n".encode("utf-8", errors="replace"))
+                finally:
+                    os._exit(127)
+        deadline = time.monotonic() + 180.0
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ImageSecurityError("age encryption timed out while waiting for terminal input")
+            readable, _, _ = select.select([master], [], [], min(0.25, remaining))
+            if readable:
+                try:
+                    chunk = os.read(master, 4096)
+                except OSError as exc:
+                    if exc.errno == errno.EIO:
+                        chunk = b""
+                    else:
+                        raise
+                if chunk:
+                    transcript.extend(chunk)
+                    if len(transcript) > 8192:
+                        del transcript[:-8192]
+                    lower = bytes(transcript).lower()
+                    prompts = lower.count(b"passphrase:")
+                    while sent < min(prompts, 2):
+                        os.write(master, passphrase.encode("utf-8") + b"\n")
+                        sent += 1
+                elif wait_status is not None:
+                    break
+            waited, status = os.waitpid(child_pid, os.WNOHANG)
+            if waited == child_pid:
+                wait_status = status
+                try:
+                    tail = os.read(master, 4096)
+                except OSError as exc:
+                    if exc.errno == errno.EIO:
+                        tail = b""
+                    else:
+                        raise
+                if tail:
+                    transcript.extend(tail)
+                    continue
+                break
+        if wait_status is None:
+            _, wait_status = os.waitpid(child_pid, 0)
+        if sent < 2:
+            detail = bytes(transcript).decode("utf-8", errors="replace")[-500:]
+            raise ImageSecurityError("age did not complete its passphrase confirmation" +
+                                     (f": {detail}" if detail else ""))
+        if not os.WIFEXITED(wait_status) or os.WEXITSTATUS(wait_status) != 0:
+            detail = bytes(transcript).decode("utf-8", errors="replace").strip()[-500:]
+            raise ImageSecurityError("age passphrase encryption failed" +
+                                     (f": {detail}" if detail else ""))
+        info = os.lstat(temporary)
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_size <= 0:
+            raise ImageSecurityError("age did not produce a non-empty regular encrypted artifact")
+        os.chmod(temporary, 0o600)
+        with open(temporary, "rb") as stream:
+            os.fsync(stream.fileno())
+        size, digest = _digest_file(temporary)
+        os.link(temporary, encrypted_path, follow_symlinks=False)
+        os.unlink(temporary)
+        os.unlink(source)
+        directory_fd = os.open(os.path.dirname(source), os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+        committed = True
+        return replace(artifact, filename=encrypted_name, size_bytes=size, sha256=digest, encryption="age")
+    except ImageSecurityError:
+        raise
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ImageSecurityError(f"could not encrypt artifact with age passphrase: {exc}") from exc
+    finally:
+        if child_pid is not None and wait_status is None:
+            try:
+                os.kill(child_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                os.waitpid(child_pid, 0)
+            except ChildProcessError:
+                pass
+        if master is not None:
+            os.close(master)
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        if not committed and os.path.lexists(encrypted_path):
+            # The destination is only linked after age has completed successfully.
+            try:
+                os.unlink(encrypted_path)
+            except OSError:
+                pass
+
 def decrypt_artifact_stream_to_temp(
     encrypted_stream,
     identity_file: str | os.PathLike[str],
