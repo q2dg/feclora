@@ -101,15 +101,16 @@ class ServerRuntimeConfig:
     certificate_file: str
     private_key_file: str
     repository: str
+    client_identity_to_mac: Mapping[str, str]
 
 
 def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
     fields = {
         "schema_version", "bind_address", "port", "local_identity", "ca_file",
-        "certificate_file", "private_key_file",
+        "certificate_file", "private_key_file", "client_identity_to_mac",
         "repository",
     }
-    value = _read_config(path, fields, {"client_identity_to_mac"})
+    value = _read_config(path, fields)
     address = value["bind_address"]
     if not isinstance(address, str) or not address:
         raise RuntimeConfigError("bind_address must be a concrete interface address")
@@ -120,6 +121,16 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
         raise RuntimeConfigError("bind_address must be an IPv4 or IPv6 address") from exc
     if parsed.version != 4 or parsed.is_unspecified or parsed.is_multicast:
         raise RuntimeConfigError("bind_address must be a concrete unicast interface address")
+    enrollment = value["client_identity_to_mac"]
+    if not isinstance(enrollment, dict):
+        raise RuntimeConfigError("client_identity_to_mac must be an object")
+    normalized_enrollment: dict[str, str] = {}
+    for identity, mac in enrollment.items():
+        checked_identity = _identity(identity, "Client certificate identity")
+        checked_mac = _mac(mac)
+        if checked_identity in normalized_enrollment or checked_mac in normalized_enrollment.values():
+            raise RuntimeConfigError("client enrollment identities and MAC addresses must be unique")
+        normalized_enrollment[checked_identity] = checked_mac
     return ServerRuntimeConfig(
         bind_address=address,
         port=_port(value["port"]),
@@ -128,6 +139,7 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
         certificate_file=_secure_file(value["certificate_file"], "Server certificate"),
         private_key_file=_secure_file(value["private_key_file"], "Server private key", private=True),
         repository=_repository(value["repository"]),
+        client_identity_to_mac=normalized_enrollment,
     )
 
 
