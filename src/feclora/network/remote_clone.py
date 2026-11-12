@@ -45,13 +45,15 @@ from .remote_clone_protocol import (
 )
 
 CHUNK_SIZE_BYTES = 1024 * 1024
+# Kept as a patchable alias for existing whole-disk runtime tests.
+_geometry = _disk_geometry
 
 
 def _geometry_for(path: str, lsblk: str, runner: Callable[..., Any], device_type: str) -> tuple[int, int, bool, str]:
     """Inspect exactly the block-device class selected by the deployment job."""
     if device_type == "disk":
         try:
-            return _disk_geometry(path, lsblk, runner)
+            return _geometry(path, lsblk, runner)
         except DiskCloneError as exc:
             raise RemoteDiskCloneError(str(exc)) from exc
     if device_type == "partition":
