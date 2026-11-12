@@ -218,6 +218,29 @@ class ClientImageRuntimeTests(unittest.TestCase):
             "ERASE /dev/vda",
         )
 
+    def test_partition_clone_uses_client_local_partition_approval(self):
+        job = DeploymentJob.from_dict({
+            "schema_version": 1, "job_id": JOB_ID, "operation": "clone",
+            "image_id": None, "source_device": "/dev/sda1", "target_type": "partition",
+            "authorized_clients": ["52:54:00:12:34:56"],
+            "network_interface": "enp1s0", "transport": "unicast",
+            "multicast_group": None, "multicast_port": None,
+            "start_policy": "manual", "expected_clients": None, "start_deadline": None,
+        })
+        approval = LocalTargetApproval("/dev/vda1", "Partition 1", "ERASE /dev/vda1")
+        with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
+             patch("feclora.deployment.client_runtime.receive_remote_disk",
+                   return_value=SimpleNamespace(byte_count=2048, readback_sha256="b" * 64)) as receive:
+            result = execute_client_image_job(
+                job, FakeTLS(), approval,
+                server_identity="URI:feclora-server", repository="/repo",
+                trusted_server_public_key="/trusted/server.pub",
+            )
+        self.assertTrue(result[0])
+        self.assertIn("remote partition clone verified", result[1])
+        self.assertEqual(receive.call_args.kwargs["target_path"], "/dev/vda1")
+        self.assertEqual(receive.call_args.kwargs["confirmation"], "ERASE /dev/vda1")
+
     def test_restore_rejects_wrong_local_confirmation_before_network_read(self):
         tls = FakeTLS()
         wrong = LocalTargetApproval(
