@@ -9,6 +9,7 @@ from feclora.storage.btrfs_inventory import (
     parse_filesystem_profiles,
     parse_subvolume_list,
     parse_root_tree_subvolumes,
+    parse_chunk_tree,
 )
 
 
@@ -76,14 +77,21 @@ class BtrfsInventoryTests(unittest.TestCase):
         calls = []
         def runner(argv, **kwargs):
             calls.append(argv)
-            output = ROOT_TREE if "dump-tree" in argv else SAMPLE
+            if "dump-tree" not in argv:
+                output = SAMPLE
+            elif "root" in argv:
+                output = ROOT_TREE
+            else:
+                output = CHUNK_TREE
             return subprocess.CompletedProcess(argv, 0, output, "")
         result = collect_btrfs_topology(which=lambda name: "/usr/bin/btrfs", runner=runner, effective_uid=lambda: 0)
         self.assertEqual(len(result["filesystems"]), 2)
         self.assertEqual(calls[0][1:], ["filesystem", "show", "--raw", "--all-devices"])
         self.assertIn("--noscan", calls[1])
         self.assertEqual(calls[1][-2:], ["/dev/sda1", "/dev/sdb1"])
+        self.assertEqual(calls[2][-2:], ["/dev/sda1", "/dev/sdb1"])
         self.assertEqual(result["filesystems"][0]["subvolumes"][1]["path"], "@/pre-upgrade")
+        self.assertEqual(result["filesystems"][0]["allocation_profiles"][0]["profile"], "raid1")
 
 
 SUBVOLUMES = """ID 256 gen 100 parent 5 top level 5 parent_uuid - received_uuid - uuid 11111111-1111-1111-1111-111111111111 path @
@@ -121,7 +129,47 @@ item 5 key (258 ROOT_BACKREF 5) itemoff 440 itemsize 20
 """
 
 
+CHUNK_TREE = """item 0 key (FIRST_CHUNK_TREE CHUNK_ITEM 1048576) itemoff 100 itemsize 80
+        length 1048576 owner 2 stripe_len 65536 type DATA|RAID1
+        io_align 4096 io_width 4096 sector_size 4096
+        num_stripes 2 sub_stripes 1
+                stripe 0 devid 1 offset 0
+                dev_uuid 11111111-1111-1111-1111-111111111111
+                stripe 1 devid 2 offset 0
+                dev_uuid 22222222-2222-2222-2222-222222222222
+item 1 key (FIRST_CHUNK_TREE CHUNK_ITEM 2097152) itemoff 200 itemsize 80
+        length 262144 owner 2 stripe_len 65536 type METADATA|DUP
+        io_align 4096 io_width 4096 sector_size 4096
+        num_stripes 2 sub_stripes 1
+                stripe 0 devid 1 offset 1048576
+                dev_uuid 11111111-1111-1111-1111-111111111111
+                stripe 1 devid 1 offset 1310720
+                dev_uuid 11111111-1111-1111-1111-111111111111
+"""
+
+
 class BtrfsSubvolumeTests(unittest.TestCase):
+
+
+    def test_unmounted_chunk_tree_reports_profiles_and_stripe_devices(self):
+        chunks, profiles = parse_chunk_tree(CHUNK_TREE, known_device_ids={1, 2})
+        self.assertEqual(chunks[0]["profile"], "raid1")
+        self.assertEqual(chunks[0]["device_ids"], [1, 2])
+        self.assertTrue(chunks[0]["device_mapping_complete"])
+        by_type = {item["type"]: item for item in profiles}
+        self.assertEqual(by_type["data"]["total_bytes"], 1048576)
+        self.assertEqual(by_type["data"]["device_ids"], [1, 2])
+        self.assertEqual(by_type["metadata"]["profile"], "dup")
+        self.assertEqual(by_type["metadata"]["device_ids"], [1])
+        self.assertIsNone(by_type["metadata"]["used_bytes"])
+
+    def test_chunk_tree_preserves_unknown_profiles_and_rejects_missing_stripes(self):
+        unknown = CHUNK_TREE.replace("DATA|RAID1", "DATA|FUTURE_RAID")
+        _chunks, profiles = parse_chunk_tree(unknown, known_device_ids={1, 2})
+        self.assertFalse(next(item for item in profiles if item["type"] == "data")["known_profile"])
+        incomplete = CHUNK_TREE.replace("stripe 1 devid 2 offset 0\\n", "")
+        with self.assertRaisesRegex(BtrfsInventoryError, "reports 2 stripes"):
+            parse_chunk_tree(incomplete)
 
     def test_unmounted_root_tree_reports_snapshot_and_received_ancestry(self):
         result = parse_root_tree_subvolumes(ROOT_TREE)
