@@ -35,14 +35,7 @@ SFTP signed-image import and publication use this same durable worker. The
 queue stores only endpoint metadata and encrypted SSH credential references;
 plaintext keys remain inside the transient systemd credential service. The
 worker owns the SFTP child-service lifetime, so cancellation stops and waits
-for that service before image-set staging cleanup. SFTP progress checkpoints
-are currently reported after each verified/downloaded or published artifact,
-not continuously while bytes move within one large file. A cancelled download
-removes its private staging directory and rolls back files already linked into
-the local repository. A cancelled publication may leave unreferenced remote
-artifacts; if cancellation races the final manifest upload, inspect remote
-inventory before retrying because the commit marker may already be visible.
-Final-name collisions remain no-overwrite.
+for that service before image-set staging cleanup. 
 
 ## Recovery and cancellation
 
