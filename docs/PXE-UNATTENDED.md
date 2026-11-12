@@ -57,16 +57,7 @@ by a hard-coded device path. The Live client resolves exactly one matching whole
 inventory and rechecks that identity immediately before writing. Missing or
 ambiguous matches fail closed.
 
-The schema validator is implemented in `feclora.network.pxe_answer`. It
-rejects duplicate JSON keys, unknown fields, malformed repository URLs,
-embedded URL credentials, missing stable target selectors, and documents
-which do not explicitly confirm destructive restore and automatic start.
-The validator and server-side publication path are implemented. Cockpit exposes
-one JSON file input; `repository_url` is read from that JSON, with no duplicate
-repository field. The API publishes the validated JSON atomically through Caddy
-over HTTP. No minisign, detached signature or per-client identity is involved. Optional age symmetric encryption is supported; the passphrase is entered on the Live client through Cockpit and is not included in the JSON. Cockpit can explicitly revoke the published
-answer and its iPXE script by job UUID. A new PXE session also clears stale
-answer files and handoff scripts. Successful deployment-job cancellation now revokes that job's published answer. Published answers have no time-based expiry. They remain available until explicitly revoked or removed when a new PXE session starts.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 ## Security boundary
 
@@ -85,33 +76,7 @@ signature or transport-encryption layer to this HTTP answer workflow, nor does
 it add per-client identity. Optional age encryption protects image artifacts,
 not the answer JSON or HTTP transport.
 
-The Live HTTP downloader and schema validation service are conditionally
-started for unattended PXE kernel parameters. The first connected restore
-provider is NFS: Live mounts it read-only, resolves exactly one whole disk by
-WWN/serial, validates the image manifest and artifact digest, and calls the
-existing whole-disk restore engine. Artifacts may be unencrypted or age-encrypted
-with a symmetric passphrase. This PXE passphrase path applies only to age
-passphrase-encrypted artifacts; recipient-encrypted age artifacts require an
-identity and are not unlocked by this flow. The current capture UI still creates
-whole-disk capture also supports symmetric age passphrases through Cockpit; the
-passphrase is delivered once to the durable worker and is not stored in the
-image manifest or operation journal. Partition and logical-volume capture
-remain recipient-based. When a supported artifact is encrypted,
-the restore worker waits for the operator to enter the passphrase in Cockpit on
-that Live client.
-Cockpit submits it once through the privileged local API; it is held briefly in
-a root-only 0600 file under /run, consumed and unlinked, and is not placed in
-the answer JSON, kernel command line, URL, environment or logs. The Live client
-uses age's passphrase prompt through a pseudo-terminal and stages authenticated
-plaintext in a private temporary file before writing the target. A wrong
-passphrase or failed age authentication aborts before the first write. PXE
-does not use minisign. The engine rechecks the target immediately before
-writing and performs read-back verification. Other repository schemes, credential references and physical hardware
-acceptance remain outstanding. The answer job UUID is used to locate the
-published answer; the Live client does not maintain a consumed-job ledger or
-enforce answer expiry. Rebooting the Client does not invalidate the answer.
-Do not describe unattended PXE as complete until the remaining providers and
-acceptance work are tested.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 ## Provider support status
 
