@@ -169,7 +169,7 @@ class LocalOperationStoreTests(unittest.TestCase):
                 with self.assertRaisesRegex(LocalOperationError, "absolute and normalized"):
                     validate_definition(definition)
 
-    def test_capture_sftp_publication_does_not_require_image_signing(self):
+    def test_capture_sftp_publication_without_extra_security_flags(self):
         definition = {
             "schema_version": 1,
             "operation_id": "00000000-0000-4000-8000-000000000001",
@@ -378,7 +378,7 @@ class LocalOperationStoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             store = LocalOperationStore(os.path.join(root, "jobs"))
             params = {"source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                      "encrypt": False, "sign": False}
+                      "encrypt": False}
             for _ in range(501):
                 store.submit("capture_disk", params)
             self.assertEqual(len(store.list(limit=500)), 500)
@@ -389,7 +389,7 @@ class LocalOperationStoreTests(unittest.TestCase):
             store = LocalOperationStore(os.path.join(root, "jobs"))
             identifier = "00000000-0000-4000-8000-000000000001"
             params = {"source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                      "encrypt": False, "sign": False}
+                      "encrypt": False}
             store.submit("capture_disk", params, operation_id=identifier)
             with self.assertRaisesRegex(LocalOperationError, "already exists"):
                 store.submit("capture_disk", params, operation_id=identifier)
