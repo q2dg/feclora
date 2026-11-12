@@ -66,15 +66,7 @@ Required file-repository integrations: SSHFS (mounted filesystem), SFTP (file-tr
 
 **Outcome:** Browse/select an image in a supported remote repository and restore it to a local whole disk or partition.
 
-- [ ] Cockpit connects to each supported provider and browses inventory without showing an underlying empty mountpoint as if it were the remote repository.
-- [ ] Support whole-disk and partition restore with explicit image and destination selection.
-- [ ] Verify manifest and artifact hashes, compression integrity and any configured encryption authentication/signature before destructive writes wherever possible. `age` and `minisign` are optional integrations; deployments that do not use them must still establish manifest authenticity through an independently trusted mechanism before unattended/destructive use.
-- [ ] Preflight destination geometry, sector size, capacity, partition layout and supported storage layers; summarize before confirmation.
-- [ ] Destructive confirmation binds to the exact target and image.
-- [ ] Progress, verification, operation journal and failure reason appear in Cockpit.
-- [ ] Disconnect, corrupt/truncated image, invalid signature, bad credentials, insufficient capacity and interrupted write fail closed; partially written targets are untrusted.
-- [ ] Automated tests cover each provider adapter and restore preflight; integration tests use disposable real provider services.
-- [ ] Publish whole-disk and partition restore guides, including provider connection and troubleshooting.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 ## 5. Mass restore to multiple remote Clients, including PXE
 
