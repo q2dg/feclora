@@ -362,10 +362,11 @@ integrity; it does not authenticate the publisher. Any destructive or
 unattended workflow must authenticate the manifest through the configured
 independent trust mechanism and bind its digest to the authorized job/profile.
 
-Remote repository types in the intended scope are SSHFS, SFTP, NFS, SMB/CIFS,
-WebDAV requires isolated per-repository
-credentials; the global davfs2 secrets file is not an acceptable workaround. BitTorrent is a first-class planned peer-to-peer distribution transport at the same priority as the other remote transports,
-not a writable repository; if implemented it must use a maintained client and
-verify manifest authenticity and artifact digests before restore.
+Remote file-repository types in the intended scope are SSHFS, SFTP, NFS,
+SMB/CIFS, WebDAV and S3. WebDAV requires isolated per-repository credentials;
+the global davfs2 secrets file is not an acceptable workaround. S3 requires a
+dedicated object API adapter and is not currently implemented. NVMe-oF is a
+separate block-device transport, not a repository; its host-side namespace
+lifecycle and Cockpit workflow are not implemented.
 
 For Server/Client deployment restores, the persistent Cockpit Client can select an existing local logical volume when the job target type is `logical_volume`. The API and persistent Client service validate it against healthy local LVM topology; the LV restore engine repeats the safety preflight immediately before writing. This path does not create or resize LVM metadata. Deployment-job LV capture is not implemented.
