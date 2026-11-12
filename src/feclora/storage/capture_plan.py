@@ -184,7 +184,7 @@ def plan_storage_capture(
                 "Btrfs snapshot-assisted capture is not implemented; the filesystem must remain cleanly unmounted and quiescent throughout capture."
             )
         mount_inventory = inventory.get("btrfs_subvolumes")
-        if isinstance(mount_inventory, dict) and mount_inventory.get("status") not in (None, "available"):
+        if not isinstance(mount_inventory, dict) or mount_inventory.get("status") != "available":
             blockers.append("Btrfs mount state could not be verified; refusing a layer-aware consistency claim.")
 
         profile_status = filesystem.get("allocation_profile_status")
