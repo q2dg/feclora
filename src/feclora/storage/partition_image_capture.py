@@ -163,8 +163,7 @@ def capture_partition_image(
             output.write(manifest.to_json())
             output.flush()
             os.fsync(output.fileno())
-        signature_name = None
-        publish_names.append(manifest_name)
+        publish_names = [artifact_name, manifest_name]
         try:
             publish_image_set(repo, stage, publish_names)
         except FileExistsError as exc:
