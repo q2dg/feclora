@@ -484,7 +484,7 @@ class RemoteRepositoryManager:
             raise RepositoryManagerError(f"cannot acquire repository usage lock: {exc}") from exc
 
     def acquire_usage_lock(self, identifier: str) -> int:
-        """Hold a shared lease while a deployment job may read this repository."""
+        """Hold a shared lease while any local or distributed image operation uses this repository."""
         if identifier not in self._load():
             raise RepositoryManagerError("unknown repository ID")
         return self._acquire_usage_lock(identifier, exclusive=False)
