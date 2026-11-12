@@ -34,9 +34,9 @@ that a Client is online or reachable.
 
 The Client's destination path is sent to the Server because the source and
 receiver must agree on the clone target. This is not Client authentication.
-The receiver independently revalidates its block-device identity, capacity,
-logical sector size, writable status and destructive safety immediately
-before writing. A smaller target is rejected.
+The receiver independently revalidates its block-device identity, block-device
+class, capacity, logical sector size, writable status and destructive safety
+immediately before writing. A smaller target is rejected.
 
 ## Source precondition
 
@@ -53,7 +53,7 @@ check the source device.
    or partition), chooses a matching read-only source device and selects the
    receiver MAC for this job.
 2. The Client verifies the Server certificate, inspects the job, selects a
-   local whole-disk destination and types the exact destructive confirmation.
+   local destination of the same device type and types the exact destructive confirmation.
 3. The Server records READY. The operator explicitly arms the job.
 4. The Server creates a fresh session UUID and source geometry. Protocol v2
    binds the device type (`disk` or `partition`) into the session header. The
