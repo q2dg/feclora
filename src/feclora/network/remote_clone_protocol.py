@@ -1,4 +1,4 @@
-"""Bounded framing and integrity primitives for one-to-one remote disk cloning.
+"""Bounded framing and integrity primitives for one-to-one remote block-device cloning.
 
 TLS setup and local device authorization are deliberately separate concerns.
 Callers must use TLS that authenticates the Server certificate only. Client
