@@ -51,46 +51,7 @@ transport. Age encryption is optional.
 - **Remote repositories:** SSHFS, NFS and SMB/CIFS mount lifecycle and image
   engine integration exist. Provider-specific permissions, NFS root-squash,
   stale mounts, outages, interrupted publication, cleanup, concurrency and
-  live health behavior still need acceptance. WebDAV's isolated credential
-  lifecycle and S3 object API integration are not implemented.
-- **Storage fidelity:** deployment-job LV capture, snapshot-assisted LVM/Btrfs
-  imaging, multi-device/profile Btrfs capture and layer-aware Btrfs restore
-  remain incomplete. Opened-mapping/LUKS2-on-LV restore, provisioning and
-  rekeying are unsupported. Raw LUKS2 container-to-partition restore is
-  implemented; do not describe all LUKS2 restore as unavailable.
-- **Remote cloning and fleet operations:** remote whole-disk and
-  partition-to-partition clone paths exist in the shared TLS engine and Cockpit
-  job flow. Two-machine fault injection, disconnect/restart recovery and
-  complete multi-Client acceptance remain open.
-- **Network configuration:** DHCP/static IPv4 application and checkpoint
-  rollback exist. Gateway reachability, DNS resolution, inactive-profile
-  selection, multi-interface behavior, browser/API disconnect recovery and
-  complete Server/Client workflow acceptance remain open.
-- **PKI:** managed CA bootstrap, enrollment/renewal, trust inventory/revocation,
-  Server leaf renewal/keypair rotation exist.
-- **Monitoring:** local operation journals and byte progress, plus Server-side
-  per-Client operation progress/throughput, exist. Standardized
-  phase/diagnostic telemetry, history export, detached-worker supervision and
-  additional recovery drills remain open.
-- **NVMe-oF:** host-side namespace connection management is not implemented.
-  NQN/NSID identity binding, multipath, in-use protection, fabric-security
-  boundaries and operator acceptance are required.
-- **Release engineering:** the frontend has pinned direct dependencies but no
-  committed npm lockfile, so transitive dependency resolution is not
-  reproducible. Dependency/security scanning, secret-leak checks,
-  documentation/link validation and backup/upgrade/rollback guidance remain
-  outstanding.
-
-## Release-critical work
-
-1. Complete unattended PXE lifecycle and result reporting, then validate the
-   workflow on supported firmware and hardware.
-2. Complete remote repository lifecycle and provider acceptance; implement
-   WebDAV and S3 object storage. Treat NVMe-oF as a separate block-device
-   workflow.
-3. Close storage-layer gaps without weakening fail-closed behavior.
-4. Complete remote-clone fault injection, transfer recovery and multi-Client
-   acceptance.
+  live health behavior still need acceptance. S3 object transfer, credential isolation and manifest-last publication require implementation and provider acceptance.
 5. Complete release engineering: deterministic frontend dependencies,
    security scanning, secret checks and documentation/link checks in CI.
 6. Record BIOS/UEFI, real Fedora Live, filesystem, remote-provider, multi-Client,
