@@ -14,13 +14,13 @@ class PXEAnswerTests(unittest.TestCase):
             "schema_version": 1,
             "operation": "restore",
             "image_id": "fedora-workstation",
-            "repository_url": "sftp://images.example.net/feclora",
+            "repository_url": "nfs://images.example.net/feclora",
             "target": {"wwn": "0x5000abcd1234", "serial": None},
             "confirm_destructive": True,
             "start": True,
         }
 
-    def test_accepts_valid_sftp_answer(self):
+    def test_accepts_valid_answer(self):
         result = validate_pxe_answer(self.valid_answer())
         self.assertEqual(result["image_id"], "fedora-workstation")
         self.assertEqual(result["target"]["wwn"], "0x5000abcd1234")
@@ -51,9 +51,9 @@ class PXEAnswerTests(unittest.TestCase):
                 with self.assertRaises(PXEAnswerError):
                     validate_pxe_answer(answer)
 
-    def test_rejects_embedded_repository_credentials(self):
+    def test_rejects_sftp_scheme(self):
         answer = self.valid_answer()
-        answer["repository_url"] = "sftp://operator:secret@images.example.net/images"
+        answer["repository_url"] = "sftp://images.example.net/images"
         with self.assertRaises(PXEAnswerError):
             validate_pxe_answer(answer)
 
