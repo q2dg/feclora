@@ -543,6 +543,8 @@ class DeploymentControlServer:
         self,
         mac_address: str,
         repository: str,
+        *,
+        on_received: Callable[[str], None] | None = None,
     ) -> str:
         """Receive an image set from one running save Client."""
         tls_socket = self._running_session(mac_address, "save")
@@ -568,10 +570,13 @@ class DeploymentControlServer:
                     or transfer.get("job_id") != self.coordinator.job.job_id
                     or transfer.get("image_id") != self.coordinator.job.image_id):
                 raise DeploymentControlError("client image-transfer readiness is not bound to this job")
-            return receive_image_set(
+            manifest_path = receive_image_set(
                 tls_socket, repository,
                 expected_image_id=self.coordinator.job.image_id,
-                )
+            )
+            if on_received is not None:
+                on_received(manifest_path)
+            return manifest_path
         except (ImageTransferError, OSError, DeploymentControlError) as exc:
             self._record_transfer_failure(mac_address, f"saved image transfer failed: {exc}")
             if isinstance(exc, DeploymentControlError):
@@ -584,6 +589,7 @@ class DeploymentControlServer:
         *,
         manifest_path: str | None = None,
         result_timeout: float = 86400,
+        saved_image_callback: Callable[[str], None] | None = None,
     ) -> dict[str, str]:
         """Arm and run one unicast save/restore job end to end."""
         if self.coordinator.job.transport != "unicast":
@@ -604,7 +610,7 @@ class DeploymentControlServer:
                 )
             else:
                 self.receive_saved_image(
-                    mac, repository,
+                    mac, repository, on_received=saved_image_callback,
                 )
         except (DeploymentControlError, ImageTransferError):
             # The transfer method records a terminal failed result and closes
