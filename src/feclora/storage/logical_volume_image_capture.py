@@ -98,7 +98,6 @@ def capture_logical_volume_image(
     artifact_name = f"{image_id}.img{suffix}"
     manifest_name = f"{image_id}.manifest.json"
     stage = tempfile.mkdtemp(prefix=".feclora-logical-volume-set-", dir=repo)
-    committed = False
     try:
         artifact = capture_logical_volume(
             source_path, filesystem, stage, artifact_name, inventory, available,
@@ -147,7 +146,6 @@ def capture_logical_volume_image(
             raise LogicalVolumeImageCaptureError("image artifact already exists") from exc
         except ImagePublicationError as exc:
             raise LogicalVolumeImageCaptureError(str(exc)) from exc
-        committed = True
         return manifest
     except CaptureCancelled:
         raise
