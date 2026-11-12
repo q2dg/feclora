@@ -784,8 +784,6 @@ def _validate_pxe_profile(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError("max_clients must be an integer from 1 to 4096 or null")
     if max_duration_seconds is not None and (isinstance(max_duration_seconds, bool) or not isinstance(max_duration_seconds, int) or not 60 <= max_duration_seconds <= 604800):
         raise WebAPIError("max_duration_seconds must be an integer from 60 to 604800 or null")
-    if max_clients is None and max_duration_seconds is None:
-        raise WebAPIError("configure a maximum PXE client count and/or serving time")
     optional = {}
     for key in ("pool_start", "pool_end", "gateway", "dns_server"):
         value = params[key]
