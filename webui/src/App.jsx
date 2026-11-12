@@ -173,6 +173,8 @@ export default function App() {
   const [pxeStatus, setPxeStatus] = useState({ active: false, configured: false });
   const [security, setSecurity] = useState({});
   const [encrypt, setEncrypt] = useState(false);
+  const [encryptPassphraseMode, setEncryptPassphraseMode] = useState(false);
+  const [capturePassphrase, setCapturePassphrase] = useState("");
   const [sign, setSign] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -329,7 +331,7 @@ export default function App() {
         port: Number(sftpPort), identity_credential: sftpIdentity,
         known_hosts_credential: sftpKnownHosts
       } : null;
-      if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
+      if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt: encrypt || encryptPassphraseMode, sign, ...(encryptPassphraseMode ? { encrypt_passphrase: true } : {}), ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (operation === "capture_logical_volume") params = { source, image_id: imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (isRestore) {
@@ -346,7 +348,17 @@ export default function App() {
         };
       }
       else params = { source, target, confirmation };
+      if (encryptPassphraseMode && (operation !== "capture_disk" || !capturePassphrase)) {
+        throw new Error("Enter a passphrase for symmetric whole-disk encryption.");
+      }
       const accepted = await callFeclora(operation, params);
+      if (encryptPassphraseMode) {
+        const oneShotPassphrase = capturePassphrase;
+        setCapturePassphrase("");
+        await callFeclora("provide_capture_passphrase", {
+          operation_id: accepted.operation_id, passphrase: oneShotPassphrase
+        });
+      }
       setOperations((current) => [{
         operation_id: accepted.operation_id, action: operation, state: "queued",
         events: [{ state: "queued", timestamp: new Date().toISOString(), details: {} }]
@@ -1113,10 +1125,17 @@ export default function App() {
                         </select>
                       </Field>
                       <Field label="Image security">
-                        <label><input type="checkbox" checked={encrypt} disabled={!security.age_encryption_available} onChange={(e) => setEncrypt(e.target.checked)} /> Encrypt artifacts with age</label>
+                        <label><input type="checkbox" checked={encrypt} disabled={!security.age_encryption_available && !security.age_executable_available} onChange={(e) => { setEncrypt(e.target.checked); if (!e.target.checked) { setEncryptPassphraseMode(false); setCapturePassphrase(""); } }} /> Encrypt artifacts with age</label>
+                        {operation === "capture_disk" && encrypt && security.age_executable_available && <>
+                          <br />
+                          <label><input type="checkbox" checked={encryptPassphraseMode} onChange={(e) => { setEncryptPassphraseMode(e.target.checked); setCapturePassphrase(""); }} /> Use a symmetric passphrase instead of recipient keys</label>
+                          {encryptPassphraseMode && <Field label="Image encryption passphrase" help="Sent once to the worker through /run and consumed immediately. It is not saved in the operation journal or image manifest.">
+                            <input className="pf-v5-c-form-control" type="password" autoComplete="new-password" value={capturePassphrase} onChange={(e) => setCapturePassphrase(e.target.value)} maxLength={1024} />
+                          </Field>}
+                        </>}
                         <br />
                         <label><input type="checkbox" checked={sign} disabled={!security.image_signing_available || publishAfterCapture} onChange={(e) => setSign(e.target.checked)} /> Sign manifest with minisign</label>
-                        {!security.age_encryption_available || !security.image_signing_available ? <p className="pf-v5-u-color-200">Optional image protection is provisioned during Server setup when the relevant tools are installed. Without them, ordinary capture and restore remain available.</p> : null}
+                        {!security.age_encryption_available && !security.age_executable_available || !security.image_signing_available ? <p className="pf-v5-u-color-200">Optional image protection is provisioned during Server setup when the relevant tools are installed. Without them, ordinary capture and restore remain available.</p> : null}
                       </Field>
                       <Field label="SFTP post-capture publication">
                         <label><input type="checkbox" checked={publishAfterCapture} disabled={busy || !sign} onChange={(e) => setPublishAfterCapture(e.target.checked)} /> Publish this image set to SFTP after capture and local signature verification</label>
