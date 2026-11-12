@@ -42,7 +42,7 @@ identify the feature status (implemented, partial or planned).
 |---|---|---|
 | `01-operations-overview` | Operations wizard and available local actions | Mockup or real screenshot |
 | `02-storage-source-selection` | Disk, partition and supported LV source selection | Mockup or real screenshot |
-| `03-image-capture-options` | Compression and optional age/minisign settings | Mockup or real screenshot |
+| `03-image-capture-options` | Compression and optional age/not used settings | Mockup or real screenshot |
 | `04-operation-progress` | Progress and terminal status | Mockup or real screenshot |
 | `05-image-inventory` | Manifest, integrity and protection metadata | Mockup or real screenshot |
 | `06-restore-target-review` | Image, destination and destructive confirmation | Mockup or real screenshot |
