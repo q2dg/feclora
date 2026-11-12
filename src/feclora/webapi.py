@@ -659,8 +659,6 @@ def _verify_image(params: dict[str, Any]) -> dict[str, Any]:
     if manifest.image_id != image_id:
         raise WebAPIError("selected image manifest identifier does not match its repository name")
 
-    signature_status = "not-used"
-
     encrypted = any(item.encryption == "age" for item in manifest.artifacts)
     identities: list[Path] = []
     if security["age_decryption_available"]:
@@ -729,11 +727,11 @@ def _verify_image(params: dict[str, Any]) -> dict[str, Any]:
                 identity_context.cleanup()
     return {
         "image_id": image_id, "image_type": manifest.image_type,
-        "manifest": "valid", "signature": signature_status,
+        "manifest": "valid",
         "artifact_count": len(artifact_reports), "total_decoded_bytes": total_decoded,
         "artifacts": artifact_reports,
         "verified": True,
-        "message": "All stored artifact digests, age authentication and compression streams were verified. This is a read-only check; unsigned images remain unsigned.",
+        "message": "All stored artifact SHA-256 digests, age authentication and compression streams were verified. This is a read-only check.",
     }
 
 
@@ -1539,7 +1537,6 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                     manifest_path, repository, target, confirmation=expected,
                     inventory_provider=collect_inventory,
                     progress_callback=_progress, age_identity_file=identity_file,
-                    minisign_public_key=trusted_key, require_signature=signed,
                 )
         finally:
             if identity_context:
