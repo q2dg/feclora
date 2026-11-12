@@ -14,11 +14,10 @@ Artifact encryption is optional and uses the upstream `age` tools. Feclora does 
 
 ## SHA-256 integrity checks
 
-For each artifact, the manifest records its stored byte count and SHA-256 digest. Feclora verifies these values during local image verification, SFTP import/publication, TLS image-set transfer, multicast staging and restore preflight. Compressed and age-encrypted artifacts are also decoded/authenticated as applicable before a destructive restore is allowed to proceed.
+For each artifact, the manifest records its stored byte count and SHA-256 digest. Feclora verifies these values during local image verification, TLS image-set transfer, multicast staging and restore preflight. Compressed and age-encrypted artifacts are also decoded/authenticated as applicable before a destructive restore is allowed to proceed.
 
 The manifest itself is not cryptographically signed. A digest stored in the same manifest as the artifact is an integrity check, not an independent authenticity proof. The trust boundary therefore comes from the authenticated transport or the operator-controlled local repository:
 
-- SFTP uses pinned SSH host keys and encrypted systemd credential references.
 - Unicast deployment uses the Server-authenticated TLS control session.
 - Multicast distributes the manifest over that TLS control session; UDPcast carries the artifact bytes and does not provide datagram confidentiality or peer authentication.
 - Local image repositories and unattended restore profiles rely on root-owned directories and protected file permissions.
