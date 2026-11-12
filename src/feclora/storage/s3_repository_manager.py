@@ -171,6 +171,12 @@ class S3RepositoryManager:
 
     def add(self, identifier, definition):
         self._validate(identifier, definition)
+        try:
+            self.credentials._validate_existing(
+                self.credentials._path(definition["credential_id"], "s3")
+            )
+        except Exception as exc:
+            raise S3RepositoryManagerError("selected encrypted S3 credential is unavailable") from exc
         with self._lock():
             entries = self._load()
             if identifier in entries:
@@ -181,6 +187,12 @@ class S3RepositoryManager:
 
     def update(self, identifier, definition):
         self._validate(identifier, definition)
+        try:
+            self.credentials._validate_existing(
+                self.credentials._path(definition["credential_id"], "s3")
+            )
+        except Exception as exc:
+            raise S3RepositoryManagerError("selected encrypted S3 credential is unavailable") from exc
         with self._lock():
             entries = self._load()
             if identifier not in entries:
