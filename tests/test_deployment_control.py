@@ -95,7 +95,6 @@ class ListenerShutdownRaceTests(unittest.TestCase):
         server._identities = {}
         server._target_devices = {}
         server.tls_context = SimpleNamespace(wrap_socket=lambda accepted, server_side: tls_socket)
-        server.client_identity_to_mac = {"URI:feclora-client": MAC}
         server.local_identity = "URI:feclora-server"
         server.coordinator = coordinator
         listener = SimpleNamespace(accept=lambda: (FakeSocket(), ("192.0.2.20", 40000)))
@@ -371,7 +370,6 @@ class TLSContextTests(unittest.TestCase):
             DeploymentControlServer(
                 DeploymentCoordinator(make_job()), context,
                 local_identity="URI:feclora-server",
-                client_identity_to_mac={"URI:feclora-client": MAC},
             )
 
 
@@ -399,7 +397,6 @@ class TLSContextTests(unittest.TestCase):
         server = DeploymentControlServer(
             DeploymentCoordinator(make_job()), context,
             local_identity="URI:feclora-server",
-            client_identity_to_mac={"URI:feclora-client": MAC},
             firewall=firewall, interface="enp1s0",
         )
         server.start("127.0.0.1", 0, firewall_state_callback=callbacks.append)
@@ -437,7 +434,6 @@ class TLSContextTests(unittest.TestCase):
         server = DeploymentControlServer(
             DeploymentCoordinator(make_job()), context,
             local_identity="URI:feclora-server",
-            client_identity_to_mac={"URI:feclora-client": MAC},
             firewall=firewall, interface="enp1s0",
         )
         try:
@@ -513,7 +509,6 @@ class ControlFramingTests(unittest.TestCase):
         server._stop_event = threading.Event()
         server._sessions = {}
         server._identities = {}
-        server.client_identity_to_mac = {"URI:feclora-client": MAC}
         server.local_identity = "URI:feclora-server"
         server.coordinator = coordinator
         with patch("feclora.deployment.control._certificate_identity", return_value="URI:feclora-client"), \
@@ -700,7 +695,6 @@ class CoordinatorControlTests(unittest.TestCase):
         context.verify_mode = ssl.CERT_REQUIRED
         server = DeploymentControlServer(
             coordinator, context, local_identity="URI:feclora-server",
-            client_identity_to_mac={"URI:feclora-client": MAC},
         )
         fake = FakeSocket()
         server._sessions[MAC] = fake
@@ -719,7 +713,6 @@ class CoordinatorControlTests(unittest.TestCase):
         context.verify_mode = ssl.CERT_REQUIRED
         server = DeploymentControlServer(
             coordinator, context, local_identity="URI:feclora-server",
-            client_identity_to_mac={"URI:feclora-client": MAC},
         )
         fake = FakeSocket()
         server._sessions[MAC] = fake
@@ -792,7 +785,6 @@ class CoordinatorControlTests(unittest.TestCase):
         server = DeploymentControlServer(
             DeploymentCoordinator(make_job()), context,
             local_identity="URI:feclora-server",
-            client_identity_to_mac={"URI:feclora-client": MAC},
             firewall=firewall, interface="enp1s0",
         )
         _host, port = server.start("127.0.0.1", 0)
@@ -813,7 +805,6 @@ class CoordinatorControlTests(unittest.TestCase):
         server = DeploymentControlServer(
             DeploymentCoordinator(make_job()), context,
             local_identity="URI:feclora-server",
-            client_identity_to_mac={"URI:feclora-client": MAC},
             firewall=firewall, interface="enp1s0",
         )
         _host, port = server.start("127.0.0.1", 0)
@@ -847,7 +838,6 @@ class CoordinatorControlTests(unittest.TestCase):
         context.verify_mode = ssl.CERT_REQUIRED
         server = DeploymentControlServer(
             coordinator, context, local_identity="URI:feclora-server",
-            client_identity_to_mac={"URI:feclora-client": MAC},
         )
         fake = FakeSocket()
         server._sessions[MAC] = fake
@@ -863,7 +853,6 @@ class CoordinatorControlTests(unittest.TestCase):
         context.verify_mode = ssl.CERT_REQUIRED
         server = DeploymentControlServer(
             coordinator, context, local_identity="URI:feclora-server",
-            client_identity_to_mac={"URI:feclora-client": MAC},
         )
         fake = FakeSocket()
         server._sessions[MAC] = fake
@@ -950,7 +939,6 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
             coordinator = DeploymentCoordinator(job)
             server = DeploymentControlServer(
                 coordinator, server_context, local_identity="URI:feclora-server",
-                client_identity_to_mac={"URI:feclora-client": MAC},
             )
             host, port = server.start("127.0.0.1", 0)
             client_result = []
@@ -1033,7 +1021,6 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
             coordinator = DeploymentCoordinator(make_job())
             server = DeploymentControlServer(
                 coordinator, server_context, local_identity="URI:feclora-server",
-                client_identity_to_mac={"URI:feclora-client": MAC},
             )
             _address, port = server.start("127.0.0.1", 0)
             client_result = []
@@ -1132,7 +1119,6 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
             coordinator = DeploymentCoordinator(make_job(operation="save"))
             server = DeploymentControlServer(
                 coordinator, server_context, local_identity="URI:feclora-server",
-                client_identity_to_mac={"URI:feclora-client": MAC},
             )
             host, port = server.start("127.0.0.1", 0)
             client_errors = []

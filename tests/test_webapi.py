@@ -1951,29 +1951,22 @@ class WebAPITests(unittest.TestCase):
             self.assertEqual(result["job"]["job_id"], job.job_id)
 
 
-    def test_certificate_status_reports_server_client_and_ca_expiry(self):
+    def test_certificate_status_reports_only_server_and_ca_expiry(self):
         server = SimpleNamespace(
             certificate_file="/pki/server.crt", ca_file="/pki/ca.crt",
             local_identity="URI:feclora-server",
         )
-        client = SimpleNamespace(
-            certificate_file="/pki/client.crt", ca_file="/pki/client-ca.crt",
-            local_identity="URI:feclora-client-01",
-        )
         with patch("feclora.webapi.os.path.isfile", return_value=True), patch(
             "feclora.deployment.runtime_config.load_server_runtime_config", return_value=server
         ), patch(
-            "feclora.deployment.runtime_config.load_client_runtime_config", return_value=client
-        ), patch(
             "feclora.deployment.managed_pki.certificate_expiry_days",
-            side_effect=[20, 900, -1, 15],
+            side_effect=[20, 900],
         ):
             result = _certificate_status()
-        self.assertEqual([item["role"] for item in result], ["Server", "Client"])
+        self.assertEqual([item["role"] for item in result], ["Server"])
         self.assertEqual(result[0]["status"], "expiring")
         self.assertEqual(result[0]["ca_status"], "valid")
-        self.assertEqual(result[1]["status"], "expired")
-        self.assertEqual(result[1]["ca_status"], "expiring")
+
 
 if __name__ == "__main__":
     unittest.main()
