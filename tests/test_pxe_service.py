@@ -65,7 +65,7 @@ class PxeServiceTests(unittest.TestCase):
             manager.start(config())
             self.assertEqual(calls, ["preflight", "stage"])
             manager.stop()
-    def test_starts_two_explicit_transient_units_and_writes_private_configs(self):
+    def test_starts_transient_dnsmasq_admission_and_caddy_units(self):
         calls = []
         def runner(argv, **kwargs):
             calls.append(argv)
@@ -78,6 +78,9 @@ class PxeServiceTests(unittest.TestCase):
             self.assertEqual(len(starts), 3)
             self.assertTrue(any(arg.startswith("--unit=feclora-dnsmasq-") for arg in starts[0]))
             self.assertTrue(any(arg.startswith("--unit=feclora-pxe-admission-") for arg in starts[1]))
+            self.assertIn("--setenv=PYTHONPATH=/usr/share/feclora/python", starts[1])
+            self.assertIn("/usr/bin/python3", starts[1])
+            self.assertIn("feclora.network.pxe_admission", starts[1])
             self.assertTrue(any(arg.startswith("--unit=feclora-caddy-") for arg in starts[2]))
             self.assertEqual((Path(tmp) / "dnsmasq.conf").stat().st_mode & 0o777, 0o600)
             self.assertEqual((Path(tmp) / "Caddyfile").stat().st_mode & 0o777, 0o644)
