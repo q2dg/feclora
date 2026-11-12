@@ -503,11 +503,14 @@ class DeploymentService:
                 results = self.control.run_one_client_job(
                     self.repository_path,
                     manifest_path=self.manifest_path,
+                    saved_image_callback=(
+                        (lambda _manifest_path: self._s3_object_repository.upload_image_set(
+                            self.repository_path, self.job.image_id,
+                        ))
+                        if self.job.operation == "save" and self._s3_object_repository is not None
+                        else None
+                    ),
                 )
-            if self.job.operation == "save" and self._s3_object_repository is not None:
-                if not results or any(state != "succeeded" for state in results.values()):
-                    raise DeploymentServiceError("Client capture did not succeed; S3 manifest will not be published")
-                self._s3_object_repository.upload_image_set(self.repository_path, self.job.image_id)
         except Exception as exc:
             self._last_error = str(exc)[:512]
             # Do not retry or reconstruct a live session. The journal remains
