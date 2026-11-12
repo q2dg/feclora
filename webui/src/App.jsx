@@ -1222,7 +1222,7 @@ export default function App() {
                       <option value="">Select read-only source disk…</option>
                       {(inventory?.devices || []).filter((item) => item.type === "disk" && item.read_only === true).map((item) => <option key={item.path} value={item.path}>{item.path} · {item.model || "Disk"} · {formatBytes(item.size_bytes)}</option>)}
                     </select>
-                  </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing disk or partition image. Signed images are verified; unsigned images are accepted only through the authenticated mTLS job session." : "New identifier for the image captured from Clients."}>
+                  </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing disk or partition image. Signed images are verified; unsigned images are accepted through the TLS Server session." : "New identifier for the image captured from Clients."}>
                     {remoteOperation === "restore" ? <select className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)}>
                       <option value="">Select image…</option>
                       {availableImages.filter((item) => item.image_type === remoteTargetType).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {item.signed ? "signed" : "unsigned"}</option>)}
@@ -1252,7 +1252,7 @@ export default function App() {
                   {remoteTransport === "multicast" && <>
                     <Field label="Administratively scoped multicast group"><input className="pf-v5-c-form-control" value={remoteMulticastGroup} onChange={(e) => setRemoteMulticastGroup(e.target.value)} /></Field>
                     <Field label="UDPcast even portbase"><input className="pf-v5-c-form-control" type="number" min="1024" max="65534" step="2" value={remoteMulticastPort} onChange={(e) => setRemoteMulticastPort(e.target.value)} /></Field>
-                    <Alert variant="warning" title="Multicast transport limitation" isInline>UDPcast data packets are not encrypted or authenticated. mTLS protects the control plane, not the multicast data stream. Use only on a trusted, isolated deployment network.</Alert>
+                    <Alert variant="warning" title="Multicast transport limitation" isInline>UDPcast data packets are not encrypted or authenticated. TLS protects the control plane, not the multicast data stream. Use only on a trusted, isolated deployment network.</Alert>
                   </>}
                   <Field label="Start policy"><input className="pf-v5-c-form-control" value="Manual — exact job-specific typed confirmation required" readOnly /></Field>
                   <Button type="submit" variant="primary" isDisabled={busy || (remoteOperation === "clone" ? !remoteSourceDevice : !remoteImageId) || !remoteClients.trim() || !remoteInterface}>Validate and save job definition</Button>
@@ -1473,7 +1473,7 @@ export default function App() {
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem>
                 <Title headingLevel="h2" size="xl">Initialize deployment Server identity</Title>
-                <p>Select an IPv4 address currently assigned to the management interface. Feclora will initialize its managed CA and mTLS Server certificate. If age-keygen or minisign are installed, it will also provision those optional image-protection keys.</p>
+                <p>Select an IPv4 address currently assigned to the management interface. Feclora will initialize its managed CA and Server TLS certificate. If age-keygen or minisign are installed, it will also provision those optional image-protection keys.</p>
                 <Alert variant="info" title="This is the identity bootstrap step only" isInline>
                   It does not enable DHCP/ProxyDHCP, configure PXE boot services, open firewall ports or start a deployment. Client enrollment is a separate, explicit removable-media trust ceremony below.
                 </Alert>
@@ -1492,38 +1492,7 @@ export default function App() {
                 <Button variant="primary" onClick={bootstrapServer} isLoading={busy} isDisabled={busy || !serverBinding || status?.server_configured}>Initialize Server identity</Button>
               </StackItem>
               {status?.server_configured && <StackItem><Alert variant="success" title="Server configuration exists" isInline>The existing configuration is not overwritten by this wizard. Continue with the remaining Server and PXE setup once those Cockpit workflows are available.</Alert></StackItem>}
-              {status?.server_configured && <StackItem>
-                <Title headingLevel="h2" size="xl">Trusted Client inventory and revocation</Title>
-                <p>Review enrolled TLS identities and their authorized MAC addresses. Revocation removes the identity-to-MAC authorization, image-signing trust and age recipient from future captures. It does not terminate established TLS sessions or invalidate old encrypted images.</p>
-                <Table aria-label="Trusted Feclora Clients" variant="compact">
-                  <Thead><Tr><Th>Client identity</Th><Th>Authorized MAC</Th><Th>Minisign image signing</Th></Tr></Thead>
-                  <Tbody>
-                    {trustedClients.map((client) => <Tr key={client.identity}><Td>{client.identity}</Td><Td>{client.mac_address}</Td><Td>{client.image_signing ? "Key enrolled" : "No key (unsigned capture allowed)"}</Td></Tr>)}
-                    {!trustedClients.length && <Tr><Td colSpan={3}>No enrolled Clients.</Td></Tr>}
-                  </Tbody>
-                </Table>
-                {trustedClients.length > 0 && <>
-                <Field label="Export updated age recipient inventory to mounted USB directory">
-                  <input className="pf-v5-c-form-control" value={ageRecipientExportDirectory} onChange={(event) => { setAgeRecipientExportDirectory(event.target.value); setAgeRecipientExport(null); }} placeholder="/run/media/liveuser/USB" />
-                </Field>
-                <Button variant="secondary" onClick={exportServerAgeRecipients} isLoading={busy} isDisabled={busy || !ageRecipientExportDirectory}>Export age-recipients.txt</Button>
-                {ageRecipientExport && <Alert variant="success" title="Recipient inventory exported" isInline>{ageRecipientExport.path} · {ageRecipientExport.recipient_count} recipients · SHA-256 {ageRecipientExport.sha256}</Alert>}
-                  <Field label="Client identity to revoke">
-                    <select className="pf-v5-c-form-control" value={revokeIdentity} onChange={(event) => { setRevokeIdentity(event.target.value); setRevokeConfirmation(""); }}>
-                      <option value="">Select an enrolled Client…</option>
-                      {trustedClients.map((client) => <option key={client.identity} value={client.identity}>{client.identity} · {client.mac_address}</option>)}
-                    </select>
-                  </Field>
-                  {revokeIdentity && <>
-                    <Alert variant="warning" title="Revocation is not retroactive" isInline>Existing TLS sessions may remain active until disconnected. Previously exported recipient lists and encrypted images are unchanged; distribute the refreshed recipient inventory to remaining Clients.</Alert>
-                    <Field label={`Type exactly: REVOKE ${revokeIdentity}`}>
-                      <input className="pf-v5-c-form-control" value={revokeConfirmation} onChange={(event) => setRevokeConfirmation(event.target.value)} />
-                    </Field>
-                    <Button variant="danger" onClick={revokeTrustedClient} isLoading={busy} isDisabled={busy || revokeConfirmation !== `REVOKE ${revokeIdentity}`}>Revoke Client identity</Button>
-                  </>}
-                </>}
-              </StackItem>}
-              {serverSetup && <StackItem><Card><CardBody><Title headingLevel="h3" size="lg">Server identity status</Title><p>{serverSetup.message}</p><p>Bind address: {serverSetup.bind_address}:{serverSetup.port}</p><p>Certificate identity: {serverSetup.server_identity}</p><p>Enrolled Clients: {serverSetup.enrolled_clients}</p></CardBody></Card></StackItem>}
+              {status?.server_configured && <StackItem><Alert variant="info" title="Client authentication disabled" isInline>Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.</Alert></StackItem>}
               {status?.server_configured && <StackItem><Card><CardBody>
                 <Title headingLevel="h3" size="lg">Encrypted offline CA backup</Title>
                 <Alert variant="warning" title="Protect the root CA signing key" isInline>The backup contains the CA private key and certificate, encrypted to the age recipient below. Keep the matching age identity separately and offline. Without that identity, the backup cannot be recovered. Never store the decryption identity beside this backup.</Alert>
@@ -1565,40 +1534,6 @@ export default function App() {
                 <Button variant="danger" onClick={renewServerCertificate} isLoading={busy} isDisabled={busy || serverRenewConfirmation !== "RENEW SERVER CERTIFICATE"}>Renew Server certificate</Button>
                 {serverRenewResult && <Alert variant="success" title="Server certificate renewed" isInline>{serverRenewResult.message} · Server certificate expires in {serverRenewResult.expiry_days} days; CA expires in {serverRenewResult.ca_expiry_days} days.</Alert>}
               </CardBody></Card></StackItem>}
-              <StackItem>
-                <Title headingLevel="h2" size="xl">Trusted Clients · Approve CSR</Title>
-                <p>Prepare an enrollment request on the Client and inspect it here from removable media. The Client private TLS and age keys never leave the Client.</p>
-                <Field label="Client CSR file" help="Absolute path under /run/media, /media or /mnt.">
-                  <input className="pf-v5-c-form-control" value={csrPath} onChange={(e) => { setCsrPath(e.target.value); setCsrReview(null); }} />
-                </Field>
-                <Field label="Client age recipient file (optional)">
-                  <input className="pf-v5-c-form-control" value={ageRecipientPath} onChange={(e) => { setAgeRecipientPath(e.target.value); setCsrReview(null); }} placeholder="/run/media/.../feclora-client.age-recipient" />
-                </Field>
-                <Field label="Client unicast MAC address">
-                  <input className="pf-v5-c-form-control" value={clientMac} onChange={(e) => { setClientMac(e.target.value); setCsrReview(null); }} placeholder="00:11:22:33:44:55" />
-                </Field>
-                <Field label="Client minisign public key (optional)" help="Provide only if this Client may capture images for the Server.">
-                  <input className="pf-v5-c-form-control" value={clientMinisignPath} onChange={(e) => { setClientMinisignPath(e.target.value); setCsrReview(null); }} placeholder="/run/media/.../client.minisign.pub" />
-                </Field>
-                <label><input type="checkbox" checked={csrRenewal} onChange={(event) => { setCsrRenewal(event.target.checked); setCsrReview(null); setCsrConfirmation(""); }} /> This CSR renews an already-enrolled Client certificate (preserve its MAC and any configured optional image-security material)</label>
-                <Button variant="secondary" onClick={inspectClientCSR} isLoading={busy} isDisabled={busy || !csrPath || !clientMac}>Inspect {csrRenewal ? "renewal" : "enrollment"} request</Button>
-                {csrApprovalResult && <Card className="pf-v5-u-mt-md"><CardBody>
-                  <Alert variant="success" title={csrApprovalResult.renewal ? "Client certificate renewed" : "Client enrolled"} isInline>{csrApprovalResult.message}</Alert>
-                  <p>Identity: {csrApprovalResult.identity} · MAC: {csrApprovalResult.mac_address}</p>
-                  <p>Response bundle: {csrApprovalResult.bundle_directory}</p>
-                  <p>Feclora CA SHA-256 fingerprint (verify on Client):</p><code>{csrApprovalResult.ca_fingerprint}</code>
-                  {csrApprovalResult.server_minisign_sha256 && <><p>Optional Server minisign public-key SHA-256 fingerprint (verify on Client):</p><code>{csrApprovalResult.server_minisign_sha256}</code></>}
-                  <p>Client image signing: {csrApprovalResult.image_signing_enabled ? "enrolled" : "not enrolled"}</p>
-                </CardBody></Card>}
-                {csrReview && <Card className="pf-v5-u-mt-md"><CardBody>
-                  <Alert variant="warning" title={csrReview.renewal === "true" ? "Review Client certificate renewal" : "Review this identity before enrollment"} isInline>Identity: {csrReview.identity} · MAC: {csrReview.mac_address}. Minisign signing key: {csrReview.image_signing_enabled === "true" ? "enrolled" : "not requested"}. Age recipient: {csrReview.age_encryption_enabled === "true" ? "registered" : "not supplied"}. {csrReview.renewal === "true" ? "Only the TLS certificate will be renewed; existing trust mappings remain unchanged." : "No enrollment has occurred yet."}</Alert>
-                  <p>To approve, type this exact phrase:</p><code>{csrReview.confirmation_phrase}</code>
-                  <Field label="Explicit enrollment confirmation">
-                    <input className="pf-v5-c-form-control" value={csrConfirmation} onChange={(e) => setCsrConfirmation(e.target.value)} />
-                  </Field>
-                  <Button variant="danger" onClick={approveClientCSR} isLoading={busy} isDisabled={busy || csrConfirmation !== csrReview.confirmation_phrase}>Approve CSR, {csrReview.renewal === "true" ? "renew certificate and export response bundle" : "enroll Client and export response bundle"}</Button>
-                </CardBody></Card>}
-              </StackItem>
               <StackItem>
                 <Title headingLevel="h2" size="xl">PXE network profile preflight</Title>
                 <p>Validate a proposed PXE network configuration before any service is started. Select the same management interface above.</p>
@@ -1697,7 +1632,7 @@ export default function App() {
                     <p>Server identity: {clientRemoteInspection.server_identity}</p>
                     <p>Client connection source: {clientRemoteInspection.client_network_interface} · {clientRemoteInspection.client_source_address}</p>
                     <p>Authorized Client MACs: {(clientRemoteJob.authorized_clients || []).join(", ")}</p>
-                    {clientRemoteJob.transport === "multicast" && <Alert variant="warning" title="Multicast network requirements" isInline>All authorized Clients must be READY before the Server operator authorizes and starts the operation. Confirm UDP multicast reachability, switch IGMP snooping and an active querier on the same VLAN. UDPcast data packets are not encrypted or authenticated; mTLS protects only the control channel.</Alert>}
+                    {clientRemoteJob.transport === "multicast" && <Alert variant="warning" title="Multicast network requirements" isInline>All selected Clients must be READY before the Server operator authorizes and starts the operation. Confirm UDP multicast reachability, switch IGMP snooping and an active querier on the same VLAN. UDPcast data packets are not encrypted or authenticated; TLS protects only the control channel.</Alert>}
                     {clientRemoteJob.transport === "multicast" && <label><input type="checkbox" checked={clientRemoteIgmpConfirmed} onChange={(event) => setClientRemoteIgmpConfirmed(event.target.checked)} /> I verified IGMP snooping and an active querier on this VLAN, and confirmed all Clients are on the same multicast network.</label>}
                     {(clientRemoteJob.transport === "unicast" || clientRemoteJob.transport === "multicast") && <>
 
