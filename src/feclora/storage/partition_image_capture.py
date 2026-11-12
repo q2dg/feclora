@@ -140,7 +140,6 @@ def capture_partition_image(
     artifact_name = f"{stem}.img{suffix}"
     manifest_name = f"{image_id}.manifest.json"
     stage = tempfile.mkdtemp(prefix=".feclora-partition-set-", dir=repo)
-    committed = False
     try:
         artifact = capture_partition(
             source_path, filesystem, stage, artifact_name, partition_id,
@@ -182,7 +181,6 @@ def capture_partition_image(
             raise PartitionImageCaptureError("image artifact already exists") from exc
         except ImagePublicationError as exc:
             raise PartitionImageCaptureError(str(exc)) from exc
-        committed = True
         return manifest
     except CaptureCancelled:
         raise
