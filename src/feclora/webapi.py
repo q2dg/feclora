@@ -393,172 +393,6 @@ def _initialize_security() -> dict[str, Any]:
 
 
 
-def _fetch_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
-    required = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential"}
-    if set(params) not in (required, required | {"port"}):
-        raise WebAPIError("fetch_sftp_image_set requires encrypted SSH connection details")
-    host = _text(params, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
-    if host.endswith(".") or ".." in host:
-        raise WebAPIError("SFTP host is invalid")
-    username = _text(params, "username", pattern=r"[A-Za-z0-9._-]{1,64}")
-    remote_directory = _text(params, "remote_directory", maximum=1024)
-    identity = _text(params, "identity_credential", maximum=512)
-    known_hosts = _text(params, "known_hosts_credential", maximum=512)
-    port = params.get("port", 22)
-    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
-        raise WebAPIError("SFTP port is invalid")
-    from feclora.storage.sftp_image_set import fetch_image_set
-    from feclora.storage.operation_log import operation_record
-    repository = _repository(create=True)
-    try:
-        with _storage_operation_lock():
-            with operation_record("fetch_sftp_image_set", f"{host}:{remote_directory}",
-                                  log_path="/var/log/feclora/operations.jsonl") as operation_id:
-                result = fetch_image_set(remote_directory=remote_directory, destination_root=repository,
-                    host=host, username=username, identity_credential=identity,
-                    known_hosts_credential=known_hosts, port=port, progress_callback=_progress)
-                return {"operation_id": operation_id, **result}
-    except Exception as exc:
-        raise WebAPIError(f"SFTP image import failed: {exc}") from exc
-def _sftp_repository_registry() -> Any:
-    from feclora.storage.sftp_repository_registry import SFTPRepositoryRegistry
-    return SFTPRepositoryRegistry()
-
-
-def _save_sftp_repository(params: dict[str, Any]) -> dict[str, Any]:
-    required = {
-        "id", "host", "username", "remote_directory",
-        "identity_credential", "known_hosts_credential",
-    }
-    if set(params) not in (required, required | {"port"}):
-        raise WebAPIError("save_sftp_repository requires an ID, endpoint and encrypted SSH credential references")
-    try:
-        saved = _sftp_repository_registry().save(params)
-        return {"repository": saved, "saved": True}
-    except Exception as exc:
-        raise WebAPIError(f"cannot save SFTP repository: {exc}") from exc
-
-
-def _remove_sftp_repository(params: dict[str, Any]) -> dict[str, Any]:
-    if set(params) != {"id"}:
-        raise WebAPIError("remove_sftp_repository requires only a repository ID")
-    identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}")
-    try:
-        _sftp_repository_registry().remove(identifier)
-        return {"id": identifier, "removed": True}
-    except Exception as exc:
-        raise WebAPIError(f"cannot remove saved SFTP repository: {exc}") from exc
-
-
-def _inspect_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
-    required = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential"}
-    if set(params) not in (required, required | {"port"}):
-        raise WebAPIError("inspect_sftp_image_set requires encrypted SSH connection details")
-    host = _text(params, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
-    if host.endswith(".") or ".." in host:
-        raise WebAPIError("SFTP host is invalid")
-    username = _text(params, "username", pattern=r"[A-Za-z0-9._-]{1,64}")
-    remote_directory = _text(params, "remote_directory", maximum=1024)
-    identity = _text(params, "identity_credential", maximum=512)
-    known_hosts = _text(params, "known_hosts_credential", maximum=512)
-    port = params.get("port", 22)
-    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
-        raise WebAPIError("SFTP port is invalid")
-    from feclora.storage.sftp_image_set import inspect_remote_image_set
-    from feclora.storage.operation_log import operation_record
-    try:
-        with operation_record("inspect_sftp_image_set", f"{host}:{remote_directory}",
-                              log_path="/var/log/feclora/operations.jsonl") as operation_id:
-            result = inspect_remote_image_set(remote_directory=remote_directory, host=host, username=username,
-                identity_credential=identity, known_hosts_credential=known_hosts, port=port)
-            return {"operation_id": operation_id, **result}
-    except Exception as exc:
-        raise WebAPIError(f"SFTP remote image inspection failed: {exc}") from exc
-def _list_sftp_image_manifests(params: dict[str, Any]) -> dict[str, Any]:
-    required = {
-        "host", "username", "remote_directory", "identity_credential",
-        "known_hosts_credential",
-    }
-    if set(params) not in (required, required | {"port"}):
-        raise WebAPIError("list_sftp_image_manifests requires connection details and encrypted SSH credential references")
-    host = _text(params, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
-    if host.endswith(".") or ".." in host:
-        raise WebAPIError("SFTP host is invalid")
-    username = _text(params, "username", pattern=r"[A-Za-z0-9._-]{1,64}")
-    remote_directory = _text(params, "remote_directory", maximum=1024)
-    identity = _text(params, "identity_credential", maximum=512)
-    known_hosts = _text(params, "known_hosts_credential", maximum=512)
-    port = params.get("port", 22)
-    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
-        raise WebAPIError("SFTP port must be an integer between 1 and 65535")
-    from feclora.storage.sftp_transfer_service import run_sftp_transfer
-    from feclora.storage.operation_log import operation_record
-    try:
-        with operation_record(
-            "list_sftp_image_manifests", f"{host}:{remote_directory}",
-            log_path="/var/log/feclora/operations.jsonl",
-        ) as operation_id:
-            result = run_sftp_transfer(
-                operation="inventory", host=host, username=username,
-                remote_path=remote_directory, identity_credential=identity,
-                known_hosts_credential=known_hosts, port=port,
-            )
-            return {"operation_id": operation_id, **result}
-    except Exception as exc:
-        raise WebAPIError(f"SFTP remote inventory failed: {exc}") from exc
-
-
-def _publish_captured_image_to_sftp(image_id: str, repository: Path, config: dict[str, Any], *,
-                                    progress_callback: Callable[[int, int | None], None] | None = None) -> dict[str, Any]:
-    required = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential"}
-    if not isinstance(config, dict) or set(config) not in (required, required | {"port"}):
-        raise WebAPIError("SFTP post-capture publication configuration is invalid")
-    host = _text(config, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
-    if host.endswith(".") or ".." in host:
-        raise WebAPIError("SFTP host is invalid")
-    username = _text(config, "username", pattern=r"[A-Za-z0-9._-]{1,64}")
-    remote_directory = _text(config, "remote_directory", maximum=1024)
-    identity = _text(config, "identity_credential", maximum=512)
-    known_hosts = _text(config, "known_hosts_credential", maximum=512)
-    port = config.get("port", 22)
-    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
-        raise WebAPIError("SFTP port is invalid")
-    manifest_path = _image_manifest(image_id, repository)
-    from feclora.storage.sftp_image_set import publish_image_set
-    return publish_image_set(manifest_path=manifest_path, artifact_directory=repository,
-        remote_directory=remote_directory, host=host, username=username,
-        identity_credential=identity, known_hosts_credential=known_hosts,
-        port=port, progress_callback=progress_callback)
-def _publish_sftp_image_set(params: dict[str, Any]) -> dict[str, Any]:
-    required = {"image_id", "host", "username", "remote_directory", "identity_credential", "known_hosts_credential"}
-    if set(params) not in (required, required | {"port"}):
-        raise WebAPIError("publish_sftp_image_set requires image_id and encrypted SSH connection details")
-    image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-    host = _text(params, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
-    if host.endswith(".") or ".." in host:
-        raise WebAPIError("SFTP host is invalid")
-    username = _text(params, "username", pattern=r"[A-Za-z0-9._-]{1,64}")
-    remote_directory = _text(params, "remote_directory", maximum=1024)
-    identity = _text(params, "identity_credential", maximum=512)
-    known_hosts = _text(params, "known_hosts_credential", maximum=512)
-    port = params.get("port", 22)
-    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
-        raise WebAPIError("SFTP port is invalid")
-    repository = _repository()
-    manifest_path = _image_manifest(image_id, repository)
-    from feclora.storage.sftp_image_set import publish_image_set
-    from feclora.storage.operation_log import operation_record
-    try:
-        with _storage_operation_lock():
-            with operation_record("publish_sftp_image_set", f"{host}:{remote_directory}", image_id=image_id,
-                                  log_path="/var/log/feclora/operations.jsonl") as operation_id:
-                result = publish_image_set(manifest_path=manifest_path, artifact_directory=repository,
-                    remote_directory=remote_directory, host=host, username=username,
-                    identity_credential=identity, known_hosts_credential=known_hosts,
-                    port=port, progress_callback=_progress)
-                return {"operation_id": operation_id, **result}
-    except Exception as exc:
-        raise WebAPIError(f"SFTP image publication failed: {exc}") from exc
 def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
     path = _operation_repository({"repository_id": repository_id}, write=False) if repository_id else _repository()
     if not path.exists():
@@ -1258,18 +1092,15 @@ def _revoke_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
 
 def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish", "encrypt_passphrase", "age_passphrase"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id", "sftp_publish"},
-        "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish"},
-        "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
-        "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "encrypt_passphrase", "age_passphrase"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
+        "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
+        "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
-        "sftp_inventory": {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "port"},
-        "sftp_fetch": {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "port"},
-        "sftp_publish": {"image_id", "host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "port"},
     }
     if action not in allowed:
         raise WebAPIError("operation parameters do not match the selected operation")
@@ -1277,53 +1108,20 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
     if action.startswith("restore_"):
         accepted_params = (allowed_params, allowed_params - {"repository_id"},
                            allowed_params - {"sftp_source"},
-                           allowed_params - {"repository_id", "sftp_source"})
+                           allowed_params - {"repository_id"})
     else:
         accepted_params = (allowed_params, allowed_params - {"repository_id"},
                            allowed_params - {"sftp_publish"},
-                           allowed_params - {"repository_id", "sftp_publish"})
+                           allowed_params - {"repository_id"})
     if action == "capture_disk":
         accepted_params = accepted_params + tuple(item - {"age_passphrase"} for item in accepted_params)
         accepted_params = accepted_params + tuple(
             item - {"age_passphrase", "encrypt_passphrase"} for item in accepted_params
         )
-    if (set(params) not in accepted_params and not (action in {"sftp_inventory", "sftp_fetch", "sftp_publish"} and set(params) == allowed_params - {"port"})) or ("sftp_source" in params and "repository_id" in params):
+    if (set(params) not in accepted_params and not (action in {"sftp_inventory", "sftp_fetch"} and set(params) == allowed_params - {"port"})) or ("sftp_source" in params and "repository_id" in params):
         raise WebAPIError("operation parameters do not match the selected operation")
     started = time.monotonic()
     _emit({"event": "started", "operation_id": operation_id, "operation": action})
-    if action == "sftp_inventory":
-        from feclora.storage.sftp_transfer_service import run_sftp_transfer
-        result = run_sftp_transfer(
-            operation="inventory", host=_text(params, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}"),
-            username=_text(params, "username", pattern=r"[A-Za-z0-9._-]{1,64}"),
-            remote_path=_text(params, "remote_directory", maximum=1024),
-            identity_credential=_text(params, "identity_credential", maximum=512),
-            known_hosts_credential=_text(params, "known_hosts_credential", maximum=512),
-            port=params.get("port", 22),
-        )
-    elif action == "sftp_fetch":
-        host = _text(params, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
-        username = _text(params, "username", pattern=r"[A-Za-z0-9._-]{1,64}")
-        remote_directory = _text(params, "remote_directory", maximum=1024)
-        identity = _text(params, "identity_credential", maximum=512)
-        known_hosts = _text(params, "known_hosts_credential", maximum=512)
-        port = params.get("port", 22)
-        if host.endswith(".") or ".." in host or isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
-            raise WebAPIError("SFTP fetch endpoint or port is invalid")
-        from feclora.storage.sftp_image_set import fetch_image_set
-        result = fetch_image_set(
-            remote_directory=remote_directory, destination_root=_repository(create=True),
-            host=host, username=username,
-            identity_credential=identity, known_hosts_credential=known_hosts,
-            port=port, progress_callback=_progress,
-        )
-    elif action == "sftp_publish":
-        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-        config = {key: params[key] for key in ("host", "username", "remote_directory", "identity_credential", "known_hosts_credential")}
-        config["port"] = params.get("port", 22)
-        result = _publish_captured_image_to_sftp(
-            image_id, _repository(), config, progress_callback=_progress,
-        )
     elif action == "capture_disk":
         from feclora.storage.disk_capture import capture_disk
         source = _device(params["source"], "source")
@@ -1355,11 +1153,6 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             age_passphrase=passphrase if symmetric else None,
         )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
-        if "sftp_publish" in params:
-            result["sftp_publication"] = _publish_captured_image_to_sftp(
-                manifest.image_id, _operation_repository(params, write=True), params["sftp_publish"],
-                progress_callback=_progress,
-            )
     elif action == "capture_partition":
         from feclora.storage.inventory import collect_inventory
         from feclora.storage.partition_image_capture import capture_partition_image
@@ -1381,11 +1174,6 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             age_recipients_file=recipients_file if encrypt else None,
         )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
-        if "sftp_publish" in params:
-            result["sftp_publication"] = _publish_captured_image_to_sftp(
-                manifest.image_id, _operation_repository(params, write=True), params["sftp_publish"],
-                progress_callback=_progress,
-            )
     elif action == "capture_logical_volume":
         from feclora.storage.inventory import collect_inventory
         from feclora.storage.logical_volume_image_capture import capture_logical_volume_image
@@ -1406,11 +1194,6 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             age_recipients_file=recipients_file if encrypt else None,
         )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
-        if "sftp_publish" in params:
-            result["sftp_publication"] = _publish_captured_image_to_sftp(
-                manifest.image_id, _operation_repository(params, write=True), params["sftp_publish"],
-                progress_callback=_progress,
-            )
     elif action == "extract_partition_image":
         from feclora.storage.disk_image_partition import extract_partition_image
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
@@ -1470,40 +1253,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         expected = f"ERASE {target}"
         if params["confirmation"] != expected:
             raise WebAPIError(f"explicit confirmation required: {expected}")
-        if "sftp_source" in params:
-            source = params["sftp_source"]
-            required_source = {
-                "host", "username", "remote_directory",
-                "identity_credential", "known_hosts_credential", "expected_manifest_sha256",
-            }
-            if not isinstance(source, dict) or set(source) not in (required_source, required_source | {"port"}):
-                raise WebAPIError("SFTP restore source settings are invalid")
-            host = _text(source, "host", pattern=r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
-            if host.endswith(".") or ".." in host:
-                raise WebAPIError("SFTP restore source host is invalid")
-            username = _text(source, "username", pattern=r"[A-Za-z0-9._-]{1,64}")
-            remote_directory = _text(source, "remote_directory", maximum=1024)
-            identity = _text(source, "identity_credential", maximum=512)
-            known_hosts = _text(source, "known_hosts_credential", maximum=512)
-            expected_manifest_sha256 = _text(source, "expected_manifest_sha256", pattern=r"[0-9a-f]{64}", maximum=64)
-            port = source.get("port", 22)
-            if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
-                raise WebAPIError("SFTP restore source port is invalid")
-            if "repository_id" in params:
-                raise WebAPIError("SFTP restore cannot be combined with a mounted repository")
-            repository = _repository(create=True)
-            from feclora.storage.sftp_image_set import fetch_image_set
-            try:
-                fetch_image_set(
-                    remote_directory=remote_directory, destination_root=repository,
-                    host=host, username=username, identity_credential=identity,
-                    known_hosts_credential=known_hosts, port=port, expected_image_id=image_id,
-                    expected_manifest_sha256=expected_manifest_sha256, progress_callback=_progress,
-                )
-            except Exception as exc:
-                raise WebAPIError(f"SFTP image fetch failed: {exc}") from exc
-        else:
-            repository = _operation_repository(params, write=False)
+        repository = _operation_repository(params, write=False)
         manifest_path = _image_manifest(image_id, repository)
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
         expected_type = {"restore_disk": "disk", "restore_partition": "partition", "restore_logical_volume": "logical_volume"}[action]
@@ -1749,10 +1499,10 @@ def _local_operations(params: dict[str, Any]) -> dict[str, Any]:
 
 def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
     operation_fields = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id", "sftp_publish"},
-        "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
-        "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
+        "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
@@ -1764,11 +1514,11 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
     if action.startswith("restore_"):
         accepted_params = (allowed_params, allowed_params - {"repository_id"},
                            allowed_params - {"sftp_source"},
-                           allowed_params - {"repository_id", "sftp_source"})
+                           allowed_params - {"repository_id"})
     else:
         accepted_params = (allowed_params, allowed_params - {"repository_id"},
                            allowed_params - {"sftp_publish"},
-                           allowed_params - {"repository_id", "sftp_publish"})
+                           allowed_params - {"repository_id"})
     if set(params) not in accepted_params or ("sftp_source" in params and "repository_id" in params):
         raise WebAPIError("operation parameters do not match the selected operation")
     with _storage_operation_lock():
@@ -1777,10 +1527,10 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
 
 def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]:
     operation_fields = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id", "sftp_publish"},
-        "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
-        "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
+        "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
@@ -1792,11 +1542,11 @@ def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]
     if action.startswith("restore_"):
         accepted_params = (allowed_params, allowed_params - {"repository_id"},
                            allowed_params - {"sftp_source"},
-                           allowed_params - {"repository_id", "sftp_source"})
+                           allowed_params - {"repository_id"})
     else:
         accepted_params = (allowed_params, allowed_params - {"repository_id"},
                            allowed_params - {"sftp_publish"},
-                           allowed_params - {"repository_id", "sftp_publish"})
+                           allowed_params - {"repository_id"})
     if set(params) not in accepted_params or ("sftp_source" in params and "repository_id" in params):
         raise WebAPIError("operation parameters do not match the selected operation")
     from feclora.storage.operation_log import operation_record
@@ -2700,25 +2450,6 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise WebAPIError("images does not accept parameters")
         return {"images": _images()}
-    if action == "sftp_repositories":
-        if params:
-            raise WebAPIError("sftp_repositories does not accept parameters")
-        try:
-            return {"repositories": _sftp_repository_registry().list()}
-        except Exception as exc:
-            raise WebAPIError(f"cannot list saved SFTP repositories: {exc}") from exc
-    if action == "save_sftp_repository":
-        return _save_sftp_repository(params)
-    if action == "remove_sftp_repository":
-        return _remove_sftp_repository(params)
-    if action == "inspect_sftp_image_set":
-        return _inspect_sftp_image_set(params)
-    if action == "list_sftp_image_manifests":
-        return _list_sftp_image_manifests(params)
-    if action == "fetch_sftp_image_set":
-        return _submit_local_operation({"operation": "sftp_fetch", "operation_params": params})
-    if action == "publish_sftp_image_set":
-        return _submit_local_operation({"operation": "sftp_publish", "operation_params": params})
     if action == "repository_images":
         if set(params) != {"repository_id"}:
             raise WebAPIError("repository_images requires repository_id")
