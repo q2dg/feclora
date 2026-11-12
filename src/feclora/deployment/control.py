@@ -111,7 +111,7 @@ class LocalTargetApproval:
 
 
 class DeploymentControlServer:
-    """Single-job listener adapter around the existing in-memory coordinator."""
+    """Single-job listener accepting Clients without client certificate authentication."""
 
     def __init__(
         self,
@@ -119,7 +119,7 @@ class DeploymentControlServer:
         tls_context: ssl.SSLContext,
         *,
         local_identity: str,
-        client_identity_to_mac: Mapping[str, str],
+        client_identity_to_mac: Mapping[str, str] | None = None,
         firewall: Any = None,
         interface: str | None = None,
         progress_event_sink: Callable[[dict[str, Any]], None] | None = None,
@@ -136,13 +136,7 @@ class DeploymentControlServer:
         self._firewall_added: tuple[str, ...] = ()
         self._firewall_opened = False
         self._firewall_state_callback: Callable[[dict[str, Any] | None], None] | None = None
-        self.client_identity_to_mac = {
-            identity: mac.lower() for identity, mac in client_identity_to_mac.items()
-        }
-        if not self.client_identity_to_mac:
-            raise DeploymentControlError("at least one certificate-identity-to-MAC mapping is required")
         self._sessions: dict[str, Any] = {}
-        self._identities: dict[str, str] = {}
         self._target_devices: dict[str, str] = {}
         self._progress: dict[str, dict[str, Any]] = {}
         self._progress_event_sink = progress_event_sink
@@ -165,7 +159,7 @@ class DeploymentControlServer:
         self, host: str, port: int, *, backlog: int = 16,
         firewall_state_callback: Callable[[dict[str, Any] | None], None] | None = None,
     ) -> tuple[str, int]:
-        """Bind a control listener and accept authenticated clients in a background thread."""
+        """Bind a control listener and accept Clients over server-authenticated TLS."""
         if self._listener is not None:
             raise DeploymentControlError("deployment control listener is already running")
         if not isinstance(port, int) or isinstance(port, bool) or not 0 <= port <= 65535:
@@ -393,7 +387,7 @@ class DeploymentControlServer:
             raise
 
     def arm_and_start(self) -> tuple[str, ...]:
-        """Arm only through the coordinator, then notify every authenticated READY client."""
+        """Arm only through the coordinator, then notify every READY Client."""
         self.coordinator.arm()
         started: list[str] = []
         with self._lock:
@@ -833,7 +827,7 @@ def inspect_deployment_job(
     port: int,
     tls_context: ssl.SSLContext,
     *,
-    local_identity: str,
+    local_identity: str | None = None,
     expected_server_identity: str,
     mac_address: str,
     job_id: str,
@@ -841,8 +835,7 @@ def inspect_deployment_job(
     source_address: str | None = None,
     network_interface: str | None = None,
 ) -> DeploymentJob:
-    """Read an authorized job offer without registering a Client or becoming READY."""
-    if not isinstance(local_identity, str) or not local_identity or len(local_identity) > 256:
+    """Read a job offer over TLS that authenticates only the Server certificate."""
     if not isinstance(mac_address, str) or not mac_address or len(mac_address) > 32:
         raise DeploymentControlError("client MAC address is required")
     if not isinstance(job_id, str) or not job_id or len(job_id) > 64:
@@ -887,7 +880,7 @@ def join_deployment(
     source_address: str | None = None,
     network_interface: str | None = None,
 ) -> tuple[DeploymentJob, bool, str]:
-    """Authenticate, receive a job, obtain local target approval, then execute on START."""
+    """Connect without client authentication, obtain local target approval, then execute on START."""
     if not isinstance(local_identity, str) or not local_identity or len(local_identity) > 256:
     if not isinstance(mac_address, str) or not mac_address or len(mac_address) > 32:
         raise DeploymentControlError("client MAC address is required")
