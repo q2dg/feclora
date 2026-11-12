@@ -21,8 +21,7 @@ The Live session is ephemeral. Credentials, certificates and temporary configura
 
 ## Current limitations
 
-- WebDAV and S3 repository integrations are not implemented. SSHFS, NFS and SMB/CIFS mounted repositories are supported in source.
-- NVMe-oF host namespace management is not implemented.
+- SSHFS, NFS and SMB/CIFS file repositories are implemented. S3 object-repository support is being integrated.
 - Unattended PXE currently covers the initial NFS whole-disk restore path, not a complete fleet workflow.
 - Multi-device Btrfs imaging, snapshot-assisted storage capture and several advanced LUKS/LVM workflows are not supported.
 - Automated tests and source validation do not prove ISO boot, firmware compatibility or physical-hardware acceptance.
