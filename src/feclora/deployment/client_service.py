@@ -22,7 +22,7 @@ from feclora.deployment.control import (
     DeploymentControlError, LocalTargetApproval, join_deployment, send_control_message,
 )
 from feclora.deployment.runtime_config import load_client_runtime_config
-from feclora.network.remote_clone_protocol import create_mutual_tls_context
+from feclora.network.remote_clone_protocol import create_tls_context
 from feclora.network.firewall import PXEFirewall
 from feclora.network.multicast_preflight import inspect_multicast_interface
 from feclora.storage.inventory import collect_inventory
@@ -382,11 +382,7 @@ class ClientDeploymentService:
             self.request_path.unlink()
             config_path = os.environ.get("FECLORA_CLIENT_CONFIG", "/etc/feclora/deployment-client.json")
             config = load_client_runtime_config(config_path)
-            context = create_mutual_tls_context(
-                "client", ca_file=config.ca_file,
-                certificate_file=config.certificate_file,
-                private_key_file=config.private_key_file,
-            )
+            context = create_tls_context("client", ca_file=config.ca_file)
             self._set_status("connecting", detail="Connecting to the authenticated Server; no local disk operation has started.")
 
             def prepare_local_target(job):

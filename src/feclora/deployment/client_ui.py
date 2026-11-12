@@ -24,7 +24,7 @@ from feclora.deployment.control import (
 from feclora.deployment.runtime_config import (
     ClientRuntimeConfig, RuntimeConfigError, load_client_runtime_config,
 )
-from feclora.network.remote_clone_protocol import create_mutual_tls_context
+from feclora.network.remote_clone_protocol import create_tls_context
 from feclora.network.multicast_preflight import inspect_multicast_interface
 from feclora.network.firewall import PXEFirewall
 from feclora.storage.inventory import InventoryError, collect_inventory
@@ -449,11 +449,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
         )
         if job_id is None:
             return 0
-        context = create_mutual_tls_context(
-            "client", ca_file=config.ca_file,
-            certificate_file=config.certificate_file,
-            private_key_file=config.private_key_file,
-        )
+        context = create_tls_context("client", ca_file=config.ca_file)
         state: dict[str, Any] = {}
 
         def prepare_local_target(job):

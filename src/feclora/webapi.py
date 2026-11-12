@@ -2172,7 +2172,7 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError("job_id must be a canonical UUID")
     from feclora.deployment.runtime_config import load_client_runtime_config
     from feclora.deployment.control import DeploymentControlError, inspect_deployment_job
-    from feclora.network.remote_clone_protocol import create_mutual_tls_context
+    from feclora.network.remote_clone_protocol import create_tls_context
     try:
         config = load_client_runtime_config("/etc/feclora/deployment-client.json")
     except Exception as exc:
@@ -2183,11 +2183,7 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
             or any(ord(char) < 33 for char in host)):
         raise WebAPIError("Server host must be a hostname or address without whitespace")
     try:
-        context = create_mutual_tls_context(
-            "client", ca_file=config.ca_file,
-            certificate_file=config.certificate_file,
-            private_key_file=config.private_key_file,
-        )
+        context = create_tls_context("client", ca_file=config.ca_file)
         job = inspect_deployment_job(
             host, config.port, context,
             local_identity=config.local_identity,

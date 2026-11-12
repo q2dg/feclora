@@ -26,7 +26,7 @@ from feclora.deployment.enrollment import (
 from feclora.deployment.runtime_config import (
     RuntimeConfigError, ServerRuntimeConfig, load_server_runtime_config,
 )
-from feclora.network.remote_clone_protocol import create_mutual_tls_context
+from feclora.network.remote_clone_protocol import create_tls_context
 from feclora.network.multicast_preflight import inspect_multicast_interface
 from feclora.network.pxe_config import PXENetworkConfig
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
@@ -590,7 +590,7 @@ def run_deployment_server_ui(
             )
             if confirmation != f"MULTICAST READY {job.job_id}":
                 raise DeploymentControlError("multicast network preflight was not confirmed")
-        context = create_mutual_tls_context(
+        context = create_tls_context(
             "server", ca_file=config.ca_file,
             certificate_file=config.certificate_file,
             private_key_file=config.private_key_file,

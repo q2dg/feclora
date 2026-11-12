@@ -30,7 +30,7 @@ from feclora.deployment.multicast_runtime import udpcast_config_for_job
 from feclora.deployment.runtime_config import load_server_runtime_config
 from feclora.network.firewall import PXEFirewall
 from feclora.network.multicast_preflight import inspect_multicast_interface
-from feclora.network.remote_clone_protocol import create_mutual_tls_context
+from feclora.network.remote_clone_protocol import create_tls_context
 from feclora.network.pxe_service import PXEServiceManager
 from feclora.storage.image_security import verify_manifest_signature
 
@@ -281,7 +281,7 @@ class DeploymentService:
         else:
             self._base_firewall_ports = set()
             self._base_firewall_protocols = set()
-        context = create_mutual_tls_context(
+        context = create_tls_context(
             "server", ca_file=self.config.ca_file,
             certificate_file=self.config.certificate_file,
             private_key_file=self.config.private_key_file,
