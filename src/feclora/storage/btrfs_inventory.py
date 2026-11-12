@@ -403,7 +403,7 @@ def parse_chunk_tree(
             current["num_stripes"], current["sub_stripes"] = (
                 int(value) for value in match.groups()
             )
-            if current["num_stripes"] < 1 or current["sub_stripes"] < 1:
+            if current["num_stripes"] < 1 or current["sub_stripes"] < 0:
                 raise BtrfsInventoryError("Btrfs chunk reports an invalid stripe count")
             continue
         match = _CHUNK_STRIPE.match(line)
