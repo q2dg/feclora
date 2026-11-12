@@ -299,7 +299,9 @@ export default function App() {
   const isLogicalVolume = operation === "capture_logical_volume" || operation === "restore_logical_volume";
   const deviceOptions = isDisk ? disks : isLogicalVolume ? logicalVolumes : partitions;
   const selectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId) || s3Repositories.find((repo) => repo.id === selectedRepositoryId);
+  const remoteSelectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified);
   const availableImages = selectedRepositoryId ? repositoryImages : images;
+  const remoteAvailableImages = remoteSelectedRepository ? repositoryImages : images;
   const matchingImages = availableImages.filter((item) => item.image_type === (isDisk ? "disk" : isLogicalVolume ? "logical_volume" : "partition"));
   const expectedConfirmation = operation === "clone_partition"
     ? (source && target ? `ERASE ${target} FROM ${source}` : "")
@@ -697,7 +699,7 @@ export default function App() {
         ...(remoteOperation === "clone" ? { source_device: remoteSourceDevice, target_type: remoteTargetType } : { target_type: remoteTargetType }),
         authorized_clients: authorizedClients, network_interface: remoteInterface.split("|")[0],
         transport: remoteTransport,
-        ...(remoteOperation === "restore" && selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}),
+        ...(remoteOperation === "restore" && remoteSelectedRepository ? { repository_id: remoteSelectedRepository.id } : {}),
         multicast_group: remoteTransport === "multicast" ? remoteMulticastGroup : null,
         multicast_port: remoteTransport === "multicast" ? Number(remoteMulticastPort) : null,
         start_policy: "manual", expected_clients: null, start_deadline: null
@@ -1049,7 +1051,7 @@ export default function App() {
                     </select>
                   </Field>
                   {remoteOperation === "restore" && <Field label="Image repository">
-                    <select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => { selectImageRepository(e.target.value); setRemoteImageId(""); }}>
+                    <select className="pf-v5-c-form-control" value={remoteSelectedRepository?.id || ""} disabled={busy} onChange={(e) => { selectImageRepository(e.target.value); setRemoteImageId(""); }}>
                       <option value="">Local Server repository</option>
                       {remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
                     </select>
@@ -1062,7 +1064,7 @@ export default function App() {
                   </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing disk or partition image. Images are validated against their manifests and SHA-256 digests." : "New identifier for the image captured from Clients."}>
                     {remoteOperation === "restore" ? <select className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)}>
                       <option value="">Select image…</option>
-                      {availableImages.filter((item) => item.image_type === remoteTargetType).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}</option>)}
+                      {remoteAvailableImages.filter((item) => item.image_type === remoteTargetType).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}</option>)}
                     </select> : <input className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)} maxLength={128} required />}
                   </Field>}
                   {(remoteOperation === "restore" || remoteOperation === "clone") && <Field label={remoteOperation === "clone" ? "Clone device type" : "Target type"}>
