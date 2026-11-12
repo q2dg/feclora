@@ -193,12 +193,16 @@ class S3RepositoryManager:
             )
         except Exception as exc:
             raise S3RepositoryManagerError("selected encrypted S3 credential is unavailable") from exc
-        with self._lock():
-            entries = self._load()
-            if identifier not in entries:
-                raise S3RepositoryManagerError("unknown S3 repository ID")
-            entries[identifier] = dict(definition)
-            self._save(entries)
+        usage_fd = self._acquire_usage_lock(identifier, exclusive=True)
+        try:
+            with self._lock():
+                entries = self._load()
+                if identifier not in entries:
+                    raise S3RepositoryManagerError("unknown S3 repository ID")
+                entries[identifier] = dict(definition)
+                self._save(entries)
+        finally:
+            os.close(usage_fd)
         return {"id": identifier, "provider": "s3", "updated": True}
 
     def _acquire_usage_lock(self, identifier: str, *, exclusive: bool) -> int:
@@ -246,10 +250,6 @@ class S3RepositoryManager:
                 self._save(entries)
         finally:
             os.close(usage_fd)
-        return {"id": identifier, "removed": True}
-
-    def credential_is_referenced
-            self._save(entries)
         return {"id": identifier, "removed": True}
 
     def credential_is_referenced(self, credential_id: str) -> bool:
