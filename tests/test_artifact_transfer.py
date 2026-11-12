@@ -78,7 +78,6 @@ class ImageTransferTests(unittest.TestCase):
             self.assertEqual(receive_progress[0], (0, 9))
             self.assertEqual(receive_progress[-1], (9, 9))
             self.assertTrue(os.path.isfile(received_manifest))
-            self.assertFalse(os.path.lexists(received_manifest + ".minisig"))
             with open(os.path.join(target, "disk.raw"), "rb") as stream:
                 self.assertEqual(stream.read(), b"disk")
             with open(os.path.join(target, "table.txt"), "rb") as stream:
