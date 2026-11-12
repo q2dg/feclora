@@ -42,10 +42,11 @@ transport. Age encryption is optional.
 ## Remaining engineering work
 
 - **Unattended PXE:** the first NFS-backed whole-disk restore path is integrated.
-  Other repository providers, a configurable PXE serving window (maximum
-  client count and/or elapsed-time limit), richer Cockpit result
-  reconciliation, wrong-passphrase end-to-end acceptance and BIOS/UEFI/
-  physical validation remain open. This answer workflow is separate
+  Other repository providers, richer Cockpit result reconciliation,
+  wrong-passphrase end-to-end acceptance and BIOS/UEFI/physical validation
+  remain open. Unattended PXE now counts distinct iPXE MAC addresses and can
+  stop admitting clients at a configured count and/or elapsed-time limit;
+  MAC is an operational identifier, not authentication. This answer workflow is separate
   from authenticated Server/Client Remote jobs.
 - **Remote repositories:** SSHFS, NFS and SMB/CIFS mount lifecycle and image
   engine integration exist. Provider-specific permissions, NFS root-squash,
