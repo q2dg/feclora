@@ -439,8 +439,6 @@ class ClientDeploymentService:
                     )
                 elif igmp_confirmed is not False:
                     raise DeploymentControlError("unicast Client job must not specify an IGMP acknowledgement")
-                if job.operation == "save" and job.target_type != "disk":
-                    raise DeploymentControlError("Client capture currently supports whole-disk jobs only")
                 selected = self._find_device(device_path, job.target_type)
                 if not job.authorizes_target(config.mac_address, selected):
                     raise DeploymentControlError(
