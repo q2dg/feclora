@@ -251,6 +251,7 @@ def receive_image_set(
             repo, stage,
             [*(artifact.filename for artifact in manifest.artifacts), os.path.basename(manifest_stage)],
         )
+        final_manifest = os.path.join(repo, expected_image_id + ".manifest.json")
         directory_fd = os.open(repo, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
             os.fsync(directory_fd)
