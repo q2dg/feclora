@@ -15,6 +15,7 @@ from typing import Callable, Mapping
 from .artifact_writer import ArtifactWriteError, write_artifact
 from .capture import CaptureError, _is_block_device
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
+from .image_publication import ImagePublicationError, publish_image_set
 from .image_security import ImageSecurityError, encrypt_artifact, encrypt_artifact_with_passphrase, preflight_image_security
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
