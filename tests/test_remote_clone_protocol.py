@@ -92,8 +92,6 @@ class RemoteCloneProtocolTests(unittest.TestCase):
     def test_same_device_node_name_is_valid_on_different_hosts(self):
         header = CloneSessionHeader(
             session_id=self.header.session_id,
-            source_identity=self.header.source_identity,
-            receiver_identity=self.header.receiver_identity,
             source_device="/dev/sda",
             receiver_target_device="/dev/sda",
             source_size_bytes=self.header.source_size_bytes,

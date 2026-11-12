@@ -227,7 +227,6 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                     TlsSocketProxy(left, peer="receiver.example"),
                     self.header,
                     operation_log_path=os.path.join(directory, "operations.jsonl"),
-                    local_identity="Server",
                         source_path="/dev/source",
                     confirmation="READ /dev/source",
                     executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
@@ -256,7 +255,6 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                         TlsSocketProxy(left, peer="receiver.example"),
                         self.header,
                         operation_log_path=os.path.join(directory, "operations.jsonl"),
-                        local_identity="Server",
                                 source_path="/dev/source",
                         confirmation="READ /dev/source",
                         executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
@@ -432,8 +430,6 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         processes = []
         header = CloneSessionHeader(
             session_id=self.header.session_id,
-            source_identity=self.header.source_identity,
-            receiver_identity=self.header.receiver_identity,
             source_device=self.header.source_device,
             receiver_target_device=self.header.receiver_target_device,
             source_size_bytes=len(self.payload) * 2,
@@ -468,7 +464,6 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                     receive_remote_disk(
                         TlsSocketProxy(right),
                         operation_log_path=log_path,
-                        local_identity="Client",
                                 target_path="/dev/target",
                         confirmation="ERASE /dev/target",
                         executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
@@ -499,7 +494,6 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                 receive_remote_disk(
                     TlsSocketProxy(right),
                     operation_log_path=os.path.join(directory, "operations.jsonl"),
-                    local_identity="Client",
                         target_path="/dev/target",
                     confirmation="yes",
                     executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
