@@ -2954,6 +2954,10 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise WebAPIError("server_trusted_clients does not accept parameters")
         return _server_trusted_clients()
+    if action == "export_server_age_recipients":
+        return _export_server_age_recipients(params)
+    if action == "refresh_client_age_recipients":
+        return _refresh_client_age_recipients(params)
     if action == "export_server_ca_backup":
         return _export_server_ca_backup(params)
     if action == "inspect_server_ca_backup":
