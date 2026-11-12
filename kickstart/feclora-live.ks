@@ -73,7 +73,6 @@ lvm2
 stratisd
 stratis-cli
 cryptsetup
-nvme-cli
 smartmontools
 e2fsprogs
 xfsprogs
