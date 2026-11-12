@@ -104,9 +104,9 @@ class DeploymentJob:
 
         repository_id = payload.get("repository_id")
         if repository_id is not None:
-            if (operation != "restore" or not isinstance(repository_id, str)
+            if (operation not in {"restore", "save"} or not isinstance(repository_id, str)
                     or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", repository_id)):
-                raise JobValidationError("repository_id is valid only for restore jobs and must be a simple repository ID")
+                raise JobValidationError("repository_id is valid only for save or restore jobs and must be a simple repository ID")
         source_device = payload.get("source_device")
         if operation == "clone":
             if (not isinstance(source_device, str)
