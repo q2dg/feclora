@@ -110,33 +110,20 @@ def _choose_job(
         if os.path.lexists(os.path.join(config.repository, image_id + ".manifest.json")):
             raise DeploymentControlError("an image with this identifier already exists")
 
-    enrolled = [
-        (identity, f"{identity} -> {mac}")
-        for identity, mac in sorted(config.client_identity_to_mac.items())
-    ]
-    if transport == "unicast":
-        identity = dialog_app._menu(
-            "Enrolled Client", "Select exactly one enrolled certificate identity.", enrolled,
-        )
-        if identity is None:
-            raise DeploymentControlError("Client selection cancelled")
-        selected_macs = [config.client_identity_to_mac[identity]]
-    else:
-        if len(enrolled) < 2:
-            raise DeploymentControlError("multicast restore requires at least two enrolled Clients")
-        args = ["--title", "Enrolled Clients", "--separate-output", "--checklist",
-                "Select at least two authenticated Clients for this multicast job.",
-                "22", "92", "12"]
-        for identity, label in enrolled:
-            args.extend([identity, label, "off"])
-        result = dialog_app._dialog(args)
-        if result.returncode != 0:
-            raise DeploymentControlError("multicast Client selection cancelled")
-        selected_identities = [item.strip() for item in result.stdout.splitlines() if item.strip()]
-        selected_macs = [config.client_identity_to_mac[item] for item in selected_identities
-                         if item in config.client_identity_to_mac]
-        if len(selected_macs) < 2 or len(selected_macs) != len(selected_identities):
-            raise DeploymentControlError("multicast restore requires at least two valid enrolled Clients")
+    mac_text = dialog_app._input(
+        "Client MAC addresses",
+        "Enter one unicast MAC address per line. No Client certificate enrollment or authentication is used:",
+    )
+    if mac_text is None:
+        raise DeploymentControlError("Client selection cancelled")
+    selected_macs = [item.strip().lower() for item in mac_text.replace(",", "\\n").splitlines() if item.strip()]
+    if (not selected_macs or len(selected_macs) != len(set(selected_macs))
+            or any(not re.fullmatch(r"(?:[0-9a-f]{2}:){5}[0-9a-f]{2}", item) for item in selected_macs)):
+        raise DeploymentControlError("Client MAC list is empty, duplicated or malformed")
+    if transport == "unicast" and len(selected_macs) != 1:
+        raise DeploymentControlError("unicast jobs require exactly one Client MAC")
+    if transport == "multicast" and len(selected_macs) < 2:
+        raise DeploymentControlError("multicast restore requires at least two Client MAC addresses")
 
     target_bindings: dict[str, dict[str, str | None]] = {}
     if operation == "restore" and target_type == "disk":
@@ -531,7 +518,7 @@ def run_deployment_server_ui(
     config_path: str = CONFIG_PATH,
     pxe_config: PXENetworkConfig | None = None,
 ) -> int:
-    """Load root-provisioned trust material and run one authenticated deployment job."""
+    """Load root-provisioned trust material and run one deployment job without Client authentication."""
     control = None
     try:
         created = ensure_server_deployment_config(address, config_path=config_path)
@@ -544,8 +531,6 @@ def run_deployment_server_ui(
                 + fingerprint + "\n\nThe CA private key stays on this Server. Back it up encrypted and offline. "
                 "Use the Trusted Clients screen to approve each Client CSR.",
             )
-        _manage_client_enrollment(config_path)
-        config = load_server_runtime_config(config_path)
         if config.bind_address != address:
             raise RuntimeConfigError(
                 "deployment control bind_address must equal the selected PXE interface address"
@@ -601,7 +586,6 @@ def run_deployment_server_ui(
         control = DeploymentControlServer(
             coordinator, context,
             local_identity=config.local_identity,
-            client_identity_to_mac=config.client_identity_to_mac,
             firewall=firewall,
             interface=interface,
         )

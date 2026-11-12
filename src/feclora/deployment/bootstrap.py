@@ -145,7 +145,6 @@ def ensure_server_deployment_config(
         "ca_file": pki["ca_file"],
         "certificate_file": pki["server_certificate"],
         "private_key_file": pki["server_key"],
-        "client_identity_to_mac": {},
         "client_minisign_public_keys": {},
         "server_minisign_public_key": signing_public if os.path.exists(signing_public) else None,
         "repository": repository,

@@ -289,7 +289,6 @@ class DeploymentService:
         self.control = DeploymentControlServer(
             self.coordinator, context,
             local_identity=self.config.local_identity,
-            client_identity_to_mac=self.config.client_identity_to_mac,
             firewall=self.firewall,
             interface=self.job.network_interface,
             progress_event_sink=self.journal,

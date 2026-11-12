@@ -98,7 +98,6 @@ class ServerRuntimeConfig:
     ca_file: str
     certificate_file: str
     private_key_file: str
-    client_identity_to_mac: Mapping[str, str]
     client_minisign_public_keys: Mapping[str, str]
     server_minisign_public_key: str | None
     repository: str
@@ -107,7 +106,7 @@ class ServerRuntimeConfig:
 def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
     fields = {
         "schema_version", "bind_address", "port", "local_identity", "ca_file",
-        "certificate_file", "private_key_file", "client_identity_to_mac",
+        "certificate_file", "private_key_file",
         "client_minisign_public_keys", "server_minisign_public_key", "repository",
     }
     value = _read_config(path, fields)
@@ -121,23 +120,10 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
         raise RuntimeConfigError("bind_address must be an IPv4 or IPv6 address") from exc
     if parsed.version != 4 or parsed.is_unspecified or parsed.is_multicast:
         raise RuntimeConfigError("bind_address must be a concrete unicast interface address")
-    identities = value["client_identity_to_mac"]
-    if not isinstance(identities, dict) or len(identities) > 128:
-        raise RuntimeConfigError("client_identity_to_mac must be an object with at most 128 enrolled clients")
-    normalized: dict[str, str] = {}
-    seen_macs: set[str] = set()
-    for identity, mac in identities.items():
-        identity = _identity(identity, "client certificate identity")
-        mac = _mac(mac)
-        if mac in seen_macs:
-            raise RuntimeConfigError("each client MAC must map to exactly one certificate identity")
-        normalized[identity] = mac
-        seen_macs.add(mac)
     client_keys = value["client_minisign_public_keys"]
-    if (not isinstance(client_keys, dict) or len(client_keys) > 128
-            or not set(client_keys).issubset(seen_macs)):
-        raise RuntimeConfigError("client minisign public keys must reference only enrolled client MACs")
-    checked_client_keys = {mac: _secure_file(key, "client minisign public key") for mac, key in client_keys.items()}
+    if not isinstance(client_keys, dict) or len(client_keys) > 128:
+        raise RuntimeConfigError("client minisign public keys must be an object with at most 128 entries")
+    checked_client_keys = {_mac(mac): _secure_file(key, "client minisign public key") for mac, key in client_keys.items()}
     return ServerRuntimeConfig(
         bind_address=address,
         port=_port(value["port"]),
@@ -145,7 +131,6 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
         ca_file=_secure_file(value["ca_file"], "deployment CA certificate"),
         certificate_file=_secure_file(value["certificate_file"], "Server certificate"),
         private_key_file=_secure_file(value["private_key_file"], "Server private key", private=True),
-        client_identity_to_mac=normalized,
         client_minisign_public_keys=checked_client_keys,
         server_minisign_public_key=(_secure_file(value["server_minisign_public_key"], "Server minisign public key") if value["server_minisign_public_key"] is not None else None),
         repository=_repository(value["repository"]),

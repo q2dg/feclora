@@ -1101,7 +1101,6 @@ def _bootstrap_server(params: dict[str, Any]) -> dict[str, Any]:
         "bind_address": config.bind_address,
         "port": config.port,
         "server_identity": config.local_identity,
-        "enrolled_clients": len(config.client_identity_to_mac),
         "message": (
             "Server identity and managed trust material initialized."
             if created else
@@ -2193,7 +2192,7 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
             network_interface=network_interface,
         )
     except (DeploymentControlError, OSError, ValueError) as exc:
-        raise WebAPIError(f"could not inspect authenticated Server job: {exc}") from exc
+        raise WebAPIError(f"could not inspect Server job: {exc}") from exc
     if job.operation == "save" and job.target_type != "disk":
         raise WebAPIError("Client-side capture currently supports whole-disk jobs only")
     return {
@@ -2737,8 +2736,6 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         config = load_server_runtime_config(config_path)
     except RuntimeConfigError as exc:
         raise WebAPIError(f"configure the Feclora Server before creating jobs: {exc}") from exc
-    if not set(job.authorized_clients).issubset(set(config.client_identity_to_mac.values())):
-        raise WebAPIError("every job Client must already be enrolled on this Server")
     if job.network_interface not in {name for _, name in socket.if_nameindex()}:
         raise WebAPIError("selected network interface does not exist")
     if job.transport == "multicast" and job.operation != "restore":
