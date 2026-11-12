@@ -13,7 +13,7 @@ storage, networking, cryptography, service-management and transport software.
 | Network configuration | NetworkManager | D-Bus profiles and checkpoint/rollback; do not edit configuration behind its back |
 | TLS and X.509 | OpenSSL and platform TLS libraries | CA/Server-certificate lifecycle and Client-side Server-certificate validation |
 | Services and durable workers | systemd | Units, transient services, supervision, credentials, lifecycle and restart boundaries |
-| SSH and file transfer | OpenSSH SSH/SFTP | Pinned host keys, protected key references, non-interactive transfers and job orchestration |
+| SSH filesystem access | OpenSSH SSH and SSHFS | Pinned host keys, protected key references and mounted repository access |
 | Network filesystems | NFS utilities, CIFS/SMB utilities and SSHFS | Provider-specific mount lifecycle, credential isolation, mount identity and operation leases |
 | WebDAV | davfs2 or another maintained WebDAV client | HTTPS validation and isolated per-repository credentials; never use the global davfs2 secrets file as a multi-repository secret store |
 | S3 object storage | AWS SDK/CLI with SigV4 support | Object-key mapping, multipart upload/download, manifest-last publication, conditional no-overwrite semantics, integrity and credential isolation |
@@ -24,7 +24,6 @@ storage, networking, cryptography, service-management and transport software.
 These technologies are not interchangeable:
 
 - **SSHFS, NFS and SMB/CIFS** are mounted filesystem repositories.
-- **SFTP** is a file-transfer provider, not an SSHFS mount.
 - **WebDAV** is a filesystem-style repository; isolated credentials and
   HTTPS validation are required before it can be enabled.
 - **S3** is object storage. It must use an object API, not pretend to be a
@@ -44,7 +43,7 @@ path is NFS-only.
 
 ## Repository model
 
-The intended file-repository set is SSHFS, SFTP, NFS, SMB/CIFS, WebDAV and S3.
+The intended file-repository set is SSHFS, NFS, SMB/CIFS, WebDAV and S3.
 They have different capabilities; do not assume every provider supports
 listing, publishing, conditional writes, resume or deletion. The distribution
 model is single-publisher / multi-reader: one Client publishes an image set,
