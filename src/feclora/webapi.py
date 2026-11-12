@@ -2267,7 +2267,7 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             if set(params) != {"id", "kind", "source_file", "replace"}:
                 raise WebAPIError("put_systemd_credential requires id, kind, source_file and replace")
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
-            kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb", maximum=16)
+            kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb|s3", maximum=16)
             source_file = _text(params, "source_file", maximum=512)
             if not isinstance(params["replace"], bool):
                 raise WebAPIError("replace must be boolean")
@@ -2281,11 +2281,15 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             if set(params) != {"id", "kind"}:
                 raise WebAPIError("remove_systemd_credential requires id and kind")
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
-            kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb", maximum=16)
+            kind = _text(params, "kind", pattern=r"ssh-key|known-hosts|smb|s3", maximum=16)
             from feclora.storage.systemd_credential_store import SystemdCredentialStore
             store = SystemdCredentialStore()
             if _remote_repository_manager().credential_is_referenced(str(store._path(identifier, kind))):
                 raise WebAPIError("credential is still referenced by a saved repository; update or remove that repository first")
+            if kind == "s3":
+                from feclora.storage.s3_repository_manager import S3RepositoryManager
+                if S3RepositoryManager().credential_is_referenced(identifier):
+                    raise WebAPIError("credential is still referenced by a saved S3 repository; update or remove that repository first")
             store.remove(identifier, kind)
             return {"removed": True, "id": identifier, "kind": kind}
         if action == "systemd_credentials":
@@ -2296,6 +2300,36 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
                 return {"credentials": SystemdCredentialStore().list()}
             except Exception as exc:
                 raise WebAPIError(f"encrypted credential inventory failed: {exc}") from exc
+        if action == "s3_repositories":
+            if params:
+                raise WebAPIError("s3_repositories does not accept parameters")
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            return {"repositories": S3RepositoryManager().list()}
+        if action in {"add_s3_repository", "update_s3_repository"}:
+            required = {"id", "endpoint_url", "region", "bucket", "prefix", "credential_id", "read_only"}
+            if set(params) != required:
+                raise WebAPIError("S3 repository definition has missing or unknown fields")
+            identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
+            definition = {key: params[key] for key in required - {"id"}}
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            manager = S3RepositoryManager()
+            return manager.add(identifier, definition) if action == "add_s3_repository" else manager.update(identifier, definition)
+        if action == "check_s3_repository":
+            if set(params) != {"id"}:
+                raise WebAPIError("check_s3_repository requires exactly id")
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            return S3RepositoryManager().check(_text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48))
+        if action == "remove_s3_repository":
+            if set(params) != {"id"}:
+                raise WebAPIError("remove_s3_repository requires exactly id")
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            return S3RepositoryManager().remove(_text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48))
+        if action == "s3_repository_images":
+            if set(params) != {"repository_id"}:
+                raise WebAPIError("s3_repository_images requires repository_id")
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            identifier = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
+            return {"images": S3RepositoryManager().repository(identifier).list_images()}
         if action == "remote_credentials":
             if params:
                 raise WebAPIError("remote_credentials does not accept parameters")
@@ -2377,6 +2411,8 @@ def dispatch(request: Any) -> dict[str, Any]:
     if action in {"remote_credentials", "systemd_credentials", "put_systemd_credential", "remove_systemd_credential"}:
         return _remote_repository_action(action, params)
     if action in {"remote_repositories", "add_remote_repository", "update_remote_repository", "check_remote_repository", "mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"}:
+        return _remote_repository_action(action, params)
+    if action in {"s3_repositories", "add_s3_repository", "update_s3_repository", "check_s3_repository", "remove_s3_repository", "s3_repository_images"}:
         return _remote_repository_action(action, params)
     if action == "export_server_age_recipients":
         return _export_server_age_recipients(params)
