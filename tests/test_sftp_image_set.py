@@ -17,7 +17,7 @@ class SFTPImageSetTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.payload = b"partition-image-data"
         self.digest = hashlib.sha256(self.payload).hexdigest()
-        (self.root / "part-1.img").write_bytes(self.payload)
+        (self.root / "repository" / "part-1.img").write_bytes(self.payload)
         document = {
             "schema_version": 1,
             "image_id": "test-image",
@@ -55,7 +55,7 @@ class SFTPImageSetTests(unittest.TestCase):
 
     def _fetch(self, transfer, **kwargs):
         return fetch_image_set(
-            destination_root=self.root, transfer=transfer, **self._connection(), **kwargs,
+            destination_root=self.root / "repository", transfer=transfer, **self._connection(), **kwargs,
         )
 
     def test_uploads_artifacts_then_manifest_commit_marker(self):
@@ -90,9 +90,9 @@ class SFTPImageSetTests(unittest.TestCase):
             return {"verified": kw.get("expected_sha256") is not None}
         result = self._fetch(transfer)
         self.assertEqual(calls, [("manifest.json", None), ("part-1.img", self.digest)])
-        self.assertTrue((self.root / "test-image.manifest.json").is_file())
+        self.assertTrue((self.root / "repository" / "test-image.manifest.json").is_file())
         self.assertEqual((self.root / "part-1.img").read_bytes(), self.payload)
-        self.assertEqual(result["repository_path"], str(self.root / "test-image.manifest.json"))
+        self.assertEqual(result["repository_path"], str(self.root / "repository" / "test-image.manifest.json"))
         self.assertEqual(list(self.root.glob(".feclora-sftp-incoming-*")), [])
 
     def test_fetch_rejects_artifact_digest_mismatch_and_cleans_staging(self):
