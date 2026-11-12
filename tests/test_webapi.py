@@ -1168,8 +1168,8 @@ class WebAPITests(unittest.TestCase):
             ), patch("feclora.storage.inventory.collect_inventory", return_value={
                 "devices": [{"type": "disk", "path": "/dev/sda", "children": []}],
             }), patch(
-                "feclora.webapi.os.lstat",
-                side_effect=lambda path: block_info if os.fspath(path) == "/dev/sda" else real_lstat(path),
+                "feclora.webapi.os.stat",
+                side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == "/dev/sda" else real_stat(path, *args, **kwargs),
             ), patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
                 returncode=0, stdout="", stderr="",
             )), patch("feclora.webapi._client_job_status", return_value={
