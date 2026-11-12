@@ -347,6 +347,6 @@ See [Remote image repositories](REMOTE-REPOSITORIES.md) for the Cockpit encrypte
 
 Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
-Remote repository types are SSHFS, NFS and SMB/CIFS mounted filesystems, plus S3 object storage through its HTTPS API. S3 requires a dedicated object adapter and is not yet exposed in Cockpit.
+Remote repository types are SSHFS, NFS and SMB/CIFS mounted filesystems, plus S3 object storage through its HTTPS API. Cockpit exposes the mounted-provider and S3 object-repository workflows separately; S3 is not mounted as a filesystem.
 
 For Server/Client deployment restores, the persistent Cockpit Client can select an existing local logical volume when the job target type is `logical_volume`. The API and persistent Client service validate it against healthy local LVM topology; the LV restore engine repeats the safety preflight immediately before writing. This path does not create or resize LVM metadata. Deployment-job LV capture is not implemented.
