@@ -96,7 +96,7 @@ def validate_pxe_answer(value: object) -> dict[str, object]:
     expires_at = value.get("expires_at")
     if expires_at is not None:
         if (not isinstance(expires_at, str)
-                or not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z", expires_at)):
+                or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", expires_at)):
             raise PXEAnswerError("expires_at must be a UTC timestamp in YYYY-MM-DDTHH:MM:SSZ format")
         try:
             datetime.strptime(expires_at, "%Y-%m-%dT%H:%M:%SZ")
