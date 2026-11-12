@@ -68,6 +68,18 @@ class DiskCloneTests(unittest.TestCase):
             progress_callback=lambda done, total, detail: progress.append((done, total)),
         )
         self.assertEqual(progress, [(50000, 100000), (100000, 100000)])
+    def test_progress_callback_value_error_is_not_treated_as_malformed_dd_output(self):
+        proc = FakeProcess(stderr=b"50000 bytes copied\\r")
+        with self.assertRaisesRegex(ValueError, "callback failed"):
+            clone_disk(
+                "/dev/source", "/dev/target", confirmation="ERASE /dev/target",
+                executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
+                device_validator=lambda _path: True, runner=self.runner,
+                device_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                popen_factory=lambda *a, **k: proc,
+                progress_callback=lambda *_args: (_ for _ in ()).throw(ValueError("callback failed")),
+            )
+        self.assertTrue(proc.terminated)
     def test_progress_dialog_closure_cancels_dd(self):
         proc = FakeProcess(returncode=None, stderr=b"50000 bytes copied\r")
         with self.assertRaises(DiskCloneCancelled):
