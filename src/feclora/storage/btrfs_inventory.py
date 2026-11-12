@@ -346,15 +346,16 @@ def parse_chunk_tree(
     def finish_chunk() -> None:
         if current is None:
             return
-        if current.get("length_bytes") is None or current.get("num_stripes") is None:
+        if (current.get("length_bytes") is None or current.get("num_stripes") is None
+                or not isinstance(current.get("type_flags"), str)):
             raise BtrfsInventoryError("Btrfs chunk-tree item is incomplete")
         stripes = current["stripes"]
         if len(stripes) != current["num_stripes"]:
             raise BtrfsInventoryError(
                 f"Btrfs chunk at {current['logical_start']} reports {current['num_stripes']} stripes but lists {len(stripes)}"
             )
-        if len({stripe["index"] for stripe in stripes}) != len(stripes):
-            raise BtrfsInventoryError("Btrfs chunk contains duplicate stripe indexes")
+        if {stripe["index"] for stripe in stripes} != set(range(current["num_stripes"])):
+            raise BtrfsInventoryError("Btrfs chunk contains invalid or duplicate stripe indexes")
         kind, profile, known_profile = _allocation_type_and_profile(current["type_flags"])
         device_ids = sorted({stripe["devid"] for stripe in stripes})
         complete = (
@@ -535,24 +536,36 @@ def collect_btrfs_topology(
     filesystems = parse_filesystem_show(completed.stdout)
     for filesystem in filesystems:
         device_paths = [device["path"] for device in filesystem["devices"]]
-        dump_argv = [
-            *prefix, executable, "inspect-internal", "dump-tree",
-            "--noscan", "-t", "root", *device_paths,
-        ]
         try:
             dump = runner(
-                dump_argv, check=True, capture_output=True, text=True, timeout=60,
+                [*prefix, executable, "inspect-internal", "dump-tree",
+                 "--noscan", "-t", "root", *device_paths],
+                check=True, capture_output=True, text=True, timeout=60,
             )
             filesystem["subvolumes"] = parse_root_tree_subvolumes(dump.stdout)
             filesystem["subvolume_inventory_status"] = "available"
+        except subprocess.TimeoutExpired:
+            filesystem["subvolumes"] = []
+            filesystem["subvolume_inventory_status"] = "error"
+            filesystem["subvolume_inventory_error"] = "Btrfs root-tree inspection timed out"
+        except subprocess.CalledProcessError as exc:
+            filesystem["subvolumes"] = []
+            filesystem["subvolume_inventory_status"] = "error"
+            filesystem["subvolume_inventory_error"] = (
+                (exc.stderr or "").strip() or "Btrfs root-tree inspection failed"
+            )
+        except BtrfsInventoryError as exc:
+            filesystem["subvolumes"] = []
+            filesystem["subvolume_inventory_status"] = "error"
+            filesystem["subvolume_inventory_error"] = str(exc)
+
+        try:
             chunk_dump = runner(
                 [*prefix, executable, "inspect-internal", "dump-tree",
                  "--noscan", "-t", "chunk", *device_paths],
                 check=True, capture_output=True, text=True, timeout=60,
             )
-            known_device_ids = {
-                device["devid"] for device in filesystem["devices"]
-            }
+            known_device_ids = {device["devid"] for device in filesystem["devices"]}
             chunks, profiles = parse_chunk_tree(
                 chunk_dump.stdout, known_device_ids=known_device_ids,
             )
@@ -560,25 +573,20 @@ def collect_btrfs_topology(
             filesystem["allocation_profiles"] = profiles
             filesystem["allocation_profile_status"] = "available"
         except subprocess.TimeoutExpired:
-            filesystem["subvolumes"] = []
-            filesystem["subvolume_inventory_status"] = "error"
-            filesystem["subvolume_inventory_error"] = "Btrfs root/chunk-tree inspection timed out"
             filesystem["chunks"] = []
             filesystem["allocation_profiles"] = []
             filesystem["allocation_profile_status"] = "error"
+            filesystem["allocation_profile_error"] = "Btrfs chunk-tree inspection timed out"
         except subprocess.CalledProcessError as exc:
-            detail = (exc.stderr or "").strip() or "Btrfs root/chunk-tree inspection failed"
-            filesystem["subvolumes"] = []
-            filesystem["subvolume_inventory_status"] = "error"
-            filesystem["subvolume_inventory_error"] = detail
             filesystem["chunks"] = []
             filesystem["allocation_profiles"] = []
             filesystem["allocation_profile_status"] = "error"
+            filesystem["allocation_profile_error"] = (
+                (exc.stderr or "").strip() or "Btrfs chunk-tree inspection failed"
+            )
         except BtrfsInventoryError as exc:
-            filesystem["subvolumes"] = []
-            filesystem["subvolume_inventory_status"] = "error"
-            filesystem["subvolume_inventory_error"] = str(exc)
             filesystem["chunks"] = []
             filesystem["allocation_profiles"] = []
             filesystem["allocation_profile_status"] = "error"
+            filesystem["allocation_profile_error"] = str(exc)
     return {"status": "available", "filesystems": filesystems}
