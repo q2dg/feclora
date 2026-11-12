@@ -26,6 +26,33 @@ class RemoteRepositoryTests(unittest.TestCase):
         self.assertIn("vers=4.2", argv[4])
         self.assertIn("hard", argv[4])
 
+    def test_all_remote_mounts_disable_setuid_devices_and_execution(self):
+        repositories = [
+            RemoteRepository(
+                provider="sshfs", host="images.example.net", remote_path="/backup",
+                mountpoint="/mnt/ssh", username="backup",
+                identity_file="/etc/feclora/ssh/id_ed25519",
+                known_hosts_file="/etc/feclora/ssh/known_hosts",
+            ),
+            RemoteRepository(
+                provider="nfs", host="nas.example.net", remote_path="/exports/images",
+                mountpoint="/mnt/nfs",
+            ),
+            RemoteRepository(
+                provider="smb", host="nas.example.net", remote_path="/images",
+                mountpoint="/mnt/smb", credential_file="/etc/feclora/smb.creds",
+            ),
+        ]
+        for repository in repositories:
+            with self.subTest(provider=repository.provider):
+                options = repository.mount_argv()[
+                    2 if repository.provider == "sshfs" else 4
+                ]
+                self.assertIn("nosuid", options)
+                self.assertIn("nodev", options)
+                self.assertIn("noexec", options)
+                self.assertIn("ro", options)
+
     def test_smb_requires_credentials_file(self):
         with self.assertRaises(RepositoryError):
             RemoteRepository(
