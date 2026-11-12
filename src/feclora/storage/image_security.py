@@ -292,3 +292,75 @@ def verify_manifest_signature(
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()[:1000]
         raise ImageSecurityError("manifest signature is invalid" + (f": {detail}" if detail else ""))
+
+
+
+def decrypt_artifact_stream_with_passphrase_to_temp(
+    encrypted_stream,
+    passphrase: str,
+    directory: str | os.PathLike[str],
+    *,
+    age_executable: str | None = None,
+) -> str:
+    """Decrypt a passphrase-encrypted age stream using a private pseudo-terminal.
+
+    The passphrase is sent through the PTY, never argv or environment. The
+    encrypted input is exposed to age through the already-open file descriptor.
+    """
+    import pty
+    import tty
+
+    if (not isinstance(passphrase, str) or not passphrase
+            or len(passphrase.encode("utf-8")) > 1024
+            or any(char in passphrase for char in "\\r\\n\\x00")):
+        raise ImageSecurityError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
+    if not hasattr(encrypted_stream, "fileno"):
+        raise ImageSecurityError("age encrypted input must be an open file stream")
+    target_dir = os.path.abspath(os.fspath(directory))
+    if not stat.S_ISDIR(os.lstat(target_dir).st_mode):
+        raise ImageSecurityError("decryption staging path must be a real directory")
+    age = age_executable or shutil.which("age")
+    if not age:
+        raise ImageSecurityError("age executable is required for image decryption")
+    fd, temporary = tempfile.mkstemp(prefix=".feclora-decrypted-", dir=target_dir)
+    master = slave = None
+    try:
+        master, slave = pty.openpty()
+        tty.setraw(slave)
+        input_fd = encrypted_stream.fileno()
+        command = [age, "--decrypt", "--output", temporary, f"/proc/self/fd/{input_fd}"]
+        process = subprocess.Popen(
+            command, stdin=slave, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+            pass_fds=(input_fd,), close_fds=True,
+        )
+        os.close(slave)
+        slave = None
+        os.write(master, passphrase.encode("utf-8") + b"\\n")
+        _, stderr = process.communicate()
+        if process.returncode != 0:
+            detail = (stderr or b"").decode("utf-8", errors="replace").strip()[:500]
+            raise ImageSecurityError("age passphrase decryption/authentication failed" + (f": {detail}" if detail else ""))
+        info = os.lstat(temporary)
+        if not stat.S_ISREG(info.st_mode) or info.st_size <= 0:
+            raise ImageSecurityError("age produced no non-empty plaintext artifact")
+        os.chmod(temporary, 0o600)
+        with open(temporary, "rb") as output:
+            os.fsync(output.fileno())
+        return temporary
+    except ImageSecurityError:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise
+    except (OSError, subprocess.SubprocessError) as exc:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise ImageSecurityError(f"could not decrypt passphrase-encrypted age artifact: {exc}") from exc
+    finally:
+        if master is not None:
+            os.close(master)
+        if slave is not None:
+            os.close(slave)
