@@ -448,6 +448,32 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const saveS3Repository = async (event) => {
+    event.preventDefault(); setBusy(true); setError(""); setNotice("");
+    try {
+      await callFeclora("add_s3_repository", {
+        id: s3RepositoryId, endpoint_url: s3Endpoint.trim() || null,
+        region: s3Region, bucket: s3Bucket, prefix: s3Prefix,
+        credential_id: s3CredentialId, read_only: s3ReadOnly
+      });
+      setNotice("S3 object repository definition saved. No filesystem mount was created.");
+      setS3RepositoryId(""); await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const runS3RepositoryAction = async (action, id) => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await callFeclora(action, { id });
+      setNotice(action === "check_s3_repository"
+        ? (result.bucket_accessible ? "S3 bucket connection verified." : "S3 bucket is not accessible.")
+        : "S3 repository removed.");
+      await refresh();
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
   const inspectRestoreLayout = async (sourceImageId) => {
     setRestoreLayoutPreview(null);
     if (!sourceImageId) return;
