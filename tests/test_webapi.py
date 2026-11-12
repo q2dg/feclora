@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import ANY, Mock, patch
 
-from feclora.webapi import WebAPIError, dispatch, _device, _server_trusted_clients, _revoke_server_client, _certificate_status, _renew_server_certificate
+from feclora.webapi import WebAPIError, dispatch, _device, _server_trusted_clients, _certificate_status, _renew_server_certificate
 from feclora.deployment.job import DeploymentJob
 
 
@@ -292,72 +292,9 @@ class WebAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
             dispatch({"action": "server_trusted_clients", "params": {"private_key": "no"}})
 
-    def test_revoke_server_client_requires_exact_confirmation_and_is_allowlisted(self):
-        identity = "URI:feclora-client-lab"
-        with self.assertRaisesRegex(WebAPIError, "confirmation does not match"):
-            dispatch({"action": "revoke_server_client", "params": {
-                "identity": identity, "confirmation": "REVOKE someone-else",
-            }})
-        with patch("feclora.webapi._revoke_server_client", return_value={
-            "identity": identity, "mac_address": "52:54:00:12:34:56", "revoked": True,
-        }) as revoke:
-            result = dispatch({"action": "revoke_server_client", "params": {
-                "identity": identity, "confirmation": f"REVOKE {identity}",
-            }})
-        revoke.assert_called_once_with({
-            "identity": identity, "confirmation": f"REVOKE {identity}",
-        })
-        self.assertTrue(result["revoked"])
-
-    def test_server_trusted_clients_reads_only_public_runtime_fields(self):
-        config = SimpleNamespace(
-            client_identity_to_mac={
-                "URI:feclora-client-b": "52:54:00:00:00:02",
-                "URI:feclora-client-a": "52:54:00:00:00:01",
-            },
-            client_minisign_public_keys={"52:54:00:00:00:02": "public-key"},
-        )
-        with (
-            patch("os.path.isfile", return_value=True),
-            patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=config) as load,
-        ):
-            result = _server_trusted_clients()
-        load.assert_called_once_with("/etc/feclora/deployment-server.json")
-        self.assertEqual(result, {"clients": [
-            {"identity": "URI:feclora-client-a", "mac_address": "52:54:00:00:00:01", "image_signing": False},
-            {"identity": "URI:feclora-client-b", "mac_address": "52:54:00:00:00:02", "image_signing": True},
-        ]})
-        self.assertNotIn("private_key", repr(result))
-
-    def test_revoke_server_client_invokes_managed_revocation_with_exact_phrase(self):
-        identity = "URI:feclora-client-lab"
-        with patch("feclora.deployment.enrollment.revoke_client_certificate", return_value="52:54:00:12:34:56") as revoke, patch(
-            "feclora.deployment.cockpit_enrollment.remove_client_certificate_pin", return_value=True
-        ) as remove_pin:
-            result = _revoke_server_client({
-                "identity": identity, "confirmation": f"REVOKE {identity}",
-            })
-        revoke.assert_called_once_with(
-            "/etc/feclora/deployment-server.json", identity,
-            confirmation=f"REVOKE {identity}",
-        )
-        remove_pin.assert_called_once_with(identity)
-        self.assertEqual(result, {
-            "identity": identity, "mac_address": "52:54:00:12:34:56",
-            "revoked": True, "certificate_pin_removed": True,
-        })
-
-    def test_revoke_server_client_rejects_extra_fields_and_invalid_identity(self):
-        with self.assertRaisesRegex(WebAPIError, "exactly identity and confirmation"):
-            _revoke_server_client({"identity": "URI:feclora-client-lab", "confirmation": "REVOKE URI:feclora-client-lab", "extra": True})
-        with self.assertRaisesRegex(WebAPIError, "identity is invalid"):
-            _revoke_server_client({"identity": "URI:other", "confirmation": "REVOKE URI:other"})
-
-    def test_revoke_server_client_wraps_managed_pki_errors(self):
-        identity = "URI:feclora-client-lab"
-        with patch("feclora.deployment.enrollment.revoke_client_certificate", side_effect=RuntimeError("inventory corrupt")):
-            with self.assertRaisesRegex(WebAPIError, "Client revocation failed: inventory corrupt"):
-                _revoke_server_client({"identity": identity, "confirmation": f"REVOKE {identity}"})
+    def test_client_certificate_revocation_action_is_not_exposed(self):
+        with self.assertRaises(WebAPIError):
+            dispatch({"action": "revoke_server_client", "params": {}})
 
     def test_inspect_image_layout_verifies_and_returns_partition_selectors(self):
         import io
