@@ -15,7 +15,7 @@ from typing import Callable, Mapping
 from .artifact_writer import ArtifactWriteError, write_artifact
 from .capture import CaptureError, _is_block_device
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
-from .image_security import ImageSecurityError, encrypt_artifact, preflight_image_security, sign_manifest
+from .image_security import ImageSecurityError, encrypt_artifact, encrypt_artifact_with_passphrase, preflight_image_security, sign_manifest
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 
@@ -78,6 +78,7 @@ def capture_disk(
     effective_uid: Callable[[], int] | None = None,
     progress_callback: Callable[[int, int | None], None] | None = None,
     age_recipients_file: str | os.PathLike[str] | None = None,
+    age_passphrase: str | None = None,
     minisign_secret_key: str | os.PathLike[str] | None = None,
 ) -> ImageManifest:
     """Capture a complete disk as raw bytes plus sfdisk metadata.
@@ -87,6 +88,8 @@ def capture_disk(
     """
     if not isinstance(image_id, str) or not image_id or len(image_id) > 128:
         raise DiskCaptureError("image_id must be a non-empty safe identifier")
+    if age_recipients_file is not None and age_passphrase is not None:
+        raise DiskCaptureError("choose either age recipients or a symmetric passphrase, not both")
     try:
         # Reuse the manifest's identifier validator as the canonical contract.
         ImageManifest.from_dict({
