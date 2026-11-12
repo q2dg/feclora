@@ -127,7 +127,7 @@ class DiskRestoreTests(unittest.TestCase):
         manifest["artifacts"][0]["encryption"] = "age"
         with open(self.manifest, "w", encoding="utf-8") as stream:
             json.dump(manifest, stream)
-        with self.assertRaisesRegex(DiskRestoreError, "identity file is required"):
+        with self.assertRaisesRegex(DiskRestoreError, "identity file or symmetric passphrase is required"):
             self.restore()
         self.assertEqual(self.started, [])
 
