@@ -85,34 +85,29 @@ def validate_definition(value: Any) -> dict[str, Any]:
         raise LocalOperationError("operation_id must use canonical UUID form")
     action, params = value["action"], value["params"]
     fields = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish", "encrypt_passphrase"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id", "sftp_publish"},
-        "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish"},
-        "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
-        "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "encrypt_passphrase"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
+        "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
+        "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
-        "sftp_inventory": {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "port"},
-        "sftp_fetch": {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "port"},
-        "sftp_publish": {"image_id", "host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "port"},
     }
     if not isinstance(action, str) or action not in fields or not isinstance(params, dict):
         raise LocalOperationError("unsupported local storage operation")
     allowed = fields[action]
     if action.startswith("restore_"):
         accepted = (allowed, allowed - {"repository_id"}, allowed - {"sftp_source"},
-                    allowed - {"repository_id", "sftp_source"})
+                    allowed - {"repository_id"})
     else:
         accepted = (allowed, allowed - {"repository_id"}, allowed - {"sftp_publish"},
-                    allowed - {"repository_id", "sftp_publish"})
+                    allowed - {"repository_id"})
     if action == "capture_disk":
         accepted = accepted + tuple(item - {"encrypt_passphrase"} for item in accepted)
-    if set(params) not in accepted and not (action in {"sftp_inventory", "sftp_fetch", "sftp_publish"} and set(params) == allowed - {"port"}):
+    if set(params) not in accepted and not (action in {"sftp_inventory", "sftp_fetch"} and set(params) == allowed - {"port"}):
         raise LocalOperationError("operation parameters do not match the selected operation")
-    if "sftp_source" in params and "repository_id" in params:
-        raise LocalOperationError("SFTP restore source cannot be combined with a mounted repository")
     for key in ("source", "target"):
         if key in params:
             device = params[key]
@@ -148,7 +143,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
             raise LocalOperationError("SFTP inventory port is invalid")
 
-    if action in {"sftp_fetch", "sftp_publish"}:
+    if action in {"sftp_fetch"}:
         config = params
         if (not isinstance(config.get("host"), str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}", config["host"])
                 or config["host"].endswith(".") or ".." in config["host"]):
@@ -166,32 +161,6 @@ def validate_definition(value: Any) -> dict[str, Any]:
                 r"/etc/credstore[.]encrypted/feclora/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}[.]cred", credential_value
             ):
                 raise LocalOperationError(f"SFTP transfer {field} must reference a registered encrypted credential")
-        port = config.get("port", 22)
-        if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
-            raise LocalOperationError("SFTP port must be an integer between 1 and 65535")
-    if "sftp_source" in params:
-        config = params["sftp_source"]
-        required_sftp = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "expected_manifest_sha256"}
-        if not isinstance(config, dict) or set(config) not in (required_sftp, required_sftp | {"port"}):
-            raise LocalOperationError("SFTP restore source settings are invalid")
-        if not isinstance(config.get("expected_manifest_sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", config["expected_manifest_sha256"]):
-            raise LocalOperationError("SFTP restore source must be bound to an inspected manifest SHA-256")
-        if (not isinstance(config.get("host"), str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}", config["host"])
-                or config["host"].endswith(".") or ".." in config["host"]):
-            raise LocalOperationError("SFTP restore source host is invalid")
-        if not isinstance(config.get("username"), str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", config["username"]):
-            raise LocalOperationError("SFTP restore source username is invalid")
-        remote = config.get("remote_directory")
-        if (not isinstance(remote, str) or not re.fullmatch(r"/[A-Za-z0-9._/-]{0,1024}", remote)
-                or remote.startswith("//") or posixpath.normpath(remote) != remote
-                or (remote != "/" and any(part in {"", ".", ".."} for part in remote.split("/")[1:]))):
-            raise LocalOperationError("SFTP restore source directory must be absolute and normalized")
-        for field in ("identity_credential", "known_hosts_credential"):
-            credential_value = config.get(field)
-            if not isinstance(credential_value, str) or not re.fullmatch(
-                r"/etc/credstore\.encrypted/feclora/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.cred", credential_value
-            ):
-                raise LocalOperationError(f"SFTP restore source {field} must reference a registered encrypted credential")
         port = config.get("port", 22)
         if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
             raise LocalOperationError("SFTP port must be an integer between 1 and 65535")
@@ -213,30 +182,6 @@ def validate_definition(value: Any) -> dict[str, Any]:
                 raise LocalOperationError("passphrase encryption requires encrypt=true")
             if action != "capture_disk" and params["encrypt_passphrase"]:
                 raise LocalOperationError("passphrase encryption is currently supported only for whole-disk capture")
-        if "sftp_publish" in params:
-            config = params["sftp_publish"]
-            required_sftp = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential"}
-            if not isinstance(config, dict) or set(config) not in (required_sftp, required_sftp | {"port"}):
-                raise LocalOperationError("SFTP publication settings are invalid")
-            if (not isinstance(config.get("host"), str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}", config["host"])
-                    or config["host"].endswith(".") or ".." in config["host"]):
-                raise LocalOperationError("SFTP publication host is invalid")
-            if not isinstance(config.get("username"), str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", config["username"]):
-                raise LocalOperationError("SFTP publication username is invalid")
-            remote = config.get("remote_directory")
-            if (not isinstance(remote, str) or not re.fullmatch(r"/[A-Za-z0-9._/-]{0,1024}", remote)
-                    or remote.startswith("//") or posixpath.normpath(remote) != remote
-                    or (remote != "/" and any(part in {"", ".", ".."} for part in remote.split("/")[1:]))):
-                raise LocalOperationError("SFTP publication remote directory must be absolute and normalized")
-            for field in ("identity_credential", "known_hosts_credential"):
-                credential_value = config.get(field)
-                if not isinstance(credential_value, str) or not re.fullmatch(
-                    r"/etc/credstore\.encrypted/feclora/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.cred", credential_value
-                ):
-                    raise LocalOperationError(f"SFTP publication {field} must reference a registered encrypted credential")
-            port = config.get("port", 22)
-            if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
-                raise LocalOperationError("SFTP publication port is invalid")
     if action == "extract_partition_image" and (
         not isinstance(params.get("selector"), str) or not params["selector"] or len(params["selector"]) > 256
     ):
