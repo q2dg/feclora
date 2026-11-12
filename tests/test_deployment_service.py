@@ -212,7 +212,6 @@ class DeploymentServiceCommandTests(unittest.TestCase):
         service.job.repository_id = "images"
         service.config = SimpleNamespace(
             bind_address="192.0.2.10", port=9443,
-            server_minisign_public_key="public-key",
         )
         service._lock_fd = None
         service._pxe_state = None
@@ -262,7 +261,7 @@ class DeploymentServiceCommandTests(unittest.TestCase):
         with mock.patch(
             "feclora.storage.repository_manager.RemoteRepositoryManager",
             return_value=manager,
-        ), mock.patch("feclora.deployment.service.verify_manifest_signature"), mock.patch(
+        ), mock.patch(
             "feclora.deployment.service.recover_stale_runtime_artifacts",
         ):
             service.run()
