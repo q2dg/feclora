@@ -16,7 +16,7 @@ from .capture import CaptureCancelled, CaptureError, capture_logical_volume
 from .capture_plan import CapturePlanError, plan_storage_capture
 from .image_manifest import ImageManifest, ManifestValidationError
 from .image_security import (
-    ImageSecurityError, encrypt_artifact, preflight_image_security, sign_manifest,
+    ImageSecurityError, encrypt_artifact, preflight_image_security,
 )
 
 
@@ -39,7 +39,6 @@ def capture_logical_volume_image(
     effective_uid: Callable[[], int] | None = None,
     progress_callback: Callable[[int, int | None], None] | None = None,
     age_recipients_file: str | os.PathLike[str] | None = None,
-    minisign_secret_key: str | os.PathLike[str] | None = None,
 ) -> ImageManifest:
     """Capture one healthy active LV and atomically publish its manifest set."""
     if not isinstance(image_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
@@ -55,9 +54,7 @@ def capture_logical_volume_image(
     try:
         preflight_image_security(
             age_recipients_file=age_recipients_file,
-            minisign_secret_key=minisign_secret_key,
             age_executable=available.get("age"),
-            minisign_executable=available.get("minisign"),
         )
         plan = plan_storage_capture(dict(inventory), source_path, "logical_volume")
     except (ImageSecurityError, CapturePlanError) as exc:
@@ -129,13 +126,6 @@ def capture_logical_volume_image(
             output.flush()
             os.fsync(output.fileno())
         signature_name = None
-        if minisign_secret_key is not None:
-            sign_manifest(
-                manifest_stage, minisign_secret_key,
-                minisign_executable=available.get("minisign"),
-            )
-            signature_name = manifest_name + ".minisig"
-        from .image_publication import ImagePublicationError, publish_image_set
         names = [artifact_name]
         if signature_name is not None:
             names.append(signature_name)
