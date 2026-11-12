@@ -31,7 +31,7 @@ The frontend invokes only fixed actions through the root-owned
 stdin. Cockpit superuser authorization is required for privileged operations.
 No arbitrary shell or argv is exposed by the Feclora API.
 
-Remote whole-disk cloning is available as a distinct unicast job in the
+Remote whole-disk and partition cloning are available as distinct unicast jobs in the
 existing persistent Server/Client lifecycle. The Server selects a read-only
 source disk and selects the Client MAC for this job; the Client selects and
 confirms its local destination. The Client verifies the Server certificate;
@@ -40,5 +40,4 @@ Server-authenticated TLS control session, durable job journal and managed
 services. Clone streams directly between block devices through the existing
 bounded remote-clone engine; it does not use UDPcast or create a second
 service stack. Server-side byte progress is exposed through the existing
-per-Client job status. Remote partition-to-partition cloning is not currently
-implemented.
+per-Client job status. The remote clone protocol header identifies the device type; the partition path copies exactly the source partition length and verifies receiver read-back. Real two-host acceptance remains outstanding.
