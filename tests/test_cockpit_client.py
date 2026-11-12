@@ -1,4 +1,5 @@
 import os
+import shutil
 import stat
 import tempfile
 import unittest
@@ -104,7 +105,7 @@ class CockpitClientTests(unittest.TestCase):
             result = prepare_client_renewal({"export_directory": "/run/media/test/USB"})
         create.assert_called_once_with(
             "/etc/feclora/pki", "/run/media/test/USB", "lab-01",
-            reuse_existing_key=True, age_keygen=None,
+            reuse_existing_key=True, age_keygen=shutil.which("age-keygen"),
         )
         self.assertEqual(result["identity"], config.local_identity)
         self.assertIsNone(result["minisign_public_file"])
