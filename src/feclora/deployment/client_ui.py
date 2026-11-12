@@ -72,60 +72,25 @@ def _elevate() -> int:
 
 
 
-def _generate_client_minisign_keypair(pki_directory: str, export_directory: str, client_id: str) -> tuple[str, str]:
-    secret = os.path.join(pki_directory, f"client-{client_id}.minisign.key")
-    public = os.path.join(pki_directory, f"client-{client_id}.minisign.pub")
-    exported = os.path.join(export_directory, f"feclora-{client_id}.minisign.pub")
-    if any(os.path.lexists(path) for path in (secret, public, exported)):
-        raise PKIError("Client image-signing keypair or public export already exists")
-    result = subprocess.run(
-        ["/usr/bin/minisign", "-G", "-s", secret, "-p", public, "-W"],
-        stdin=subprocess.DEVNULL, capture_output=True, text=True,
-        check=False, timeout=60,
-    )
-    if result.returncode != 0:
-        raise PKIError("could not generate Client minisign keypair: " + (result.stderr or result.stdout).strip()[:256])
-    os.chmod(secret, 0o600)
-    os.chmod(public, 0o644)
-    shutil.copyfile(public, exported)
-    os.chmod(exported, 0o644)
-    return secret, public
-
-
-
-def _capture_image_security_options(config: ClientRuntimeConfig) -> tuple[str | None, str | None] | None:
-    """Ask for per-image protection; expose only modes whose local keys/tools exist."""
+def _capture_image_security_options(config: ClientRuntimeConfig) -> str | None:
+    """Offer optional age encryption; image signatures are not used."""
     age_ready = bool(
         config.age_recipients_file
         and os.path.isfile(config.age_recipients_file)
         and shutil.which("age")
     )
-    sign_ready = bool(
-        config.local_minisign_secret_key
-        and config.local_minisign_public_key
-        and os.path.isfile(config.local_minisign_secret_key)
-        and os.path.isfile(config.local_minisign_public_key)
-        and shutil.which("minisign")
-    )
-    choices = [("none", "Neither encryption nor signature")]
+    choices = [("none", "No encryption")]
     if age_ready:
         choices.append(("age", "Encrypt this image with age"))
-    if sign_ready:
-        choices.append(("minisign", "Sign this image with minisign"))
-    if age_ready and sign_ready:
-        choices.append(("both", "Encrypt with age and sign with minisign"))
     selected = dialog_app._menu(
-        "Image security",
-        "Choose protection for this image only. No protection is the default; unavailable tools or keys are not required.",
+        "Image encryption",
+        "Choose optional encryption for this image. SHA-256 integrity verification is always applied.",
         choices,
     )
     if selected is None:
         return None
-    return (
-        config.age_recipients_file if selected in {"age", "both"} else None,
-        config.local_minisign_secret_key if selected in {"minisign", "both"} else None,
-    )
-
+    return config.age_recipients_file if selected == "age" else ""
+    
 
 def _write_client_config(path: str, value: dict[str, Any]) -> None:
     directory = os.path.dirname(path)
@@ -350,8 +315,6 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                     + "\n".join(preflight.warnings),
                 )
                 state["multicast_interface"] = selected_interface
-            if job.operation == "save" and not config.local_minisign_secret_key:
-                raise DeploymentControlError("this Client has no enrolled minisign signing key and cannot create images")
             inventory = collect_inventory()
             target_kind = "partition" if job.target_type == "partition" else "disk"
             if job.target_type == "logical_volume":
@@ -395,7 +358,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             if job.operation == "save":
                 prompt = prompt.replace(
                     "Type the exact confirmation phrase:",
-                    "You will choose optional age encryption and minisign signing for this image in the next step. Type the exact confirmation phrase:",
+                    "You will choose optional age encryption for this image in the next step. Type the exact confirmation phrase:",
                 )
             dialog_app._message("Selected local target", dialog_app.device_details(selected))
             typed = dialog_app._input("Explicit local authorization", f"{prompt}\n\n{phrase}")
@@ -421,8 +384,8 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 state["compression"] = compression_choice
                 security = _capture_image_security_options(config)
                 if security is None:
-                    raise DeploymentControlError("image security selection cancelled")
-                state["age_recipients_file"], state["minisign_secret_key"] = security
+                    raise DeploymentControlError("image encryption selection cancelled")
+                state["age_recipients_file"] = security or None
             state["device_path"] = path
             state["confirmation"] = phrase
             return LocalTargetApproval(path, description, phrase)
@@ -433,7 +396,6 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                     job, tls_socket, approval,
                     server_identity=config.server_identity,
                     repository=config.repository,
-                    trusted_server_public_key=config.trusted_server_public_key,
                     firewall=PXEFirewall(),
                     network_interface=state.get("multicast_interface"),
                     age_identity_file=config.age_identity_file,
@@ -441,7 +403,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 )
                 return dialog_app._run_restore_gauge(
                     "Multicast image restore",
-                    "Receiving image artifacts into private staging, verifying any signature and all digests, then restoring the locally approved target.",
+                    "Receiving image artifacts into private staging, verifying SHA-256 digests, then restoring the locally approved target.",
                     operation,
                 )
             compression = state.get("compression", "gzip")
@@ -461,16 +423,9 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 job, tls_socket, approval,
                 server_identity=config.server_identity,
                 repository=config.repository,
-                trusted_server_public_key=config.trusted_server_public_key,
-                local_minisign_secret_key=state.get("minisign_secret_key"),
-                local_minisign_public_key=(
-                    config.local_minisign_public_key
-                    if state.get("minisign_secret_key") else None
-                ),
                 age_identity_file=config.age_identity_file,
                 age_recipients_file=state.get("age_recipients_file"),
                 encrypt_image=bool(state.get("age_recipients_file")),
-                sign_image=bool(state.get("minisign_secret_key")),
                 compression=compression,
                 compression_level=level,
                 progress_callback=progress,
