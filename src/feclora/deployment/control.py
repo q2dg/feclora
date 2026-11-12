@@ -643,7 +643,7 @@ class DeploymentControlServer:
         if not job.source_device:
             raise DeploymentControlError("clone job has no approved Server source device")
         header = build_remote_clone_header(
-            job.source_device, target_device,
+            job.source_device, target_device, device_type=job.target_type,
         )
         started = self.arm_and_start()
         if started != (mac,):
@@ -672,7 +672,7 @@ class DeploymentControlServer:
                 kwargs["operation_log_path"] = operation_log_path
             send_remote_disk(tls_socket, header, **kwargs)
         except Exception as exc:
-            self._record_transfer_failure(mac, f"remote disk clone failed: {exc}")
+            self._record_transfer_failure(mac, f"remote {job.target_type} clone failed: {exc}")
         finally:
             with self._lock:
                 current = self._progress.get(mac)
