@@ -18,7 +18,8 @@ import uuid
 from typing import Any, Callable
 
 from feclora.storage.operation_log import DEFAULT_LOG_PATH, operation_record
-from feclora.storage.disk_clone import DiskCloneError, _geometry
+from feclora.storage.disk_clone import DiskCloneError, _geometry as _disk_geometry
+from feclora.storage.partition_clone import PartitionCloneError, _geometry as _partition_geometry
 from feclora.storage.privilege import PrivilegeError, privileged_argv
 from feclora.storage.source_safety import SourceSafetyError, check_capture_source_safe
 
@@ -46,6 +47,22 @@ from .remote_clone_protocol import (
 CHUNK_SIZE_BYTES = 1024 * 1024
 
 
+def _geometry_for(path: str, lsblk: str, runner: Callable[..., Any], device_type: str) -> tuple[int, int, bool, str]:
+    """Inspect exactly the block-device class selected by the deployment job."""
+    if device_type == "disk":
+        try:
+            return _disk_geometry(path, lsblk, runner)
+        except DiskCloneError as exc:
+            raise RemoteDiskCloneError(str(exc)) from exc
+    if device_type == "partition":
+        try:
+            size, sector, read_only = _partition_geometry(path, lsblk, runner)
+            return size, sector, read_only, ""
+        except PartitionCloneError as exc:
+            raise RemoteDiskCloneError(str(exc)) from exc
+    raise RemoteDiskCloneError("remote clone supports whole disks or partitions only")
+
+
 class RemoteDiskCloneError(RuntimeError):
     """A remote disk clone was rejected or failed."""
 
@@ -69,13 +86,14 @@ def build_remote_clone_header(
     executables: dict[str, str | None] | None = None,
     runner: Callable[..., Any] | None = None,
     chunk_size_bytes: int = DEFAULT_CHUNK_BYTES,
+    device_type: str = "disk",
 ) -> CloneSessionHeader:
     """Create a fresh session header from independently inspected source geometry."""
     available = executables or {}
     lsblk = _resolve(available, "lsblk")
     try:
-        size, sector, read_only, _partition_table = _geometry(
-            source_path, lsblk, runner or subprocess.run,
+        size, sector, read_only, _partition_table = _geometry_for(
+            source_path, lsblk, runner or subprocess.run, device_type,
         )
     except DiskCloneError as exc:
         raise RemoteDiskCloneError(str(exc)) from exc
@@ -91,6 +109,7 @@ def build_remote_clone_header(
             source_size_bytes=size,
             logical_sector_size=sector,
             chunk_size_bytes=chunk_size_bytes,
+            device_type=device_type,
         )
     except RemoteCloneProtocolError as exc:
         raise RemoteDiskCloneError(f"cannot prepare remote clone session: {exc}") from exc
@@ -222,7 +241,7 @@ def _send_remote_disk_impl(
     dd = _resolve(available, "dd")
     try:
         identity = _device_identity(header.source_device, validator, inspect_real_device=device_validator is None)
-        size, sector, read_only, _pttype = _geometry(header.source_device, lsblk, runner or subprocess.run)
+        size, sector, read_only, _pttype = _geometry_for(header.source_device, lsblk, runner or subprocess.run, header.device_type)
         if size != header.source_size_bytes or sector != header.logical_sector_size:
             raise RemoteDiskCloneError("source disk geometry differs from the approved session header")
         if not read_only:
@@ -246,8 +265,8 @@ def _send_remote_disk_impl(
         # READY may take time while the receiver operator checks the target.
         # Revalidate the source again at the actual destructive boundary.
         _revalidate_device(header.source_device, identity, validator)
-        size_now, sector_now, read_only_now, _table_now = _geometry(
-            header.source_device, lsblk, runner or subprocess.run,
+        size_now, sector_now, read_only_now, _table_now = _geometry_for(
+            header.source_device, lsblk, runner or subprocess.run, header.device_type,
         )
         if size_now != header.source_size_bytes or sector_now != header.logical_sector_size or not read_only_now:
             raise RemoteDiskCloneError("source geometry or read-only state changed after receiver READY")
@@ -328,7 +347,7 @@ def _receive_remote_disk_impl(
         )
         target = header.receiver_target_device
         identity = _device_identity(target, validator, inspect_real_device=device_validator is None)
-        target_size, target_sector, read_only, _pttype = _geometry(target, lsblk, runner or subprocess.run)
+        target_size, target_sector, read_only, _pttype = _geometry_for(target, lsblk, runner or subprocess.run, header.device_type)
         if read_only:
             raise RemoteDiskCloneError("receiver target disk is read-only")
         if target_size < header.source_size_bytes:
@@ -349,8 +368,8 @@ def _receive_remote_disk_impl(
         # as this frame is sent, so verify the selected local target once more.
         _revalidate_device(target, identity, validator)
         _check_safe(target, safety)
-        size_now, sector_now, read_only_now, _table_now = _geometry(
-            target, lsblk, runner or subprocess.run,
+        size_now, sector_now, read_only_now, _table_now = _geometry_for(
+            target, lsblk, runner or subprocess.run, header.device_type,
         )
         if read_only_now or size_now < header.source_size_bytes or sector_now != header.logical_sector_size:
             raise RemoteDiskCloneError("receiver target geometry or writability changed after READY")
@@ -419,7 +438,7 @@ def _receive_remote_disk_impl(
                 error="receiver disk read-back SHA-256 differs from the received stream",
             )
             raise RemoteDiskCloneError(failure.error)
-        if target_size > header.source_size_bytes:
+        if header.device_type == "disk" and target_size > header.source_size_bytes:
             # The raw source image ends at its original final LBA. For GPT this
             # leaves the backup header away from the physical end of the larger
             # target. Detect the copied table, relocate the backup GPT, then
