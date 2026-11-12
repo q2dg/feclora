@@ -190,7 +190,7 @@ def publish_unattended_answer_ipxe_script(
     target_root = _safe_http_root(http_root)
     boot_content = render_unattended_answer_ipxe_script(address, job_id, answer_url, http_port)
     wrapper_content = render_unattended_answer_admission_ipxe_script(address, http_port)
-    published: list[Path] = []
+    created: list[Path] = []
     try:
         for name, content in (
             ("unattended-answer-boot.ipxe", boot_content),
@@ -208,7 +208,6 @@ def publish_unattended_answer_ipxe_script(
                     raise LiveBootAssetError(f"cannot inspect existing {name}: {exc}") from exc
                 if current != content:
                     raise LiveBootAssetError(f"a different unattended PXE job is already published in {name}")
-                published.append(destination)
                 continue
             fd, temporary = tempfile.mkstemp(prefix=f".{name}.", dir=target_root)
             try:
@@ -221,7 +220,7 @@ def publish_unattended_answer_ipxe_script(
                     os.link(temporary, destination)
                 except FileExistsError as exc:
                     raise LiveBootAssetError(f"another unattended PXE job was published concurrently in {name}") from exc
-                published.append(destination)
+                created.append(destination)
             finally:
                 try:
                     os.unlink(temporary)
@@ -235,7 +234,7 @@ def publish_unattended_answer_ipxe_script(
     except Exception:
         # Remove only files created by this call; pre-existing identical files
         # are not ours to roll back.
-        for path in published:
+        for path in created:
             try:
                 if path.name in {"unattended-answer-boot.ipxe", "unattended-answer.ipxe"}:
                     path.unlink()
