@@ -49,6 +49,7 @@ class DeploymentJobTests(unittest.TestCase):
         payload = valid_job(
             operation="clone", image_id=None, source_device="/dev/nvme0n1p2",
             target_type="partition", transport="unicast",
+            authorized_clients=["52:54:00:12:34:56"],
         )
         job = DeploymentJob.from_dict(payload)
         self.assertEqual(job.target_type, "partition")
