@@ -33,18 +33,14 @@ from feclora.ui import dialog_app
 CONFIG_PATH = "/etc/feclora/deployment-server.json"
 
 
-def _available_images(
-    repository: str, trusted_public_key: str | None,
-) -> list[tuple[str, ImageManifest]]:
+def _available_images(repository: str) -> list[tuple[str, ImageManifest]]:
     found = []
     for path in sorted(Path(repository).glob("*.manifest.json")):
         try:
             manifest = ImageManifest.from_json(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, ManifestValidationError):
             continue
-        signature_present = os.path.lexists(str(path) + ".minisig")
-        if not signature_present or trusted_public_key:
-            found.append((path.name, manifest))
+        found.append((path.name, manifest))
     return found
 
 
@@ -90,7 +86,7 @@ def _choose_job(
     manifest_path = None
     if operation == "restore":
         images = [
-            entry for entry in _available_images(config.repository, config.server_minisign_public_key)
+            entry for entry in _available_images(config.repository)
             if entry[1].image_type in {"disk", "partition"}
         ]
         choices = [
@@ -98,7 +94,7 @@ def _choose_job(
             for _filename, manifest in images
         ]
         image_id = dialog_app._menu(
-            "Select image", "Signed images are listed only when a trusted Server verification key is configured.", choices,
+            "Select image", "Images are checked against their manifest and SHA-256 digests before transfer.", choices,
         )
         if image_id is None:
             raise DeploymentControlError("image selection cancelled")
@@ -249,14 +245,8 @@ def _run_unicast_job(
     """Dispatch the selected unicast operation to its matching runtime."""
     if job.operation == "clone":
         return control.run_remote_clone_job()
-    trusted_key = (
-        config.server_minisign_public_key
-        if job.operation == "restore"
-        else config.client_minisign_public_keys.get(selected_mac)
-    )
     return control.run_one_client_job(
         config.repository,
-        trusted_public_key=trusted_key,
         manifest_path=manifest_path,
     )
 
@@ -405,7 +395,7 @@ def run_deployment_server_ui(
                 "Ensure switch IGMP snooping has a working querier, multicast is not filtered "
                 "by Wi-Fi/client isolation, and the selected interface is correct. "
                 "Cross-VLAN multicast routing is not supported by this TTL=1 profile. "
-                "Age encryption is optional and should be enabled when artifact confidentiality is required. The Server-authenticated TLS control session protects the manifest in transit; any detached signature is additionally checked when present, and every received artifact is checked against its manifest digest. UDPcast itself does not encrypt or authenticate datagrams, so an on-path attacker can still observe metadata or cause denial of service. "
+                "Age encryption is optional and should be enabled when artifact confidentiality is required. The Server-authenticated TLS control session protects the manifest in transit. UDPcast itself does not encrypt or authenticate datagrams, so an on-path attacker can still observe metadata or cause denial of service. "
                 "Feclora will temporarily open only the two UDPcast ports and IGMP on this interface.",
             )
             confirmation = dialog_app._input(
@@ -477,7 +467,6 @@ def run_deployment_server_ui(
                     results = control.run_multicast_restore_job(
                         config.repository,
                         manifest_path,
-                        trusted_public_key=config.server_minisign_public_key,
                         udpcast_config=multicast_config,
                     )
                 else:
