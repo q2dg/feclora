@@ -102,6 +102,24 @@ def _operation_repository(params: dict[str, Any], *, write: bool, create_local: 
         raise WebAPIError(f"selected image repository is not safely available: {exc}") from exc
 
 
+def _find_inventory_device(inventory: dict[str, Any], path: str, expected_type: str) -> list[dict[str, Any]]:
+    """Find a device at any depth in lsblk's nested disk/partition tree."""
+    matches: list[dict[str, Any]] = []
+
+    def visit(items: Any) -> None:
+        if not isinstance(items, list):
+            return
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if item.get("path") == path and item.get("type") == expected_type:
+                matches.append(item)
+            visit(item.get("children"))
+
+    visit(inventory.get("devices"))
+    return matches
+
+
 def _device(value: Any, field: str) -> str:
     if (not isinstance(value, str)
             or not re.fullmatch(r"/dev/[A-Za-z0-9_.!/+:-]{1,120}", value)
@@ -2689,10 +2707,7 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         source = _device(job.source_device, "source_device")
         inventory = collect_inventory()
         expected_source_type = "disk" if job.target_type == "disk" else "part"
-        matches = [
-            item for item in inventory.get("devices", [])
-            if item.get("path") == source and item.get("type") == expected_source_type
-        ]
+        matches = _find_inventory_device(inventory, source, expected_source_type)
         if len(matches) != 1:
             label = "whole disk" if job.target_type == "disk" else "partition"
             raise WebAPIError(f"clone source must be one {label} in the current block-device inventory")
