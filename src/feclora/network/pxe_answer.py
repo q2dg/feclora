@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 from urllib.parse import urlsplit
 
 
@@ -69,7 +70,7 @@ def validate_pxe_answer(value: object) -> dict[str, object]:
         "schema_version", "operation", "image_id", "repository_url",
         "target", "confirm_destructive", "start",
     }
-    optional = {"credential_ref", "description"}
+    optional = {"credential_ref", "description", "expires_at"}
     if not required.issubset(value) or set(value) - required - optional:
         raise PXEAnswerError("PXE answer document has missing or unknown fields")
     if value["schema_version"] != 1 or isinstance(value["schema_version"], bool):
@@ -92,6 +93,15 @@ def validate_pxe_answer(value: object) -> dict[str, object]:
         raise PXEAnswerError("target requires a WWN and/or serial selector")
     if value["confirm_destructive"] is not True or value["start"] is not True:
         raise PXEAnswerError("unattended restore requires explicit confirm_destructive and start flags")
+    expires_at = value.get("expires_at")
+    if expires_at is not None:
+        if (not isinstance(expires_at, str)
+                or not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z", expires_at)):
+            raise PXEAnswerError("expires_at must be a UTC timestamp in YYYY-MM-DDTHH:MM:SSZ format")
+        try:
+            datetime.strptime(expires_at, "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError as exc:
+            raise PXEAnswerError("expires_at is not a valid UTC timestamp") from exc
     credential_ref = value.get("credential_ref")
     if credential_ref is not None and (
         not isinstance(credential_ref, str) or not CREDENTIAL_ID_RE.fullmatch(credential_ref)
@@ -111,6 +121,7 @@ def validate_pxe_answer(value: object) -> dict[str, object]:
         "target": {"wwn": wwn, "serial": serial},
         "confirm_destructive": True,
         "start": True,
+        **({"expires_at": expires_at} if expires_at is not None else {}),
         **({"credential_ref": credential_ref} if credential_ref is not None else {}),
         **({"description": description} if description is not None else {}),
     }
