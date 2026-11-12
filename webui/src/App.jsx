@@ -182,7 +182,6 @@ export default function App() {
   const [encrypt, setEncrypt] = useState(false);
   const [encryptPassphraseMode, setEncryptPassphraseMode] = useState(false);
   const [capturePassphrase, setCapturePassphrase] = useState("");
-  const [sign, setSign] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -339,7 +338,7 @@ export default function App() {
         port: Number(sftpPort), identity_credential: sftpIdentity,
         known_hosts_credential: sftpKnownHosts
       } : null;
-      if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt: encrypt || encryptPassphraseMode, sign, ...(encryptPassphraseMode ? { encrypt_passphrase: true } : {}), ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
+      if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt: encrypt || encryptPassphraseMode, ...(encryptPassphraseMode ? { encrypt_passphrase: true } : {}), ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (operation === "capture_logical_volume") params = { source, image_id: imageId, compression, encrypt, sign, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}), ...(sftpPublish ? { sftp_publish: sftpPublish } : {}) };
       else if (isRestore) {
@@ -504,7 +503,7 @@ export default function App() {
           known_hosts_credential: sftpKnownHosts
         }
       });
-      setNotice("Remote image manifest signature verified for " + result.image_id + ".");
+      setNotice("Remote image manifest validated for " + result.image_id + ".");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -1049,11 +1048,10 @@ export default function App() {
                           </Field>}
                         </>}
                         <br />
-                        <label><input type="checkbox" checked={sign} disabled={!security.image_signing_available || publishAfterCapture} onChange={(e) => setSign(e.target.checked)} /> Sign manifest with minisign</label>
-                        {!security.age_encryption_available && !security.age_executable_available || !security.image_signing_available ? <p className="pf-v5-u-color-200">Optional image protection is provisioned during Server setup when the relevant tools are installed. Without them, ordinary capture and restore remain available.</p> : null}
+                        {!security.age_encryption_available && !security.age_executable_available ? <p className="pf-v5-u-color-200">Optional image protection is provisioned during Server setup when the relevant tools are installed. Without them, ordinary capture and restore remain available.</p> : null}
                       </Field>
                       <Field label="SFTP post-capture publication">
-                        <label><input type="checkbox" checked={publishAfterCapture} disabled={busy || !sign} onChange={(e) => setPublishAfterCapture(e.target.checked)} /> Publish this image set to SFTP after capture and local signature verification</label>
+                        <label><input type="checkbox" checked={publishAfterCapture} disabled={busy} onChange={(e) => setPublishAfterCapture(e.target.checked)} /> Publish this image set to SFTP after capture and manifest and SHA-256 verification</label>
                         {publishAfterCapture && <>
                           <Field label="SFTP host"><input className="pf-v5-c-form-control" value={sftpHost} onChange={(e) => setSftpHost(e.target.value)} maxLength={253} required /></Field>
                           <Field label="SSH username"><input className="pf-v5-c-form-control" value={sftpUsername} onChange={(e) => setSftpUsername(e.target.value)} maxLength={64} required /></Field>
@@ -1159,7 +1157,7 @@ export default function App() {
                   <Field label="Whole-disk source image">
                     <select className="pf-v5-c-form-control" value={extractImageId} disabled={busy} onChange={(event) => { setExtractImageId(event.target.value); inspectImageLayout(event.target.value); }}>
                       <option value="">Select whole-disk image…</option>
-                      {availableImages.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}{item.signed ? " · signed" : " · unsigned"}</option>)}
+                      {availableImages.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}{""}</option>)}
                     </select>
                   </Field>
                   {extractLayout && <>
@@ -1180,17 +1178,17 @@ export default function App() {
                   <Button variant="primary" onClick={extractPartitionFromImage} isLoading={busy} isDisabled={busy || selectedRepository?.read_only || !extractImageId || !extractLayout || !extractPartitionSelector}>Extract partition image</Button>
                   {busy && progress && <Progress value={progress.bytes_total ? Math.min(100, progress.bytes_done / progress.bytes_total * 100) : 0} title="Partition extraction progress" measureLocation="outside" label={formatBytes(progress.bytes_done) + " / " + formatBytes(progress.bytes_total)} />}
                   {extractPartitionResult && <Alert variant="success" title="Partition image published" isInline>
-                    Source: {extractPartitionResult.source_image_id} · New image: {extractPartitionResult.image_id} · {extractPartitionResult.signed ? "Signed" : "Unsigned"} · {extractPartitionResult.encrypted ? "age-encrypted" : "unencrypted"}
+                    Source: {extractPartitionResult.source_image_id} · New image: {extractPartitionResult.image_id} · {extractPartitionResult.encrypted ? "age-encrypted" : "unencrypted"}
                   </Alert>}
                 </CardBody></Card>
               </StackItem>
               <StackItem><Table aria-label="Feclora image repository" variant="compact"><Thead><Tr><Th>Image</Th><Th>Type</Th><Th>Source size</Th><Th>Signature</Th><Th>Encryption</Th><Th>Artifacts</Th><Th>Verification</Th></Tr></Thead><Tbody>
                 {images.map((item) => {
                   const verification = imageVerification[item.image_id];
-                  return <Tr key={item.image_id}><Td>{item.image_id}</Td><Td>{item.image_type}</Td><Td>{formatBytes(item.source_size_bytes)}</Td><Td><Label color={item.signed ? "green" : "orange"}>{item.signed ? "Signed" : "Unsigned"}</Label></Td><Td><Label color={item.encrypted ? "green" : "orange"}>{item.encrypted ? "age" : "Plain"}</Label></Td><Td>{item.artifact_count}</Td><Td>
+                  return <Tr key={item.image_id}><Td>{item.image_id}</Td><Td>{item.image_type}</Td><Td>{formatBytes(item.source_size_bytes)}</Td><Td></Td><Td><Label color={item.encrypted ? "green" : "orange"}>{item.encrypted ? "age" : "Plain"}</Label></Td><Td>{item.artifact_count}</Td><Td>
                     <Button size="sm" variant="secondary" isDisabled={busy || verification?.loading} isLoading={verification?.loading} onClick={() => verifyImage(item.image_id)}>Verify</Button>
                     {verification?.report && <div className="pf-v5-u-mt-sm">
-                      <Label color="green">Verified</Label> Manifest: {verification.report.manifest} · Signature: {verification.report.signature} · {verification.report.artifact_count} artifacts · {formatBytes(verification.report.total_decoded_bytes)}
+                      <Label color="green">Verified</Label> Manifest: {verification.report.manifest} · {verification.report.artifact_count} artifacts · {formatBytes(verification.report.total_decoded_bytes)}
                       {verification.report.artifacts.map((artifact) => <p key={artifact.filename}>{artifact.filename}: stored SHA-256 {artifact.stored_digest}; age {artifact.age_authentication}; compression {artifact.decompression}; decoded {formatBytes(artifact.decoded_bytes)}</p>)}
                     </div>}
                     {verification?.error && <Alert variant="danger" title="Verification failed" isInline>{verification.error}</Alert>}
@@ -1211,7 +1209,7 @@ export default function App() {
                 <Card><CardBody><form onSubmit={createRemoteJob}>
                   <Field label="Operation">
                     <select className="pf-v5-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); if (e.target.value === "save" || e.target.value === "clone") { setRemoteTransport("unicast"); setRemoteTargetType("disk"); } }}>
-                      <option value="restore">Restore a signed Server image to Clients</option>
+                      <option value="restore">Restore a Server image to Clients</option>
                       <option value="save">Capture whole disks from Clients to Server</option>
                       <option value="clone">Clone a Server disk or partition directly to one Client</option>
                     </select>
@@ -1227,10 +1225,10 @@ export default function App() {
                       <option value="">Select read-only source…</option>
                       {inventoryDevices.filter((item) => item.type === (remoteTargetType === "disk" ? "disk" : "part") && item.read_only === true).map((item) => <option key={item.path} value={item.path}>{item.path} · {item.model || (remoteTargetType === "disk" ? "Disk" : "Partition")} · {formatBytes(item.size_bytes)}</option>)}
                     </select>
-                  </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing disk or partition image. Signed images are verified; unsigned images are accepted through the TLS Server session." : "New identifier for the image captured from Clients."}>
+                  </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing disk or partition image. Images are validated against their manifests and SHA-256 digests." : "New identifier for the image captured from Clients."}>
                     {remoteOperation === "restore" ? <select className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)}>
                       <option value="">Select image…</option>
-                      {availableImages.filter((item) => item.image_type === remoteTargetType).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {item.signed ? "signed" : "unsigned"}</option>)}
+                      {availableImages.filter((item) => item.image_type === remoteTargetType).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}</option>)}
                     </select> : <input className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)} maxLength={128} required />}
                   </Field>}
                   {(remoteOperation === "restore" || remoteOperation === "clone") && <Field label={remoteOperation === "clone" ? "Clone device type" : "Target type"}>
@@ -1323,8 +1321,8 @@ export default function App() {
           <Tab eventKey="repositories" title="Remote repositories">
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Remote image repositories</Title>
-                <p>Manage client-side filesystem mounts and signed image-set transfers to external services. SSHFS, NFS and SMB/CIFS are filesystem providers. SFTP supports saved endpoint definitions, signed-image inventory in one configured directory, import, publication and optional publication after durable capture. Metadata inspection and artifact transfer are still synchronous; byte-level progress, transfer cancellation and resume remain pending.</p>
-                <Alert variant="warning" title="Provider scope" isInline>Cockpit exposes SSHFS, NFS and SMB/CIFS mounts. SFTP is a separate signed file-transfer workflow with saved endpoint definitions, one-directory manifest inventory, import, publication and optional durable capture-job publication. Transfer metadata inspection and artifact import/publication are synchronous; byte-level progress, cancellation and resume are pending. WebDAV remains unavailable until its per-repository encrypted credential lifecycle is supported.</Alert>
+                <p>Manage client-side filesystem mounts and image-set transfers to external services. SSHFS, NFS and SMB/CIFS are filesystem providers. SFTP supports saved endpoint definitions, image inventory in one configured directory, import, publication and optional publication after durable capture. Metadata inspection and artifact transfer are still synchronous; byte-level progress, transfer cancellation and resume remain pending.</p>
+                <Alert variant="warning" title="Provider scope" isInline>Cockpit exposes SSHFS, NFS and SMB/CIFS mounts. SFTP is a separate file-transfer workflow with saved endpoint definitions, one-directory manifest inventory, import, publication and optional durable capture-job publication. Transfer metadata inspection and artifact import/publication are synchronous; byte-level progress, cancellation and resume are pending. WebDAV remains unavailable until its per-repository encrypted credential lifecycle is supported.</Alert>
               </StackItem>
               <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
                 <Field label="Repository ID"><input className="pf-v5-c-form-control" value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} readOnly={repositoryEditing} required /></Field>
@@ -1359,8 +1357,8 @@ export default function App() {
                   {!systemdCredentials.length && <Tr><Td colSpan={4}>No encrypted credentials imported.</Td></Tr>}
                 </Tbody></Table>
               </StackItem>
-              <StackItem><Title headingLevel="h2" size="lg">Import a signed image set from SFTP</Title>
-                <p>The remote directory must contain manifest.json, manifest.json.minisig and every artifact named by the signed manifest. The manifest is verified with the locally trusted Feclora Server public key before artifact download. Imported files become visible in the local image inventory.</p>
+              <StackItem><Title headingLevel="h2" size="lg">Import an image set from SFTP</Title>
+                <p>The remote directory must contain manifest.json and every artifact named by the manifest. Artifact SHA-256 digests are checked during import. Imported files become visible in the local image inventory.</p>
                 <Card><CardBody><form onSubmit={fetchSftpImageSet}>
                   <Field label="Saved SFTP repository">
                     <select className="pf-v5-c-form-control" value={sftpRepositoryId} onChange={(e) => selectSftpRepository(e.target.value)}>
@@ -1379,18 +1377,18 @@ export default function App() {
                   <Field label="Encrypted SSH private-key credential"><select className="pf-v5-c-form-control" value={sftpIdentity} onChange={(e) => setSftpIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
                   <Field label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={sftpKnownHosts} onChange={(e) => setSftpKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
                   <Button type="button" variant="secondary" onClick={listSftpImageManifests} isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>List remote image manifests</Button>{" "}
-                  <Button type="button" variant="secondary" onClick={inspectSftpImageSet} isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Verify signed remote image metadata</Button>{" "}
+                  <Button type="button" variant="secondary" onClick={inspectSftpImageSet} isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Inspect remote image metadata</Button>{" "}
                   <Button type="submit" variant="primary" isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Fetch, verify and import image</Button>
                 </form>
                 {sftpRemoteInventory !== null && <div className="pf-v5-c-content pf-v5-u-mt-md"><strong>Remote manifest markers</strong>{sftpRemoteInventory.length ? <ul>{sftpRemoteInventory.map((name) => <li key={name}>{name}</li>)}</ul> : <p>No Feclora image manifest marker was found in this directory.</p>}</div>}
-                {sftpRemoteInspection && <div className="pf-v5-c-content pf-v5-u-mt-md"><strong>Authenticated remote image</strong><p>{sftpRemoteInspection.image_id} · {sftpRemoteInspection.image_type} · {sftpRemoteInspection.artifact_count} artifacts · {sftpRemoteInspection.source_size_bytes} bytes</p><p>Manifest signature verified against the configured Feclora trust key. Artifact bytes have not yet been downloaded or verified.</p><ul>{sftpRemoteInspection.artifacts.map((item) => <li key={item.filename}>{item.filename} · {item.role} · {item.size_bytes} bytes · {item.encryption}</li>)}</ul></div>}
+                {sftpRemoteInspection && <div className="pf-v5-c-content pf-v5-u-mt-md"><strong>Authenticated remote image</strong><p>{sftpRemoteInspection.image_id} · {sftpRemoteInspection.image_type} · {sftpRemoteInspection.artifact_count} artifacts · {sftpRemoteInspection.source_size_bytes} bytes</p><p>Manifest metadata validated. Artifact bytes have not yet been downloaded or verified.</p><ul>{sftpRemoteInspection.artifacts.map((item) => <li key={item.filename}>{item.filename} · {item.role} · {item.size_bytes} bytes · {item.encryption}</li>)}</ul></div>}
                 </CardBody></Card>
               </StackItem>
-              <StackItem><Title headingLevel="h2" size="lg">Publish a signed image set to SFTP</Title>
-                <p>Publishes an already captured and signed image from the local repository. The local minisign public key is used to verify the manifest before transfer. The remote directory must already exist and be empty for these filenames; existing remote files are never overwritten.</p>
+              <StackItem><Title headingLevel="h2" size="lg">Publish an image set to SFTP</Title>
+                <p>Publishes an already captured image from the local repository after validating its manifest and SHA-256 digests. The remote directory must already exist and be empty for these filenames; existing remote files are never overwritten.</p>
                 <Card><CardBody><form onSubmit={publishSftpImageSet}>
-                  <Field label="Local signed image"><select className="pf-v5-c-form-control" value={sftpPublishImageId} onChange={(e) => setSftpPublishImageId(e.target.value)} required>
-                    <option value="">Select a signed local image…</option>
+                  <Field label="Local image"><select className="pf-v5-c-form-control" value={sftpPublishImageId} onChange={(e) => setSftpPublishImageId(e.target.value)} required>
+                    <option value="">Select a local image…</option>
                     {images.filter((item) => item.signed).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {item.image_type}</option>)}
                   </select></Field>
                   <Field label="SFTP host"><input className="pf-v5-c-form-control" value={sftpHost} onChange={(e) => setSftpHost(e.target.value)} maxLength={253} required /></Field>
@@ -1399,7 +1397,7 @@ export default function App() {
                   <Field label="SSH port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={sftpPort} onChange={(e) => setSftpPort(e.target.value)} required /></Field>
                   <Field label="Encrypted SSH private-key credential"><select className="pf-v5-c-form-control" value={sftpIdentity} onChange={(e) => setSftpIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
                   <Field label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={sftpKnownHosts} onChange={(e) => setSftpKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
-                  <Button type="submit" variant="primary" isDisabled={busy || !sftpPublishImageId || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Publish signed image set</Button>
+                  <Button type="submit" variant="primary" isDisabled={busy || !sftpPublishImageId || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Publish image set</Button>
                 </form></CardBody></Card>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Configured repositories</Title>
@@ -1478,7 +1476,7 @@ export default function App() {
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem>
                 <Title headingLevel="h2" size="xl">Initialize deployment Server identity</Title>
-                <p>Select an IPv4 address currently assigned to the management interface. Feclora will initialize its managed CA and Server TLS certificate. If age-keygen or minisign are installed, it will also provision those optional image-protection keys.</p>
+                <p>Select an IPv4 address currently assigned to the management interface. Feclora will initialize its managed CA and Server TLS certificate. If age-keygen is installed, it can also provision optional age encryption material.</p>
                 <Alert variant="info" title="This is the identity bootstrap step only" isInline>
                   It does not enable DHCP/ProxyDHCP, configure PXE boot services, open firewall ports or start a deployment. Client enrollment is a separate, explicit removable-media trust ceremony below.
                 </Alert>
@@ -1656,8 +1654,8 @@ export default function App() {
                         <Field label="Protect this image (optional)">
                           <label><input type="checkbox" checked={clientRemoteEncrypt} disabled={!clientRemoteInspection.image_security?.age_encryption_available} onChange={(event) => setClientRemoteEncrypt(event.target.checked)} /> Encrypt this image with age</label>
                           <br />
-                          <label><input type="checkbox" checked={clientRemoteSign} disabled={!clientRemoteInspection.image_security?.image_signing_available} onChange={(event) => setClientRemoteSign(event.target.checked)} /> Sign this image with minisign</label>
-                          {(!clientRemoteInspection.image_security?.age_encryption_available || !clientRemoteInspection.image_security?.image_signing_available) && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Unavailable options are disabled because this Client has no usable key material or executable. Leaving both unchecked creates a conventional unsigned, unencrypted image.</p>}
+                          <label><input type="checkbox" checked={false} disabled /> Image signing is not used</label>
+                          {(!clientRemoteInspection.image_security?.age_encryption_available ) && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Unavailable options are disabled because this Client has no usable key material or executable. Leaving encryption unchecked creates an unencrypted image with SHA-256 integrity checks.</p>}
                         </Field>
                       </>}
                       {clientRemoteConfirmationPhrase && <Alert variant="warning" title="Type the exact local authorization phrase" isInline>{clientRemoteConfirmationPhrase}</Alert>}
@@ -1693,7 +1691,7 @@ export default function App() {
               </Tbody></Table></StackItem>
               <StackItem>
                 <Title headingLevel="h2" size="lg">Local image security</Title>
-                <p>Generate a local Feclora CA, age identity and minisign keypair. Private keys remain on this machine; captured images can then be encrypted and signed by default.</p>
+                <p>Generate a local Feclora CA and optional age identity. Private keys remain on this machine; captured images can then be encrypted when selected.</p>
                 <Table aria-label="Image security material" variant="compact"><Thead><Tr><Th>Capability</Th><Th>Status</Th></Tr></Thead><Tbody>
                   {Object.entries(security).map(([name, ready]) => <Tr key={name}><Td>{name.replaceAll("_", " ")}</Td><Td><Label color={ready ? "green" : "orange"}>{ready ? "Ready" : "Not initialized"}</Label></Td></Tr>)}
                 </Tbody></Table>
