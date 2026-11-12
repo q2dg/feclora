@@ -144,12 +144,9 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
 class ClientRuntimeConfig:
     host: str
     port: int
-    local_identity: str | None
     server_identity: str
     mac_address: str
     ca_file: str
-    certificate_file: str | None
-    private_key_file: str | None
     trusted_server_public_key: str | None
     local_minisign_secret_key: str | None
     local_minisign_public_key: str | None
@@ -190,12 +187,9 @@ def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
     return ClientRuntimeConfig(
         host=host,
         port=_port(value["port"]),
-        local_identity=None,
         server_identity=_identity(value["server_identity"], "Server certificate identity"),
         mac_address=_mac(value["mac_address"]),
         ca_file=_secure_file(value["ca_file"], "deployment CA certificate"),
-        certificate_file=None,
-        private_key_file=None,
         trusted_server_public_key=(_secure_file(value["trusted_server_public_key"], "trusted Server minisign public key") if value["trusted_server_public_key"] is not None else None),
         local_minisign_secret_key=checked_minisign_secret,
         local_minisign_public_key=checked_minisign_public,

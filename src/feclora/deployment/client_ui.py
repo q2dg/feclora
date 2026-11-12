@@ -272,34 +272,6 @@ def _refresh_client_age_recipients(config: ClientRuntimeConfig) -> None:
     )
 
 
-def _prepare_client_renewal(config: ClientRuntimeConfig) -> None:
-    prefix = "URI:feclora-client-"
-    if not config.local_identity.startswith(prefix):
-        raise PKIError("this Client identity cannot use Feclora-managed renewal")
-    client_id = config.local_identity[len(prefix):]
-    export_directory = dialog_app._input(
-        "Export renewal request",
-        "Path to an existing removable-media directory. The current Client private key will be reused and will not leave this machine:",
-    )
-    if not export_directory:
-        return
-    identity, _key, exported = create_client_csr(
-        "/etc/feclora/pki", export_directory, client_id, reuse_existing_key=True,
-    )
-    signing_public = os.path.join("/etc/feclora/pki", f"client-{client_id}.minisign.pub")
-    if os.path.isfile(signing_public):
-        exported_public = os.path.join(export_directory, f"feclora-{client_id}-renewal.minisign.pub")
-        if os.path.lexists(exported_public):
-            raise PKIError("Client minisign public-key renewal export already exists")
-        shutil.copyfile(signing_public, exported_public)
-        os.chmod(exported_public, 0o644)
-    dialog_app._message(
-        "Renewal request prepared",
-        f"Identity: {identity}\nCSR: {exported}\n\n"
-        "Take the CSR and age-recipient file to the Server. Approve the CSR there, then return the signed response bundle and choose Install renewed certificate.",
-    )
-
-
 def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
     """Join one Server job after local device selection and typed approval."""
     if os.geteuid() != 0:
@@ -497,7 +469,6 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
 
         job, success, detail = join_deployment(
             config.host, config.port, context,
-            local_identity=config.local_identity,
             expected_server_identity=config.server_identity,
             mac_address=config.mac_address,
             job_id=job_id,

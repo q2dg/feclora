@@ -821,7 +821,6 @@ def inspect_deployment_job(
     port: int,
     tls_context: ssl.SSLContext,
     *,
-    local_identity: str | None = None,
     expected_server_identity: str,
     mac_address: str,
     job_id: str,

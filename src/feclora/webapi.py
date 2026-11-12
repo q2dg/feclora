@@ -2137,7 +2137,6 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
         context = create_tls_context("client", ca_file=config.ca_file)
         job = inspect_deployment_job(
             host, config.port, context,
-            local_identity=config.local_identity,
             expected_server_identity=config.server_identity,
             mac_address=config.mac_address,
             job_id=job_id, source_address=source_address,
@@ -2150,7 +2149,6 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
     return {
         "host": host,
         "port": config.port,
-        "client_identity": config.local_identity,
         "client_mac": config.mac_address,
         "client_network_interface": network_interface,
         "client_source_address": source_address,
