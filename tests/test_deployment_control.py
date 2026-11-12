@@ -84,26 +84,27 @@ class ListenerShutdownRaceTests(unittest.TestCase):
         job = SimpleNamespace(job_id=JOB_ID, operation="restore", authorizes_client=lambda mac: mac == MAC, to_dict=lambda: {})
         coordinator = Mock()
         coordinator.job = job
+
         def mark_ready(_mac):
             server._stop_event.set()
+
         coordinator.mark_ready.side_effect = mark_ready
         server = object.__new__(DeploymentControlServer)
         server._lock = threading.RLock()
         server._pending_sockets = set()
         server._stop_event = threading.Event()
         server._sessions = {}
-                server._target_devices = {}
+        server._target_devices = {}
         server.tls_context = SimpleNamespace(wrap_socket=lambda accepted, server_side: tls_socket)
         server.local_identity = "URI:feclora-server"
         server.coordinator = coordinator
         listener = SimpleNamespace(accept=lambda: (FakeSocket(), ("192.0.2.20", 40000)))
         messages = [
-            {"type": "hello", "job_id": JOB_ID, "mac_address": MAC,
-             },
+            {"type": "hello", "job_id": JOB_ID, "mac_address": MAC},
             {"type": "ready", "job_id": JOB_ID, "target_description": "approved target",
              "locally_authorized": True},
         ]
-                                  patch("feclora.deployment.control.receive_control_message", side_effect=messages), \
+        with patch("feclora.deployment.control.receive_control_message", side_effect=messages), \
              patch("feclora.deployment.control.send_control_message"):
             with self.assertRaisesRegex(DeploymentControlError, "stopped during Client admission"):
                 server.accept_ready_client(listener)
@@ -509,14 +510,15 @@ class ControlFramingTests(unittest.TestCase):
         server._sessions = {}
         server.local_identity = "URI:feclora-server"
         server.coordinator = coordinator
-             patch("feclora.deployment.control.receive_control_message", return_value={
-                 "type": "inspect", "job_id": JOB_ID, "mac_address": MAC,
-                              }), patch("feclora.deployment.control.send_control_message") as send:
+        with patch("feclora.deployment.control.receive_control_message", return_value={
+            "type": "inspect", "job_id": JOB_ID, "mac_address": MAC,
+        }), patch("feclora.deployment.control.send_control_message") as send:
             result = server.accept_ready_client(listener)
         self.assertIsNone(result)
         self.assertEqual(coordinator.clients(), ())
         self.assertTrue(fake.closed)
         send.assert_called_once()
+
 
 
 class ClientJoinTests(unittest.TestCase):
