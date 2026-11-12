@@ -33,7 +33,7 @@ class PXEAnswerStoreTests(unittest.TestCase):
             self.assertEqual(Path(result["directory"], "answer.json").stat().st_mode & 0o777, 0o444)
             self.assertEqual(result["answer_url"], f"http://192.0.2.10:8080/answers/{self.JOB_ID}/answer.json")
             published_answer = json.loads(Path(result["directory"], "answer.json").read_text())
-            self.assertRegex(published_answer["expires_at"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+            self.assertNotIn("expires_at", published_answer)
 
             self.assertTrue(revoke_pxe_answer(tmp, self.JOB_ID))
             self.assertFalse(revoke_pxe_answer(tmp, self.JOB_ID))
