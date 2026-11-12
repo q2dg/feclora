@@ -32,7 +32,6 @@ from feclora.network.firewall import PXEFirewall
 from feclora.network.multicast_preflight import inspect_multicast_interface
 from feclora.network.remote_clone_protocol import create_tls_context
 from feclora.network.pxe_service import PXEServiceManager
-from feclora.storage.image_security import verify_manifest_signature
 
 
 RUNTIME_DIRECTORY = Path("/run/feclora")
@@ -261,11 +260,6 @@ class DeploymentService:
                         f"selected image repository is not mounted and verified: {exc}"
                     ) from exc
             self.manifest_path = str(Path(self.repository_path) / (self.job.image_id + ".manifest.json"))
-            signature_path = self.manifest_path + ".minisig"
-            if os.path.lexists(signature_path):
-                if not self.config.server_minisign_public_key:
-                    raise DeploymentServiceError("selected image is signed but no independently trusted Server minisign key is configured")
-                verify_manifest_signature(self.manifest_path, self.config.server_minisign_public_key)
         else:
             self.manifest_path = None
 
@@ -489,19 +483,12 @@ class DeploymentService:
                 )
                 self.control.run_multicast_restore_job(
                     self.repository_path, self.manifest_path,
-                    trusted_public_key=self.config.server_minisign_public_key,
                     udpcast_config=udpcast,
                 )
             else:
                 mac = self.job.authorized_clients[0]
-                trusted_key = (
-                    self.config.server_minisign_public_key
-                    if self.job.operation == "restore"
-                    else self.config.client_minisign_public_keys.get(mac)
-                )
                 self.control.run_one_client_job(
                     self.repository_path,
-                    trusted_public_key=trusted_key,
                     manifest_path=self.manifest_path,
                 )
         except Exception as exc:
@@ -527,11 +514,6 @@ class DeploymentService:
                     # won the race after construction must not leave a stale path.
                     self.repository_path = manager.resolve(self.job.repository_id, write=False)
                     self.manifest_path = str(Path(self.repository_path) / (self.job.image_id + ".manifest.json"))
-                    signature_path = self.manifest_path + ".minisig"
-                    if os.path.lexists(signature_path):
-                        if not self.config.server_minisign_public_key:
-                            raise DeploymentServiceError("selected image is signed but no independently trusted Server minisign key is configured")
-                        verify_manifest_signature(self.manifest_path, self.config.server_minisign_public_key)
                 except Exception as exc:
                     raise DeploymentServiceError(
                         f"selected image repository cannot be leased and verified for this restore: {exc}"
