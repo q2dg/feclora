@@ -1,5 +1,9 @@
 import os
+import pty
+import select
+import shutil
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
@@ -110,6 +114,59 @@ class ImageSecurityTests(unittest.TestCase):
         with open(staged, "rb") as decrypted:
             self.assertEqual(decrypted.read(), b"ciphertext")
         self.assertEqual(os.stat(staged).st_mode & 0o777, 0o600)
+
+    def test_real_age_symmetric_round_trip_when_age_is_installed(self):
+        age = shutil.which("age")
+        if not age:
+            self.skipTest("age CLI is not installed")
+        source = os.path.join(self.root, "plain.img")
+        encrypted = os.path.join(self.root, "plain.img.age")
+        payload = b"Feclora PXE symmetric age integration test\\x00" * 128
+        with open(source, "wb") as stream:
+            stream.write(payload)
+        pid, master = pty.fork()
+        if pid == 0:
+            os.execv(age, [age, "--passphrase", "--output", encrypted, source])
+        sent = False
+        transcript = bytearray()
+        status = None
+        deadline = time.monotonic() + 30
+        try:
+            while time.monotonic() < deadline:
+                readable, _, _ = select.select([master], [], [], 0.2)
+                if readable:
+                    try:
+                        chunk = os.read(master, 4096)
+                    except OSError:
+                        chunk = b""
+                    if chunk:
+                        transcript.extend(chunk)
+                        if not sent and b"passphrase" in transcript.lower():
+                            os.write(master, b"test passphrase 123\\n")
+                            sent = True
+                waited, child_status = os.waitpid(pid, os.WNOHANG)
+                if waited == pid:
+                    status = child_status
+                    break
+            if status is None:
+                os.kill(pid, 9)
+                os.waitpid(pid, 0)
+                self.fail("age encryption timed out")
+        finally:
+            os.close(master)
+        self.assertTrue(sent, transcript.decode("utf-8", errors="replace"))
+        self.assertTrue(os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0,
+                        transcript.decode("utf-8", errors="replace"))
+        with open(encrypted, "rb") as stream:
+            staged = decrypt_artifact_stream_with_passphrase_to_temp(
+                stream, "test passphrase 123", self.root, age_executable=age,
+            )
+        try:
+            with open(staged, "rb") as decrypted:
+                self.assertEqual(decrypted.read(), payload)
+        finally:
+            os.unlink(staged)
+            os.rmdir(os.path.dirname(staged))
 
     def test_symmetric_age_decryption_rejects_wrong_passphrase(self):
         encrypted = os.path.join(self.root, "disk.raw.gz.age")
