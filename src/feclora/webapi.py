@@ -762,7 +762,7 @@ def _validate_pxe_profile(params: dict[str, Any]) -> dict[str, Any]:
     required = {
         "interface", "address", "prefix_length", "mode", "pool_start",
         "pool_end", "lease_time", "gateway", "dns_server", "http_port",
-        "authoritative_confirmed",
+        "authoritative_confirmed", "max_clients", "max_duration_seconds",
     }
     if set(params) != required:
         raise WebAPIError("validate_pxe_profile requires the complete PXE profile field set")
@@ -778,6 +778,14 @@ def _validate_pxe_profile(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError("http_port must be an integer between 1 and 65535")
     if not isinstance(authoritative, bool):
         raise WebAPIError("authoritative_confirmed must be boolean")
+    max_clients = params["max_clients"]
+    max_duration_seconds = params["max_duration_seconds"]
+    if max_clients is not None and (isinstance(max_clients, bool) or not isinstance(max_clients, int) or not 1 <= max_clients <= 4096):
+        raise WebAPIError("max_clients must be an integer from 1 to 4096 or null")
+    if max_duration_seconds is not None and (isinstance(max_duration_seconds, bool) or not isinstance(max_duration_seconds, int) or not 60 <= max_duration_seconds <= 604800):
+        raise WebAPIError("max_duration_seconds must be an integer from 60 to 604800 or null")
+    if max_clients is None and max_duration_seconds is None:
+        raise WebAPIError("configure a maximum PXE client count and/or serving time")
     optional = {}
     for key in ("pool_start", "pool_end", "gateway", "dns_server"):
         value = params[key]
@@ -800,6 +808,7 @@ def _validate_pxe_profile(params: dict[str, Any]) -> dict[str, Any]:
         pool_end=optional["pool_end"], lease_time=lease,
         gateway=optional["gateway"], dns_server=optional["dns_server"],
         authoritative_confirmed=authoritative,
+        max_clients=max_clients, max_duration_seconds=max_duration_seconds,
     )
     try:
         config.validated()
@@ -830,6 +839,8 @@ def _validate_pxe_profile(params: dict[str, Any]) -> dict[str, Any]:
         "prefix_length": prefix,
         "subnet": str(config.network),
         "mode": mode,
+        "max_clients": config.max_clients,
+        "max_duration_seconds": config.max_duration_seconds,
         "pool_start": config.pool_start,
         "pool_end": config.pool_end,
         "http_url": f"http://{address}:{port}/boot.ipxe",
@@ -868,6 +879,7 @@ def _start_pxe_services(params: dict[str, Any]) -> dict[str, Any]:
         pool_end=params["pool_end"], lease_time=params["lease_time"],
         gateway=params["gateway"], dns_server=params["dns_server"],
         authoritative_confirmed=params["authoritative_confirmed"],
+        max_clients=params["max_clients"], max_duration_seconds=params["max_duration_seconds"],
     )
     active_service = _active_deployment_service_status()
     if active_service and active_service.get("network_interface") == config.interface:
