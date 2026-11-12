@@ -1146,7 +1146,6 @@ export default function App() {
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Remote image repositories</Title>
                 <p>Manage client-side filesystem repositories and image storage transports. SSHFS, NFS, SMB/CIFS and WebDAV are filesystem providers; S3 provides object storage and NVMe-oF block storage.</p>
-                <Alert variant="warning" title="Provider scope" isInline>Cockpit exposes SSHFS, NFS and SMB/CIFS mounts. SFTP is a separate file-transfer workflow with saved endpoint definitions, one-directory manifest inventory, import, publication and optional durable capture-job publication. Metadata inspection is synchronous; imports and publications run as durable cancellable operations with artifact-boundary progress. Continuous byte-level progress and resume remain pending. WebDAV remains unavailable until its per-repository encrypted credential lifecycle is supported.</Alert>
               </StackItem>
               <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
                 <Field label="Repository ID"><input className="pf-v5-c-form-control" value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} readOnly={repositoryEditing} required /></Field>
