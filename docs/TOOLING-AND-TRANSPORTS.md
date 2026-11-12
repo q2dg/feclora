@@ -36,8 +36,6 @@ These technologies are not interchangeable:
   after the normal topology, mounted/in-use, capacity and identity checks.
   Feclora is an NVMe host/client; it must not configure or administer the
   remote NVMe target/subsystem.
-- **BitTorrent is not part of Feclora's product scope.** It must not appear as
-  an available, planned or accepted repository/distribution transport.
 
 S3 and NVMe-oF are planned integrations, not currently supported Cockpit
 providers. Do not infer support from a URL scheme, installed package, command
