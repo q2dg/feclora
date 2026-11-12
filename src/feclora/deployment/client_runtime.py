@@ -79,7 +79,7 @@ def execute_client_image_job(
                 f"SHA-256 {result.readback_sha256}"
             )
         except Exception as exc:
-            raise ClientImageRuntimeError(f"remote {job.target_type} clone failed:) from exc
+            raise ClientImageRuntimeError(f"remote {job.target_type} clone failed: {exc}") from exc
     if job.operation == "restore":
         required = f"ERASE {local_device_path}"
         if confirmation != required:
