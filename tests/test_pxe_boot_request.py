@@ -11,6 +11,7 @@ from feclora.network.boot_tree import (
     LiveBootAssetError,
     render_ipxe_script,
     render_unattended_answer_ipxe_script,
+    render_unattended_answer_admission_ipxe_script,
     publish_unattended_answer_ipxe_script,
     revoke_unattended_answer_ipxe_script,
     clear_stale_unattended_ipxe_script,
@@ -98,6 +99,11 @@ class PXEBootRequestTests(unittest.TestCase):
         self.assertNotIn("client.key", script.lower())
         self.assertNotIn("PRIVATE KEY", script)
 
+    def test_admission_wrapper_submits_iPXE_mac_before_chaining(self):
+        script = render_unattended_answer_admission_ipxe_script("192.0.2.10", 8080)
+        self.assertIn("chain http://192.0.2.10:8080/pxe/admit/${net0/mac}", script)
+        self.assertIn("admission_denied", script)
+
     def test_answer_boot_script_rejects_foreign_answer_urls(self):
         with self.assertRaisesRegex(LiveBootAssetError, "must match"):
             render_unattended_answer_ipxe_script(
@@ -115,7 +121,10 @@ class PXEBootRequestTests(unittest.TestCase):
             published = Path(path)
             self.assertTrue(published.is_file())
             self.assertEqual(published.stat().st_mode & 0o777, 0o444)
-            self.assertIn(f"feclora.pxe_job_id={JOB_ID}", published.read_text())
+            boot_script = Path(tmp) / "unattended-answer-boot.ipxe"
+            self.assertTrue(boot_script.is_file())
+            self.assertIn(f"feclora.pxe_job_id={JOB_ID}", boot_script.read_text())
+            self.assertIn("/pxe/admit/${net0/mac}", published.read_text())
             self.assertEqual(
                 publish_unattended_answer_ipxe_script(
                     tmp, "192.0.2.10", JOB_ID, ANSWER_URL, 8080,
@@ -123,7 +132,7 @@ class PXEBootRequestTests(unittest.TestCase):
                 path,
             )
             other_job = "f47ac10b-58cc-4372-a567-0e02b2c3d480"
-            with self.assertRaisesRegex(LiveBootAssetError, "different unattended PXE answer job"):
+            with self.assertRaisesRegex(LiveBootAssetError, "different unattended PXE job"):
                 publish_unattended_answer_ipxe_script(
                     tmp, "192.0.2.10", other_job,
                     f"http://192.0.2.10:8080/answers/{other_job}/answer.json", 8080,
@@ -133,6 +142,7 @@ class PXEBootRequestTests(unittest.TestCase):
             self.assertTrue(published.exists())
             self.assertTrue(revoke_unattended_answer_ipxe_script(tmp, JOB_ID))
             self.assertFalse(published.exists())
+            self.assertFalse(boot_script.exists())
             self.assertFalse(revoke_unattended_answer_ipxe_script(tmp, JOB_ID))
 
     def test_new_pxe_session_clears_both_stale_handoff_scripts(self):
@@ -140,11 +150,14 @@ class PXEBootRequestTests(unittest.TestCase):
             os.chmod(tmp, 0o755)
             legacy = Path(tmp) / "unattended.ipxe"
             answer = Path(tmp) / "unattended-answer.ipxe"
+            boot = Path(tmp) / "unattended-answer-boot.ipxe"
             legacy.write_text("#!ipxe\\necho stale\\n", encoding="utf-8")
             answer.write_text("#!ipxe\\necho stale\\n", encoding="utf-8")
+            boot.write_text("#!ipxe\\necho stale\\n", encoding="utf-8")
             self.assertTrue(clear_stale_unattended_ipxe_script(tmp))
             self.assertFalse(legacy.exists())
             self.assertFalse(answer.exists())
+            self.assertFalse(boot.exists())
             self.assertFalse(clear_stale_unattended_ipxe_script(tmp))
 
     def test_new_pxe_session_refuses_symlinked_stale_handoff(self):
