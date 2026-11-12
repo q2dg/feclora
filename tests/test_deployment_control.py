@@ -485,7 +485,7 @@ class ControlFramingTests(unittest.TestCase):
         context.minimum_version = ssl.TLSVersion.TLSv1_3
         context.maximum_version = ssl.TLSVersion.TLSv1_3
         context.verify_mode = ssl.CERT_REQUIRED
-        with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
+        with patch("feclora.deployment.control.connect_tls", return_value=fake):
             inspected = inspect_deployment_job(
                 "192.0.2.10", 9443, context,
                                 expected_server_identity="URI:feclora-server",
@@ -539,7 +539,7 @@ class ClientJoinTests(unittest.TestCase):
         context.minimum_version = ssl.TLSVersion.TLSv1_3
         context.maximum_version = ssl.TLSVersion.TLSv1_3
         context.verify_mode = ssl.CERT_REQUIRED
-        with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
+        with patch("feclora.deployment.control.connect_tls", return_value=fake):
             received, success, detail = join_deployment(
                 "192.0.2.10", 9443, context,
                                 expected_server_identity="URI:feclora-server",
@@ -579,7 +579,7 @@ class ClientJoinTests(unittest.TestCase):
             "ERASE /dev/vda",
         )
         observed = []
-        with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
+        with patch("feclora.deployment.control.connect_tls", return_value=fake):
             join_deployment(
                 "192.0.2.10", 9443, context,
                                 expected_server_identity="URI:feclora-server",
@@ -617,7 +617,7 @@ class ClientJoinTests(unittest.TestCase):
             "/dev/vdb", "Destination disk",
             "ERASE /dev/vdb",
         )
-        with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
+        with patch("feclora.deployment.control.connect_tls", return_value=fake):
             join_deployment(
                 "192.0.2.10", 9443, context,
                                 expected_server_identity="URI:feclora-server",
@@ -643,7 +643,7 @@ class ClientJoinTests(unittest.TestCase):
         context.minimum_version = ssl.TLSVersion.TLSv1_3
         context.maximum_version = ssl.TLSVersion.TLSv1_3
         context.verify_mode = ssl.CERT_REQUIRED
-        with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
+        with patch("feclora.deployment.control.connect_tls", return_value=fake):
             with self.assertRaisesRegex(DeploymentControlError, "typed target confirmation"):
                 join_deployment(
                     "192.0.2.10", 9443, context,
@@ -668,7 +668,7 @@ class ClientJoinTests(unittest.TestCase):
         context.minimum_version = ssl.TLSVersion.TLSv1_3
         context.maximum_version = ssl.TLSVersion.TLSv1_3
         context.verify_mode = ssl.CERT_REQUIRED
-        with patch("feclora.deployment.control.connect_mutual_tls", return_value=fake):
+        with patch("feclora.deployment.control.connect_tls", return_value=fake):
             with self.assertRaisesRegex(DeploymentControlError, "did not arm"):
                 join_deployment(
                     "192.0.2.10", 9443, context,

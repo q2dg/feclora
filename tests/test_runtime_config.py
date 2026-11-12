@@ -149,15 +149,15 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertIsNone(config.local_minisign_secret_key)
         self.assertIsNone(config.local_minisign_public_key)
 
-    def test_rejects_duplicate_client_mac_enrollment(self):
+    def test_legacy_client_identity_mapping_is_ignored(self):
         payload = self.server_config()
         payload["client_identity_to_mac"]["URI:other-client"] = "52:54:00:12:34:56"
         payload["client_minisign_public_keys"]["52:54:00:12:34:57"] = "/pki/other.pub"
         with tempfile.TemporaryDirectory() as directory:
             path = self.write_config(directory, payload)
             with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
-                with self.assertRaisesRegex(RuntimeConfigError, "exactly one certificate"):
-                    load_server_runtime_config(path)
+                config = load_server_runtime_config(path)
+        self.assertEqual(dict(config.client_minisign_public_keys), {"52:54:00:12:34:57": "/pki/other.pub"})
 
     def test_rejects_non_ipv4_or_unspecified_server_bind(self):
         payload = self.server_config()

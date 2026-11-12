@@ -1035,7 +1035,7 @@ class WebAPITests(unittest.TestCase):
                  patch("feclora.webapi._client_job_status", return_value={"job_id": job_id, "phase": "connecting"}):
                 result = dispatch({"action": "start_client_job", "params": {
                     "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/vg0/data",
-                    "confirmation": "ERASE /dev/vg0/data FROM URI:server", "compression": "gzip",
+                    "confirmation": "ERASE /dev/vg0/data", "compression": "gzip",
                     "network_interface": "enp1s0", "source_address": "192.0.2.20",
                     "igmp_confirmed": False,
                 }})
@@ -1066,7 +1066,7 @@ class WebAPITests(unittest.TestCase):
                  }):
                 result = dispatch({"action": "start_client_job", "params": {
                     "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
-                    "confirmation": "ERASE /dev/sda FROM URI:server", "compression": "gzip",
+                    "confirmation": "ERASE /dev/sda", "compression": "gzip",
                     "network_interface": "enp1s0", "source_address": "192.0.2.20",
                     "igmp_confirmed": False,
                 }})
@@ -1089,7 +1089,7 @@ class WebAPITests(unittest.TestCase):
             with self.assertRaisesRegex(WebAPIError, "valid only for Client save jobs"):
                 dispatch({"action": "start_client_job", "params": {
                     "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
-                    "confirmation": "ERASE /dev/sda FROM URI:server", "compression": "gzip",
+                    "confirmation": "ERASE /dev/sda", "compression": "gzip",
                     "network_interface": "enp1s0", "source_address": "192.0.2.20",
                     "igmp_confirmed": False, "image_encrypt": True,
                 }})
@@ -1127,7 +1127,7 @@ class WebAPITests(unittest.TestCase):
             }):
                 result = dispatch({"action": "start_client_job", "params": {
                     "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
-                    "confirmation": "READ /dev/sda TO URI:server", "compression": "gzip",
+                    "confirmation": "READ /dev/sda", "compression": "gzip",
                     "network_interface": "enp1s0", "source_address": "192.0.2.20",
                     "igmp_confirmed": False, "image_encrypt": True, "image_sign": True,
                 }})
@@ -1169,7 +1169,7 @@ class WebAPITests(unittest.TestCase):
                  }):
                 result = dispatch({"action": "start_client_job", "params": {
                     "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
-                    "confirmation": "ERASE /dev/sda FROM URI:server", "compression": "gzip",
+                    "confirmation": "ERASE /dev/sda", "compression": "gzip",
                     "network_interface": "enp1s0",
                     "igmp_confirmed": True,
                 }})
