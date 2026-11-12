@@ -1,135 +1,134 @@
 # Roadmap
 
-This page is a high-level status summary. The [feature matrix](FEATURE-MATRIX.md)
-is the current capability reference; the [implementation plan](IMPLEMENTATION-PLAN.md)
-is the dependency-ordered backlog; and
-[USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md) defines
-the release target and acceptance gates.
+This page is a concise status summary. The [feature matrix](FEATURE-MATRIX.md)
+records capability-level implementation detail; the
+[implementation plan](IMPLEMENTATION-PLAN.md) is the dependency-ordered
+engineering backlog; and
+[USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md) defines the
+end-user release target and operator acceptance gates.
 
 ## Product model
 
-Feclora is a Fedora Server-based minimal Live appliance. It has no
-general-purpose desktop: Cage launches Firefox in kiosk mode and opens the
-Feclora application in Cockpit. The Live session is intentionally ephemeral.
-Each boot creates a fresh session and temporary credentials/configuration;
-durable images and manifests belong in repositories explicitly selected by
-the operator. No persistent Live-session design is required.
+Feclora is a Fedora Server-based minimal Live appliance. Cage launches Firefox
+in kiosk mode and opens the Feclora application in Cockpit; there is no
+general-purpose desktop. The Live session is intentionally ephemeral. Each
+boot creates fresh local credentials, certificates and temporary configuration.
+Durable images and manifests belong in repositories explicitly selected by the
+operator. Persistent Live-session storage is not a product requirement.
 
 Storage layers and repositories are different concepts. LVM logical volumes,
-raw LUKS2 containers/open mappings and Btrfs filesystems are possible image
-sources. SSHFS, SFTP, NFS, SMB/CIFS and WebDAV are external repository
-mechanisms; BitTorrent is a planned immutable-artifact distribution transport.
-Feclora is a client of external infrastructure and does not install or
-administer remote servers, exports, shares, trackers or peers.
+raw LUKS2 containers and Btrfs filesystems are possible image sources.
+SSHFS, NFS and SMB/CIFS are mounted repository providers; SFTP is a separate
+file-transfer provider. WebDAV is not implemented. BitTorrent is a planned
+immutable-artifact distribution transport, not a writable repository.
+Remote servers, exports, shares, trackers and peers remain external systems
+administered by their owners.
 
 ## Implemented in source and Cockpit
 
 - Fedora Server Live kiosk, first-boot administrator password setup, local
   Cockpit certificate trust and loopback confinement.
 - Block-device, partition, LVM, LUKS, Btrfs and Stratis inventory/topology.
-- Whole-disk and partition image capture/restore, with manifests, SHA-256,
+- Whole-disk and partition image capture/restore, manifests, SHA-256,
   compression and optional age/minisign protection.
-- Local capture and restore of eligible active LVM logical volumes. Restore
-  targets an existing unmounted linear or thin LV; it does not create or resize
-  LVM metadata. Raw restores are byte-verified and Partclone restores receive
-  a read-only filesystem consistency check. LV images do not include VG/PV
-  metadata or dependent storage layers.
-- Raw partition capture and restore of verified LUKS2 containers, plus single-device Btrfs partition capture. LUKS2 restore writes the captured raw encrypted bytes (including header/keyslots) to an existing safe partition and verifies the restored LUKS2 UUID/JSON header; it never opens the mapping or handles passphrases. LUKS1/unknown headers and multi-device Btrfs capture fail closed. Opened-mapping images contain plaintext and are deliberately rejected by restore until a separate destination-provisioning/key workflow exists. There is no dedicated opened-mapping capture or snapshot workflow.
-- Local disk-to-disk and partition-to-partition cloning.
-- Durable local operation queue, systemd worker, progress and journals; an
-  interrupted destructive operation is inspected, never automatically
-  resumed.
-- Authenticated Server/Client enrollment and jobs; unicast image transfer,
-  multicast restore and direct whole-disk remote cloning.
-- PXE/iPXE boot-tree staging and transient dnsmasq/Caddy/firewalld lifecycle.
-  The iPXE menu distinguishes interactive Live boot from an unattended
-  handoff path. During an active Server restore job, Feclora publishes and
-  revokes a job-bound script containing only non-secret job/Server metadata.
+- Local capture of eligible active LVM logical volumes and restore into an
+  existing active, unmounted linear or thin LV. Feclora does not provision or
+  resize LVM metadata.
+- Raw LUKS2 container partition capture/restore with manifest provenance,
+  exact read-back and post-write UUID/header verification. The mapping remains
+  closed; opened-mapping plaintext restore and LUKS2-on-LV restore are not
+  supported.
+- Single-device Btrfs partition capture and restore, with conservative
+  topology/provenance checks. Multi-device/profile capture, coordinated
+  snapshots and layer-aware Btrfs restore are not implemented.
+- Local whole-disk and partition-to-partition cloning.
+- Durable local operations using a root-owned systemd worker, journals,
+  progress and interruption recovery. Destructive writes are not resumed
+  automatically; interrupted destinations require inspection.
+- Persistent Server/Client deployment services, Server-authenticated TLS
+  control, READY/ARM authorization, unicast image transfer, UDPcast multicast
+  restore and direct whole-disk remote cloning.
+- Server/Client Cockpit workflows for DHCP/static IPv4 configuration of an
+  active NetworkManager profile, including a 120-second checkpoint/rollback
+  window and post-apply profile/address verification.
+- PXE/iPXE boot-tree staging, interactive Live boot, and transient
+  dnsmasq/Caddy/firewalld lifecycle.
+- A shared unattended PXE answer workflow: Cockpit validates and publishes a
+  JSON answer and answer-specific iPXE handoff; Live downloads and validates
+  it. The NFS-backed whole-disk path uses stable-target revalidation, the
+  existing restore engine and read-back verification. Authorization is
+  consumed once within the current Live session.
 
-These are source/Cockpit implementation statements, not claims that the ISO,
-hardware, provider services or physical networks have passed acceptance.
+These are source and Cockpit implementation statements, not claims that an
+ISO, physical hardware, remote provider or physical network has passed
+acceptance.
 
-## Important partial capabilities
+## Partial capabilities and remaining engineering work
 
-- Remote mounted repositories: SSHFS, NFS and SMB/CIFS have client-side
-  mount/inventory/image-engine integration, but provider permissions,
-  interruptions, NFS root-squash, health and concurrent-reader behavior still
-  require provider-by-provider acceptance.
-- SFTP: separate signed image-set publish/fetch and Cockpit paths exist, but
-  transfers remain limited (single configured directory, synchronous
-  metadata/artifact steps, no complete byte-progress/resume workflow).
-- PXE Live boot and initial shared-answer publication: Cockpit accepts a
-  single JSON answer containing the repository URL; the Server validates it
-  and publishes/revokes it through Caddy over HTTP.
-  No per-Client identity or removable identity media is part of this design.
-  Live-side download/schema validation and NFS-backed whole-disk restore with
-  stable-target revalidation are connected. Remaining work includes other
-  provider adapters, cross-reboot replay/expiry controls and physical acceptance.
-- Unattended restore profiles: a standalone signed single-use executor exists,
-  but profile authoring/activation and integration with PXE Server/Client jobs
-  are not complete.
-- Network configuration: Cockpit applies DHCP/static IPv4 to an active
-  NetworkManager profile with a checkpoint/rollback window; complete
-  end-to-end reachability, DNS, multi-interface and Server/Client workflow
-  acceptance remains open.
-- Local operation telemetry and remote transfer progress have outstanding
-  phase/throughput and Server-side byte-progress work.
+- **Remote repositories:** SSHFS, NFS and SMB/CIFS mount lifecycle and image
+  engine integration exist. Provider-specific permissions, NFS root-squash,
+  stale mounts, outages, interrupted publication, cleanup, concurrency and
+  live health behavior still need acceptance. SFTP supports signed-image
+  listing/inspection, import, publication and direct restore integration,
+  with durable cancellable operations and artifact-boundary progress. It
+  remains limited to one configured directory and lacks continuous in-file
+  progress, safe resume and multi-directory discovery. WebDAV's isolated
+  credential lifecycle is not implemented.
+- **Unattended PXE:** the first NFS whole-disk restore path is connected.
+  Remaining work includes other repository providers, cross-reboot expiry and
+  replay controls, richer Cockpit result reconciliation, wrong-passphrase
+  end-to-end acceptance, and BIOS/UEFI/physical validation. The current
+  one-use authorization is session-local; it is not cross-reboot replay
+  protection. The answer workflow is separate from authenticated Server/Client
+  Remote jobs.
+- **Storage fidelity:** deployment-job LV capture, snapshot-assisted LVM/Btrfs
+  imaging, multi-device/profile Btrfs imaging and layer-aware Btrfs restore
+  remain incomplete. Opened-mapping/LUKS2-on-LV restore, provisioning and
+  rekeying are unsupported. Raw LUKS2 container-to-partition restore is
+  implemented; do not describe all LUKS2 restore as unavailable.
+- **Remote cloning and fleet operations:** remote whole-disk cloning exists;
+  remote partition-to-partition cloning does not. Two-machine fault injection,
+  disconnect/restart recovery and full multi-Client acceptance remain open.
+- **Network configuration:** DHCP/static IPv4 application and checkpoint
+  rollback exist. Gateway reachability, DNS resolution, inactive-profile
+  selection, multi-interface behavior, browser/API disconnect recovery and
+  complete Server/Client workflow acceptance remain open.
+- **PKI:** managed CA bootstrap, enrollment/renewal, trust inventory/revocation,
+  Server leaf renewal/keypair rotation and encrypted CA backup inspection
+  exist. Verified CA backup restore/compromise recovery and broader CA
+  migration are not implemented.
+- **Monitoring:** local operation journals and byte progress, plus
+  Server-side per-Client operation progress/throughput, exist. Standardized
+  phase/diagnostic telemetry, operation-history export, detached-worker
+  supervision and additional recovery drills remain open.
+- **Distribution:** BitTorrent has no implementation. It remains a planned
+  first-class immutable-artifact transport with authenticated metadata,
+  digest verification, cancellation, cleanup and multi-Client acceptance.
+- **Release engineering:** the frontend has pinned direct dependencies but
+  no committed npm lockfile; CI currently uses npm install, so transitive
+  dependency resolution is not reproducible. Dependency/security scanning,
+  secret-leak checks, documentation/link validation and backup/upgrade/
+  rollback guidance remain to be completed.
 
 ## Release-critical work
 
-1. **Unattended PXE restore:** complete the shared answer-file path without
-   per-Client identity or enrollment. Live download/schema validation and NFS whole-disk restore are connected.
-   Integrate remaining repository providers/credentials, add expiry and
-   single-use replay protection, improve Cockpit result reporting, and complete
-   BIOS/UEFI plus physical-device acceptance. PXE boot or
-   possession of a URL alone must never authorize a write.
-2. **Storage-layer image fidelity:** local LVM logical-volume capture and
-   restore are implemented. Server/Client deployment jobs now accept LV
-   restore targets over unicast and multicast; both interactive and persistent
-   Cockpit Clients select the LV locally, validate it against healthy local
-   LVM topology, and run the existing fail-closed LV preflight/restore engine.
-   Automated and operator acceptance of multi-Client LV deployments remains
-   outstanding. Raw LUKS2 container restore to an existing partition is now
-   implemented: it requires explicit encrypted-container provenance and a
-   matching header-included UUID, writes raw bytes, verifies read-back and the
-   LUKS2 UUID/JSON header, and leaves the container closed. Unicast and
-   multicast Client restore runtimes now route `partition` jobs through this
-   same verified engine, so remote LUKS2 images inherit the same fail-closed
-   provenance and header checks; runtime dispatch tests cover both transports.
-   Real remote multi-client/block-device acceptance remains pending. Opened-mapping
-   plaintext restore, LUKS2-on-LV, provisioning and rekeying remain unsupported.
-   A disposable loop-device acceptance harness exercises the real unicast
-   Client runtime and framed image-set transfer over a local socket pair, then
-   checks wrong-key rejection, original-key unlock and plaintext equality.
-   Multicast Client dispatch is covered by automated runtime tests and the
-   existing two-Client UDPcast operator runbook; the runbook must be used for
-   actual multicast/IGMP acceptance. The loop-device harness does not perform
-   a live Server-authenticated TLS handshake or network routing, and has not yet been executed on
-   a Fedora/Linux host. The LUKS2 implementation scope is therefore closed;
-   remaining work is operator acceptance plus explicitly unsupported modes,
-   not further LUKS2 feature development.
-   Finish Btrfs snapshot/multi-device/profile planning and supported restore
-   preflights. Do not create or administer VGs/LVs, LUKS devices or Btrfs snapshots
-   implicitly.
-3. **Remote repositories:** finish credential/provider lifecycle and validate
-   each external provider independently; complete SFTP progress/cancellation
-   and safe recovery semantics; implement isolated WebDAV credentials.
-4. **Remote cloning and deployment:** complete partition-to-partition remote
-   cloning, fault injection and transfer telemetry.
-5. **Release validation:** build/boot the Live image in BIOS and UEFI, test
-   Cockpit/kiosk behavior, real filesystem and storage-layer workflows, remote
-   providers, multi-Client jobs and PXE on an isolated lab network. Record
-   results; do not infer them from unit tests.
-
-BitTorrent remains a first-class planned distribution transport for immutable,
-verified artifacts, at the same priority as the other remote transports. It
-is not a writable repository.
+1. Complete and validate unattended PXE across supported providers, with
+   cross-reboot expiry/replay protection and Cockpit result reconciliation.
+2. Complete remote repository provider lifecycle and acceptance, including
+   WebDAV; implement BitTorrent as a separate immutable distribution path.
+3. Close storage-layer gaps without weakening fail-closed behavior.
+4. Complete remote partition cloning, fleet fault injection and two-machine
+   acceptance.
+5. Complete release engineering: deterministic frontend dependencies,
+   security scanning, secret checks and documentation/link checks in CI.
+6. Run and record BIOS/UEFI, real Fedora Live, filesystem, remote-provider,
+   multi-Client, PXE, multicast/IGMP and physical-hardware acceptance.
 
 ## Operator-owned acceptance
 
 The maintainer builds the ISO. Feclora's documentation describes the process;
-the project does not generate or publish an ISO as part of this work. BIOS/
-UEFI boot, physical disk writes, remote service behavior, PXE network boot,
+the project does not generate or publish an ISO as part of this work. BIOS/UEFI
+boot, physical disk writes, remote service behavior, PXE network boot,
 multicast switch/IGMP behavior and representative hardware acceptance must be
 performed and recorded by an operator. Unit tests and static validation do
 not establish those results.
