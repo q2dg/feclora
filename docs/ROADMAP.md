@@ -1,60 +1,65 @@
 # Roadmap
 
-This page is a concise status summary. The [feature matrix](FEATURE-MATRIX.md)
-records capability-level implementation detail; the
-[implementation plan](IMPLEMENTATION-PLAN.md) is the dependency-ordered
-engineering backlog; and
-[USER-REQUIREMENTS-ACCEPTANCE.md](USER-REQUIREMENTS-ACCEPTANCE.md) defines the
-end-user release target and operator acceptance gates.
+This page summarizes the current implementation and the remaining release work.
+The [feature matrix](FEATURE-MATRIX.md) is the capability-level status reference;
+the [implementation plan](IMPLEMENTATION-PLAN.md) is the engineering backlog;
+and [user requirements and acceptance](USER-REQUIREMENTS-ACCEPTANCE.md) defines
+the end-user workflows and their release gates.
 
 ## Product model
 
 Feclora is a Fedora Server-based minimal Live appliance. Cage launches Firefox
 in kiosk mode and opens the Feclora application in Cockpit; there is no
-general-purpose desktop. The Live session is intentionally ephemeral. Each
+general-purpose desktop. The Live session is intentionally ephemeral: each
 boot creates fresh local credentials, certificates and temporary configuration.
 Durable images and manifests belong in repositories explicitly selected by the
 operator. Persistent Live-session storage is not a product requirement.
 
 Storage layers and repositories are different concepts. LVM logical volumes,
-raw LUKS2 containers and Btrfs filesystems are possible image sources.
-SSHFS, NFS and SMB/CIFS are mounted repository providers. WebDAV and S3 are planned file-repository providers;
-S3 requires an object API rather than a mount. NVMe-oF is a separate planned
-remote block-device transport. Remote servers, exports, shares, buckets and
-NVMe subsystems remain external systems administered by their owners.
+raw LUKS2 containers and Btrfs filesystems are possible image sources. SSHFS,
+NFS and SMB/CIFS are implemented mounted-repository providers. WebDAV and S3
+are planned file-repository providers; S3 requires an object API rather than a
+mount. NVMe-oF is a separate planned remote block-device transport. Feclora is
+a client of these external services and does not provision or administer them.
 
-## Implemented in source and Cockpit
+## Implemented in source
 
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
+The Cockpit application exposes local whole-disk and partition capture,
+restore and cloning; eligible logical-volume capture/restore; image and storage
+inventory; operation history; and optional age encryption. The remote stack
+includes persistent Server/Client services, managed Server identity and Client
+enrollment, Server-authenticated TLS control/unicast transfer, UDPcast
+multicast restore, and remote whole-disk and partition cloning. Cockpit also
+provides DHCP/static IPv4 profile workflows, PXE preflight and activation,
+interactive iPXE boot, and an initial unattended PXE answer workflow.
 
-These are source and Cockpit implementation statements, not claims that an
-ISO, physical hardware, remote provider or physical network has passed
-acceptance.
+These statements describe source and Cockpit integration, not release
+acceptance. Feclora does not sign image manifests or use detached signature
+sidecars. Artifact integrity uses the byte count and SHA-256 digest recorded in
+the manifest; authenticity relies on the protected repository and authenticated
+transport. Age encryption is optional.
 
-## Partial capabilities and remaining engineering work
+## Remaining engineering work
 
+- **Unattended PXE:** the first NFS-backed whole-disk restore path is integrated.
+  Other repository providers, cross-reboot expiry/replay protection, richer
+  Cockpit result reconciliation, wrong-passphrase end-to-end acceptance and
+  BIOS/UEFI/physical validation remain open. This answer workflow is separate
+  from authenticated Server/Client Remote jobs.
 - **Remote repositories:** SSHFS, NFS and SMB/CIFS mount lifecycle and image
   engine integration exist. Provider-specific permissions, NFS root-squash,
   stale mounts, outages, interrupted publication, cleanup, concurrency and
-  live health behavior still need acceptance.
-  with durable cancellable operations and artifact-boundary progress. It
-  remains limited to one configured directory and lacks continuous in-file
-  progress, safe resume and multi-directory discovery. WebDAV's isolated
-  credential lifecycle is not implemented.
-- **Unattended PXE:** the first NFS whole-disk restore path is connected.
-  Remaining work includes other repository providers, cross-reboot expiry and
-  replay controls, richer Cockpit result reconciliation, wrong-passphrase
-  end-to-end acceptance, and BIOS/UEFI/physical validation. The current
-  one-use authorization is session-local; it is not cross-reboot replay
-  protection. The answer workflow is separate from authenticated Server/Client
-  Remote jobs.
+  live health behavior still need acceptance. WebDAV's isolated credential
+  lifecycle and S3 object API integration are not implemented.
 - **Storage fidelity:** deployment-job LV capture, snapshot-assisted LVM/Btrfs
-  imaging, multi-device/profile Btrfs imaging and layer-aware Btrfs restore
+  imaging, multi-device/profile Btrfs capture and layer-aware Btrfs restore
   remain incomplete. Opened-mapping/LUKS2-on-LV restore, provisioning and
   rekeying are unsupported. Raw LUKS2 container-to-partition restore is
   implemented; do not describe all LUKS2 restore as unavailable.
-- **Remote cloning and fleet operations:** remote whole-disk and partition-to-partition clone code paths now exist in the shared TLS engine and Cockpit job flow. Two-machine fault injection,
-  disconnect/restart recovery and full multi-Client acceptance remain open.
+- **Remote cloning and fleet operations:** remote whole-disk and
+  partition-to-partition clone paths exist in the shared TLS engine and Cockpit
+  job flow. Two-machine fault injection, disconnect/restart recovery and
+  complete multi-Client acceptance remain open.
 - **Network configuration:** DHCP/static IPv4 application and checkpoint
   rollback exist. Gateway reachability, DNS resolution, inactive-profile
   selection, multi-interface behavior, browser/API disconnect recovery and
@@ -63,45 +68,42 @@ acceptance.
   Server leaf renewal/keypair rotation and encrypted CA backup inspection
   exist. Verified CA backup restore/compromise recovery and broader CA
   migration are not implemented.
-- **Monitoring:** local operation journals and byte progress, plus
-  Server-side per-Client operation progress/throughput, exist. Standardized
-  phase/diagnostic telemetry, operation-history export, detached-worker
-  supervision and additional recovery drills remain open.
-- **S3 object storage:** planned object API integration is not implemented.
-  It requires scoped SigV4 credentials, multipart lifecycle and abort/cleanup,
-  conditional no-overwrite writes, manifest-last publication, SHA-256 and
-  independent manifest authenticity verification.
-- **NVMe-oF:** planned host-side namespace connection management is not
-  implemented. NQN/NSID identity binding, multipath, in-use protection,
-  fabric-security boundaries and operator acceptance are required.
-- **Release engineering:** the frontend has pinned direct dependencies but
-  no committed npm lockfile; CI currently uses npm install, so transitive
-  dependency resolution is not reproducible. Dependency/security scanning,
-  secret-leak checks, documentation/link validation and backup/upgrade/
-  rollback guidance remain to be completed.
+- **Monitoring:** local operation journals and byte progress, plus Server-side
+  per-Client operation progress/throughput, exist. Standardized
+  phase/diagnostic telemetry, history export, detached-worker supervision and
+  additional recovery drills remain open.
+- **NVMe-oF:** host-side namespace connection management is not implemented.
+  NQN/NSID identity binding, multipath, in-use protection, fabric-security
+  boundaries and operator acceptance are required.
+- **Release engineering:** the frontend has pinned direct dependencies but no
+  committed npm lockfile, so transitive dependency resolution is not
+  reproducible. Dependency/security scanning, secret-leak checks,
+  documentation/link validation and backup/upgrade/rollback guidance remain
+  outstanding.
 
 ## Release-critical work
 
-1. Complete and validate unattended PXE across supported providers, with
-   cross-reboot expiry/replay protection and Cockpit result reconciliation.
-2. Complete remote repository provider lifecycle and acceptance, including
-   WebDAV and S3 object storage; implement NVMe-oF host access as a separate block-device workflow.
+1. Complete unattended PXE lifecycle and result reporting, then validate the
+   workflow on supported firmware and hardware.
+2. Complete remote repository lifecycle and provider acceptance; implement
+   WebDAV and S3 object storage. Treat NVMe-oF as a separate block-device
+   workflow.
 3. Close storage-layer gaps without weakening fail-closed behavior.
-4. Complete remote partition-clone fault injection, transfer recovery and
-   two-machine acceptance.
+4. Complete remote-clone fault injection, transfer recovery and multi-Client
+   acceptance.
 5. Complete release engineering: deterministic frontend dependencies,
    security scanning, secret checks and documentation/link checks in CI.
-6. Run and record BIOS/UEFI, real Fedora Live, filesystem, remote-provider,
-   multi-Client, PXE, multicast/IGMP and physical-hardware acceptance.
+6. Record BIOS/UEFI, real Fedora Live, filesystem, remote-provider, multi-Client,
+   PXE, multicast/IGMP and physical-hardware acceptance.
 
 ## Operator-owned acceptance
 
-The maintainer builds the ISO. Feclora's documentation describes the process;
-the project does not generate or publish an ISO as part of this work. BIOS/UEFI
-boot, physical disk writes, remote service behavior, PXE network boot,
-multicast switch/IGMP behavior and representative hardware acceptance must be
-performed and recorded by an operator. Unit tests and static validation do
-not establish those results.
+The maintainer builds the ISO. This project documentation describes the
+process; ISO generation and publication are not part of the source-validation
+work. BIOS/UEFI boot, physical disk writes, remote service behavior, PXE network
+boot, multicast switch/IGMP behavior and representative hardware acceptance
+must be performed and recorded by an operator. Unit tests and static
+validation do not establish those results.
 
 Broader CA rotation and trust migration are deferred. The current PKI scope is
 managed CA bootstrap, enrollment/renewal, trust inventory/revocation and
