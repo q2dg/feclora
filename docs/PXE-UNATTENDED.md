@@ -75,8 +75,8 @@ treated as harmless configuration. It is published only after administrator
 action through Cockpit, is scoped to one generated job UUID, and can currently
 be revoked explicitly from the same Cockpit form. A new PXE session clears
 stale published answer directories. Successful explicit deployment-job
-cancellation revokes its answer; automatic cleanup after the 24-hour expiry is
-not implemented yet. Clients must validate its
+cancellation revokes its answer. Answers do not expire automatically and can
+be reused until revoked or cleared by a new PXE session. Clients validate the
 schema and repository integrity metadata before any write. For this deployment, the operator explicitly chooses to trust the answer
 served by the configured HTTP server. This is an operational trust assumption,
 not cryptographic authenticity: an attacker able to modify HTTP traffic or the
@@ -104,13 +104,12 @@ uses age's passphrase prompt through a pseudo-terminal and stages authenticated
 plaintext in a private temporary file before writing the target. A wrong
 passphrase or failed age authentication aborts before the first write. PXE
 does not use minisign. The engine rechecks the target immediately before
-writing and performs read-back verification. Other repository schemes,
-credential references, cross-reboot expiry/replay controls and physical
-hardware acceptance remain outstanding. The job UUID is consumed
-atomically immediately before the first write to prevent a service restart from
-replaying it during the same Live session; the Live filesystem is ephemeral,
-so this is not a cross-reboot replay ledger. Do not describe unattended PXE as complete until those
-pieces are connected and tested.
+writing and performs read-back verification. Other repository schemes, credential references and physical hardware
+acceptance remain outstanding. The answer job UUID is used to locate the
+published answer; the Live client does not maintain a consumed-job ledger or
+enforce answer expiry. Rebooting the Client does not invalidate the answer.
+Do not describe unattended PXE as complete until the remaining providers and
+acceptance work are tested.
 
 ## Provider support status
 
@@ -137,9 +136,6 @@ are not yet complete provider/transport workflows.
       taken directly from the JSON document.
 - [x] Validate and atomically publish/revoke job-scoped JSON files through Caddy.
 - [x] Clear stale answer files and handoff scripts when a new PXE session starts.
-- [x] Consume each answer job UUID atomically immediately before the first write
-      to prevent replay during the current Live session.
-- [x] Stamp published answers with a Server-assigned 24-hour UTC expiry and reject expired/unstamped answers in Live.
 - [x] Keep answer files reusable; explicit revocation and stale-session cleanup remain available. Successful deployment-job cancellation revokes its published answer.
 - [x] Connect NFS URL to a read-only Live mount for whole-disk restore.
 - [x] Support age symmetric decryption with one-shot Cockpit passphrase handoff on the Live client.
