@@ -64,7 +64,7 @@ which do not explicitly confirm destructive restore and automatic start.
 The validator and server-side publication path are implemented. Cockpit exposes
 one JSON file input; `repository_url` is read from that JSON, with no duplicate
 repository field. The API publishes the validated JSON atomically through Caddy
-over HTTP. No age, minisign, detached signature or client identity is involved. Cockpit can explicitly revoke the published
+over HTTP. No minisign, detached signature or per-client identity is involved. Optional age symmetric encryption is supported; the passphrase is entered on the Live client through Cockpit and is not included in the JSON. Cockpit can explicitly revoke the published
 answer and its iPXE script by job UUID. A new PXE session also clears stale
 answer files and handoff scripts. Answer revocation is not yet connected to deployment-job cancellation/expiry.
 
