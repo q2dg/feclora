@@ -936,6 +936,28 @@ class WebAPITests(unittest.TestCase):
         self.assertTrue(result["accepted"])
         self.assertEqual(request.call_args.args[:2], ("/run/feclora/deployment.sock", "arm"))
 
+    def test_cancel_deployment_job_revokes_its_pxe_answer(self):
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        with patch("feclora.deployment.local_control.local_control_request", return_value={
+            "job_id": job_id, "accepted": True,
+        }), patch("feclora.network.pxe_answer_store.revoke_pxe_answer", return_value=True) as revoke:
+            result = dispatch({"action": "cancel_deployment_job", "params": {
+                "job_id": job_id, "confirmation": "CANCEL " + job_id,
+            }})
+        self.assertTrue(result["accepted"])
+        self.assertTrue(result["pxe_answer_revoked"])
+        revoke.assert_called_once_with("/srv/feclora/http", job_id)
+
+    def test_cancel_deployment_job_reports_pxe_answer_revocation_failure(self):
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        with patch("feclora.deployment.local_control.local_control_request", return_value={
+            "job_id": job_id, "accepted": True,
+        }), patch("feclora.network.pxe_answer_store.revoke_pxe_answer", side_effect=OSError("disk error")):
+            with self.assertRaisesRegex(WebAPIError, "cancellation was accepted.*could not be revoked"):
+                dispatch({"action": "cancel_deployment_job", "params": {
+                    "job_id": job_id, "confirmation": "CANCEL " + job_id,
+                }})
+
     def test_stop_deployment_service_refuses_active_worker(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
         with patch("feclora.webapi._deployment_service_status", return_value={
