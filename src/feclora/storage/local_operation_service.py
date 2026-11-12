@@ -33,6 +33,17 @@ _DIAGNOSTIC_CATEGORIES = frozenset({
     "permission", "device", "filesystem", "network", "credentials",
     "integrity", "capacity", "cancelled", "unsupported", "internal",
 })
+_OPERATION_DEFAULT_PHASE = {
+    "capture_disk": "capturing",
+    "capture_partition": "capturing",
+    "capture_logical_volume": "capturing",
+    "restore_disk": "restoring",
+    "restore_partition": "restoring",
+    "restore_logical_volume": "restoring",
+    "clone_disk": "cloning",
+    "clone_partition": "cloning",
+    "extract_partition_image": "reading",
+}
 
 
 def _diagnostic_category(exc: BaseException) -> str:
@@ -75,9 +86,12 @@ def _cancel_on_sigterm(_signum: int, _frame: Any) -> None:
 class _ProgressForwarder:
     """Consume the existing operation engine's NDJSON and persist safe progress."""
 
-    def __init__(self, store: LocalOperationStore, operation_id: str) -> None:
+    def __init__(
+        self, store: LocalOperationStore, operation_id: str, *, default_phase: str = "working",
+    ) -> None:
         self.store = store
         self.operation_id = operation_id
+        self.default_phase = default_phase if default_phase in _PROGRESS_PHASES else "working"
         self.buffer = ""
         self.started_at = time.monotonic()
         self.last_progress_at: float | None = None
@@ -112,7 +126,7 @@ class _ProgressForwarder:
         now = time.monotonic()
         details["elapsed_seconds"] = round(max(0.0, now - self.started_at), 3)
         phase = event.get("phase")
-        details["phase"] = phase if isinstance(phase, str) and phase in _PROGRESS_PHASES else "working"
+        details["phase"] = phase if isinstance(phase, str) and phase in _PROGRESS_PHASES else self.default_phase
         category = event.get("diagnostic_category")
         if isinstance(category, str) and category in _DIAGNOSTIC_CATEGORIES:
             details["diagnostic_category"] = category
@@ -213,7 +227,10 @@ def execute(operation_id: str) -> int:
             # destructive typed confirmation and image security immediately
             # before it performs storage I/O.
             store.append(operation_id, "running", {"action": definition["action"]})
-            forwarder = _ProgressForwarder(store, operation_id)
+            forwarder = _ProgressForwarder(
+                store, operation_id,
+                default_phase=_OPERATION_DEFAULT_PHASE.get(definition["action"], "working"),
+            )
             with contextlib.redirect_stdout(forwarder):
                 result = _execute_operation(
                     definition["action"], execution_params, operation_id,
