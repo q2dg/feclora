@@ -166,7 +166,7 @@ class ClientProgressTests(unittest.TestCase):
     def test_progress_frame_is_validated_and_exposed_with_throughput(self):
         server = object.__new__(DeploymentControlServer)
         server.coordinator = DeploymentCoordinator(make_job())
-        server.coordinator.register_client(MAC, authenticated=True)
+        server.coordinator.register_client(MAC)
         server.coordinator.mark_ready(MAC)
         server.coordinator.arm()
         server.coordinator.mark_running(MAC)
@@ -188,7 +188,7 @@ class ClientProgressTests(unittest.TestCase):
     def test_progress_persists_initial_and_bounded_byte_checkpoints(self):
         server = object.__new__(DeploymentControlServer)
         server.coordinator = DeploymentCoordinator(make_job())
-        server.coordinator.register_client(MAC, authenticated=True)
+        server.coordinator.register_client(MAC)
         server.coordinator.mark_ready(MAC)
         server.coordinator.arm()
         server.coordinator.mark_running(MAC)
@@ -213,7 +213,7 @@ class ClientProgressTests(unittest.TestCase):
     def test_progress_is_not_published_in_memory_when_journal_write_fails(self):
         server = object.__new__(DeploymentControlServer)
         server.coordinator = DeploymentCoordinator(make_job())
-        server.coordinator.register_client(MAC, authenticated=True)
+        server.coordinator.register_client(MAC)
         server.coordinator.mark_ready(MAC)
         server.coordinator.arm()
         server.coordinator.mark_running(MAC)
@@ -233,7 +233,7 @@ class ClientProgressTests(unittest.TestCase):
     def test_progress_is_rejected_after_client_reaches_terminal_state(self):
         server = object.__new__(DeploymentControlServer)
         coordinator = DeploymentCoordinator(make_job())
-        coordinator.register_client(MAC, authenticated=True)
+        coordinator.register_client(MAC)
         coordinator.mark_ready(MAC)
         coordinator.arm()
         coordinator.mark_running(MAC)
@@ -252,7 +252,7 @@ class ClientProgressTests(unittest.TestCase):
     def test_progress_counter_cannot_move_backwards_within_phase(self):
         server = object.__new__(DeploymentControlServer)
         server.coordinator = DeploymentCoordinator(make_job())
-        server.coordinator.register_client(MAC, authenticated=True)
+        server.coordinator.register_client(MAC)
         server.coordinator.mark_ready(MAC)
         server.coordinator.arm()
         server.coordinator.mark_running(MAC)
@@ -271,7 +271,7 @@ class ClientProgressTests(unittest.TestCase):
     def test_transfer_progress_is_a_distinct_phase_with_independent_throughput(self):
         server = object.__new__(DeploymentControlServer)
         server.coordinator = DeploymentCoordinator(make_job())
-        server.coordinator.register_client(MAC, authenticated=True)
+        server.coordinator.register_client(MAC)
         server.coordinator.mark_ready(MAC)
         server.coordinator.arm()
         server.coordinator.mark_running(MAC)
@@ -294,7 +294,7 @@ class ClientProgressTests(unittest.TestCase):
     def test_progress_rejects_wrong_job_and_invalid_counters(self):
         server = object.__new__(DeploymentControlServer)
         server.coordinator = DeploymentCoordinator(make_job())
-        server.coordinator.register_client(MAC, authenticated=True)
+        server.coordinator.register_client(MAC)
         server.coordinator.mark_ready(MAC)
         server.coordinator.arm()
         server.coordinator.mark_running(MAC)
@@ -313,7 +313,7 @@ class ClientProgressTests(unittest.TestCase):
 class TransferFailureTests(unittest.TestCase):
     def test_restore_transfer_timeout_is_reported_failed_and_closes_session(self):
         coordinator = DeploymentCoordinator(make_job())
-        coordinator.register_client(MAC, authenticated=True)
+        coordinator.register_client(MAC)
         coordinator.mark_ready(MAC)
         tls_socket = FakeSocket()
         server = DeploymentControlServer.__new__(DeploymentControlServer)
@@ -340,7 +340,7 @@ class TransferFailureTests(unittest.TestCase):
 
     def test_save_transfer_timeout_is_reported_failed_and_closes_session(self):
         coordinator = DeploymentCoordinator(make_job(operation="save"))
-        coordinator.register_client(MAC, authenticated=True)
+        coordinator.register_client(MAC)
         coordinator.mark_ready(MAC)
         tls_socket = FakeSocket()
         server = DeploymentControlServer.__new__(DeploymentControlServer)
@@ -697,7 +697,7 @@ class ClientJoinTests(unittest.TestCase):
 class CoordinatorControlTests(unittest.TestCase):
     def _server(self, job):
         coordinator = DeploymentCoordinator(job)
-        coordinator.register_client(MAC, authenticated=True)
+        coordinator.register_client(MAC)
         coordinator.mark_ready(MAC)
         coordinator.arm()
         coordinator.mark_running(MAC)
@@ -718,7 +718,7 @@ class CoordinatorControlTests(unittest.TestCase):
             operation="clone", image_id=None, source_device="/dev/sda",
         )
         coordinator = DeploymentCoordinator(job)
-        coordinator.register_client(MAC, authenticated=True)
+        coordinator.register_client(MAC)
         coordinator.mark_ready(MAC)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.minimum_version = ssl.TLSVersion.TLSv1_3
@@ -848,7 +848,7 @@ class CoordinatorControlTests(unittest.TestCase):
 
     def _server_ready(self, job):
         coordinator = DeploymentCoordinator(job)
-        coordinator.register_client(MAC, authenticated=True)
+        coordinator.register_client(MAC)
         coordinator.mark_ready(MAC)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.minimum_version = ssl.TLSVersion.TLSv1_3
@@ -864,7 +864,7 @@ class CoordinatorControlTests(unittest.TestCase):
 
     def test_server_arms_and_tracks_authenticated_ready_client(self):
         coordinator = DeploymentCoordinator(make_job())
-        coordinator.register_client(MAC, authenticated=True)
+        coordinator.register_client(MAC)
         coordinator.mark_ready(MAC)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.minimum_version = ssl.TLSVersion.TLSv1_3
