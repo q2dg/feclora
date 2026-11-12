@@ -308,8 +308,8 @@ def main(argv: list[str] | None = None) -> int:
             if args.allow_unverified_metadata:
                 from pathlib import PurePosixPath
                 if (args.expected_sha256 is not None
-                        or PurePosixPath(args.remote_path).name not in {"manifest.json", "manifest.json"}
-                        or PurePosixPath(args.local_path).name not in {"manifest.json", "manifest.json"}):
+                        or PurePosixPath(args.remote_path).name != "manifest.json"
+                        or PurePosixPath(args.local_path).name != "manifest.json"):
                     raise SFTPTransferError("unverified download is restricted to manifest metadata files")
             elif not args.expected_sha256:
                 raise SFTPTransferError("download requires a manifest SHA-256")
