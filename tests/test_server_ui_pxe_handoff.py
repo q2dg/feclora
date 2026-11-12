@@ -46,7 +46,6 @@ class PXEJobHandoffIntegrationTests(unittest.TestCase):
 
             with patch("feclora.deployment.server_ui.ensure_server_deployment_config", return_value=False), \
                  patch("feclora.deployment.server_ui.load_server_runtime_config", return_value=config), \
-                 patch("feclora.deployment.server_ui._manage_client_enrollment"), \
                  patch("feclora.deployment.server_ui._journal_directory", return_value=journal_dir), \
                  patch("feclora.deployment.server_ui._review_previous_journals"), \
                  patch("feclora.deployment.server_ui._choose_job", return_value=(job, None, ["02:00:00:00:00:01"])), \
