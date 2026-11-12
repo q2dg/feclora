@@ -1232,7 +1232,7 @@ class MulticastControlTests(unittest.TestCase):
         self.assertEqual(multicast_send.call_args.args[0], coordinator)
         self.assertEqual(multicast_send.call_args.kwargs["firewall"], server.firewall)
 
-    def test_server_rejects_multicast_job_until_every_authorized_client_is_ready(self):
+    def test_server_rejects_multicast_job_until_every_selected_client_is_ready(self):
         mac2 = "52:54:00:12:34:57"
         job = make_job(
             transport="multicast",
@@ -1254,7 +1254,7 @@ class MulticastControlTests(unittest.TestCase):
             "enp1s0", "239.10.10.1", "239.10.10.2",
             portbase=9000, min_receivers=2,
         )
-        with self.assertRaisesRegex(DeploymentControlError, "every authorized Client"):
+        with self.assertRaisesRegex(DeploymentControlError, "every selected Client"):
             server.run_multicast_restore_job(
                 "/repo", "/repo/image.manifest.json",
                 trusted_public_key="/pki/server.pub",
