@@ -5,8 +5,6 @@ import hashlib
 import os
 import re
 import stat
-import subprocess
-import tempfile
 from pathlib import Path
 
 from feclora.deployment.managed_pki import PKIError, ca_fingerprint
