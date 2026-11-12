@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 import uuid
@@ -65,29 +66,22 @@ class RestoreProfileTests(unittest.TestCase):
                 single_use=False,
             ))
 
-    def test_unattended_profile_requires_signature_and_is_target_bound(self):
+    def test_unattended_profile_requires_root_owned_authorization_and_is_target_bound(self):
+        import stat
+        from types import SimpleNamespace
         value = profile_data(
-            execution_mode="unattended",
-            expires_at="2030-01-01T00:00:00Z",
-            single_use=True,
+            execution_mode="unattended", expires_at="2030-01-01T00:00:00Z", single_use=True,
         )
-        with self.assertRaisesRegex(RestoreProfileError, "not been verified"):
-            RestoreProfile.from_dict(value).authorize(
-                {"wwn": value["target"]["wwn"], "serial": value["target"]["serial"]},
-                now=datetime(2029, 1, 1, tzinfo=timezone.utc),
-            )
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "restore.json"
-            key = Path(directory) / "trusted.pub"
-            signature = Path(str(path) + ".minisig")
             path.write_text(json.dumps(value), encoding="utf-8")
-            key.write_text("trusted key", encoding="utf-8")
-            signature.write_text("signature", encoding="utf-8")
-            with patch("feclora.storage.restore_profile.subprocess.run") as run:
-                profile = load_restore_profile(
-                    path, minisign_public_key=key, minisign_executable="/usr/bin/minisign",
-                )
-            run.assert_called_once()
+            regular = SimpleNamespace(st_mode=stat.S_IFREG | 0o600, st_uid=0, st_size=path.stat().st_size)
+            folder = SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=0)
+            def fake_lstat(candidate):
+                return regular if os.fspath(candidate) == os.fspath(path) else folder
+            with patch("feclora.storage.restore_profile.os.lstat", side_effect=fake_lstat), \
+                 patch("feclora.storage.restore_profile.os.fstat", return_value=regular):
+                profile = load_restore_profile(path)
             profile.authorize(
                 {"wwn": value["target"]["wwn"], "serial": value["target"]["serial"]},
                 now=datetime(2029, 1, 1, tzinfo=timezone.utc),
@@ -95,69 +89,53 @@ class RestoreProfileTests(unittest.TestCase):
             with self.assertRaisesRegex(RestoreProfileError, "already been consumed"):
                 profile.authorize(
                     {"wwn": value["target"]["wwn"], "serial": value["target"]["serial"]},
-                    now=datetime(2029, 1, 1, tzinfo=timezone.utc),
-                    already_consumed=True,
+                    now=datetime(2029, 1, 1, tzinfo=timezone.utc), already_consumed=True,
                 )
 
-    def test_save_creates_signed_profile_without_overwriting(self):
+    def test_save_creates_root_owned_mode_0600_profile_without_sidecar(self):
+        import stat
+        from types import SimpleNamespace
         profile = RestoreProfile.from_dict(profile_data(
-            execution_mode="unattended",
-            expires_at="2030-01-01T00:00:00Z",
-            single_use=True,
+            execution_mode="unattended", expires_at="2030-01-01T00:00:00Z", single_use=True,
         ))
         with tempfile.TemporaryDirectory() as directory:
-            key = Path(directory) / "secret.key"
-            key.write_text("secret", encoding="utf-8")
-            key.chmod(0o600)
             destination = Path(directory) / "profile.json"
-            def sign(command, **kwargs):
-                Path(str(destination) + ".minisig").write_text("signature", encoding="utf-8")
-            with patch("feclora.storage.restore_profile.shutil.which", return_value="/usr/bin/minisign"), \
-                 patch("feclora.storage.restore_profile.subprocess.run", side_effect=sign):
-                saved = save_unattended_restore_profile(
-                    profile, destination, minisign_secret_key=key,
-                )
-            self.assertEqual(saved, destination)
-            self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
-            self.assertTrue(Path(str(destination) + ".minisig").is_file())
-            with self.assertRaisesRegex(RestoreProfileError, "overwrite"):
-                save_unattended_restore_profile(
-                    profile, destination, minisign_secret_key=key,
-                    minisign_executable="/usr/bin/minisign",
-                )
+            folder = SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=0)
+            with patch("feclora.storage.restore_profile.os.geteuid", return_value=0), \
+                 patch("feclora.storage.restore_profile.os.lstat", return_value=folder):
+                saved = save_unattended_restore_profile(profile, destination)
+                self.assertEqual(saved, destination)
+                self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
+                self.assertFalse(Path(str(destination) + ".minisig").exists())
+                with self.assertRaisesRegex(RestoreProfileError, "overwrite"):
+                    save_unattended_restore_profile(profile, destination)
 
-    def test_save_rejects_permissive_minisign_secret_key(self):
+    def test_save_requires_root_and_protected_parent_directory(self):
         profile = RestoreProfile.from_dict(profile_data(
-            execution_mode="unattended",
-            expires_at="2030-01-01T00:00:00Z",
-            single_use=True,
+            execution_mode="unattended", expires_at="2030-01-01T00:00:00Z", single_use=True,
         ))
         with tempfile.TemporaryDirectory() as directory:
-            key = Path(directory) / "secret.key"
-            key.write_text("secret", encoding="utf-8")
-            key.chmod(0o644)
-            with self.assertRaisesRegex(RestoreProfileError, "mode 0600"):
-                save_unattended_restore_profile(
-                    profile, Path(directory) / "profile.json",
-                    minisign_secret_key=key, minisign_executable="/usr/bin/minisign",
-                )
+            destination = Path(directory) / "profile.json"
+            with patch("feclora.storage.restore_profile.os.geteuid", return_value=1000):
+                with self.assertRaisesRegex(RestoreProfileError, "created by root"):
+                    save_unattended_restore_profile(profile, destination)
 
     def test_rejects_expired_unattended_profile(self):
+        import stat
+        from types import SimpleNamespace
         value = profile_data(
-            execution_mode="unattended",
-            expires_at="2028-01-01T00:00:00Z",
-            single_use=True,
+            execution_mode="unattended", expires_at="2028-01-01T00:00:00Z", single_use=True,
         )
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "restore.json"
-            key = Path(directory) / "trusted.pub"
-            Path(str(path) + ".minisig").write_text("signature", encoding="utf-8")
             path.write_text(json.dumps(value), encoding="utf-8")
-            key.write_text("trusted key", encoding="utf-8")
-            with patch("feclora.storage.restore_profile.subprocess.run"):
-                profile = load_restore_profile(
-                    path, minisign_public_key=key, minisign_executable="/usr/bin/minisign",
-                )
+            regular = SimpleNamespace(st_mode=stat.S_IFREG | 0o600, st_uid=0, st_size=path.stat().st_size)
+            folder = SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=0)
+            def fake_lstat(candidate):
+                return regular if os.fspath(candidate) == os.fspath(path) else folder
+            with patch("feclora.storage.restore_profile.os.lstat", side_effect=fake_lstat), \
+                 patch("feclora.storage.restore_profile.os.fstat", return_value=regular):
+                profile = load_restore_profile(path)
             with self.assertRaisesRegex(RestoreProfileError, "expired"):
                 profile.authorize(
                     {"wwn": profile.target.wwn, "serial": profile.target.serial},
