@@ -71,7 +71,7 @@ class RemoteRepositoryTests(unittest.TestCase):
     def test_smb_rejects_comma_in_prefixpath_mount_option_injection(self):
         for remote_path in ("/images/feclora,vers=1.0", "/images/archive,ro"):
             with self.subTest(remote_path=remote_path):
-                with self.assertRaisesRegex(RepositoryError, "remote_path must be an absolute normalized path"):
+                with self.assertRaisesRegex(RepositoryError, "mount-option separators"):
                     RemoteRepository(
                         provider="smb", host="nas.example.net",
                         remote_path=remote_path, mountpoint="/mnt/images",
