@@ -528,6 +528,16 @@ class RemoteRepositoryManager:
                     if stopped.returncode != 0:
                         detail = (stopped.stderr or stopped.stdout or "").strip()[:512]
                         raise RepositoryManagerError("repository mount service could not stop" + (f": {detail}" if detail else ""))
+                elif active.returncode != 3:
+                    # systemctl is-active returns 3 for an inactive unit.
+                    # Other failures (e.g. systemd unavailable or an unknown
+                    # unit state) must not be treated as proof that the
+                    # foreground SSHFS process is gone.
+                    detail = (active.stderr or active.stdout or "").strip()[:512]
+                    raise RepositoryManagerError(
+                        "repository mount service state could not be verified"
+                        + (f": {detail}" if detail else "")
+                    )
                 if self._is_mounted(str(mountpoint)):
                     umount = self.which("umount") or "umount"
                     result = self.runner(
