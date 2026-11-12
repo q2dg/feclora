@@ -1400,11 +1400,11 @@ class WebAPITests(unittest.TestCase):
         with patch("feclora.storage.operation_log.record_progress") as record, patch(
             "feclora.webapi._emit"
         ) as emit:
-            _clone_disk_progress(4096, "Copied data")
-        record.assert_called_once_with(4096, None)
+            _clone_disk_progress(4096, 8192, "Copied data")
+        record.assert_called_once_with(4096, 8192)
         emit.assert_called_once_with({
             "event": "progress", "bytes_done": 4096,
-            "bytes_total": None, "message": "Copied data",
+            "bytes_total": 8192, "message": "Copied data",
         })
 
 
