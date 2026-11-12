@@ -148,12 +148,12 @@ class SFTPTransferTests(unittest.TestCase):
             self.assertEqual(destination.read_bytes(), payload)
 
 
-    def test_lists_only_safe_feclora_manifests_with_detached_signatures(self):
+    def test_lists_only_safe_feclora_manifests_without_signature_sidecars(self):
         def runner(_argv, **kwargs):
             self.assertIn('ls -1 "/images"', kwargs["input"])
             return SimpleNamespace(
                 returncode=0,
-                stdout="manifest.json\nmanifest.json.minisig\nimage-01.manifest.json\nimage-01.manifest.json.minisig\n../escape.manifest.json\nsubdir/evil.manifest.json\n manifest.json \nnotes.txt\nother.manifest.json\nunsigned.manifest.json\nunsigned.manifest.json.minisig.partial\norphan.manifest.json.minisig\n",
+                stdout="manifest.json\nimage-01.manifest.json\n../escape.manifest.json\nsubdir/evil.manifest.json\n manifest.json \nnotes.txt\nother.manifest.json\nunsigned.manifest.json\n",
                 stderr="",
             )
         with patch("feclora.storage.sftp_transfer.build_sftp_argv", return_value=["sftp"]):
