@@ -97,7 +97,7 @@ class MulticastRuntimeTests(unittest.TestCase):
             with (
                 patch("feclora.deployment.multicast_runtime.os.stat", side_effect=fake_lstat),
                 patch("feclora.deployment.multicast_runtime.receive_control_message", return_value=offer),
-                patch("feclora.deployment.multicast_runtime.verify_manifest_signature"),
+                
                 patch("feclora.deployment.multicast_runtime.ImageManifest.from_json", return_value=manifest),
                 patch("feclora.deployment.multicast_runtime.receive_multicast_artifact_to_staging", side_effect=fake_receive),
                 patch("feclora.deployment.multicast_runtime.verify_staged_multicast_artifact"),
