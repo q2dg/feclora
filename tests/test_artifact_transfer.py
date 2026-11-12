@@ -206,10 +206,10 @@ class ImageTransferTests(unittest.TestCase):
                 try:
                     send_image_set(
                         left, source, manifest_path, expected_image_id="golden", )
-            except Exception as exc:
-                errors.append(exc)
-            finally:
-                left.close()
+                except Exception as exc:
+                    errors.append(exc)
+                finally:
+                    left.close()
             thread = threading.Thread(target=sender, daemon=True)
             thread.start()
             with self.assertRaisesRegex(ImageTransferError, "does not match"):
