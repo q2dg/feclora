@@ -19,7 +19,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from feclora.network.pxe_answer import MAX_ANSWER_BYTES, parse_pxe_answer
+from feclora.network.pxe_answer import MAX_ANSWER_BYTES, PXEAnswerError, parse_pxe_answer
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.restore_profile import RestoreTargetSelector
 from feclora.storage.inventory import collect_inventory
@@ -136,7 +136,10 @@ def fetch_live_pxe_answer(
     if not request.answer_url:
         raise PXEAnswerClientError("unattended PXE boot has no answer URL")
     raw = downloader(request.answer_url)
-    answer = parse_pxe_answer(raw)
+    try:
+        answer = parse_pxe_answer(raw)
+    except PXEAnswerError as exc:
+        raise PXEAnswerClientError(f"invalid PXE answer document: {exc}") from exc
     answer["_pxe_job_id"] = request.job_id
     _publish_runtime_answer(raw, destination)
     return answer
