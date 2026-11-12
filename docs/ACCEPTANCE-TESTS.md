@@ -143,11 +143,9 @@ registry only; they are not tests of remote image publication. Remote image
 distribution follows a single-publisher / multi-reader contract: one Client
 publishes an image and multiple Clients may read/restore it concurrently.
 
-Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS endpoint. Use a dedicated test account, export or share and a disposable image. Do not reuse production credentials.
+Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS endpoint. Use a dedicated test account, export or share and a disposable image. Do not reuse production credentials. S3 object-store acceptance will be added with the Cockpit/API integration.
 
-1. Prepare the provider endpoint and provision credentials using the provider's root-protected mechanism. Verify SSH host keys for SSHFS, NFS
-   export ownership/mapping or SMB share permissions as appropriate. 
-   HTTPS and isolated-credential acceptance must wait for its implementation.
+1. Prepare the provider endpoint and provision credentials using the provider's root-protected mechanism. Verify SSH host keys for SSHFS, NFS export ownership/mapping or SMB share permissions as appropriate.
 2. Add the repository in Cockpit with the correct provider, endpoint/share,
    remote path and access mode. Credential contents must never be pasted into
    Cockpit fields or stored in ordinary project configuration.
