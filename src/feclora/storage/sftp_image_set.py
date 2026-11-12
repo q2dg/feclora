@@ -51,7 +51,7 @@ def _remote_directory(value: str) -> str:
 
 
 def _validate_manifest_filenames(manifest: ImageManifest) -> None:
-    # The native local repository is flat and uses these names as authenticated
+    # The native local repository is flat and uses these names as reserved
     # image-set commit markers. An artifact must never occupy another image's
     # marker namespace, even when the remote SFTP directory itself is separate.
     reserved = re.compile(
