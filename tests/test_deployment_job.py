@@ -45,6 +45,15 @@ class DeploymentJobTests(unittest.TestCase):
         with self.assertRaisesRegex(JobValidationError, "whole disks"):
             DeploymentJob.from_dict(valid_job(operation="save", target_type="partition"))
 
+    def test_remote_clone_accepts_partition_target_only(self):
+        payload = valid_job(
+            operation="clone", image_id=None, source_device="/dev/nvme0n1p2",
+            target_type="partition", transport="unicast",
+        )
+        job = DeploymentJob.from_dict(payload)
+        self.assertEqual(job.target_type, "partition")
+        self.assertEqual(DeploymentJob.from_json(job.to_json()).target_type, "partition")
+
     def test_logical_volume_is_restore_only_target(self):
         job = DeploymentJob.from_dict(valid_job(target_type="logical_volume"))
         self.assertEqual(job.target_type, "logical_volume")
