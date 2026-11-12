@@ -8,8 +8,10 @@ provisioning workflow.
 
 The PXE Server publishes the Live kernel, initramfs and squashfs through
 Caddy. The existing interactive iPXE entry boots that Live payload and opens
-the normal Feclora Cockpit interface. The answer-specific unattended entry boots the same payload and passes the
-job UUID plus the single answer URL as kernel parameters. A conditional Live
+the normal Feclora Cockpit interface. The answer-specific unattended entry first submits the iPXE MAC address to
+a loopback admission service behind Caddy. Only an admitted MAC can retrieve
+the job-specific boot script, which boots the same payload and passes the job
+UUID plus the single answer URL as kernel parameters. A conditional Live
 systemd service downloads and validates the JSON; for NFS answers it then
 runs the connected whole-disk restore path.
 
@@ -23,8 +25,9 @@ The Cockpit Server setup provides a single file input for the prewritten JSON
 answer. The `repository_url` field inside that JSON identifies the image
 repository; there is no second repository-URL field in Cockpit. The Server
 validates the document and publishes it through Caddy over HTTP under a
-generated job UUID. It also publishes an answer-specific iPXE script containing
-the job UUID and the answer URL.
+generated job UUID. It also publishes an iPXE admission wrapper and a separate
+job-specific boot script. The boot script is available only through the
+admission endpoint, not through Caddy's static file server.
 
 The PXE Server does not host or copy the image repository. It serves the Live
 boot assets and the answer JSON. Credentials are not embedded in repository
@@ -76,6 +79,16 @@ signature or transport-encryption layer to this HTTP answer workflow, nor does
 it add per-client identity. Optional age encryption protects image artifacts,
 not the answer JSON or HTTP transport.
 
+The PXE Server registers the MAC address supplied by iPXE on the first
+unattended boot request. Cockpit configures a maximum number of distinct MAC
+addresses, a serving-time deadline, or both. Repeated requests from a MAC
+already registered do not consume another client slot. When the client cap is
+reached, new MAC addresses are refused; after the time deadline, all admission
+and boot-script requests are refused. The ledger is root-owned and persists
+for the lifetime of the PXE session. This is an operational admission limit,
+not authentication: a client can spoof a MAC address. The admission gate does
+not stop an already-running restore or revoke the JSON answer file itself.
+
 Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 ## Provider support status
@@ -91,8 +104,8 @@ are not yet complete provider workflows. NVMe-oF is not a repository URL or PXE 
 - [x] Stage the same Fedora Live kernel, initramfs and squashfs for iPXE.
 - [x] Provide interactive Live boot through iPXE.
 - [x] Define and validate a bounded, data-only answer-file schema.
-- [x] Publish an answer-specific iPXE handoff that boots the same Live payload
-      and passes only the answer job UUID and single answer URL.
+- [x] Publish an iPXE MAC-admission wrapper and a separate job-specific boot
+      script; serve the latter only after the Server has registered the MAC.
 - [x] Add a Live boot-time HTTP answer downloader and schema validator; store the
       validated JSON in the root-only Live runtime directory.
 - [x] Connect the NFS repository adapter, unique WWN/serial target resolution,
@@ -102,6 +115,7 @@ are not yet complete provider workflows. NVMe-oF is not a repository URL or PXE 
 - [x] Add one Cockpit JSON answer-file upload control; the repository URL is
       taken directly from the JSON document.
 - [x] Validate and atomically publish/revoke job-scoped JSON files through Caddy.
+- [x] Register unique iPXE MAC addresses in a persistent Server-side admission ledger; enforce configurable distinct-client and/or elapsed-time limits, and deny direct static access to the boot script.
 - [x] Clear stale answer files and handoff scripts when a new PXE session starts.
 - [x] Keep answer files reusable; explicit revocation and stale-session cleanup remain available. Successful deployment-job cancellation revokes its published answer.
 - [x] Connect NFS URL to a read-only Live mount for whole-disk restore.
@@ -116,6 +130,7 @@ are not yet complete provider workflows. NVMe-oF is not a repository URL or PXE 
       tampered answer files, wrong age passphrase, repository outage, ambiguous
       targets, target swaps, interruption and real restore hardware.
 
-The NFS whole-disk software path and age passphrase handoff are connected in
-code, but the new path has not yet been executed in tests or on PXE hardware;
-no production-ready end-to-end claim is made.
+The NFS whole-disk software path, age passphrase handoff and MAC-based PXE
+admission gate are connected and covered by automated tests. The complete path
+has not yet been accepted on BIOS/UEFI PXE hardware; no production-ready
+end-to-end claim is made.
