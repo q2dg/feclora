@@ -1101,7 +1101,7 @@ class WebAPITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
-            real_lstat = os.lstat
+            real_stat = os.stat
             with patch("feclora.webapi._inspect_remote_job", return_value={
                 "host": "192.0.2.10", "server_identity": "URI:server",
                 "job": {"job_id": job_id, "operation": "restore", "target_type": "disk", "transport": "unicast"},
@@ -1157,7 +1157,7 @@ class WebAPITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
-            real_lstat = os.lstat
+            real_stat = os.stat
             with patch("feclora.webapi._inspect_remote_job", return_value={
                 "host": "192.0.2.10", "server_identity": "URI:server",
                 "job": {"job_id": job_id, "operation": "save", "target_type": "disk", "transport": "unicast"},
@@ -1194,7 +1194,7 @@ class WebAPITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
-            real_lstat = os.lstat
+            real_stat = os.stat
             preflight = SimpleNamespace(
                 interface="enp1s0", ipv4_address="192.0.2.20",
                 warnings=("Verify IGMP snooping and querier.",),
