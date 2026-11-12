@@ -20,7 +20,7 @@ jobs:
       - name: Install external compression tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes zstd lz4
+          sudo apt-get install --yes zstd lz4 age
       - name: Static validation
         run: bash build/validate.sh
       - name: Compile application and tests
