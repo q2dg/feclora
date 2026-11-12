@@ -1,9 +1,9 @@
-"""Client-side image save/restore execution for authenticated unicast jobs.
+"""Client-side image save/restore execution over Server-authenticated TLS.
 
 The caller must first complete the mTLS control handshake and obtain explicit
 local device authorization. The selected /dev path and typed confirmation stay
 inside this Client process; only a human-readable target description is sent
-to the Server. Image payloads are transferred over the same authenticated TLS
+to the Server. Image payloads are transferred over the same Server-authenticated TLS
 socket and verified before any restore write.
 """
 from __future__ import annotations
@@ -50,7 +50,7 @@ def execute_client_image_job(
     pre_write_callback: Callable[[], None] | None = None,
     executables: dict[str, str | None] | None = None,
 ) -> tuple[bool, str]:
-    """Run one TLS-authenticated whole-disk image job after local approval."""
+    """Run one whole-disk image job over Server-authenticated TLS after local approval."""
     local_device_path = approval.device_path
     confirmation = approval.confirmation
     if not isinstance(local_device_path, str) or not local_device_path.startswith("/dev/"):

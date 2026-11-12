@@ -1,8 +1,9 @@
 """Authenticated Server/Client deployment control plane.
 
-The control channel is TLS 1.3 mutual-authenticated. Certificate SAN identity is
-mapped to an explicitly authorized client MAC; MAC is an inventory key only,
-never an authenticator. This module coordinates readiness and job arming,
+The control channel uses TLS to authenticate the Server certificate to Clients.
+Clients do not present certificates or authenticate individually. The reported
+MAC is checked only for membership in the active job; it is not an authenticator.
+This module coordinates readiness and job arming,
 unicast TLS image transfer, and multicast UDPcast artifact delivery. It does not
 execute block-device writes; the Client runtime performs protected staging,
 verification and restore.
@@ -214,7 +215,7 @@ class DeploymentControlServer:
         return self.bound_address  # type: ignore[return-value]
 
     def _record_listener_error(self, message: object) -> None:
-        """Keep unauthenticated connection failures from growing memory without bound."""
+        """Keep rejected connection failures from growing memory without bound."""
         with self._lock:
             self.listener_errors.append(str(message)[:512])
             if len(self.listener_errors) > 64:
@@ -321,7 +322,7 @@ class DeploymentControlServer:
                 raise DeploymentControlError("client hello does not match the active deployment job")
             mac = mac.lower()
             if not self.coordinator.job.authorizes_client(mac):
-                raise DeploymentControlError("Client is not authorized for this deployment job")
+                raise DeploymentControlError("Client MAC is not selected for this deployment job")
             if hello["type"] == "inspect":
                 if self.coordinator.state.value != "created":
                     raise DeploymentControlError("Server job no longer accepts Client inspection or admission")
@@ -597,7 +598,7 @@ class DeploymentControlServer:
             raise DeploymentControlError("run_one_client_job only accepts unicast jobs")
         clients = self.coordinator.clients()
         if len(clients) != 1 or clients[0].state is not ClientState.READY:
-            raise DeploymentControlError("initial unicast runtime requires exactly one authenticated READY client")
+            raise DeploymentControlError("initial unicast runtime requires exactly one selected READY Client")
         mac = clients[0].mac_address
         if self.coordinator.job.operation == "restore" and not manifest_path:
             raise DeploymentControlError("restore job requires the signed image manifest path")
@@ -700,7 +701,7 @@ class DeploymentControlServer:
         if (len(clients) != len(job.authorized_clients)
                 or {item.mac_address for item in clients} != set(job.authorized_clients)
                 or any(item.state is not ClientState.READY for item in clients)):
-            raise DeploymentControlError("every authorized Client must be READY before multicast arming")
+            raise DeploymentControlError("every selected Client must be READY before multicast arming")
         if udpcast_config.min_receivers != len(clients):
             raise DeploymentControlError("UDPcast receiver threshold must equal the selected READY Client count")
         signature_path = manifest_path + ".minisig"
@@ -730,7 +731,7 @@ class DeploymentControlServer:
         expected_macs = tuple(sorted(job.authorized_clients))
         started = self.arm_and_start()
         if tuple(sorted(started)) != expected_macs:
-            raise DeploymentControlError("not every authorized Client accepted the multicast START")
+            raise DeploymentControlError("not every selected Client accepted the multicast START")
         offer = {
             "type": "transfer_offer",
             "job_id": job.job_id,
@@ -936,7 +937,7 @@ def join_deployment(
         if start.get("type") != "start" or start.get("job_id") != job.job_id:
             raise DeploymentControlError("server did not arm this deployment job")
         if start.get("operation") != job.operation or start.get("image_id") != job.image_id:
-            raise DeploymentControlError("server start command does not match the authorized job")
+            raise DeploymentControlError("server start command does not match the active job")
         try:
             success, detail = execute_job(job, tls_socket, approval)
         except Exception as exc:

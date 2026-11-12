@@ -236,7 +236,7 @@ class DeploymentService:
         if self.job.operation == "save" and self.job.target_type != "disk":
             raise DeploymentServiceError("persistent Client capture supports whole-disk jobs only")
         if self.job.transport == "unicast" and len(self.job.authorized_clients) != 1:
-            raise DeploymentServiceError("persistent unicast service requires exactly one authorized Client")
+            raise DeploymentServiceError("persistent unicast service requires exactly one selected Client")
         if self.job.transport == "multicast" and (
             self.job.operation != "restore" or len(self.job.authorized_clients) < 2
         ):
@@ -455,7 +455,7 @@ class DeploymentService:
                 if len(clients) != len(self.job.authorized_clients) or any(
                     client.state is not ClientState.READY for client in clients
                 ):
-                    raise DeploymentServiceError("every authorized Client must be connected and READY before arming")
+                    raise DeploymentServiceError("every selected Client must be connected and READY before arming")
                 self._arm_requested = True
                 self._worker = threading.Thread(
                     target=self._run_job, name="feclora-deployment-job", daemon=True,

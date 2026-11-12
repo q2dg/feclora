@@ -383,7 +383,7 @@ class ClientDeploymentService:
             config_path = os.environ.get("FECLORA_CLIENT_CONFIG", "/etc/feclora/deployment-client.json")
             config = load_client_runtime_config(config_path)
             context = create_tls_context("client", ca_file=config.ca_file)
-            self._set_status("connecting", detail="Connecting to the authenticated Server; no local disk operation has started.")
+            self._set_status("connecting", detail="Connecting to the Server and verifying its TLS certificate; no local disk operation has started.")
 
             def prepare_local_target(job):
                 nonlocal device_path, confirmation
