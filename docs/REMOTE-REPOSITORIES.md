@@ -193,7 +193,7 @@ encrypted blob path, and the mount service receives it through
 `LoadCredentialEncrypted=`. NFS does not require credentials. WebDAV remains
 unavailable through the Cockpit/API path until a per-repository encrypted
 credential design is implemented; the global `/etc/davfs2/secrets` file is not
-used as a workaround. SFTP remains a separate transfer provider: Cockpit supports SHA-256-validated image-set publication/import, optional post-capture publication, authenticated direct disk/partition restore routing, and durable/cancellable manifest-marker inventory, import and publication. Metadata inspection remains synchronous; artifact-boundary progress is journaled, while continuous byte-level progress, resume and multi-directory discovery remain pending.
+used as a workaround.
 Existing plaintext
 `CredentialStore` and CLI paths remain temporarily supported for migration;
 they are not the target architecture.
@@ -289,11 +289,7 @@ provisioned separately; Feclora does not collect access keys or secret material.
 
 Remaining engineering work: add edit/test and health/free-space workflows,
 credential provisioning/rotation and recovery, safe per-repository WebDAV
-credentials and live provider acceptance, plus automated coverage for every provider lifecycle. Bounded
-transport retries are implemented for read-only SFTP downloads and inventory;
-publication uploads remain non-retrying because their outcome can be ambiguous.
-acceptance tests. SFTP file transfer is distinct from SSHFS and is not a
-separate mounted filesystem provider.
+credentials and live provider acceptance, plus automated coverage for every provider lifecycle.
 
 ## S3 object repository (planned)
 
