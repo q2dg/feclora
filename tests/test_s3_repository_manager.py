@@ -22,6 +22,10 @@ class FakeCredentials:
     def _path(self, identifier, kind):
         return Path("/etc/credstore.encrypted/feclora") / f"feclora-{identifier}-{kind}.cred"
 
+    def _validate_existing(self, path):
+        if path.name != "feclora-archive-s3.cred":
+            raise RuntimeError("missing credential")
+
 
 class S3RepositoryManagerTests(unittest.TestCase):
     def setUp(self):
