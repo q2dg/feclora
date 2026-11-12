@@ -2492,11 +2492,6 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
 
 
 
-def _server_trusted_clients() -> dict[str, Any]:
-    """Return the Server enrollment inventory."""
-    return {"clients": []}
-
-
 def _export_server_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
     from feclora.deployment.cockpit_enrollment import export_server_age_recipients
     try:
@@ -2653,10 +2648,6 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _remote_repository_action(action, params)
     if action in {"remote_repositories", "add_remote_repository", "update_remote_repository", "check_remote_repository", "mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"}:
         return _remote_repository_action(action, params)
-    if action == "server_trusted_clients":
-        if params:
-            raise WebAPIError("server_trusted_clients does not accept parameters")
-        return _server_trusted_clients()
     if action == "export_server_age_recipients":
         return _export_server_age_recipients(params)
     if action == "refresh_client_age_recipients":
