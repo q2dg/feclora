@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 set -Eeuo pipefail
 for _ in {1..30}; do
-  if /usr/bin/python3 -c 'import socket; s=socket.socket(); s.settimeout(1); s.connect(("127.0.0.1", 8765)); s.close()' 2>/dev/null; then
+  if (exec 3<>/dev/tcp/127.0.0.1/8765) 2>/dev/null; then
     exit 0
   fi
   sleep 1
