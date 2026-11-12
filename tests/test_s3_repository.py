@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import io
-import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -129,7 +128,7 @@ class S3RepositoryTests(unittest.TestCase):
             self.assertTrue(result["committed"])
             self.assertEqual(
                 [event[1] for event in client.events],
-                ["server-a/images/lv-one.raw", "server-a/images/lv-one.manifest.json"],
+                ["server-a/images/lv-one/lv-one.raw", "server-a/images/lv-one.manifest.json"],
             )
             self.assertEqual(len(repository.list_images()), 1)
 
