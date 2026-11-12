@@ -80,7 +80,9 @@ schema and repository integrity metadata before any write. For this deployment, 
 served by the configured HTTP server. This is an operational trust assumption,
 not cryptographic authenticity: an attacker able to modify HTTP traffic or the
 server's published file can alter the instructions. Feclora does not add a
-signature, encryption layer or per-client identity to this workflow.
+signature or transport-encryption layer to this HTTP answer workflow, nor does
+it add per-client identity. Optional age encryption protects image artifacts,
+not the answer JSON or HTTP transport.
 
 The Live HTTP downloader and schema validation service are conditionally
 started for unattended PXE kernel parameters. The first connected restore
