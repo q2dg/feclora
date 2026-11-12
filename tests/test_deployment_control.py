@@ -713,7 +713,7 @@ class CoordinatorControlTests(unittest.TestCase):
         )
         fake = FakeSocket()
         server._sessions[MAC] = fake
-                server._target_devices[MAC] = "/dev/vdb"
+        server._target_devices[MAC] = "/dev/vdb"
         header = object()
         with patch("feclora.deployment.control.build_remote_clone_header", return_value=header) as build, \
              patch("feclora.deployment.control.send_remote_disk") as send, \
