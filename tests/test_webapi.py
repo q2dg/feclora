@@ -102,7 +102,7 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(fetch.call_args.kwargs["port"], 2222)
         self.assertIsNotNone(fetch.call_args.kwargs["progress_callback"])
 
-    def test_durable_sftp_publish_operation_uses_signed_image_publisher(self):
+    def test_durable_sftp_publish_operation_uses_image_publisher(self):
         params = {
             "image_id": "golden", "host": "backup.example.net", "username": "backup",
             "remote_directory": "/images/golden", "port": 2222,
@@ -770,7 +770,6 @@ class WebAPITests(unittest.TestCase):
         from pathlib import Path
         server_config = SimpleNamespace(
             client_identity_to_mac={"URI:feclora-client-lab": "52:54:00:12:34:56"},
-            client_minisign_public_keys={"52:54:00:12:34:56": "/etc/feclora/pki/client.pub"},
         )
         payload = {
             "schema_version": 1, "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
@@ -1405,7 +1404,7 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(result, expected)
         submit.assert_called_once_with({"operation": "sftp_publish", "operation_params": params})
 
-    def test_capture_disk_publishes_signed_image_to_sftp_after_capture(self):
+    def test_capture_disk_publishes_image_to_sftp_after_capture(self):
         from pathlib import Path
         manifest = SimpleNamespace(image_id="captured", image_type="disk")
         repository = Path("/var/lib/feclora/images")
@@ -1764,8 +1763,6 @@ class WebAPITests(unittest.TestCase):
                 "URI:feclora-client-01": "52:54:00:12:34:56",
                 "URI:feclora-client-02": "52:54:00:12:34:57",
             },
-            client_minisign_public_keys={},
-            server_minisign_public_key=None,
             repository="/repo",
         )
         with tempfile.TemporaryDirectory() as directory, patch(
@@ -1790,8 +1787,6 @@ class WebAPITests(unittest.TestCase):
         payload = self._valid_deployment_payload(operation="save")
         config = SimpleNamespace(
             client_identity_to_mac={"URI:feclora-client-01": "52:54:00:12:34:56"},
-            client_minisign_public_keys={},
-            server_minisign_public_key=None,
             repository="/repo",
         )
         with tempfile.TemporaryDirectory() as directory, patch(
@@ -1818,8 +1813,6 @@ class WebAPITests(unittest.TestCase):
             local_identity="URI:feclora-client-01",
             server_identity="URI:feclora-server",
             mac_address="52:54:00:12:34:56",
-            trusted_server_public_key=None,
-            local_minisign_secret_key=None, local_minisign_public_key=None,
             age_identity_file=None, age_recipients_file=None,
         )
         jobs = (
