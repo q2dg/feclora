@@ -1,4 +1,0 @@
-#!/bin/sh
-set -eu
-export PYTHONPATH="/usr/share/feclora/python${PYTHONPATH:+:$PYTHONPATH}"
-exec /usr/bin/python3 -m feclora.network.pxe_admission "$@"
