@@ -1,5 +1,5 @@
 [Unit]
-Description=Feclora authenticated Client deployment job %i
+Description=Feclora Client deployment job %i
 After=network-online.target
 Wants=network-online.target
 

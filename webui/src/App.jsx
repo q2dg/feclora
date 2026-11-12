@@ -1195,7 +1195,7 @@ export default function App() {
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Create a remote deployment job</Title>
                 <Alert variant="warning" title="Definition only — service not started; no Client contact or disk I/O" isInline>
-                  This step validates and journals a job definition. Start its persistent service separately; Clients then authenticate and approve their own local target through the existing Client-local runtime. Each Client selects and approves its own local destination in the Client jobs tab. No storage operation starts until you explicitly authorize and start it here after all authorized Clients report READY.
+                  This step validates and journals a job definition. Start its persistent service separately; Clients then connect over Server-authenticated TLS and approve their own local target through the Client-local runtime. Each Client selects and approves its own local destination in the Client jobs tab. No storage operation starts until you explicitly authorize and start it here after all selected Clients report READY.
                 </Alert>
               </StackItem>
               <StackItem>
@@ -1514,7 +1514,7 @@ export default function App() {
               </CardBody></Card></StackItem>}
               {status?.server_configured && <StackItem><Card><CardBody>
                 <Title headingLevel="h3" size="lg">Rotate Server TLS keypair</Title>
-                <Alert variant="warning" title="New Server private key; existing CA retained" isInline>This is separate from certificate renewal. All deployment jobs must be stopped. The new key and certificate are validated before installation; enrolled Clients continue to trust the existing CA and Server identity. This does not rotate the CA or image-signing key.</Alert>
+                <Alert variant="warning" title="New Server private key; existing CA retained" isInline>This is separate from certificate renewal. All deployment jobs must be stopped. The new key and certificate are validated before installation; configured Clients continue to trust the existing CA and Server identity. This does not rotate the CA or image-signing key.</Alert>
                 <Field label="Type exactly: ROTATE SERVER TLS KEYPAIR">
                   <input className="pf-v5-c-form-control" value={serverRotateConfirmation} onChange={(event) => setServerRotateConfirmation(event.target.value)} />
                 </Field>

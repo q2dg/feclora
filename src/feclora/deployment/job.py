@@ -146,7 +146,7 @@ class DeploymentJob:
 
         raw_bindings = payload.get("target_bindings", {})
         if not isinstance(raw_bindings, dict) or len(raw_bindings) > len(normalized_clients):
-            raise JobValidationError("target_bindings must map authorized Client MACs to stable WWN/serial selectors")
+            raise JobValidationError("target_bindings must map selected Client MACs to stable WWN/serial selectors")
         bindings: list[tuple[str, str | None, str | None]] = []
         seen_binding_macs: set[str] = set()
         for raw_mac, selector in raw_bindings.items():
@@ -154,7 +154,7 @@ class DeploymentJob:
                 raise JobValidationError("target_bindings contains an invalid Client MAC")
             mac = raw_mac.lower()
             if mac not in normalized_clients or mac in seen_binding_macs:
-                raise JobValidationError("target_bindings may reference each authorized Client only once")
+                raise JobValidationError("target_bindings may reference each selected Client only once")
             if not isinstance(selector, dict) or set(selector) != {"wwn", "serial"}:
                 raise JobValidationError("each target binding must contain exactly wwn and serial")
             wwn, serial = selector["wwn"], selector["serial"]
@@ -170,7 +170,7 @@ class DeploymentJob:
             seen_binding_macs.add(mac)
 
         if bindings and seen_binding_macs != set(normalized_clients):
-            raise JobValidationError("stable target bindings must cover every authorized Client in the job")
+            raise JobValidationError("stable target bindings must cover every selected Client in the job")
         if bindings and (operation != "restore" or target_type != "disk"):
             raise JobValidationError("stable WWN/serial target bindings currently require whole-disk restore jobs")
 
