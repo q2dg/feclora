@@ -660,6 +660,9 @@ def _verify_image(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError("selected image manifest identifier does not match its repository name")
 
     encrypted = any(item.encryption == "age" for item in manifest.artifacts)
+    security = _security_material()
+    pki = Path("/etc/feclora/pki")
+    client_config = _client_runtime_config()
     identities: list[Path] = []
     if security["age_decryption_available"]:
         identities.append(pki / "server.age")
