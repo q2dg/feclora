@@ -5,7 +5,7 @@ import json
 import os
 import re
 import stat
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 
@@ -43,7 +43,7 @@ def _repository(path: Any) -> str:
     return path
 
 
-def _read_config(path: str, expected_fields: set[str]) -> dict[str, Any]:
+def _read_config(path: str, expected_fields: set[str], optional_fields: set[str] | None = None) -> dict[str, Any]:
     _secure_file(path, "deployment configuration", private=True)
     try:
         if os.path.getsize(path) > 64 * 1024:
@@ -52,7 +52,9 @@ def _read_config(path: str, expected_fields: set[str]) -> dict[str, Any]:
             value = json.load(stream, object_pairs_hook=_reject_duplicates)
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise RuntimeConfigError(f"cannot read deployment configuration: {exc}") from exc
-    if not isinstance(value, dict) or set(value) != expected_fields:
+    optional = optional_fields or set()
+    if (not isinstance(value, dict) or not expected_fields.issubset(value)
+            or set(value) - expected_fields - optional):
         raise RuntimeConfigError("deployment configuration has missing or unknown fields")
     if value.get("schema_version") != 1 or isinstance(value.get("schema_version"), bool):
         raise RuntimeConfigError("unsupported deployment configuration schema")
@@ -99,6 +101,7 @@ class ServerRuntimeConfig:
     certificate_file: str
     private_key_file: str
     client_minisign_public_keys: Mapping[str, str]
+    client_identity_to_mac: Mapping[str, str] = field(default_factory=dict)
     server_minisign_public_key: str | None
     repository: str
 
@@ -109,7 +112,7 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
         "certificate_file", "private_key_file",
         "client_minisign_public_keys", "server_minisign_public_key", "repository",
     }
-    value = _read_config(path, fields)
+    value = _read_config(path, fields, {"client_identity_to_mac"})
     address = value["bind_address"]
     if not isinstance(address, str) or not address:
         raise RuntimeConfigError("bind_address must be a concrete interface address")
@@ -162,7 +165,7 @@ def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
         "trusted_server_public_key", "local_minisign_secret_key",
         "local_minisign_public_key", "age_identity_file", "age_recipients_file", "repository",
     }
-    value = _read_config(path, fields)
+    value = _read_config(path, fields, {"local_identity", "certificate_file", "private_key_file"})
     host = value["host"]
     if not isinstance(host, str) or not host or len(host) > 253 or any(ord(c) < 33 for c in host):
         raise RuntimeConfigError("Server host must be a valid hostname or address")
