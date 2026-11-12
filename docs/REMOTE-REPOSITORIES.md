@@ -1,8 +1,8 @@
 # Remote image repositories
 
 **All remote services are external to Feclora.** SSH/SFTP servers, NFS exports,
-SMB shares, WebDAV endpoints, BitTorrent trackers
-and peers are provisioned, operated, patched, backed up and authorized by their
+SMB shares, WebDAV endpoints and S3 buckets are provisioned, operated,
+patched, backed up and authorized by their
 respective administrators. Feclora is only a client: it stores access
 references, establishes outbound connections, mounts or transfers data,
 verifies remote content and reports failures. It must not install, configure,
@@ -15,7 +15,7 @@ manifests, compression, encryption, checksums and restore code continue to use
 the same repository API.
 
 **Remote image distribution follows a single-publisher / multi-reader model
-across SSHFS, SFTP, NFS, SMB/CIFS, WebDAV and BitTorrent:** one
+across SSHFS, SFTP, NFS, SMB/CIFS, WebDAV and S3:** one
 Client publishes each image; any number of Clients may concurrently discover,
 fetch and restore that immutable published image. Concurrent remote publishers
 for the same image are outside the product contract. Publication still needs
@@ -41,22 +41,22 @@ command builders. A provider is not complete until its Cockpit workflow,
 authorization, failure handling, automated tests and operator acceptance cover
 the same image lifecycle.
 
-| Capability | SSHFS | NFS | SMB/CIFS | WebDAV | SFTP | BitTorrent |
+| Capability | SSHFS | NFS | SMB/CIFS | WebDAV | SFTP | S3 |
 |---|---|---|---|---|---|---|
-| Connection / mount or transport | Integrated mount lifecycle | Integrated mount lifecycle | Integrated mount lifecycle | Disabled | OpenSSH batch transfer | Not implemented |
-| Protected credentials | SSH key + pinned host keys | Export/server policy | Encrypted SMB credential | Missing isolated per-repository model | Encrypted SSH key + pinned host keys | Not applicable yet |
+| Connection / mount or transport | Integrated mount lifecycle | Integrated mount lifecycle | Integrated mount lifecycle | Disabled | OpenSSH batch transfer | Not implemented; object API required |
+| Protected credentials | SSH key + pinned host keys | Export/server policy | Encrypted SMB credential | Missing isolated per-repository model | Encrypted SSH key + pinned host keys | Scoped access/secret references not implemented |
 | Inventory / read / restore | Via verified mounted repository | Via verified mounted repository | Via verified mounted repository | Unavailable | Signed manifest inventory and authenticated fetch/restore | Not implemented |
-| Capture / publish | Writable mount path exists; end-to-end provider acceptance pending | Writable mount path exists; root-squash/ownership acceptance pending | Writable mount path exists; provider acceptance pending | Blocked | Signed no-overwrite image-set publication/import and authenticated restore routing; import/publication durable and cancellable with artifact-boundary progress | Immutable distribution only, not publication |
+| Capture / publish | Writable mount path exists; end-to-end provider acceptance pending | Writable mount path exists; root-squash/ownership acceptance pending | Writable mount path exists; provider acceptance pending | Blocked | Signed no-overwrite image-set publication/import and authenticated restore routing; import/publication durable and cancellable with artifact-boundary progress | Not implemented |
 | Durable Cockpit lifecycle | Local operation engine for image work; mount lifecycle is separate | Same | Same | Unavailable | Inventory, import, publication and restore durable/cancellable with artifact-boundary progress; metadata inspection synchronous | Not implemented |
 | Byte progress / transfer resume | No provider-specific network telemetry or safe write resume acceptance | Same | Same | Unavailable | Byte progress and resume pending | Not implemented |
-| Health, interruption and recovery acceptance | Pending live server/network tests | Pending live server/network tests, including root-squash | Pending live server/network tests | Pending design | Multi-directory discovery, health checks and live acceptance pending | Design and implementation pending |
+| Health, interruption and recovery acceptance | Pending live server/network tests | Pending live server/network tests, including root-squash | Pending live server/network tests | Pending design | Multi-directory discovery, health checks and live acceptance pending | Design, API lifecycle and acceptance pending |
 
 **Interpretation:** SSHFS, NFS and SMB share the mounted-filesystem integration
 but are not yet at production acceptance parity. WebDAV remains fail-closed.
 SFTP has richer signed file-transfer workflows than the mounted providers in
-some areas, but still lacks durable byte-level transfer controls. BitTorrent is
-a first-class immutable-artifact distribution transport at equal priority to
-the other remote transports, not a writable repository provider.
+some areas, but still lacks durable byte-level transfer controls. S3 is not
+implemented; it requires a separate object-storage adapter rather than a
+filesystem mount.
 
 For all mounted providers, Feclora's common image engine supplies manifest
 validation and artifact integrity checks; this does not replace provider-side
@@ -232,7 +232,7 @@ repository editing is available only while unmounted; the check action verifies 
 
 ## Host dependencies
 
-Install only the helper for each repository type actually used. BitTorrent
+Install only the helper for each repository type actually used. S3
 uses a separately selected maintained Fedora-compatible client and does not
 require a mounted-filesystem helper.
 
@@ -285,21 +285,43 @@ publication uploads remain non-retrying because their outcome can be ambiguous.
 acceptance tests. SFTP file transfer is distinct from SSHFS and is not a
 separate mounted filesystem provider.
 
-## BitTorrent artifact distribution
+## S3 object repository (planned)
 
-BitTorrent is a first-class peer-to-peer distribution transport, at the same priority as the other remote transports, for immutable
-image artifacts, not a writable repository and not a substitute for the
-repository metadata/credential lifecycle. If integrated, Feclora must reuse a
-maintained client rather than implement the protocol. Torrent metadata and
-peer availability are untrusted transport data: before restore, verify the
-manifest through the configured independent trust mechanism, verify every
-artifact's exact size and SHA-256, and bind the manifest digest to the
-job/profile authorization. Implement cancellation, incomplete-download
-cleanup, peer/network restrictions, bandwidth limits and an explicit seeding
-policy. BitTorrent remains a distribution transport rather than a writable
-repository; its maintained client is selected independently and is not a
-prerequisite for local-only Feclora operation.
+S3 is a file-repository target backed by an object API, not a mounted
+filesystem. The provider is not implemented in the current repository
+manager. A production adapter must use TLS with certificate validation,
+SigV4 or an explicitly supported compatible signing scheme, root-owned
+systemd credential references, scoped bucket/prefix permissions, bounded
+multipart upload/download, abort of incomplete multipart uploads, immutable
+object keys and a manifest-last publication marker. It must use conditional
+writes or an equivalent no-overwrite contract and distinguish object ETags
+from SHA-256: ETags are not a reliable content digest for multipart objects.
+Manifest authenticity must be checked against an independent trust anchor
+before destructive restore. Inventory, list pagination, object versioning,
+delete policy, retry semantics and lifecycle cleanup need explicit capability
+and acceptance tests. S3 is not currently exposed as a usable Cockpit
+repository provider or PXE restore adapter.
 
+## NVMe over Fabrics block transport (planned)
+
+NVMe-oF is not a file repository and does not appear in the repository
+provider matrix. An NVMe-oF host connection exposes a remote namespace as a
+Linux block device. Feclora may eventually provide Cockpit workflows to
+discover, connect, inspect and disconnect externally provisioned NVMe
+subsystems/namespaces using the Linux NVMe host stack and nvme-cli. The
+remote target, subsystem, namespace, ACLs, network and fabric security are
+operator-owned external infrastructure; Feclora must not configure or
+administer the target.
+
+Before a namespace is eligible for capture, restore or cloning, Feclora must
+bind its stable subsystem/NQN/NSID identity to the current kernel device,
+validate geometry and access mode, inspect multipath state, reject ambiguous
+or duplicate paths, check mounted/in-use dependencies, and revalidate identity
+immediately before destructive I/O. Disconnect must be blocked while a
+namespace is in use by a Feclora operation or mounted filesystem. Transport
+authentication/encryption and fabric isolation must be documented separately
+from Feclora's Server-authenticated TLS control channel. No NVMe-oF host
+connection manager or Cockpit workflow is implemented yet.
 
 ## Image workflow integration
 
