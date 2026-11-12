@@ -59,7 +59,7 @@ The authenticated control service, persistent job journal, Client-side
 whole-disk and partition restore dispatch, manifest delivery with optional signatures, private
 staging, verified artifacts and per-client terminal results are
 integrated. Unsigned manifests are accepted when delivered through the
-authenticated mTLS control channel; detached minisign signatures are verified
+Server-authenticated TLS control channel; detached minisign signatures are verified
 when present and require an independently trusted key.
 
 - The deployment job binds `target_type` to the authenticated manifest's
@@ -73,7 +73,7 @@ when present and require an independently trusted key.
   operation. When enabled, artifacts are encrypted for the configured recipient
   inventory. When disabled, UDPcast provides no payload confidentiality; use a
   trusted isolated network or another configured encryption layer.
-- The manifest is delivered over the authenticated mTLS control channel and
+- The manifest is delivered over the Server-authenticated TLS control channel and
   bound to the authorized Server identity. If a detached minisign signature is
   present, it is additionally verified against an independently trusted key.
   SHA-256 digests then bind each UDPcast payload to that authenticated manifest.
@@ -94,8 +94,8 @@ when present and require an independently trusted key.
 
 UDPcast is a transport and does not encrypt/authenticate its data plane. Feclora
 must not require `age` or `minisign` as global installation dependencies.
-`age` may be enabled for confidentiality. The authenticated mTLS control channel provides manifest authenticity for
+`age` may be enabled for confidentiality. The Server-authenticated TLS control channel provides manifest authenticity for
 deployment transfers. A detached minisign signature, when present, adds an
 independent verification layer and requires a separately trusted public key.
 SHA-256 alone is not an authenticity mechanism; it is safe here because the
-expected manifest digest metadata is delivered over the authenticated channel.
+expected manifest digest metadata is delivered over the Server-authenticated TLS channel.
