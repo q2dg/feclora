@@ -5,7 +5,7 @@ import json
 import os
 import re
 import stat
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Mapping
 
 
@@ -101,7 +101,6 @@ class ServerRuntimeConfig:
     certificate_file: str
     private_key_file: str
     client_minisign_public_keys: Mapping[str, str]
-    client_identity_to_mac: Mapping[str, str] = field(default_factory=dict)
     server_minisign_public_key: str | None
     repository: str
 

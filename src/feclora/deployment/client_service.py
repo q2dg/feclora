@@ -583,7 +583,6 @@ class ClientDeploymentService:
             try:
                 job, success, detail = join_deployment(
                     host, control_port or config.port, context,
-                    local_identity=config.local_identity,
                     expected_server_identity=config.server_identity,
                     mac_address=config.mac_address,
                     job_id=self.job_id,

@@ -67,7 +67,6 @@ class RuntimeConfigTests(unittest.TestCase):
             with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
                 config = load_server_runtime_config(path)
         self.assertEqual(config.bind_address, "192.0.2.2")
-        self.assertEqual(dict(config.client_identity_to_mac), {})
         self.assertEqual(config.client_minisign_public_keys["52:54:00:12:34:56"], "/pki/client.pub")
 
     def test_server_tls_config_does_not_require_optional_minisign_key(self):
@@ -88,7 +87,6 @@ class RuntimeConfigTests(unittest.TestCase):
             path = self.write_config(directory, payload)
             with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
                 config = load_server_runtime_config(path)
-        self.assertEqual(dict(config.client_identity_to_mac), {})
 
     def test_server_config_allows_restore_only_enrolled_client(self):
         payload = self.server_config()

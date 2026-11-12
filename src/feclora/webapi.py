@@ -939,33 +939,25 @@ def _operations() -> list[dict[str, Any]]:
 
 def _certificate_status() -> list[dict[str, Any]]:
     from feclora.deployment.managed_pki import certificate_expiry_days
-    from feclora.deployment.runtime_config import (
-        load_client_runtime_config, load_server_runtime_config,
-    )
-    results = []
-    for role, path, loader in (
-        ("Server", "/etc/feclora/deployment-server.json", load_server_runtime_config),
-        ("Client", "/etc/feclora/deployment-client.json", load_client_runtime_config),
-    ):
-        if not os.path.isfile(path):
-            continue
-        try:
-            config = loader(path)
-            days = certificate_expiry_days(config.certificate_file)
-            ca_days = certificate_expiry_days(config.ca_file)
-            identity = config.local_identity
-            results.append({
-                "role": role, "identity": identity, "expiry_days": days,
-                "status": "expired" if days < 0 else "expiring" if days <= 30 else "valid",
-                "ca_expiry_days": ca_days,
-                "ca_status": "expired" if ca_days < 0 else "expiring" if ca_days <= 30 else "valid",
-            })
-        except Exception as exc:
-            results.append({
-                "role": role, "identity": None, "expiry_days": None,
-                "status": "error", "detail": str(exc)[:256],
-            })
-    return results
+    from feclora.deployment.runtime_config import load_server_runtime_config
+    path = "/etc/feclora/deployment-server.json"
+    if not os.path.isfile(path):
+        return []
+    try:
+        config = load_server_runtime_config(path)
+        days = certificate_expiry_days(config.certificate_file)
+        ca_days = certificate_expiry_days(config.ca_file)
+        return [{
+            "role": "Server", "identity": config.local_identity,
+            "expiry_days": days,
+            "status": "expired" if days < 0 else "expiring" if days <= 30 else "valid",
+            "ca_expiry_days": ca_days,
+            "ca_status": "expired" if ca_days < 0 else "expiring" if ca_days <= 30 else "valid",
+        }]
+    except Exception as exc:
+        return [{"role": "Server", "identity": None, "expiry_days": None,
+                 "status": "error", "detail": str(exc)[:256]}]
+
 
 
 def _service_state() -> dict[str, str]:

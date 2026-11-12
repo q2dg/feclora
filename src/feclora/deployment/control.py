@@ -626,7 +626,7 @@ class DeploymentControlServer:
         operation_log_path: str | None = None,
         result_timeout: float = 86400,
     ) -> dict[str, str]:
-        """Clone the Server-local source to one READY Client over its existing mTLS session."""
+        """Clone the Server-local source to one READY Client over its existing TLS session."""
         job = self.coordinator.job
         if job.operation != "clone" or job.transport != "unicast":
             raise DeploymentControlError("remote disk clone requires a unicast clone job")
@@ -846,7 +846,7 @@ def inspect_deployment_job(
         if set(offer) != {"type", "job", "server_identity"}:
             raise DeploymentControlError("server job offer contains missing or unknown fields")
         if offer["server_identity"] != expected_server_identity:
-            raise DeploymentControlError("job offer is not bound to the authenticated server identity")
+            raise DeploymentControlError("job offer is not bound to the verified Server identity")
         try:
             job = DeploymentJob.from_dict(offer["job"])
         except (JobValidationError, TypeError) as exc:
@@ -863,7 +863,6 @@ def join_deployment(
     port: int,
     tls_context: ssl.SSLContext,
     *,
-    local_identity: str | None = None,
     expected_server_identity: str,
     mac_address: str,
     job_id: str,
