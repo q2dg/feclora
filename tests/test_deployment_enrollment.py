@@ -19,10 +19,6 @@ def config():
         "client_identity_to_mac": {
             "URI:old-client": "52:54:00:12:34:56",
         },
-        "client_minisign_public_keys": {
-            "52:54:00:12:34:56": "/pki/old.pub",
-        },
-        "server_minisign_public_key": "/pki/server.pub",
         "repository": "/repo",
     }
 
@@ -49,7 +45,7 @@ class EnrollmentTests(unittest.TestCase):
             with self.assertRaisesRegex(EnrollmentError, "exactly one"):
                 _certificate_identity("/pki/client.crt")
 
-    def test_enrollment_rotates_identity_for_same_mac_and_replaces_public_key(self):
+    def test_enrollment_rotates_identity_for_same_mac(self):
         value = config()
         with (
             patch("feclora.deployment.enrollment._load_config", return_value=value),
@@ -61,7 +57,7 @@ class EnrollmentTests(unittest.TestCase):
         ):
             identity = enroll_client_certificate(
                 "/etc/feclora/deployment-server.json", "/pki/new.crt",
-                "52:54:00:12:34:56", minisign_public_key="/pki/new.pub",
+                "52:54:00:12:34:56",
                 confirmation="ENROLL URI:new-client 52:54:00:12:34:56",
             )
         self.assertEqual(identity, "URI:new-client")
@@ -69,46 +65,6 @@ class EnrollmentTests(unittest.TestCase):
         self.assertEqual(saved["client_identity_to_mac"], {
             "URI:new-client": "52:54:00:12:34:56",
         })
-        self.assertEqual(saved["client_minisign_public_keys"], {
-            "52:54:00:12:34:56": "/pki/new.pub",
-        })
-
-    def test_identity_rotation_does_not_inherit_old_client_signing_key(self):
-        value = config()
-        with (
-            patch("feclora.deployment.enrollment._load_config", return_value=value),
-            patch("feclora.deployment.enrollment._verify_client_certificate", return_value="URI:new-client"),
-            patch("feclora.deployment.enrollment._secure_regular_file"),
-            patch("feclora.deployment.enrollment._write_config_atomically") as write,
-            patch("feclora.deployment.enrollment.load_server_runtime_config"),
-        ):
-            enroll_client_certificate(
-                "/etc/feclora/deployment-server.json", "/pki/new.crt",
-                "52:54:00:12:34:56",
-                confirmation="ENROLL URI:new-client 52:54:00:12:34:56",
-            )
-        self.assertEqual(write.call_args.args[1]["client_minisign_public_keys"], {})
-
-    def test_same_identity_renewal_preserves_client_signing_key(self):
-        value = config()
-        value["client_identity_to_mac"] = {"URI:feclora-client-lab": "52:54:00:12:34:56"}
-        value["client_minisign_public_keys"] = {"52:54:00:12:34:56": "/pki/client.pub"}
-        with (
-            patch("feclora.deployment.enrollment._load_config", return_value=value),
-            patch("feclora.deployment.enrollment._verify_client_certificate", return_value="URI:feclora-client-lab"),
-            patch("feclora.deployment.enrollment._secure_regular_file"),
-            patch("feclora.deployment.enrollment._write_config_atomically") as write,
-            patch("feclora.deployment.enrollment.load_server_runtime_config"),
-        ):
-            enroll_client_certificate(
-                "/etc/feclora/deployment-server.json", "/pki/renewed.crt",
-                "52:54:00:12:34:56",
-                confirmation="ENROLL URI:feclora-client-lab 52:54:00:12:34:56",
-            )
-        self.assertEqual(
-            write.call_args.args[1]["client_minisign_public_keys"],
-            {"52:54:00:12:34:56": "/pki/client.pub"},
-        )
 
     def test_enrollment_rejects_multicast_mac_before_writing_config(self):
         with (
@@ -138,7 +94,7 @@ class EnrollmentTests(unittest.TestCase):
                     confirmation="yes",
                 )
 
-    def test_revocation_removes_certificate_and_associated_signing_key(self):
+    def test_revocation_removes_certificate_identity(self):
         value = config()
         with (
             patch("feclora.deployment.enrollment._load_config", return_value=value),
@@ -152,7 +108,6 @@ class EnrollmentTests(unittest.TestCase):
         self.assertEqual(mac, "52:54:00:12:34:56")
         saved = write.call_args.args[1]
         self.assertEqual(saved["client_identity_to_mac"], {})
-        self.assertEqual(saved["client_minisign_public_keys"], {})
 
     def test_revocation_requires_exact_confirmation(self):
         with patch("feclora.deployment.enrollment._load_config", return_value=config()):
