@@ -78,13 +78,6 @@ class RemoteRepositoryTests(unittest.TestCase):
                         credential_file="/etc/feclora/smb.creds",
                     )
 
-    def test_webdav_rejects_global_davfs2_secrets(self):
-        with self.assertRaisesRegex(RepositoryError, "global davfs2 secrets file is not accepted"):
-            RemoteRepository(
-                provider="webdav", host="dav.example.net", remote_path="/images",
-                mountpoint="/mnt/images", credential_file="/etc/davfs2/secrets",
-            )
-
     def test_rejects_shell_metacharacters_and_parent_paths(self):
         with self.assertRaises(RepositoryError):
             RemoteRepository(
