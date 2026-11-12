@@ -15,15 +15,15 @@ Schema version 1 stores:
 - Optional success action: no action, reboot or poweroff.
 - Optional expiry and single-use policy.
 
-Profiles contain choices only. They must never contain age identity contents, private minisign keys, passwords, TLS private keys, or other secret material. The caller supplies credentials through a separate protected mechanism.
+Profiles contain choices only. They must never contain age identity contents, private signing keys, passwords, TLS private keys, or other secret material. The caller supplies credentials through a separate protected mechanism.
 
 ## Execution modes
 
 - **interactive:** load the choices but ask the operator before destructive actions.
 - **confirm:** perform preflight automatically and require a final typed confirmation before writing.
-- **unattended:** require an authenticated profile and image manifest verified against an independently configured trust anchor, a timezone-qualified expiry, a single-use profile, exact stable target identity matching, and mandatory post-write verification. `minisign` is one optional signature implementation, not a product-wide dependency. The current executor is minisign-specific; replacing that hard dependency with a configurable trust/verifier interface is outstanding. A failed or incomplete preflight must stop before the first write.
+- **unattended:** require a root-owned mode-0600 profile in a root-owned directory that is not group/other-writable, a timezone-qualified expiry, a single-use profile, exact stable target identity matching, and mandatory post-write verification. The local filesystem ownership boundary authorizes the profile; a failed or incomplete preflight must stop before the first write.
 
-The signature sidecar is named PROFILE.json.minisig. The trusted public key is configured outside the profile. For a standalone local invocation, the profile ID is recorded in the configured consumption ledger before the first destructive write. For the existing Server-authenticated TLS Remote jobs, job correlation and result state belong to the Server deployment-session journal and job state; Clients are not authenticated individually. The new identity-free PXE answer workflow is separate and does not use this signed-profile mechanism. It trusts the configured PXE HTTP server by operator choice, downloads a schema-validated JSON answer, and currently connects NFS-backed whole-disk restore. PXE answer files are reusable until revoked; the answer-file client does not enforce expiry or single-use replay protection. Physical acceptance remains outstanding. The standalone profile executor is not currently an unattended PXE execution switch.
+Unattended profiles do not have signature sidecars. Their authorization is based on local root ownership and restrictive permissions. For a standalone local invocation, the profile ID is recorded in the configured consumption ledger before the first destructive write. For the existing Server-authenticated TLS Remote jobs, job correlation and result state belong to the Server deployment-session journal and job state; Clients are not authenticated individually. The identity-free PXE answer workflow is separate: it trusts the configured PXE HTTP server by operator choice, downloads a schema-validated JSON answer, and currently connects NFS-backed whole-disk restore. PXE answer files are reusable until revoked; the answer-file client does not enforce expiry or single-use replay protection. Physical acceptance remains outstanding. The standalone profile executor is not currently an unattended PXE execution switch.
 
 ## Layout policies
 
@@ -48,13 +48,12 @@ workflow exposes this operation. No LV/VG/PV creation, resizing, activation or
 LVM metadata restoration is performed. Deployment-job LV restore remains
 pending.
 
-The profile model and unattended whole-disk executor are implemented in src/feclora/storage/restore_profile.py and src/feclora/storage/profile_executor.py. They strictly validate schema fields, reject duplicate JSON keys and path traversal, match WWN/serial identities, verify minisign signatures, and atomically consume single-use authorization immediately before the first write. **Current limitation:** this executor currently requires minisign for profile and image authentication. The project policy is that minisign must remain optional; a configurable verifier/trust interface (with an equally strong alternative authentication path) is still required before unattended restore can satisfy that policy without minisign. UI-based profile authoring, automatic startup/systemd enablement and proportional layout execution remain pending.
-
+The profile model and unattended whole-disk executor are implemented in `src/feclora/storage/restore_profile.py` and `src/feclora/storage/profile_executor.py`. They strictly validate schema fields, reject duplicate JSON keys and path traversal, match WWN/serial identities, enforce root-owned local authorization and atomically consume single-use authorization immediately before the first write. UI-based profile authoring, automatic startup/systemd enablement and proportional layout execution remain pending.
 
 ## Running an unattended disk restore
 
-The Live image installs the `feclora-restore-profile` command. For standalone CLI use, store the profile, image repository, trust keys and audit files on explicitly selected storage available during the Live session. The Live home directory and logs are ephemeral by design. The CLI's local consumption ledger protects that standalone profile invocation. The separate PXE answer-file workflow does not use a consumption ledger.
-The profile and image each need independently authenticated metadata. The current implementation requires separate detached minisign signatures and trusted public keys; this is an implementation-specific limitation, not a product-wide dependency. The target design must support another configured verifier so minisign remains optional.
+The Live image installs the `feclora-restore-profile` command. For standalone CLI use, store the profile, image repository and audit files on explicitly selected storage available during the Live session. The Live home directory and logs are ephemeral by design. The CLI's local consumption ledger protects that standalone profile invocation. The separate PXE answer-file workflow does not use a consumption ledger.
+The image manifest is not signed. Artifact SHA-256 digests provide integrity checks; authenticity relies on the protected local repository and authenticated transport. Unattended profile authorization relies on root ownership and restrictive filesystem permissions.
 
 A profile JSON document has this shape (replace all example identities and
 timestamps with values collected from the actual target):
@@ -79,25 +78,13 @@ timestamps with values collected from the actual target):
 ```
 
 Create the directories on a mounted persistent filesystem, then copy the
-profile, image, trust public keys and signatures there:
+profile, image and audit files there:
 
 ```sh
 mkdir -p /mnt/restore-media/{profiles,trust,images,audit}
 ```
 
-Sign the profile and the image manifest with the appropriate private keys on
-a trusted preparation machine. Keep those private keys off the Live image.
-Then invoke:
-
-```sh
-feclora-restore-profile \
-  --profile /mnt/restore-media/profiles/lab.json \
-  --profile-trusted-key /mnt/restore-media/trust/profile.pub \
-  --image-trusted-key /mnt/restore-media/trust/images.pub \
-  --repository /mnt/restore-media/images \
-  --consumption-ledger /mnt/restore-media/audit/consumed-profiles.jsonl \
-  --operation-log /mnt/restore-media/audit/operations.jsonl
-```
+Create the profile as root in a root-owned directory that is not writable by group or other users. The profile is stored with mode 0600; no signing keys or signature files are involved.
 
 For images encrypted with the optional age integration, additionally pass `--age-identity` with a protected
 identity file supplied outside the profile. Use a Linux filesystem with POSIX ownership, permissions, locking and hard-link support (for example ext4, XFS or Btrfs); FAT/exFAT volumes may not provide the required semantics. The standalone CLI currently verifies that its consumption ledger and operation journal reside on a dedicated persistent mounted filesystem (not the Live overlay, tmpfs or root filesystem). This CLI constraint does not define the PXE architecture: PXE jobs use the Server's session-scoped journal and never require a persistent Client Live filesystem. It rechecks the WWN and serial immediately
@@ -109,9 +96,9 @@ before the disk write. The disk restore still performs its own
 artifact verification, target safety checks, exact confirmation gate,
 streaming write and read-back SHA-256 verification.
 
-The current unattended executor supports whole-disk images with the
+The current unattended executor requires root-owned profile and parent-directory permissions and supports whole-disk images with the
 `preserve` layout policy. It rejects `proportional` rather than silently
-pretending to resize partitions. Profile creation/signing is not exposed in the supported Cockpit workflow; the old dialog-based rescue UI is not part of the Live interface. This standalone local-profile executor is not used by the PXE fleet workflow. The identity-free PXE answer workflow uses a shared JSON answer and WWN/serial target binding; it does not enroll or identify individual Clients. Automatic startup for this standalone profile executor remains disabled by default; an operator must explicitly configure it after mounting persistent profile, image, trust and audit storage.
+pretending to resize partitions. Profile creation/signing is not exposed in the supported Cockpit workflow; the old dialog-based rescue UI is not part of the Live interface. This standalone local-profile executor is not used by the PXE fleet workflow. The identity-free PXE answer workflow uses a shared JSON answer and WWN/serial target binding; it does not enroll or identify individual Clients. Automatic startup for this standalone profile executor remains disabled by default; an operator must explicitly configure it after mounting persistent profile, image and audit storage.
 
 
 ## Optional boot-time execution
@@ -127,8 +114,6 @@ wrapper, but the service is **disabled by default**. To enable it deliberately:
 
 ```ini
 FECLORA_PROFILE=/mnt/restore-media/profiles/lab.json
-FECLORA_PROFILE_TRUSTED_KEY=/mnt/restore-media/trust/profile.pub
-FECLORA_IMAGE_TRUSTED_KEY=/mnt/restore-media/trust/images.pub
 FECLORA_IMAGE_REPOSITORY=/mnt/restore-media/images
 FECLORA_CONSUMPTION_LEDGER=/mnt/restore-media/audit/consumed-profiles.jsonl
 FECLORA_OPERATION_LOG=/mnt/restore-media/audit/operations.jsonl
@@ -144,7 +129,7 @@ sudo chmod 0640 /etc/feclora/restore-profile.env
 sudo chown root:feclora /etc/feclora/restore-profile.env
 ```
 
-   Ensure the profile, image manifest, detached signatures, public keys,
+   Ensure the profile, image manifest,
    age identity (only if the image uses age), audit directory and mount are readable/writable
    as appropriate by the live `feclora` account.
 4. Enable the service explicitly with
