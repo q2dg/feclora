@@ -260,6 +260,8 @@ class DeploymentService:
                 definition = next(item for item in s3_manager.list() if item["id"] == self.job.repository_id)
                 if self.job.operation == "save" and definition["read_only"]:
                     raise DeploymentServiceError("selected S3 repository is read-only and cannot receive captures")
+            elif self.job.operation == "save":
+                raise DeploymentServiceError("selected S3 capture repository no longer exists")
             elif self.job.operation == "restore":
                 from feclora.storage.repository_manager import RemoteRepositoryManager
                 try:
