@@ -248,8 +248,19 @@ class DeploymentService:
             except Exception as exc:
                 raise DeploymentServiceError(f"multicast Server interface preflight failed: {exc}") from exc
         self.repository_path = self.config.repository
-        if self.job.operation == "restore":
-            if self.job.repository_id is not None:
+        self._s3_repository_id = None
+        self._s3_manager = None
+        self._s3_object_repository = None
+        if self.job.repository_id is not None:
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            s3_manager = S3RepositoryManager()
+            if any(item["id"] == self.job.repository_id for item in s3_manager.list()):
+                self._s3_repository_id = self.job.repository_id
+                self._s3_manager = s3_manager
+                definition = next(item for item in s3_manager.list() if item["id"] == self.job.repository_id)
+                if self.job.operation == "save" and definition["read_only"]:
+                    raise DeploymentServiceError("selected S3 repository is read-only and cannot receive captures")
+            elif self.job.operation == "restore":
                 from feclora.storage.repository_manager import RemoteRepositoryManager
                 try:
                     self.repository_path = RemoteRepositoryManager().resolve(
@@ -259,6 +270,7 @@ class DeploymentService:
                     raise DeploymentServiceError(
                         f"selected image repository is not mounted and verified: {exc}"
                     ) from exc
+        if self.job.operation == "restore" and self._s3_repository_id is None:
             self.manifest_path = str(Path(self.repository_path) / (self.job.image_id + ".manifest.json"))
         else:
             self.manifest_path = None
@@ -481,16 +493,19 @@ class DeploymentService:
                 udpcast = udpcast_config_for_job(
                     self.job, min_receivers=len(self.job.authorized_clients),
                 )
-                self.control.run_multicast_restore_job(
+                results = self.control.run_multicast_restore_job(
                     self.repository_path, self.manifest_path,
                     udpcast_config=udpcast,
                 )
             else:
-                mac = self.job.authorized_clients[0]
-                self.control.run_one_client_job(
+                results = self.control.run_one_client_job(
                     self.repository_path,
                     manifest_path=self.manifest_path,
                 )
+            if self.job.operation == "save" and self._s3_object_repository is not None:
+                if not results or any(state != "succeeded" for state in results.values()):
+                    raise DeploymentServiceError("Client capture did not succeed; S3 manifest will not be published")
+                self._s3_object_repository.upload_image_set(self.repository_path, self.job.image_id)
         except Exception as exc:
             self._last_error = str(exc)[:512]
             # Do not retry or reconstruct a live session. The journal remains
@@ -504,14 +519,28 @@ class DeploymentService:
         self._acquire_instance_lock()
         service_start_recorded = False
         repository_lock_fd = None
+        s3_usage_lock_fd = None
+        s3_temporary = None
         try:
-            if self.job.operation == "restore" and self.job.repository_id is not None:
+            if self._s3_repository_id is not None:
+                try:
+                    s3_usage_lock_fd = self._s3_manager.acquire_usage_lock(self._s3_repository_id)
+                    self._s3_object_repository = self._s3_manager.repository(self._s3_repository_id)
+                    s3_temporary = tempfile.TemporaryDirectory(prefix="feclora-deployment-s3-")
+                    self.repository_path = s3_temporary.name
+                    os.chmod(self.repository_path, 0o700)
+                    if self.job.operation == "restore":
+                        self._s3_object_repository.download_image_set(self.job.image_id, self.repository_path)
+                        self.manifest_path = str(Path(self.repository_path) / (self.job.image_id + ".manifest.json"))
+                except Exception as exc:
+                    raise DeploymentServiceError(
+                        f"selected S3 repository cannot be leased and staged for this deployment: {exc}"
+                    ) from exc
+            elif self.job.operation == "restore" and self.job.repository_id is not None:
                 from feclora.storage.repository_manager import RemoteRepositoryManager
                 manager = RemoteRepositoryManager()
                 try:
                     repository_lock_fd = manager.acquire_usage_lock(self.job.repository_id)
-                    # Re-resolve only after acquiring the lease: an unmount that
-                    # won the race after construction must not leave a stale path.
                     self.repository_path = manager.resolve(self.job.repository_id, write=False)
                     self.manifest_path = str(Path(self.repository_path) / (self.job.image_id + ".manifest.json"))
                 except Exception as exc:
@@ -562,6 +591,12 @@ class DeploymentService:
                     if repository_lock_fd is not None:
                         os.close(repository_lock_fd)
                         repository_lock_fd = None
+                    if s3_usage_lock_fd is not None:
+                        os.close(s3_usage_lock_fd)
+                        s3_usage_lock_fd = None
+                    if s3_temporary is not None:
+                        s3_temporary.cleanup()
+                        s3_temporary = None
                     if self._lock_fd is not None:
                         os.close(self._lock_fd)
                         self._lock_fd = None
