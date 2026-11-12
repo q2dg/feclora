@@ -344,6 +344,7 @@ def decrypt_artifact_stream_with_passphrase_to_temp(
     sent = False
     transcript = bytearray()
     wait_status = None
+    keep_output = False
     try:
         os.set_inheritable(input_fd, True)
         child_pid, master = pty.fork()
@@ -414,6 +415,7 @@ def decrypt_artifact_stream_with_passphrase_to_temp(
         os.chmod(temporary, 0o600)
         with open(temporary, "rb") as output:
             os.fsync(output.fileno())
+        keep_output = True
         return temporary
     except ImageSecurityError:
         raise
@@ -433,9 +435,7 @@ def decrypt_artifact_stream_with_passphrase_to_temp(
         if master is not None:
             os.close(master)
         # On success, the caller owns the plaintext file and removes it.
-        if not (child_pid is not None and wait_status is not None
-                and os.WIFEXITED(wait_status) and os.WEXITSTATUS(wait_status) == 0
-                and os.path.exists(temporary)):
+        if not keep_output:
             try:
                 os.unlink(temporary)
             except FileNotFoundError:
