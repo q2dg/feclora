@@ -80,6 +80,19 @@ class S3RepositoryManagerTests(unittest.TestCase):
         self.assertEqual(self.manager.remove("archive"), {"id": "archive", "removed": True})
         self.assertEqual(self.manager.list(), [])
 
+    def test_active_usage_lease_blocks_repository_update_and_remove(self):
+        self.manager.add("archive", self.definition)
+        lease = self.manager.acquire_usage_lock("archive")
+        try:
+            with self.assertRaisesRegex(S3RepositoryManagerError, "in use"):
+                self.manager.update("archive", dict(self.definition, read_only=True))
+            with self.assertRaisesRegex(S3RepositoryManagerError, "in use"):
+                self.manager.remove("archive")
+        finally:
+            os.close(lease)
+        self.manager.update("archive", dict(self.definition, read_only=True))
+        self.assertTrue(self.manager.list()[0]["read_only"])
+
     def test_repository_decrypts_credential_only_when_requested(self):
         self.manager.add("archive", self.definition)
         with patch("feclora.storage.s3_repository_manager.S3ObjectRepository") as client:
