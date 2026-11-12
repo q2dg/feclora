@@ -740,8 +740,6 @@ class CoordinatorControlTests(unittest.TestCase):
         self.assertEqual(result, {MAC: "succeeded"})
         build.assert_called_once_with(
             "/dev/sda", "/dev/vdb",
-            source_identity="URI:feclora-server",
-            receiver_identity="URI:feclora-client",
         )
         send.assert_called_once()
         self.assertIs(send.call_args.args[0], fake)
@@ -919,11 +917,10 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
             client_cert, client_key = self._certificate(
                 directory, "client", "URI:feclora-client", ca_key, ca_cert,
             )
-            server_context = create_mutual_tls_context(
-                "server", ca_file=ca_cert, certificate_file=server_cert,
-                private_key_file=server_key,
+            server_context = create_tls_context(
+                "server", certificate_file=server_cert, private_key_file=server_key,
             )
-            client_context = create_mutual_tls_context(
+            client_context = create_tls_context(
                 "client", ca_file=ca_cert,
             )
             source = os.path.join(directory, "source")
@@ -1034,11 +1031,10 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
             client_cert, client_key = self._certificate(
                 directory, "client", "URI:feclora-client", ca_key, ca_cert,
             )
-            server_context = create_mutual_tls_context(
-                "server", ca_file=ca_cert,
-                certificate_file=server_cert, private_key_file=server_key,
+            server_context = create_tls_context(
+                "server", certificate_file=server_cert, private_key_file=server_key,
             )
-            client_context = create_mutual_tls_context(
+            client_context = create_tls_context(
                 "client", ca_file=ca_cert,
             )
             coordinator = DeploymentCoordinator(make_job())
@@ -1106,11 +1102,10 @@ class MutualTLSControlIntegrationTests(unittest.TestCase):
             client_cert, client_key = self._certificate(
                 directory, "client", "URI:feclora-client", ca_key, ca_cert,
             )
-            server_context = create_mutual_tls_context(
-                "server", ca_file=ca_cert, certificate_file=server_cert,
-                private_key_file=server_key,
+            server_context = create_tls_context(
+                "server", certificate_file=server_cert, private_key_file=server_key,
             )
-            client_context = create_mutual_tls_context(
+            client_context = create_tls_context(
                 "client", ca_file=ca_cert,
             )
             source = os.path.join(directory, "client-image")
