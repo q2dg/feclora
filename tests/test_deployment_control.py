@@ -92,8 +92,7 @@ class ListenerShutdownRaceTests(unittest.TestCase):
         server._pending_sockets = set()
         server._stop_event = threading.Event()
         server._sessions = {}
-        server._identities = {}
-        server._target_devices = {}
+                server._target_devices = {}
         server.tls_context = SimpleNamespace(wrap_socket=lambda accepted, server_side: tls_socket)
         server.local_identity = "URI:feclora-server"
         server.coordinator = coordinator
@@ -104,8 +103,7 @@ class ListenerShutdownRaceTests(unittest.TestCase):
             {"type": "ready", "job_id": JOB_ID, "target_description": "approved target",
              "locally_authorized": True},
         ]
-        with patch("feclora.deployment.control._certificate_identity", return_value="URI:feclora-client"), \
-                          patch("feclora.deployment.control.receive_control_message", side_effect=messages), \
+                                  patch("feclora.deployment.control.receive_control_message", side_effect=messages), \
              patch("feclora.deployment.control.send_control_message"):
             with self.assertRaisesRegex(DeploymentControlError, "stopped during Client admission"):
                 server.accept_ready_client(listener)
@@ -243,7 +241,7 @@ class ClientProgressTests(unittest.TestCase):
             "type": "progress", "job_id": JOB_ID, "phase": "restore",
             "completed_bytes": 4096, "total_bytes": 4096,
         }
-        with self.assertRaisesRegex(DeploymentControlError, "running authenticated Client"):
+        with self.assertRaisesRegex(DeploymentControlError, "running Client session"):
             server._record_client_progress(MAC, frame)
         self.assertEqual(server.client_progress(), {})
 
@@ -364,13 +362,14 @@ class TransferFailureTests(unittest.TestCase):
 
 
 class TLSContextTests(unittest.TestCase):
-    def test_server_rejects_context_without_mandatory_peer_certificates(self):
+    def test_server_accepts_context_without_client_certificates(self):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        with self.assertRaisesRegex(DeploymentControlError, "TLS 1.3"):
-            DeploymentControlServer(
-                DeploymentCoordinator(make_job()), context,
-                local_identity="URI:feclora-server",
-            )
+        self.assertEqual(context.verify_mode, ssl.CERT_NONE)
+        server = DeploymentControlServer(
+            DeploymentCoordinator(make_job()), context,
+            local_identity="URI:feclora-server",
+        )
+        self.assertIs(server.tls_context, context)
 
 
     def test_firewall_cleanup_failure_preserves_recovery_state_and_releases_callback(self):
@@ -512,11 +511,9 @@ class ControlFramingTests(unittest.TestCase):
         server.local_identity = "URI:feclora-server"
         server.coordinator = coordinator
         with patch("feclora.deployment.control._certificate_identity", return_value="URI:feclora-client"), \
-             patch("feclora.deployment.control.verify_peer_identity"), \
              patch("feclora.deployment.control.receive_control_message", return_value={
                  "type": "inspect", "job_id": JOB_ID, "mac_address": MAC,
-                 "certificate_identity": "URI:feclora-client",
-             }), patch("feclora.deployment.control.send_control_message") as send:
+                              }), patch("feclora.deployment.control.send_control_message") as send:
             result = server.accept_ready_client(listener)
         self.assertIsNone(result)
         self.assertEqual(coordinator.clients(), ())
@@ -555,7 +552,7 @@ class ClientJoinTests(unittest.TestCase):
         outgoing = FakeSocket(bytes(fake.outgoing))
         hello = receive_control_message(outgoing, expected_type="hello")
         ready = receive_control_message(outgoing, expected_type="ready")
-        self.assertEqual(hello["certificate_identity"], "URI:feclora-client")
+        self.assertNotIn("certificate_identity", hello)
         result = receive_control_message(outgoing, expected_type="result")
         self.assertTrue(ready["locally_authorized"])
         self.assertNotIn("/dev/", ready["target_description"])
@@ -716,8 +713,7 @@ class CoordinatorControlTests(unittest.TestCase):
         )
         fake = FakeSocket()
         server._sessions[MAC] = fake
-        server._identities[MAC] = "URI:feclora-client"
-        server._target_devices[MAC] = "/dev/vdb"
+                server._target_devices[MAC] = "/dev/vdb"
         header = object()
         with patch("feclora.deployment.control.build_remote_clone_header", return_value=header) as build, \
              patch("feclora.deployment.control.send_remote_disk") as send, \
@@ -843,7 +839,7 @@ class CoordinatorControlTests(unittest.TestCase):
         server._sessions[MAC] = fake
         return coordinator, server, fake
 
-    def test_server_arms_and_tracks_authenticated_ready_client(self):
+    def test_server_arms_and_tracks_selected_ready_client(self):
         coordinator = DeploymentCoordinator(make_job())
         coordinator.register_client(MAC)
         coordinator.mark_ready(MAC)
@@ -865,8 +861,8 @@ class CoordinatorControlTests(unittest.TestCase):
 
 
 
-@unittest.skipUnless(shutil.which("openssl"), "openssl is required for loopback mTLS integration")
-class MutualTLSControlIntegrationTests(unittest.TestCase):
+@unittest.skipUnless(shutil.which("openssl"), "openssl is required for loopback TLS integration")
+class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
     def _certificate(self, directory, name, san, ca_key, ca_cert):
         key = os.path.join(directory, name + ".key")
         csr = os.path.join(directory, name + ".csr")

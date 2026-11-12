@@ -125,7 +125,7 @@ def execute_client_image_job(
             not local_minisign_secret_key or not local_minisign_public_key or not shutil.which("minisign")
         ):
             raise ClientImageRuntimeError("minisign signing was selected but no usable signing keypair or minisign executable is available")
-        required = f"READ {local_device_path} TO {server_identity}"
+        required = f"READ {local_device_path}"
         if confirmation != required:
             raise ClientImageRuntimeError(f"explicit local capture confirmation required: {required}")
         try:

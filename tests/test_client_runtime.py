@@ -190,7 +190,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         self.assertEqual(restore_partition.call_args.kwargs["age_identity_file"], "/keys/client.age")
         restore_disk.assert_not_called()
 
-    def test_clone_uses_existing_mutual_tls_socket_and_local_target_approval(self):
+    def test_clone_uses_server_authenticated_tls_socket_and_local_target_approval(self):
         job = DeploymentJob.from_dict({
             "schema_version": 1, "job_id": JOB_ID, "operation": "clone",
             "image_id": None, "source_device": "/dev/sda", "target_type": "disk",
@@ -212,7 +212,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
         self.assertIn("4096 bytes", result[1])
         receive.assert_called_once()
         self.assertEqual(receive.call_args.args[0].__class__, FakeTLS)
-        self.assertEqual(receive.call_args.kwargs["local_identity"], "URI:feclora-client")
         self.assertEqual(receive.call_args.kwargs["expected_peer_identity"], "URI:feclora-server")
         self.assertEqual(receive.call_args.kwargs["target_path"], "/dev/vda")
         self.assertEqual(

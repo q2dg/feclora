@@ -157,7 +157,7 @@ class ServerAuthenticatedTlsTests(unittest.TestCase):
             worker.join(timeout=5)
             self.assertFalse(worker.is_alive())
             self.assertIn(result["version"], {"TLSv1.2", "TLSv1.3"})
-            self.assertEqual(result["client_certificate"], {})
+            self.assertIsNone(result["client_certificate"])
 
 
 if __name__ == "__main__":

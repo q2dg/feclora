@@ -1,4 +1,4 @@
-"""Dialog workflow for an authenticated Client save/restore job."""
+"""Dialog workflow for a Client save/restore job over Server-authenticated TLS."""
 from __future__ import annotations
 
 import hashlib
@@ -372,7 +372,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             if not isinstance(path, str):
                 raise DeploymentControlError("selected disk has no stable device path")
             if job.operation == "restore":
-                phrase = f"ERASE {path} FROM {config.server_identity}"
+                phrase = f"ERASE {path}"
                 prompt = (
                     "This operation overwrites the selected existing logical volume. Type the exact confirmation phrase:"
                     if job.target_type == "logical_volume" else
@@ -381,7 +381,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                     "This operation overwrites the selected whole disk. Type the exact confirmation phrase:"
                 )
             else:
-                phrase = f"READ {path} TO {config.server_identity}"
+                phrase = f"READ {path}"
                 prompt = "This operation reads the selected whole disk to create an image. You will choose optional age encryption and minisign signing for this image in the next step. Type the exact confirmation phrase:"
             dialog_app._message("Selected local target", dialog_app.device_details(selected))
             typed = dialog_app._input("Explicit local authorization", f"{prompt}\n\n{phrase}")

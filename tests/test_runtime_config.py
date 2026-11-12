@@ -157,7 +157,7 @@ class RuntimeConfigTests(unittest.TestCase):
             path = self.write_config(directory, payload)
             with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
                 config = load_server_runtime_config(path)
-        self.assertEqual(dict(config.client_minisign_public_keys), {"52:54:00:12:34:57": "/pki/other.pub"})
+        self.assertEqual(dict(config.client_minisign_public_keys), {"52:54:00:12:34:56": "/pki/client.pub", "52:54:00:12:34:57": "/pki/other.pub"})
 
     def test_rejects_non_ipv4_or_unspecified_server_bind(self):
         payload = self.server_config()
