@@ -252,7 +252,7 @@ images are both available. Select Client MAC addresses for this job, the
 Server interface and unicast or multicast restore transport. The backend
 revalidates job MAC selection and image type, verifies a detached signature when one
 is present, and checks registered age recipients only when the image is
-age-encrypted. Unsigned manifests are transferred over the Server-authenticated TLS control session; Clients are not individually authenticated. Client save jobs may also run unsigned; if a Client
+age-encrypted. Manifests are transferred over the Server-authenticated TLS control session; Clients are not individually authenticated. If a Client
 chooses to sign, its public key must be enrolled so the Server can verify it.
 
 The persisted-job table also shows each Client's last journaled state,
