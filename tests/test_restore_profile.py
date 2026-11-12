@@ -77,6 +77,7 @@ class RestoreProfileTests(unittest.TestCase):
             path.write_text(json.dumps(value), encoding="utf-8")
             regular = SimpleNamespace(st_mode=stat.S_IFREG | 0o600, st_uid=0, st_size=path.stat().st_size)
             folder = SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=0)
+            real_lstat = os.lstat
             def fake_lstat(candidate):
                 return regular if os.fspath(candidate) == os.fspath(path) else folder
             with patch("feclora.storage.restore_profile.os.lstat", side_effect=fake_lstat), \
@@ -102,7 +103,7 @@ class RestoreProfileTests(unittest.TestCase):
             destination = Path(directory) / "profile.json"
             folder = SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=0)
             with patch("feclora.storage.restore_profile.os.geteuid", return_value=0), \
-                 patch("feclora.storage.restore_profile.os.lstat", return_value=folder):
+                 patch("feclora.storage.restore_profile.os.lstat", side_effect=lambda path: folder if str(path) == directory else real_lstat(path)):
                 saved = save_unattended_restore_profile(profile, destination)
                 self.assertEqual(saved, destination)
                 self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
