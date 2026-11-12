@@ -408,5 +408,62 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
             self.manager.unmount("images")
         self.assertFalse(any(call[0].endswith("umount") for call in self.calls))
 
+    def test_nfs_unmount_retries_with_force_after_stale_mount_failure(self):
+        definition = {
+            "provider": "nfs", "host": "nas.example.net",
+            "remote_path": "/exports/images", "username": None,
+            "credential_file": None, "identity_file": None,
+            "known_hosts_file": None, "port": None, "read_only": True,
+        }
+        self.manager.add("images", definition)
+        self.manager._mount_record = lambda _path: (
+            "nfs4", "nas.example.net:/exports/images", "ro,relatime",
+        )
+        mounted_states = iter([True, True, False])
+        self.manager._is_mounted = lambda _path: next(mounted_states)
+        calls = []
+
+        def runner(argv, **kwargs):
+            calls.append(argv)
+            if argv[-1] == "feclora-repository-images.service":
+                return SimpleNamespace(returncode=3, stdout="", stderr="")
+            if argv[0].endswith("umount") and "--force" not in argv:
+                return SimpleNamespace(returncode=32, stdout="", stderr="server unavailable")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        self.manager.runner = runner
+        result = self.manager.unmount("images")
+        self.assertEqual(result, {"id": "images", "mounted": False})
+        umount_calls = [call for call in calls if call[0].endswith("umount")]
+        self.assertEqual(len(umount_calls), 2)
+        self.assertNotIn("--force", umount_calls[0])
+        self.assertIn("--force", umount_calls[1])
+        self.assertEqual(umount_calls[1][-1], str(self.mount_root / "images"))
+
+    def test_non_nfs_unmount_does_not_force_detach(self):
+        self.manager.add("images", self.definition)
+        self.manager._mount_record = lambda _path: (
+            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime",
+        )
+        mounted_states = iter([True, True, True])
+        self.manager._is_mounted = lambda _path: next(mounted_states)
+        calls = []
+
+        def runner(argv, **kwargs):
+            calls.append(argv)
+            if argv[-1] == "feclora-repository-images.service":
+                return SimpleNamespace(returncode=3, stdout="", stderr="")
+            if argv[0].endswith("umount"):
+                return SimpleNamespace(returncode=32, stdout="", stderr="busy")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        self.manager.runner = runner
+        with self.assertRaisesRegex(RepositoryManagerError, "repository remains mounted"):
+            self.manager.unmount("images")
+        umount_calls = [call for call in calls if call[0].endswith("umount")]
+        self.assertEqual(len(umount_calls), 1)
+        self.assertNotIn("--force", umount_calls[0])
+
+
 if __name__ == "__main__":
     unittest.main()
