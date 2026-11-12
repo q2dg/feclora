@@ -109,7 +109,7 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
         "certificate_file", "private_key_file",
         "repository",
     }
-    value = _read_config(path, fields, {"client_identity_to_mac", "client_minisign_public_keys", "server_minisign_public_key"})
+    value = _read_config(path, fields, {"client_identity_to_mac"})
     address = value["bind_address"]
     if not isinstance(address, str) or not address:
         raise RuntimeConfigError("bind_address must be a concrete interface address")
@@ -149,7 +149,7 @@ def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
         "mac_address", "ca_file",
         "age_identity_file", "age_recipients_file", "repository",
     }
-    value = _read_config(path, fields, {"local_identity", "certificate_file", "private_key_file", "trusted_server_public_key", "local_minisign_secret_key", "local_minisign_public_key"})
+    value = _read_config(path, fields, {"local_identity", "certificate_file", "private_key_file"})
     host = value["host"]
     if not isinstance(host, str) or not host or len(host) > 253 or any(ord(c) < 33 for c in host):
         raise RuntimeConfigError("Server host must be a valid hostname or address")
