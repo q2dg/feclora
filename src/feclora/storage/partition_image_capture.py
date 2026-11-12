@@ -11,7 +11,7 @@ from typing import Any, Callable, Mapping
 from .capture import CaptureCancelled, CaptureError, capture_partition
 from .capture_plan import CapturePlanError, plan_storage_capture
 from .image_manifest import ImageManifest, ManifestValidationError
-from .image_security import ImageSecurityError, encrypt_artifact, preflight_image_security, sign_manifest
+from .image_security import ImageSecurityError, encrypt_artifact, preflight_image_security
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .btrfs_inventory import BtrfsInventoryError, collect_btrfs_topology
 
@@ -34,7 +34,6 @@ def capture_partition_image(
     effective_uid: Callable[[], int] | None = None,
     progress_callback: Callable[[int, int | None], None] | None = None,
     age_recipients_file: str | os.PathLike[str] | None = None,
-    minisign_secret_key: str | os.PathLike[str] | None = None,
     inventory: Mapping[str, Any],
 ) -> ImageManifest:
     """Capture a partition and publish its data artifact and manifest marker."""
@@ -52,9 +51,7 @@ def capture_partition_image(
     try:
         preflight_image_security(
             age_recipients_file=age_recipients_file,
-            minisign_secret_key=minisign_secret_key,
             age_executable=available.get("age"),
-            minisign_executable=available.get("minisign"),
         )
     except ImageSecurityError as exc:
         raise PartitionImageCaptureError(f"image security preflight failed: {exc}") from exc
@@ -167,13 +164,6 @@ def capture_partition_image(
             output.flush()
             os.fsync(output.fileno())
         signature_name = None
-        if minisign_secret_key is not None:
-            sign_manifest(manifest_stage, minisign_secret_key, minisign_executable=available.get("minisign"))
-            signature_name = manifest_name + ".minisig"
-        from .image_publication import ImagePublicationError, publish_image_set
-        publish_names = [artifact_name]
-        if signature_name is not None:
-            publish_names.append(signature_name)
         publish_names.append(manifest_name)
         try:
             publish_image_set(repo, stage, publish_names)
