@@ -301,7 +301,7 @@ def _wait_for_age_passphrase(
             time.sleep(0.5)
             continue
         if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
-                or info.st_uid != 0 or info.st_mode & 0o077 or info.st_size > 1024):
+                or info.st_uid != os.geteuid() or info.st_mode & 0o077 or info.st_size > 1024):
             raise PXEAnswerClientError("submitted age passphrase file is unsafe")
         try:
             value = path.read_text(encoding="utf-8")
