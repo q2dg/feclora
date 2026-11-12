@@ -325,7 +325,7 @@ class S3ObjectRepository:
                             body.close()
                     except Exception as exc:
                         raise S3RepositoryError(f"cannot read S3 manifest {key}: {exc}") from exc
-                    if filename != f"{manifest.image_id}.manifest.json":
+                    if key != self._manifest_key(manifest.image_id):
                         continue
                     complete = True
                     for artifact in manifest.artifacts:
