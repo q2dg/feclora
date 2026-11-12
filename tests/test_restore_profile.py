@@ -102,8 +102,10 @@ class RestoreProfileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             destination = Path(directory) / "profile.json"
             folder = SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=0)
+            real_lstat = os.lstat
             with patch("feclora.storage.restore_profile.os.geteuid", return_value=0), \
-                 patch("feclora.storage.restore_profile.os.lstat", side_effect=lambda path: folder if str(path) == directory else real_lstat(path)):
+                 patch("feclora.storage.restore_profile.os.lstat",
+                       side_effect=lambda path: folder if str(path) == directory else real_lstat(path)):
                 saved = save_unattended_restore_profile(profile, destination)
                 self.assertEqual(saved, destination)
                 self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
