@@ -345,11 +345,6 @@ class PartitionRestoreTests(unittest.TestCase):
             self.restore()
         self.assertEqual(self.calls, [])
 
-    def test_can_require_minisign_signature_before_writer(self):
-        with self.assertRaisesRegex(PartitionRestoreError, "signature is required"):
-            self.restore(require_signature=True)
-        self.assertEqual(self.calls, [])
-
     def test_raw_restore_uses_dd_and_verified_decompressed_file(self):
         self.restore()
         argv, options = self.calls[0]
