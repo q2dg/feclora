@@ -11,6 +11,17 @@ from feclora.deployment.job import DeploymentJob
 
 
 class WebAPITests(unittest.TestCase):
+    def test_image_manifest_rejects_root_squash_anonymous_ownership(self):
+        import stat
+        from feclora.webapi import _image_manifest
+        # NFS root_squash commonly maps client-created root files to an
+        # anonymous UID. Preserve the root-owned manifest trust boundary.
+        with patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(
+            st_mode=stat.S_IFREG | 0o644, st_uid=65534,
+        )):
+            with self.assertRaisesRegex(WebAPIError, "not a root-owned regular file"):
+                _image_manifest("golden", Path("/mnt/nfs/images"))
+
     def test_rejects_unknown_or_extra_request_fields(self):
         with self.assertRaisesRegex(WebAPIError, "action and optional params"):
             dispatch({"action": "status", "command": "id"})
