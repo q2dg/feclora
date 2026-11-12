@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import ANY, Mock, patch
 
-from feclora.webapi import WebAPIError, dispatch, _device, _server_trusted_clients, _certificate_status, _renew_server_certificate
+from feclora.webapi import WebAPIError, dispatch, _device, _find_inventory_device, _server_trusted_clients, _certificate_status, _renew_server_certificate
 from feclora.deployment.job import DeploymentJob
 
 
@@ -20,6 +20,18 @@ class WebAPITests(unittest.TestCase):
     def test_rejects_parameters_for_read_only_actions(self):
         with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
             dispatch({"action": "status", "params": {"command": "id"}})
+
+    def test_remote_clone_source_lookup_finds_nested_partition(self):
+        inventory = {
+            "devices": [{
+                "path": "/dev/nvme0n1", "type": "disk", "children": [
+                    {"path": "/dev/nvme0n1p1", "type": "part", "read_only": True, "children": []},
+                ],
+            }],
+        }
+        matches = _find_inventory_device(inventory, "/dev/nvme0n1p1", "part")
+        self.assertEqual(len(matches), 1)
+        self.assertTrue(matches[0]["read_only"])
 
     def test_inventory_action_returns_only_inventory(self):
         with patch("feclora.webapi.collect_inventory", return_value={"devices": []}) as inventory:
