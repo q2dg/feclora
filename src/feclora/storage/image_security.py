@@ -1,4 +1,4 @@
-"""Adapters for standard age encryption and minisign manifest signatures.
+"""Adapters for standard age encryption and SHA-256 artifact integrity checks.
 
 This module delegates cryptographic operations to the upstream command-line
 programs. It does not implement cryptographic primitives or key derivation.
@@ -18,7 +18,7 @@ from .image_manifest import ImageArtifact
 
 
 class ImageSecurityError(RuntimeError):
-    """Encryption, decryption, signing, or verification failed."""
+    """Encryption or decryption failed."""
 
 
 def _regular_file(path: str | os.PathLike[str], label: str) -> str:
