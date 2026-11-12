@@ -166,7 +166,7 @@ def _security_material() -> dict[str, bool]:
         "image_signing_available": directory / "server.minisign.key",
         "image_verification_available": directory / "server.pub",
     }
-    result = {}
+    result = {"age_executable_available": bool(shutil.which("age"))}
     for label, path in files.items():
         try:
             info = os.lstat(path)
