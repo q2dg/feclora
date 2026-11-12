@@ -530,7 +530,6 @@ def serve_remote_clone_once(
     tls_context: Any,
     header: CloneSessionHeader,
     *,
-    expected_server_identity: str,
     confirmation: str,
     cancel_check: Callable[[], bool] | None = None,
     accept_poll_interval: float = 0.25,
@@ -579,12 +578,11 @@ def connect_remote_clone(
     port: int,
     tls_context: Any,
     *,
-    local_identity: str,
-    expected_peer_identity: str,
+    expected_server_identity: str,
     confirmation: str,
     **kwargs: Any,
 ) -> CloneVerificationResult:
-    """Connect as the receiver, complete mTLS, and run one destructive clone session."""
+    """Connect as the receiver, validate the Server certificate, and run one clone session."""
     tls_socket = connect_tls(
         tls_context, host, port,
         expected_peer_identity=expected_server_identity,

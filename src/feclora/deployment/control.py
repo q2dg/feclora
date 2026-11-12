@@ -916,12 +916,12 @@ def join_deployment(
                 or any(ord(c) < 32 for c in description)):
             raise DeploymentControlError("local target approval contains an invalid description")
         required_confirmation = (
-            f"ERASE {device_path} FROM {expected_server_identity}"
+            f"ERASE {device_path}"
             if job.operation in {"restore", "clone"}
-            else f"READ {device_path} TO {expected_server_identity}"
+            else f"READ {device_path}"
         )
         if approval.confirmation != required_confirmation:
-            raise DeploymentControlError("local typed target confirmation does not match the selected device and Server")
+            raise DeploymentControlError("local typed target confirmation does not match the selected device")
         ready_message = {
             "type": "ready", "job_id": job.job_id,
             "target_description": description, "locally_authorized": True,
