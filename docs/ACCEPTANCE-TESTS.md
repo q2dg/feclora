@@ -4,7 +4,7 @@ This document is an operator runbook for acceptance testing on disposable
 hardware and independently operated remote-storage services. It does not
 describe new software features and does not make physical testing a
 prerequisite for continuing software development. All SSH/SFTP, NFS, SMB,
-WebDAV and BitTorrent infrastructure is external to Feclora: the operator
+WebDAV and S3 infrastructure is external to Feclora: the operator
 or service owner provisions and administers it. Feclora tests only its client
 connection, authentication, authorization, transfer/mount behavior, integrity
 checks and failure handling. No test step asks Feclora to install or configure
@@ -317,26 +317,3 @@ must not mount, unmount, create, delete or otherwise modify Btrfs objects.
 Mark not run until exercised against a real mounted Btrfs filesystem. This
 inventory does not establish that snapshot capture or restore is supported.
 
-## 7. BitTorrent distribution acceptance
-
-BitTorrent is a first-class artifact-distribution transport at the same priority
-as the other remote transports, not a writable repository provider. This
-procedure applies after a maintained client implementation has been integrated.
-
-1. Publish an immutable test artifact and its manifest through the normal
-   trusted repository workflow; record the expected manifest digest.
-2. Distribute the torrent metadata through an authenticated control channel.
-   Do not treat tracker/peer metadata or successful download completion as
-   authenticity.
-3. Download on disposable Clients, including a run with a disconnected peer
-   and a deliberately incomplete transfer.
-4. Verify the manifest using the configured independent trust mechanism and
-   verify every artifact's exact size and SHA-256 before making it available
-   to a restore job.
-5. Confirm the artifact is bound to the intended authorized job/profile and
-   that an altered manifest, substituted artifact or replayed authorization
-   is rejected before destructive I/O.
-6. Test cancellation, temporary-file cleanup, bandwidth limits, peer/network
-   restrictions, seeding policy and shutdown behavior.
-7. Record client implementation/version, peer topology, transfer result and
-   verification outcome. Mark not run until BitTorrent support is implemented.
