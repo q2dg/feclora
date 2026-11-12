@@ -169,12 +169,11 @@ def _client_runtime_config() -> Any | None:
     return load_client_runtime_config(str(path))
 
 
-def _capture_material() -> tuple[Path | None, Path | None]:
+def _capture_material() -> Path | None:
     pki = Path("/etc/feclora/pki")
     client = _client_runtime_config()
     recipients = Path(client.age_recipients_file) if client and client.age_recipients_file else pki / "age-recipients.txt"
-    signing = Path(client.local_minisign_secret_key) if client and client.local_minisign_secret_key else pki / "server.minisign.key"
-    return recipients, signing
+    return recipients
 
 
 def _security_material() -> dict[str, bool]:
@@ -1258,7 +1257,7 @@ def _revoke_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
 
 def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish", "encrypt_passphrase", "age_passphrase"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish", "encrypt_passphrase", "age_passphrase"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
@@ -1310,18 +1309,10 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         port = params.get("port", 22)
         if host.endswith(".") or ".." in host or isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
             raise WebAPIError("SFTP fetch endpoint or port is invalid")
-        client_config = _client_runtime_config()
-        public_key = Path(client_config.trusted_server_public_key) if client_config and client_config.trusted_server_public_key else Path("/etc/feclora/pki/server.pub")
-        try:
-            info = os.lstat(public_key)
-        except OSError as exc:
-            raise WebAPIError("trusted Feclora image-signing public key is unavailable") from exc
-        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
-            raise WebAPIError("trusted Feclora image-signing public key has unsafe ownership or permissions")
         from feclora.storage.sftp_image_set import fetch_image_set
         result = fetch_image_set(
             remote_directory=remote_directory, destination_root=_repository(create=True),
-            public_key=public_key, host=host, username=username,
+            host=host, username=username,
             identity_credential=identity, known_hosts_credential=known_hosts,
             port=port, progress_callback=_progress,
         )
@@ -1337,9 +1328,9 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         source = _device(params["source"], "source")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         compression = _text(params, "compression", pattern=r"(?:none|gzip|xz|zstd|lz4)")
-        encrypt, sign = params["encrypt"], params["sign"]
-        if not isinstance(encrypt, bool) or not isinstance(sign, bool):
-            raise WebAPIError("encrypt and sign must be boolean values")
+        encrypt = params["encrypt"]
+        if not isinstance(encrypt, bool):
+            raise WebAPIError("encrypt must be a boolean value")
         symmetric = params.get("encrypt_passphrase", False)
         if not isinstance(symmetric, bool) or (symmetric and not encrypt):
             raise WebAPIError("encrypt_passphrase must be boolean and requires encrypt=true")
@@ -1350,9 +1341,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 raise WebAPIError("age executable is required for passphrase encryption")
         elif encrypt and not security["age_encryption_available"]:
             raise WebAPIError("initialize Feclora age recipient keys before enabling recipient encryption")
-        if sign and not security["image_signing_available"]:
-            raise WebAPIError("initialize Feclora security keys before enabling image signatures")
-        recipients_file, signing_key = _capture_material()
+        recipients_file = _capture_material()
         passphrase = params.get("age_passphrase")
         if symmetric and not isinstance(passphrase, str):
             raise WebAPIError("the one-shot capture passphrase was not delivered to the worker")
@@ -1363,12 +1352,9 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             progress_callback=_progress,
             age_recipients_file=recipients_file if encrypt and not symmetric else None,
             age_passphrase=passphrase if symmetric else None,
-            minisign_secret_key=signing_key if sign else None,
         )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
         if "sftp_publish" in params:
-            if not sign:
-                raise WebAPIError("SFTP post-capture publication requires a signed image manifest")
             result["sftp_publication"] = _publish_captured_image_to_sftp(
                 manifest.image_id, _operation_repository(params, write=True), params["sftp_publish"],
                 progress_callback=_progress,
@@ -1446,7 +1432,6 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             raise WebAPIError("selected image manifest identifier does not match its repository name")
         if manifest.image_type != "disk":
             raise WebAPIError("partition extraction requires a whole-disk image")
-        signed = os.path.isfile(str(manifest_path) + ".minisig")
         encrypted = any(item.encryption == "age" for item in manifest.artifacts)
         security = _security_material()
         pki = Path("/etc/feclora/pki")
