@@ -2,7 +2,7 @@
 
 Private keys are never generated, imported, or transmitted by this module.
 An operator provisions certificates through an external CA and imports only
-the public Client certificate plus its optional minisign public key.
+the public Client certificate.
 """
 from __future__ import annotations
 
@@ -130,7 +130,6 @@ def enroll_client_certificate(
     certificate_path: str,
     mac_address: str,
     *,
-    minisign_public_key: str | None = None,
     confirmation: str,
 ) -> str:
     """Enroll or rotate one Client identity after CA and explicit operator checks."""
@@ -146,35 +145,23 @@ def enroll_client_certificate(
         raise EnrollmentError("Client certificate SAN identity is not supported by the deployment configuration")
     if confirmation != f"ENROLL {identity} {mac}":
         raise EnrollmentError("enrollment confirmation does not match")
-    if minisign_public_key is not None:
-        _secure_regular_file(minisign_public_key, "Client minisign public key")
     identities = dict(config["client_identity_to_mac"])
-    keys = dict(config["client_minisign_public_keys"])
     existing_for_mac = [item for item, enrolled_mac in identities.items() if enrolled_mac.lower() == mac]
     if identity in identities and identities[identity].lower() != mac:
         raise EnrollmentError("certificate identity is already enrolled for a different MAC")
-    # Preserve an existing image-signing key across TLS certificate renewal.
-    existing_signing_key = keys.get(mac) if identity in existing_for_mac else None
     # Re-enrolling the same MAC rotates its certificate identity atomically.
     for old_identity in existing_for_mac:
         remove_age_recipient(os.path.dirname(config["ca_file"]), old_identity)
         del identities[old_identity]
     identities[identity] = mac
-    if minisign_public_key is not None:
-        keys[mac] = minisign_public_key
-    elif existing_signing_key is not None:
-        keys[mac] = existing_signing_key
-    else:
-        keys.pop(mac, None)
     config["client_identity_to_mac"] = identities
-    config["client_minisign_public_keys"] = keys
     _write_config_atomically(config_path, config)
     load_server_runtime_config(config_path)
     return identity
 
 
 def revoke_client_certificate(config_path: str, identity: str, *, confirmation: str) -> str:
-    """Remove one Client identity and its optional image-signing trust key."""
+    """Remove one Client identity."""
     config = _load_config(config_path)
     if identity not in config["client_identity_to_mac"]:
         raise EnrollmentError("Client certificate identity is not enrolled")
@@ -182,7 +169,6 @@ def revoke_client_certificate(config_path: str, identity: str, *, confirmation: 
         raise EnrollmentError("revocation confirmation does not match")
     remove_age_recipient(os.path.dirname(config["ca_file"]), identity)
     mac = config["client_identity_to_mac"].pop(identity).lower()
-    config["client_minisign_public_keys"].pop(mac, None)
     _write_config_atomically(config_path, config)
     load_server_runtime_config(config_path)
     return mac
