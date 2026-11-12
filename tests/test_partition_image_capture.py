@@ -120,6 +120,7 @@ class PartitionImageCaptureTests(unittest.TestCase):
                 "uuid": "01234567-89ab-cdef-0123-456789abcdef",
                 "total_devices": 1, "devices": [{"path": "/dev/fake1"}],
             }]}
+            inventory["btrfs_subvolumes"] = {"status": "available", "mounts": []}
             manifest = capture_partition_image(
                 "/dev/fake1", "btrfs-backup", "fake1", directory,
                 executables={
