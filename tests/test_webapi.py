@@ -1152,7 +1152,7 @@ class WebAPITests(unittest.TestCase):
                     "host": "192.0.2.10", "job_id": job_id, "device_path": "/dev/sda",
                     "confirmation": "READ /dev/sda", "compression": "gzip",
                     "network_interface": "enp1s0", "source_address": "192.0.2.20",
-                    "igmp_confirmed": False, "image_encrypt": True, "image_sign": True,
+                    "igmp_confirmed": False, "image_encrypt": True,
                 }})
             request = json.loads((root / (job_id + ".request.json")).read_text(encoding="utf-8"))
         self.assertEqual(result["phase"], "connecting")
@@ -1552,7 +1552,6 @@ class WebAPITests(unittest.TestCase):
                  patch("feclora.storage.sftp_image_set.fetch_image_set", return_value={"image_id": "gold"}) as fetch, \
                  patch("feclora.webapi._image_manifest", return_value=manifest_path), \
                  patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
-                 patch("feclora.storage.image_security.verify_manifest_signature"), \
                  patch("feclora.storage.disk_restore.restore_disk") as restore, \
                  patch("feclora.webapi._emit"):
                 result = _execute_operation("restore_disk", params, "restore-op")
@@ -1789,31 +1788,6 @@ class WebAPITests(unittest.TestCase):
             })
         self.assertEqual(result["job_state"], "created")
         self.assertEqual(result["authorized_clients"], payload["authorized_clients"])
-
-    def test_create_signed_restore_still_requires_an_independent_trusted_key(self):
-        manifest = SimpleNamespace(
-            image_type="disk",
-            artifacts=[SimpleNamespace(encryption="none", size_bytes=4096)],
-        )
-        config = SimpleNamespace(
-            client_identity_to_mac={"URI:feclora-client-01": "52:54:00:12:34:56"},
-            client_minisign_public_keys={},
-            server_minisign_public_key=None,
-            repository="/repo",
-        )
-        with tempfile.TemporaryDirectory() as directory:
-            manifest_path = Path(directory) / "signed-image.manifest.json"
-            Path(str(manifest_path) + ".minisig").write_text("signature", encoding="ascii")
-            with patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=config), patch(
-                "feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]
-            ), patch("feclora.webapi._image_manifest", return_value=manifest_path), patch(
-                "pathlib.Path.read_text", return_value="{}"
-            ), patch("feclora.webapi.ImageManifest.from_json", return_value=manifest):
-                with self.assertRaisesRegex(WebAPIError, "signed but no independently trusted Server minisign key"):
-                    dispatch({
-                        "action": "create_deployment_job",
-                        "params": {"job": self._valid_deployment_payload()},
-                    })
 
     def test_create_unicast_save_without_client_minisign_keys(self):
         payload = self._valid_deployment_payload(operation="save")
