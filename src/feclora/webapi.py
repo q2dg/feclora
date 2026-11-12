@@ -2308,12 +2308,12 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(compression, str) or compression not in {"none", "gzip", "xz"}:
         raise WebAPIError("compression must be none, gzip or xz")
     expected_confirmation = (
-        f"ERASE {device_path} FROM {inspection['server_identity']}"
+        f"ERASE {device_path}"
         if job["operation"] == "restore"
-        else f"READ {device_path} TO {inspection['server_identity']}"
+        else f"READ {device_path}"
     )
     if confirmation != expected_confirmation:
-        raise WebAPIError("local typed confirmation does not match the selected device and authenticated Server")
+        raise WebAPIError("local typed confirmation does not match the selected device")
     from feclora.storage.inventory import collect_inventory
     inventory = collect_inventory()
     matches = []
