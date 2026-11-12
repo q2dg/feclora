@@ -1491,7 +1491,7 @@ def _approve_client_csr(params: dict[str, Any]) -> dict[str, Any]:
 
 def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish", "encrypt_passphrase", "age_passphrase"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
@@ -1515,6 +1515,11 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         accepted_params = (allowed_params, allowed_params - {"repository_id"},
                            allowed_params - {"sftp_publish"},
                            allowed_params - {"repository_id", "sftp_publish"})
+    if action == "capture_disk":
+        accepted_params = accepted_params + tuple(item - {"age_passphrase"} for item in accepted_params)
+        accepted_params = accepted_params + tuple(
+            item - {"age_passphrase", "encrypt_passphrase"} for item in accepted_params
+        )
     if (set(params) not in accepted_params and not (action in {"sftp_inventory", "sftp_fetch", "sftp_publish"} and set(params) == allowed_params - {"port"})) or ("sftp_source" in params and "repository_id" in params):
         raise WebAPIError("operation parameters do not match the selected operation")
     started = time.monotonic()
@@ -1568,16 +1573,29 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         encrypt, sign = params["encrypt"], params["sign"]
         if not isinstance(encrypt, bool) or not isinstance(sign, bool):
             raise WebAPIError("encrypt and sign must be boolean values")
+        symmetric = params.get("encrypt_passphrase", False)
+        if not isinstance(symmetric, bool) or (symmetric and not encrypt):
+            raise WebAPIError("encrypt_passphrase must be boolean and requires encrypt=true")
         security = _security_material()
-        if encrypt and not security["age_encryption_available"]:
-            raise WebAPIError("initialize Feclora security keys before enabling age encryption")
+        if encrypt and symmetric:
+            import shutil
+            if not shutil.which("age"):
+                raise WebAPIError("age executable is required for passphrase encryption")
+        elif encrypt and not security["age_encryption_available"]:
+            raise WebAPIError("initialize Feclora age recipient keys before enabling recipient encryption")
         if sign and not security["image_signing_available"]:
             raise WebAPIError("initialize Feclora security keys before enabling image signatures")
         recipients_file, signing_key = _capture_material()
+        passphrase = params.get("age_passphrase")
+        if symmetric and not isinstance(passphrase, str):
+            raise WebAPIError("the one-shot capture passphrase was not delivered to the worker")
+        if not symmetric and passphrase is not None:
+            raise WebAPIError("unexpected passphrase for recipient-based encryption")
         manifest = capture_disk(
             source, image_id, _operation_repository(params, write=True, create_local=True), compression=compression,
             progress_callback=_progress,
-            age_recipients_file=recipients_file if encrypt else None,
+            age_recipients_file=recipients_file if encrypt and not symmetric else None,
+            age_passphrase=passphrase if symmetric else None,
             minisign_secret_key=signing_key if sign else None,
         )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
@@ -1960,6 +1978,29 @@ def _submit_local_operation(params: dict[str, Any]) -> dict[str, Any]:
             pass
         raise WebAPIError(f"local operation was persisted but its worker could not be started: {message}")
     return {"operation_id": operation_id, "state": "queued", "unit": unit}
+
+
+def _provide_capture_passphrase(params: dict[str, Any]) -> dict[str, Any]:
+    if set(params) != {"operation_id", "passphrase"}:
+        raise WebAPIError("provide_capture_passphrase requires operation_id and passphrase")
+    operation_id = params["operation_id"]
+    if not isinstance(operation_id, str):
+        raise WebAPIError("operation_id must be a UUID")
+    try:
+        store = _local_operation_store()
+        definition = store.definition(operation_id)
+        report = store.status(operation_id)
+        if (definition["action"] != "capture_disk"
+                or not definition["params"].get("encrypt_passphrase")
+                or report["state"] not in {"queued", "preflight", "running"}):
+            raise WebAPIError("operation is not awaiting a passphrase-encrypted disk capture")
+        from feclora.storage.capture_passphrase import provide
+        provide(operation_id, params["passphrase"])
+        return {"operation_id": operation_id, "provided": True}
+    except WebAPIError:
+        raise
+    except Exception as exc:
+        raise WebAPIError(f"cannot deliver one-shot capture passphrase: {exc}") from exc
 
 
 def _cancel_local_operation(params: dict[str, Any]) -> dict[str, Any]:
@@ -3129,6 +3170,8 @@ def dispatch(request: Any) -> dict[str, Any]:
              "progress": item["progress"]}
             for item in reports
         ]}
+    if action == "provide_capture_passphrase":
+        return _provide_capture_passphrase(params)
     if action == "submit_local_operation":
         return _submit_local_operation(params)
     if action == "local_operation_status":
