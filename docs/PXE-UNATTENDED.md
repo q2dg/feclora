@@ -12,8 +12,7 @@ the normal Feclora Cockpit interface. The answer-specific unattended entry first
 a loopback admission service behind Caddy. Only an admitted MAC can retrieve
 the job-specific boot script, which boots the same payload and passes the job
 UUID plus the single answer URL as kernel parameters. A conditional Live
-systemd service downloads and validates the JSON; for NFS answers it then
-runs the connected whole-disk restore path.
+systemd service downloads and validates the JSON; it then runs the connected whole-disk restore path using either a read-only NFS mount or a verified HTTPS object-set staging directory.
 
 There is no per-client USB, identity medium, certificate, private key,
 enrollment bundle or manual identity provisioning in this model. The PXE
@@ -31,8 +30,9 @@ admission endpoint, not through Caddy's static file server.
 
 The PXE Server does not host or copy the image repository. It serves the Live
 boot assets and the answer JSON. Credentials are not embedded in repository
-URLs or the answer document; `credential_ref` is an opaque reference to
-credentials managed separately by Feclora.
+URLs or the answer document. The identity-free Live client currently supports
+NFS and credential-free HTTPS only; `credential_ref` is rejected until a
+secure client-side credential provisioning flow exists.
 
 ## Answer document, version 1
 
@@ -99,7 +99,7 @@ Feclora does not sign image manifests or use detached signature sidecars. Artifa
 
 ## Provider support status
 
-The answer schema accepts URL schemes for SSHFS, SMB/CIFS, NFS and HTTP(S). Only NFS is currently connected to PXE restore execution; the other schemes fail closed until their Live provider adapters exist. Current repository support and limitations are tracked in `REMOTE-REPOSITORIES.md`.
+The answer schema accepts URL schemes for SSHFS, SMB/CIFS, NFS, HTTP(S) and S3. PXE restore currently connects NFS and credential-free HTTPS. HTTPS uses the same object-key layout as Feclora's S3 adapter: `<prefix>/<image_id>.manifest.json` and `<prefix>/<image_id>/<artifact filename>`. TLS certificate validation is enabled, redirects are rejected, and every artifact is size/SHA-256 verified before restore. A public S3 bucket or HTTPS object gateway can therefore be used through its HTTPS base prefix. Private S3, `s3://`, SSHFS and SMB/CIFS remain unavailable until a secure Live credential handoff is implemented; `credential_ref` fails closed. HTTP repository downloads are not accepted. Current repository support and limitations are tracked in `REMOTE-REPOSITORIES.md`.
 
 ## Current status and acceptance
 
@@ -112,7 +112,7 @@ The answer schema accepts URL schemes for SSHFS, SMB/CIFS, NFS and HTTP(S). Only
       validated JSON in the root-only Live runtime directory.
 - [x] Connect the NFS repository adapter, unique WWN/serial target resolution,
       pre-write identity revalidation and existing whole-disk restore engine.
-- [ ] Add SSHFS, SMB/CIFS, HTTP(S) and S3 provider adapters plus credential_ref resolution.
+- [x] Add a credential-free HTTPS object-set adapter with verified TLS, redirect rejection, bounded manifest/artifact downloads and SHA-256/size verification; it supports public or externally pre-authorized S3-compatible object prefixes.
 - [x] Add one Cockpit JSON answer-file upload control; the repository URL is
       taken directly from the JSON document.
 - [x] Validate and atomically publish/revoke job-scoped JSON files through Caddy.
@@ -122,16 +122,11 @@ The answer schema accepts URL schemes for SSHFS, SMB/CIFS, NFS and HTTP(S). Only
 - [x] Connect NFS URL to a read-only Live mount for whole-disk restore.
 - [x] Support age symmetric decryption with one-shot Cockpit passphrase handoff on the Live client.
 - [x] Support symmetric age passphrase encryption for whole-disk capture through Cockpit; partition and logical-volume capture remain recipient-based.
-- [ ] Connect remaining repository URL schemes to provider and credential facilities.
+- [ ] Design and implement a secure, host-independent Live credential provisioning and one-shot consumption flow before enabling private S3, SSHFS or SMB/CIFS. Never copy Server-bound systemd-creds blobs to Clients.
 - [x] Implement exact whole-disk target resolution, pre-write revalidation and
       execution through the existing verified whole-disk restore engine for NFS.
-- [ ] Add other repository providers and lifecycle support.
+- [ ] Add private S3, SSHFS and SMB/CIFS adapters only after the Live credential flow is implemented and tested; keep unsupported schemes fail-closed.
 - [x] Use the operator-selected HTTP trust assumption; no cryptographic integrity mechanism is provided.
-- [ ] Validate BIOS and UEFI PXE boot, Caddy publication/revocation, wrong or
-      tampered answer files, wrong age passphrase, repository outage, ambiguous
-      targets, target swaps, interruption and real restore hardware.
+- [ ] Add automated tests for tampered answers, wrong age passphrase, HTTPS redirect/size/checksum failures, repository errors, ambiguous targets, target swaps and interrupted staging/restore. BIOS/UEFI boot, Caddy against real networks and physical restore are optional operator acceptance, not software completion gates.
 
-The NFS whole-disk software path, age passphrase handoff and MAC-based PXE
-admission gate are connected and covered by automated tests. The complete path
-has not yet been accepted on BIOS/UEFI PXE hardware; no production-ready
-end-to-end claim is made.
+The NFS and credential-free HTTPS whole-disk software paths, age passphrase handoff and MAC-based PXE admission gate are connected. Automated software tests are the release gate; BIOS/UEFI PXE boot and physical restore remain optional operator acceptance.
