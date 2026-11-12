@@ -71,7 +71,7 @@ def publish_pxe_answer(
     answer["expires_at"] = (
         datetime.now(timezone.utc) + timedelta(hours=24)
     ).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
-    raw_answer = (json.dumps(answer, sort_keys=True, separators=(",", ":")) + "\\n").encode("utf-8")
+    raw_answer = (json.dumps(answer, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
 
     answers = root / "answers"
     answers.mkdir(mode=0o755, exist_ok=True)
