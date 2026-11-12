@@ -55,7 +55,7 @@ def _validate_manifest_filenames(manifest: ImageManifest) -> None:
     # image-set commit markers. An artifact must never occupy another image's
     # marker namespace, even when the remote SFTP directory itself is separate.
     reserved = re.compile(
-        r"(?:manifest\.json(?:\.minisig)?|"
+        r"(?:manifest\.json|"
         r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.manifest\.json)"
     )
     if any(reserved.fullmatch(item.filename) for item in manifest.artifacts):
