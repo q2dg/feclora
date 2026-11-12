@@ -9,27 +9,7 @@ smaller destination is rejected. The logical sector size must match.
 
 Before starting the writer it:
 
-1. requires the caller's exact confirmation string, `ERASE /dev/DEVICE`;
-2. validates the manifest and requires a whole-disk image;
-3. checks the target is a writable whole disk, at least as large as the source,
-   with the same logical sector size;
-4. rejects mounted target trees and disks backing the running Live root;
-5. opens the artifact without following symlinks and verifies its stored byte
-   count and SHA-256 against the manifest (for age images this is the ciphertext);
-6. if a detached signature is present, verifies it with an independently
-   trusted minisign public key; a signed image cannot be restored without
-   successful verification;
-7. if the artifact is age-encrypted, decrypts and authenticates it into private
-   local staging, then fully decompresses the authenticated stream before
-   touching the target;
-8. repeats target identity and safety checks immediately before starting
-   `dd`;
-9. hashes the bytes sent to the writer, then reads the restored source-sized
-   byte range back from the destination with `dd` and compares byte count and
-   SHA-256;
-10. when the destination is larger and the source partition table is GPT,
-   relocates the backup GPT header to the physical end of the destination
-   with `sgdisk -e` and validates the table with `sgdisk -v`.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 The additional destination capacity is left unallocated. feclora does not
 silently resize partitions or filesystems during a raw whole-disk restore.
@@ -43,22 +23,13 @@ overwritten target. Read-back verification runs after a successful write.
 Capture/restore operation events are persisted in the append-only operation
 journal.
 
-**Destructive boundary:** once `dd` starts, a hardware or power failure can
-leave the target partially overwritten. SHA-256 detects accidental corruption;
-it does not authenticate who created the manifest. A detached signature verified with an independently trusted minisign public key
-establishes publisher authenticity. Age encryption provides confidentiality
-and ciphertext authentication, but does not identify the publisher.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 Tests use mocked device I/O. No VM or hardware restore has been validated.
 Never test against a disk containing needed data.
 
 Illustrations may be real screenshots from a version-matched build or clearly labeled mockups. A mockup is not evidence of runtime acceptance; see the [screenshot and mockup policy](assets/screenshots/README.md).
 
-
 Age decryption staging uses the local system temporary filesystem, not the source repository, so a read-only remote repository can be used. Ensure the local temporary filesystem has enough free space for the decrypted artifact.
 
-`age` encryption and `minisign` signatures are optional integrations. A missing
-age executable must not block restoration of unencrypted images. A missing
-minisign executable must not block unsigned/local baseline restores; if an
-image carries a signature, the verifier and an independently trusted public
-key are mandatory and failure blocks restoration before the first write. SHA-256 alone is not publisher authentication.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
