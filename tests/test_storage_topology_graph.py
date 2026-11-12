@@ -162,6 +162,7 @@ class StorageTopologyGraphTests(unittest.TestCase):
         snapshot = next(node for node in graph["nodes"] if node["id"] == "btrfs-subvolume:subvol-2")
         self.assertTrue(snapshot["readonly"])
         self.assertEqual(snapshot["bytes_used"], 4096)
+        self.assertEqual(snapshot["snapshot_parent_subvolume_id"], 256)
 
     def test_joins_stratis_pool_filesystem_mapper_and_backing_device(self):
         graph = build_storage_graph({
