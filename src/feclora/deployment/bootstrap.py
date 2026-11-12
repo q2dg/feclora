@@ -59,12 +59,10 @@ def ensure_server_deployment_config(
     repository: str = "/var/lib/feclora/images",
     runner: Callable[..., Any] | None = None,
     openssl: str = "/usr/bin/openssl",
-    minisign: str | None = None,
 ) -> bool:
-    """Create TLS configuration and any available optional image-security keys.
+    """Create TLS configuration and optional age encryption material.
 
-    age and minisign are opportunistic integrations, not TLS bootstrap
-    requirements. Existing operator-managed configuration is never rewritten.
+    Existing operator-managed configuration is never rewritten.
     """
     if os.geteuid() != 0:
         raise BootstrapError("Server deployment bootstrap requires root")
@@ -81,8 +79,7 @@ def ensure_server_deployment_config(
             raise BootstrapError("existing Server deployment config must be root-owned mode 0600")
         return False
     pki = initialize_server_pki(pki_directory, runner=runner, openssl=openssl)
-    # age and minisign are optional image-security integrations. TLS/PKI
-    # bootstrap must work when either executable is absent.
+    # Age encryption is optional; TLS/PKI bootstrap does not depend on it.
     age_identity = os.path.join(pki_directory, "server.age")
     age_recipients = os.path.join(pki_directory, "age-recipients.txt")
     age_keygen = shutil.which("age-keygen")
@@ -113,29 +110,6 @@ def ensure_server_deployment_config(
         if not stat.S_ISREG(recipients_info.st_mode) or recipients_info.st_uid != 0 or recipients_info.st_mode & 0o077:
             raise BootstrapError("Server age recipient inventory must be root-owned and private")
 
-    signing_secret = os.path.join(pki_directory, "server.minisign.key")
-    signing_public = os.path.join(pki_directory, "server.pub")
-    if os.path.exists(signing_secret) != os.path.exists(signing_public):
-        raise BootstrapError("partial minisign keypair exists; refusing to overwrite it")
-    minisign_executable = minisign or shutil.which("minisign")
-    if not os.path.exists(signing_secret) and minisign_executable:
-        execute = runner or subprocess.run
-        try:
-            result = execute([minisign_executable, "-G", "-s", signing_secret, "-p", signing_public, "-W"], stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=60)
-        except (OSError, subprocess.SubprocessError) as exc:
-            raise BootstrapError(f"could not generate optional Server image-signing key: {exc}") from exc
-        if result.returncode != 0:
-            detail = (result.stderr or result.stdout or "").strip()[:512]
-            raise BootstrapError("optional minisign key generation failed" + (f": {detail}" if detail else ""))
-        os.chmod(signing_secret, 0o600)
-        os.chmod(signing_public, 0o644)
-    if os.path.exists(signing_secret):
-        for key_path in (signing_secret, signing_public):
-            info = os.lstat(key_path)
-            if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
-                raise BootstrapError("Server minisign key files must be root-owned regular files")
-        if os.stat(signing_secret).st_mode & 0o077:
-            raise BootstrapError("Server minisign secret key must be mode 0600 or stricter")
     _ensure_directory(repository, 0o700)
     config = {
         "schema_version": 1,
@@ -145,8 +119,6 @@ def ensure_server_deployment_config(
         "ca_file": pki["ca_file"],
         "certificate_file": pki["server_certificate"],
         "private_key_file": pki["server_key"],
-        "client_minisign_public_keys": {},
-        "server_minisign_public_key": signing_public if os.path.exists(signing_public) else None,
         "repository": repository,
     }
     _write_json(config_path, config)
