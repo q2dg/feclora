@@ -216,7 +216,7 @@ Acceptance: inventory accurately identifies VG/LV, Btrfs snapshots and LUKS laye
 ## P1 — GitHub Pages guides
 Publish task-oriented guides only when the exact workflow is implemented; mark future workflows as planned.
 1. [x] Local disk-to-disk clone ([published guide](GUIDE-LOCAL-DISK-CLONE.md)).
-2. [x] Remote disk-to-disk clone ([operational guide](REMOTE-DISK-CLONE.md)).
+2. [x] Remote disk-to-disk and partition-to-partition clone ([operational guide](REMOTE-DISK-CLONE.md)).
 3. [ ] Capture disk image to remote SSHFS repository.
 4. [ ] Restore image from SSHFS to one disk.
 5. [ ] Restore image to multiple remote clients.
