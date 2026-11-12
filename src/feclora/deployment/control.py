@@ -575,7 +575,10 @@ class DeploymentControlServer:
                 expected_image_id=self.coordinator.job.image_id,
             )
             if on_received is not None:
-                on_received(manifest_path)
+                try:
+                    on_received(manifest_path)
+                except Exception as exc:
+                    raise DeploymentControlError(f"received image could not be committed to its destination repository: {exc}") from exc
             return manifest_path
         except (ImageTransferError, OSError, DeploymentControlError) as exc:
             self._record_transfer_failure(mac_address, f"saved image transfer failed: {exc}")
