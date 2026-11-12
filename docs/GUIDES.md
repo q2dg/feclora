@@ -12,20 +12,7 @@ operator tasks; see [the feature matrix](FEATURE-MATRIX.html).
 
 ## Local imaging and recovery
 
-- [Whole-disk capture](WHOLE-DISK-CAPTURE.html) — **Implemented in Cockpit**.
-- [Partition capture](PARTITION-CAPTURE.html) — **Implemented in Cockpit**;
-  includes supported filesystem-aware/raw capture and storage provenance.
-- [Whole-disk restore](WHOLE-DISK-RESTORE.html) and
-  [partition restore](PARTITION-RESTORE.html) — **Implemented in Cockpit**.
-- [Image encryption and signatures](IMAGE-ENCRYPTION.html) — optional age
-  encryption and minisign signatures; neither is mandatory for ordinary
-  local imaging.
-- [Local disk-to-disk cloning](GUIDE-LOCAL-DISK-CLONE.html) — **Implemented
-  in Cockpit**.
-- [Partition extraction](PARTITION-EXTRACTION.html) — **Implemented in
-  Cockpit**; creates a separate partition image from a verified disk image.
-- **Local partition-to-partition cloning** — **Implemented in Cockpit**;
-  operator acceptance remains separate.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 ## Storage-layer images
 
