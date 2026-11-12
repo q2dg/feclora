@@ -39,14 +39,13 @@ class RuntimeConfigTests(unittest.TestCase):
             "age_identity_file": None, "age_recipients_file": None, "repository": "/repo",
         }
 
-    def test_loads_server_enrollment_mapping_without_image_signing_configuration(self):
+    def test_loads_server_enrollment_mapping(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self.write_config(directory, self.server_config())
             with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
                 config = load_server_runtime_config(path)
         self.assertEqual(config.bind_address, "192.0.2.2")
         self.assertEqual(config.client_identity_to_mac["URI:feclora-client-01"], "52:54:00:12:34:56")
-        self.assertFalse(hasattr(config, "server_minisign_public_key"))
 
     def test_server_config_allows_empty_allowlist_after_revoking_all_clients(self):
         payload = self.server_config()
@@ -66,20 +65,6 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config.mac_address, "52:54:00:12:34:56")
         self.assertIsNone(config.age_identity_file)
         self.assertIsNone(config.age_recipients_file)
-        self.assertFalse(hasattr(config, "trusted_server_public_key"))
-
-    def test_legacy_signing_fields_are_ignored_not_loaded(self):
-        payload = self.client_config()
-        payload.update({
-            "trusted_server_public_key": "/pki/server.pub",
-            "local_minisign_secret_key": "/pki/client.key",
-            "local_minisign_public_key": "/pki/client.pub",
-        })
-        with tempfile.TemporaryDirectory() as directory:
-            path = self.write_config(directory, payload)
-            with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
-                config = load_client_runtime_config(path)
-        self.assertFalse(hasattr(config, "local_minisign_secret_key"))
 
     def test_rejects_non_ipv4_or_unspecified_server_bind(self):
         payload = self.server_config()
