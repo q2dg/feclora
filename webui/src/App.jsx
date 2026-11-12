@@ -815,7 +815,7 @@ export default function App() {
       setPxeAgePassphrase("");
       setNotice(result.message);
     } catch (err) { setError(err?.message || String(err)); }
-    finally { setBusy(false); }
+    finally { setPxeAgePassphrase(""); setBusy(false); }
   };
 
   const revokePXEAnswer = async () => {
