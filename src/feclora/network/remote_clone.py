@@ -1,4 +1,4 @@
-"""One-to-one remote whole-disk cloning over a pre-established mutual-TLS socket.
+"""One-to-one remote disk or partition cloning over a pre-established TLS socket.
 
 The caller is responsible for creating the TLS socket with
 create_tls_context(), completing the handshake, and supplying the
