@@ -15,7 +15,7 @@ import uuid
 from pathlib import Path
 
 from feclora.storage.image_manifest import ImageArtifact, ImageManifest
-from feclora.storage.s3_repository import S3ObjectRepository, S3RepositoryConfig
+from feclora.storage.s3_repository import S3ObjectRepository, S3RepositoryConfig, S3RepositoryError
 
 
 _REQUIRED = (
@@ -45,7 +45,10 @@ class LiveS3CompatibilityTests(unittest.TestCase):
             secret_access_key=os.environ["FECLORA_S3_TEST_SECRET_ACCESS_KEY"],
         )
         repository = S3ObjectRepository(config)
-        keys = []
+        keys = [
+            repository._artifact_key(image_id, image_id + ".raw"),
+            repository._manifest_key(image_id),
+        ]
         try:
             self.assertTrue(repository.check_connection()["bucket_accessible"])
             with tempfile.TemporaryDirectory(prefix="feclora-s3-live-test-") as temporary:
@@ -73,11 +76,7 @@ class LiveS3CompatibilityTests(unittest.TestCase):
                 downloaded = root / "downloaded"
                 repository.download_image_set(image_id, downloaded)
                 self.assertEqual((downloaded / filename).read_bytes(), payload)
-                keys = [
-                    repository._artifact_key(image_id, filename),
-                    repository._manifest_key(image_id),
-                ]
-                with self.assertRaises(Exception):
+                with self.assertRaises(S3RepositoryError):
                     repository.upload_image_set(root, image_id)
         finally:
             for key in keys:
