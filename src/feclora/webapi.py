@@ -450,6 +450,14 @@ def _initialize_security() -> dict[str, Any]:
 
 
 def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
+    if repository_id is not None:
+        from feclora.storage.s3_repository_manager import S3RepositoryManager
+        manager = S3RepositoryManager()
+        if any(item["id"] == repository_id for item in manager.list()):
+            try:
+                return manager.repository(repository_id).list_images()
+            except Exception as exc:
+                raise WebAPIError(f"S3 image inventory failed: {exc}") from exc
     path = _operation_repository({"repository_id": repository_id}, write=False) if repository_id else _repository()
     if not path.exists():
         return []
