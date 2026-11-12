@@ -24,17 +24,17 @@ description: Fedora-based disk imaging, cloning and recovery.
       <article class="feature">
         <span class="feature-number">01</span>
         <h3>Capture & restore</h3>
-        <p>Create and restore whole-disk or partition images with manifests, SHA-256 verification and optional encryption.</p>
+        <p>Create and restore whole-disk, partition and eligible logical-volume images with manifests, integrity verification and optional encryption.</p>
       </article>
       <article class="feature">
         <span class="feature-number">02</span>
         <h3>Clone</h3>
-        <p>Copy disks or partitions directly, with explicit target checks and destructive-operation confirmation.</p>
+        <p>Clone whole disks and partitions locally; authenticated remote whole-disk cloning is implemented, with remote partition cloning still pending.</p>
       </article>
       <article class="feature">
         <span class="feature-number">03</span>
         <h3>Deploy over a network</h3>
-        <p>Server/Client deployment engines, PXE/iPXE boot and multicast restore foundations for managed environments.</p>
+        <p>Authenticated Server/Client deployment, unicast transfer, UDPcast multicast restore and PXE/iPXE Live boot and an initial NFS-backed unattended answer workflow.</p>
       </article>
     </div>
   </section>
@@ -43,7 +43,7 @@ description: Fedora-based disk imaging, cloning and recovery.
     <div>
       <p class="eyebrow">PROJECT STATUS</p>
       <h2 id="status-title">Implemented in stages. Not yet lab-certified.</h2>
-      <p>Cockpit currently guides local whole-disk, partition and eligible LVM capture; disk/partition restore and clone; Server/Client enrollment and authenticated deployment jobs; Client target approval; deployment service lifecycle; and PXE preflight/activation. Direct whole-disk Server-to-Client cloning is implemented in source and Cockpit, while remote partition cloning and complete Server-side transfer telemetry remain open. PXE can publish/revoke a non-secret job-bound handoff script during a Server restore job, but the Client does not yet automatically authenticate and execute it. Remote repository providers remain partial and unattended fleet/PXE restore is not end-to-end.</p>
+      <p>The Cockpit application exposes local whole-disk, partition and eligible LVM capture/restore, disk and partition cloning, storage and image inventories, and durable local-operation status. Authenticated Server/Client workflows include enrollment, deployment jobs, unicast image transfer, multicast restore and direct remote whole-disk cloning. PXE/iPXE supports interactive Live boot and an initial unattended answer-file path: the Server publishes a validated answer, Live downloads and validates it, and NFS-backed whole-disk restore uses the existing guarded restore engine. This unattended path is not yet a complete fleet solution. Remote partition cloning, complete provider coverage (including WebDAV and BitTorrent), Btrfs snapshot-consistent and multi-device imaging, cross-reboot unattended-answer replay/expiry protection, richer transfer telemetry and end-to-end physical acceptance remain outstanding. Source implementation and automated tests do not establish ISO boot, firmware, hardware, provider or network-lab acceptance.</p>
     </div>
     <a class="text-link" href="./ROADMAP.html">See what is next →</a>
   </section>
