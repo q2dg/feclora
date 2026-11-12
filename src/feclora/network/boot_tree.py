@@ -110,7 +110,7 @@ def render_unattended_answer_ipxe_script(
     answer_url: str,
     http_port: int = 8080,
 ) -> str:
-    """Render an identity-free Live boot handoff to a plain HTTP JSON answer."""
+    """Render the per-job boot script served only after MAC admission."""
     from urllib.parse import urlsplit
 
     try:
@@ -131,14 +131,37 @@ def render_unattended_answer_ipxe_script(
         raise LiveBootAssetError("PXE answer URL is not a plain Caddy answer URL")
     live_base = f"http://{parsed}:{http_port}/live"
     return (
-        "#!ipxe\n"
-        "dhcp\n"
+        "#!ipxe\\n"
         f"kernel {live_base}/vmlinuz root=live:{live_base}/squashfs.img ro rd.live.image "
         f"ip=dhcp rd.neednet=1 feclora.pxe_mode=unattended-answer "
         f"feclora.pxe_job_id={canonical_job_id} "
-        f"feclora.pxe_answer_url={answer_url}\n"
-        f"initrd {live_base}/initrd.img\n"
-        "boot\n"
+        f"feclora.pxe_answer_url={answer_url}\\n"
+        f"initrd {live_base}/initrd.img\\n"
+        "boot\\n"
+    )
+
+
+def render_unattended_answer_admission_ipxe_script(
+    address: str, http_port: int = 8080,
+) -> str:
+    """Ask the Server to register this iPXE client's MAC before booting."""
+    try:
+        parsed = ipaddress.ip_address(address)
+    except ValueError as exc:
+        raise LiveBootAssetError("PXE boot address must be IPv4") from exc
+    if parsed.version != 4 or parsed.is_unspecified or parsed.is_loopback or parsed.is_multicast:
+        raise LiveBootAssetError("PXE boot address must be usable unicast IPv4")
+    if isinstance(http_port, bool) or not isinstance(http_port, int) or not 1 <= http_port <= 65535:
+        raise LiveBootAssetError("PXE HTTP port is invalid")
+    admission_url = f"http://{parsed}:{http_port}/pxe/admit/${{net0/mac}}"
+    return (
+        "#!ipxe\\n"
+        "dhcp\\n"
+        f"chain {admission_url} || goto admission_denied\\n"
+        "exit\\n"
+        ":admission_denied\\n"
+        "echo PXE Server refused this client or its admission window has closed.\\n"
+        "shell\\n"
     )
 
 
