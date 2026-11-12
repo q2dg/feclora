@@ -65,7 +65,7 @@ feclora/
 ├── packages/               # Runtime and build-host RPM package manifests
 ├── src/feclora/             # Python application and privileged operation backend
 │   ├── data/               # systemd units and restore-profile environment
-│   ├── deployment/         # Server/Client, enrollment, PKI, jobs and journals
+│   ├── deployment/         # Server/Client, Server PKI, jobs and journals
 │   ├── network/            # PXE/iPXE, TLS, UDPcast and remote-clone transport
 │   ├── storage/            # inventory, capture, restore, clone and image security
 │   ├── ui/                 # legacy console UI code (not the supported Live interface)
@@ -88,7 +88,7 @@ The main implementation boundaries are:
   modules.
 - **`src/feclora/storage/`** contains local storage engines and image formats.
 - **`src/feclora/deployment/`** contains remote deployment orchestration,
-  identities, enrollment and job state.
+  Server trust configuration and job state.
 - **`src/feclora/network/`** contains network discovery, PXE services and
   transport protocols.
 - **`build/`**, **`kickstart/`** and **`packages/`** define how the Live
@@ -109,11 +109,11 @@ operation journals, streamed progress, and optional artifact encryption/signing 
 The underlying Python storage engines include safety checks, manifest-backed
 artifact publication, compression, integrity verification, and restore
 preflight. The remote deployment stack includes persistent Server/Client
-services, mTLS enrollment and authorization, mTLS-authenticated unicast image transfer with optional minisign signatures,
+services, Server-authenticated TLS control and unicast image transfer without Client authentication, with optional minisign signatures,
 UDPcast multicast restore, and direct whole-disk remote cloning. Cockpit
 exposes Server/Client lifecycle and job workflows, per-client status, initial
 Server identity bootstrap, and PXE network-profile preflight/activation for
-ProxyDHCP or isolated DHCP. PXE boot-tree staging and interactive Live boot are implemented. Cockpit can upload one declarative unattended JSON answer (including its repository URL); the Server validates it and publishes/revokes it through Caddy over HTTP together with an answer-specific iPXE handoff script. This answer workflow does not use per-Client identity, USB media, certificates or enrollment. Live downloads and schema-validates the answer, and the first NFS-backed whole-disk path uses the existing restore engine with WWN/serial revalidation and read-back verification. PXE can unlock passphrase-encrypted age artifacts through Live Cockpit; whole-disk capture can create symmetric age-encrypted images through Cockpit, while partition and logical-volume capture remain recipient-based; other repository adapters and hardware acceptance remain pending; the existing mTLS Remote jobs workflow remains separate. See [the PXE unattended design](docs/PXE-UNATTENDED.md).
+ProxyDHCP or isolated DHCP. PXE boot-tree staging and interactive Live boot are implemented. Cockpit can upload one declarative unattended JSON answer (including its repository URL); the Server validates it and publishes/revokes it through Caddy over HTTP together with an answer-specific iPXE handoff script. This answer workflow does not use per-Client identity, USB media, certificates or enrollment. Live downloads and schema-validates the answer, and the first NFS-backed whole-disk path uses the existing restore engine with WWN/serial revalidation and read-back verification. PXE can unlock passphrase-encrypted age artifacts through Live Cockpit; whole-disk capture can create symmetric age-encrypted images through Cockpit, while partition and logical-volume capture remain recipient-based; other repository adapters and hardware acceptance remain pending; the existing Server-authenticated TLS Remote jobs workflow remains separate. See [the PXE unattended design](docs/PXE-UNATTENDED.md).
 
 Local long-running capture, restore, extraction and clone operations are
 submitted through the privileged API to a root-owned systemd worker. Their

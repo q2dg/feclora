@@ -51,3 +51,14 @@ syntax, and private-key files are implementation details, not operator tasks.
   CA issuance, Client key provisioning, expiry inventory, or CRL validation.
   See [Certificate management](../CERTIFICATE-MANAGEMENT.md).
 
+
+
+## Superseded decision
+
+The earlier mutual-TLS and Client certificate enrollment design is superseded.
+The current implementation authenticates the Server certificate to Clients
+only. Clients do not present certificates; the Server does not authenticate
+individual Clients. Client certificates, identity-to-MAC enrollment and
+per-Client authentication credentials are not part of the current protocol.
+See [Certificate management](../CERTIFICATE-MANAGEMENT.md) and
+[Deployment control](../DEPLOYMENT-CONTROL.md) for the current design.
