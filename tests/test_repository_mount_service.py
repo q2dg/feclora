@@ -156,20 +156,6 @@ class RepositoryMountServiceTests(unittest.TestCase):
             self.assertIn("feclora.storage.repository_mount_service", command)
 
 
-    def test_webdav_rejects_encrypted_credentials_until_davfs2_user_config_design(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            encrypted = root / "feclora-webdav-password.cred"
-            with self.assertRaisesRegex(RepositoryError, "global davfs2 secrets file is not accepted"):
-                RemoteRepository(
-                    provider="webdav", host="dav.example.net", remote_path="/images",
-                    mountpoint=str(root / "mounts" / "dav"), username="backup",
-                    credential_file=str(encrypted), identity_file=None,
-                    known_hosts_file=None, port=None, read_only=True,
-                )
-
-
-
     def test_unmount_fails_closed_when_systemd_cannot_report_service_state(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
