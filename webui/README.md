@@ -2,12 +2,7 @@
 
 Feclora's React/PatternFly application is its primary operator interface.
 
-The Operations wizard exposes whole-disk and partition image capture/restore,
-eligible local LVM logical-volume capture/restore, whole-disk and
-partition-to-partition local cloning, image verification and partition
-extraction. It supports device and image inventory, compression, optional
-`age` encryption and optional `minisign` signatures, exact destructive
-confirmations and streamed operation progress.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 Other tabs provide durable local operation history, SSHFS/NFS/SMB repository
 management and image-engine integration, signed-image SFTP inventory/import/
