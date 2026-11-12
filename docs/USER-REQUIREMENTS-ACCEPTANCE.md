@@ -81,7 +81,7 @@ Feclora does not sign image manifests or use detached signature sidecars. Artifa
 - [ ] For the existing multi-Client Remote jobs workflow, PXE discovery/boot never authorizes destructive restore; local target confirmation and explicit Server ARM remain mandatory. Clients are not individually authenticated. This is separate from the identity-free unattended answer workflow.
 - [ ] Provide per-Client progress, throughput, terminal verification, failures and exportable deployment report.
 - [ ] Define failure isolation: one Client's failure must not misreport other Clients' results.
-- [ ] Automated tests cover groups, duplicate/unknown identity, partial readiness, retry, configured PXE client-count/time limits and per-Client reconciliation; VM PXE tests cover BIOS and UEFI. Record physical switch/network acceptance separately.
+- [ ] Automated tests cover groups, duplicate/unknown identity, partial readiness, retry and per-Client reconciliation; VM PXE tests cover BIOS and UEFI. Record physical switch/network acceptance separately.
 - [ ] Publish guides for manual Client boot, PXE Client boot, multi-Client unicast and multicast restore.
 
 ## 6. Unattended PXE restore from a shared answer file
@@ -97,7 +97,7 @@ Feclora does not sign image manifests or use detached signature sidecars. Artifa
 - [ ] Connect remaining provider adapters and separately protected credential references.
 - [x] Resolve exactly one whole-disk target by WWN and/or serial, verify capacity and device safety through the existing restore engine, and recheck stable identity immediately before the first write.
 - [x] Consume the job authorization atomically immediately before the first write to prevent a second write from the same authorization during the current Live session.
-- [ ] Add Server-side PXE serving limits: register each unattended boot by the MAC reported by iPXE and stop admitting new MAC addresses after a configured number of distinct clients and/or an elapsed-time deadline. Repeated requests from an already registered MAC do not consume another slot. MAC is an operational identifier, not authentication; a client can spoof it.
+- [x] Add Server-side PXE serving limits: the iPXE MAC is registered on first admission, and new MAC addresses are refused after the configured distinct-client cap and/or elapsed-time deadline. Retries from an already registered MAC do not consume another slot. The protected boot script cannot be fetched directly around the admission endpoint. MAC is an operational identifier, not authentication; a client can spoof it.
 - [x] Execute NFS-backed whole-disk restores through the existing restore engine with post-write read-back verification and a local operation journal.
 - [ ] Expose the PXE restore result in the normal Cockpit interface.
 - [ ] Ensure the interactive PXE boot opens the same Cockpit experience as ISO Live and does not require the answer file.
