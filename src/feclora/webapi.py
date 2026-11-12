@@ -1508,13 +1508,9 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError("operation parameters do not match the selected operation")
     allowed_params = operation_fields[action]
     if action.startswith("restore_"):
-        accepted_params = (allowed_params, allowed_params - {"repository_id"},
-                           allowed_params - {"sftp_source"},
-                           allowed_params - {"repository_id"})
+        accepted_params = (allowed_params, allowed_params - {"repository_id"})
     else:
-        accepted_params = (allowed_params, allowed_params - {"repository_id"},
-                           allowed_params - {"sftp_publish"},
-                           allowed_params - {"repository_id"})
+        accepted_params = (allowed_params, allowed_params - {"repository_id"})
     if set(params) not in accepted_params:
         raise WebAPIError("operation parameters do not match the selected operation")
     with _storage_operation_lock():
@@ -1543,7 +1539,7 @@ def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]
         accepted_params = (allowed_params, allowed_params - {"repository_id"},
                            allowed_params - {"sftp_publish"},
                            allowed_params - {"repository_id"})
-    if set(params) not in accepted_params or ("sftp_source" in params and "repository_id" in params):
+    if set(params) not in accepted_params:
         raise WebAPIError("operation parameters do not match the selected operation")
     from feclora.storage.operation_log import operation_record
 
