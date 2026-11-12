@@ -1,82 +1,36 @@
-# Image encryption and signatures
+# Image encryption and integrity
 
-Feclora delegates optional artifact encryption and detached signatures to the upstream `age` and `minisign` executables when an operator enables those integrations. It does not implement cryptographic primitives. Neither executable is a mandatory dependency for installing or using Feclora's ordinary local imaging workflows.
+Feclora does not sign image manifests. Image integrity is checked with the SHA-256 digest and byte count recorded for every artifact in the manifest. There is no detached-signature sidecar and no signing-key setup step.
 
-## Encryption model
+## Optional age encryption
 
-- Compress first, then encrypt the stored artifact with `age`.
-- Recipient mode: use an age recipients file containing one public recipient per line. Multiple recipients can decrypt the same artifact independently.
-- Symmetric mode: whole-disk capture can instead use an operator-entered passphrase. Cockpit delivers it once to the local worker through a root-only volatile file under `/run`; the worker consumes and removes it. The passphrase is not stored in the durable operation journal, manifest, command-line arguments, environment or logs. age receives it through a controlling terminal.
-- Symmetric capture currently applies to whole-disk captures only. Partition and logical-volume capture retain recipient-based encryption.
-- Store the encrypted bytes as `<artifact filename>.age`; the manifest records
-  `"encryption": "age"` and the SHA-256/size of the ciphertext.
-- Existing manifests without an encryption field remain valid and mean
-  `"encryption": "none"`.
-- Restore must verify the ciphertext digest before invoking age, decrypt and
-  authenticate to a private staging file, and only then decompress or write to
-  a block device. Never write unauthenticated plaintext to a target.
-- Private age identity files must be kept separately from the image repository
-  and protected by the operator. Recipient files contain public keys.
+Artifact encryption is optional and uses the upstream `age` tools. Feclora does not implement cryptographic primitives or key derivation.
 
-Example key setup:
+- The capture workflow can encrypt each completed artifact to the configured age recipient set.
+- The manifest records which artifacts use age encryption.
+- Restore and verification require an age identity only when at least one selected artifact is encrypted.
+- Private age identities must remain in protected local storage; they are never embedded in an image, manifest, job record or browser request.
+- A missing age executable or recipient inventory blocks only an operation that explicitly selects age encryption. Ordinary unencrypted capture and restore remain available.
 
-```sh
-age-keygen -o feclora-identity.txt
-age-keygen -y feclora-identity.txt > feclora-recipients.txt
-chmod 600 feclora-identity.txt
-```
+## SHA-256 integrity checks
 
-## Manifest signatures
+For each artifact, the manifest records its stored byte count and SHA-256 digest. Feclora verifies these values during local image verification, SFTP import/publication, TLS image-set transfer, multicast staging and restore preflight. Compressed and age-encrypted artifacts are also decoded/authenticated as applicable before a destructive restore is allowed to proceed.
 
-Sign the completed manifest with a detached minisign signature:
+The manifest itself is not cryptographically signed. A digest stored in the same manifest as the artifact is an integrity check, not an independent authenticity proof. The trust boundary therefore comes from the authenticated transport or the operator-controlled local repository:
 
-```sh
-minisign -S -s feclora-minisign.key -m image.manifest.json
-minisign -V -m image.manifest.json -p trusted-minisign.pub
-```
+- SFTP uses pinned SSH host keys and encrypted systemd credential references.
+- Unicast deployment uses the Server-authenticated TLS control session.
+- Multicast distributes the manifest over that TLS control session; UDPcast carries the artifact bytes and does not provide datagram confidentiality or peer authentication.
+- Local image repositories and unattended restore profiles rely on root-owned directories and protected file permissions.
 
-The public key used for verification must be provisioned independently and
-trusted by the operator. A public key shipped beside an image is not, by itself,
-a trust anchor. The detached `.minisig` file signs the manifest, which binds
-the artifact names, encryption modes, sizes and SHA-256 digests.
+An attacker able to replace both a manifest and its artifacts in a trusted repository or transport endpoint can replace the image coherently. SHA-256 alone does not prevent that. Protect repository write access and the transport trust anchors accordingly.
 
-## Current implementation boundary
+## Unattended restore profiles
 
-Capture UI exposes independent optional choices for age encryption and
-minisign signing. Both are opt-in; selecting neither is a supported baseline path. When either option is selected, capture preflights the corresponding key file and executable before starting the disk or partition read, so a missing optional tool fails early rather than after a long capture. During first Server security initialization, optional age and minisign keypairs are generated in private staging directories and published without overwriting existing files; a failed publication rolls back any first half rather than leaving a misleading partial keypair. Restore detects age-encrypted artifacts and requires an
-identity file; it verifies ciphertext SHA-256 before invoking age, then
-authenticates/decrypts to a private staging file before decompression or disk
-writes. The same rule applies to local, remote-repository, unicast and
-multicast restore paths: only artifacts marked `encryption: age` need age. When a detached signature is present, restore must verify it against an
-independently provisioned trusted public key before any target-device write.
-There is no unverified continuation for a signed image. If the signature is
-missing, invalid, or cannot be checked because minisign or a trusted key is
-unavailable, restoration stops before writing. A caller may require signatures
-for workflows where unsigned images are not acceptable. `minisign` is one supported signature mechanism, not
-a universal requirement. If signatures are not used, SHA-256 detects accidental
-corruption but does not authenticate an image against malicious substitution;
-for destructive fleet/unattended workflows, authenticate the manifest and
-bind its digest to a separately trusted deployment authorization mechanism.
+Unattended profiles are authorized by local filesystem policy rather than detached signatures. The profile and its containing directory must be root-owned; the profile must have mode 0600 and the directory must not be writable by group or other users. Profiles remain single-use, expire, bind to stable target identity and require post-write verification. The replay ledger must be on persistent storage.
 
-These flows have mocked unit coverage, but have not yet been exercised with
-the real age/minisign binaries on Fedora Live. Their optional status must be
-preserved in packaging, capability detection and documentation; missing
-binaries should disable only the corresponding optional feature. Compression offers none, gzip,
-xz, zstd and lz4. gzip/xz use Python's standard library; zstd/lz4 use the
-Fedora system executables with bounded streaming. The selected level is
-recorded in the manifest.
+This policy assumes the local root account and boot environment are trusted. It is not a substitute for a cryptographic signature when profiles must be distributed across mutually untrusted systems.
 
-## Interactive capture choices
+## Operational acceptance
 
-Each disk or partition capture asks independently whether to encrypt and/or
-sign. Both are optional; choosing neither leaves a conventional unencrypted,
-unsigned image. The UI asks for an age recipients file only when encryption is
-selected, and for a minisign secret-key path only when signing is selected.
-Private keys are not copied into the image repository.
-
-Compression is selected per capture: none, gzip, xz, zstd or lz4. The UI asks
-for a level when a codec is selected: gzip 1-9, xz 0-9, zstd 1-19 and lz4
-1-12. Representative choices are offered in the menu. The selected level is
-recorded in the artifact manifest. Compression is performed before age
-encryption. zstd/lz4 are delegated to the installed system CLI tools; feclora
-does not implement these codecs itself.
+Unit tests cover digest mismatch, interrupted transfers, no-overwrite publication and age encryption/decryption paths. Operators must still perform the documented physical-device acceptance tests on their target Fedora Live environment.
