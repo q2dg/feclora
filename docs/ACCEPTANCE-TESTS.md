@@ -63,6 +63,46 @@ Repeat with a larger target to verify supported GPT backup-header relocation.
 Repeat with an undersized target and a mismatched logical sector size to
 confirm that Feclora rejects the target before writing.
 
+## 1a. Two-machine partition-to-partition clone
+
+**Purpose:** verify the partition-specific protocol-v2 path independently of
+whole-disk GPT handling.
+
+Prerequisites: the same two-host TLS/READY/ARM setup as the disk-clone test,
+a disposable read-only source partition and a distinct disposable destination
+partition at least as large as the source, with matching logical sector size.
+
+1. On the Server, verify the selected source is a partition (lsblk TYPE=part),
+   reports RO=1, is not mounted/in use, and is not ambiguous in the block
+   inventory. Record its PARTUUID, parent disk identity, exact byte size and
+   logical sector size.
+2. On the Client, independently identify a destination partition on a
+   disposable disk. Verify its PARTUUID, parent disk identity, capacity and
+   sector size. Never select the source partition's parent/system disk as a
+   destination.
+3. Create a unicast clone job and explicitly select **Partition** as the clone
+   device type. Confirm the Server source selector contains only read-only
+   partitions. The Client must select a local partition, not a whole disk.
+4. Complete READY and the separate Server ARM step. Confirm protocol-v2
+   session metadata identifies `device_type=partition` at both endpoints.
+5. Wait for the bounded stream, SHA-256 terminal result and independent
+   receiver read-back to complete. Both endpoints must report the same byte
+   count and digest.
+6. Repeat with a destination partition larger than the source. Verify only
+   the source partition byte range was overwritten and the destination's
+   trailing bytes were not changed. No GPT relocation or partition-table
+   repair is expected for a partition clone.
+7. Repeat with a smaller destination, a disk selected as source, a partition
+   selected as destination for a disk job, a mounted/in-use source and a
+   mismatched logical sector size. Each case must fail before destination
+   writes.
+8. Inject a disconnect after the receiver begins writing. Confirm the job
+   fails, the destination is treated as untrusted, both journals retain the
+   failure and no automatic destructive resume is attempted.
+
+Do not infer two-host acceptance from the unit tests or a successful
+whole-disk clone.
+
 ## 2. Multi-client restore: unicast and multicast
 
 **Purpose:** verify the persistent Server/Client restore workflow with more
