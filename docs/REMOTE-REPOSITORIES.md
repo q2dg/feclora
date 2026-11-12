@@ -32,12 +32,12 @@ cross-host publisher lease is implied by this local filesystem transaction.
 
 ## Provider contract
 
-SFTP is intentionally not represented as a mounted filesystem provider. Feclora exposes durable image-set import and publication actions in Cockpit, using pinned host keys and encrypted systemd credential references. The current implementation uses minisign-authenticated manifests for these actions; this is a current implementation dependency, not a product-wide requirement. The target is a configurable verifier so minisign remains optional. The workflow transfers an already captured, authenticated local image to an existing SFTP directory, or fetches and verifies a remote image into the local repository. Named endpoint definitions, one-directory inventory that exposes only manifests with their detached signature present, signed metadata inspection and direct disk/partition restore routing are integrated. Publication uploads artifacts first, then the detached signature, and the manifest last as the visibility marker. Artifact-boundary progress and operator cancellation are integrated through the durable worker; continuous byte-level progress within a file, resume, multi-directory discovery and full provider acceptance remain pending. Bounded retries are limited to transient download/inventory failures; uploads are not automatically retried because publication outcomes can be ambiguous. SSHFS mounts do not satisfy the SFTP transfer contract.
+SFTP is intentionally not represented as a mounted filesystem provider. Feclora exposes durable image-set import and publication actions in Cockpit, using pinned host keys and encrypted systemd credential references. The workflow transfers an already captured image to an existing SFTP directory, or fetches a remote image into the local repository. Manifests are schema-validated and every artifact is checked against its recorded byte count and SHA-256 digest. There are no detached image signatures or signing keys. Named endpoint definitions, one-directory inventory, import and direct disk/partition restore routing are integrated. Artifact-boundary progress and operator cancellation are integrated; continuous byte-level progress, resume, multi-directory discovery and full provider acceptance remain pending.
 
 | Provider | Helper | Authentication material |
 |---|---|---|
 | SSH filesystem | sshfs | Dedicated SSH private key; verified host keys |
-| SFTP | OpenSSH SFTP batch adapter; signed image-set import and publication from Cockpit | Registered encrypted SSH key and known_hosts references loaded by transient systemd credentials; one-shot local-repository transfer actions |
+| SFTP | OpenSSH SFTP batch adapter; SHA-256-validated image-set import and publication from Cockpit | Registered encrypted SSH key and known_hosts references loaded by transient systemd credentials; one-shot local-repository transfer actions |
 | NFS | mount.nfs, NFSv4.2 | Server/export policy |
 | SMB/CIFS | mount.cifs, SMB 3.1.1 | Protected credentials file |
 | WebDAV | Disabled in the repository manager | No mount is accepted until per-repository encrypted credentials and isolated davfs2 service configuration are implemented |
@@ -358,7 +358,6 @@ decryption and partition decompression on the local temporary filesystem; a
 read-only remote mount is therefore not used as a scratch directory. Ensure
 not image capture.
 
-
 ## SFTP transfer adapter status
 
 The initial adapter provides `upload_file` and `download_file` for individual
@@ -371,56 +370,17 @@ download writes to a random sibling temporary file, checks the caller-supplied
 SHA-256 (normally obtained from a signed Feclora manifest), and publishes with
 a no-overwrite hard link.
 
-The adapter has a companion runner, `sftp_transfer_service.py`, which resolves registered `ssh-key` and `known-hosts` encrypted credential references and executes transfers in synchronous transient systemd services using `LoadCredentialEncrypted=`. Plaintext credentials exist only in the service's private `CREDENTIALS_DIRECTORY`; the API-side invocation contains only encrypted blob paths and non-secret transfer parameters. Cockpit exposes signed-image inventory/inspection, import and publication actions; named SFTP endpoints can be saved, and SFTP fetch is integrated with durable disk/partition restore jobs. Import and publication are submitted to the durable local-operation worker. Optional post-capture publication is also supported.
+The adapter has a companion runner, `sftp_transfer_service.py`, which resolves registered `ssh-key` and `known-hosts` encrypted credential references and executes transfers in synchronous transient systemd services using `LoadCredentialEncrypted=`. Plaintext credentials exist only in the service's private `CREDENTIALS_DIRECTORY`; the API-side invocation contains only encrypted blob paths and non-secret transfer parameters. Cockpit exposes image inventory/inspection, import and publication actions; named SFTP endpoints can be saved, and SFTP fetch is integrated with durable disk/partition restore jobs. Import and publication are submitted to the durable local-operation worker.
 
-This is still not a complete SFTP repository provider. OpenSSH SFTP does not provide a portable server-side SHA-256 operation, so upload returns the locally computed digest and relies on signed-manifest verification when the artifact is consumed. Signed image-set import and publication are now submitted as durable local operations and can be cancelled from Cockpit's Operation log; the worker stops its transient SFTP child before cleaning local staging. Progress is checkpointed at artifact boundaries, not continuously within a large file. There is still no byte-level progress, resume protocol or multi-directory catalog discovery. Transient connection failures during read-only downloads and inventory are retried up to twice with a fresh transient unit; uploads are never automatically retried because a lost response can leave publication outcome ambiguous. A failed or cancelled multi-file publication can leave unreferenced remote files; if cancellation races the final manifest upload, inspect inventory before retrying because the commit marker may already be visible. Final names are no-overwrite, so an operator may need to remove orphaned files before retrying. Unit tests exist, but live provider acceptance remains outstanding. Do not select SSHFS when SFTP file-transfer semantics are required.
-
+This is still not a complete SFTP repository provider. OpenSSH SFTP does not provide a portable server-side SHA-256 operation, so upload checks local artifact digests before sending and import verifies received bytes against the manifest. Image-set import and publication are durable operations and can be cancelled from Cockpit's Operation log; the worker stops its transient SFTP child before cleaning local staging. Progress is checkpointed at artifact boundaries, not continuously within a large file. There is still no byte-level progress, resume protocol or multi-directory catalog discovery. Transient connection failures during read-only downloads and inventory receive bounded retries; uploads are not automatically retried because the remote outcome may be ambiguous.
 
 ### Signed SFTP image-set publication primitive
 
-`sftp_image_set.py` adds a standalone publisher for the existing manifest v1
-format. Before any network transfer it parses the manifest, verifies the
-detached minisign signature against a separately supplied trusted public key,
-and checks every local artifact's regular-file type, byte count and SHA-256
-against the signed manifest. It uploads each artifact, then the detached
-`manifest.json.minisig`, and publishes `manifest.json` last. The manifest is
-the visibility/commit marker: inventory requires both files, so concurrent
-readers cannot discover the set in the interval between metadata uploads. A
-consumer must still verify the detached signature and independently check
-every artifact before import or restore.
+ `sftp_image_set.py` provides image-set publication for manifest v1. Before network transfer it parses the manifest and checks every local artifact's regular-file type, byte count and SHA-256 digest against the manifest. It uploads each artifact and publishes `manifest.json` last. The manifest is the visibility/commit marker. A consumer validates the manifest schema and independently checks every artifact's size and digest before restore.
 
-Each individual upload retains the adapter's random staging name and uses the
-OpenSSH hard-link extension for atomic no-overwrite publication; servers that
-do not support that extension fail closed. Artifact filenames are also barred
-from the native local repository's manifest-marker namespace
-(`manifest.json`, `manifest.json.minisig`, and
-`<image_id>.manifest.json[.minisig]`) so an artifact cannot collide with
-another image's discovery metadata during import. This is not a multi-file atomic transaction:
-failed publication can leave unreferenced remote artifacts or a detached
-signature without its manifest. Such a set remains invisible to inventory and
-must be rejected. The
-publisher does not yet implement remote inventory/garbage collection,
-download-side manifest discovery, operation-journal progress, Cockpit actions,
-or capture/restore routing. It is an integration primitive, not end-user SFTP
-support; SFTP remains outside the complete provider acceptance gate.
+Each individual upload retains the adapter's random staging name and uses the OpenSSH hard-link extension for atomic no-overwrite publication; servers that do not support that extension fail closed. Artifact filenames are barred from the native local repository's manifest-marker namespace so an artifact cannot collide with another image's discovery metadata during import. This is not a multi-file atomic transaction: failed publication can leave unreferenced remote artifacts, but without the manifest they remain invisible to inventory and must be rejected. The publisher does not automatically retry ambiguous uploads.
 
-
-The same module now includes `fetch_image_set()`. It downloads only
-`manifest.json` and `manifest.json.minisig` in explicitly marked unverified
-metadata mode into a new private staging directory. It enforces metadata size
-limits, parses the existing manifest schema and verifies minisign against an
-independently trusted public key before requesting any image artifact.
-Artifacts are downloaded with their signed SHA-256 values and checked
-again for byte count and digest. The verified set is then imported into the
-native Feclora repository layout: artifact files, followed by
-`<image_id>.manifest.json.minisig`, followed by
-`<image_id>.manifest.json` as the final commit marker expected by the
-existing Cockpit inventory and restore code. Each file is published with a
-no-overwrite hard link. If any destination already exists, import fails
-without replacing it and removes files created earlier in that attempt.
-This is a manifest-last multi-file publication, not a single atomic directory
-transaction; readers must treat the manifest as the visibility/commit marker.
-Failed or invalid retrievals remove the private staging directory.
+The same module includes `fetch_image_set()`. It downloads `manifest.json` into a private staging directory, enforces metadata size limits and validates the manifest schema before requesting any image artifact. Artifacts are downloaded and checked against their manifest SHA-256 values and byte counts. The validated set is imported into the native Feclora repository layout with artifact files first and `<image_id>.manifest.json` as the final commit marker.
 
 The metadata download mode is restricted by the transient-service CLI to the
 two metadata filenames; it never marks them as verified. Artifact download
@@ -428,29 +388,21 @@ results explicitly report digest verification. The destination root must
 already exist and must not contain symlinked path components. The remote
 directory must already exist on the SFTP server.
 
-Cockpit now exposes a one-shot **Fetch, verify and import image** form. The
-operator selects an encrypted SSH private-key reference and a pinned
-`known_hosts` reference; the API resolves those references through the
-systemd credential inventory and runs the transfer in a transient service.
-The import uses the local `/etc/feclora/pki/server.pub` as its independent
-minisign trust anchor and writes into the native local image repository. The
-operation is recorded in the local operation journal. No plaintext SSH
-material is sent through Cockpit.
+Cockpit exposes a one-shot **Fetch, verify and import image** form. The operator selects an encrypted SSH private-key reference and a pinned `known_hosts` reference; the API resolves those references through the systemd credential inventory and runs the transfer in a transient service. The import validates the manifest and every artifact digest before publishing into the native local image repository. The operation is recorded in the local operation journal. No plaintext SSH material is sent through Cockpit.
 
-The SFTP Cockpit workflow supports durable import and publication of existing signed images, optional post-capture publication, remote manifest-marker listing, and **Verify signed remote image metadata**. The current implementation downloads `manifest.json` and its detached signature into a private temporary directory and verifies it against the independent local Feclora minisign trust key. This is a current SFTP implementation limitation; minisign must remain optional at the product level and the transfer verifier needs a configurable alternative. It does not download artifact bytes; artifact SHA-256/size verification still occurs during import. Inventory is submitted from Cockpit as a durable local operation and runs in the root-owned local-operation worker; its SFTP child transfer uses a transient systemd service with encrypted SSH-key and pinned `known_hosts` credentials. Its queued/running/terminal state is visible in Operation log and can be cancelled through the existing worker cancellation path. Inventory currently reports completion as a whole operation rather than byte-level progress. Metadata inspection remains a synchronous request.
+The SFTP Cockpit workflow supports durable image import and publication, optional post-capture publication, remote manifest inventory and **Inspect remote image metadata**. Metadata inspection downloads the manifest into a private temporary directory and validates its schema. It does not download artifact bytes; artifact SHA-256 and size verification occurs during import. Inventory is submitted from Cockpit as a durable local operation and runs in the root-owned local-operation worker; its queued/running/terminal state is visible in Operation log and can be cancelled.
 
-The Restore wizard can now use the authenticated remote image directly: after metadata inspection, the operator selects **Fetch and verify the authenticated SFTP image before restoring it**. Current SFTP manifest authentication is minisign-backed; the optional-minisign policy is not yet fully implemented in this code path. The durable restore definition stores only the remote endpoint and encrypted credential references. Before destructive restore starts, the worker fetches the signed image set into the protected local repository, requires both the fetched manifest image ID and SHA-256 to match the authenticated metadata preview, verifies the signature before artifact retrieval, and verifies each artifact's size and SHA-256 before import. The normal restore path then revalidates the local manifest and performs the existing target confirmation and restore checks. A failed fetch does not start the destructive restore; a successfully imported image remains local if the subsequent restore fails. Cockpit can save and reuse named SFTP connection definitions in the private root-owned `/etc/feclora/sftp-repositories.json` registry; it stores only endpoint metadata and encrypted SSH-key/known_hosts references. The workflow still lacks multi-directory discovery, durable byte-level transfer progress, resume and end-to-end provider acceptance. Inventory, import and publication are durable/cancellable; metadata inspection remains synchronous. Import/publication progress is journaled after each artifact, not continuously within a file. Bounded retry is restricted to transient read/inventory transport faults; uploads are deliberately not retried automatically. Automated unit tests cover the signed image-set transfer and verification paths; live SFTP-provider acceptance remains pending.
-
+The Restore wizard can use a remote image directly: after metadata inspection, the operator selects **Fetch and verify the SFTP image before restoring it**. The durable restore definition stores only the remote endpoint and encrypted credential references. Before destructive restore starts, the worker fetches the image set into the protected local repository, requires the fetched manifest image ID and SHA-256 to match the metadata preview, and verifies every artifact's size and digest before import. The normal restore path then revalidates the local manifest and performs the existing target confirmation and restore checks. A failed fetch does not start destructive restore; a successfully imported image remains local if the subsequent restore fails.
 
 ### Automatic SFTP publication after capture
 
-The disk and partition capture forms also provide an optional **SFTP post-capture publication** setting. When enabled, the capture definition stores only the host, remote directory and encrypted credential references in the root-owned durable operation record. The capture must be signed; unsigned capture plus SFTP publication is rejected during job validation. After the native capture completes, the worker verifies the newly written manifest signature and each artifact digest, then publishes the set through the same no-overwrite SFTP image-set publisher. The capture job is reported failed if publication fails, but the successfully captured local image remains in the repository and can be published manually or retried after the remote conflict/connectivity issue is resolved. SFTP post-capture publication runs inside the cancellable capture worker and reports artifact-boundary progress, but does not yet expose continuous byte-level progress or resume. Upload retries remain operator-controlled because a lost response may follow successful no-overwrite publication.
+The disk and partition capture forms provide an optional **SFTP post-capture publication** setting. When enabled, the capture definition stores only the host, remote directory and encrypted credential references in the root-owned durable operation record. After native capture completes, the worker validates the manifest and each artifact digest, then publishes the set through the no-overwrite SFTP image-set publisher. The capture job is reported failed if publication fails, but the successfully captured local image remains in the repository and can be published manually or retried after the remote conflict/connectivity issue is resolved.
 
 ### Cockpit SFTP publication and import
 
 The Remote Repositories tab exposes two explicit operations:
 
-- **Publish a signed image set** selects an already captured, locally stored and signed image. The API chooses the local Server minisign keypair, or the enrolled Client's local signing keypair, validates ownership and permissions, verifies the detached signature and every artifact against the manifest, then uploads the artifacts, detached signature and manifest last using encrypted SSH-key and pinned `known_hosts` credentials. The manifest is the inventory visibility marker.
-- **Import a signed image set** fetches the manifest and detached signature first, verifies them against the trusted Feclora signing public key, then downloads and verifies each artifact before importing the files into the local repository.
+- **Publish an image set** selects an already captured image from the local repository. The API validates the manifest and every artifact's size and SHA-256 digest, then uploads artifacts and the manifest last using encrypted SSH-key and pinned `known_hosts` credentials. The manifest is the inventory visibility marker.
+- **Import an image set** fetches the manifest first, validates its schema, then downloads and verifies each artifact before importing the files into the local repository.
 
 The destination directory must already exist. Remote files are never overwritten. A failed publication can leave unreferenced remote artifacts; because overwrite is refused, an operator may need to remove those orphaned files before retrying. Import and publication are durable local operations with Operation log cancellation and artifact-boundary progress checkpoints. There is no continuous byte-level progress within a file or resume policy. Transient read-only download/inventory failures receive bounded retries; publication is not automatically retried. Saved SFTP connection definitions are available, but multi-directory remote inventory discovery remains pending. Publication is limited to images signed by the local signing identity selected by the API; a different signer is rejected by signature verification.
