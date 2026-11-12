@@ -329,15 +329,10 @@ def receive_multicast_artifact_to_staging(
 def verify_staged_multicast_artifact(
     staged_path: str,
     manifest_path: str,
-    public_key_path: str | None,
     artifact_filename: str,
-    *,
-    minisign_executable: str | None = None,
 ) -> ImageArtifact:
-    """Verify any present manifest signature and the artifact digest before restore."""
-    manifest = _load_manifest_with_optional_signature(
-        manifest_path, public_key_path, minisign_executable=minisign_executable,
-    )
+    """Verify the manifest schema and artifact SHA-256 before restore."""
+    manifest = _load_manifest(manifest_path)
     matches = [item for item in manifest.artifacts if item.filename == artifact_filename]
     if len(matches) != 1:
         raise UDPcastError("Received artifact is not uniquely listed in the manifest")
