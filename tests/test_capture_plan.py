@@ -87,13 +87,59 @@ class StorageCapturePlanTests(unittest.TestCase):
             "uuid": None, "children": [],
         }, btrfs_topology={"filesystems": [{
             "uuid": "btrfs-uuid", "total_devices": 1,
-            "devices": [{"path": "/dev/sda2"}],
-        }]})
+            "devices": [{"devid": 1, "path": "/dev/sda2"}],
+            "allocation_profile_status": "available",
+            "allocation_profiles": [{"type": "data", "profile": "single", "known_profile": True}],
+            "chunks": [{
+                "logical_start": 1048576, "type": "data", "profile": "single",
+                "device_ids": [1], "device_mapping_complete": True,
+            }],
+        }]}, btrfs_subvolumes={"status": "available", "mounts": []})
         plan = plan_storage_capture(inventory, "/dev/sda2", "partition")
         self.assertTrue(plan["eligible_for_layer_aware_capture"])
         self.assertEqual(plan["manifest_storage"]["source_layer"], "btrfs_filesystem")
         self.assertEqual(plan["manifest_storage"]["btrfs_uuid"], "btrfs-uuid")
         self.assertEqual(plan["manifest_storage"]["btrfs_device_count"], 1)
+        profile_dependency = next(item for item in plan["dependencies"]
+                                   if item["kind"] == "btrfs_allocation_profiles")
+        self.assertTrue(profile_dependency["included_in_source_bytes"])
+
+    def test_unknown_or_incomplete_btrfs_chunk_profiles_block_layer_aware_capture(self):
+        inventory = base_inventory({
+            "path": "/dev/sda2", "type": "part", "filesystem": "btrfs", "children": [],
+        }, btrfs_topology={"filesystems": [{
+            "uuid": "btrfs-uuid", "total_devices": 1,
+            "devices": [{"devid": 1, "path": "/dev/sda2"}],
+            "allocation_profile_status": "available",
+            "allocation_profiles": [{"type": "data", "profile": "future", "known_profile": False}],
+            "chunks": [{
+                "logical_start": 1, "type": "data", "profile": "future",
+                "device_ids": [9], "device_mapping_complete": False,
+            }],
+        }]}, btrfs_subvolumes={"status": "available", "mounts": []})
+        plan = plan_storage_capture(inventory, "/dev/sda2", "partition")
+        self.assertFalse(plan["eligible_for_layer_aware_capture"])
+        self.assertTrue(any("unknown allocation profile" in item for item in plan["blockers"]))
+        self.assertTrue(any("stripe-to-device dependencies" in item for item in plan["blockers"]))
+
+    def test_mounted_btrfs_filesystem_blocks_capture_without_lsblk_mountpoint(self):
+        inventory = base_inventory({
+            "path": "/dev/sda2", "type": "part", "filesystem": "btrfs", "children": [],
+        }, btrfs_topology={"filesystems": [{
+            "uuid": "btrfs-uuid", "total_devices": 1,
+            "devices": [{"devid": 1, "path": "/dev/sda2"}],
+            "allocation_profile_status": "available",
+            "allocation_profiles": [{"type": "data", "profile": "single", "known_profile": True}],
+            "chunks": [{
+                "logical_start": 1, "type": "data", "profile": "single",
+                "device_ids": [1], "device_mapping_complete": True,
+            }],
+        }]}, btrfs_subvolumes={"status": "available", "mounts": [
+            {"uuid": "btrfs-uuid", "mountpoint": "/mnt/btrfs", "subvolumes": []},
+        ]})
+        plan = plan_storage_capture(inventory, "/dev/sda2", "partition")
+        self.assertFalse(plan["eligible_for_layer_aware_capture"])
+        self.assertTrue(any("Btrfs filesystem is mounted" in item for item in plan["blockers"]))
 
     def test_multi_device_btrfs_member_cannot_be_captured_as_standalone_partition(self):
         inventory = base_inventory({
