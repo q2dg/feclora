@@ -12,7 +12,7 @@ class LocalOperationStoreTests(unittest.TestCase):
             store = LocalOperationStore(os.path.join(root, "jobs"))
             operation_id = store.submit("capture_disk", {
                 "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                "encrypt": False, "sign": False,
+                "encrypt": False, 
             })
             status = store.status(operation_id)
             self.assertEqual(status["state"], "queued")
@@ -26,7 +26,7 @@ class LocalOperationStoreTests(unittest.TestCase):
             "action": "capture_logical_volume",
             "params": {
                 "source": "/dev/mapper/vg-root", "image_id": "root-image",
-                "compression": "zstd", "encrypt": False, "sign": False,
+                "compression": "zstd", "encrypt": False, 
             },
         }
         validated = validate_definition(definition)
@@ -114,7 +114,7 @@ class LocalOperationStoreTests(unittest.TestCase):
             "action": "capture_disk",
             "params": {
                 "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                "encrypt": False, "sign": True,
+                "encrypt": False, 
                 "sftp_publish": {
                     "host": "backup.example.net", "username": "backup",
                     "remote_directory": "/images/daily", "port": 2222,
@@ -133,7 +133,7 @@ class LocalOperationStoreTests(unittest.TestCase):
             "action": "capture_disk",
             "params": {
                 "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                "encrypt": False, "sign": True,
+                "encrypt": False, 
                 "sftp_publish": {
                     "host": "backup.example.net", "username": "backup",
                     "remote_directory": "/",
@@ -157,7 +157,7 @@ class LocalOperationStoreTests(unittest.TestCase):
                     "action": "capture_disk",
                     "params": {
                         "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                        "encrypt": False, "sign": True,
+                        "encrypt": False, 
                         "sftp_publish": {
                             "host": "backup.example.net", "username": "backup",
                             "remote_directory": remote_directory,
@@ -176,7 +176,7 @@ class LocalOperationStoreTests(unittest.TestCase):
             "action": "capture_disk",
             "params": {
                 "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                "encrypt": False, "sign": False,
+                "encrypt": False, 
                 "sftp_publish": {
                     "host": "backup.example.net", "username": "backup",
                     "remote_directory": "/images/daily",
@@ -192,7 +192,7 @@ class LocalOperationStoreTests(unittest.TestCase):
             store = LocalOperationStore(os.path.join(root, "jobs"))
             identifier = store.submit("capture_disk", {
                 "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                "encrypt": False, "sign": False,
+                "encrypt": False, 
             })
             with self.assertRaisesRegex(LocalOperationError, "invalid operation transition"):
                 store.append(identifier, "completed")
@@ -316,7 +316,7 @@ class LocalOperationStoreTests(unittest.TestCase):
             store = LocalOperationStore(os.path.join(root, "jobs"))
             identifier = store.submit("capture_disk", {
                 "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                "encrypt": False, "sign": False,
+                "encrypt": False, 
             })
             store.append(identifier, "preflight")
             store.append(identifier, "running")
@@ -331,7 +331,7 @@ class LocalOperationStoreTests(unittest.TestCase):
             store = LocalOperationStore(os.path.join(root, "jobs"))
             identifier = store.submit("capture_disk", {
                 "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                "encrypt": False, "sign": False,
+                "encrypt": False, 
             })
             store.append(identifier, "preflight")
             store.append(identifier, "running")
@@ -365,7 +365,7 @@ class LocalOperationStoreTests(unittest.TestCase):
             store = LocalOperationStore(os.path.join(root, "jobs"))
             identifier = store.submit("capture_disk", {
                 "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
-                "encrypt": False, "sign": False,
+                "encrypt": False, 
             })
             reports = store.list()
             self.assertEqual(len(reports), 1)
