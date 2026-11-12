@@ -1976,7 +1976,7 @@ def _read_client_job_status(job_id: str) -> dict[str, Any]:
 
 def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
     required = {"host", "job_id", "device_path", "confirmation", "compression"}
-    optional = {"network_interface", "source_address", "igmp_confirmed", "image_encrypt", "image_sign"}
+    optional = {"network_interface", "source_address", "igmp_confirmed", "image_encrypt"}
     if not required.issubset(params) or set(params) - required - optional:
         raise WebAPIError("start_client_job requires host, job_id, device_path, confirmation and compression, with optional network and per-image security choices")
     image_encrypt = params.get("image_encrypt", False)
@@ -2107,7 +2107,7 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
         "device_path": device_path, "confirmation": confirmation,
         "compression": compression, "network_interface": network_interface,
         "source_address": source_address, "igmp_confirmed": igmp_confirmed,
-        "image_encrypt": image_encrypt, "image_sign": image_sign,
+        "image_encrypt": image_encrypt,
     })
     unit = "feclora-client@" + params["job_id"] + ".service"
     try:
