@@ -13,7 +13,8 @@ import zlib
 from contextlib import contextmanager
 from typing import Any, Callable
 from .image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
-from .image_security import ImageSecurityError, decrypt_artifact_stream_to_temp, verify_manifest_signature
+from .image_security import (ImageSecurityError, decrypt_artifact_stream_to_temp,
+                             decrypt_artifact_stream_with_passphrase_to_temp, verify_manifest_signature)
 from .source_safety import SourceSafetyError, check_capture_source_safe
 from .privilege import PrivilegeError, privileged_argv
 from .compression import CompressionError, ExternalDecompressionStream
@@ -59,7 +60,7 @@ def _verify_stored_artifact(stream: Any, artifact: ImageArtifact) -> None:
 @contextmanager
 def _verified_artifact_stream(repository: str, artifact: ImageArtifact,
                               age_identity_file: str | os.PathLike[str] | None,
-                              age_executable: str | None):
+                              age_executable: str | None, age_passphrase: str | None = None):
     with _open_artifact(repository, artifact) as stored:
         _verify_stored_artifact(stored, artifact)
         if artifact.encryption == "none":
@@ -67,15 +68,21 @@ def _verified_artifact_stream(repository: str, artifact: ImageArtifact,
             return
         if artifact.encryption != "age":
             raise DiskRestoreError("unsupported image encryption")
-        if not age_identity_file:
-            raise DiskRestoreError("this image is age-encrypted; an identity file is required")
         try:
             # The source repository may be a read-only remote mount. Keep
             # authenticated plaintext in the local temporary filesystem instead.
-            staged = decrypt_artifact_stream_to_temp(
-                stored, age_identity_file,
-                tempfile.gettempdir(), age_executable=age_executable,
-            )
+            if age_passphrase is not None:
+                staged = decrypt_artifact_stream_with_passphrase_to_temp(
+                    stored, age_passphrase, tempfile.gettempdir(),
+                    age_executable=age_executable,
+                )
+            elif age_identity_file:
+                staged = decrypt_artifact_stream_to_temp(
+                    stored, age_identity_file,
+                    tempfile.gettempdir(), age_executable=age_executable,
+                )
+            else:
+                raise DiskRestoreError("this image is age-encrypted; an identity file or symmetric passphrase is required")
         except ImageSecurityError as exc:
             raise DiskRestoreError(f"image decryption/authentication failed: {exc}") from exc
         try:
@@ -157,6 +164,7 @@ def restore_disk(
     effective_uid: Callable[[], int] | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
+    age_passphrase: str | None = None,
     minisign_public_key: str | os.PathLike[str] | None = None,
     require_signature: bool = False,
     ignore_signature: bool = False,
@@ -268,7 +276,7 @@ def restore_disk(
     except SourceSafetyError as exc:
         raise DiskRestoreError(f"unsafe restore target: {exc}") from exc
 
-    with _verified_artifact_stream(repo, artifact, age_identity_file, available.get("age")) as image:
+    with _verified_artifact_stream(repo, artifact, age_identity_file, available.get("age"), age_passphrase) as image:
         _preflight_decoded_size(image, artifact, manifest.source_size_bytes, available)
         try:
             if not validator(target_path):
