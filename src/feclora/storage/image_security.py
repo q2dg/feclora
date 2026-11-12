@@ -216,11 +216,16 @@ def encrypt_artifact_with_passphrase(
                     transcript.extend(chunk)
                     if len(transcript) > 8192:
                         del transcript[:-8192]
-                    lower = bytes(transcript).lower()
-                    prompts = lower.count(b"passphrase:")
-                    while sent < min(prompts, 2):
+                    # age's encryption prompt includes explanatory text
+                    # between "passphrase" and the trailing colon.
+                    prompt = re.search(
+                        rb"(?:enter|confirm)[^\\r\\n]{0,160}passphrase[^\\r\\n]{0,160}:\\s*$",
+                        bytes(transcript), re.IGNORECASE,
+                    )
+                    if prompt and sent < 2:
                         os.write(master, passphrase.encode("utf-8") + b"\n")
                         sent += 1
+                        transcript.clear()
                 elif wait_status is not None:
                     break
             waited, status = os.waitpid(child_pid, os.WNOHANG)
