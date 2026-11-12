@@ -155,7 +155,7 @@ class MulticastRuntimeTests(unittest.TestCase):
             ):
                 result = execute_multicast_restore(
                     job, tls, approval, server_identity="URI:feclora-server",
-                    repository=repository, trusted_server_public_key="/pki/server.pub",
+                    repository=repository, 
                     firewall=Mock(), network_interface="enp1s0", age_identity_file="/pki/client.age",
                 )
             self.assertTrue(result[0])
