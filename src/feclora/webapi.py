@@ -2688,19 +2688,21 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     elif job.operation == "clone":
         source = _device(job.source_device, "source_device")
         inventory = collect_inventory()
+        expected_source_type = "disk" if job.target_type == "disk" else "part"
         matches = [
             item for item in inventory.get("devices", [])
-            if item.get("path") == source and item.get("type") == "disk"
+            if item.get("path") == source and item.get("type") == expected_source_type
         ]
         if len(matches) != 1:
-            raise WebAPIError("clone source must be one whole disk in the current block-device inventory")
+            label = "whole disk" if job.target_type == "disk" else "partition"
+            raise WebAPIError(f"clone source must be one {label} in the current block-device inventory")
         if matches[0].get("read_only") is not True:
-            raise WebAPIError("clone source disk must already be marked read-only")
+            raise WebAPIError(f"clone source {job.target_type} must already be marked read-only")
         from feclora.storage.source_safety import check_capture_source_safe, SourceSafetyError
         try:
             check_capture_source_safe(source)
         except (SourceSafetyError, OSError) as exc:
-            raise WebAPIError(f"clone source disk is unsafe or in use: {exc}") from exc
+            raise WebAPIError(f"clone source {job.target_type} is unsafe or in use: {exc}") from exc
     else:
         image_repository = (
             _operation_repository({"repository_id": job.repository_id}, write=False)
