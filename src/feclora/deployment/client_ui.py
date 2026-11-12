@@ -364,7 +364,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             )
             if job.operation == "save":
                 compression_choice = dialog_app._menu(
-                    "Capture compression", "Choose whole-disk image compression.",
+                    "Capture compression", "Choose image compression for the selected disk or logical volume.",
                     [("none", "None"), ("gzip", "gzip (balanced)"), ("xz", "xz (smaller, slower)"),
                      ("zstd", "zstd (fast, balanced)"), ("lz4", "lz4 (fastest)")],
                 )
@@ -430,7 +430,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                     operation,
                 )
             return dialog_app._run_capture_gauge(
-                "Network disk capture", "Capturing, optionally encrypting/signing and transferring the selected disk image.",
+                "Network image capture", "Capturing, optionally encrypting and transferring the selected disk or logical-volume image.",
                 operation,
             )
 
