@@ -102,6 +102,62 @@ def _operation_repository(params: dict[str, Any], *, write: bool, create_local: 
         raise WebAPIError(f"selected image repository is not safely available: {exc}") from exc
 
 
+@contextmanager
+def _operation_repository_context(
+    params: dict[str, Any], *, write: bool, create_local: bool = False,
+    image_id: str | None = None, upload_image_id: str | None = None,
+    upload_new_images: bool = False,
+):
+    """Resolve a filesystem repository or stage S3 objects in a private work directory."""
+    repository_id = params.get("repository_id")
+    if repository_id is None:
+        yield _repository(create=create_local)
+        return
+    if (not isinstance(repository_id, str)
+            or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", repository_id)):
+        raise WebAPIError("repository_id is invalid")
+    from feclora.storage.s3_repository_manager import S3RepositoryManager
+    manager = S3RepositoryManager()
+    s3_definition = next((item for item in manager.list() if item["id"] == repository_id), None)
+    if s3_definition is None:
+        try:
+            yield Path(_remote_repository_manager().resolve(repository_id, write=write))
+        except Exception as exc:
+            raise WebAPIError(f"selected image repository is not safely available: {exc}") from exc
+        return
+    try:
+        object_repository = manager.repository(repository_id, progress=_progress)
+        if write and object_repository.config.read_only:
+            raise WebAPIError("S3 repository is configured read-only")
+        with tempfile.TemporaryDirectory(prefix="feclora-s3-operation-") as temporary:
+            root = Path(temporary)
+            os.chmod(root, 0o700)
+            if image_id is not None:
+                object_repository.download_image_set(image_id, root)
+            original_ids = {
+                item.name[:-len(".manifest.json")]
+                for item in root.glob("*.manifest.json") if item.is_file()
+            }
+            yield root
+            if write:
+                if upload_image_id is not None:
+                    object_repository.upload_image_set(root, upload_image_id)
+                elif upload_new_images:
+                    new_ids = sorted(
+                        item.name[:-len(".manifest.json")]
+                        for item in root.glob("*.manifest.json")
+                        if item.is_file() and item.name[:-len(".manifest.json")] not in original_ids
+                    )
+                    if not new_ids:
+                        raise WebAPIError("S3 operation produced no new image manifest to publish")
+                    for new_id in new_ids:
+                        object_repository.upload_image_set(root, new_id)
+    except WebAPIError:
+        raise
+    except Exception as exc:
+        raise WebAPIError(f"S3 object repository operation failed: {exc}") from exc
+
+
 def _find_inventory_device(inventory: dict[str, Any], path: str, expected_type: str) -> list[dict[str, Any]]:
     """Find a device at any depth in lsblk's nested disk/partition tree."""
     matches: list[dict[str, Any]] = []
