@@ -87,7 +87,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 age_identity_file=None, age_recipients_file=None, repository="/var/lib/feclora/images",
             )
             block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
-            real_lstat = os.lstat
+            real_stat = os.stat
 
             join_options = {}
             def fake_join(host, port, context, **kwargs):
@@ -120,7 +120,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \
                  mock.patch("feclora.network.interface_discovery.discover_interface_addresses", return_value=[SimpleNamespace(address="192.0.2.20")]), \
                  mock.patch("feclora.deployment.client_service.os.stat",
-                            side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == DEVICE else real_lstat(path, *args, **kwargs)), \
+                            side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == DEVICE else real_stat(path, *args, **kwargs)), \
                  mock.patch("feclora.deployment.client_service.join_deployment", side_effect=fake_join), \
                  mock.patch("feclora.deployment.client_service.execute_client_image_job",
                             return_value=(True, "image restored and verified")) as execute:
