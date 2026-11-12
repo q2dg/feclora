@@ -195,8 +195,8 @@ class PartitionRestoreTests(unittest.TestCase):
         )
         self.assertEqual(result.storage["capture_scope"], "encrypted_container_bytes")
         self.assertEqual(proc.stdin.getvalue(), self.payload)
-        self.assertTrue(any("luksUUID" in call[0][0] for call in self.runner_calls))
-        self.assertTrue(any("luksDump" in call[0][0] for call in self.runner_calls))
+        self.assertTrue(any("luksUUID" in call[0] for call in self.runner_calls))
+        self.assertTrue(any("luksDump" in call[0] for call in self.runner_calls))
 
     def test_luks2_container_restore_rejects_header_without_keyslots(self):
         self.write_luks2_manifest()
@@ -295,7 +295,7 @@ class PartitionRestoreTests(unittest.TestCase):
             if "luksDump" in command:
                 return SimpleNamespace(stdout=json.dumps({"uuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "segments": {"0": {}}}), stderr="", returncode=0)
             return SimpleNamespace(stdout=f"{len(self.payload) + 1024} part 512 0\n", stderr="", returncode=0)
-        with self.assertRaisesRegex(PartitionRestoreError, "UUID or metadata"):
+        with self.assertRaisesRegex(PartitionRestoreError, "UUID, segments or keyslots"):
             restore_partition(
                 self.manifest, self.temp.name, "/dev/sda1",
                 confirmation="ERASE /dev/sda1",
@@ -307,8 +307,9 @@ class PartitionRestoreTests(unittest.TestCase):
 
     def test_luks2_container_restore_requires_cryptsetup_before_writer(self):
         self.write_luks2_manifest()
-        with self.assertRaisesRegex(PartitionRestoreError, "cryptsetup is required"):
-            self.restore()
+        with patch("feclora.storage.partition_restore.shutil.which", side_effect=lambda name: None if name == "cryptsetup" else name):
+            with self.assertRaisesRegex(PartitionRestoreError, "cryptsetup is required"):
+                self.restore()
         self.assertEqual(self.calls, [])
 
     def test_luks2_container_restore_rejects_inconsistent_scope_and_layer(self):
