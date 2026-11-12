@@ -10,6 +10,7 @@ import hashlib
 import os
 import re
 import secrets
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -131,6 +132,41 @@ class S3ObjectRepository:
         if self.progress is not None:
             self.progress(done, total)
 
+    @staticmethod
+    def _require_directory(path: Path) -> None:
+        try:
+            info = path.lstat()
+        except OSError as exc:
+            raise S3RepositoryError("local S3 staging directory is unavailable") from exc
+        if not stat.S_ISDIR(info.st_mode):
+            raise S3RepositoryError("local S3 staging path must be a real directory, not a symlink")
+
+    @staticmethod
+    def _require_regular_file(path: Path) -> None:
+        try:
+            info = path.lstat()
+        except OSError as exc:
+            raise S3RepositoryError(f"local image component is unavailable: {path.name}") from exc
+        if not stat.S_ISREG(info.st_mode):
+            raise S3RepositoryError(f"local image component is not a regular file: {path.name}")
+
+    def check_connection(self) -> dict[str, Any]:
+        """Verify bucket access without changing remote state."""
+        try:
+            self.client.head_bucket(Bucket=self.config.bucket)
+            response = self.client.list_objects_v2(
+                Bucket=self.config.bucket,
+                Prefix=(self.prefix + "/") if self.prefix else "",
+                MaxKeys=1,
+            )
+        except Exception as exc:
+            raise S3RepositoryError(f"S3 endpoint or bucket is unavailable: {exc}") from exc
+        return {
+            "reachable": True,
+            "bucket_accessible": True,
+            "prefix_has_objects": bool(response.get("Contents")),
+        }
+
     def _head(self, key: str) -> dict[str, Any] | None:
         try:
             return self.client.head_object(Bucket=self.config.bucket, Key=key)
@@ -224,8 +260,10 @@ class S3ObjectRepository:
         if self.config.read_only:
             raise S3RepositoryError("S3 repository is configured read-only")
         root = Path(repository)
+        self._require_directory(root)
         manifest_path = root / f"{image_id}.manifest.json"
         try:
+            self._require_regular_file(manifest_path)
             manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
         except Exception as exc:
             raise S3RepositoryError(f"local image manifest is invalid or unavailable: {exc}") from exc
@@ -240,6 +278,7 @@ class S3ObjectRepository:
         for artifact in manifest.artifacts:
             path = root / artifact.filename
             try:
+                self._require_regular_file(path)
                 size, digest = self._digest(path)
             except OSError as exc:
                 raise S3RepositoryError(f"image artifact is unavailable: {artifact.filename}") from exc
@@ -317,6 +356,8 @@ class S3ObjectRepository:
         """Download and verify a committed image set into a private local directory."""
         root = Path(destination)
         root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        self._require_directory(root)
+        os.chmod(root, 0o700)
         manifest_key = self._manifest_key(image_id)
         try:
             response = self.client.get_object(Bucket=self.config.bucket, Key=manifest_key)
@@ -330,7 +371,8 @@ class S3ObjectRepository:
 
         for artifact in manifest.artifacts:
             final_path = root / artifact.filename
-            if final_path.exists():
+            if os.path.lexists(final_path):
+                self._require_regular_file(final_path)
                 size, digest = self._digest(final_path)
                 if size == artifact.size_bytes and digest == artifact.sha256:
                     continue
@@ -376,6 +418,7 @@ class S3ObjectRepository:
                 output.flush()
                 os.fsync(output.fileno())
         except FileExistsError:
+            self._require_regular_file(manifest_path)
             existing = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
             if existing.image_id != image_id:
                 raise S3RepositoryError("local manifest destination contains a different image")
