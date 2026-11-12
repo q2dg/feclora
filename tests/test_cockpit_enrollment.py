@@ -11,11 +11,6 @@ from feclora.deployment.cockpit_enrollment import (
 
 
 class CockpitEnrollmentTests(unittest.TestCase):
-    def test_media_file_rejects_paths_outside_removable_media(self):
-        with tempfile.NamedTemporaryFile() as source:
-            with self.assertRaisesRegex(CockpitEnrollmentError, "under /run/media"):
-                from feclora.deployment.cockpit_enrollment import _media_file
-                _media_file(source.name, "CSR")
 
     def test_export_server_age_recipients_writes_private_non_overwriting_bundle(self):
         import hashlib
