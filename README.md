@@ -123,7 +123,7 @@ process restarts during the current Live session. The default Live root is
 ephemeral, so this queue/history is not retained across reboot; reboot
 persistence is not required. A reboot during destructive I/O can leave a
 partially written target with no surviving session journal, so inspect it
-before reuse. Phase/throughput telemetry, export and live systemd acceptance
+before reuse. Standardized phase/diagnostic telemetry, history export and live systemd acceptance
 remain outstanding.
 
 The source tree and CI checks do not establish ISO boot or physical-device
