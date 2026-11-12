@@ -15,12 +15,7 @@ boot creates fresh local credentials, certificates and temporary configuration.
 Durable images and manifests belong in repositories explicitly selected by the
 operator. Persistent Live-session storage is not a product requirement.
 
-Storage layers and repositories are different concepts. LVM logical volumes,
-raw LUKS2 containers and Btrfs filesystems are possible image sources. SSHFS,
-NFS and SMB/CIFS are implemented mounted-repository providers. WebDAV and S3
-are planned file-repository providers; S3 requires an object API rather than a
-mount. NVMe-oF is a separate planned remote block-device transport. Feclora is
-a client of these external services and does not provision or administer them.
+Storage layers and repositories are different concepts. LVM logical volumes, raw LUKS2 containers and Btrfs filesystems are possible image sources. SSHFS, NFS and SMB/CIFS are implemented mounted-repository providers. S3 object storage is the next repository integration. Feclora is a client of external storage services and does not provision or administer them.
 
 ## Implemented in source
 
@@ -48,14 +43,7 @@ transport. Age encryption is optional.
   administrator-configured client-count and/or elapsed-time limits; neither
   limit is enabled by default. MAC is an operational identifier, not authentication. This answer workflow is separate
   from authenticated Server/Client Remote jobs.
-- **Remote repositories:** SSHFS, NFS and SMB/CIFS mount lifecycle and image
-  engine integration exist. Provider-specific permissions, NFS root-squash,
-  stale mounts, outages, interrupted publication, cleanup, concurrency and
-  live health behavior still need acceptance. S3 object transfer, credential isolation and manifest-last publication require implementation and provider acceptance.
-5. Complete release engineering: deterministic frontend dependencies,
-   security scanning, secret checks and documentation/link checks in CI.
-6. Record BIOS/UEFI, real Fedora Live, filesystem, remote-provider, multi-Client,
-   PXE, multicast/IGMP and physical-hardware acceptance.
+- **Remote repositories:** SSHFS, NFS and SMB/CIFS mount lifecycle and image-engine integration exist. Provider-specific permissions, NFS root-squash, stale mounts, outages, interrupted publication, cleanup, concurrency and live health behavior still need acceptance. S3 object transfer, credential isolation and manifest-last publication are in progress.
 
 ## Operator-owned acceptance
 
