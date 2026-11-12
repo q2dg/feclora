@@ -219,7 +219,7 @@ def encrypt_artifact_with_passphrase(
                     # age's encryption prompt includes explanatory text
                     # between "passphrase" and the trailing colon.
                     prompt = re.search(
-                        rb"(?:enter|confirm)[^\\r\\n]{0,160}passphrase[^\\r\\n]{0,160}:\\s*$",
+                        rb"(?:enter|confirm)[^\r\n]{0,160}passphrase[^\r\n]{0,160}:\s*$",
                         bytes(transcript), re.IGNORECASE,
                     )
                     if prompt and sent < 2:
