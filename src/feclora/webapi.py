@@ -1353,24 +1353,42 @@ def _provide_pxe_age_passphrase(params: dict[str, Any]) -> dict[str, Any]:
     if "feclora.pxe_mode=unattended-answer" not in cmdline.split():
         raise WebAPIError("age passphrases can only be submitted on an unattended PXE Live client")
     directory = Path("/run/feclora/pxe")
+    marker = directory / "age-passphrase-needed"
+    temporary = None
     try:
         info = os.lstat(directory)
         if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
                 or info.st_uid != 0 or info.st_mode & 0o077):
             raise WebAPIError("PXE Live runtime directory is not secure")
+        marker_info = os.lstat(marker)
+        if (not stat.S_ISREG(marker_info.st_mode) or stat.S_ISLNK(marker_info.st_mode)
+                or marker_info.st_uid != 0 or marker_info.st_mode & 0o077):
+            raise WebAPIError("PXE Live worker is not waiting for an age passphrase")
         secret = directory / "age-passphrase"
-        fd = os.open(secret, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        fd, temporary = tempfile.mkstemp(prefix=".age-passphrase-", dir=directory)
+        os.fchmod(fd, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as output:
             output.write(passphrase)
             output.flush()
             os.fsync(output.fileno())
+        os.link(temporary, secret, follow_symlinks=False)
+        os.unlink(temporary)
+        temporary = None
         return {"submitted": True, "message": "Passphrase delivered once to the waiting PXE restore worker."}
     except FileExistsError as exc:
         raise WebAPIError("an age passphrase is already pending; wait for the restore worker") from exc
+    except FileNotFoundError as exc:
+        raise WebAPIError("the PXE restore worker is not currently waiting for an age passphrase") from exc
     except WebAPIError:
         raise
     except OSError as exc:
         raise WebAPIError(f"cannot submit age passphrase to PXE Live: {exc}") from exc
+    finally:
+        if temporary is not None:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
 
 
 def _revoke_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
