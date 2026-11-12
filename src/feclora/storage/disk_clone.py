@@ -89,7 +89,7 @@ def clone_disk(
     popen_factory: Callable[..., Any] | None = None,
     device_safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
-    progress_callback: Callable[[int, str], None] | None = None,
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> int:
     """Clone one offline whole disk directly to another with GNU dd."""
     for label, path in (("source", source_path), ("target", target_path)):
@@ -193,10 +193,10 @@ def clone_disk(
                     if progress_callback and line:
                         try:
                             copied = int(line.split()[0].replace(",", ""))
-                            percent = min(100, int(copied * 100 / source_size))
-                            progress_callback(percent, line)
+                            copied = min(source_size, max(0, copied))
+                            progress_callback(copied, source_size, line)
                         except (ValueError, IndexError):
-                            progress_callback(0, line)
+                            continue
                 else:
                     progress_buffer.extend(byte)
         return_code = process.wait()
