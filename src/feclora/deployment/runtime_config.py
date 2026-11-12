@@ -100,8 +100,6 @@ class ServerRuntimeConfig:
     ca_file: str
     certificate_file: str
     private_key_file: str
-    client_minisign_public_keys: Mapping[str, str]
-    server_minisign_public_key: str | None
     repository: str
 
 
@@ -109,9 +107,9 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
     fields = {
         "schema_version", "bind_address", "port", "local_identity", "ca_file",
         "certificate_file", "private_key_file",
-        "client_minisign_public_keys", "server_minisign_public_key", "repository",
+        "repository",
     }
-    value = _read_config(path, fields, {"client_identity_to_mac"})
+    value = _read_config(path, fields, {"client_identity_to_mac", "client_minisign_public_keys", "server_minisign_public_key"})
     address = value["bind_address"]
     if not isinstance(address, str) or not address:
         raise RuntimeConfigError("bind_address must be a concrete interface address")
@@ -122,10 +120,6 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
         raise RuntimeConfigError("bind_address must be an IPv4 or IPv6 address") from exc
     if parsed.version != 4 or parsed.is_unspecified or parsed.is_multicast:
         raise RuntimeConfigError("bind_address must be a concrete unicast interface address")
-    client_keys = value["client_minisign_public_keys"]
-    if not isinstance(client_keys, dict) or len(client_keys) > 128:
-        raise RuntimeConfigError("client minisign public keys must be an object with at most 128 entries")
-    checked_client_keys = {_mac(mac): _secure_file(key, "client minisign public key") for mac, key in client_keys.items()}
     return ServerRuntimeConfig(
         bind_address=address,
         port=_port(value["port"]),
@@ -133,8 +127,6 @@ def load_server_runtime_config(path: str) -> ServerRuntimeConfig:
         ca_file=_secure_file(value["ca_file"], "deployment CA certificate"),
         certificate_file=_secure_file(value["certificate_file"], "Server certificate"),
         private_key_file=_secure_file(value["private_key_file"], "Server private key", private=True),
-        client_minisign_public_keys=checked_client_keys,
-        server_minisign_public_key=(_secure_file(value["server_minisign_public_key"], "Server minisign public key") if value["server_minisign_public_key"] is not None else None),
         repository=_repository(value["repository"]),
     )
 
@@ -146,9 +138,6 @@ class ClientRuntimeConfig:
     server_identity: str
     mac_address: str
     ca_file: str
-    trusted_server_public_key: str | None
-    local_minisign_secret_key: str | None
-    local_minisign_public_key: str | None
     age_identity_file: str | None
     age_recipients_file: str | None
     repository: str
@@ -158,40 +147,20 @@ def load_client_runtime_config(path: str) -> ClientRuntimeConfig:
     fields = {
         "schema_version", "host", "port", "server_identity",
         "mac_address", "ca_file",
-        "trusted_server_public_key", "local_minisign_secret_key",
-        "local_minisign_public_key", "age_identity_file", "age_recipients_file", "repository",
+        "age_identity_file", "age_recipients_file", "repository",
     }
-    value = _read_config(path, fields, {"local_identity", "certificate_file", "private_key_file"})
+    value = _read_config(path, fields, {"local_identity", "certificate_file", "private_key_file", "trusted_server_public_key", "local_minisign_secret_key", "local_minisign_public_key"})
     host = value["host"]
     if not isinstance(host, str) or not host or len(host) > 253 or any(ord(c) < 33 for c in host):
         raise RuntimeConfigError("Server host must be a valid hostname or address")
     age_identity = value["age_identity_file"]
     age_recipients = value["age_recipients_file"]
-    signing_secret = value["local_minisign_secret_key"]
-    signing_public = value["local_minisign_public_key"]
-    if (signing_secret is None) != (signing_public is None):
-        raise RuntimeConfigError("Client minisign secret and public keys must be configured together")
-    minisign_secret = value["local_minisign_secret_key"]
-    minisign_public = value["local_minisign_public_key"]
-    if bool(minisign_secret) != bool(minisign_public):
-        raise RuntimeConfigError("Client minisign secret and public keys must either both be configured or both be null")
-    checked_minisign_secret = (
-        _secure_file(minisign_secret, "Client minisign secret key", private=True)
-        if minisign_secret else None
-    )
-    checked_minisign_public = (
-        _secure_file(minisign_public, "Client minisign public key")
-        if minisign_public else None
-    )
     return ClientRuntimeConfig(
         host=host,
         port=_port(value["port"]),
         server_identity=_identity(value["server_identity"], "Server certificate identity"),
         mac_address=_mac(value["mac_address"]),
         ca_file=_secure_file(value["ca_file"], "deployment CA certificate"),
-        trusted_server_public_key=(_secure_file(value["trusted_server_public_key"], "trusted Server minisign public key") if value["trusted_server_public_key"] is not None else None),
-        local_minisign_secret_key=checked_minisign_secret,
-        local_minisign_public_key=checked_minisign_public,
         age_identity_file=_secure_file(age_identity, "age identity file", private=True) if age_identity is not None else None,
         age_recipients_file=_secure_file(age_recipients, "age recipients file") if age_recipients is not None else None,
         repository=_repository(value["repository"]),
