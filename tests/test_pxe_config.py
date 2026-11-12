@@ -93,6 +93,16 @@ class PXEConfigTests(unittest.TestCase):
         with self.assertRaises(PXEConfigError):
             render_dnsmasq(proxy(address="0.0.0.0"))
 
+    def test_requires_at_least_one_admission_limit(self):
+        with self.assertRaisesRegex(PXEConfigError, "Configure a maximum"):
+            render_dnsmasq(proxy(max_clients=None, max_duration_seconds=None))
+
+    def test_rejects_invalid_admission_limits(self):
+        with self.assertRaisesRegex(PXEConfigError, "Maximum PXE clients"):
+            render_dnsmasq(proxy(max_clients=0))
+        with self.assertRaisesRegex(PXEConfigError, "Maximum PXE serving time"):
+            render_dnsmasq(proxy(max_duration_seconds=30))
+
     def test_rejects_unsafe_lease_duration(self):
         with self.assertRaisesRegex(PXEConfigError, "Lease time"):
             render_dnsmasq(proxy(
@@ -108,6 +118,8 @@ class PXEConfigTests(unittest.TestCase):
         self.assertIn("http://192.0.2.1:8080", rendered)
         self.assertIn('root * "/srv/feclora/http"', rendered)
         self.assertIn("file_server", rendered)
+        self.assertIn("handle_path /pxe/admit/*", rendered)
+        self.assertIn("reverse_proxy 127.0.0.1:8765", rendered)
         self.assertNotIn("https://", rendered)
         self.assertNotIn("0.0.0.0", rendered)
 
