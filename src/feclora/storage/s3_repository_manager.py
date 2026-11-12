@@ -201,14 +201,54 @@ class S3RepositoryManager:
             self._save(entries)
         return {"id": identifier, "provider": "s3", "updated": True}
 
+    def _acquire_usage_lock(self, identifier: str, *, exclusive: bool) -> int:
+        if not isinstance(identifier, str) or not _ID.fullmatch(identifier):
+            raise S3RepositoryManagerError("S3 repository ID is invalid")
+        self._root()
+        lock_dir = self.registry.parent / "s3-repository-locks"
+        lock_dir.mkdir(mode=0o700, exist_ok=True)
+        info = os.lstat(lock_dir)
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != self.owner_uid or info.st_mode & 0o077:
+            raise S3RepositoryManagerError("S3 repository lock directory is unsafe")
+        path = lock_dir / (identifier + ".lock")
+        fd = -1
+        try:
+            fd = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != self.owner_uid or info.st_mode & 0o077:
+                raise S3RepositoryManagerError("S3 repository usage lock is unsafe")
+            fcntl.flock(fd, (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB)
+            return fd
+        except BlockingIOError as exc:
+            if fd >= 0:
+                os.close(fd)
+            raise S3RepositoryManagerError("S3 repository is in use by an active deployment operation") from exc
+        except Exception:
+            if fd >= 0:
+                os.close(fd)
+            raise
+
+    def acquire_usage_lock(self, identifier: str) -> int:
+        if identifier not in self._load():
+            raise S3RepositoryManagerError("unknown S3 repository ID")
+        return self._acquire_usage_lock(identifier, exclusive=False)
+
     def remove(self, identifier):
         if not isinstance(identifier, str) or not _ID.fullmatch(identifier):
             raise S3RepositoryManagerError("S3 repository ID is invalid")
-        with self._lock():
-            entries = self._load()
-            if identifier not in entries:
-                raise S3RepositoryManagerError("unknown S3 repository ID")
-            del entries[identifier]
+        usage_fd = self._acquire_usage_lock(identifier, exclusive=True)
+        try:
+            with self._lock():
+                entries = self._load()
+                if identifier not in entries:
+                    raise S3RepositoryManagerError("unknown S3 repository ID")
+                del entries[identifier]
+                self._save(entries)
+        finally:
+            os.close(usage_fd)
+        return {"id": identifier, "removed": True}
+
+    def credential_is_referenced
             self._save(entries)
         return {"id": identifier, "removed": True}
 
