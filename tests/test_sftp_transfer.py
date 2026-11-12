@@ -161,7 +161,7 @@ class SFTPTransferTests(unittest.TestCase):
                 "/images", host="sftp.example.net", username="backup",
                 identity_file="/key", known_hosts_file="/known", runner=runner,
             )
-        self.assertEqual(names, ["image-01.manifest.json", "manifest.json"])
+        self.assertEqual(names, ["image-01.manifest.json", "manifest.json", "other.manifest.json", "unsigned.manifest.json"])
 
     def test_manifest_inventory_rejects_traversal_directory(self):
         with self.assertRaises(SFTPTransferError):
