@@ -153,11 +153,9 @@ class DeploymentCoordinator:
         with self._lock:
             return tuple(self._clients[key] for key in sorted(self._clients))
 
-    def register_client(self, mac_address: str, *, authenticated: bool) -> ClientRecord:
-        """Register a peer only after an external transport authenticates it."""
+    def register_client(self, mac_address: str) -> ClientRecord:
+        """Register a connected peer selected by the deployment job."""
         with self._lock:
-            if authenticated is not True:
-                raise CoordinatorError("Client control channel is not authenticated")
             if not self.job.authorizes_client(mac_address):
                 raise CoordinatorError("Client is not in the job allowlist")
             if self._state in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED}:
@@ -169,7 +167,7 @@ class DeploymentCoordinator:
             if self._state in {JobState.ARMED, JobState.RUNNING}:
                 raise CoordinatorError("Cannot add clients after the job is armed")
             record = ClientRecord(mac, ClientState.CONNECTED)
-            self._record_event("client_authenticated", client=record)
+            self._record_event("client_connected", client=record)
             self._clients[mac] = record
             return record
 
