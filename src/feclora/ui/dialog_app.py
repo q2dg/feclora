@@ -256,7 +256,7 @@ def _capture_disk(inventory: dict[str, Any]) -> None:
         return
     compression, compression_level = compression_choice
     security = _image_security_options()
-    if security is None:
+    if security is False:
         return
     recipients = security
     try:
@@ -699,7 +699,6 @@ def _restore(inventory: dict[str, Any]) -> None:
                     filename, _repository(), partition_selector,
                     age_identity_file=age_identity,
 
-                    require_signature=require_signature,
                     progress_callback=progress,
                 )
             extracted_manifest, extracted_filename = _run_logged(
