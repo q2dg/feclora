@@ -12,7 +12,6 @@ import re
 import stat
 import subprocess
 import tempfile
-import sys
 from pathlib import Path
 from typing import Any, Callable
 
@@ -209,7 +208,7 @@ class PXEServiceManager:
             admission_argv = [
                 self.systemd_run, f"--unit={self._admission_unit}", "--collect",
                 "--property=Restart=no", "--property=KillMode=mixed", "--",
-                sys.executable, "-m", "feclora.network.pxe_admission",
+                "/usr/libexec/feclora/feclora-pxe-admission",
                 "--state", str(self.runtime_dir / "admission.json"),
                 "--bind", "127.0.0.1", "--port", "8765",
                 "--boot-url-prefix", f"http://{config.address}:{config.http_port}/pxe/boot/",
