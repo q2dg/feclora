@@ -1064,15 +1064,17 @@ export default function App() {
                       <option value="">Select read-only source…</option>
                       {inventoryDevices.filter((item) => item.type === (remoteTargetType === "disk" ? "disk" : "part") && item.read_only === true).map((item) => <option key={item.path} value={item.path}>{item.path} · {item.model || (remoteTargetType === "disk" ? "Disk" : "Partition")} · {formatBytes(item.size_bytes)}</option>)}
                     </select>
-                  </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing disk or partition image. Images are validated against their manifests and SHA-256 digests." : "New identifier for the image captured from Clients."}>
+                  </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing disk, partition or logical-volume image matching the selected target type. Images are validated against their manifests and SHA-256 digests." : "New identifier for the image captured from Clients."}>
                     {remoteOperation === "restore" ? <select className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)}>
                       <option value="">Select image…</option>
                       {remoteAvailableImages.filter((item) => item.image_type === remoteTargetType).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}</option>)}
                     </select> : <input className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)} maxLength={128} required />}
                   </Field>}
-                  {(remoteOperation === "restore" || remoteOperation === "clone") && <Field label={remoteOperation === "clone" ? "Clone device type" : "Target type"}>
+                  {(remoteOperation === "save" || remoteOperation === "restore" || remoteOperation === "clone") && <Field label={remoteOperation === "clone" ? "Clone device type" : remoteOperation === "save" ? "Capture source type" : "Restore target type"}>
                     <select className="pf-v5-c-form-control" value={remoteTargetType} onChange={(e) => { setRemoteTargetType(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); }}>
-                      <option value="disk">Whole disk</option><option value="partition">Partition</option>
+                      <option value="disk">Whole disk</option>
+                      {remoteOperation !== "clone" && <option value="logical_volume">Logical volume</option>}
+                      {remoteOperation !== "save" && <option value="partition">Partition</option>}
                     </select>
                   </Field>}
                   <Field label="Selected Client MAC addresses" help={remoteOperation === "clone" ? "Enter exactly one selected Client MAC. That Client independently selects and confirms a destination of the selected device type." : "Enter exactly one MAC for unicast, or at least two for multicast restore. Server checks that each MAC is selected for this job; MAC is not authentication."}>
