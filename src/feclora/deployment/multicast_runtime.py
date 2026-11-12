@@ -1,7 +1,7 @@
 """Authenticated UDPcast restore runtime for multiple Clients.
 
-The mTLS channel distributes the manifest and coordinates the job. A detached
-signature is verified when present. UDPcast carries artifact bytes to private
+The mTLS channel distributes the manifest and coordinates the job. UDPcast
+carries artifact bytes to private
 Client staging files. Every artifact is verified against the manifest before
 the existing restore path may write to the locally selected disk.
 """
@@ -28,7 +28,6 @@ from feclora.storage.partition_restore import PartitionRestoreError, restore_par
 from feclora.storage.logical_volume_restore import LogicalVolumeRestoreError, restore_logical_volume
 from feclora.storage.inventory import collect_inventory
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
-from feclora.storage.image_security import ImageSecurityError, verify_manifest_signature
 
 
 class MulticastDeploymentError(RuntimeError):
@@ -96,7 +95,7 @@ def execute_multicast_restore(
     progress_callback: Callable[[int, int | None], None] | None = None,
     executables: dict[str, str | None] | None = None,
 ) -> tuple[bool, str]:
-    """Receive artifacts privately, verify any signature and all digests, then restore one local target."""
+    """Receive artifacts privately, verify manifest and digests, then restore one local target."""
     if job.transport != "multicast" or job.operation != "restore":
         raise MulticastDeploymentError("multicast runtime currently supports restore jobs only")
     if not network_interface:
@@ -112,20 +111,16 @@ def execute_multicast_restore(
         raise MulticastDeploymentError("selected restore target must resolve to a block device")
     tls_socket.settimeout(120)
     offer = receive_control_message(tls_socket, expected_type="transfer_offer")
-    expected_fields = {"type", "job_id", "image_id", "manifest_b64", "signature_b64"}
+    expected_fields = {"type", "job_id", "image_id", "manifest_b64"}
     if (set(offer) != expected_fields or offer.get("job_id") != job.job_id
             or offer.get("image_id") != job.image_id):
         raise MulticastDeploymentError("multicast manifest offer is not bound to this deployment job")
     try:
         manifest_bytes = base64.b64decode(offer["manifest_b64"], validate=True)
-        signature_bytes = base64.b64decode(offer["signature_b64"], validate=True)
     except (ValueError, TypeError) as exc:
         raise MulticastDeploymentError("multicast manifest offer contains invalid base64") from exc
-    if not manifest_bytes or len(manifest_bytes) > 8 * 1024 or len(signature_bytes) > 2048:
+    if not manifest_bytes or len(manifest_bytes) > 8 * 1024:
         raise MulticastDeploymentError("multicast manifest exceeds the control-plane size limit")
-    signature_present = bool(signature_bytes)
-    if signature_present and not trusted_server_public_key:
-        raise MulticastDeploymentError("signed multicast image requires an independently trusted Server minisign key")
     root = os.path.abspath(os.fspath(repository))
     try:
         root_info = os.lstat(root)
@@ -135,9 +130,6 @@ def execute_multicast_restore(
         os.chmod(workdir, 0o700)
         manifest_path = os.path.join(workdir, job.image_id + ".manifest.json")
         _write_private(manifest_path, manifest_bytes)
-        if signature_present:
-            _write_private(manifest_path + ".minisig", signature_bytes)
-            verify_manifest_signature(manifest_path, trusted_server_public_key)
         manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
         if manifest.image_id != job.image_id:
             raise MulticastDeploymentError("image manifest does not match the job image identifier")
@@ -160,16 +152,14 @@ def execute_multicast_restore(
             os.replace(staged, destination)
             os.rmdir(os.path.dirname(staged))
             verify_staged_multicast_artifact(
-                destination, manifest_path, trusted_server_public_key, artifact.filename,
+                destination, manifest_path, artifact.filename,
             )
-        # The restore function re-verifies any signature, artifact hashes and
+        # The restore function re-verifies artifact hashes and
         # optional age decryption before opening the selected block device.
         restore_function = (restore_logical_volume if manifest.image_type == "logical_volume" else restore_partition if manifest.image_type == "partition" else restore_disk)
         restore_function(
             manifest_path, workdir, approval.device_path,
             confirmation=f"ERASE {approval.device_path}",
-            minisign_public_key=trusted_server_public_key if signature_present else None,
-            require_signature=signature_present,
             age_identity_file=age_identity_file,
             progress_callback=progress_callback,
             executables=executables,
@@ -177,7 +167,7 @@ def execute_multicast_restore(
         )
         return True, f"multicast image {job.image_id} restored and destination read-back verified"
     except (
-        OSError, ValueError, ManifestValidationError, ImageSecurityError,
+        OSError, ValueError, ManifestValidationError,
         DiskRestoreError, PartitionRestoreError, LogicalVolumeRestoreError, UDPcastError,
     ) as exc:
         raise MulticastDeploymentError(f"multicast restore failed: {exc}") from exc
