@@ -133,7 +133,7 @@ def _client_server_trust_wizard(config_path: str) -> bool:
         return False
     bundle = dialog_app._input(
         "Server trust bundle",
-        "Path to a directory containing the Server CA certificate (ca.crt), optionally server.pub and age-recipients.txt:",
+        "Path to a directory containing the Server CA certificate (ca.crt) and optionally age-recipients.txt:",
     )
     if not bundle or not os.path.isdir(bundle) or os.path.islink(bundle):
         raise PKIError("Server trust bundle must be an existing real directory")
@@ -158,14 +158,6 @@ def _client_server_trust_wizard(config_path: str) -> bool:
         raise PKIError("Server CA file already exists; inspect it before replacing trust material")
     shutil.copyfile(ca_source, ca_file)
     os.chmod(ca_file, 0o644)
-    server_key_source = os.path.join(bundle, "server.pub")
-    trusted_server_key = None
-    if os.path.isfile(server_key_source) and not os.path.islink(server_key_source):
-        trusted_server_key = os.path.join(pki_directory, "server.pub")
-        if os.path.lexists(trusted_server_key):
-            raise PKIError("trusted Server image-signing key already exists")
-        shutil.copyfile(server_key_source, trusted_server_key)
-        os.chmod(trusted_server_key, 0o644)
     recipients_source = os.path.join(bundle, "age-recipients.txt")
     recipients_file = None
     age_identity = None
@@ -197,9 +189,6 @@ def _client_server_trust_wizard(config_path: str) -> bool:
         "server_identity": server_identity,
         "mac_address": mac.lower(),
         "ca_file": ca_file,
-        "trusted_server_public_key": trusted_server_key,
-        "local_minisign_secret_key": None,
-        "local_minisign_public_key": None,
         "age_identity_file": age_identity,
         "age_recipients_file": recipients_file,
         "repository": repository,
@@ -432,7 +421,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             )
             if job.operation == "restore":
                 return dialog_app._run_restore_gauge(
-                    "Network image restore", "Receiving and verifying the image set, including any present signature, then restoring the selected target.",
+                    "Network image restore", "Receiving and verifying the image set with SHA-256, then restoring the selected target.",
                     operation,
                 )
             if job.operation == "clone":
