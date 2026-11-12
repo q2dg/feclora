@@ -188,20 +188,21 @@ class RepositoryMountServiceTests(unittest.TestCase):
                 effective_uid=lambda: 0, owner_uid=os.getuid(),
             )
             manager.add("nas", {
-                "provider": "sshfs", "host": "nas.example.net",
-                "remote_path": "/images", "username": "backup",
+                "provider": "nfs", "host": "nas.example.net",
+                "remote_path": "/exports/images", "username": None,
                 "credential_file": None, "identity_file": None,
-                "known_hosts_file": None, "port": 22, "read_only": True,
+                "known_hosts_file": None, "port": None, "read_only": True,
             })
             manager._mount_record = lambda _path: (
-                "fuse.sshfs", "backup@nas.example.net:/images",
+                "nfs4", "nas.example.net:/exports/images",
                 "ro,relatime,nosuid,nodev,noexec",
             )
-            manager._encrypted_credential_bindings = lambda _repo: [("nas-key", "/encrypted/nas-key.cred")]
+            manager._encrypted_credential_bindings = lambda _repo: [("nas-credential", "/encrypted/nas.cred")]
             manager._is_mounted = lambda _path: True
             with self.assertRaisesRegex(RepositoryManagerError, "service state could not be verified"):
                 manager.unmount("nas")
             self.assertFalse(any(call[0].endswith("umount") for call in calls))
+
 
 
 if __name__ == "__main__":
