@@ -58,6 +58,25 @@ class LocalOperationWorkerTests(unittest.TestCase):
             self.assertEqual(progress[1]["phase"], "working")
             self.assertNotIn("diagnostic_category", progress[1])
 
+    def test_operation_default_phase_is_used_when_engine_emits_no_phase(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            operation_id = store.submit("capture_disk", {
+                "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                "encrypt": False,
+            })
+            store.append(operation_id, "preflight")
+            store.append(operation_id, "running")
+            forwarder = _ProgressForwarder(store, operation_id, default_phase="capturing")
+            forwarder.write(json.dumps({
+                "event": "progress", "bytes_done": 4096, "bytes_total": 8192,
+            }) + "\n")
+            progress = [
+                event["details"] for event in store.status(operation_id)["events"]
+                if event["state"] == "progress"
+            ]
+            self.assertEqual(progress[0]["phase"], "capturing")
+
     def test_progress_persists_elapsed_time_and_sampled_throughput(self):
         with tempfile.TemporaryDirectory() as root:
             store = LocalOperationStore(os.path.join(root, "jobs"))
