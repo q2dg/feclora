@@ -6,7 +6,7 @@ from contextlib import nullcontext
 from unittest.mock import Mock, patch
 
 from feclora.storage.local_operations import LocalOperationStore
-from feclora.storage.local_operation_service import _ProgressForwarder, _cancel_on_sigterm, LocalOperationCancelled, execute, recover_interrupted
+from feclora.storage.local_operation_service import _ProgressForwarder, _cancel_on_sigterm, _diagnostic_category, LocalOperationCancelled, execute, recover_interrupted
 
 
 class LocalOperationWorkerTests(unittest.TestCase):
@@ -107,6 +107,14 @@ class LocalOperationWorkerTests(unittest.TestCase):
             ]
             self.assertNotIn("bytes_per_second", progress[1]["details"])
             self.assertEqual(progress[2]["details"]["bytes_per_second"], 512.0)
+
+    def test_failure_diagnostic_categories_are_bounded_and_non_sensitive(self):
+        import errno
+        self.assertEqual(_diagnostic_category(PermissionError("denied")), "permission")
+        self.assertEqual(_diagnostic_category(OSError(errno.ENOSPC, "disk full")), "capacity")
+        self.assertEqual(_diagnostic_category(OSError(errno.ETIMEDOUT, "timeout")), "network")
+        self.assertEqual(_diagnostic_category(NotImplementedError("unsupported")), "unsupported")
+        self.assertEqual(_diagnostic_category(RuntimeError("private path /secret")), "internal")
 
     def test_sigterm_handler_requests_orderly_worker_cancellation(self):
         with self.assertRaisesRegex(LocalOperationCancelled, "cancellation requested"):
