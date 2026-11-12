@@ -27,6 +27,15 @@ def build_mount_argv(repo, bindings: list[tuple[str, str]], credential_directory
     return argv
 
 
+def mount_command_timeout(provider: str) -> int | None:
+    """Bound one-shot mount helpers without timing out the SSHFS daemon.
+
+    SSHFS is deliberately kept in the foreground under its transient systemd
+    service. NFS and SMB mount helpers are one-shot commands and must not be
+    allowed to hang indefinitely during an unavailable-server mount.
+    """
+    return None if provider == "sshfs" else 60
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="feclora-repository-mount")
     parser.add_argument("--id", required=True)
@@ -45,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         result = subprocess.run(
             command, stdin=subprocess.DEVNULL, check=False,
+            timeout=mount_command_timeout(repo.provider),
         )
         return result.returncode
     except (OSError, subprocess.SubprocessError, RepositoryManagerError) as exc:
