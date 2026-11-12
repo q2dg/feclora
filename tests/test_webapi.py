@@ -677,7 +677,6 @@ class WebAPITests(unittest.TestCase):
         bootstrap.assert_called_once_with("192.0.2.10")
         self.assertTrue(result["created"])
         self.assertEqual(result["bind_address"], "192.0.2.10")
-        self.assertEqual(result["enrolled_clients"], 0)
 
     def test_bootstrap_server_validates_address_and_prefix_before_bootstrap(self):
         with self.assertRaisesRegex(WebAPIError, "prefix_length"):

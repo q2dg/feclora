@@ -70,7 +70,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             request.write_text(json.dumps({
                 "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
                 "device_path": DEVICE,
-                "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
+                "confirmation": f"ERASE {DEVICE}",
                 "compression": "gzip", "network_interface": "enp1s0", "source_address": "192.0.2.20", "igmp_confirmed": False, "image_encrypt": False, "image_sign": False,
             }), encoding="utf-8")
             request.chmod(0o600)
@@ -108,7 +108,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch("feclora.deployment.client_service._read_private_json", return_value={
                      "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
                      "device_path": DEVICE,
-                     "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
+                     "confirmation": f"ERASE {DEVICE}",
                      "compression": "gzip", "network_interface": "enp1s0", "source_address": "192.0.2.20", "igmp_confirmed": False, "image_encrypt": False, "image_sign": False,
                  }), \
                  mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \
@@ -142,7 +142,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             request.write_text(json.dumps({
                 "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
                 "device_path": DEVICE,
-                "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
+                "confirmation": f"ERASE {DEVICE}",
                 "compression": "gzip", "network_interface": "enp1s0", "igmp_confirmed": True,
             }), encoding="utf-8")
             request.chmod(0o600)
@@ -178,7 +178,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch("feclora.deployment.client_service._read_private_json", return_value={
                      "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
                      "device_path": DEVICE,
-                     "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
+                     "confirmation": f"ERASE {DEVICE}",
                      "compression": "gzip", "network_interface": "enp1s0",
                      "igmp_confirmed": True,
                  }), \
@@ -210,7 +210,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             request.write_text(json.dumps({
                 "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
                 "device_path": DEVICE,
-                "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
+                "confirmation": f"ERASE {DEVICE}",
                 "compression": "gzip", "network_interface": "enp1s0", "igmp_confirmed": True,
             }), encoding="utf-8")
             request.chmod(0o600)
@@ -246,7 +246,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch("feclora.deployment.client_service._read_private_json", return_value={
                      "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
                      "device_path": DEVICE,
-                     "confirmation": f"ERASE {DEVICE} FROM {SERVER_IDENTITY}",
+                     "confirmation": f"ERASE {DEVICE}",
                      "compression": "gzip", "network_interface": "enp1s0",
                      "igmp_confirmed": True,
                  }), \
@@ -314,7 +314,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             def fake_join(host, port, context, **kwargs):
                 approval = kwargs["prepare_local_target"](job)
                 self.assertEqual(approval.device_path, DEVICE)
-                self.assertEqual(approval.confirmation, f"ERASE {DEVICE} FROM {SERVER_IDENTITY}")
+                self.assertEqual(approval.confirmation, f"ERASE {DEVICE}")
                 success, detail = kwargs["execute_job"](job, object(), approval)
                 return job, success, detail
 
