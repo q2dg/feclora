@@ -827,7 +827,7 @@ export default function App() {
       const job = {
         schema_version: 1, job_id: crypto.randomUUID(), operation: remoteOperation,
         image_id: remoteOperation === "clone" ? null : remoteImageId,
-        ...(remoteOperation === "clone" ? { source_device: remoteSourceDevice, target_type: "disk" } : { target_type: remoteTargetType }),
+        ...(remoteOperation === "clone" ? { source_device: remoteSourceDevice, target_type: remoteTargetType } : { target_type: remoteTargetType }),
         authorized_clients: authorizedClients, network_interface: remoteInterface.split("|")[0],
         transport: remoteTransport,
         ...(remoteOperation === "restore" && selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}),
@@ -1204,7 +1204,7 @@ export default function App() {
                     <select className="pf-v5-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); if (e.target.value === "save" || e.target.value === "clone") { setRemoteTransport("unicast"); setRemoteTargetType("disk"); } }}>
                       <option value="restore">Restore a signed Server image to Clients</option>
                       <option value="save">Capture whole disks from Clients to Server</option>
-                      <option value="clone">Clone Server disk directly to one Client disk</option>
+                      <option value="clone">Clone a Server disk or partition directly to one Client</option>
                     </select>
                   </Field>
                   {remoteOperation === "restore" && <Field label="Image repository">
@@ -1213,10 +1213,10 @@ export default function App() {
                       {remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
                     </select>
                   </Field>}
-                  {remoteOperation === "clone" ? <Field label="Server source disk" help="Select a whole disk already marked read-only. Feclora rechecks it before streaming.">
+                  {remoteOperation === "clone" ? <Field label={remoteTargetType === "disk" ? "Server source disk" : "Server source partition"} help="Select a source already marked read-only. Feclora independently validates its type, geometry and in-use state before streaming.">
                     <select className="pf-v5-c-form-control" value={remoteSourceDevice} onChange={(e) => setRemoteSourceDevice(e.target.value)} required>
-                      <option value="">Select read-only source disk…</option>
-                      {(inventory?.devices || []).filter((item) => item.type === "disk" && item.read_only === true).map((item) => <option key={item.path} value={item.path}>{item.path} · {item.model || "Disk"} · {formatBytes(item.size_bytes)}</option>)}
+                      <option value="">Select read-only source…</option>
+                      {(inventory?.devices || []).filter((item) => item.type === (remoteTargetType === "disk" ? "disk" : "part") && item.read_only === true).map((item) => <option key={item.path} value={item.path}>{item.path} · {item.model || (remoteTargetType === "disk" ? "Disk" : "Partition")} · {formatBytes(item.size_bytes)}</option>)}
                     </select>
                   </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing disk or partition image. Signed images are verified; unsigned images are accepted through the TLS Server session." : "New identifier for the image captured from Clients."}>
                     {remoteOperation === "restore" ? <select className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)}>
@@ -1224,12 +1224,12 @@ export default function App() {
                       {availableImages.filter((item) => item.image_type === remoteTargetType).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {item.signed ? "signed" : "unsigned"}</option>)}
                     </select> : <input className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)} maxLength={128} required />}
                   </Field>}
-                  {remoteOperation === "restore" && <Field label="Target type">
-                    <select className="pf-v5-c-form-control" value={remoteTargetType} onChange={(e) => { setRemoteTargetType(e.target.value); setRemoteImageId(""); }}>
+                  {(remoteOperation === "restore" || remoteOperation === "clone") && <Field label={remoteOperation === "clone" ? "Clone device type" : "Target type"}>
+                    <select className="pf-v5-c-form-control" value={remoteTargetType} onChange={(e) => { setRemoteTargetType(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); }}>
                       <option value="disk">Whole disk</option><option value="partition">Partition</option>
                     </select>
                   </Field>}
-                  <Field label="Selected Client MAC addresses" help={remoteOperation === "clone" ? "Enter exactly one selected Client MAC. That Client independently selects and confirms its destination disk." : "Enter exactly one MAC for unicast, or at least two for multicast restore. Server checks that each MAC is selected for this job; MAC is not authentication."}>
+                  <Field label="Selected Client MAC addresses" help={remoteOperation === "clone" ? "Enter exactly one selected Client MAC. That Client independently selects and confirms a destination of the selected device type." : "Enter exactly one MAC for unicast, or at least two for multicast restore. Server checks that each MAC is selected for this job; MAC is not authentication."}>
                     <textarea className="pf-v5-c-form-control" rows={3} value={remoteClients} onChange={(e) => setRemoteClients(e.target.value)} required placeholder="52:54:00:12:34:56" />
                   </Field>
                   <Field label="Server network interface">
