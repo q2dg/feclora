@@ -21,7 +21,9 @@ class SystemdCredentialStoreTests(unittest.TestCase):
             if argv[1] == "encrypt":
                 Path(argv[-1]).write_bytes(b"encrypted:opaque-ciphertext")
                 os.chmod(argv[-1], 0o600)
-            return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if argv[1] == "decrypt":
+                return SimpleNamespace(returncode=0, stdout=b"decrypted-secret", stderr="")
+            return SimpleNamespace(returncode=0, stdout=b"", stderr="")
 
         self.store = SystemdCredentialStore(
             self.root, effective_uid=lambda: 0, owner_uid=os.getuid(),
@@ -54,6 +56,20 @@ class SystemdCredentialStoreTests(unittest.TestCase):
             "path": str(self.root / "feclora-nas-ssh-key.cred"),
         }])
         self.assertNotIn("secret", repr(entries))
+
+    def test_s3_credentials_are_schema_checked_and_decrypted_only_to_memory(self):
+        valid = b'{"access_key_id":"AKIA0123456789ABCD","secret_access_key":"test-secret-value"}'
+        result = self.store.put("archive", "s3", valid)
+        self.assertEqual(result["kind"], "s3")
+        entries = self.store.list()
+        self.assertTrue(any(item["kind"] == "s3" for item in entries))
+        self.assertEqual(self.store.read("archive", "s3"), b"decrypted-secret")
+        argv, kwargs = self.calls[-1]
+        self.assertEqual(argv[1:3], ["decrypt", "--name=feclora-archive-s3"])
+        self.assertEqual(argv[-1], "-")
+        self.assertEqual(kwargs["capture_output"], True)
+        with self.assertRaisesRegex(SystemdCredentialStoreError, "S3 credential JSON"):
+            self.store.put("invalid", "s3", b'{"secret_access_key":"only-secret"}')
 
     def test_empty_inventory_initializes_private_credential_directory(self):
         entries = self.store.list()
