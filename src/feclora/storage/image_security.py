@@ -323,6 +323,7 @@ def decrypt_artifact_stream_with_passphrase_to_temp(
     if not age:
         raise ImageSecurityError("age executable is required for image decryption")
     fd, temporary = tempfile.mkstemp(prefix=".feclora-decrypted-", dir=target_dir)
+    os.close(fd)
     master = slave = None
     try:
         master, slave = pty.openpty()
