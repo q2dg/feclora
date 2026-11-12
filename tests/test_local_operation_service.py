@@ -31,6 +31,33 @@ class LocalOperationWorkerTests(unittest.TestCase):
             self.assertEqual(report["events"][-1]["details"]["bytes_done"], 4096)
             self.assertEqual(report["events"][-1]["details"]["bytes_total"], 8192)
 
+    def test_progress_standardizes_phase_and_diagnostic_category(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = LocalOperationStore(os.path.join(root, "jobs"))
+            operation_id = store.submit("capture_disk", {
+                "source": "/dev/sda", "image_id": "daily", "compression": "zstd",
+                "encrypt": False, "sign": False,
+            })
+            store.append(operation_id, "preflight")
+            store.append(operation_id, "running")
+            forwarder = _ProgressForwarder(store, operation_id)
+            forwarder.write(json.dumps({
+                "event": "progress", "phase": "transferring",
+                "diagnostic_category": "network", "bytes_done": 12,
+            }) + "\n")
+            forwarder.write(json.dumps({
+                "event": "progress", "phase": "arbitrary-user-text",
+                "diagnostic_category": "secret-value",
+            }) + "\n")
+            progress = [
+                event["details"] for event in store.status(operation_id)["events"]
+                if event["state"] == "progress"
+            ]
+            self.assertEqual(progress[0]["phase"], "transferring")
+            self.assertEqual(progress[0]["diagnostic_category"], "network")
+            self.assertEqual(progress[1]["phase"], "working")
+            self.assertNotIn("diagnostic_category", progress[1])
+
     def test_progress_persists_elapsed_time_and_sampled_throughput(self):
         with tempfile.TemporaryDirectory() as root:
             store = LocalOperationStore(os.path.join(root, "jobs"))
