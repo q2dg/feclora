@@ -37,20 +37,12 @@ class DeploymentCoordinatorTests(unittest.TestCase):
         self.coordinator = DeploymentCoordinator(make_job())
 
     def connect(self, mac="52:54:00:12:34:56"):
-        self.coordinator.register_client(mac, authenticated=True)
+        self.coordinator.register_client(mac)
         self.coordinator.mark_ready(mac)
 
-    def test_rejects_unauthenticated_or_unauthorized_clients(self):
-        with self.assertRaisesRegex(CoordinatorError, "not authenticated"):
-            self.coordinator.register_client("52:54:00:12:34:56", authenticated=False)
+    def test_rejects_clients_outside_job_allowlist(self):
         with self.assertRaisesRegex(CoordinatorError, "allowlist"):
-            self.coordinator.register_client("52:54:00:12:34:99", authenticated=True)
-
-    def test_authentication_flag_must_be_literal_true(self):
-        with self.assertRaisesRegex(CoordinatorError, "not authenticated"):
-            self.coordinator.register_client(
-                "52:54:00:12:34:56", authenticated="yes"
-            )
+            self.coordinator.register_client("52:54:00:12:34:99")
 
     def test_requires_ready_client_before_manual_arm(self):
         with self.assertRaisesRegex(CoordinatorError, "condition"):
@@ -64,7 +56,7 @@ class DeploymentCoordinatorTests(unittest.TestCase):
             start_policy="expected_clients", expected_clients=2
         ))
         for mac in ("52:54:00:12:34:56", "52:54:00:12:34:57"):
-            coordinator.register_client(mac, authenticated=True)
+            coordinator.register_client(mac)
             coordinator.mark_ready(mac)
         self.assertTrue(coordinator.can_start())
         coordinator.arm()
@@ -84,14 +76,14 @@ class DeploymentCoordinatorTests(unittest.TestCase):
 
     def connect_with(self, coordinator):
         mac = "52:54:00:12:34:56"
-        coordinator.register_client(mac, authenticated=True)
+        coordinator.register_client(mac)
         coordinator.mark_ready(mac)
 
     def test_cannot_arm_or_join_after_arm(self):
         self.connect()
         self.coordinator.arm()
         with self.assertRaisesRegex(CoordinatorError, "after the job is armed"):
-            self.coordinator.register_client("52:54:00:12:34:57", authenticated=True)
+            self.coordinator.register_client("52:54:00:12:34:57")
 
     def test_tracks_success_and_failure_per_client(self):
         self.connect()
