@@ -79,14 +79,16 @@ signature or transport-encryption layer to this HTTP answer workflow, nor does
 it add per-client identity. Optional age encryption protects image artifacts,
 not the answer JSON or HTTP transport.
 
-The PXE Server registers the MAC address supplied by iPXE on the first
-unattended boot request. Cockpit configures a maximum number of distinct MAC
-addresses, a serving-time deadline, or both. Repeated requests from a MAC
-already registered do not consume another client slot. When the client cap is
-reached, new MAC addresses are refused; after the time deadline, all admission
-and boot-script requests are refused. The ledger is root-owned and persists
-for the lifetime of the PXE session. This is an operational admission limit,
-not authentication: a client can spoof a MAC address. The admission gate does
+The PXE Server can register the MAC address supplied by iPXE on the first
+unattended boot request. In Cockpit, the administrator may configure a maximum
+number of distinct MAC addresses, a serving-time deadline, or both. Both fields
+are empty by default: no client-count or time limit is imposed unless the
+administrator explicitly enters one. Repeated requests from a MAC already
+registered do not consume another client slot. When a configured client cap
+is reached, new MAC addresses are refused; after a configured time deadline,
+all admission and boot-script requests are refused. The ledger is root-owned
+and persists for the lifetime of the PXE session. This is an operational
+admission limit, not authentication: a client can spoof a MAC address. The admission gate does
 not stop an already-running restore, invalidate a boot script already
 retrieved by a client, or revoke the JSON answer file itself. The JSON answer
 URL remains a public job-scoped locator until explicit revocation or stale
