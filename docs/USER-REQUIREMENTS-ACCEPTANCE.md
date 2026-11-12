@@ -47,7 +47,7 @@ Current-source note: local Cockpit capture supports eligible active LVM logical 
 
 **Outcome:** Capture a whole disk, partition or supported storage-layer source (including active LVM logical volumes, raw LUKS2 containers and supported Btrfs filesystems) and publish the image, manifest and integrity metadata to a selected remote repository.
 
-Required file-repository integrations: SSHFS (mounted filesystem), SFTP (file-transfer provider, distinct from SSHFS), NFS, SMB/CIFS, WebDAV and S3 (object API, not a mount). S3 requires scoped credentials, TLS validation, multipart lifecycle, conditional no-overwrite publication and a manifest-last commit marker. NVMe-oF is a separate block-device transport, not a file repository: Feclora acts only as an NVMe host/client and must validate NQN/NSID identity, multipath, geometry and in-use state before exposing a namespace to storage workflows. The distribution model is single-publisher / multi-reader for committed image sets. Concurrent publishers for the same image are out of scope. Every endpoint, bucket, export, share, subsystem and namespace is external infrastructure administered independently of Feclora. Feclora must not deploy or administer that infrastructure.
+Required file-repository integrations: SSHFS (mounted filesystem), NFS, SMB/CIFS, WebDAV and S3 (object API, not a mount). S3 requires scoped credentials, TLS validation, multipart lifecycle, conditional no-overwrite publication and a manifest-last commit marker. NVMe-oF is a separate block-device transport, not a file repository: Feclora acts only as an NVMe host/client and must validate NQN/NSID identity, multipath, geometry and in-use state before exposing a namespace to storage workflows. The distribution model is single-publisher / multi-reader for committed image sets. Concurrent publishers for the same image are out of scope. Every endpoint, bucket, export, share, subsystem and namespace is external infrastructure administered independently of Feclora. Feclora must not deploy or administer that infrastructure.
 
 - [ ] Cockpit can create, edit, test, connect/mount, inspect, disconnect/unmount and remove each provider advertised as supported.
 - [ ] Credentials/private keys use root-owned protected storage; secrets never enter browser storage, ordinary configuration, logs, journals or URLs.
@@ -60,7 +60,7 @@ Required file-repository integrations: SSHFS (mounted filesystem), SFTP (file-tr
 - [ ] WebDAV uses HTTPS with certificate validation and safe per-repository credentials; never use davfs2's global secrets file as a shortcut for isolated repository secrets.
 - [ ] S3 object storage supports authenticated inventory, bounded multipart transfer, abort/cleanup of incomplete uploads, immutable object keys, conditional manifest-last publication, independent manifest authenticity and SHA-256/size verification, cancellation and concurrent readers.
 - [ ] NVMe-oF host lifecycle supports discovery/connect/inspect/disconnect of operator-provisioned namespaces, binds NQN/NSID to kernel device identity, handles multipath and refuses disconnect while in use. Fabric security is documented separately from Feclora TLS.
-- [ ] Publish a capture guide per provider, distinguishing SSHFS from SFTP and documenting server-side setup.
+- [ ] Publish a capture guide per provider, documenting server-side setup.
 
 ## 4. Restore a remote image to one local disk
 
