@@ -1106,23 +1106,19 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         raise WebAPIError("operation parameters do not match the selected operation")
     allowed_params = allowed[action]
     if action.startswith("restore_"):
-        accepted_params = (allowed_params, allowed_params - {"repository_id"},
-                           allowed_params - {"sftp_source"},
-                           allowed_params - {"repository_id"})
+        accepted_params = (allowed_params, allowed_params - {"repository_id"})
     else:
-        accepted_params = (allowed_params, allowed_params - {"repository_id"},
-                           allowed_params - {"sftp_publish"},
-                           allowed_params - {"repository_id"})
+        accepted_params = (allowed_params, allowed_params - {"repository_id"})
     if action == "capture_disk":
         accepted_params = accepted_params + tuple(item - {"age_passphrase"} for item in accepted_params)
         accepted_params = accepted_params + tuple(
             item - {"age_passphrase", "encrypt_passphrase"} for item in accepted_params
         )
-    if (set(params) not in accepted_params and not (action in {"sftp_inventory", "sftp_fetch"} and set(params) == allowed_params - {"port"})) or ("sftp_source" in params and "repository_id" in params):
+    if set(params) not in accepted_params:
         raise WebAPIError("operation parameters do not match the selected operation")
     started = time.monotonic()
     _emit({"event": "started", "operation_id": operation_id, "operation": action})
-    elif action == "capture_disk":
+    if action == "capture_disk":
         from feclora.storage.disk_capture import capture_disk
         source = _device(params["source"], "source")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
@@ -1519,7 +1515,7 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
         accepted_params = (allowed_params, allowed_params - {"repository_id"},
                            allowed_params - {"sftp_publish"},
                            allowed_params - {"repository_id"})
-    if set(params) not in accepted_params or ("sftp_source" in params and "repository_id" in params):
+    if set(params) not in accepted_params:
         raise WebAPIError("operation parameters do not match the selected operation")
     with _storage_operation_lock():
         return _run_operation_locked(action, params)
