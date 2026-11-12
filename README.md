@@ -21,7 +21,7 @@ The Live session is ephemeral. Credentials, certificates and temporary configura
 
 ## Current limitations
 
-- SSHFS, NFS and SMB/CIFS file repositories are implemented. S3 has a separate object API, encrypted credential management and local capture/restore staging; distributed Server-to-Client S3 workflows and live-provider acceptance remain pending.
+- SSHFS, NFS and SMB/CIFS file repositories are implemented. S3 has a separate object API, encrypted credentials, local capture/restore staging, and distributed Client capture/restore through the Server's authenticated TLS transfer path. Live-provider acceptance against Garage, R2 and AWS S3 remains an operator validation step.
 - Unattended PXE currently covers the initial NFS whole-disk restore path, not a complete fleet workflow.
 - Multi-device Btrfs imaging, snapshot-assisted storage capture and several advanced LUKS/LVM workflows are not supported.
 - Automated tests and source validation do not prove ISO boot, firmware compatibility or physical-hardware acceptance.
