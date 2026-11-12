@@ -83,7 +83,6 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 server_identity=SERVER_IDENTITY, mac_address="52:54:00:12:34:56",
                 ca_file="/ca.crt", certificate_file="/client.crt",
                 private_key_file="/client.key", trusted_server_public_key="/server.pub",
-                local_minisign_secret_key=None, local_minisign_public_key=None,
                 age_identity_file=None, age_recipients_file=None, repository="/var/lib/feclora/images",
             )
             block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
