@@ -358,7 +358,6 @@ class WebAPITests(unittest.TestCase):
                 "extract_partition_image", {"image_id": "source", "selector": "PARTUUID=abc"}, "operation-1"
             )
         self.assertEqual(result["image_id"], "source-part-abc123")
-        self.assertNotIn("signed", result)
         self.assertEqual(result["source_image_id"], "source")
         extract.assert_called_once()
 
@@ -429,7 +428,6 @@ class WebAPITests(unittest.TestCase):
                 {"image_id": "verified"}
             )
         self.assertTrue(report["verified"])
-        self.assertNotIn("signature", report)
         self.assertEqual(report["artifacts"][0]["stored_digest"], "verified")
         self.assertEqual(report["artifacts"][0]["decoded_bytes"], 4)
 
@@ -1608,7 +1606,7 @@ class WebAPITests(unittest.TestCase):
         execute.assert_called_once_with("restore_disk", params, "restore-op")
 
 
-    def test_unsigned_restore_handles_client_without_optional_trusted_key(self):
+    def test_plain_restore_uses_tls_transport_authentication(self):
         from feclora.webapi import _execute_operation
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -1637,8 +1635,6 @@ class WebAPITests(unittest.TestCase):
                  patch("feclora.webapi._emit"):
                 result = _execute_operation("restore_disk", params, "restore-plain")
             restore.assert_called_once()
-            self.assertNotIn("minisign_public_key", restore.call_args.kwargs)
-            self.assertNotIn("require_signature", restore.call_args.kwargs)
             self.assertTrue(result["verified"])
 
 
@@ -1751,7 +1747,7 @@ class WebAPITests(unittest.TestCase):
             "start_deadline": None,
         }
 
-    def test_create_unsigned_multicast_restore_without_age_or_minisign(self):
+    def test_create_multicast_restore_without_age_encryption(self):
         from feclora.deployment.job import DeploymentJob
         payload = self._valid_deployment_payload(transport="multicast")
         manifest = SimpleNamespace(
@@ -1783,7 +1779,7 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(result["job_state"], "created")
         self.assertEqual(result["authorized_clients"], payload["authorized_clients"])
 
-    def test_create_unicast_save_without_client_minisign_keys(self):
+    def test_create_unicast_save_without_optional_encryption(self):
         payload = self._valid_deployment_payload(operation="save")
         config = SimpleNamespace(
             client_identity_to_mac={"URI:feclora-client-01": "52:54:00:12:34:56"},
@@ -1804,7 +1800,7 @@ class WebAPITests(unittest.TestCase):
             })
         self.assertEqual(result["job_state"], "created")
 
-    def test_client_remote_job_inspection_allows_unsigned_save_and_unencrypted_multicast(self):
+    def test_client_remote_job_inspection_allows_plain_save_and_multicast(self):
         from feclora.deployment.job import DeploymentJob
         config = SimpleNamespace(
             host="192.0.2.2", port=9443,
@@ -1862,8 +1858,6 @@ class WebAPITests(unittest.TestCase):
                 "URI:feclora-client-01": "52:54:00:12:34:56",
                 "URI:feclora-client-02": "52:54:00:12:34:57",
             },
-            client_minisign_public_keys={},
-            server_minisign_public_key=None,
             repository="/repo",
         )
         with tempfile.TemporaryDirectory() as directory, patch(
@@ -1918,7 +1912,7 @@ class WebAPITests(unittest.TestCase):
             server_identity="URI:feclora-server",
             mac_address="52:54:00:12:34:56",
             trusted_server_public_key=None,
-            local_minisign_secret_key=None, local_minisign_public_key=None,
+            local_minisign_public_key=None,
             age_identity_file=None, age_recipients_file=None,
         )
         jobs = (
