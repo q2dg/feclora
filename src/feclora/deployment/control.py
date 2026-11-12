@@ -372,7 +372,7 @@ class DeploymentControlServer:
                 return None
             if hello["type"] != "hello":
                 raise DeploymentControlError("client message must be hello or inspect")
-            self.coordinator.register_client(mac, authenticated=True)
+            self.coordinator.register_client(mac)
             registered_mac = mac
             send_control_message(tls_socket, {
                 "type": "job", "job": self.coordinator.job.to_dict(),
