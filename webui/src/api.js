@@ -3,7 +3,7 @@ const ACTIONS = new Set([
   "network_interfaces", "network_connection_profiles", "apply_network_profile", "bootstrap_server", "renew_server_certificate", "export_server_age_recipients", "refresh_client_age_recipients", "rotate_server_keypair", "validate_pxe_profile", "publish_pxe_answer", "revoke_pxe_answer", "provide_pxe_age_passphrase", "pxe_age_passphrase_status", "start_pxe_services", "stop_pxe_services", "pxe_service_status",
   "provide_capture_passphrase", "submit_local_operation", "local_operation_status", "local_operations", "cancel_local_operation", "capture_disk", "capture_partition", "restore_disk", "restore_partition", "restore_logical_volume",
   "clone_disk", "clone_partition", "extract_partition_image",
-"  "systemd_credentials", "put_systemd_credential", "remove_systemd_credential", "remote_repositories", "repository_images", "add_remote_repository", "update_remote_repository", "check_remote_repository", "mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"
+  "systemd_credentials", "put_systemd_credential", "remove_systemd_credential", "remote_repositories", "repository_images", "add_remote_repository", "update_remote_repository", "check_remote_repository", "mount_remote_repository", "unmount_remote_repository", "remove_remote_repository"
 ]);
 
 export async function callFeclora(action, params = {}, onEvent = () => {}) {
