@@ -68,6 +68,16 @@ class RemoteRepositoryTests(unittest.TestCase):
         self.assertIn("prefixpath=feclora", argv[4])
         self.assertEqual(argv[-2], "//nas.example.net/images")
 
+    def test_smb_rejects_comma_in_prefixpath_mount_option_injection(self):
+        for remote_path in ("/images/feclora,vers=1.0", "/images/archive,ro"):
+            with self.subTest(remote_path=remote_path):
+                with self.assertRaisesRegex(RepositoryError, "mount-option separators"):
+                    RemoteRepository(
+                        provider="smb", host="nas.example.net",
+                        remote_path=remote_path, mountpoint="/mnt/images",
+                        credential_file="/etc/feclora/smb.creds",
+                    )
+
     def test_webdav_rejects_global_davfs2_secrets(self):
         with self.assertRaisesRegex(RepositoryError, "global davfs2 secrets file is not accepted"):
             RemoteRepository(
