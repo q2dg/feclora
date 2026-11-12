@@ -99,7 +99,7 @@ class ListenerShutdownRaceTests(unittest.TestCase):
         listener = SimpleNamespace(accept=lambda: (FakeSocket(), ("192.0.2.20", 40000)))
         messages = [
             {"type": "hello", "job_id": JOB_ID, "mac_address": MAC,
-             "certificate_identity": "URI:feclora-client"},
+             },
             {"type": "ready", "job_id": JOB_ID, "target_description": "approved target",
              "locally_authorized": True},
         ]
@@ -507,10 +507,8 @@ class ControlFramingTests(unittest.TestCase):
         server._pending_sockets = set()
         server._stop_event = threading.Event()
         server._sessions = {}
-        server._identities = {}
         server.local_identity = "URI:feclora-server"
         server.coordinator = coordinator
-        with patch("feclora.deployment.control._certificate_identity", return_value="URI:feclora-client"), \
              patch("feclora.deployment.control.receive_control_message", return_value={
                  "type": "inspect", "job_id": JOB_ID, "mac_address": MAC,
                               }), patch("feclora.deployment.control.send_control_message") as send:
@@ -591,7 +589,7 @@ class ClientJoinTests(unittest.TestCase):
         hello = receive_control_message(outgoing, expected_type="hello")
         ready = receive_control_message(outgoing, expected_type="ready")
         result = receive_control_message(outgoing, expected_type="result")
-        self.assertEqual(hello["certificate_identity"], "URI:feclora-client")
+        self.assertNotIn("certificate_identity", hello)
         self.assertNotIn("/dev/vda", json.dumps(ready))
         self.assertTrue(result["success"])
 
