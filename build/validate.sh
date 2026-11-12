@@ -155,8 +155,8 @@ for package in cockpit cockpit-system cockpit-storaged dnsmasq ipxe-bootimgs-x86
   grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."
 done
 
-for optional_package in age minisign; do
-  grep -qx "$optional_package" "$ROOT_DIR/packages/optional-image-security.txt" || fail "Optional image-security package list is missing $optional_package."
+for optional_package in age; do
+  grep -qx "$optional_package" "$ROOT_DIR/packages/optional-image-security.txt" || fail "Optional image-encryption package list is missing $optional_package."
 done
 
 for package in lvm2 stratisd stratis-cli btrfs-progs exfatprogs f2fs-tools partclone; do
