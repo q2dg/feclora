@@ -7,11 +7,12 @@ delegates destructive writes to the existing verified restore engine.
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import stat
 import subprocess
 import shutil
-from urllib.parse import unquote, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 import sys
 import tempfile
 import urllib.error
@@ -233,6 +234,127 @@ def _mount_nfs_repository(repository_url: str, mountpoint: Path) -> None:
         raise PXEAnswerClientError("PXE repository mount is not verified as a read-only NFS mount")
 
 
+
+def _download_https_object(
+    url: str,
+    *,
+    destination: Path | None = None,
+    max_bytes: int,
+    expected_size: int | None = None,
+    expected_sha256: str | None = None,
+    timeout: float = 30.0,
+) -> bytes | None:
+    """Fetch one immutable HTTPS object without redirects and with strict bounds."""
+    opener = urllib.request.build_opener(_NoRedirect)
+    request = urllib.request.Request(
+        url, headers={"Accept": "application/octet-stream, application/json",
+                      "User-Agent": "Feclora-PXE/1"}, method="GET",
+    )
+    digest = hashlib.sha256()
+    total = 0
+    chunks = bytearray() if destination is None else None
+    output = None
+    try:
+        if destination is not None:
+            output = destination.open("xb")
+        with opener.open(request, timeout=timeout) as response:
+            if response.status != 200:
+                raise PXEAnswerClientError(f"HTTPS repository returned HTTP {response.status}")
+            declared = response.headers.get("Content-Length")
+            if declared is not None:
+                try:
+                    declared_size = int(declared)
+                except (TypeError, ValueError) as exc:
+                    raise PXEAnswerClientError("HTTPS repository returned an invalid Content-Length") from exc
+                if declared_size < 0 or declared_size > max_bytes:
+                    raise PXEAnswerClientError("HTTPS repository object exceeds its size limit")
+                if expected_size is not None and declared_size != expected_size:
+                    raise PXEAnswerClientError("HTTPS repository object size differs from its manifest")
+            while True:
+                chunk = response.read(min(1024 * 1024, max_bytes + 1 - total))
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > max_bytes:
+                    raise PXEAnswerClientError("HTTPS repository object exceeds its size limit")
+                digest.update(chunk)
+                if output is not None:
+                    output.write(chunk)
+                else:
+                    chunks.extend(chunk)
+        if expected_size is not None and total != expected_size:
+            raise PXEAnswerClientError("HTTPS repository object size differs from its manifest")
+        if expected_sha256 is not None and digest.hexdigest() != expected_sha256:
+            raise PXEAnswerClientError("HTTPS repository object SHA-256 differs from its manifest")
+        if output is not None:
+            output.flush()
+            os.fsync(output.fileno())
+            output.close()
+            output = None
+            return None
+        return bytes(chunks)
+    except PXEAnswerClientError:
+        raise
+    except (OSError, urllib.error.URLError, urllib.error.HTTPError, TimeoutError,
+            subprocess.SubprocessError) as exc:
+        raise PXEAnswerClientError(f"cannot download HTTPS repository object: {exc}") from exc
+    finally:
+        if output is not None:
+            output.close()
+            if destination is not None:
+                try:
+                    destination.unlink()
+                except FileNotFoundError:
+                    pass
+
+
+def _stage_https_repository(repository_url: str, image_id: str, directory: Path) -> Path:
+    """Stage a public or pre-authorized HTTPS image set using S3-compatible object keys.
+
+    The URL is a base prefix. The manifest is image_id.manifest.json and
+    payloads are image_id/filename, matching Feclora's S3 key layout.
+    TLS certificate validation uses Python's default verified HTTPS context.
+    """
+    parsed = urlsplit(repository_url)
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise PXEAnswerClientError("HTTPS repository URL has an invalid port") from exc
+    decoded_path = unquote(parsed.path)
+    if (parsed.scheme.lower() != "https" or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None
+            or parsed.query or parsed.fragment
+            or any(part in {".", ".."} for part in decoded_path.split("/"))
+            or any(ord(char) < 32 for char in decoded_path)):
+        raise PXEAnswerClientError(
+            "HTTPS repository URL must be a credential-free HTTPS base prefix without query or fragment"
+        )
+    if port is not None and not 1 <= port <= 65535:
+        raise PXEAnswerClientError("HTTPS repository URL port is invalid")
+    base = repository_url.rstrip("/") + "/"
+    manifest_url = urljoin(base, f"{image_id}.manifest.json")
+    manifest_bytes = _download_https_object(manifest_url, max_bytes=1024 * 1024)
+    try:
+        manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
+    except (UnicodeError, ManifestValidationError) as exc:
+        raise PXEAnswerClientError(f"HTTPS repository manifest is invalid: {exc}") from exc
+    if manifest.image_id != image_id or manifest.image_type != "disk":
+        raise PXEAnswerClientError("PXE answer requires a matching whole-disk image manifest")
+    for artifact in manifest.artifacts:
+        artifact_path = directory / artifact.filename
+        artifact_url = urljoin(base, f"{image_id}/{artifact.filename}")
+        _download_https_object(
+            artifact_url, destination=artifact_path,
+            max_bytes=artifact.size_bytes, expected_size=artifact.size_bytes,
+            expected_sha256=artifact.sha256,
+        )
+    manifest_path = directory / f"{image_id}.manifest.json"
+    with manifest_path.open("xb") as output:
+        output.write(manifest_bytes)
+        output.flush()
+        os.fsync(output.fileno())
+    return manifest_path
+
 def _revalidate_target(selector: RestoreTargetSelector, expected_path: str) -> None:
     try:
         inventory = collect_inventory()
@@ -316,19 +438,33 @@ def execute_live_pxe_restore(
 ) -> str:
     """Execute the requested NFS-backed whole-disk restore; other providers fail closed."""
     repository_url = answer.get("repository_url")
-    if not isinstance(repository_url, str) or not repository_url.lower().startswith("nfs://"):
-        raise PXEAnswerClientError(
-            "PXE restore currently supports NFS repositories only; this URL scheme has no Live adapter yet"
-        )
+    if not isinstance(repository_url, str):
+        raise PXEAnswerClientError("PXE answer has no repository URL")
     if answer.get("credential_ref") is not None:
         raise PXEAnswerClientError(
-            "credential_ref is not yet connected to the PXE NFS provider; refusing to ignore it"
+            "credential_ref is not available in the identity-free Live PXE client; refusing to ignore it"
         )
+    scheme = urlsplit(repository_url).scheme.lower()
     selector = RestoreTargetSelector(**answer["target"])
     target = _resolve_target(answer)
     target_path = target["path"]
+    mounted_nfs = scheme == "nfs"
+    temporary_repository = None
     repository = Path(mountpoint)
-    _mount_nfs_repository(repository_url, repository)
+    if mounted_nfs:
+        _mount_nfs_repository(repository_url, repository)
+    elif scheme == "https":
+        temporary_repository = tempfile.TemporaryDirectory(prefix="feclora-pxe-repository-")
+        repository = Path(temporary_repository.name)
+        try:
+            _stage_https_repository(repository_url, answer["image_id"], repository)
+        except Exception:
+            temporary_repository.cleanup()
+            raise
+    else:
+        raise PXEAnswerClientError(
+            "PXE restore supports NFS and credential-free HTTPS repositories; other schemes fail closed"
+        )
     try:
         manifest_path = repository / f"{answer['image_id']}.manifest.json"
         try:
@@ -369,14 +505,17 @@ def execute_live_pxe_restore(
                 age_passphrase = None
         return target_path
     finally:
-        umount_cmd = shutil.which("umount") or "umount"
-        try:
-            subprocess.run(
-                [umount_cmd, str(repository)],
-                check=True, capture_output=True, text=True, timeout=30,
-            )
-        except (OSError, subprocess.SubprocessError) as exc:
-            raise PXEAnswerClientError(f"restore ended but NFS repository unmount failed: {exc}") from exc
+        if mounted_nfs:
+            umount_cmd = shutil.which("umount") or "umount"
+            try:
+                subprocess.run(
+                    [umount_cmd, str(repository)],
+                    check=True, capture_output=True, text=True, timeout=30,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                raise PXEAnswerClientError(f"restore ended but NFS repository unmount failed: {exc}") from exc
+        if temporary_repository is not None:
+            temporary_repository.cleanup()
 
 
 def main() -> int:
