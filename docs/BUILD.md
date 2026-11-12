@@ -210,7 +210,7 @@ Cockpit is bound to guest loopback only; QEMU host port forwarding for 9090 is
 not part of the supported kiosk test path.
 
 The Cockpit Terminal page is available for diagnostics. The old `dialog`
-menu is not part of the supported startup flow. Remote Server/Client deployment is integrated for the documented manual workflows. The unattended PXE answer path validates and publishes one JSON answer through Caddy over HTTP. Live downloads it and connects NFS-backed whole-disk restore to the existing engine with stable-target revalidation and read-back verification. Other providers and BIOS/UEFI/physical restore acceptance remain pending. No per-Client identity medium or enrollment is part of this design. BIOS/UEFI and physical restore acceptance remain pending. Consult the [feature matrix](FEATURE-MATRIX.md) before claiming release readiness.
+menu is not part of the supported startup flow. Remote Server/Client deployment is integrated for the documented manual workflows. The unattended PXE answer path validates and publishes one JSON answer through Caddy over HTTP. Live downloads it and connects NFS- or credential-free HTTPS-backed whole-disk restore to the existing engine with stable-target revalidation and read-back verification. Private S3/SSHFS/SMB adapters require secure Live credential provisioning. BIOS/UEFI and physical restore acceptance are optional. No per-Client identity medium or enrollment is part of this design. BIOS/UEFI and physical restore acceptance remain pending. Consult the [feature matrix](FEATURE-MATRIX.md) before claiming release readiness.
 
 ### Kiosk operator acceptance (pending)
 
