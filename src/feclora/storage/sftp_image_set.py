@@ -1,11 +1,4 @@
-"""Fetch and verify complete signed image sets from an SFTP repository.
-
-Untrusted manifest metadata is downloaded only into a private staging
-directory. Its detached signature is verified against an independently
-trusted key before any artifact is fetched. Artifacts are then checked against
-the signed size and SHA-256 values and the verified set is imported into the native repository layout without
-replacing any existing file.
-"""
+"""Fetch and publish SHA-256-verified image sets over authenticated SFTP."""
 from __future__ import annotations
 
 import hashlib
@@ -80,7 +73,7 @@ def inspect_remote_image_set(
     transfer: Callable[..., dict[str, Any]] = run_sftp_transfer,
     manager: Any = None,
 ) -> dict[str, Any]:
-    """Download and authenticate only the signed metadata for one remote set."""
+    """Download and validate metadata for one remote image set."""
     remote = _remote_directory(remote_directory)
     with tempfile.TemporaryDirectory(prefix="feclora-sftp-inspect-") as staging:
         os.chmod(staging, 0o700)
@@ -136,7 +129,7 @@ def fetch_image_set(
     manager: Any = None,
     progress_callback: Callable[[int, int | None], None] | None = None,
 ) -> dict[str, Any]:
-    """Fetch, authenticate and import a signed image set without overwriting files."""
+    """Fetch and import a SHA-256-verified image set without overwriting files."""
     remote = _remote_directory(remote_directory)
     key_file = _regular_file(public_key, "trusted minisign public key")
     root = os.path.abspath(os.fspath(destination_root))
@@ -168,16 +161,12 @@ def fetch_image_set(
         # The manifest is received over pinned-host-key SFTP.
         download("manifest.json", None)
         manifest_path = os.path.join(staging, "manifest.json")
-        signature_path = manifest_path + ".minisig"
         if os.path.getsize(manifest_path) > 1024 * 1024:
             raise SFTPImageSetError("remote manifest exceeds the 1 MiB size limit")
-        if os.path.getsize(signature_path) > 64 * 1024:
-            raise SFTPImageSetError("remote minisign signature exceeds the 64 KiB size limit")
         try:
             manifest = ImageManifest.from_json(Path(manifest_path).read_text(encoding="utf-8"))
-            verify_manifest_signature(manifest_path, key_file, signature_path=signature_path)
-        except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError) as exc:
-            raise SFTPImageSetError(f"remote manifest signature or schema validation failed: {exc}") from exc
+        except (OSError, UnicodeError, ManifestValidationError) as exc:
+            raise SFTPImageSetError(f"remote manifest schema validation failed: {exc}") from exc
         _validate_manifest_filenames(manifest)
         if expected_image_id is not None and manifest.image_id != expected_image_id:
             raise SFTPImageSetError("authenticated remote image ID does not match the selected image")
@@ -226,7 +215,6 @@ def fetch_image_set(
             "image_type": manifest.image_type,
             "artifact_count": len(manifest.artifacts),
             "repository_path": final_path,
-            "signature_verified": True,
             "artifacts_verified": True,
             "published": True,
         }
@@ -251,11 +239,10 @@ def publish_image_set(
     manager: Any = None,
     progress_callback: Callable[[int, int | None], None] | None = None,
 ) -> dict[str, Any]:
-    """Validate and publish artifacts, manifest, then signature.
+    """Validate and publish artifacts, then the manifest commit marker.
 
-    Existing remote files are never overwritten by the SFTP primitive. A
-    failed publication can leave unreferenced artifacts behind, but cannot
-    produce a successfully signed, partially uploaded set.
+    Existing remote files are never overwritten. Failed publication may
+    leave unreferenced artifacts, but never publishes the manifest early.
     """
     manifest_file = _regular_file(manifest_path, "image manifest")
     root = os.path.abspath(os.fspath(artifact_directory))
