@@ -93,9 +93,11 @@ class PXEConfigTests(unittest.TestCase):
         with self.assertRaises(PXEConfigError):
             render_dnsmasq(proxy(address="0.0.0.0"))
 
-    def test_requires_at_least_one_admission_limit(self):
-        with self.assertRaisesRegex(PXEConfigError, "Configure a maximum"):
-            render_dnsmasq(proxy(max_clients=None, max_duration_seconds=None))
+    def test_admission_limits_are_optional_by_default(self):
+        config = proxy()
+        self.assertIsNone(config.max_clients)
+        self.assertIsNone(config.max_duration_seconds)
+        self.assertIn("dhcp-range=192.0.2.0,proxy", render_dnsmasq(config))
 
     def test_rejects_invalid_admission_limits(self):
         with self.assertRaisesRegex(PXEConfigError, "Maximum PXE clients"):
