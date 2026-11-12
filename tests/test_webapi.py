@@ -504,12 +504,14 @@ class WebAPITests(unittest.TestCase):
                 "mode": "proxy", "pool_start": None, "pool_end": None,
                 "lease_time": "1h", "gateway": None, "dns_server": None,
                 "http_port": 8080, "authoritative_confirmed": False,
-                "max_clients": 20, "max_duration_seconds": None,
+                "max_clients": None, "max_duration_seconds": None,
             }})
         preflight.assert_called_once()
         self.assertTrue(result["valid"])
         self.assertFalse(result["services_started"])
         self.assertEqual(result["subnet"], "192.0.2.0/24")
+        self.assertIsNone(result["max_clients"])
+        self.assertIsNone(result["max_duration_seconds"])
 
     def test_validate_pxe_profile_rejects_existing_dhcp_for_isolated_mode(self):
         with patch("feclora.network.pxe_preflight.validate_pxe_configuration"), \
