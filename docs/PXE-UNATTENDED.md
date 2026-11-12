@@ -66,7 +66,7 @@ one JSON file input; `repository_url` is read from that JSON, with no duplicate
 repository field. The API publishes the validated JSON atomically through Caddy
 over HTTP. No minisign, detached signature or per-client identity is involved. Optional age symmetric encryption is supported; the passphrase is entered on the Live client through Cockpit and is not included in the JSON. Cockpit can explicitly revoke the published
 answer and its iPXE script by job UUID. A new PXE session also clears stale
-answer files and handoff scripts. Answer revocation is not yet connected to deployment-job cancellation/expiry.
+answer files and handoff scripts. Successful deployment-job cancellation now revokes that job's published answer. Automatic expiry cleanup remains unimplemented.
 
 ## Security boundary
 
@@ -138,7 +138,7 @@ are not yet complete provider/transport workflows.
 - [x] Clear stale answer files and handoff scripts when a new PXE session starts.
 - [x] Consume each answer job UUID atomically immediately before the first write
       to prevent replay during the current Live session.
-- [ ] Add cross-reboot expiry/replay protection and tie revocation to deployment-job cancellation/expiry.
+- [ ] Add cross-reboot expiry/replay protection and automatic expiry cleanup. Successful explicit deployment-job cancellation now revokes its published answer.
 - [x] Connect NFS URL to a read-only Live mount for whole-disk restore.
 - [x] Support age symmetric decryption with one-shot Cockpit passphrase handoff on the Live client.
 - [ ] Add Cockpit image-capture support for symmetric age passphrases; current capture remains recipient-based.
