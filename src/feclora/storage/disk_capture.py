@@ -167,7 +167,6 @@ def capture_disk(
     manifest_filename = image_id + ".manifest.json"
     stage = tempfile.mkdtemp(prefix=".feclora-disk-", dir=repo)
     process = None
-    committed = False
     try:
         table_artifact = write_artifact(
             stage, table_filename, __import__("io").BytesIO(table_text.encode("utf-8")),
@@ -264,7 +263,6 @@ def capture_disk(
             raise DiskCaptureError(f"image artifact already exists: {exc.filename or 'publication target'}") from exc
         except ImagePublicationError as exc:
             raise DiskCaptureError(str(exc)) from exc
-        committed = True
         return manifest
     except (ArtifactWriteError, ImageSecurityError, ManifestValidationError, OSError) as exc:
         raise DiskCaptureError(f"whole-disk capture failed: {exc}") from exc
