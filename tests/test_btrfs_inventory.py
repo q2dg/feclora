@@ -8,6 +8,7 @@ from feclora.storage.btrfs_inventory import (
     parse_filesystem_show,
     parse_filesystem_profiles,
     parse_subvolume_list,
+    parse_root_tree_subvolumes,
 )
 
 
@@ -75,10 +76,14 @@ class BtrfsInventoryTests(unittest.TestCase):
         calls = []
         def runner(argv, **kwargs):
             calls.append(argv)
-            return subprocess.CompletedProcess(argv, 0, SAMPLE, "")
+            output = ROOT_TREE if "dump-tree" in argv else SAMPLE
+            return subprocess.CompletedProcess(argv, 0, output, "")
         result = collect_btrfs_topology(which=lambda name: "/usr/bin/btrfs", runner=runner, effective_uid=lambda: 0)
         self.assertEqual(len(result["filesystems"]), 2)
         self.assertEqual(calls[0][1:], ["filesystem", "show", "--raw", "--all-devices"])
+        self.assertIn("--noscan", calls[1])
+        self.assertEqual(calls[1][-2:], ["/dev/sda1", "/dev/sdb1"])
+        self.assertEqual(result["filesystems"][0]["subvolumes"][1]["path"], "@/pre-upgrade")
 
 
 SUBVOLUMES = """ID 256 gen 100 parent 5 top level 5 parent_uuid - received_uuid - uuid 11111111-1111-1111-1111-111111111111 path @
@@ -86,7 +91,61 @@ ID 257 gen 120 parent 256 top level 5 parent_uuid 11111111-1111-1111-1111-111111
 """
 
 
+ROOT_TREE = """item 0 key (256 ROOT_ITEM 0) itemoff 100 itemsize 439
+        generation 100 root_dirid 256 bytenr 100000 byte_limit 0 bytes_used 4096
+        last_snapshot 0 flags 0x0(none) refs 1
+        level 0 generation_v2 100
+        uuid 11111111-1111-1111-1111-111111111111
+        parent_uuid 00000000-0000-0000-0000-000000000000
+        received_uuid 00000000-0000-0000-0000-000000000000
+item 1 key (257 ROOT_ITEM 120) itemoff 200 itemsize 439
+        generation 120 root_dirid 256 bytenr 200000 byte_limit 0 bytes_used 8192
+        last_snapshot 120 flags 0x1(RDONLY) refs 1
+        level 0 generation_v2 120
+        uuid 22222222-2222-2222-2222-222222222222
+        parent_uuid 11111111-1111-1111-1111-111111111111
+        received_uuid 00000000-0000-0000-0000-000000000000
+item 2 key (258 ROOT_ITEM 0) itemoff 300 itemsize 439
+        generation 130 root_dirid 256 bytenr 300000 byte_limit 0 bytes_used 2048
+        last_snapshot 0 flags 0x0(none) refs 1
+        level 0 generation_v2 130
+        uuid 33333333-3333-3333-3333-333333333333
+        parent_uuid 00000000-0000-0000-0000-000000000000
+        received_uuid 44444444-4444-4444-4444-444444444444
+item 3 key (256 ROOT_BACKREF 5) itemoff 400 itemsize 20
+        root backref key dirid 256 sequence 0 name @
+item 4 key (257 ROOT_BACKREF 256) itemoff 420 itemsize 20
+        root backref key dirid 256 sequence 1 name pre-upgrade
+item 5 key (258 ROOT_BACKREF 5) itemoff 440 itemsize 20
+        root backref key dirid 256 sequence 0 name received
+"""
+
+
 class BtrfsSubvolumeTests(unittest.TestCase):
+
+    def test_unmounted_root_tree_reports_snapshot_and_received_ancestry(self):
+        result = parse_root_tree_subvolumes(ROOT_TREE)
+        by_id = {item["id"]: item for item in result}
+        self.assertEqual(by_id[256]["kind"], "subvolume")
+        self.assertEqual(by_id[256]["path"], "@")
+        self.assertEqual(by_id[257]["kind"], "snapshot")
+        self.assertTrue(by_id[257]["readonly"])
+        self.assertEqual(by_id[257]["parent_subvolume_id"], 256)
+        self.assertEqual(by_id[257]["path"], "@/pre-upgrade")
+        self.assertEqual(by_id[258]["kind"], "received_subvolume")
+        self.assertEqual(by_id[258]["received_uuid"], "44444444-4444-4444-4444-444444444444")
+
+    def test_root_tree_rejects_duplicate_roots_and_invalid_uuid(self):
+        with self.assertRaisesRegex(BtrfsInventoryError, "duplicate current ROOT_ITEM"):
+            parse_root_tree_subvolumes(ROOT_TREE + ROOT_TREE.split("item 1", 1)[1].join(["item 1", ""]))
+        malformed = ROOT_TREE.replace(
+            "uuid 11111111-1111-1111-1111-111111111111",
+            "uuid not-a-uuid",
+            1,
+        )
+        with self.assertRaisesRegex(BtrfsInventoryError, "invalid subvolume UUID"):
+            parse_root_tree_subvolumes(malformed)
+
     def test_distinguishes_snapshot_from_regular_subvolume_by_parent_uuid(self):
         result = parse_subvolume_list(SUBVOLUMES)
         self.assertEqual([item["kind"] for item in result], ["subvolume", "snapshot"])
