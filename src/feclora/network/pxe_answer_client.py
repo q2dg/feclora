@@ -293,29 +293,41 @@ def _wait_for_age_passphrase(
     import time
 
     path = Path(secret_path)
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
+    marker = path.with_name(path.name + "-needed")
+    try:
+        marker_fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        os.close(marker_fd)
+    except FileExistsError as exc:
+        raise PXEAnswerClientError("another PXE age passphrase request is already pending") from exc
+    try:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                info = os.lstat(path)
+            except FileNotFoundError:
+                time.sleep(0.25)
+                continue
+            if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                    or info.st_uid != os.geteuid() or info.st_mode & 0o077 or info.st_size > 1024):
+                raise PXEAnswerClientError("submitted age passphrase file is unsafe")
+            try:
+                value = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeError) as exc:
+                raise PXEAnswerClientError("cannot read submitted age passphrase") from exc
+            try:
+                path.unlink()
+            except OSError as exc:
+                raise PXEAnswerClientError("cannot remove one-shot age passphrase after reading") from exc
+            if (not value or len(value.encode("utf-8")) > 1024
+                    or any(char in value for char in "\r\n\x00")):
+                raise PXEAnswerClientError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
+            return value
+        raise PXEAnswerClientError("timed out waiting for the age passphrase in Live Cockpit")
+    finally:
         try:
-            info = os.lstat(path)
+            marker.unlink()
         except FileNotFoundError:
-            time.sleep(0.5)
-            continue
-        if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
-                or info.st_uid != os.geteuid() or info.st_mode & 0o077 or info.st_size > 1024):
-            raise PXEAnswerClientError("submitted age passphrase file is unsafe")
-        try:
-            value = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError) as exc:
-            raise PXEAnswerClientError("cannot read submitted age passphrase") from exc
-        try:
-            path.unlink()
-        except OSError as exc:
-            raise PXEAnswerClientError("cannot remove one-shot age passphrase after reading") from exc
-        if (not value or len(value.encode("utf-8")) > 1024
-                or any(char in value for char in "\r\n\x00")):
-            raise PXEAnswerClientError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
-        return value
-    raise PXEAnswerClientError("timed out waiting for the age passphrase in Live Cockpit")
+            pass
 
 
 def execute_live_pxe_restore(
