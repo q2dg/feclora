@@ -20,7 +20,6 @@ from typing import Any, Callable
 
 from .image_manifest import ImageManifest, ManifestValidationError
 from .image_publication import ImagePublicationError, publish_image_set as publish_local_image_set
-from .image_security import ImageSecurityError, verify_manifest_signature
 from .sftp_transfer import SFTPTransferError
 from .sftp_transfer_service import run_sftp_transfer
 
@@ -73,7 +72,6 @@ def _validate_manifest_filenames(manifest: ImageManifest) -> None:
 def inspect_remote_image_set(
     *,
     remote_directory: str,
-    public_key: str | os.PathLike[str],
     host: str,
     username: str,
     identity_credential: str,
@@ -84,10 +82,9 @@ def inspect_remote_image_set(
 ) -> dict[str, Any]:
     """Download and authenticate only the signed metadata for one remote set."""
     remote = _remote_directory(remote_directory)
-    key_file = _regular_file(public_key, "trusted minisign public key")
     with tempfile.TemporaryDirectory(prefix="feclora-sftp-inspect-") as staging:
         os.chmod(staging, 0o700)
-        for filename in ("manifest.json", "manifest.json.minisig"):
+        for filename in ("manifest.json",):
             result = transfer(
                 identity_credential=identity_credential,
                 known_hosts_credential=known_hosts_credential,
@@ -98,18 +95,14 @@ def inspect_remote_image_set(
                 manager=manager,
             )
             if result.get("verified") is not False:
-                raise SFTPImageSetError("remote metadata transfer must remain explicitly unverified until signature validation")
+                raise SFTPImageSetError("remote metadata transfer must remain explicitly unverified until manifest validation")
         manifest_path = os.path.join(staging, "manifest.json")
-        signature_path = manifest_path + ".minisig"
         if os.path.getsize(manifest_path) > 1024 * 1024:
             raise SFTPImageSetError("remote manifest exceeds the 1 MiB size limit")
-        if os.path.getsize(signature_path) > 64 * 1024:
-            raise SFTPImageSetError("remote minisign signature exceeds the 64 KiB size limit")
         try:
             manifest = ImageManifest.from_json(Path(manifest_path).read_text(encoding="utf-8"))
-            verify_manifest_signature(manifest_path, key_file, signature_path=signature_path)
-        except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError) as exc:
-            raise SFTPImageSetError(f"remote manifest signature or schema validation failed: {exc}") from exc
+        except (OSError, UnicodeError, ManifestValidationError) as exc:
+            raise SFTPImageSetError(f"remote manifest schema validation failed: {exc}") from exc
         _validate_manifest_filenames(manifest)
         return {
             "image_id": manifest.image_id,
@@ -124,7 +117,6 @@ def inspect_remote_image_set(
                 for item in manifest.artifacts
             ],
             "manifest_sha256": _digest(manifest_path)[1],
-            "signature_verified": True,
         }
 
 
@@ -173,9 +165,8 @@ def fetch_image_set(
         )
 
     try:
-        # These two files are untrusted until minisign verification succeeds.
+        # The manifest is received over pinned-host-key SFTP.
         download("manifest.json", None)
-        download("manifest.json.minisig", None)
         manifest_path = os.path.join(staging, "manifest.json")
         signature_path = manifest_path + ".minisig"
         if os.path.getsize(manifest_path) > 1024 * 1024:
@@ -205,7 +196,7 @@ def fetch_image_set(
             local = os.path.join(staging, artifact.filename)
             size, digest = _digest(local)
             if size != artifact.size_bytes or digest != artifact.sha256:
-                raise SFTPImageSetError(f"downloaded artifact {artifact.filename} does not match signed manifest")
+                raise SFTPImageSetError(f"downloaded artifact {artifact.filename} does not match manifest")
             if result.get("verified") is not True:
                 raise SFTPImageSetError(f"downloaded artifact {artifact.filename} was not digest-verified by the SFTP service")
             bytes_done += size
@@ -216,16 +207,13 @@ def fetch_image_set(
         # publisher so rollback cannot unlink a concurrent replacement. The
         # native manifest remains the final commit marker.
         manifest_name = f"{manifest.image_id}.manifest.json"
-        signature_name = manifest_name + ".minisig"
         publication_names = [item.filename for item in manifest.artifacts]
         # SFTP metadata is downloaded under protocol-standard names. Rename
         # it inside the private staging directory to Feclora's native names
         # before handing the complete set to the shared publisher.
         staged_manifest = os.path.join(staging, "manifest.json")
-        staged_signature = staged_manifest + ".minisig"
-        os.rename(staged_signature, os.path.join(staging, signature_name))
         os.rename(staged_manifest, os.path.join(staging, manifest_name))
-        publication_names.extend((signature_name, manifest_name))
+        publication_names.append(manifest_name)
         try:
             publish_local_image_set(root, staging, publication_names)
         except (FileExistsError, ImagePublicationError) as exc:
@@ -252,8 +240,6 @@ def fetch_image_set(
 def publish_image_set(
     *,
     manifest_path: str | os.PathLike[str],
-    signature_path: str | os.PathLike[str],
-    public_key: str | os.PathLike[str],
     artifact_directory: str | os.PathLike[str],
     remote_directory: str,
     host: str,
@@ -272,8 +258,6 @@ def publish_image_set(
     produce a successfully signed, partially uploaded set.
     """
     manifest_file = _regular_file(manifest_path, "image manifest")
-    signature_file = _regular_file(signature_path, "manifest signature")
-    key_file = _regular_file(public_key, "trusted minisign public key")
     root = os.path.abspath(os.fspath(artifact_directory))
     try:
         root_info = os.lstat(root)
@@ -284,9 +268,8 @@ def publish_image_set(
 
     try:
         manifest = ImageManifest.from_json(Path(manifest_file).read_text(encoding="utf-8"))
-        verify_manifest_signature(manifest_file, key_file, signature_path=signature_file)
-    except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError) as exc:
-        raise SFTPImageSetError(f"manifest validation or signature verification failed: {exc}") from exc
+    except (OSError, UnicodeError, ManifestValidationError) as exc:
+        raise SFTPImageSetError(f"manifest validation failed: {exc}") from exc
     _validate_manifest_filenames(manifest)
 
     files: list[tuple[str, str, int]] = []
@@ -294,11 +277,10 @@ def publish_image_set(
         local = _regular_file(os.path.join(root, artifact.filename), f"artifact {artifact.filename}")
         size, digest = _digest(local)
         if size != artifact.size_bytes or digest != artifact.sha256:
-            raise SFTPImageSetError(f"artifact {artifact.filename} does not match the signed manifest")
+            raise SFTPImageSetError(f"artifact {artifact.filename} does not match the manifest")
         files.append((local, artifact.filename, size))
 
     manifest_size, manifest_digest = _digest(manifest_file)
-    signature_size, signature_digest = _digest(signature_file)
     prefix = _remote_directory(remote_directory)
 
     def upload(local_path: str, filename: str) -> None:
@@ -311,7 +293,7 @@ def publish_image_set(
         )
 
     bytes_total = sum(size for _local, _filename, size in files)
-    bytes_total += manifest_size + signature_size
+    bytes_total += manifest_size
     bytes_done = 0
     if progress_callback is not None:
         progress_callback(bytes_done, bytes_total)
@@ -321,13 +303,7 @@ def publish_image_set(
             bytes_done += size
             if progress_callback is not None:
                 progress_callback(bytes_done, bytes_total)
-        # Publish the detached signature before the manifest. Inventory
-        # treats the manifest itself as the commit marker, so readers never
-        # discover a set in the interval between metadata uploads.
-        upload(signature_file, "manifest.json.minisig")
-        bytes_done += signature_size
-        if progress_callback is not None:
-            progress_callback(bytes_done, bytes_total)
+        # Manifest is the final visibility/commit marker.
         upload(manifest_file, "manifest.json")
         bytes_done += manifest_size
         if progress_callback is not None:
@@ -340,7 +316,6 @@ def publish_image_set(
         "image_type": manifest.image_type,
         "artifact_count": len(files),
         "manifest_sha256": manifest_digest,
-        "signature_sha256": signature_digest,
         "published": True,
         "publication_marker": "manifest.json",
     }
