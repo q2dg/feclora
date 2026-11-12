@@ -284,12 +284,47 @@ def _consume_answer_once(job_id: str, directory: str | os.PathLike[str]) -> None
         raise PXEAnswerClientError(f"cannot consume PXE answer authorization once: {exc}") from exc
 
 
+def _wait_for_age_passphrase(
+    secret_path: str | os.PathLike[str] = "/run/feclora/pxe/age-passphrase",
+    *,
+    timeout: float = 300.0,
+) -> str:
+    """Wait for a one-shot passphrase submitted through the local Cockpit API."""
+    import time
+
+    path = Path(secret_path)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            info = os.lstat(path)
+        except FileNotFoundError:
+            time.sleep(0.5)
+            continue
+        if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != 0 or info.st_mode & 0o077 or info.st_size > 1024):
+            raise PXEAnswerClientError("submitted age passphrase file is unsafe")
+        try:
+            value = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise PXEAnswerClientError("cannot read submitted age passphrase") from exc
+        try:
+            path.unlink()
+        except OSError as exc:
+            raise PXEAnswerClientError("cannot remove one-shot age passphrase after reading") from exc
+        if (not value or len(value.encode("utf-8")) > 1024
+                or any(char in value for char in "\\r\\n\\x00")):
+            raise PXEAnswerClientError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
+        return value
+    raise PXEAnswerClientError("timed out waiting for the age passphrase in Live Cockpit")
+
+
 def execute_live_pxe_restore(
     answer: dict[str, Any],
     *,
     mountpoint: str | os.PathLike[str] = "/run/feclora/pxe/repository",
     operation_log: str | os.PathLike[str] = "/var/lib/feclora/pxe/operations.jsonl",
     consumption_dir: str | os.PathLike[str] = "/var/lib/feclora/pxe/consumed",
+    passphrase_provider: Any = _wait_for_age_passphrase,
 ) -> str:
     """Execute the requested NFS-backed whole-disk restore; other providers fail closed."""
     repository_url = answer.get("repository_url")
@@ -324,8 +359,10 @@ def execute_live_pxe_restore(
             raise PXEAnswerClientError(f"cannot load PXE image manifest: {exc}") from exc
         if manifest.image_id != answer["image_id"] or manifest.image_type != "disk":
             raise PXEAnswerClientError("PXE answer requires a matching whole-disk image manifest")
-        if any(item.encryption != "none" for item in manifest.artifacts):
-            raise PXEAnswerClientError("PXE unattended restore currently requires an unencrypted image set")
+        encrypted = [item for item in manifest.artifacts if item.encryption == "age"]
+        if any(item.encryption not in {"none", "age"} for item in manifest.artifacts):
+            raise PXEAnswerClientError("PXE image set uses an unsupported encryption format")
+        age_passphrase = passphrase_provider() if encrypted else None
         with operation_record(
             "restore_disk", target_path, image_id=answer["image_id"], log_path=operation_log,
         ):
@@ -338,6 +375,7 @@ def execute_live_pxe_restore(
                     str(manifest_path), str(repository), target_path,
                     confirmation=f"ERASE {target_path}",
                     ignore_signature=True,
+                    age_passphrase=age_passphrase,
                     progress_callback=record_progress,
                     pre_write_callback=before_write,
                 )
