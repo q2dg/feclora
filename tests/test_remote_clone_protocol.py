@@ -31,8 +31,6 @@ class RemoteCloneProtocolTests(unittest.TestCase):
     def setUp(self):
         self.header = CloneSessionHeader(
             session_id="7a3c4c12-6a88-4f0d-bcc0-90df80a4adf1",
-            source_identity="Server",
-            receiver_identity="Client",
             source_device="/dev/sda",
             receiver_target_device="/dev/sdb",
             source_size_bytes=128 * 1024,
@@ -50,14 +48,10 @@ class RemoteCloneProtocolTests(unittest.TestCase):
     def test_endpoint_authorization_is_role_and_device_specific(self):
         source = authorize_endpoint(
             self.header, role="source",
-            local_identity="Server",
-            expected_peer_identity="Client",
             confirmation="READ /dev/sda",
         )
         receiver = authorize_endpoint(
             self.header, role="receiver",
-            local_identity="Client",
-            expected_peer_identity="Server",
             confirmation="ERASE /dev/sdb",
         )
         validate_endpoint_authorization(source, self.header, role="source", device_path="/dev/sda")
@@ -65,8 +59,6 @@ class RemoteCloneProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(RemoteCloneProtocolError, "explicit receiver authorization"):
             authorize_endpoint(
                 self.header, role="receiver",
-                local_identity="Client",
-                expected_peer_identity="Server",
                 confirmation="yes",
             )
 
@@ -96,12 +88,6 @@ class RemoteCloneProtocolTests(unittest.TestCase):
             expected_bytes=len(b"verified disk"), expected_stream_sha256=digest,
         )
         self.assertEqual(received, result)
-
-    def test_rejects_same_identity_for_both_endpoints(self):
-        value = self.header.to_dict()
-        value["receiver_identity"] = value["source_identity"]
-        with self.assertRaisesRegex(RemoteCloneProtocolError, "different endpoints"):
-            CloneSessionHeader.from_dict(value)
 
     def test_same_device_node_name_is_valid_on_different_hosts(self):
         header = CloneSessionHeader(
