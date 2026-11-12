@@ -996,7 +996,7 @@ class WebAPITests(unittest.TestCase):
             server_identity="URI:feclora-server", mac_address="52:54:00:12:34:56",
             ca_file="/etc/feclora/pki/ca.crt", certificate_file="/etc/feclora/pki/client.crt",
             private_key_file="/etc/feclora/pki/client.key", age_identity_file=None,
-            age_recipients_file=None, local_minisign_secret_key=None,
+            age_recipients_file=None,
         )
         with patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config), \
              patch("feclora.network.remote_clone_protocol.create_tls_context", return_value=object()), \
@@ -1647,7 +1647,6 @@ class WebAPITests(unittest.TestCase):
             run.assert_not_called()
             self.assertTrue(result["created"])
             self.assertFalse(result["age_encryption_available"])
-            self.assertNotIn("image_signing_available", result)
             self.assertIn("Ordinary imaging remains available", result["message"])
 
 
