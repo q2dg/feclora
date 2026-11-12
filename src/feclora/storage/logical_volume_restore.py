@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .image_manifest import ImageManifest, ManifestValidationError
-from .image_security import ImageSecurityError, verify_manifest_signature
+from .image_security import ImageSecurityError
 from .partition_restore import (
     PartitionRestoreError,
     _PARTCLONE,
@@ -84,8 +84,6 @@ def restore_logical_volume(
     effective_uid: Callable[[], int] | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
-    minisign_public_key: str | os.PathLike[str] | None = None,
-    require_signature: bool = False,
 ) -> ImageManifest:
     """Restore bytes into an existing LV; no LVM metadata is created or changed."""
     if not isinstance(target_path, str) or not target_path.startswith("/dev/"):
@@ -128,23 +126,6 @@ def restore_logical_volume(
     if len(artifacts) != 1:
         raise LogicalVolumeRestoreError("manifest must contain exactly one logical-volume-image artifact")
     artifact = artifacts[0]
-
-    signature_path = str(manifest_file) + ".minisig"
-    signature_present = os.path.lexists(signature_path)
-    if require_signature and not signature_present:
-        raise LogicalVolumeRestoreError("a minisign signature is required but this image has none")
-    if signature_present and minisign_public_key is None:
-        raise LogicalVolumeRestoreError("image is signed; a trusted minisign public key is required before restore")
-    if minisign_public_key is not None:
-        if not signature_present:
-            raise LogicalVolumeRestoreError("minisign public key supplied but image signature is missing")
-        try:
-            verify_manifest_signature(
-                str(manifest_file), minisign_public_key, signature_path=signature_path,
-                minisign_executable=(executables or {}).get("minisign"),
-            )
-        except ImageSecurityError as exc:
-            raise LogicalVolumeRestoreError(f"manifest signature verification failed: {exc}") from exc
 
     available = executables or {}
     lsblk = available.get("lsblk") or shutil.which("lsblk")
