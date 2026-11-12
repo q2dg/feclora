@@ -26,7 +26,7 @@ def publish_image_set(
         raise ImagePublicationError("publication names must be non-empty and unique")
     for name in names:
         if (not isinstance(name, str) or not name or name in {".", ".."}
-                or "/" in name or "\\\\" in name or "\\x00" in name):
+                or "/" in name or "\\" in name or "\x00" in name):
             raise ImagePublicationError("publication contains an unsafe filename")
 
     repo_path = os.fspath(repository)
