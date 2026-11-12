@@ -71,6 +71,20 @@ class PXEAdmission:
             raise PXEAdmissionError("PXE answer boot URL is invalid")
         return value
 
+    def _initialize(self) -> None:
+        fd = self._locked()
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            try:
+                self.state_path.lstat()
+            except FileNotFoundError:
+                self._write({"schema_version": 1, "started_at": self.clock(), "macs": []})
+            else:
+                self._read()
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
+
     def _locked(self):
         fd = os.open(self.lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
         return fd
