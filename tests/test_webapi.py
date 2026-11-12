@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import ANY, Mock, patch
 
-from feclora.webapi import WebAPIError, dispatch, _device, _find_inventory_device, _server_trusted_clients, _certificate_status, _renew_server_certificate
+from feclora.webapi import WebAPIError, dispatch, _device, _find_inventory_device, _certificate_status, _renew_server_certificate
 from feclora.deployment.job import DeploymentJob
 
 
@@ -291,17 +291,6 @@ class WebAPITests(unittest.TestCase):
             "expiry_days": 12, "status": "expiring",
             "ca_expiry_days": 1200, "ca_status": "valid",
         }])
-
-    def test_server_trusted_clients_action_returns_public_inventory(self):
-        expected = {"clients": [{
-            "mac_address": "52:54:00:12:34:56",
-            "image_signing": True,
-        }]}
-        with patch("feclora.webapi._server_trusted_clients", return_value=expected) as inventory:
-            self.assertEqual(dispatch({"action": "server_trusted_clients"}), expected)
-        inventory.assert_called_once_with()
-        with self.assertRaisesRegex(WebAPIError, "does not accept parameters"):
-            dispatch({"action": "server_trusted_clients", "params": {"private_key": "no"}})
 
     def test_inspect_image_layout_verifies_and_returns_partition_selectors(self):
         import io
