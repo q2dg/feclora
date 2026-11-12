@@ -21,7 +21,6 @@ from feclora.storage.disk_restore import DiskRestoreError, restore_disk
 from feclora.storage.partition_restore import PartitionRestoreError, restore_partition
 from feclora.storage.logical_volume_restore import LogicalVolumeRestoreError, restore_logical_volume
 from feclora.storage.inventory import collect_inventory
-from feclora.storage.image_security import ImageSecurityError
 from feclora.network.remote_clone import receive_remote_disk
 
 
@@ -36,13 +35,9 @@ def execute_client_image_job(
     *,
     server_identity: str,
     repository: str | os.PathLike[str],
-    trusted_server_public_key: str | os.PathLike[str] | None,
-    local_minisign_secret_key: str | os.PathLike[str] | None = None,
-    local_minisign_public_key: str | os.PathLike[str] | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
     age_recipients_file: str | os.PathLike[str] | None = None,
     encrypt_image: bool = False,
-    sign_image: bool = False,
     compression: str = "gzip",
     compression_level: int | None = 6,
     progress_callback: Callable[[int, int | None], None] | None = None,
@@ -92,15 +87,11 @@ def execute_client_image_job(
                 raise ClientImageRuntimeError("Server image offer is not bound to this armed job")
             manifest_path = receive_image_set(
                 tls_socket, repository, expected_image_id=job.image_id,
-                trusted_public_key=trusted_server_public_key,
                 progress_callback=transfer_progress_callback,
             )
-            signature_present = os.path.isfile(manifest_path + ".minisig")
             restore_function = (restore_logical_volume if job.target_type == "logical_volume" else restore_partition if job.target_type == "partition" else restore_disk)
             restore_kwargs = {
                 "confirmation": f"ERASE {local_device_path}",
-                "minisign_public_key": trusted_server_public_key if signature_present else None,
-                "require_signature": signature_present,
                 "age_identity_file": age_identity_file,
                 "progress_callback": progress_callback,
                 "executables": executables,
@@ -113,18 +104,14 @@ def execute_client_image_job(
                 manifest_path, repository, local_device_path, **restore_kwargs,
             )
             return True, f"image {job.image_id} restored and destination read-back verified"
-        except (ImageTransferError, DiskRestoreError, PartitionRestoreError, LogicalVolumeRestoreError, ImageSecurityError, OSError) as exc:
+        except (ImageTransferError, DiskRestoreError, PartitionRestoreError, LogicalVolumeRestoreError, OSError) as exc:
             raise ClientImageRuntimeError(f"restore failed: {exc}") from exc
 
     if job.operation == "save":
-        if not isinstance(encrypt_image, bool) or not isinstance(sign_image, bool):
-            raise ClientImageRuntimeError("per-image encryption/signing choices must be boolean")
+        if not isinstance(encrypt_image, bool):
+            raise ClientImageRuntimeError("per-image encryption choice must be boolean")
         if encrypt_image and (not age_recipients_file or not shutil.which("age")):
             raise ClientImageRuntimeError("age encryption was selected but no usable recipient inventory or age executable is available")
-        if sign_image and (
-            not local_minisign_secret_key or not local_minisign_public_key or not shutil.which("minisign")
-        ):
-            raise ClientImageRuntimeError("minisign signing was selected but no usable signing keypair or minisign executable is available")
         required = f"READ {local_device_path}"
         if confirmation != required:
             raise ClientImageRuntimeError(f"explicit local capture confirmation required: {required}")
@@ -132,7 +119,6 @@ def execute_client_image_job(
             capture_disk(
                 local_device_path, job.image_id, repository,
                 compression=compression, compression_level=compression_level,
-                minisign_secret_key=local_minisign_secret_key if sign_image else None,
                 age_recipients_file=age_recipients_file if encrypt_image else None,
                 progress_callback=progress_callback,
                 executables=executables,
@@ -145,19 +131,16 @@ def execute_client_image_job(
             send_image_set(
                 tls_socket, repository, manifest_path,
                 expected_image_id=job.image_id,
-                trusted_public_key=local_minisign_public_key if sign_image else None,
                 progress_callback=transfer_progress_callback,
             )
-            signed = os.path.isfile(manifest_path + ".minisig")
             protections = [
                 label for enabled, label in (
                     (encrypt_image, "age-encrypted"),
-                    (signed, "minisign-signed"),
                 ) if enabled
             ]
-            protection_detail = " (" + ", ".join(protections) + ")" if protections else " (unsigned, unencrypted)"
+            protection_detail = " (" + ", ".join(protections) + ")" if protections else " (unencrypted)"
             return True, f"image {job.image_id} captured{protection_detail} and transferred"
-        except (ImageTransferError, DiskCaptureError, ImageSecurityError, OSError) as exc:
+        except (ImageTransferError, DiskCaptureError, OSError) as exc:
             raise ClientImageRuntimeError(f"capture/transfer failed: {exc}") from exc
 
     raise ClientImageRuntimeError("unsupported deployment operation")
