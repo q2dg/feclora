@@ -68,11 +68,13 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
   publishes one validated JSON answer and an answer-specific script through
   Caddy over HTTP. Live downloads and validates the answer, then invokes the
   existing whole-disk restore engine with stable-target revalidation and
-  read-back verification. The workflow deliberately has no per-Client enrollment. The iPXE client
-  exposes its MAC address, but the current static Caddy answer-file path does
-  not register unique clients or enforce a client-count/time limit. Other
-  repository providers, server-side admission limits, richer result reporting
-  and physical acceptance remain pending.
+  read-back verification. Before unattended boot, iPXE submits its MAC to a
+  loopback admission service behind Caddy. The Server counts distinct MACs,
+  permits retries from an already registered MAC, and stops admitting clients
+  at the configured client cap and/or serving-time deadline. The boot script
+  is served only through that gate. MAC is spoofable and is not authentication.
+  Other repository providers, richer result reporting and physical acceptance
+  remain pending.
 
 PXE boot or possession of an answer URL alone never authorizes a destructive
 write. The Server-authenticated TLS Remote-jobs workflow remains separate and uses
