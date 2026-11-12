@@ -33,8 +33,27 @@ from feclora.ui import dialog_app
 CONFIG_PATH = "/etc/feclora/deployment-client.json"
 
 
-def _elevate() -> int:
-    sudo = shutil.which("sudo")
+def _local_target_confirmation(job: Any, path: str, target_kind: str) -> tuple[str, str]:
+    """Return the destructive/read-only approval phrase and accurate operator prompt."""
+    if job.operation in {"restore", "clone"}:
+        phrase = f"ERASE {path}"
+        if job.operation == "clone":
+            target = "partition" if target_kind == "partition" else "whole disk"
+            prompt = f"This operation overwrites the selected existing {target} with data streamed from the Server. Type the exact confirmation phrase:"
+        else:
+            prompt = (
+                "This operation overwrites the selected existing logical volume. Type the exact confirmation phrase:"
+                if job.target_type == "logical_volume" else
+                "This operation overwrites the selected existing partition. Type the exact confirmation phrase:"
+                if target_kind == "partition" else
+                "This operation overwrites the selected whole disk. Type the exact confirmation phrase:"
+            )
+        return phrase, prompt
+    phrase = f"READ {path}"
+    return phrase, "This operation reads the selected whole disk to create an image. Type the exact confirmation phrase:"
+
+
+def _elevate() -> int:    sudo = shutil.which("sudo")
     if not sudo:
         dialog_app._message(
             "Client mode requires root",
@@ -371,18 +390,12 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             path = selected.get("path")
             if not isinstance(path, str):
                 raise DeploymentControlError("selected disk has no stable device path")
-            if job.operation == "restore":
-                phrase = f"ERASE {path}"
-                prompt = (
-                    "This operation overwrites the selected existing logical volume. Type the exact confirmation phrase:"
-                    if job.target_type == "logical_volume" else
-                    "This operation overwrites the selected existing partition. Type the exact confirmation phrase:"
-                    if target_kind == "partition" else
-                    "This operation overwrites the selected whole disk. Type the exact confirmation phrase:"
+            phrase, prompt = _local_target_confirmation(job, path, target_kind)
+            if job.operation == "save":
+                prompt = prompt.replace(
+                    "Type the exact confirmation phrase:",
+                    "You will choose optional age encryption and minisign signing for this image in the next step. Type the exact confirmation phrase:",
                 )
-            else:
-                phrase = f"READ {path}"
-                prompt = "This operation reads the selected whole disk to create an image. You will choose optional age encryption and minisign signing for this image in the next step. Type the exact confirmation phrase:"
             dialog_app._message("Selected local target", dialog_app.device_details(selected))
             typed = dialog_app._input("Explicit local authorization", f"{prompt}\n\n{phrase}")
             if typed != phrase:
@@ -391,7 +404,11 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 str(value) for value in (
                     selected.get("model"), selected.get("size_bytes"), selected.get("serial"),
                 ) if value
-            ) or ("Selected local logical volume" if job.target_type == "logical_volume" else "Selected local whole disk")
+            ) or (
+                "Selected local logical volume" if job.target_type == "logical_volume" else
+                "Selected local partition" if target_kind == "partition" else
+                "Selected local whole disk"
+            )
             if job.operation == "save":
                 compression_choice = dialog_app._menu(
                     "Capture compression", "Choose whole-disk image compression.",
@@ -460,6 +477,11 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             if job.operation == "restore":
                 return dialog_app._run_restore_gauge(
                     "Network image restore", "Receiving and verifying the image set, including any present signature, then restoring the selected target.",
+                    operation,
+                )
+            if job.operation == "clone":
+                return dialog_app._run_restore_gauge(
+                    "Remote block-device clone", "Receiving the Server block-device stream, writing the selected local target, and verifying the complete read-back.",
                     operation,
                 )
             return dialog_app._run_capture_gauge(
