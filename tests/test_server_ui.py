@@ -1,9 +1,36 @@
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock
 
-from feclora.deployment.server_ui import _flatten_devices
+from feclora.deployment.server_ui import _flatten_devices, _run_unicast_job
 
 
 class ServerUIDeviceSelectionTests(unittest.TestCase):
+    def test_unicast_clone_dispatches_to_remote_clone_runtime(self):
+        control = Mock()
+        config = SimpleNamespace()
+        job = SimpleNamespace(operation="clone")
+        result = _run_unicast_job(control, config, job, "02:00:00:00:00:01", None)
+        control.run_remote_clone_job.assert_called_once_with()
+        control.run_one_client_job.assert_not_called()
+        self.assertEqual(result, control.run_remote_clone_job.return_value)
+
+    def test_unicast_restore_keeps_image_transfer_runtime(self):
+        control = Mock()
+        config = SimpleNamespace(
+            repository="/srv/images",
+            server_minisign_public_key="/etc/feclora/server.pub",
+            client_minisign_public_keys={},
+        )
+        job = SimpleNamespace(operation="restore")
+        _run_unicast_job(control, config, job, "02:00:00:00:00:01", "/srv/images/os.manifest.json")
+        control.run_one_client_job.assert_called_once_with(
+            "/srv/images",
+            trusted_public_key="/etc/feclora/server.pub",
+            manifest_path="/srv/images/os.manifest.json",
+        )
+        control.run_remote_clone_job.assert_not_called()
+
     def test_flatten_devices_includes_nested_partitions(self):
         inventory = [{
             "path": "/dev/nvme0n1", "type": "disk", "children": [
