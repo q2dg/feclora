@@ -2272,31 +2272,44 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
             raise WebAPIError(f"clone source {job.target_type} is unsafe or in use: {exc}") from exc
     else:
         remote_image = None
+        manifest = None
         if job.repository_id is not None:
             from feclora.storage.s3_repository_manager import S3RepositoryManager
             s3_manager = S3RepositoryManager()
-            if not any(item["id"] == job.repository_id for item in s3_manager.list()):
-                raise WebAPIError("selected S3 repository does not exist")
-            try:
-                remote_image = next(
-                    (item for item in s3_manager.repository(job.repository_id).list_images()
-                     if item["image_id"] == job.image_id), None,
-                )
-                if remote_image is None:
-                    raise WebAPIError("selected image is not available in the S3 repository")
-                expected_type = "disk" if job.target_type == "disk" else "partition"
-                if remote_image["image_type"] != expected_type:
-                    raise WebAPIError(f"selected image is not a {expected_type} image")
-                if job.transport == "multicast":
-                    job = replace(job, staging_required_bytes=remote_image["source_size_bytes"])
-                manifest = None
-            except WebAPIError:
-                raise
-            except Exception as exc:
-                raise WebAPIError(f"cannot validate S3 restore image: {exc}") from exc
+            s3_definition = next(
+                (item for item in s3_manager.list() if item["id"] == job.repository_id), None,
+            )
+            if s3_definition is not None:
+                try:
+                    remote_image = next(
+                        (item for item in s3_manager.repository(job.repository_id).list_images()
+                         if item["image_id"] == job.image_id), None,
+                    )
+                    if remote_image is None:
+                        raise WebAPIError("selected image is not available in the S3 repository")
+                    expected_type = "disk" if job.target_type == "disk" else "partition"
+                    if remote_image["image_type"] != expected_type:
+                        raise WebAPIError(f"selected image is not a {expected_type} image")
+                    if job.transport == "multicast":
+                        job = replace(job, staging_required_bytes=remote_image["source_size_bytes"])
+                except WebAPIError:
+                    raise
+                except Exception as exc:
+                    raise WebAPIError(f"cannot validate S3 restore image: {exc}") from exc
+            elif job.operation == "save":
+                raise WebAPIError("Client capture destination must be an S3 object repository")
+            else:
+                try:
+                    image_repository = Path(_remote_repository_manager().resolve(
+                        job.repository_id, write=False,
+                    ))
+                except Exception as exc:
+                    raise WebAPIError(f"selected image repository is not mounted and verified: {exc}") from exc
+                manifest_path = _image_manifest(job.image_id, image_repository)
         else:
             image_repository = Path(config.repository)
             manifest_path = _image_manifest(job.image_id, image_repository)
+        if remote_image is None:
             try:
                 manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
                 expected_type = "disk" if job.target_type == "disk" else "partition"
