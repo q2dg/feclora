@@ -1,7 +1,7 @@
 # One-to-one remote disk and partition cloning
 
-Feclora implements direct whole-disk and partition-to-partition cloning as distinct clone-operation target types
-inside the persistent Server/Client deployment lifecycle. The Server is the
+Feclora implements direct whole-disk and partition-to-partition cloning as distinct
+clone-operation target types inside the persistent Server/Client deployment lifecycle. The Server is the
 source and the Client is the receiver. No second daemon, listener, IPC
 protocol or job journal is created.
 
@@ -40,8 +40,8 @@ immediately before writing. A smaller target is rejected.
 
 ## Source precondition
 
-The selected source disk or partition must already report RO=1 in lsblk. The runtime never
-changes a source disk's write-protection state automatically. An operator may
+The selected source disk or partition must already report RO=1 in lsblk. The
+runtime never changes a source device's write-protection state automatically. An operator may
 use a hardware write blocker or deliberately mark an offline source read-only
 with blockdev --setro /dev/DEVICE; keep it read-only for the entire session.
 Do not mark the running system disk read-only. Job creation and runtime both
