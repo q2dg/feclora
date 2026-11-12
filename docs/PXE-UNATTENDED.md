@@ -86,11 +86,19 @@ The Live HTTP downloader and schema validation service are conditionally
 started for unattended PXE kernel parameters. The first connected restore
 provider is NFS: Live mounts it read-only, resolves exactly one whole disk by
 WWN/serial, validates the image manifest and artifact digest, and calls the
-existing whole-disk restore engine. PXE deliberately does not use age or
-minisign; the image must be unencrypted. The engine rechecks the target
-immediately before writing and performs read-back verification. Other
-repository schemes, credential references, cross-reboot expiry/replay controls
-and physical hardware acceptance remain outstanding. The job UUID is consumed
+existing whole-disk restore engine. Artifacts may be unencrypted or age-encrypted
+with a symmetric passphrase. When an artifact is encrypted, the restore worker
+waits for the operator to enter the passphrase in Cockpit on that Live client.
+Cockpit submits it once through the privileged local API; it is held briefly in
+a root-only 0600 file under /run, consumed and unlinked, and is not placed in
+the answer JSON, kernel command line, URL, environment or logs. The Live client
+uses age's passphrase prompt through a pseudo-terminal and stages authenticated
+plaintext in a private temporary file before writing the target. A wrong
+passphrase or failed age authentication aborts before the first write. PXE
+does not use minisign. The engine rechecks the target immediately before
+writing and performs read-back verification. Other repository schemes,
+credential references, cross-reboot expiry/replay controls and physical
+hardware acceptance remain outstanding. The job UUID is consumed
 atomically immediately before the first write to prevent a service restart from
 replaying it during the same Live session; the Live filesystem is ephemeral,
 so this is not a cross-reboot replay ledger. Do not describe unattended PXE as complete until those
@@ -125,14 +133,16 @@ are not yet complete provider/transport workflows.
       to prevent replay during the current Live session.
 - [ ] Add cross-reboot expiry/replay protection and tie revocation to deployment-job cancellation/expiry.
 - [x] Connect NFS URL to a read-only Live mount for whole-disk restore.
+- [x] Support optional age symmetric decryption with one-shot Cockpit passphrase handoff on the Live client.
 - [ ] Connect remaining repository URL schemes to provider and credential facilities.
 - [x] Implement exact whole-disk target resolution, pre-write revalidation and
       execution through the existing verified whole-disk restore engine for NFS.
 - [ ] Add other repository providers and lifecycle/replay controls.
 - [x] Use the operator-selected HTTP trust assumption; no cryptographic integrity mechanism is provided.
 - [ ] Validate BIOS and UEFI PXE boot, Caddy publication/revocation, wrong or
-      tampered answer files, missing credentials, repository outage, ambiguous
+      tampered answer files, wrong age passphrase, repository outage, ambiguous
       targets, target swaps, interruption and real restore hardware.
 
-The NFS whole-disk software path is now connected, but no hardware acceptance,
-provider interoperability or production-ready end-to-end claim is made.
+The NFS whole-disk software path and age passphrase handoff are connected in
+code, but the new path has not yet been executed in tests or on PXE hardware;
+no production-ready end-to-end claim is made.
