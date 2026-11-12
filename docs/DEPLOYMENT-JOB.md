@@ -48,7 +48,7 @@ device checks, and the Server operator explicitly ARMs the complete READY set.
   set it to null.
 - `target_type`: `disk`, `partition` or `logical_volume`. Logical-volume
   targets are valid only for restore jobs. Save and clone currently support
-  whole disks for save; clone supports either whole disks or partitions. A Client (interactive or persistent Cockpit mode) selects its own existing LV
+  whole disks for save; clone supports either whole disks or partitions. A Client (interactive or persistent Cockpit mode) selects its own local destination device
   locally; the job never carries a Client device path.
   Raw LUKS2 container images use the same `partition` target type: unicast
   and multicast Clients dispatch them to the partition restore engine, which
