@@ -5,8 +5,9 @@ Feclora delegates optional artifact encryption and detached signatures to the up
 ## Encryption model
 
 - Compress first, then encrypt the stored artifact with `age`.
-- Use an age recipients file containing one public recipient per line. Multiple
-  recipients can decrypt the same artifact independently.
+- Recipient mode: use an age recipients file containing one public recipient per line. Multiple recipients can decrypt the same artifact independently.
+- Symmetric mode: whole-disk capture can instead use an operator-entered passphrase. Cockpit delivers it once to the local worker through a root-only volatile file under `/run`; the worker consumes and removes it. The passphrase is not stored in the durable operation journal, manifest, command-line arguments, environment or logs. age receives it through a controlling terminal.
+- Symmetric capture currently applies to whole-disk captures only. Partition and logical-volume capture retain recipient-based encryption.
 - Store the encrypted bytes as `<artifact filename>.age`; the manifest records
   `"encryption": "age"` and the SHA-256/size of the ciphertext.
 - Existing manifests without an encryption field remain valid and mean
