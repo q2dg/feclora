@@ -639,7 +639,7 @@ def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
         })
     return {
         "image_id": image_id, "source_size_bytes": manifest.source_size_bytes,
-        "logical_sector_size": manifest.logical_sector_size, "signed": signed,
+        "logical_sector_size": manifest.logical_sector_size,
         "partitions": partitions,
         "message": "Manifest and partition-table metadata verified. The full disk data artifact is verified again during extraction.",
     }
@@ -1258,8 +1258,8 @@ def _revoke_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
 def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -> dict[str, Any]:
     allowed = {
         "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish", "encrypt_passphrase", "age_passphrase"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
-        "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id", "sftp_publish"},
+        "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
@@ -1366,26 +1366,21 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         partition_id = _text(params, "partition_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         compression = _text(params, "compression", pattern=r"(?:none|gzip|xz|zstd|lz4)")
-        encrypt, sign = params["encrypt"], params["sign"]
-        if not isinstance(encrypt, bool) or not isinstance(sign, bool):
-            raise WebAPIError("encrypt and sign must be boolean values")
+        encrypt = params["encrypt"]
+        if not isinstance(encrypt, bool):
+            raise WebAPIError("encrypt must be a boolean value")
         security = _security_material()
         if encrypt and not security["age_encryption_available"]:
             raise WebAPIError("initialize Feclora security keys before enabling age encryption")
-        if sign and not security["image_signing_available"]:
-            raise WebAPIError("initialize Feclora security keys before enabling image signatures")
-        recipients_file, signing_key = _capture_material()
+        recipients_file = _capture_material()
         inventory = collect_inventory()
         manifest = capture_partition_image(
             source, image_id, partition_id, _operation_repository(params, write=True, create_local=True),
             compression=compression, progress_callback=_progress, inventory=inventory,
             age_recipients_file=recipients_file if encrypt else None,
-            minisign_secret_key=signing_key if sign else None,
         )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
         if "sftp_publish" in params:
-            if not sign:
-                raise WebAPIError("SFTP post-capture publication requires a signed image manifest")
             result["sftp_publication"] = _publish_captured_image_to_sftp(
                 manifest.image_id, _operation_repository(params, write=True), params["sftp_publish"],
                 progress_callback=_progress,
@@ -1422,51 +1417,20 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             )
     elif action == "extract_partition_image":
         from feclora.storage.disk_image_partition import extract_partition_image
-        from feclora.storage.image_security import verify_manifest_signature
-        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-        selector = _text(params, "selector", maximum=256)
-        repository = _operation_repository(params, write=True)
-        manifest_path = _image_manifest(image_id, repository)
-        manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
-        if manifest.image_id != image_id:
-            raise WebAPIError("selected image manifest identifier does not match its repository name")
-        if manifest.image_type != "disk":
-            raise WebAPIError("partition extraction requires a whole-disk image")
         encrypted = any(item.encryption == "age" for item in manifest.artifacts)
         security = _security_material()
         pki = Path("/etc/feclora/pki")
         identity_paths: list[Path] = []
-        trusted_keys: list[Path] = []
         if security["age_decryption_available"]:
             identity_paths.append(pki / "server.age")
-        if security["image_verification_available"]:
-            trusted_keys.append(pki / "server.pub")
         client_config = _client_runtime_config()
-        if client_config:
-            if client_config.age_identity_file:
-                identity_paths.append(Path(client_config.age_identity_file))
-            if client_config.trusted_server_public_key:
-                trusted_keys.insert(0, Path(client_config.trusted_server_public_key))
+        if client_config and client_config.age_identity_file:
+            identity_paths.append(Path(client_config.age_identity_file))
         if encrypted and not identity_paths:
             raise WebAPIError("age-encrypted disk image requires an enrolled Client or local Feclora age identity")
-        trusted_key = None
-        if signed:
-            for candidate in dict.fromkeys(trusted_keys):
-                try:
-                    verify_manifest_signature(manifest_path, candidate)
-                    trusted_key = candidate
-                    break
-                except Exception:
-                    continue
-            if trusted_key is None:
-                raise WebAPIError("signed disk image does not verify against any locally trusted Feclora signing key")
-        recipients_file, signing_key = _capture_material()
+        recipients_file = _capture_material()
         if encrypted and not security["age_encryption_available"]:
             raise WebAPIError("extracting an age-encrypted disk image requires an available age recipient inventory for the new partition image")
-        if not security["image_signing_available"]:
-            signing_key = None
-        if signed and signing_key is None:
-            raise WebAPIError("extracting a signed disk image requires a local signing key to sign the resulting partition image")
         identity_context = tempfile.TemporaryDirectory(prefix="feclora-age-identities-") if encrypted and len(identity_paths) > 1 else None
         try:
             if identity_context:
@@ -1481,9 +1445,6 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             extracted, extracted_manifest = extract_partition_image(
                 manifest_path, repository, selector,
                 age_identity_file=identity_file,
-                minisign_public_key=trusted_key,
-                require_signature=signed,
-                minisign_secret_key=signing_key,
                 age_recipients_file=recipients_file if encrypted else None,
                 progress_callback=_progress,
             )
@@ -1495,7 +1456,6 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         result = {
             "source_image_id": image_id, "image_id": extracted.image_id,
             "image_type": extracted.image_type, "manifest": extracted_manifest,
-            "signed": signing_key is not None,
             "encrypted": any(item.encryption == "age" for item in extracted.artifacts),
         }
     elif action in {"restore_disk", "restore_partition", "restore_logical_volume"}:
@@ -1525,32 +1485,17 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 raise WebAPIError("SFTP restore source port is invalid")
             if "repository_id" in params:
                 raise WebAPIError("SFTP restore cannot be combined with a mounted repository")
-            client_config = _client_runtime_config()
-            public_key = (
-                Path(client_config.trusted_server_public_key)
-                if client_config and client_config.trusted_server_public_key
-                else Path("/etc/feclora/pki/server.pub")
-            )
-            try:
-                key_info = os.lstat(public_key)
-            except OSError as exc:
-                raise WebAPIError("trusted Feclora image-signing public key is unavailable") from exc
-            if (not stat.S_ISREG(key_info.st_mode) or stat.S_ISLNK(key_info.st_mode)
-                    or key_info.st_uid != 0 or key_info.st_mode & 0o022):
-                raise WebAPIError("trusted Feclora minisign public key has unsafe ownership or permissions")
             repository = _repository(create=True)
             from feclora.storage.sftp_image_set import fetch_image_set
             try:
                 fetch_image_set(
                     remote_directory=remote_directory, destination_root=repository,
-                    public_key=public_key, host=host, username=username,
-                    identity_credential=identity, known_hosts_credential=known_hosts,
-                    port=port, expected_image_id=image_id,
-                    expected_manifest_sha256=expected_manifest_sha256,
-                    progress_callback=_progress,
+                    host=host, username=username, identity_credential=identity,
+                    known_hosts_credential=known_hosts, port=port, expected_image_id=image_id,
+                    expected_manifest_sha256=expected_manifest_sha256, progress_callback=_progress,
                 )
             except Exception as exc:
-                raise WebAPIError(f"authenticated SFTP image fetch failed: {exc}") from exc
+                raise WebAPIError(f"SFTP image fetch failed: {exc}") from exc
         else:
             repository = _operation_repository(params, write=False)
         manifest_path = _image_manifest(image_id, repository)
@@ -1558,36 +1503,17 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         expected_type = {"restore_disk": "disk", "restore_partition": "partition", "restore_logical_volume": "logical_volume"}[action]
         if manifest.image_type != expected_type:
             raise WebAPIError(f"selected image is not a {expected_type} image")
-        from feclora.storage.image_security import verify_manifest_signature
         security = _security_material()
-        signed = os.path.isfile(str(manifest_path) + ".minisig")
         encrypted = any(item.encryption == "age" for item in manifest.artifacts)
         pki = Path("/etc/feclora/pki")
         identity_paths: list[Path] = []
         if security["age_decryption_available"]:
             identity_paths.append(pki / "server.age")
-        trusted_keys: list[Path] = []
-        if security["image_verification_available"]:
-            trusted_keys.append(pki / "server.pub")
         client_config = _client_runtime_config()
-        if client_config:
-            if client_config.age_identity_file:
-                identity_paths.append(Path(client_config.age_identity_file))
-            if client_config.trusted_server_public_key:
-                trusted_keys.insert(0, Path(client_config.trusted_server_public_key))
+        if client_config and client_config.age_identity_file:
+            identity_paths.append(Path(client_config.age_identity_file))
         if encrypted and not identity_paths:
             raise WebAPIError("age-encrypted image requires an enrolled Client or local Feclora age identity")
-        trusted_key = None
-        if signed:
-            for candidate in dict.fromkeys(trusted_keys):
-                try:
-                    verify_manifest_signature(manifest_path, candidate)
-                    trusted_key = candidate
-                    break
-                except Exception:
-                    continue
-            if trusted_key is None:
-                raise WebAPIError("signed image does not verify against any locally trusted Feclora signing key")
         identity_context = tempfile.TemporaryDirectory(prefix="feclora-age-identities-") if encrypted and len(identity_paths) > 1 else None
         try:
             if identity_context:
@@ -1604,7 +1530,6 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 restore_disk(
                     manifest_path, repository, target, confirmation=expected,
                     progress_callback=_progress, age_identity_file=identity_file,
-                    minisign_public_key=trusted_key, require_signature=signed,
                 )
             elif action == "restore_partition":
                 from feclora.storage.partition_restore import restore_partition
@@ -1820,7 +1745,7 @@ def _local_operations(params: dict[str, Any]) -> dict[str, Any]:
 
 def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
     operation_fields = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
