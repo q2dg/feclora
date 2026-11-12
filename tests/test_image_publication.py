@@ -91,6 +91,41 @@ class ImagePublicationTests(unittest.TestCase):
             with open(os.path.join(repository, "first.img"), "rb") as stream:
                 self.assertEqual(stream.read(), b"concurrent replacement")
 
+    def test_concurrent_publishers_cannot_mix_image_sets(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+
+        with tempfile.TemporaryDirectory() as repository:
+            stages = [os.path.join(repository, f".stage-{index}") for index in range(2)]
+            payloads = [b"publisher-zero", b"publisher-one"]
+            for stage, payload in zip(stages, payloads):
+                os.mkdir(stage)
+                with open(os.path.join(stage, "payload.img"), "wb") as stream:
+                    stream.write(payload)
+                with open(os.path.join(stage, "manifest.json"), "wb") as stream:
+                    stream.write(b"manifest-for-" + payload)
+
+            barrier = Barrier(2)
+
+            def publish(stage):
+                barrier.wait(timeout=5)
+                try:
+                    publish_image_set(repository, stage, ["payload.img", "manifest.json"])
+                    return "published"
+                except FileExistsError:
+                    return "collision"
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                outcomes = list(executor.map(publish, stages))
+
+            self.assertCountEqual(outcomes, ["published", "collision"])
+            with open(os.path.join(repository, "payload.img"), "rb") as stream:
+                winning_payload = stream.read()
+            with open(os.path.join(repository, "manifest.json"), "rb") as stream:
+                winning_manifest = stream.read()
+            self.assertIn(winning_payload, payloads)
+            self.assertEqual(winning_manifest, b"manifest-for-" + winning_payload)
+
     def test_rejects_stage_directory_outside_repository(self):
         with tempfile.TemporaryDirectory() as repository, tempfile.TemporaryDirectory() as other:
             with open(os.path.join(other, "payload.img"), "wb") as stream:
