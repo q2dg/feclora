@@ -99,11 +99,7 @@ Feclora does not sign image manifests or use detached signature sidecars. Artifa
 
 ## Provider support status
 
-The answer schema accepts URL schemes for SSHFS, SMB/CIFS, NFS, ,
-HTTP(S) and S3. Only NFS is currently connected to PXE restore execution;
-all other schemes fail closed until their Live provider adapters exist. Current repository support and
-limitations are tracked in `REMOTE-REPOSITORIES.md`;  and S3
-are not yet complete provider workflows.  is not a repository URL or PXE file provider.
+The answer schema accepts URL schemes for SSHFS, SMB/CIFS, NFS and HTTP(S). Only NFS is currently connected to PXE restore execution; the other schemes fail closed until their Live provider adapters exist. Current repository support and limitations are tracked in `REMOTE-REPOSITORIES.md`.
 
 ## Current status and acceptance
 
@@ -116,8 +112,7 @@ are not yet complete provider workflows.  is not a repository URL or PXE file pr
       validated JSON in the root-only Live runtime directory.
 - [x] Connect the NFS repository adapter, unique WWN/serial target resolution,
       pre-write identity revalidation and existing whole-disk restore engine.
-- [ ] Add SSHFS, SMB/CIFS, HTTP(S),  and S3 provider adapters
-      plus credential_ref resolution.
+- [ ] Add SSHFS, SMB/CIFS, HTTP(S) and S3 provider adapters plus credential_ref resolution.
 - [x] Add one Cockpit JSON answer-file upload control; the repository URL is
       taken directly from the JSON document.
 - [x] Validate and atomically publish/revoke job-scoped JSON files through Caddy.
