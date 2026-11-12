@@ -46,6 +46,8 @@ fi
 
 
 
+bash -n "$ROOT_DIR/src/feclora/data/feclora-kiosk-bootstrap-ready" || fail "Kiosk readiness probe has invalid Bash syntax."
+
 if ! grep -q 'network_interfaces|' "$ROOT_DIR/kickstart/feclora-live.ks" \
    || ! grep -q 'bootstrap_server|' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Kickstart Cockpit API wrapper does not allow the Server identity bootstrap actions."
