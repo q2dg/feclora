@@ -31,7 +31,6 @@ from feclora.deployment.coordinator import (
 )
 from feclora.deployment.job import DeploymentJob, JobValidationError
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
-from feclora.storage.image_security import ImageSecurityError, verify_manifest_signature
 from feclora.network.udpcast import UDPcastConfig, UDPcastError, send_multicast_artifact, verify_artifact_file
 from feclora.network.firewall import PXEFirewallError
 from feclora.network.tls import accept_tls, connect_tls
@@ -704,18 +703,10 @@ class DeploymentControlServer:
             raise DeploymentControlError("every selected Client must be READY before multicast arming")
         if udpcast_config.min_receivers != len(clients):
             raise DeploymentControlError("UDPcast receiver threshold must equal the selected READY Client count")
-        signature_path = manifest_path + ".minisig"
         try:
             with open(manifest_path, "rb") as stream:
                 manifest_bytes = stream.read(8 * 1024 + 1)
-            signature_bytes = b""
-            if os.path.lexists(signature_path):
-                if not trusted_public_key:
-                    raise DeploymentControlError("signed multicast image requires an independently trusted minisign public key")
-                verify_manifest_signature(manifest_path, trusted_public_key)
-                with open(signature_path, "rb") as stream:
-                    signature_bytes = stream.read(2048 + 1)
-            if len(manifest_bytes) > 8 * 1024 or len(signature_bytes) > 2048:
+            if len(manifest_bytes) > 8 * 1024:
                 raise DeploymentControlError("manifest exceeds the multicast control-plane size limit")
             manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
             if manifest.image_id != job.image_id:
@@ -737,7 +728,6 @@ class DeploymentControlServer:
             "job_id": job.job_id,
             "image_id": job.image_id,
             "manifest_b64": base64.b64encode(manifest_bytes).decode("ascii"),
-            "signature_b64": base64.b64encode(signature_bytes).decode("ascii"),
         }
         with self._lock:
             sessions = tuple((mac, self._sessions.get(mac)) for mac in expected_macs)
@@ -750,9 +740,9 @@ class DeploymentControlServer:
                 source_path = os.path.join(repository, artifact.filename)
                 send_multicast_artifact(
                     self.coordinator, source_path, manifest_path,
-                    trusted_public_key, udpcast_config, firewall=self.firewall,
+                    udpcast_config, firewall=self.firewall,
                 )
-        except (OSError, DeploymentControlError, UDPcastError, ImageSecurityError, PXEFirewallError) as exc:
+        except (OSError, DeploymentControlError, UDPcastError, PXEFirewallError) as exc:
             for mac, _tls_socket in sessions:
                 self._record_transfer_failure(mac, f"multicast restore failed: {exc}")
             raise DeploymentControlError(f"multicast restore transfer failed: {exc}") from exc
