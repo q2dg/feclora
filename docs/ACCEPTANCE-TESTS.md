@@ -114,7 +114,7 @@ network. Multicast additionally requires a network whose IGMP snooping and
 querier behavior has been independently configured and checked.
 
 1. Verify the image manifest and every referenced artifact in Cockpit before
-   creating the deployment. A present signature must verify against an
+   creating the deployment. The manifest and all artifacts must match their recorded SHA-256 digests. An
    independently trusted key; an encrypted artifact must decrypt/authenticate
    with the configured age identity. Do not treat SHA-256 alone as publisher
    authentication.
@@ -166,7 +166,7 @@ account/export/share and a disposable image. Do not reuse production credentials
    selected verified repository, not files from the local directory beneath
    an unmounted mountpoint.
 5. For a read/write provider, have one Client capture and publish a small
-   disposable test disk to that repository. Verify its manifest, signature,
+   disposable test disk to that repository. Verify its manifest and artifact digests,
    artifact byte counts and cryptographic digests, then restore it to a
    disposable target and verify read-back.
 6. Using the committed image from step 5, have at least two other Clients read
@@ -218,7 +218,7 @@ This test verifies that an active persistent restore owns its remote repository
 for the full service lifetime.
 
 1. Configure and verify a disposable read-only or read/write remote repository
-   containing a signed image suitable for restoration.
+   containing an image with valid manifest SHA-256 digests suitable for restoration.
 2. Create and start a remote-repository restore job with a disposable Client.
 3. Once the persistent Server service has acquired the repository usage lease,
    attempt to unmount the repository through Cockpit or the supported manager
