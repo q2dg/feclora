@@ -61,7 +61,7 @@ authorization to read or erase a disk.
 ### Process and safety boundaries
 
 - Use Python's standard ssl module for TLS and generic dd/block-device
-  primitives for disk I/O. Do not use SSH/SFTP as the disk data plane.
+  primitives for disk I/O. Do not use SSH as the disk data plane.
 - Keep network framing and transport separate from storage writers and device
   safety validation.
 - Enforce socket read/write timeouts, maximum frame sizes, fixed chunk sizes,
