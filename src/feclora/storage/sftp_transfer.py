@@ -178,8 +178,7 @@ def upload_file(
 
     SFTP v3 has no portable remote SHA-256 operation. The local source is
     hashed before transfer; remote publication creates a hard link only after put succeeds; the
-    server must support the OpenSSH hard-link extension. Callers must still verify the published artifact via Feclora's
-    signed manifest when it is later consumed.
+    server must support the OpenSSH hard-link extension. Callers verify published artifacts against the manifest SHA-256 digests.
     """
     local, size, digest, source_identity = _local_regular(local_path)
     target = _remote_path(remote_path)
