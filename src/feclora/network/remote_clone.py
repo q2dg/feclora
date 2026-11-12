@@ -66,8 +66,6 @@ def build_remote_clone_header(
     source_path: str,
     receiver_target_device: str,
     *,
-    source_identity: str,
-    receiver_identity: str,
     executables: dict[str, str | None] | None = None,
     runner: Callable[..., Any] | None = None,
     chunk_size_bytes: int = DEFAULT_CHUNK_BYTES,
@@ -88,8 +86,6 @@ def build_remote_clone_header(
     try:
         return CloneSessionHeader(
             session_id=str(uuid.uuid4()),
-            source_identity=source_identity,
-            receiver_identity=receiver_identity,
             source_device=source_path,
             receiver_target_device=receiver_target_device,
             source_size_bytes=size,
@@ -205,8 +201,6 @@ def _send_remote_disk_impl(
     tls_socket: Any,
     header: CloneSessionHeader,
     *,
-    local_identity: str,
-    expected_peer_identity: str,
     source_path: str,
     confirmation: str,
     executables: dict[str, str | None] | None = None,
@@ -237,8 +231,7 @@ def _send_remote_disk_impl(
             )
         _check_safe(header.source_device, safety)
         approval = authorize_endpoint(
-            header, role="source", local_identity=local_identity,
-            expected_peer_identity=expected_peer_identity, confirmation=confirmation,
+            header, role="source", confirmation=confirmation,
         )
         validate_endpoint_authorization(
             approval, header, role="source", device_path=header.source_device,
@@ -305,8 +298,6 @@ def _send_remote_disk_impl(
 def _receive_remote_disk_impl(
     tls_socket: Any,
     *,
-    local_identity: str,
-    expected_peer_identity: str,
     target_path: str,
     confirmation: str,
     executables: dict[str, str | None] | None = None,
@@ -330,8 +321,7 @@ def _receive_remote_disk_impl(
         raise RemoteDiskCloneError("locally selected target device differs from the session header")
     try:
         approval = authorize_endpoint(
-            header, role="receiver", local_identity=local_identity,
-            expected_peer_identity=expected_peer_identity, confirmation=confirmation,
+            header, role="receiver", confirmation=confirmation,
         )
         validate_endpoint_authorization(
             approval, header, role="receiver", device_path=header.receiver_target_device,
@@ -497,10 +487,7 @@ def send_remote_disk(
     **kwargs: Any,
 ) -> CloneVerificationResult:
     """Journal a source operation and send only after peer identity is checked."""
-    expected_peer_identity = kwargs.get("expected_peer_identity")
-    if not isinstance(expected_peer_identity, str):
-        raise RemoteDiskCloneError("expected receiver identity is required")
-    target = f"{header.source_device} -> {header.receiver_identity}:{header.receiver_target_device}"
+    target = f"{header.source_device} -> {header.receiver_target_device}"
     try:
         with operation_record(
             "remote-disk-send", target, image_id=header.session_id,
@@ -519,9 +506,6 @@ def receive_remote_disk(
     **kwargs: Any,
 ) -> CloneVerificationResult:
     """Journal the receiver operation before writing and acknowledge after durable completion."""
-    expected_peer_identity = kwargs.get("expected_peer_identity")
-    if not isinstance(expected_peer_identity, str):
-        raise RemoteDiskCloneError("expected source identity is required")
     try:
         header = receive_session_header(tls_socket)
         target = header.receiver_target_device
@@ -546,8 +530,7 @@ def serve_remote_clone_once(
     tls_context: Any,
     header: CloneSessionHeader,
     *,
-    local_identity: str,
-    expected_peer_identity: str,
+    expected_server_identity: str,
     confirmation: str,
     cancel_check: Callable[[], bool] | None = None,
     accept_poll_interval: float = 0.25,
@@ -583,8 +566,6 @@ def serve_remote_clone_once(
         with tls_socket:
             return send_remote_disk(
                 tls_socket, header,
-                local_identity=local_identity,
-                expected_peer_identity=expected_peer_identity,
                 confirmation=confirmation,
                 cancel_check=cancel_check,
                 **kwargs,
@@ -606,14 +587,12 @@ def connect_remote_clone(
     """Connect as the receiver, complete mTLS, and run one destructive clone session."""
     tls_socket = connect_tls(
         tls_context, host, port,
-        expected_peer_identity=expected_peer_identity,
+        expected_peer_identity=expected_server_identity,
         cancel_check=kwargs.get("cancel_check"),
     )
     with tls_socket:
         return receive_remote_disk(
             tls_socket,
-            local_identity=local_identity,
-            expected_peer_identity=expected_peer_identity,
             confirmation=confirmation,
             **kwargs,
         )

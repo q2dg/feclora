@@ -31,7 +31,7 @@ _HEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 class RemoteCloneProtocolError(RuntimeError):
-    """A remote clone frame, stream, or peer identity is invalid."""
+    """A remote clone frame or stream is invalid."""
 
 
 class RemoteCloneCancelled(RemoteCloneProtocolError):
@@ -63,8 +63,6 @@ def _validate_chunk_size(value: Any) -> int:
 @dataclass(frozen=True)
 class CloneSessionHeader:
     session_id: str
-    source_identity: str
-    receiver_identity: str
     source_device: str
     receiver_target_device: str
     source_size_bytes: int
@@ -79,10 +77,6 @@ class CloneSessionHeader:
             raise RemoteCloneProtocolError("session_id must be a UUID") from exc
         if str(parsed) != self.session_id:
             raise RemoteCloneProtocolError("session_id must use canonical UUID notation")
-        _bounded_string(self.source_identity, "source_identity")
-        _bounded_string(self.receiver_identity, "receiver_identity")
-        if self.source_identity == self.receiver_identity:
-            raise RemoteCloneProtocolError("source and receiver identities must identify different endpoints")
         if (not isinstance(self.source_device, str) or not self.source_device.startswith("/dev/")
                 or len(self.source_device) > 256 or any(ord(c) < 32 for c in self.source_device)
                 or posixpath.normpath(self.source_device) != self.source_device
@@ -106,8 +100,6 @@ class CloneSessionHeader:
         return {
             "schema_version": self.schema_version,
             "session_id": self.session_id,
-            "source_identity": self.source_identity,
-            "receiver_identity": self.receiver_identity,
             "source_device": self.source_device,
             "receiver_target_device": self.receiver_target_device,
             "source_size_bytes": self.source_size_bytes,
@@ -120,7 +112,7 @@ class CloneSessionHeader:
         if not isinstance(value, dict):
             raise RemoteCloneProtocolError("session header must be a JSON object")
         required = {
-            "schema_version", "session_id", "source_identity", "receiver_identity",
+            "schema_version", "session_id",
             "source_device", "receiver_target_device", "source_size_bytes", "logical_sector_size", "chunk_size_bytes",
         }
         if set(value) != required:
@@ -135,8 +127,6 @@ class CloneSessionHeader:
 class CloneEndpointAuthorization:
     session_id: str
     role: str
-    local_identity: str
-    peer_identity: str
     device_path: str
 
 
@@ -144,32 +134,22 @@ def authorize_endpoint(
     header: CloneSessionHeader,
     *,
     role: str,
-    local_identity: str,
-    expected_peer_identity: str,
     confirmation: str,
 ) -> CloneEndpointAuthorization:
     """Validate an explicit, role-specific local approval for this exact session."""
     if role == "source":
-        expected_local = header.source_identity
-        expected_peer = header.receiver_identity
         device_path = header.source_device
         required_phrase = f"READ {device_path}"
     elif role == "receiver":
-        expected_local = header.receiver_identity
-        expected_peer = header.source_identity
         device_path = header.receiver_target_device
         required_phrase = f"ERASE {device_path}"
     else:
         raise RemoteCloneProtocolError("endpoint role must be 'source' or 'receiver'")
-    if local_identity != expected_local or expected_peer_identity != expected_peer:
-        raise RemoteCloneProtocolError("local or expected peer identity does not match the approved session")
     if confirmation != required_phrase:
         raise RemoteCloneProtocolError(f"explicit {role} authorization required: {required_phrase}")
     return CloneEndpointAuthorization(
         session_id=header.session_id,
         role=role,
-        local_identity=local_identity,
-        peer_identity=expected_peer_identity,
         device_path=device_path,
     )
 

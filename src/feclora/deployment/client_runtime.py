@@ -70,8 +70,6 @@ def execute_client_image_job(
         try:
             result = receive_remote_disk(
                 tls_socket,
-                local_identity="Client",
-                expected_peer_identity="Server",
                 target_path=local_device_path,
                 confirmation=confirmation,
                 progress_callback=progress_callback,
