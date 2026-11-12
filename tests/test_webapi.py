@@ -1616,7 +1616,7 @@ class WebAPITests(unittest.TestCase):
                 image_id="plain", image_type="disk", artifacts=[],
             )
             client = SimpleNamespace(
-                age_identity_file=None, trusted_server_public_key=None,
+                age_identity_file=None,
             )
             params = {
                 "image_id": "plain", "target": "/dev/sdb",
@@ -1882,8 +1882,6 @@ class WebAPITests(unittest.TestCase):
     def test_create_unicast_save_without_client_minisign_keys(self):
         config = SimpleNamespace(
             client_identity_to_mac={"URI:feclora-client-01": "52:54:00:12:34:56"},
-            client_minisign_public_keys={},
-            server_minisign_public_key=None,
             repository="/repo",
         )
         with tempfile.TemporaryDirectory() as directory, patch(
@@ -1911,7 +1909,6 @@ class WebAPITests(unittest.TestCase):
             local_identity="URI:feclora-client-01",
             server_identity="URI:feclora-server",
             mac_address="52:54:00:12:34:56",
-            trusted_server_public_key=None,
             local_minisign_public_key=None,
             age_identity_file=None, age_recipients_file=None,
         )
