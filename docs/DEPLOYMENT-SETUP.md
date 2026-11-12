@@ -100,9 +100,10 @@ download is not authorization by itself.
 The current implementation downloads and validates the answer in Live and
 connects NFS-backed whole-disk restore to the existing engine. The target is
 revalidated immediately before writing and the result is read back. Other
-repository schemes, server-side admission limits based on unique PXE MAC
-addresses and/or a serving-time deadline, and hardware acceptance remain
-pending; test only with disposable disks.
+repository schemes and hardware acceptance remain pending; test only with
+disposable disks. The PXE Server enforces the configured unique-MAC count
+and/or serving-time limit, but MAC spoofing is not prevented and MAC is not an
+authentication mechanism.
 
 ### Durable Client progress and restart history
 
