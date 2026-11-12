@@ -75,7 +75,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
                     mountpoint = argv[argv.index("--mountpoint") + 1]
                     return SimpleNamespace(
                         returncode=0,
-                        stdout=f"{mountpoint} cifs //nas.example.net/images ro,relatime",
+                        stdout=f"{mountpoint} cifs //nas.example.net/images ro,relatime,nosuid,nodev,noexec",
                         stderr="",
                     )
                 return SimpleNamespace(returncode=0, stdout="", stderr="")
@@ -92,7 +92,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
                 "credential_file": str(encrypted), "identity_file": None,
                 "known_hosts_file": None, "port": None, "read_only": True,
             })
-            manager._mount_record = lambda _path: ("cifs", "//nas.example.net/images", "ro,relatime")
+            manager._mount_record = lambda _path: ("cifs", "//nas.example.net/images", "ro,relatime,nosuid,nodev,noexec")
             states = iter([True, False, False])
             manager._is_mounted = lambda _path: next(states)
             result = manager.unmount("nas")
@@ -118,7 +118,7 @@ class RepositoryMountServiceTests(unittest.TestCase):
                     mountpoint = argv[argv.index("--mountpoint") + 1]
                     return SimpleNamespace(
                         returncode=0,
-                        stdout=f"{mountpoint} cifs //nas.example.net/images ro,relatime",
+                        stdout=f"{mountpoint} cifs //nas.example.net/images ro,relatime,nosuid,nodev,noexec",
                         stderr="",
                     )
                 return SimpleNamespace(returncode=0, stdout="", stderr="")
