@@ -22,6 +22,14 @@ for the same image are outside the product contract. Publication still needs
 no-overwrite and incomplete-publication protections, while readers must be
 able to access a committed image concurrently without modifying it.
 
+Local disk, partition and logical-volume capture now share a pinned-directory,
+manifest-last publication helper. It links immutable staged files without
+replacement, fsyncs the repository after the commit marker, and on failure
+removes only names that still identify the exact staged inode from that
+attempt. A concurrent replacement is preserved. Readers can therefore use a
+committed manifest and its immutable payload concurrently; no remote
+cross-host publisher lease is implied by this local filesystem transaction.
+
 ## Provider contract
 
 SFTP is intentionally not represented as a mounted filesystem provider. Feclora exposes durable image-set import and publication actions in Cockpit, using pinned host keys and encrypted systemd credential references. The current implementation uses minisign-authenticated manifests for these actions; this is a current implementation dependency, not a product-wide requirement. The target is a configurable verifier so minisign remains optional. The workflow transfers an already captured, authenticated local image to an existing SFTP directory, or fetches and verifies a remote image into the local repository. Named endpoint definitions, one-directory inventory that exposes only manifests with their detached signature present, signed metadata inspection and direct disk/partition restore routing are integrated. Publication uploads artifacts first, then the detached signature, and the manifest last as the visibility marker. Artifact-boundary progress and operator cancellation are integrated through the durable worker; continuous byte-level progress within a file, resume, multi-directory discovery and full provider acceptance remain pending. Bounded retries are limited to transient download/inventory failures; uploads are not automatically retried because publication outcomes can be ambiguous. SSHFS mounts do not satisfy the SFTP transfer contract.
