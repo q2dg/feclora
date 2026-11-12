@@ -45,6 +45,25 @@ class RemoteCloneProtocolTests(unittest.TestCase):
         send_session_header(left, self.header)
         self.assertEqual(receive_session_header(right), self.header)
 
+    def test_partition_device_type_is_bound_in_protocol_header(self):
+        header = CloneSessionHeader(
+            session_id=self.header.session_id,
+            source_device="/dev/sda1",
+            receiver_target_device="/dev/sdb1",
+            source_size_bytes=self.header.source_size_bytes,
+            logical_sector_size=self.header.logical_sector_size,
+            chunk_size_bytes=self.header.chunk_size_bytes,
+            device_type="partition",
+        )
+        self.assertEqual(
+            CloneSessionHeader.from_dict(header.to_dict()),
+            header,
+        )
+        payload = header.to_dict()
+        payload["device_type"] = "logical_volume"
+        with self.assertRaisesRegex(RemoteCloneProtocolError, "device_type"):
+            CloneSessionHeader.from_dict(payload)
+
     def test_endpoint_authorization_is_role_and_device_specific(self):
         source = authorize_endpoint(
             self.header, role="source",
