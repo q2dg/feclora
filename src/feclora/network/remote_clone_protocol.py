@@ -20,7 +20,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, BinaryIO, Callable
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 MAX_HEADER_BYTES = 16 * 1024
 MAX_TERMINAL_BYTES = 1024
 MIN_CHUNK_BYTES = 64 * 1024
@@ -68,6 +68,7 @@ class CloneSessionHeader:
     source_size_bytes: int
     logical_sector_size: int
     chunk_size_bytes: int = DEFAULT_CHUNK_BYTES
+    device_type: str = "disk"
     schema_version: int = PROTOCOL_VERSION
 
     def __post_init__(self) -> None:
@@ -92,6 +93,8 @@ class CloneSessionHeader:
                 or self.logical_sector_size not in {512, 4096}):
             raise RemoteCloneProtocolError("logical_sector_size must be 512 or 4096")
         _validate_chunk_size(self.chunk_size_bytes)
+        if self.device_type not in {"disk", "partition"}:
+            raise RemoteCloneProtocolError("device_type must be disk or partition")
         if (isinstance(self.schema_version, bool) or not isinstance(self.schema_version, int)
                 or self.schema_version != PROTOCOL_VERSION):
             raise RemoteCloneProtocolError("unsupported remote clone protocol version")
@@ -105,6 +108,7 @@ class CloneSessionHeader:
             "source_size_bytes": self.source_size_bytes,
             "logical_sector_size": self.logical_sector_size,
             "chunk_size_bytes": self.chunk_size_bytes,
+            "device_type": self.device_type,
         }
 
     @classmethod
@@ -113,7 +117,7 @@ class CloneSessionHeader:
             raise RemoteCloneProtocolError("session header must be a JSON object")
         required = {
             "schema_version", "session_id",
-            "source_device", "receiver_target_device", "source_size_bytes", "logical_sector_size", "chunk_size_bytes",
+            "source_device", "receiver_target_device", "source_size_bytes", "logical_sector_size", "chunk_size_bytes", "device_type",
         }
         if set(value) != required:
             raise RemoteCloneProtocolError("session header has missing or unknown fields")
