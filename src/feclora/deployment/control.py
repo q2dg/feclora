@@ -32,9 +32,8 @@ from feclora.deployment.job import DeploymentJob, JobValidationError
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.image_security import ImageSecurityError, verify_manifest_signature
 from feclora.network.udpcast import UDPcastConfig, UDPcastError, send_multicast_artifact, verify_artifact_file
-from feclora.network.remote_clone_protocol import verify_peer_identity
 from feclora.network.firewall import PXEFirewallError
-from feclora.network.tls import connect_mutual_tls
+from feclora.network.tls import accept_tls, connect_tls
 from feclora.network.remote_clone import build_remote_clone_header, send_remote_disk
 
 MAX_CONTROL_FRAME = 16 * 1024
@@ -97,36 +96,11 @@ def receive_control_message(sock: Any, *, expected_type: str | None = None) -> d
     return payload
 
 
-def _certificate_identity(sock: Any) -> str:
-    certificate = sock.getpeercert()
-    if not isinstance(certificate, dict):
-        raise DeploymentControlError("client certificate details are unavailable")
-    names = certificate.get("subjectAltName", ())
-    for kind in ("URI", "DNS", "IP Address", "email"):
-        for name_kind, value in names:
-            if name_kind == kind and isinstance(value, str) and value:
-                prefix = {"IP Address": "IP", "email": "EMAIL"}.get(kind, kind)
-                return f"{prefix}:{value}"
-    der = sock.getpeercert(binary_form=True)
-    if not der:
-        raise DeploymentControlError("client did not present a certificate")
-    return "sha256:" + hashlib.sha256(der).hexdigest()
-
-
 @dataclass(frozen=True)
 class ReadyClient:
     mac_address: str
-    certificate_identity: str
     target_description: str
     target_device: str | None = None
-
-
-def _require_tls13_mtls(context: ssl.SSLContext) -> None:
-    if (context.verify_mode != ssl.CERT_REQUIRED
-            or context.minimum_version != ssl.TLSVersion.TLSv1_3
-            or context.maximum_version != ssl.TLSVersion.TLSv1_3):
-        raise DeploymentControlError("deployment control requires TLS 1.3 with mandatory peer certificates")
-
 
 @dataclass(frozen=True)
 class LocalTargetApproval:
@@ -150,7 +124,6 @@ class DeploymentControlServer:
         interface: str | None = None,
         progress_event_sink: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
-        _require_tls13_mtls(tls_context)
         if not isinstance(local_identity, str) or not local_identity or len(local_identity) > 256:
             raise DeploymentControlError("Server certificate identity is required")
         self.coordinator = coordinator
@@ -338,7 +311,7 @@ class DeploymentControlServer:
             self._pending_sockets.add(accepted)
         try:
             accepted.settimeout(30)
-            tls_socket = self.tls_context.wrap_socket(accepted, server_side=True)
+            tls_socket = accept_tls(self.tls_context, accepted)
             with self._lock:
                 self._pending_sockets.discard(accepted)
                 if self._stop_event.is_set():
@@ -346,17 +319,14 @@ class DeploymentControlServer:
                     return None
                 self._pending_sockets.add(tls_socket)
             tls_socket.settimeout(120)
-            identity = _certificate_identity(tls_socket)
-            mac = self.client_identity_to_mac.get(identity)
-            if mac is None:
-                raise DeploymentControlError("client certificate identity is not enrolled for this deployment")
-            verify_peer_identity(tls_socket, identity)
             hello = receive_control_message(tls_socket)
-            if set(hello) != {"type", "job_id", "mac_address", "certificate_identity"}:
+            if set(hello) != {"type", "job_id", "mac_address"}:
                 raise DeploymentControlError("client hello contains missing or unknown fields")
-            if (hello["job_id"] != self.coordinator.job.job_id or hello["mac_address"] != mac
-                    or hello["certificate_identity"] != identity):
-                raise DeploymentControlError("client hello does not match the enrolled identity and active job")
+            mac = hello["mac_address"]
+            if (not isinstance(mac, str) or len(mac) > 32
+                    or hello["job_id"] != self.coordinator.job.job_id):
+                raise DeploymentControlError("client hello does not match the active deployment job")
+            mac = mac.lower()
             if not self.coordinator.job.authorizes_client(mac):
                 raise DeploymentControlError("Client is not authorized for this deployment job")
             if hello["type"] == "inspect":
@@ -403,10 +373,9 @@ class DeploymentControlServer:
                     raise DeploymentControlError("Server control service stopped during Client admission")
                 self._pending_sockets.discard(tls_socket)
                 self._sessions[mac] = tls_socket
-                self._identities[mac] = identity
                 if target_device is not None:
                     self._target_devices[mac] = target_device
-            return ReadyClient(mac, identity, description, target_device)
+            return ReadyClient(mac, description, target_device)
         except Exception as exc:
             if registered_mac is not None:
                 try:
@@ -873,14 +842,13 @@ def inspect_deployment_job(
     network_interface: str | None = None,
 ) -> DeploymentJob:
     """Read an authorized job offer without registering a Client or becoming READY."""
-    _require_tls13_mtls(tls_context)
     if not isinstance(local_identity, str) or not local_identity or len(local_identity) > 256:
         raise DeploymentControlError("local certificate identity is required")
     if not isinstance(mac_address, str) or not mac_address or len(mac_address) > 32:
         raise DeploymentControlError("client MAC address is required")
     if not isinstance(job_id, str) or not job_id or len(job_id) > 64:
         raise DeploymentControlError("deployment job UUID is required")
-    tls_socket = connect_mutual_tls(
+    tls_socket = connect_tls(
         tls_context, host, port, expected_peer_identity=expected_server_identity,
         timeout=timeout, io_timeout=timeout, source_address=source_address,
         network_interface=network_interface,
@@ -888,7 +856,6 @@ def inspect_deployment_job(
     with tls_socket:
         send_control_message(tls_socket, {
             "type": "inspect", "job_id": job_id, "mac_address": mac_address.lower(),
-            "certificate_identity": local_identity,
         })
         offer = receive_control_message(tls_socket, expected_type="job")
         if set(offer) != {"type", "job", "server_identity"}:
@@ -937,7 +904,6 @@ def join_deployment(
     with tls_socket:
         send_control_message(tls_socket, {
             "type": "hello", "job_id": job_id, "mac_address": mac_address.lower(),
-            "certificate_identity": local_identity,
         })
         offer = receive_control_message(tls_socket, expected_type="job")
         if set(offer) != {"type", "job", "server_identity"}:
