@@ -39,7 +39,7 @@ class PartitionRestoreTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.payload = (b"raw partition payload" * 20).ljust(512, b"\\0")
+        self.payload = (b"raw partition payload" * 20).ljust(512, b"\0")
         self.stored = gzip.compress(self.payload, mtime=0)
         with open(os.path.join(self.temp.name, "partition.img.gz"), "wb") as stream:
             stream.write(self.stored)
