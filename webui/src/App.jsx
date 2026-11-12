@@ -38,7 +38,6 @@ function Field({ label, children, help }) {
 export default function App() {
   const [tab, setTab] = useState("operations");
   const [status, setStatus] = useState(null);
-  const [trustedClients, setTrustedClients] = useState([]);
   const [revokeIdentity, setRevokeIdentity] = useState("");
   const [revokeConfirmation, setRevokeConfirmation] = useState("");
   const [ageRecipientExportDirectory, setAgeRecipientExportDirectory] = useState("");
@@ -225,9 +224,9 @@ export default function App() {
     setBusy(true); setError("");
     try {
       const [s, i, j, op, inv, net, profiles, pxe, remote, clients, repositories, credentials, sftpSaved] = await Promise.all([
-        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("network_connection_profiles"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("server_trusted_clients"), callFeclora("remote_repositories"), callFeclora("systemd_credentials"), callFeclora("sftp_repositories")
+        callFeclora("status"), callFeclora("images"), callFeclora("journals"), callFeclora("local_operations"), callFeclora("inventory"), callFeclora("network_interfaces"), callFeclora("network_connection_profiles"), callFeclora("pxe_service_status"), callFeclora("deployment_jobs"), callFeclora("remote_repositories"), callFeclora("systemd_credentials"), callFeclora("sftp_repositories")
       ]);
-      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setNetworkProfiles(profiles.profiles || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setTrustedClients(clients.clients || []); setRemoteRepositories(repositories.repositories || []); setSystemdCredentials(credentials.credentials || []); setSftpRepositories(sftpSaved.repositories || []);
+      setStatus(s); setSecurity(s.security || {}); setImages(i.images || []); setJournals(j.journals || []); setOperations(op.operations || []); setInventory(inv); setNetworkInterfaces(net.interfaces || []); setNetworkProfiles(profiles.profiles || []); setPxeStatus(pxe); setDeploymentJobs(remote.jobs || []); setRemoteRepositories(repositories.repositories || []); setSystemdCredentials(credentials.credentials || []); setSftpRepositories(sftpSaved.repositories || []);
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   }, []);
@@ -816,10 +815,7 @@ export default function App() {
   const deploymentArmPhrase = (job) => {
     if (job.transport === "multicast") return "ARM MULTICAST " + job.job_id + " IGMP-VERIFIED";
     if (job.operation === "clone") {
-      const peer = trustedClients.find((client) => job.authorized_clients?.includes(client.mac_address));
-      return peer?.identity
-        ? "ARM " + job.job_id + " AND READ " + job.source_device + " TO " + peer.identity
-        : "";
+      return "ARM " + job.job_id + " AND READ " + job.source_device;
     }
     return "ARM " + job.job_id;
   };
