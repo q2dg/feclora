@@ -7,7 +7,7 @@ import threading
 import unittest
 from unittest.mock import Mock, patch
 
-from feclora.network.remote_clone_protocol import create_mutual_tls_context
+from feclora.network.remote_clone_protocol import create_mutual_tls_context, create_tls_context
 from feclora.network.tls import accept_mutual_tls, connect_mutual_tls
 
 
@@ -237,3 +237,39 @@ class MutualTlsSocketTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ServerAuthenticatedTlsContextTests(unittest.TestCase):
+    def test_client_context_requires_server_ca_without_client_certificate(self):
+        with patch("feclora.network.remote_clone_protocol.ssl.SSLContext") as factory:
+            context = factory.return_value
+            result = create_tls_context("client", ca_file="/ca.pem")
+        self.assertIs(result, context)
+        factory.assert_called_once_with(__import__("ssl").PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations.assert_called_once_with(cafile="/ca.pem")
+        self.assertEqual(context.verify_mode, __import__("ssl").CERT_REQUIRED)
+        self.assertFalse(context.check_hostname)
+        context.load_cert_chain.assert_not_called()
+
+    def test_server_context_does_not_request_client_certificate(self):
+        with patch("feclora.network.remote_clone_protocol.ssl.SSLContext") as factory:
+            context = factory.return_value
+            result = create_tls_context(
+                "server", certificate_file="/server.pem", private_key_file="/server.key",
+            )
+        self.assertIs(result, context)
+        factory.assert_called_once_with(__import__("ssl").PROTOCOL_TLS_SERVER)
+        self.assertEqual(context.verify_mode, __import__("ssl").CERT_NONE)
+        context.load_cert_chain.assert_called_once_with(
+            certfile="/server.pem", keyfile="/server.key",
+        )
+
+    def test_client_context_requires_ca(self):
+        from feclora.network.remote_clone_protocol import RemoteCloneProtocolError
+        with self.assertRaisesRegex(RemoteCloneProtocolError, "Server CA"):
+            create_tls_context("client")
+
+    def test_server_context_requires_server_certificate_and_key(self):
+        from feclora.network.remote_clone_protocol import RemoteCloneProtocolError
+        with self.assertRaisesRegex(RemoteCloneProtocolError, "certificate and private key"):
+            create_tls_context("server", certificate_file="/server.pem")
