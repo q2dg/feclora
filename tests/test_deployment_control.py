@@ -352,7 +352,7 @@ class TransferFailureTests(unittest.TestCase):
             self.assertEqual(server.arm_and_start(), (MAC,))
             with self.assertRaisesRegex(DeploymentControlError, "saved image transfer failed: transfer timed out"):
                 server.receive_saved_image(
-                    MAC, "/repository", trusted_public_key="/trusted/client.pub",
+                    MAC, "/repository",
                 )
 
         self.assertTrue(tls_socket.closed)
@@ -780,7 +780,7 @@ class CoordinatorControlTests(unittest.TestCase):
         }))
         with patch("feclora.deployment.control.receive_image_set", return_value="/repo/golden.manifest.json") as receive:
             path = server.receive_saved_image(
-                MAC, "/repo", trusted_public_key="/trusted/client.pub",
+                MAC, "/repo",
             )
         self.assertEqual(path, "/repo/golden.manifest.json")
         self.assertEqual(receive.call_args.kwargs["expected_image_id"], "golden")
@@ -792,7 +792,7 @@ class CoordinatorControlTests(unittest.TestCase):
             "detail": "capture rejected locally",
         }))
         self.assertEqual(
-            server.receive_saved_image(MAC, "/repo", trusted_public_key="/trusted/client.pub"),
+            server.receive_saved_image(MAC, "/repo"),
             "",
         )
         self.assertEqual(coordinator.state, JobState.FAILED)
@@ -906,7 +906,7 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
         ], check=True, capture_output=True)
         return cert, key
 
-    def test_mtls_session_transfers_signed_image_set_before_client_result(self):
+    def test_mtls_session_transfers_image_set_before_client_result(self):
         with tempfile.TemporaryDirectory() as directory:
             ca_key = os.path.join(directory, "ca.key")
             ca_cert = os.path.join(directory, "ca.crt")
@@ -953,8 +953,6 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
             manifest_path = os.path.join(source, "golden-image.manifest.json")
             with open(manifest_path, "w", encoding="utf-8") as stream:
                 json.dump(manifest, stream)
-            with open(manifest_path + ".minisig", "wb") as stream:
-                stream.write(b"test signature")
 
             job = make_job()
             coordinator = DeploymentCoordinator(job)
@@ -979,7 +977,6 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
                 ))
             client_thread = threading.Thread(target=client, daemon=True)
             try:
-                with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
                     client_thread.start()
                     deadline = time.monotonic() + 5
                     while time.monotonic() < deadline:
@@ -1014,7 +1011,7 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
         receive_image_set(
             tls, destination, expected_image_id=job.image_id,
         )
-        return True, "signed image received and verified"
+        return True, "image received and verified"
 
     def test_tls13_client_server_job_ready_arm_and_result(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1085,7 +1082,7 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
                 server.stop()
 
 
-    def test_mtls_client_save_transfers_signed_image_and_reports_result(self):
+    def test_mtls_client_save_transfers_image_and_reports_result(self):
         with tempfile.TemporaryDirectory() as directory:
             ca_key = os.path.join(directory, "ca.key")
             ca_cert = os.path.join(directory, "ca.crt")
@@ -1150,7 +1147,7 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
                 send_image_set(
                     tls, source, manifest_path, expected_image_id=job.image_id,
                 )
-                return True, "capture and signed transfer complete"
+                return True, "capture and transfer complete"
 
             def run_client():
                 try:
@@ -1182,7 +1179,7 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
                     self.assertTrue(coordinator.clients(), "save Client did not connect")
                     self.assertEqual(coordinator.clients()[0].state.value, "ready")
                     results = server.run_one_client_job(
-                        destination, trusted_public_key="/trusted/client.pub",
+                        destination,
                     )
                     client_thread.join(10)
                 self.assertFalse(client_thread.is_alive(), "save Client did not report its result")
@@ -1193,13 +1190,12 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
                     with open(os.path.join(destination, filename), "rb") as stream:
                         self.assertEqual(stream.read(), expected)
                 self.assertTrue(os.path.isfile(os.path.join(destination, "golden-image.manifest.json")))
-                self.assertTrue(os.path.isfile(os.path.join(destination, "golden-image.manifest.json.minisig")))
             finally:
                 server.stop()
 
 
 class MulticastControlTests(unittest.TestCase):
-    def test_server_arms_all_ready_clients_and_multicasts_each_signed_artifact(self):
+    def test_server_arms_all_ready_clients_and_multicasts_each_artifact(self):
         mac2 = "52:54:00:12:34:57"
         job = make_job(
             transport="multicast",
@@ -1230,8 +1226,6 @@ class MulticastControlTests(unittest.TestCase):
             manifest_path = os.path.join(directory, "golden-image.manifest.json")
             with open(manifest_path, "wb") as stream:
                 stream.write(b"{}")
-            with open(manifest_path + ".minisig", "wb") as stream:
-                stream.write(b"signature")
             with open(os.path.join(directory, "image.raw"), "wb") as stream:
                 stream.write(b"payload")
             with (
