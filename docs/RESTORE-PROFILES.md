@@ -15,7 +15,7 @@ Schema version 1 stores:
 - Optional success action: no action, reboot or poweroff.
 - Optional expiry and single-use policy.
 
-Profiles contain choices only. They must never contain age identity contents, private signing keys, passwords, TLS private keys, or other secret material. The caller supplies credentials through a separate protected mechanism.
+Profiles contain choices only. They must never contain age identity contents, passwords, TLS private keys, or other secret material. The caller supplies credentials through a separate protected mechanism.
 
 ## Execution modes
 
@@ -84,7 +84,7 @@ profile, image and audit files there:
 mkdir -p /mnt/restore-media/{profiles,trust,images,audit}
 ```
 
-Create the profile as root in a root-owned directory that is not writable by group or other users. The profile is stored with mode 0600; no signing keys or signature files are involved.
+Create the profile as root in a root-owned directory that is not writable by group or other users. The profile is stored with mode 0600; no cryptographic signing keys or signature files are involved.
 
 For images encrypted with the optional age integration, additionally pass `--age-identity` with a protected
 identity file supplied outside the profile. Use a Linux filesystem with POSIX ownership, permissions, locking and hard-link support (for example ext4, XFS or Btrfs); FAT/exFAT volumes may not provide the required semantics. The standalone CLI currently verifies that its consumption ledger and operation journal reside on a dedicated persistent mounted filesystem (not the Live overlay, tmpfs or root filesystem). This CLI constraint does not define the PXE architecture: PXE jobs use the Server's session-scoped journal and never require a persistent Client Live filesystem. It rechecks the WWN and serial immediately
