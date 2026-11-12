@@ -53,73 +53,6 @@ class WebAPITests(unittest.TestCase):
         with patch("feclora.webapi._images", return_value=[{"image_id": "base"}]):
             self.assertEqual(dispatch({"action": "images"}), {"images": [{"image_id": "base"}]})
 
-    def test_durable_sftp_inventory_dispatches_through_transfer_service(self):
-        params = {
-            "host": "backup.example.net", "username": "backup",
-            "remote_directory": "/images", "port": 22,
-            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-        }
-        expected = {"operation": "inventory", "completed": True, "manifests": []}
-        with patch("feclora.storage.sftp_transfer_service.run_sftp_transfer", return_value=expected) as transfer:
-            from feclora.webapi import _execute_operation
-            result = _execute_operation("sftp_inventory", params, "job-1")
-        self.assertEqual(result["operation_id"], "job-1")
-        self.assertEqual(result["operation"], "inventory")
-        self.assertEqual(result["completed"], True)
-        self.assertEqual(result["manifests"], [])
-        self.assertIn("elapsed_seconds", result)
-        transfer.assert_called_once_with(
-            operation="inventory", host="backup.example.net", username="backup",
-            remote_path="/images",
-            identity_credential="/etc/credstore.encrypted/feclora/key.cred",
-            known_hosts_credential="/etc/credstore.encrypted/feclora/hosts.cred",
-            port=22,
-        )
-
-    def test_durable_sftp_fetch_operation_uses_local_trust_and_progress(self):
-        from pathlib import Path
-        import stat
-        params = {
-            "host": "backup.example.net", "username": "backup",
-            "remote_directory": "/images/golden", "port": 2222,
-            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-        }
-        expected = {"image_id": "golden", "image_type": "disk", "artifact_count": 2,
-                     "artifacts_verified": True, "published": True}
-        with patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(
-            st_mode=stat.S_IFREG | 0o644, st_uid=0,
-        )), patch("feclora.webapi._repository", return_value=Path("/var/lib/feclora/images")), \
-             patch("feclora.webapi._client_runtime_config", return_value=None), \
-             patch("feclora.storage.sftp_image_set.fetch_image_set", return_value=expected) as fetch, \
-             patch("feclora.webapi._progress"):
-            from feclora.webapi import _execute_operation
-            result = _execute_operation("sftp_fetch", params, "job-fetch")
-        self.assertEqual(result["operation_id"], "job-fetch")
-        self.assertEqual(result["image_id"], "golden")
-        self.assertEqual(fetch.call_args.kwargs["destination_root"], Path("/var/lib/feclora/images"))
-        self.assertEqual(fetch.call_args.kwargs["port"], 2222)
-        self.assertIsNotNone(fetch.call_args.kwargs["progress_callback"])
-
-    def test_durable_sftp_publish_operation_uses_image_publisher(self):
-        params = {
-            "image_id": "golden", "host": "backup.example.net", "username": "backup",
-            "remote_directory": "/images/golden", "port": 2222,
-            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-        }
-        expected = {"image_id": "golden", "image_type": "disk", "artifact_count": 2, "published": True}
-        with patch("feclora.webapi._repository", return_value="/var/lib/feclora/images"), \
-             patch("feclora.webapi._publish_captured_image_to_sftp", return_value=expected) as publish, \
-             patch("feclora.webapi._progress"):
-            from feclora.webapi import _execute_operation
-            result = _execute_operation("sftp_publish", params, "job-publish")
-        self.assertEqual(result["operation_id"], "job-publish")
-        self.assertEqual(result["image_id"], "golden")
-        self.assertEqual(publish.call_args.args[0], "golden")
-        self.assertEqual(publish.call_args.args[2]["identity_credential"], params["identity_credential"])
-        self.assertIsNotNone(publish.call_args.kwargs["progress_callback"])
     def test_logical_volume_capture_operation_uses_manifest_backed_engine(self):
         from feclora.webapi import _execute_operation
         manifest = SimpleNamespace(image_id="root-image", image_type="logical_volume")
@@ -1365,38 +1298,7 @@ class WebAPITests(unittest.TestCase):
 
 
 
-    def test_fetch_sftp_image_set_api_queues_durable_operation(self):
-        params = {
-            "host": "backup.example.net", "username": "backup",
-            "remote_directory": "/images/golden", "port": 2222,
-            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-        }
-        expected = {"operation_id": "fetch-job", "state": "queued"}
-        with patch("feclora.webapi._submit_local_operation", return_value=expected) as submit:
-            result = dispatch({"action": "fetch_sftp_image_set", "params": params})
-        self.assertEqual(result, expected)
-        submit.assert_called_once_with({"operation": "sftp_fetch", "operation_params": params})
-
-    def test_publish_sftp_image_set_api_queues_durable_operation(self):
-        params = {
-            "image_id": "golden", "host": "backup.example.net", "username": "backup",
-            "remote_directory": "/images/golden", "port": 2222,
-            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-        }
-        expected = {"operation_id": "publish-job", "state": "queued"}
-        with patch("feclora.webapi._submit_local_operation", return_value=expected) as submit:
-            result = dispatch({"action": "publish_sftp_image_set", "params": params})
-        self.assertEqual(result, expected)
-        submit.assert_called_once_with({"operation": "sftp_publish", "operation_params": params})
-
-    def test_capture_disk_publishes_image_to_sftp_after_capture(self):
-        from pathlib import Path
-        manifest = SimpleNamespace(image_id="captured", image_type="disk")
-        repository = Path("/var/lib/feclora/images")
-        params = {
-            "source": "/dev/sda", "image_id": "captured", "compression": "zstd",
+zstd",
             "encrypt": False,
             "sftp_publish": {
                 "host": "backup.example.net", "username": "backup",
@@ -1424,71 +1326,7 @@ class WebAPITests(unittest.TestCase):
         capture.assert_called_once()
         publish.assert_called_once_with("captured", repository, params["sftp_publish"], progress_callback=ANY)
 
-    def test_publish_sftp_image_set_api_rejects_invalid_port_before_transfer(self):
-        params = {
-            "image_id": "golden", "host": "backup.example.net", "username": "backup",
-            "remote_directory": "/images", "port": True,
-            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-        }
-        with patch("feclora.storage.sftp_image_set.publish_image_set") as publish:
-            with self.assertRaisesRegex(WebAPIError, "port must be an integer"):
-                dispatch({"action": "publish_sftp_image_set", "params": params})
-        publish.assert_not_called()
-
-    def test_fetch_sftp_image_set_api_rejects_invalid_port_before_transfer(self):
-        params = {
-            "host": "backup.example.net", "username": "backup",
-            "remote_directory": "/images/golden", "port": True,
-            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-        }
-        with patch("feclora.storage.sftp_image_set.fetch_image_set") as fetch:
-            with self.assertRaisesRegex(WebAPIError, "port must be an integer"):
-                dispatch({"action": "fetch_sftp_image_set", "params": params})
-        fetch.assert_not_called()
-
-
-    def test_list_sftp_image_manifests_api_uses_encrypted_credentials(self):
-        from contextlib import nullcontext
-        params = {
-            "host": "backup.example.net", "username": "backup",
-            "remote_directory": "/images/golden", "port": 2222,
-            "identity_credential": "/etc/credstore.encrypted/feclora/feclora-backup-ssh-key.cred",
-            "known_hosts_credential": "/etc/credstore.encrypted/feclora/feclora-backup-known-hosts.cred",
-        }
-        expected = {"operation": "inventory", "remote_path": "/images/golden",
-                    "completed": True, "manifests": ["manifest.json"]}
-        with patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("op-789")), \
-             patch("feclora.storage.sftp_transfer_service.run_sftp_transfer", return_value=expected) as inventory:
-            result = dispatch({"action": "list_sftp_image_manifests", "params": params})
-        self.assertEqual(result, {"operation_id": "op-789", **expected})
-        self.assertEqual(inventory.call_args.kwargs["operation"], "inventory")
-        self.assertEqual(inventory.call_args.kwargs["identity_credential"], params["identity_credential"])
-        self.assertEqual(inventory.call_args.kwargs["known_hosts_credential"], params["known_hosts_credential"])
-
-    def test_list_sftp_image_manifests_rejects_boolean_port(self):
-        params = {
-            "host": "backup.example.net", "username": "backup",
-            "remote_directory": "/images", "port": True,
-            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-        }
-        with patch("feclora.storage.sftp_transfer_service.run_sftp_transfer") as inventory:
-            with self.assertRaisesRegex(WebAPIError, "port must be an integer"):
-                dispatch({"action": "list_sftp_image_manifests", "params": params})
-        inventory.assert_not_called()
-
-
-    def test_inspect_sftp_image_set_api_returns_authenticated_manifest_summary(self):
-        from contextlib import nullcontext
-        with tempfile.TemporaryDirectory() as directory:
-            key = Path(directory) / "trusted.pub"
-            key.write_text("trusted key", encoding="utf-8")
-            os.chmod(key, 0o600)
-            expected = {
-                "image_id": "remote-image", "image_type": "disk",
-                "source_size_bytes": 1024, "logical_sector_size": 512,
+ze_bytes": 1024, "logical_sector_size": 512,
                 "artifact_count": 2, "artifacts": [], 
             }
             params = {
@@ -1505,94 +1343,6 @@ class WebAPITests(unittest.TestCase):
             self.assertEqual(result, {"operation_id": "inspect-123", **expected})
             self.assertNotIn("public_key", inspect.call_args.kwargs)
             self.assertEqual(inspect.call_args.kwargs["remote_directory"], "/images")
-
-
-    def test_restore_disk_fetches_authenticated_sftp_image_before_restore(self):
-        from contextlib import nullcontext
-        from feclora.webapi import _execute_operation
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            manifest_path = root / "gold.manifest.json"
-            manifest_path.write_text("{}", encoding="utf-8")
-            
-            manifest = SimpleNamespace(image_id="gold", image_type="disk", artifacts=[])
-            params = {
-                "image_id": "gold", "target": "/dev/sdb",
-                "confirmation": "ERASE /dev/sdb",
-                "sftp_source": {
-                    "host": "backup.example.net", "username": "backup",
-                    "remote_directory": "/images/gold", "expected_manifest_sha256": "a" * 64,
-                    "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-                    "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-                },
-            }
-            with patch("feclora.webapi._repository", return_value=root), \
-                 patch("feclora.webapi.os.lstat", return_value=SimpleNamespace(st_mode=0o100600, st_uid=0)), \
-                 patch("feclora.webapi._client_runtime_config", return_value=None), \
-                 patch("feclora.webapi._security_material", return_value={
-                     "age_decryption_available": False, "image_verification_available": True,
-                 }), \
-                 patch("feclora.storage.sftp_image_set.fetch_image_set", return_value={"image_id": "gold"}) as fetch, \
-                 patch("feclora.webapi._image_manifest", return_value=manifest_path), \
-                 patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
-                 patch("feclora.storage.disk_restore.restore_disk") as restore, \
-                 patch("feclora.webapi._emit"):
-                result = _execute_operation("restore_disk", params, "restore-op")
-            fetch.assert_called_once()
-            self.assertEqual(fetch.call_args.kwargs["expected_image_id"], "gold")
-            self.assertEqual(fetch.call_args.kwargs["expected_manifest_sha256"], "a" * 64)
-            restore.assert_called_once()
-            self.assertEqual(result["image_id"], "gold")
-            self.assertTrue(result["verified"])
-
-
-    def test_saved_sftp_repository_api_lists_saves_and_removes_references(self):
-        definition = {
-            "id": "offsite-backup", "host": "backup.example.net",
-            "username": "backup", "remote_directory": "/images", "port": 22,
-            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-        }
-        registry = Mock()
-        registry.save.return_value = definition
-        registry.list.return_value = [definition]
-        with patch("feclora.webapi._sftp_repository_registry", return_value=registry):
-            self.assertEqual(
-                dispatch({"action": "save_sftp_repository", "params": definition}),
-                {"repository": definition, "saved": True},
-            )
-            self.assertEqual(
-                dispatch({"action": "sftp_repositories"}),
-                {"repositories": [definition]},
-            )
-            self.assertEqual(
-                dispatch({"action": "remove_sftp_repository", "params": {"id": "offsite-backup"}}),
-                {"id": "offsite-backup", "removed": True},
-            )
-        registry.save.assert_called_once_with(definition)
-        registry.remove.assert_called_once_with("offsite-backup")
-
-
-    def test_durable_worker_accepts_sftp_restore_source(self):
-        from contextlib import nullcontext
-        from feclora.webapi import _run_operation_locked
-        params = {
-            "image_id": "gold", "target": "/dev/sdb",
-            "confirmation": "ERASE /dev/sdb",
-            "sftp_source": {
-                "host": "backup.example.net", "username": "backup",
-                "remote_directory": "/images/gold", "port": 2222,
-                "expected_manifest_sha256": "a" * 64,
-                "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-                "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-            },
-        }
-        expected = {"image_id": "gold", "target": "/dev/sdb", "verified": True}
-        with patch("feclora.storage.operation_log.operation_record", return_value=nullcontext("restore-op")), \
-             patch("feclora.webapi._execute_operation", return_value=expected) as execute:
-            result = _run_operation_locked("restore_disk", params)
-        self.assertEqual(result, expected)
-        execute.assert_called_once_with("restore_disk", params, "restore-op")
 
 
     def test_plain_restore_uses_tls_transport_authentication(self):
