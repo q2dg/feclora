@@ -256,13 +256,13 @@ def encrypt_artifact_with_passphrase(
         size, digest = _digest_file(temporary)
         os.link(temporary, encrypted_path, follow_symlinks=False)
         os.unlink(temporary)
+        committed = True
         os.unlink(source)
         directory_fd = os.open(os.path.dirname(source), os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
             os.fsync(directory_fd)
         finally:
             os.close(directory_fd)
-        committed = True
         return replace(artifact, filename=encrypted_name, size_bytes=size, sha256=digest, encryption="age")
     except ImageSecurityError:
         raise
