@@ -95,6 +95,12 @@ def _verified_artifact_stream(repository: str, artifact: ImageArtifact,
                 os.unlink(staged)
             except FileNotFoundError:
                 pass
+            parent = os.path.dirname(staged)
+            if os.path.basename(parent).startswith(".feclora-age-"):
+                try:
+                    os.rmdir(parent)
+                except OSError:
+                    pass
 
 def _decoded_stream(stream: Any, compression: str, executables: dict[str, str | None] | None = None):
     if compression == "none":
