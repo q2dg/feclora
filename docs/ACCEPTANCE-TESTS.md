@@ -3,12 +3,7 @@
 This document is an operator runbook for acceptance testing on disposable
 hardware and independently operated remote-storage services. It does not
 describe new software features and does not make physical testing a
-prerequisite for continuing software development. All SSH, NFS, SMB,
- and S3 infrastructure, and  target subsystems/namespaces, are external to Feclora: the operator
-or service owner provisions and administers them. Feclora tests only its client
-connection, authentication, authorization, transfer/mount behavior, integrity
-checks and failure handling. No test step asks Feclora to install or configure
-a remote server/export/share/bucket/NVMe subsystem. Record the Feclora commit, host
+prerequisite for continuing software development. All SSH, NFS, SMB and S3 infrastructure is external to Feclora: the operator or service owner provisions and administers it. Feclora tests only its client connection, authentication, authorization, transfer/mount behavior, integrity checks and failure handling. No test step asks Feclora to install or configure a remote server, export, share or bucket. Record the Feclora commit, host
 models, firmware mode, network topology, repository provider/version, test
 date and outcome for every run.
 
@@ -148,14 +143,9 @@ registry only; they are not tests of remote image publication. Remote image
 distribution follows a single-publisher / multi-reader contract: one Client
 publishes an image and multiple Clients may read/restore it concurrently.
 
-Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS
-endpoint.  is currently rejected by the repository manager until its
-per-repository encrypted credential lifecycle is implemented; do not attempt
-to enable it by writing `/etc//secrets`. Use a dedicated test
-account/export/share and a disposable image. Do not reuse production credentials.
+Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS endpoint. Use a dedicated test account, export or share and a disposable image. Do not reuse production credentials.
 
-1. Prepare the provider endpoint and provision credentials using the
-   provider's root-protected mechanism. Verify SSH host keys for SSHFS, NFS
+1. Prepare the provider endpoint and provision credentials using the provider's root-protected mechanism. Verify SSH host keys for SSHFS, NFS
    export ownership/mapping or SMB share permissions as appropriate. 
    HTTPS and isolated-credential acceptance must wait for its implementation.
 2. Add the repository in Cockpit with the correct provider, endpoint/share,
