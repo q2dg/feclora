@@ -15,7 +15,7 @@ class RepositoryError(ValueError):
     """A remote repository definition is invalid or unsupported."""
 
 
-_PROVIDERS = {"sshfs", "nfs", "smb", "webdav"}
+_PROVIDERS = {"sshfs", "nfs", "smb"}
 _HOST_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$")
 _REMOTE_PATH_RE = re.compile(r"^/[A-Za-z0-9._/@+,-]*(?:/[A-Za-z0-9._/@+,-]*)*$")
 _SAFE_USER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
@@ -55,11 +55,6 @@ class RemoteRepository:
     def __post_init__(self) -> None:
         if self.provider not in _PROVIDERS:
             raise RepositoryError(f"provider must be one of {', '.join(sorted(_PROVIDERS))}")
-        if self.provider == "webdav":
-            raise RepositoryError(
-                "WebDAV repository mounts are disabled until isolated per-repository encrypted credentials are implemented; "
-                "the global davfs2 secrets file is not accepted"
-            )
         _host(self.host)
         _absolute_path(self.mountpoint, "mountpoint")
         if not isinstance(self.remote_path, str) or not self.remote_path.startswith("/") or not _REMOTE_PATH_RE.fullmatch(self.remote_path):
