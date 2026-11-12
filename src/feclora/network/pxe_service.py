@@ -12,6 +12,7 @@ import re
 import stat
 import subprocess
 import tempfile
+import sys
 from pathlib import Path
 from typing import Any, Callable
 
@@ -52,6 +53,7 @@ class PXEServiceManager:
         self._started_units: set[str] = set()
         self._dnsmasq_unit = ""
         self._caddy_unit = ""
+        self._admission_unit = ""
         self._state_path = self.runtime_dir / "active.json"
 
     def _run(self, argv: list[str], label: str) -> None:
@@ -138,8 +140,15 @@ class PXEServiceManager:
             value = json.loads(self._state_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
             raise PXEServiceError("persisted PXE runtime state is unreadable") from exc
-        expected = {"schema_version", "interface", "dnsmasq_unit", "caddy_unit", "firewall"}
-        if not isinstance(value, dict) or set(value) != expected or isinstance(value["schema_version"], bool) or value["schema_version"] != 1:
+        base = {"schema_version", "interface", "dnsmasq_unit", "caddy_unit", "firewall"}
+        if not isinstance(value, dict) or isinstance(value.get("schema_version"), bool):
+            raise PXEServiceError("persisted PXE runtime state has an unsupported schema")
+        if value["schema_version"] == 1 and set(value) == base:
+            pass  # Backward-compatible cleanup of a service started by an older version.
+        elif value["schema_version"] == 2 and set(value) == base | {"admission_unit"}:
+            if not isinstance(value["admission_unit"], str) or not re.fullmatch(r"feclora-pxe-admission-[0-9a-f]{12}", value["admission_unit"]):
+                raise PXEServiceError("persisted PXE admission unit name is invalid")
+        else:
             raise PXEServiceError("persisted PXE runtime state has an unsupported schema")
         if not isinstance(value["interface"], str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,15}", value["interface"]):
             raise PXEServiceError("persisted PXE interface is invalid")
@@ -162,6 +171,7 @@ class PXEServiceManager:
         suffix = hashlib.sha256(config.interface.encode("ascii")).hexdigest()[:12]
         self._dnsmasq_unit = f"feclora-dnsmasq-{suffix}"
         self._caddy_unit = f"feclora-caddy-{suffix}"
+        self._admission_unit = f"feclora-pxe-admission-{suffix}"
         dnsmasq_config = self._write_config("dnsmasq.conf", render_dnsmasq(config))
         caddy_config = self._write_config("Caddyfile", render_caddy(config), mode=0o644)
         self._active_interface = config.interface
@@ -172,17 +182,31 @@ class PXEServiceManager:
             )
             firewall_state = self.firewall.export_state(config.interface)
             self._write_state({
-                "schema_version": 1, "interface": config.interface,
+                "schema_version": 2, "interface": config.interface,
                 "dnsmasq_unit": self._dnsmasq_unit, "caddy_unit": self._caddy_unit,
-                "firewall": firewall_state,
+                "admission_unit": self._admission_unit, "firewall": firewall_state,
             })
-            self._started_units.update({self._dnsmasq_unit + ".service", self._caddy_unit + ".service"})
+            self._started_units.update({self._dnsmasq_unit + ".service", self._caddy_unit + ".service", self._admission_unit + ".service"})
             self._run([
                 self.systemd_run, f"--unit={self._dnsmasq_unit}", "--collect",
                 "--property=Restart=no", "--property=KillMode=mixed", "--",
                 self.dnsmasq, "--keep-in-foreground", f"--conf-file={dnsmasq_config}",
             ], "starting dnsmasq")
             self._assert_active(self._dnsmasq_unit + ".service")
+            admission_argv = [
+                self.systemd_run, f"--unit={self._admission_unit}", "--collect",
+                "--property=Restart=no", "--property=KillMode=mixed", "--",
+                sys.executable, "-m", "feclora.network.pxe_admission",
+                "--state", str(self.runtime_dir / "admission.json"),
+                "--bind", "127.0.0.1", "--port", "8765",
+                "--answer-boot-url", f"http://{config.address}:{config.http_port}/unattended-answer-boot.ipxe",
+            ]
+            if config.max_clients is not None:
+                admission_argv.extend(["--max-clients", str(config.max_clients)])
+            if config.max_duration_seconds is not None:
+                admission_argv.extend(["--max-duration-seconds", str(config.max_duration_seconds)])
+            self._run(admission_argv, "starting PXE MAC admission service")
+            self._assert_active(self._admission_unit + ".service")
             self._run([
                 self.systemd_run, f"--unit={self._caddy_unit}", "--collect",
                 "--property=Restart=no", "--property=KillMode=mixed", "--property=User=caddy", "--property=Group=caddy", "--",
@@ -204,7 +228,7 @@ class PXEServiceManager:
         if saved is None:
             return {"active": False, "configured": False, "interface": None, "services": {}}
         services = {}
-        for unit in (saved["dnsmasq_unit"] + ".service", saved["caddy_unit"] + ".service"):
+        for unit in (saved["dnsmasq_unit"] + ".service", saved.get("admission_unit", "") + (".service" if saved.get("admission_unit") else ""), saved["caddy_unit"] + ".service"):
             try:
                 result = self.runner([self.systemctl, "is-active", unit], check=False,
                                      capture_output=True, text=True, timeout=10)
@@ -227,7 +251,8 @@ class PXEServiceManager:
             self._active_interface = saved["interface"]
             self._dnsmasq_unit = saved["dnsmasq_unit"]
             self._caddy_unit = saved["caddy_unit"]
-            self._started_units.update({self._dnsmasq_unit + ".service", self._caddy_unit + ".service"})
+            self._admission_unit = saved.get("admission_unit", "")
+            self._started_units.update({self._dnsmasq_unit + ".service", self._caddy_unit + ".service"} | ({self._admission_unit + ".service"} if self._admission_unit else set()))
             firewall_recovery_error = None
             try:
                 self.firewall.adopt(self._active_interface, saved["firewall"])
@@ -238,8 +263,8 @@ class PXEServiceManager:
         else:
             firewall_recovery_error = None
         errors = []
-        for unit in (self._caddy_unit + ".service", self._dnsmasq_unit + ".service"):
-            if unit not in self._started_units:
+        for unit in (self._caddy_unit + ".service", (self._admission_unit + ".service") if self._admission_unit else "", self._dnsmasq_unit + ".service"):
+            if not unit or unit not in self._started_units:
                 continue
             try:
                 state = self.runner([self.systemctl, "is-active", unit], check=False,
@@ -269,7 +294,7 @@ class PXEServiceManager:
                 self._state_path.unlink()
             except FileNotFoundError:
                 pass
-            for name in ("dnsmasq.conf", "Caddyfile"):
+            for name in ("dnsmasq.conf", "Caddyfile", "admission.json", "admission.lock"):
                 try:
                     (self.runtime_dir / name).unlink()
                 except FileNotFoundError:
