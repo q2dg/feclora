@@ -176,10 +176,10 @@ class ImageTransferTests(unittest.TestCase):
                     send_image_set(
                         left, source, manifest_path, expected_image_id="golden",
                     )
-            except Exception as exc:
-                sender_errors.append(exc)
-            finally:
-                left.close()
+                except Exception as exc:
+                    sender_errors.append(exc)
+                finally:
+                    left.close()
 
             thread = threading.Thread(target=sender, daemon=True)
             thread.start()
