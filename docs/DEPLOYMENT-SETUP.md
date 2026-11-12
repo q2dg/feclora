@@ -108,8 +108,7 @@ The example above is configured for a Client that has the capability to create s
 
 Select Client mode, enter the job UUID shown by Server, select the local
 whole disk or existing target partition as specified by the job, and type the exact operation-specific confirmation. For restore,
-the phrase is ERASE /dev/DEVICE FROM URI:feclora-server. For save, it is
-READ /dev/DEVICE TO URI:feclora-server. The /dev path and confirmation remain
+the phrase is ERASE /dev/DEVICE. For save, it is READ /dev/DEVICE. The /dev path and confirmation remain
 local; only a human-readable disk description is sent to Server. The Client
 must independently approve the target before sending READY. For a remote
 save job, the Client Cockpit form asks whether this image should use age
