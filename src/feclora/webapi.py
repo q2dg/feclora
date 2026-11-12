@@ -135,6 +135,10 @@ def _operation_repository_context(
             os.close(lease_fd)
         return
     try:
+        s3_usage_fd = manager.acquire_usage_lock(repository_id)
+    except Exception as exc:
+        raise WebAPIError(f"selected S3 repository is not safely available: {exc}") from exc
+    try:
         object_repository = manager.repository(repository_id, progress=_progress)
         if write and object_repository.config.read_only:
             raise WebAPIError("S3 repository is configured read-only")
@@ -165,6 +169,8 @@ def _operation_repository_context(
         raise
     except Exception as exc:
         raise WebAPIError(f"S3 object repository operation failed: {exc}") from exc
+    finally:
+        os.close(s3_usage_fd)
 
 
 def _find_inventory_device(inventory: dict[str, Any], path: str, expected_type: str) -> list[dict[str, Any]]:
