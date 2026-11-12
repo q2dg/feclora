@@ -151,7 +151,7 @@ export default function App() {
   const [pxeDns, setPxeDns] = useState("");
   const [pxePort, setPxePort] = useState("8080");
   const [pxeAuthoritative, setPxeAuthoritative] = useState(false);
-  const [pxeMaxClients, setPxeMaxClients] = useState("20");
+  const [pxeMaxClients, setPxeMaxClients] = useState("");
   const [pxeMaxDuration, setPxeMaxDuration] = useState("");
   const [pxePreflight, setPxePreflight] = useState(null);
   const [pxeProfile, setPxeProfile] = useState(null);
@@ -1291,8 +1291,8 @@ export default function App() {
                   <label><input type="checkbox" checked={pxeAuthoritative} onChange={(e) => setPxeAuthoritative(e.target.checked)} /> I confirm this is an isolated VLAN and Feclora is its only DHCP server.</label>
                 </>}
                 <Field label="HTTP boot asset port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={pxePort} onChange={(e) => setPxePort(e.target.value)} /></Field>
-                <Field label="Maximum distinct PXE clients" help="Unique MAC addresses. Leave empty to use only the time limit. Repeated requests from an already registered MAC do not consume another slot."><input className="pf-v5-c-form-control" type="number" min="1" max="4096" value={pxeMaxClients} onChange={(e) => setPxeMaxClients(e.target.value)} placeholder="20" /></Field>
-                <Field label="Maximum PXE serving time (seconds)" help="Optional deadline from service startup. Minimum 60 seconds; leave empty to use only the client limit."><input className="pf-v5-c-form-control" type="number" min="60" max="604800" value={pxeMaxDuration} onChange={(e) => setPxeMaxDuration(e.target.value)} placeholder="e.g. 3600" /></Field>
+                <Field label="Maximum distinct PXE clients" help="Optional limit of unique MAC addresses. Leave empty for no client-count limit. Repeated requests from an already registered MAC do not consume another slot."><input className="pf-v5-c-form-control" type="number" min="1" max="4096" value={pxeMaxClients} onChange={(e) => setPxeMaxClients(e.target.value)} placeholder="No limit" /></Field>
+                <Field label="Maximum PXE serving time (seconds)" help="Optional deadline from service startup. Minimum 60 seconds. Leave empty for no time limit; if both fields are empty, PXE admission has no count or time limit."><input className="pf-v5-c-form-control" type="number" min="60" max="604800" value={pxeMaxDuration} onChange={(e) => setPxeMaxDuration(e.target.value)} placeholder="e.g. 3600" /></Field>
                 <Button variant="primary" onClick={validatePXEProfile} isLoading={busy} isDisabled={busy || !serverBinding || (pxeMode === "isolated" && (!pxePoolStart || !pxePoolEnd || !pxeAuthoritative))}>Run PXE preflight</Button>
               </StackItem>
               {pxeStatus.configured && <StackItem><Alert variant="warning" title="PXE runtime is configured" isInline>Stop the PXE services when network boot is no longer required, or if the service state is incomplete. <Button variant="danger" onClick={stopPXE} isLoading={busy} isDisabled={busy}>Stop PXE services and restore firewall</Button></Alert></StackItem>}
@@ -1334,7 +1334,7 @@ export default function App() {
                 <Alert variant="success" title="PXE preflight passed" isInline>{pxePreflight.message}</Alert>
                 <p>Interface: {pxePreflight.interface} · {pxePreflight.address}/{pxePreflight.prefix_length}</p>
                 <p>Subnet: {pxePreflight.subnet} · Mode: {pxePreflight.mode}</p>
-                <p>Unattended PXE admission: {pxePreflight.max_clients ? `${pxePreflight.max_clients} distinct MAC addresses` : "no client-count cap"}{pxePreflight.max_duration_seconds ? ` · ${pxePreflight.max_duration_seconds} seconds` : ""}. MAC addresses identify clients operationally; they are not authentication credentials.</p>
+                <p>Unattended PXE admission: {pxePreflight.max_clients ? `${pxePreflight.max_clients} distinct MAC addresses` : "no client-count limit"}{pxePreflight.max_duration_seconds ? ` · ${pxePreflight.max_duration_seconds} seconds` : ""}. MAC addresses identify clients operationally; they are not authentication credentials.</p>
                 <p>iPXE URL: {pxePreflight.http_url}</p>
                 {pxePreflight.warnings.map((warning, index) => <Alert key={index} variant="warning" title="Network topology warning" isInline>{warning}</Alert>)}
                 {pxeStatus.active ? <Alert variant="success" title="PXE services active" isInline>Interface {pxeStatus.interface}; dnsmasq, Caddy and the loopback MAC-admission service are managed as temporary services.</Alert> : pxeStatus.configured ? <Alert variant="warning" title="PXE runtime needs inspection" isInline>The profile is recorded but one or more services are not active. Stop the profile to restore firewall state before trying again.</Alert> : <Alert variant="info" title="Preflight only" isInline>No services have been started yet. Activation opens a temporary firewalld zone bound only to the selected interface; it is not enabled at boot.</Alert>}{!pxeStatus.configured && <Button variant="primary" onClick={activatePXE} isLoading={busy} isDisabled={busy || !pxeProfile}>Activate PXE services</Button>}
