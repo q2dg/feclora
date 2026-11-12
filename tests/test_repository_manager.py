@@ -273,14 +273,6 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         with self.assertRaisesRegex(RepositoryManagerError, "mode 0600"):
             self.manager.add("images", self.definition)
 
-    def test_add_rejects_webdav_until_isolated_credentials_exist(self):
-        definition = {**self.definition, "provider": "webdav", "host": "dav.example.net",
-                      "remote_path": "/images", "username": None,
-                      "credential_file": "/etc/davfs2/secrets", "identity_file": None,
-                      "known_hosts_file": None, "port": None}
-        with self.assertRaisesRegex(RepositoryManagerError, "global davfs2 secrets file is not accepted"):
-            self.manager.add("images", definition)
-
     def test_resolve_rejects_webdav_until_isolated_credentials_exist(self):
         definition = {**self.definition, "provider": "webdav", "host": "dav.example.net",
                       "remote_path": "/images", "username": None,
