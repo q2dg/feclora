@@ -1,4 +1,4 @@
-"""Cockpit helpers for public age-recipient export and Server CA backup."""
+"""Cockpit helpers for public age-recipient export."""
 from __future__ import annotations
 
 import hashlib
@@ -7,7 +7,7 @@ import re
 import stat
 from pathlib import Path
 
-from feclora.deployment.managed_pki import PKIError, ca_fingerprint
+from feclora.deployment.managed_pki import PKIError
 
 CONFIG = "/etc/feclora/deployment-server.json"
 PKI = "/etc/feclora/pki"
@@ -15,41 +15,6 @@ PKI = "/etc/feclora/pki"
 
 class CockpitEnrollmentError(RuntimeError):
     """A removable-media security artifact could not be safely handled."""
-
-
-def _media_file(value: object, label: str, *, optional: bool = False, maximum_size: int = 65536) -> str | None:
-    if optional and value in (None, ""):
-        return None
-    if not isinstance(value, str) or not os.path.isabs(value) or len(value) > 512:
-        raise CockpitEnrollmentError(f"{label} must be an absolute removable-media file path")
-    path = Path(value)
-    # Only explicitly mounted removable-media locations are accepted.
-    allowed = (Path("/run/media"), Path("/media"), Path("/mnt"))
-    resolved = Path(os.path.realpath(path))
-    if not any(resolved.is_relative_to(root) for root in allowed):
-        raise CockpitEnrollmentError(f"{label} must be located under /run/media, /media or /mnt")
-    try:
-        mountinfo = Path("/proc/self/mountinfo").read_text(encoding="utf-8")
-        mounted = False
-        for line in mountinfo.splitlines():
-            fields = line.split(" - ", 1)[0].split()
-            if len(fields) < 5:
-                continue
-            mountpoint = fields[4].replace("\\040", " ").replace("\\011", "\t").replace("\\134", "\\")
-            mount_path = Path(mountpoint)
-            if any(mount_path.is_relative_to(root) and resolved.is_relative_to(mount_path)
-                   for root in allowed):
-                mounted = True
-                break
-        if not mounted:
-            raise CockpitEnrollmentError(f"{label} must be on a mounted removable-media filesystem")
-        info = os.lstat(path)
-    except OSError as exc:
-        raise CockpitEnrollmentError(f"{label} is unavailable: {exc}") from exc
-    if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_size > maximum_size:
-        raise CockpitEnrollmentError(f"{label} must be a regular file no larger than 64 KiB")
-    return str(path)
-
 
 
 def _media_directory(value: object, label: str) -> str:
@@ -143,39 +108,3 @@ def export_server_age_recipients(params: dict[str, object]) -> dict[str, object]
         "message": "Updated public age recipient inventory exported. Copy it to the Clients that need the Server recipient and refresh that Client's local inventory.",
     }
 
-
-def export_server_ca_backup(params: dict[str, object]) -> dict[str, object]:
-    if set(params) != {"export_directory", "age_recipient"}:
-        raise CockpitEnrollmentError(
-            "export_server_ca_backup requires exactly export_directory and age_recipient"
-        )
-    export_dir = _media_directory(params["export_directory"], "CA backup export directory")
-    recipient = params["age_recipient"]
-    if not isinstance(recipient, str) or not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
-        raise CockpitEnrollmentError("CA backup requires a valid age recipient")
-    try:
-        from feclora.deployment.managed_pki import backup_server_ca
-        fingerprint = ca_fingerprint(os.path.join(PKI, "ca.crt"))
-        destination = os.path.join(export_dir, f"feclora-ca-backup-{fingerprint[:16]}.tar.age")
-        result = backup_server_ca(destination, recipient, pki_directory=PKI)
-        return result
-    except (PKIError, OSError, ValueError) as exc:
-        raise CockpitEnrollmentError(str(exc)) from exc
-
-
-
-def inspect_server_ca_backup(params: dict[str, object]) -> dict[str, object]:
-    if set(params) != {"backup_file", "identity_file"}:
-        raise CockpitEnrollmentError(
-            "inspect_server_ca_backup requires exactly backup_file and identity_file"
-        )
-    backup = _media_file(
-        params["backup_file"], "Encrypted CA backup", maximum_size=16 * 1024 * 1024
-    )
-    identity = _media_file(params["identity_file"], "age decryption identity")
-    try:
-        from feclora.deployment.managed_pki import inspect_server_ca_backup as inspect_backup
-        result = inspect_backup(backup, identity, pki_directory=PKI)
-        return result
-    except (PKIError, OSError, ValueError) as exc:
-        raise CockpitEnrollmentError(str(exc)) from exc
