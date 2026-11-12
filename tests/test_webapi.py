@@ -1848,7 +1848,7 @@ class WebAPITests(unittest.TestCase):
             "start_deadline": None,
         }
 
-    def test_create_unsigned_multicast_restore_without_age_or_minisign(self):
+    def test_create_multicast_restore_without_age_encryption(self):
         manifest = SimpleNamespace(
             image_type="disk",
             artifacts=[SimpleNamespace(encryption="none", size_bytes=4096)],
@@ -1879,7 +1879,7 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(result["job_state"], "created")
         self.assertEqual(len(result["authorized_clients"]), 2)
 
-    def test_create_unicast_save_without_client_minisign_keys(self):
+    def test_create_unicast_save_without_optional_encryption(self):
         config = SimpleNamespace(
             client_identity_to_mac={"URI:feclora-client-01": "52:54:00:12:34:56"},
             repository="/repo",
@@ -1900,7 +1900,7 @@ class WebAPITests(unittest.TestCase):
             })
         self.assertEqual(result["job_state"], "created")
 
-    def test_client_remote_job_inspection_allows_unsigned_save_and_unencrypted_multicast(self):
+    def test_client_remote_job_inspection_allows_plain_save_and_multicast(self):
         from feclora.deployment.job import DeploymentJob
         config = SimpleNamespace(
             host="192.0.2.2", port=9443,
@@ -1909,7 +1909,7 @@ class WebAPITests(unittest.TestCase):
             local_identity="URI:feclora-client-01",
             server_identity="URI:feclora-server",
             mac_address="52:54:00:12:34:56",
-            local_minisign_public_key=None,
+            
             age_identity_file=None, age_recipients_file=None,
         )
         jobs = (
