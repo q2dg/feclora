@@ -465,32 +465,6 @@ def receive_disk_stream(
     return local
 
 
-def create_mutual_tls_context(
-    role: str,
-    *,
-    ca_file: str,
-    certificate_file: str,
-    private_key_file: str,
-) -> ssl.SSLContext:
-    """Create a TLS 1.3-only context that requires a trusted peer certificate."""
-    if role == "client":
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        context.load_verify_locations(cafile=ca_file)
-        context.verify_mode = ssl.CERT_REQUIRED
-        # Identity is checked against the explicitly configured SAN/pin below.
-        context.check_hostname = False
-    elif role == "server":
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        context.load_verify_locations(cafile=ca_file)
-        context.verify_mode = ssl.CERT_REQUIRED
-    else:
-        raise RemoteCloneProtocolError("TLS role must be 'client' or 'server'")
-    context.minimum_version = ssl.TLSVersion.TLSv1_3
-    context.maximum_version = ssl.TLSVersion.TLSv1_3
-    context.load_cert_chain(certfile=certificate_file, keyfile=private_key_file)
-    return context
-
-
 def verify_peer_identity(tls_socket: Any, expected_identity: str) -> None:
     """Require an exact SAN identity or a SHA-256 pin after TLS handshake."""
     _bounded_string(expected_identity, "expected_identity")

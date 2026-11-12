@@ -11,7 +11,7 @@ from typing import Any, Callable
 from .remote_clone_protocol import RemoteCloneCancelled, verify_peer_identity
 
 
-def connect_mutual_tls(
+def connect_tls(
     context: ssl.SSLContext,
     host: str,
     port: int,
@@ -92,41 +92,6 @@ def connect_mutual_tls(
     except Exception:
         raw.close()
         raise
-
-
-def accept_mutual_tls(
-    context: ssl.SSLContext,
-    accepted_socket: socket.socket,
-    *,
-    expected_peer_identity: str,
-    io_timeout: float = 120.0,
-) -> ssl.SSLSocket:
-    """Complete server-side mTLS on an accepted socket and verify the client identity."""
-    try:
-        accepted_socket.settimeout(io_timeout)
-        wrapped = context.wrap_socket(accepted_socket, server_side=True)
-        wrapped.settimeout(io_timeout)
-        verify_peer_identity(wrapped, expected_peer_identity)
-        return wrapped
-    except Exception:
-        accepted_socket.close()
-        raise
-
-
-def connect_tls(
-    context: ssl.SSLContext, host: str, port: int, *,
-    expected_peer_identity: str, timeout: float = 15.0, io_timeout: float = 120.0,
-    cancel_check: Callable[[], bool] | None = None,
-    connect_poll_interval: float = 0.25, source_address: str | None = None,
-    network_interface: str | None = None,
-) -> ssl.SSLSocket:
-    """Connect with server-authenticated TLS; the client presents no certificate."""
-    return connect_mutual_tls(
-        context, host, port, expected_peer_identity=expected_peer_identity,
-        timeout=timeout, io_timeout=io_timeout, cancel_check=cancel_check,
-        connect_poll_interval=connect_poll_interval, source_address=source_address,
-        network_interface=network_interface,
-    )
 
 
 def accept_tls(
