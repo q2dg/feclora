@@ -57,22 +57,7 @@ a separate block-device transport workflow.
 
 ## Optional cryptographic integrations
 
-- **age** is optional artifact encryption for confidentiality. A deployment
-  without age must still be able to use baseline imaging and deployment.
-- **minisign** is an optional detached-signature implementation. A trusted
-  authenticity mechanism is still required before destructive or unattended
-  actions; SHA-256 alone detects corruption but does not authenticate a
-  publisher.
-- Server-authenticated TLS, unicast and multicast deployment accept absent
-  age/minisign material. SFTP signed-image workflows currently have minisign
-  implementation dependencies; a configurable verifier is still required
-  before that integration can be made optional in practice.
-- S3 must use encrypted transport, scoped credentials and a separately
-  configured trust anchor for manifests. Object ETags are not a substitute
-  for SHA-256 or publisher authentication.
-- NVMe-oF transport security depends on the selected fabric and host/target
-  configuration. TLS on Feclora's deployment control channel does not secure
-  an independently connected NVMe-oF data path.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 ## Engineering rules
 
