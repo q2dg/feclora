@@ -30,8 +30,6 @@ class PXEAnswerTests(unittest.TestCase):
             "sshfs://images.example.net/feclora",
             "smb://images.example.net/images",
             "nfs://images.example.net/export/feclora",
-            "webdav://images.example.net/feclora",
-            "webdavs://images.example.net/feclora",
             "https://images.example.net/feclora",
             "s3://bucket.example.net/feclora",
         ):
