@@ -307,7 +307,7 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
                 "reason": str(filesystem.get("allocation_profile_error") or "chunk_tree_inspection_failed"),
             })
 
-        for chunk in filesystem.get("chunks", []):
+        for chunk in filesystem.get("chunks", []) or []:
             if not isinstance(chunk, dict):
                 continue
             logical_start = chunk.get("logical_start")
@@ -329,7 +329,7 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
                 device_mapping_complete=chunk.get("device_mapping_complete"),
             )
             add_edge(fs_id, chunk_id, "contains_chunk")
-            for devid in chunk.get("device_ids", []):
+            for devid in chunk.get("device_ids", []) or []:
                 member = members_by_devid.get(devid)
                 path = member.get("path") if isinstance(member, dict) else None
                 device_id = path_ids.get(path) if isinstance(path, str) else None
@@ -348,7 +348,7 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
                 "path": uuid,
                 "reason": str(filesystem.get("subvolume_inventory_error") or "root_tree_inspection_failed"),
             })
-        for subvolume in filesystem.get("subvolumes", []):
+        for subvolume in filesystem.get("subvolumes", []) or []:
             if isinstance(subvolume, dict):
                 register_subvolume(uuid, fs_id, subvolume)
 
@@ -369,13 +369,16 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
             fs_node["mounted_allocation_profile_inventory"] = "available"
             fs_node["allocation_profiles"] = profiles
             fs_node["allocation_profile_inventory"] = "available"
-            fs_node["has_unknown_allocation_profile"] = any(
-                not isinstance(item, dict) or item.get("known_profile") is not True
-                for item in profiles
+            fs_node["has_unknown_allocation_profile"] = (
+                fs_node.get("has_unknown_allocation_profile", False)
+                or any(
+                    not isinstance(item, dict) or item.get("known_profile") is not True
+                    for item in profiles
+                )
             )
         else:
             fs_node["mounted_allocation_profile_inventory"] = "unavailable"
-        for subvolume in mount.get("subvolumes", []):
+        for subvolume in mount.get("subvolumes", []) or []:
             if isinstance(subvolume, dict):
                 register_subvolume(
                     str(mount_uuid), filesystem_id, subvolume,
