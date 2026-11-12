@@ -24,7 +24,6 @@ from typing import Any, Callable, Iterator
 
 from feclora.deployment.coordinator import ClientState, DeploymentCoordinator, JobState
 from feclora.storage.image_manifest import ImageArtifact, ImageManifest, ManifestValidationError
-from feclora.storage.image_security import ImageSecurityError, verify_manifest_signature
 
 
 class UDPcastError(RuntimeError):
@@ -97,27 +96,13 @@ def _regular_file(path: str, label: str) -> os.stat_result:
     return info
 
 
-def _load_manifest_with_optional_signature(
-    manifest_path: str,
-    public_key_path: str | None,
-    *,
-    minisign_executable: str | None = None,
-) -> ImageManifest:
+def _load_manifest(manifest_path: str) -> ImageManifest:
     _regular_file(manifest_path, "Image manifest")
     try:
-        signature_path = manifest_path + ".minisig"
-        if os.path.lexists(signature_path):
-            if not public_key_path:
-                raise UDPcastError("signed image requires an independently trusted minisign public key")
-            verify_manifest_signature(
-                manifest_path, public_key_path, minisign_executable=minisign_executable,
-            )
         with open(manifest_path, "r", encoding="utf-8") as stream:
             return ImageManifest.from_json(stream.read())
-    except UDPcastError:
-        raise
-    except (OSError, UnicodeError, ManifestValidationError, ImageSecurityError) as exc:
-        raise UDPcastError(f"Image manifest signature or schema validation failed: {exc}") from exc
+    except (OSError, UnicodeError, ManifestValidationError) as exc:
+        raise UDPcastError(f"Image manifest or schema validation failed: {exc}") from exc
 
 
 def verify_artifact_file(path: str, artifact: ImageArtifact) -> None:
@@ -253,11 +238,9 @@ def send_multicast_artifact(
     coordinator: DeploymentCoordinator,
     source_path: str,
     manifest_path: str,
-    public_key_path: str | None,
     config: UDPcastConfig,
     *,
     udp_sender: str | None = None,
-    minisign_executable: str | None = None,
     runner_popen: Callable[..., Any] = subprocess.Popen,
     cancel_check: Callable[[], bool] | None = None,
     firewall: Any,
@@ -276,9 +259,7 @@ def send_multicast_artifact(
     )
     if ready_count < config.min_receivers:
         raise UDPcastError("Not enough authenticated, ready/running clients for the configured receiver threshold")
-    manifest = _load_manifest_with_optional_signature(
-        manifest_path, public_key_path, minisign_executable=minisign_executable,
-    )
+    manifest = _load_manifest(manifest_path)
     if manifest.image_id != job.image_id:
         raise UDPcastError("Signed image manifest does not match the deployment job image_id")
     artifact_name = os.path.basename(source_path)
@@ -308,7 +289,7 @@ def receive_multicast_artifact_to_staging(
     timeout_seconds: int = 86400,
     firewall: Any,
 ) -> str:
-    """Receive into a 0600 temporary file; caller must verify signed manifest before restore."""
+    """Receive into a 0600 temporary file; caller must verify manifest and SHA-256 digests before restore."""
     directory = os.path.abspath(staging_directory)
     try:
         directory_info = os.lstat(directory)
