@@ -7,7 +7,7 @@ import threading
 import unittest
 from unittest.mock import Mock, patch
 
-from feclora.network.remote_clone_protocol import create_tls_context
+from feclora.network.remote_clone_protocol import RemoteCloneProtocolError, create_tls_context
 from feclora.network.tls import accept_tls, connect_tls
 
 
@@ -87,6 +87,13 @@ class ServerAuthenticatedTlsTests(unittest.TestCase):
         context.load_verify_locations.assert_called_once_with(cafile="/ca.pem")
         self.assertEqual(context.verify_mode, __import__("ssl").CERT_REQUIRED)
         context.load_cert_chain.assert_not_called()
+
+    def test_client_context_rejects_client_certificate_material(self):
+        with self.assertRaisesRegex(RemoteCloneProtocolError, "must not present a client certificate"):
+            create_tls_context(
+                "client", ca_file="/ca.pem",
+                certificate_file="/client.pem", private_key_file="/client.key",
+            )
 
     def test_server_context_does_not_request_client_certificate(self):
         with patch("feclora.network.remote_clone_protocol.ssl.SSLContext") as factory:
