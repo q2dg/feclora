@@ -334,7 +334,7 @@ def _wait_for_age_passphrase(
 def _clear_stale_age_passphrase_files(directory: str | os.PathLike[str] = "/run/feclora/pxe") -> None:
     """Remove one-shot secret files left by an interrupted Cockpit/API process."""
     root = Path(directory)
-    for candidate in [root / "age-passphrase", *root.glob(".age-passphrase-*")]:
+    for candidate in [root / "age-passphrase", root / "age-passphrase-needed", *root.glob(".age-passphrase-*")]:
         try:
             info = os.lstat(candidate)
         except FileNotFoundError:
