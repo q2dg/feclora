@@ -57,7 +57,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         )
         self.block_device = SimpleNamespace(st_mode=stat.S_IFBLK)
 
-    def test_restore_receives_signed_image_before_protected_disk_restore(self):
+    def test_restore_receives_image_before_protected_disk_restore(self):
         tls = FakeTLS(control_frame({
             "type": "transfer_offer", "job_id": JOB_ID, "image_id": "golden-image",
         }))
@@ -69,7 +69,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
             result = execute_client_image_job(
                 make_job("restore"), tls, self.approval,
                 server_identity="URI:feclora-server", repository="/repo",
-                trusted_server_public_key="/trusted/server.pub",
                 transfer_progress_callback=lambda current, total: None,
                 pre_write_callback=pre_write_check,
             )
@@ -78,7 +77,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         self.assertIsNotNone(receive.call_args.kwargs["progress_callback"])
         restore.assert_called_once()
         self.assertEqual(restore.call_args.args[0], "/repo/golden-image.manifest.json")
-        self.assertTrue(restore.call_args.kwargs["require_signature"])
+        self.assertNotIn("require_signature", restore.call_args.kwargs)
         self.assertEqual(restore.call_args.kwargs["confirmation"], "ERASE /dev/vda")
         self.assertIs(restore.call_args.kwargs["pre_write_callback"], pre_write_check)
 
@@ -94,7 +93,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
             result = execute_client_image_job(
                 make_job("restore", "logical_volume"), tls, self.approval,
                 server_identity="URI:feclora-server", repository="/repo",
-                trusted_server_public_key=None,
             )
         self.assertTrue(result[0])
         restore.assert_called_once()
@@ -112,13 +110,12 @@ class ClientImageRuntimeTests(unittest.TestCase):
             result = execute_client_image_job(
                 make_job("restore"), tls, self.approval,
                 server_identity="URI:feclora-server", repository="/repo",
-                trusted_server_public_key=None,
             )
         self.assertTrue(result[0])
         self.assertIsNone(restore.call_args.kwargs["minisign_public_key"])
-        self.assertFalse(restore.call_args.kwargs["require_signature"])
+        self.assertNotIn("require_signature", restore.call_args.kwargs)
 
-    def test_save_captures_signs_then_announces_transfer(self):
+    def test_save_captures_then_announces_transfer(self):
         tls = FakeTLS()
         approval = LocalTargetApproval(
             "/dev/vda", "Virtual disk 1",
@@ -131,11 +128,8 @@ class ClientImageRuntimeTests(unittest.TestCase):
             result = execute_client_image_job(
                 make_job("save"), tls, approval,
                 server_identity="URI:feclora-server", repository="/repo",
-                trusted_server_public_key="/trusted/server.pub",
-                local_minisign_secret_key="/keys/client.key",
-                local_minisign_public_key="/keys/client.pub",
                 age_recipients_file="/keys/recipients.txt",
-                encrypt_image=True, sign_image=True,
+                encrypt_image=True,
                 transfer_progress_callback=lambda current, total: None,
             )
         self.assertTrue(result[0])
@@ -145,7 +139,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         send.assert_called_once()
         self.assertIn(b"transfer_ready", bytes(tls.outgoing))
 
-    def test_save_defaults_to_unencrypted_unsigned_even_when_keys_are_configured(self):
+    def test_save_defaults_to_unencrypted_without_signing(self):
         tls = FakeTLS()
         approval = LocalTargetApproval(
             "/dev/vda", "Virtual disk 1",
@@ -157,9 +151,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
             result = execute_client_image_job(
                 make_job("save"), tls, approval,
                 server_identity="URI:feclora-server", repository="/repo",
-                trusted_server_public_key="/trusted/server.pub",
-                local_minisign_secret_key="/keys/client.key",
-                local_minisign_public_key="/keys/client.pub",
                 age_recipients_file="/keys/recipients.txt",
             )
         self.assertTrue(result[0])
@@ -180,7 +171,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
             result = execute_client_image_job(
                 make_job("restore", "partition"), tls, self.approval,
                 server_identity="URI:feclora-server", repository="/repo",
-                trusted_server_public_key="/trusted/server.pub",
                 age_identity_file="/keys/client.age",
             )
         self.assertTrue(result[0])
@@ -206,7 +196,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
                 job, FakeTLS(), self.approval,
                 server_identity="URI:feclora-server",
                                 repository="/repo",
-                trusted_server_public_key="/trusted/server.pub",
             )
         self.assertTrue(result[0])
         self.assertIn("4096 bytes", result[1])
@@ -234,7 +223,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
             result = execute_client_image_job(
                 job, FakeTLS(), approval,
                 server_identity="URI:feclora-server", repository="/repo",
-                trusted_server_public_key="/trusted/server.pub",
             )
         self.assertTrue(result[0])
         self.assertIn("remote partition clone verified", result[1])
@@ -252,7 +240,6 @@ class ClientImageRuntimeTests(unittest.TestCase):
                 execute_client_image_job(
                     make_job("restore"), tls, wrong,
                     server_identity="URI:feclora-server", repository="/repo",
-                    trusted_server_public_key="/trusted/server.pub",
                 )
         self.assertEqual(bytes(tls.outgoing), b"")
 
