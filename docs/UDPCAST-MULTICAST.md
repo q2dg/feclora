@@ -57,7 +57,7 @@ and [upstream command-line documentation](https://www.udpcast.linux.lu/cmd.html)
 The authenticated control service, persistent job journal, Client-side
 whole-disk and partition restore dispatch, manifest delivery over the authenticated control channel, private
 staging, verified artifacts and per-client terminal results are
-integrated. Unsigned manifests are accepted when delivered through the
+integrated. Manifests are schema-validated and their artifacts are checked by SHA-256 when delivered through the
 Server-authenticated TLS control channel; manifests are schema-validated and artifacts are checked with SHA-256
 when present and require an independently trusted key.
 
