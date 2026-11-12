@@ -2239,8 +2239,22 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     if job.transport == "multicast" and job.operation != "restore":
         raise WebAPIError("network capture currently supports unicast only")
     if job.operation == "save":
-        if job.image_id in {item["image_id"] for item in _images()}:
-            raise WebAPIError("capture image identifier already exists")
+        if job.repository_id is None:
+            existing_ids = {item["image_id"] for item in _images()}
+        else:
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            s3_manager = S3RepositoryManager()
+            definition = next((item for item in s3_manager.list() if item["id"] == job.repository_id), None)
+            if definition is None:
+                raise WebAPIError("selected S3 repository does not exist")
+            if definition["read_only"]:
+                raise WebAPIError("selected S3 repository is read-only and cannot receive Client captures")
+            try:
+                existing_ids = {item["image_id"] for item in s3_manager.repository(job.repository_id).list_images()}
+            except Exception as exc:
+                raise WebAPIError(f"cannot inspect selected S3 repository: {exc}") from exc
+        if job.image_id in existing_ids:
+            raise WebAPIError("capture image identifier already exists in the selected repository")
     elif job.operation == "clone":
         source = _device(job.source_device, "source_device")
         inventory = collect_inventory()
@@ -2257,25 +2271,45 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         except (SourceSafetyError, OSError) as exc:
             raise WebAPIError(f"clone source {job.target_type} is unsafe or in use: {exc}") from exc
     else:
-        image_repository = (
-            _operation_repository({"repository_id": job.repository_id}, write=False)
-            if job.repository_id else Path(config.repository)
-        )
-        manifest_path = _image_manifest(job.image_id, image_repository)
-        try:
-            manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
-            expected_type = "disk" if job.target_type == "disk" else "partition"
-            if manifest.image_type != expected_type:
-                raise WebAPIError(f"selected image is not a {expected_type} image")
-            if job.transport == "multicast":
-                job = replace(
-                    job,
-                    staging_required_bytes=sum(item.size_bytes for item in manifest.artifacts),
+        if job.repository_id is not None:
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            s3_manager = S3RepositoryManager()
+            if not any(item["id"] == job.repository_id for item in s3_manager.list()):
+                raise WebAPIError("selected S3 repository does not exist")
+            try:
+                remote_image = next(
+                    (item for item in s3_manager.repository(job.repository_id).list_images()
+                     if item["image_id"] == job.image_id), None,
                 )
-        except WebAPIError:
-            raise
-        except Exception as exc:
-            raise WebAPIError(f"restore image manifest is invalid: {exc}") from exc
+                if remote_image is None:
+                    raise WebAPIError("selected image is not available in the S3 repository")
+                expected_type = "disk" if job.target_type == "disk" else "partition"
+                if remote_image["image_type"] != expected_type:
+                    raise WebAPIError(f"selected image is not a {expected_type} image")
+                if job.transport == "multicast":
+                    job = replace(job, staging_required_bytes=remote_image["source_size_bytes"])
+                manifest = None
+            except WebAPIError:
+                raise
+            except Exception as exc:
+                raise WebAPIError(f"cannot validate S3 restore image: {exc}") from exc
+        else:
+            image_repository = Path(config.repository)
+            manifest_path = _image_manifest(job.image_id, image_repository)
+            try:
+                manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+                expected_type = "disk" if job.target_type == "disk" else "partition"
+                if manifest.image_type != expected_type:
+                    raise WebAPIError(f"selected image is not a {expected_type} image")
+                if job.transport == "multicast":
+                    job = replace(
+                        job,
+                        staging_required_bytes=sum(item.size_bytes for item in manifest.artifacts),
+                    )
+            except WebAPIError:
+                raise
+            except Exception as exc:
+                raise WebAPIError(f"restore image manifest is invalid: {exc}") from exc
         if any(item.encryption == "age" for item in manifest.artifacts):
             pki = Path("/etc/feclora/pki")
             recipients_directory = pki / "age-recipients"
