@@ -89,19 +89,14 @@ scopes and unsupported dependency kinds are rejected. Legacy disk/partition
 manifests without `storage` remain readable; legacy Btrfs partition images without
 single-device topology provenance are intentionally refused by the restore preflight.
 
-## Integrity, encryption and signatures
+## Integrity and encryption
 
 SHA-256 covers the exact stored artifact bytes. Compression is applied before
 optional age encryption. For an age-encrypted artifact, restore verifies the
 ciphertext size/digest first, then authenticates/decrypts into private staging
 before decompression or target writes.
 
-A detached `.minisig` may sign the completed manifest. A present signature
-must verify against a public key trusted independently of the image
-repository; an invalid or unverifiable signature blocks restore. Unsigned
-images remain available to local workflows and authenticated deployment
-sessions where the operator/job supplies the separate trust decision.
-SHA-256 detects corruption; it does not authenticate the publisher.
+SHA-256 digests in the manifest detect corruption and artifact substitution. The manifest is repository metadata protected by transport authentication and repository access controls. Feclora does not use detached signatures or signing keys.
 
 Repository publication uses the manifest as its visibility marker. This is
 not a general crash-recovery transaction across arbitrary filesystems. Do not
