@@ -2397,6 +2397,8 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
             definition = {key: params[key] for key in required - {"id"}}
             from feclora.storage.s3_repository_manager import S3RepositoryManager
+            if any(item["id"] == identifier for item in _remote_repository_manager().list()):
+                raise WebAPIError("repository ID is already used by a filesystem repository")
             manager = S3RepositoryManager()
             return manager.add(identifier, definition) if action == "add_s3_repository" else manager.update(identifier, definition)
         if action == "check_s3_repository":
@@ -2452,6 +2454,9 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
                 raise WebAPIError("port must be null or an integer between 1 and 65535")
             if not isinstance(definition["read_only"], bool):
                 raise WebAPIError("read_only must be boolean")
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            if any(item["id"] == identifier for item in S3RepositoryManager().list()):
+                raise WebAPIError("repository ID is already used by an S3 object repository")
             manager = _remote_repository_manager()
             return manager.add(identifier, definition) if action == "add_remote_repository" else manager.update(identifier, definition)
         if action == "check_remote_repository":
