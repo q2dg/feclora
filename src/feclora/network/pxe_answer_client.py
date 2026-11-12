@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import stat
 import subprocess
+from datetime import datetime, timezone
 import shutil
 from urllib.parse import unquote, urlsplit
 import sys
@@ -140,6 +141,15 @@ def fetch_live_pxe_answer(
         answer = parse_pxe_answer(raw)
     except PXEAnswerError as exc:
         raise PXEAnswerClientError(f"invalid PXE answer document: {exc}") from exc
+    expires_at = answer.get("expires_at")
+    if not isinstance(expires_at, str):
+        raise PXEAnswerClientError("PXE answer has no Server-assigned expiry; refusing unattended restore")
+    try:
+        expiry = datetime.strptime(expires_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except ValueError as exc:
+        raise PXEAnswerClientError("PXE answer expiry is invalid") from exc
+    if datetime.now(timezone.utc) >= expiry:
+        raise PXEAnswerClientError("PXE answer has expired; publish a new authorization on the Server")
     answer["_pxe_job_id"] = request.job_id
     _publish_runtime_answer(raw, destination)
     return answer
