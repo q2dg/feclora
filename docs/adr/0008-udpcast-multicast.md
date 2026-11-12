@@ -31,7 +31,7 @@ UDPcast receiver discovery as authentication. Do not expose UDPcast sessions
 to an untrusted network.
 
 The first implementation must use a staging artifact on each receiver:
-receive to a temporary file, validate the signed manifest and complete
+receive to a temporary file, validate the manifest and complete
 payload digest, then invoke the existing protected restore path. It must not
 stream unauthenticated multicast bytes directly onto a destination disk.
 If staging capacity is insufficient, fail before arming/starting the transfer;
@@ -54,7 +54,7 @@ multicast is unavailable.
   end-to-end cryptographic payload authentication; these remain separate
   responsibilities.
 - UDPcast package inclusion does not mean multicast runtime is implemented.
-  Sender/receiver lifecycle, firewall rules, staging, digest/signature checks,
+  Sender/receiver lifecycle, firewall rules, staging, digest checks,
   cancellation, per-client results and VM tests remain required.
 
 ## References
