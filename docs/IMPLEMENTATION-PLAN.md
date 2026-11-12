@@ -111,16 +111,13 @@ Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS ke
 - [x] Add a root-owned, atomic CA trust-bundle builder that validates CA constraints, certificate-signing usage, unique SHA-256 fingerprints and bounded PEM inputs. (Local building block only; authenticated package distribution remains pending.)
 - [x] Validate Client leaf certificates against any explicitly fingerprinted CA anchor in an imported PEM bundle and retain the complete bundle as the Client trust file.
 - [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
-- [x] Make age identity/recipient provisioning optional for baseline enrollment, renewal and deployment. TLS-only enrollment/renewal accepts no age material; renewal does not create an age identity when none is configured. The CA-backup operation remains a separate, explicitly age-encrypted optional feature.
+- [x] Make age identity/recipient provisioning optional for baseline enrollment, renewal and deployment. TLS-only enrollment/renewal accepts no age material; renewal does not create an age identity when none is configured. 
 - [x] Remove manifest signing and signature verification from capture, restore, unicast and multicast workflows. Manifests travel over the authenticated control/SSH transport; artifact integrity is verified with SHA-256. Age decryption is required only for artifacts marked age-encrypted.
 - [x] Replace signed unattended-profile authorization with a root-owned mode-0600 profile in a root-owned, non-group/other-writable directory, plus expiry, single-use replay protection and target identity checks.
 - [x] Remove image-manifest signing and key management entirely; retain age recipient/identity rotation separately from TLS PKI.
-- [x] Add encrypted offline CA backup to mounted removable media using an independently supplied age recipient; private CA material remains in root-only staging until encrypted.
-- [x] Add non-destructive Cockpit backup inspection: age decryption, strict archive/manifest validation, CA fingerprint and key-pair checks; never installs material.
-- [ ] Implement verified CA backup restore and compromise recovery; no manual overwrite of a live PKI directory.
 - [ ] Expose preflight, per-client status, expiry, progress and rollback in Cockpit.
 - [ ] Test mixed-version clients, interrupted rotation, expiry, wrong SAN/fingerprint and lost Server state.
-Acceptance: no cutover strands enrolled clients without recovery; private material never enters logs/browser state; stages are auditable and idempotent.
+Acceptance: certificate enrollment, renewal, trust and revocation remain auditable; private material never enters logs/browser state. PKI backup/restore is not a project requirement.
 
 ## P0 — Remote repositories and credentials
 Repository-related abstractions/tests already exist; inspect and extend them rather than creating a second implementation. Architectural boundary: every SSH/ NFS, SMB/CIFS, WebDAV and S3 service, and every NVMe-oF subsystem/namespace, is external and independently administered. Feclora implements client-side connection, credential handling, mount/transfer, integrity, lifecycle of its own client processes, and failure reporting only; it does not deploy or configure remote servers, exports, shares, buckets or NVMe-oF subsystems.
@@ -223,14 +220,14 @@ Publish task-oriented guides only when the exact workflow is implemented; mark f
 3. [ ] Capture disk image to remote SSHFS repository.
 4. [ ] Restore image from SSHFS to one disk.
 5. [ ] Restore image to multiple remote clients.
-6. [ ] Restore multiple clients using PXE. Implemented: the active Server job publishes/revokes a non-secret iPXE handoff; Cockpit exports each job UUID and operational target selection to the Live handoff; the Live image mounts that medium read-only and automatically starts the PXE Client service for unattended boots. The first automatic path supports one Client per unicast whole-disk job, requires a WWN/serial binding, resolves exactly one local disk, and retains Server READY/ARM. Remaining: simultaneous multi-Client/multicast PXE, partition/LV targets, expiry/replay/restart acceptance, Server-side result reconciliation and BIOS/UEFI PXE VMs.
+6. [ ] Restore multiple clients using PXE. Implemented: the active Server job publishes/revokes a non-secret iPXE handoff; Cockpit exports each job UUID and operational target selection to the Live handoff; the Live image mounts that medium read-only and automatically starts the PXE Client service for unattended boots. The first automatic path supports one Client per unicast whole-disk job, requires a WWN/serial binding, resolves exactly one local disk, and retains Server READY/ARM. Remaining: simultaneous multi-Client/multicast PXE, partition/LV targets, configurable maximum client count and/or serving-time limit, Server-side result reconciliation and BIOS/UEFI PXE VMs.
 PXE handoff, identity media and the current supported scope are documented in [docs/PXE-UNATTENDED.md](PXE-UNATTENDED.md).
 
-7. [ ] Unattended multi-client PXE restore. The Server-authenticated single-Client path now consumes a job UUID and selected MAC, fetches the active job over Server-authenticated TLS, resolves one disk using the job's stable WWN/serial binding, runs local preflight, and waits for the explicit Server ARM gate. Boot parameters and job UUIDs alone never authorize writes. Partition restore, multicast unattended execution, interrupted-job/replay acceptance and full operator result reconciliation remain pending.
+7. [ ] Unattended multi-client PXE restore. The Server-authenticated single-Client path now consumes a job UUID and selected MAC, fetches the active job over Server-authenticated TLS, resolves one disk using the job's stable WWN/serial binding, runs local preflight, and waits for the explicit Server ARM gate. Boot parameters and job UUIDs alone never authorize writes. Partition restore, multicast unattended execution, configurable maximum client count and/or serving-time limit, and full operator result reconciliation remain pending.
 8. [ ] Initial Server setup and Client Server-trust configuration.
 9. [ ] Repository and credential administration.
 10. [ ] Storage-layer restore and fidelity: local LV restore and raw LUKS2 container-to-partition restore are implemented; deployment LV acceptance, operator execution of the LUKS2 loop-device and multi-Client multicast runbooks, opened-mapping/LUKS2-on-LV semantics, provisioning/rekeying, and Btrfs snapshot/multi-device support remain pending. No additional LUKS2 implementation work is planned until operator acceptance results identify a concrete defect.
-11. [ ] Interrupted-operation and PKI recovery.
+11. [ ] Interrupted-operation recovery.
 
 The [guide index](GUIDES.md) distinguishes available procedures from planned
 workflows. Do not publish an operational recipe for an unimplemented path.
@@ -247,7 +244,7 @@ Every guide needs prerequisites, supported layouts, exact Cockpit steps, expecte
 - [ ] Reconcile README, Cockpit README, roadmap, feature matrix and operator docs.
 - [ ] Add dependency/security scanning and secret-leak checks.
 - [ ] Define Fedora baseline and dependency/version policy.
-- [ ] Document configuration/key backup, upgrades, rollback and disaster recovery.
+- [ ] Document configuration backup (excluding PKI private keys), upgrades, rollback and disaster recovery.
 - [ ] Document release checksums/signatures and provenance.
 
 ## ISO build and acceptance policy
