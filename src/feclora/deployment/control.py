@@ -520,7 +520,6 @@ class DeploymentControlServer:
         mac_address: str,
         repository: str,
         manifest_path: str,
-        *,
     ) -> ImageManifest:
         """Send an image set to one running restore Client."""
         tls_socket = self._running_session(mac_address, "restore")
@@ -544,7 +543,6 @@ class DeploymentControlServer:
         self,
         mac_address: str,
         repository: str,
-        *,
     ) -> str:
         """Receive an image set from one running save Client."""
         tls_socket = self._running_session(mac_address, "save")
@@ -584,7 +582,6 @@ class DeploymentControlServer:
         self,
         repository: str,
         *,
-        trusted_public_key: str | os.PathLike[str] | None = None,
         manifest_path: str | None = None,
         result_timeout: float = 86400,
     ) -> dict[str, str]:
