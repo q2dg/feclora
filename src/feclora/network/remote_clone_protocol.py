@@ -415,7 +415,7 @@ def send_disk_stream(
             raise RemoteCloneCancelled("source operator cancelled the remote clone")
         chunk = source.read(min(chunk_size, expected_size - total))
         if not isinstance(chunk, (bytes, bytearray)) or not chunk:
-            raise RemoteCloneProtocolError("source ended before the declared disk byte count")
+            raise RemoteCloneProtocolError("source ended before the declared block-device byte count")
         if len(chunk) > expected_size - total:
             raise RemoteCloneProtocolError("source returned more bytes than requested")
         sock.sendall(chunk)
