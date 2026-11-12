@@ -369,8 +369,11 @@ LUKS2_ACCEPTANCE="$ROOT_DIR/tests/vm/run-luks2-partition-acceptance.sh"
 if [[ ! -f "$LUKS2_ACCEPTANCE" ]]; then
   fail "Disposable LUKS2 partition acceptance script is missing."
 fi
+# shellcheck disable=SC2016 # Search for literal shell syntax in the acceptance script.
 grep -q 'cryptsetup open --key-file "$KEY_FILE" "$TARGET_PART" "$TARGET_MAPPING"' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must unlock the restored target with the original key."
+# shellcheck disable=SC2016 # Search for literal shell syntax in the acceptance script.
 grep -q 'cryptsetup open --test-passphrase --key-file "$WRONG_KEY_FILE" "$TARGET_PART"' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must reject an incorrect key."
+# shellcheck disable=SC2016 # Search for literal shell syntax in the acceptance script.
 grep -q 'cmp -- "$EXPECTED" "$WORK_DIR/restored-plaintext.bin"' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must compare restored plaintext byte-for-byte."
 grep -q 'check_capture_source_safe' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must retain Feclora's block-device safety checks."
 grep -q 'execute_client_image_job' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must exercise the unicast Client runtime."
