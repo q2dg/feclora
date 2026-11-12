@@ -350,4 +350,4 @@ Feclora does not sign image manifests or use detached signature sidecars. Artifa
 
 Remote repository types are SSHFS, NFS and SMB/CIFS mounted filesystems, plus S3 object storage through its HTTPS API. Cockpit exposes the mounted-provider and S3 object-repository workflows separately; S3 is not mounted as a filesystem.
 
-For Server/Client deployment restores, the persistent Cockpit Client can select an existing local logical volume when the job target type is `logical_volume`. The API and persistent Client service validate it against healthy local LVM topology; the LV restore engine repeats the safety preflight immediately before writing. This path does not create or resize LVM metadata. Deployment-job LV capture is not implemented.
+For Server/Client deployment jobs, the persistent Cockpit Client can select an existing local logical volume for capture or restore when the job target type is `logical_volume`. Capture runs the manifest-backed LV planner and existing safe capture pipeline; restore validates healthy local LVM topology and repeats its preflight immediately before writing. Neither path creates or resizes LVM metadata.
