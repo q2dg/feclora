@@ -298,7 +298,7 @@ export default function App() {
   const isDisk = operation.endsWith("_disk");
   const isLogicalVolume = operation === "capture_logical_volume" || operation === "restore_logical_volume";
   const deviceOptions = isDisk ? disks : isLogicalVolume ? logicalVolumes : partitions;
-  const selectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId);
+  const selectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId) || s3Repositories.find((repo) => repo.id === selectedRepositoryId);
   const availableImages = selectedRepositoryId ? repositoryImages : images;
   const matchingImages = availableImages.filter((item) => item.image_type === (isDisk ? "disk" : isLogicalVolume ? "logical_volume" : "partition"));
   const expectedConfirmation = operation === "clone_partition"
@@ -982,7 +982,8 @@ export default function App() {
             </Stack>
           </Tab>
           <Tab eventKey="images" title="Image repository">
-            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Available images</Title><Field label="Image repository" help="Local is the default; remote mounts must be verified."><select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(event) => selectImageRepository(event.target.value)}><option value="">Local repository</option>{remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? "read-only" : "read/write"}</option>)}</select></Field></StackItem>
+            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Available images</Title><Field label="Image repository" help="Local is the default; filesystem shares must be mounted and verified. S3 repositories use object transfers."><select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(event) => selectImageRepository(event.target.value)}><option value="">Local repository</option>{remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? "read-only" : "read/write"}</option>)}
+                    {s3Repositories.filter((repo) => !remoteRepositories.some((remoteRepo) => remoteRepo.id === repo.id)).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · S3 object storage · {repo.read_only ? "read-only" : "read/write"}</option>)}</select></Field></StackItem>
               <StackItem>
                 <Card><CardBody>
                   <Title headingLevel="h3" size="lg">Extract a partition from a whole-disk image</Title>
