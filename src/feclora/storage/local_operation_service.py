@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import errno
 import fcntl
 import hashlib
 import json
@@ -32,6 +33,35 @@ _DIAGNOSTIC_CATEGORIES = frozenset({
     "permission", "device", "filesystem", "network", "credentials",
     "integrity", "capacity", "cancelled", "unsupported", "internal",
 })
+
+
+def _diagnostic_category(exc: BaseException) -> str:
+    """Map an exception to a bounded, non-sensitive operator diagnostic category."""
+    number = getattr(exc, "errno", None)
+    if number in {errno.EACCES, errno.EPERM, errno.EROFS}:
+        return "permission"
+    if number in {errno.ENOSPC, getattr(errno, "EDQUOT", -1)}:
+        return "capacity"
+    if number in {errno.ENODEV, errno.ENXIO, errno.EIO, errno.ESTALE}:
+        return "device"
+    if number in {
+        errno.ECONNABORTED, errno.ECONNREFUSED, errno.ECONNRESET,
+        errno.EHOSTUNREACH, errno.ENETDOWN, errno.ENETUNREACH,
+        errno.ETIMEDOUT,
+    }:
+        return "network"
+    name = type(exc).__name__.lower()
+    if "credential" in name or "secret" in name:
+        return "credentials"
+    if "integrity" in name or "digest" in name or "signature" in name:
+        return "integrity"
+    if "sftp" in name or "ssh" in name or "network" in name:
+        return "network"
+    if "unsupported" in name or isinstance(exc, NotImplementedError):
+        return "unsupported"
+    if isinstance(exc, (PermissionError,)):
+        return "permission"
+    return "internal"
 
 
 class LocalOperationCancelled(Exception):
@@ -224,6 +254,7 @@ def execute(operation_id: str) -> int:
             if current not in TERMINAL_STATES:
                 store.append(operation_id, "failed", {
                     "error_type": type(exc).__name__,
+                    "diagnostic_category": _diagnostic_category(exc),
                     "error": str(exc)[:512],
                 })
         except Exception:
