@@ -28,11 +28,6 @@ ignore incomplete image sets without a manifest.
 
 ## Cockpit operator procedure
 
-1. Open Cockpit's **Operations** workflow and select whole-disk capture.
-2. Select the source disk and enter a unique image identifier. The operation reads the source; it does not modify it.
-3. Choose compression (`none`, `gzip`, `xz`, `zstd` or `lz4`) and, when applicable, its level.
-4. Choose image protection independently: neither, age encryption, minisign signature, or both. Supply only the public age recipients file and/or the minisign secret key requested by the selected mode. These options are not prerequisites for ordinary capture.
-5. Review the operation summary and start capture. Monitor streamed progress. Cancelling prevents publication of a valid manifest; do not use a partial artifact set.
-6. Confirm that the manifest appears in the image inventory before using or transferring the image.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 **Screenshots are pending.** Follow the [Cockpit screenshot capture plan](assets/screenshots/README.md). The repository currently has no validated Cockpit screenshot set. Capture each step from a real, version-matched Fedora Live build and store it under `docs/assets/screenshots/`; clearly labeled mockups are acceptable when real screenshots are unavailable; see the screenshot and mockup policy.
