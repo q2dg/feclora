@@ -1,10 +1,11 @@
-"""Safe UDPcast multicast file transport for authenticated deployment jobs.
+"""Safe UDPcast multicast file transport for Server-authenticated deployment jobs.
 
 This module is deliberately limited to moving one manifested artifact into a
 private staging file. It never writes a block device and never treats UDPcast
 rendezvous, a MAC address, or multicast reception as client authentication.
-The caller must establish the mTLS control plane and register/authorize clients
-before invoking this transport.
+The caller must establish the Server-authenticated TLS control plane and
+validate job-scoped Client MAC selection before invoking this transport. This
+selection does not authenticate individual Clients.
 """
 from __future__ import annotations
 

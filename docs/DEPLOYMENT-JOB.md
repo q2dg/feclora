@@ -1,11 +1,12 @@
 # Deployment job contract (schema version 1)
 
 Server and Client modes share a validated JSON deployment-job document. The
-job is a declarative description sent over the TLS 1.3 mutual-authenticated
-control session. It is not a credential, Client identity, target-device path
-or authorization to write. The Server still verifies the certificate identity
-against its enrollment allowlist; each Client performs local device checks;
-and the Server operator explicitly ARMs the complete READY set.
+job is a declarative description sent over a TLS control session in which the
+Client verifies the Server certificate. It is not a credential, Client
+identity, target-device path or authorization to write. The Server does not
+authenticate individual Clients; it checks each reported MAC against the active
+job as operational scoping, not identity proof. Each Client performs local
+device checks, and the Server operator explicitly ARMs the complete READY set.
 
 ## Example: multi-Client restore with stable target bindings
 

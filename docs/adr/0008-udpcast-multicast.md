@@ -63,3 +63,12 @@ multicast is unavailable.
 - UDPcast command-line options: https://www.udpcast.linux.lu/cmd.html
 - udp-sender manual: https://manpages.debian.org/udpcast/udp-sender.1.en.html
 - Fedora UDPcast package: https://packages.fedoraproject.org/pkgs/udpcast/udpcast/
+
+
+## Superseded authentication assumption
+
+The original mutual-TLS assumption in this ADR is superseded. The current
+control plane authenticates the Server certificate to Clients only; Clients
+do not present certificates and are not authenticated individually. The
+selected Client MAC list is job scoping, not identity proof. See
+[Deployment control](../DEPLOYMENT-CONTROL.md) for the current protocol.

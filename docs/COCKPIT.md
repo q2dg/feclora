@@ -279,7 +279,7 @@ its destructive/read confirmation through the Cockpit **Client jobs** tab
 before reporting READY. For multicast, each Client also selects its receive
 interface and confirms the VLAN's IGMP snooping/querier configuration.
 Cockpit shows live Client states and the service listener. Only after every
-authorized Client is READY can the operator enter the exact job-specific
+selected Client is READY can the operator enter the exact job-specific
 phrase `ARM <UUID>` (unicast) or
 `ARM MULTICAST <UUID> IGMP-VERIFIED` (multicast) and select
 **Arm and execute**. The existing unicast save/restore or multicast restore

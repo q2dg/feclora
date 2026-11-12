@@ -56,11 +56,11 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
 
 ## Remote deployment
 
-- [Server/Client setup and enrollment](DEPLOYMENT-SETUP.html) — Cockpit
-  workflows for trust enrollment, deployment jobs and Client target approval.
+- [Server trust and Client setup](DEPLOYMENT-SETUP.html) — Cockpit
+  workflows for Server certificate trust, deployment jobs and Client-local target approval.
 - [Remote whole-disk cloning](REMOTE-DISK-CLONE.html) — **Implemented in
   source/Cockpit**; real two-machine acceptance remains outstanding.
-- [Authenticated deployment control](DEPLOYMENT-CONTROL.html) — protocol,
+- [Deployment control (Server-authenticated TLS)](DEPLOYMENT-CONTROL.html) — protocol,
   job authorization and lifecycle details.
 - [Remote repositories](REMOTE-REPOSITORIES.html) — **Partial**. SSHFS, NFS
   and SMB/CIFS mounted-provider integration exists; SFTP has a distinct
