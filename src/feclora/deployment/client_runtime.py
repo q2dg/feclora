@@ -20,6 +20,7 @@ from feclora.storage.disk_capture import DiskCaptureError, capture_disk
 from feclora.storage.disk_restore import DiskRestoreError, restore_disk
 from feclora.storage.partition_restore import PartitionRestoreError, restore_partition
 from feclora.storage.logical_volume_restore import LogicalVolumeRestoreError, restore_logical_volume
+from feclora.storage.logical_volume_image_capture import LogicalVolumeImageCaptureError, capture_logical_volume_image
 from feclora.storage.inventory import collect_inventory
 from feclora.network.remote_clone import receive_remote_disk
 
@@ -116,13 +117,21 @@ def execute_client_image_job(
         if confirmation != required:
             raise ClientImageRuntimeError(f"explicit local capture confirmation required: {required}")
         try:
-            capture_disk(
-                local_device_path, job.image_id, repository,
-                compression=compression, compression_level=compression_level,
-                age_recipients_file=age_recipients_file if encrypt_image else None,
-                progress_callback=progress_callback,
-                executables=executables,
-            )
+            if job.target_type == "logical_volume":
+                capture_logical_volume_image(
+                    local_device_path, job.image_id, repository, collect_inventory(),
+                    compression=compression, compression_level=compression_level,
+                    age_recipients_file=age_recipients_file if encrypt_image else None,
+                    progress_callback=progress_callback, executables=executables,
+                )
+            else:
+                capture_disk(
+                    local_device_path, job.image_id, repository,
+                    compression=compression, compression_level=compression_level,
+                    age_recipients_file=age_recipients_file if encrypt_image else None,
+                    progress_callback=progress_callback,
+                    executables=executables,
+                )
             manifest_path = os.path.join(os.fspath(repository), job.image_id + ".manifest.json")
             send_control_message(tls_socket, {
                 "type": "transfer_ready", "job_id": job.job_id,
@@ -140,7 +149,7 @@ def execute_client_image_job(
             ]
             protection_detail = " (" + ", ".join(protections) + ")" if protections else " (unencrypted)"
             return True, f"image {job.image_id} captured{protection_detail} and transferred"
-        except (ImageTransferError, DiskCaptureError, OSError) as exc:
+        except (ImageTransferError, DiskCaptureError, LogicalVolumeImageCaptureError, OSError) as exc:
             raise ClientImageRuntimeError(f"capture/transfer failed: {exc}") from exc
 
     raise ClientImageRuntimeError("unsupported deployment operation")
