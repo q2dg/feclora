@@ -4,7 +4,7 @@ This document is an operator runbook for acceptance testing on disposable
 hardware and independently operated remote-storage services. It does not
 describe new software features and does not make physical testing a
 prerequisite for continuing software development. All SSH, NFS, SMB,
-WebDAV and S3 infrastructure, and NVMe-oF target subsystems/namespaces, are external to Feclora: the operator
+ and S3 infrastructure, and  target subsystems/namespaces, are external to Feclora: the operator
 or service owner provisions and administers them. Feclora tests only its client
 connection, authentication, authorization, transfer/mount behavior, integrity
 checks and failure handling. No test step asks Feclora to install or configure
@@ -149,14 +149,14 @@ distribution follows a single-publisher / multi-reader contract: one Client
 publishes an image and multiple Clients may read/restore it concurrently.
 
 Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS
-endpoint. WebDAV is currently rejected by the repository manager until its
+endpoint.  is currently rejected by the repository manager until its
 per-repository encrypted credential lifecycle is implemented; do not attempt
-to enable it by writing `/etc/davfs2/secrets`. Use a dedicated test
+to enable it by writing `/etc//secrets`. Use a dedicated test
 account/export/share and a disposable image. Do not reuse production credentials.
 
 1. Prepare the provider endpoint and provision credentials using the
    provider's root-protected mechanism. Verify SSH host keys for SSHFS, NFS
-   export ownership/mapping or SMB share permissions as appropriate. WebDAV
+   export ownership/mapping or SMB share permissions as appropriate. 
    HTTPS and isolated-credential acceptance must wait for its implementation.
 2. Add the repository in Cockpit with the correct provider, endpoint/share,
    remote path and access mode. Credential contents must never be pasted into
