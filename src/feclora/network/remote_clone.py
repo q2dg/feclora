@@ -66,11 +66,11 @@ def _geometry_for(path: str, lsblk: str, runner: Callable[..., Any], device_type
 
 
 class RemoteDiskCloneError(RuntimeError):
-    """A remote disk clone was rejected or failed."""
+    """A remote block-device clone was rejected or failed."""
 
 
 class RemoteDiskCloneCancelled(RemoteDiskCloneError):
-    """The operator cancelled a remote disk clone."""
+    """The operator cancelled a remote block-device clone."""
 
 
 def _shutdown_tls(tls_socket: Any) -> None:
@@ -120,7 +120,7 @@ def build_remote_clone_header(
 def _resolve(executables: dict[str, str | None], name: str) -> str:
     path = executables.get(name) or shutil.which(name)
     if not path:
-        raise RemoteDiskCloneError(f"{name} is required for remote disk cloning")
+        raise RemoteDiskCloneError(f"{name} is required for remote block-device cloning")
     return path
 
 
@@ -190,7 +190,7 @@ def _readback_digest(
                 break
             total += len(chunk)
             if total > expected_size:
-                raise RemoteDiskCloneError("read-back returned more bytes than the source disk size")
+                raise RemoteDiskCloneError("read-back returned more bytes than the source block-device size")
             digest.update(chunk)
             if progress_callback is not None:
                 progress_callback(total, expected_size)
