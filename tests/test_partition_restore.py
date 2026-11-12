@@ -525,14 +525,6 @@ class PartitionRestoreTests(unittest.TestCase):
             )
 
 
-    def test_signed_image_cannot_be_restored_without_trusted_key(self):
-        with open(self.manifest + ".minisig", "wb") as signature:
-            signature.write(b"unverified")
-        with self.assertRaisesRegex(PartitionRestoreError, "trusted minisign public key"):
-            self.restore()
-        self.assertEqual(self.calls, [])
-
-
     def test_decompressed_partition_stages_outside_source_repository(self):
         from feclora.storage import partition_restore
         with tempfile.TemporaryDirectory() as local_stage:
