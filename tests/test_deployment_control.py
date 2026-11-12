@@ -327,7 +327,6 @@ class TransferFailureTests(unittest.TestCase):
             with self.assertRaisesRegex(DeploymentControlError, "restore image transfer failed: transfer timed out"):
                 server.send_restore_image(
                     MAC, "/repository", "/repository/golden-image.manifest.json",
-                    trusted_public_key="/trusted/server.pub",
                 )
 
         self.assertTrue(tls_socket.closed)
@@ -767,7 +766,6 @@ class CoordinatorControlTests(unittest.TestCase):
         with patch("feclora.deployment.control.send_image_set", return_value="manifest") as send:
             result = server.send_restore_image(
                 MAC, "/images", "golden.manifest.json",
-                trusted_public_key="/trusted/server.pub",
             )
         self.assertEqual(result, "manifest")
         offer = receive_control_message(FakeSocket(bytes(fake.outgoing)), expected_type="transfer_offer")
@@ -844,12 +842,10 @@ class CoordinatorControlTests(unittest.TestCase):
              patch.object(server, "collect_results", return_value={MAC: "succeeded"}) as collect:
             result = server.run_one_client_job(
                 "/images", manifest_path="golden.manifest.json",
-                trusted_public_key="/trusted/server.pub",
             )
         self.assertEqual(result, {MAC: "succeeded"})
         send.assert_called_once_with(
             MAC, "/images", "golden.manifest.json",
-            trusted_public_key="/trusted/server.pub",
         )
         collect.assert_called_once()
 
@@ -995,7 +991,6 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
                     server.arm_and_start()
                     server.send_restore_image(
                         MAC, source, manifest_path,
-                        trusted_public_key="/trusted/server.pub",
                     )
                     client_thread.join(5)
                     self.assertFalse(client_thread.is_alive())
@@ -1018,7 +1013,6 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
             raise DeploymentControlError("transfer offer mismatch")
         receive_image_set(
             tls, destination, expected_image_id=job.image_id,
-            trusted_public_key="/trusted/server.pub",
         )
         return True, "signed image received and verified"
 
@@ -1155,7 +1149,6 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
                 })
                 send_image_set(
                     tls, source, manifest_path, expected_image_id=job.image_id,
-                    trusted_public_key="/trusted/client.pub",
                 )
                 return True, "capture and signed transfer complete"
 
@@ -1242,7 +1235,6 @@ class MulticastControlTests(unittest.TestCase):
             with open(os.path.join(directory, "image.raw"), "wb") as stream:
                 stream.write(b"payload")
             with (
-                patch("feclora.deployment.control.verify_manifest_signature"),
                 patch("feclora.deployment.control.ImageManifest.from_json", return_value=manifest),
                 patch("feclora.deployment.control.verify_artifact_file"),
                 patch("feclora.deployment.control.send_control_message") as send,
@@ -1252,7 +1244,6 @@ class MulticastControlTests(unittest.TestCase):
             ):
                 results = server.run_multicast_restore_job(
                     directory, manifest_path,
-                    trusted_public_key="/pki/server.pub",
                     udpcast_config=config,
                 )
         self.assertEqual(results, {MAC: "succeeded", mac2: "succeeded"})
@@ -1286,7 +1277,6 @@ class MulticastControlTests(unittest.TestCase):
         with self.assertRaisesRegex(DeploymentControlError, "every selected Client"):
             server.run_multicast_restore_job(
                 "/repo", "/repo/image.manifest.json",
-                trusted_public_key="/pki/server.pub",
                 udpcast_config=config,
             )
 
