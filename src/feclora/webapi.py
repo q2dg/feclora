@@ -2623,12 +2623,23 @@ def _deployment_service_command(action: str, params: dict[str, Any]) -> dict[str
         raise WebAPIError("operator confirmation is invalid")
     from feclora.deployment.local_control import LocalControlError, local_control_request
     try:
-        return local_control_request(
+        result = local_control_request(
             "/run/feclora/deployment.sock", "arm" if action == "arm_deployment_job" else "cancel",
             {"job_id": job_id, "confirmation": confirmation},
         )
     except (OSError, LocalControlError) as exc:
         raise WebAPIError(f"deployment service rejected the command: {exc}") from exc
+    if action == "cancel_deployment_job" and isinstance(result, dict) and result.get("accepted") is True:
+        # A cancelled deployment must no longer expose its destructive PXE answer.
+        try:
+            from feclora.network.pxe_answer_store import revoke_pxe_answer
+            revoked = revoke_pxe_answer("/srv/feclora/http", job_id)
+        except Exception as exc:
+            raise WebAPIError(
+                f"deployment cancellation was accepted, but its PXE answer could not be revoked: {exc}"
+            ) from exc
+        result["pxe_answer_revoked"] = revoked
+    return result
 
 
 def _deployment_jobs() -> list[dict[str, Any]]:
