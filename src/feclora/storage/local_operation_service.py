@@ -138,6 +138,10 @@ def execute(operation_id: str) -> int:
         store.append(operation_id, "preflight", {"message": "Validating operation definition and device locks"})
         # Reuse the existing host-wide Server/Client/storage exclusion lock.
         from feclora.webapi import _execute_operation, _storage_operation_lock
+        execution_params = dict(definition["params"])
+        if definition["action"] == "capture_disk" and execution_params.get("encrypt_passphrase"):
+            from feclora.storage.capture_passphrase import consume
+            execution_params["age_passphrase"] = consume(operation_id)
         with _storage_operation_lock():
             fds = _device_lock_fds(definition["params"])
             # The engine revalidates device paths, repository identity,
@@ -147,7 +151,7 @@ def execute(operation_id: str) -> int:
             forwarder = _ProgressForwarder(store, operation_id)
             with contextlib.redirect_stdout(forwarder):
                 result = _execute_operation(
-                    definition["action"], definition["params"], operation_id,
+                    definition["action"], execution_params, operation_id,
                 )
                 forwarder.flush()
             store.append(operation_id, "verifying", {"message": "Storage engine returned successfully"})
@@ -191,6 +195,12 @@ def execute(operation_id: str) -> int:
             pass
         raise
     finally:
+        if definition["action"] == "capture_disk" and definition["params"].get("encrypt_passphrase"):
+            try:
+                from feclora.storage.capture_passphrase import discard
+                discard(operation_id)
+            except Exception:
+                pass
         signal.signal(signal.SIGTERM, previous_sigterm_handler)
         for fd in reversed(fds):
             os.close(fd)
