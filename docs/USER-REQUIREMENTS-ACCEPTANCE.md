@@ -29,7 +29,7 @@ DHCP and static IPv4 must be supported independently on Server and Client where 
 
 **Outcome:** Clone a disk or partition between Server and remote Client, with both endpoints configured by DHCP or static network settings.
 
-- [ ] Cockpit supports remote whole-disk and partition-to-partition clone jobs.
+- [x] Cockpit exposes remote whole-disk and partition-to-partition clone jobs with source-type selection and Client-local destination selection. Two-host destructive acceptance remains a separate gate.
 - [ ] Server and Client independently support DHCP and static IPv4, with interface selection and visible address/route/DNS state.
 - [ ] Server selects/locks a read-only source; Client independently selects and authorizes its destination.
 - [ ] Both endpoints authenticate and authorize the exact peer, source and destination. Reachability or PXE boot never authorizes a write.
