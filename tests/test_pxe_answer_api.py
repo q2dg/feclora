@@ -4,7 +4,7 @@ import base64
 import json
 import unittest
 
-from feclora.webapi import WebAPIError, _publish_pxe_answer
+from feclora.webapi import WebAPIError, _publish_pxe_answer, _provide_pxe_age_passphrase
 
 
 class PXEAnswerAPITests(unittest.TestCase):
@@ -27,6 +27,12 @@ class PXEAnswerAPITests(unittest.TestCase):
                 "job_id": self.JOB_ID,
                 "answer_base64": "%%%not-base64%%%",
             })
+
+    def test_age_passphrase_requires_a_nonempty_single_line_secret(self):
+        with self.assertRaisesRegex(WebAPIError, "1-1024 UTF-8 bytes"):
+            _provide_pxe_age_passphrase({"passphrase": "bad\\nsecret"})
+        with self.assertRaisesRegex(WebAPIError, "requires exactly passphrase"):
+            _provide_pxe_age_passphrase({"passphrase": "secret", "job_id": self.JOB_ID})
 
     def test_rejects_unknown_or_missing_request_fields(self):
         with self.assertRaisesRegex(WebAPIError, "requires job_id"):
