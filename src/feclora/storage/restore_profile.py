@@ -7,9 +7,7 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import stat
-import subprocess
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -95,7 +93,7 @@ class RestoreProfile:
     expires_at: str | None = None
     single_use: bool = False
     schema_version: int = 1
-    signature_verified: bool = field(default=False, init=False, repr=False, compare=False)
+    authorization_verified: bool = field(default=False, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         import uuid
@@ -130,8 +128,8 @@ class RestoreProfile:
                 raise RestoreProfileError("unattended profiles require an expiry timestamp")
             if not self.single_use:
                 raise RestoreProfileError("unattended profiles must be single-use")
-        if not isinstance(self.signature_verified, bool):
-            raise RestoreProfileError("signature_verified is runtime-only boolean state")
+        if not isinstance(self.authorization_verified, bool):
+            raise RestoreProfileError("authorization_verified is runtime-only boolean state")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -189,8 +187,8 @@ class RestoreProfile:
         if not self.target.matches(device):
             raise RestoreProfileError("detected target WWN/serial does not match this restore profile")
         if self.execution_mode == "unattended":
-            if not self.signature_verified:
-                raise RestoreProfileError("unattended profile has not been verified with a trusted minisign key")
+            if not self.authorization_verified:
+                raise RestoreProfileError("unattended profile is not authorized by root-owned local policy")
             current = now or datetime.now(timezone.utc)
             if current.tzinfo is None or current.utcoffset() is None:
                 raise RestoreProfileError("authorization clock must be timezone-aware")
@@ -210,92 +208,56 @@ def _regular_file(path: Path, label: str) -> None:
         raise RestoreProfileError(f"{label} must be a regular file, not a symlink or special file")
 
 
-def load_restore_profile(
-    path: str | os.PathLike[str],
-    *,
-    minisign_public_key: str | os.PathLike[str] | None = None,
-    minisign_executable: str | None = None,
-) -> RestoreProfile:
-    """Load a profile; unattended profiles must have a trusted minisign signature."""
+def load_restore_profile(path: str | os.PathLike[str]) -> RestoreProfile:
+    """Load a profile; unattended execution requires a root-owned, non-writable policy file."""
     profile_path = Path(path)
     _regular_file(profile_path, "restore profile")
     try:
         fd = os.open(profile_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         with os.fdopen(fd, "rb") as source:
-            if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+            info = os.fstat(source.fileno())
+            if not stat.S_ISREG(info.st_mode):
                 raise RestoreProfileError("restore profile must be a regular file")
+            if info.st_size > 1024 * 1024:
+                raise RestoreProfileError("restore profile exceeds the 1 MiB size limit")
             raw_bytes = source.read(1024 * 1024 + 1)
-        if len(raw_bytes) > 1024 * 1024:
-            raise RestoreProfileError("restore profile exceeds the 1 MiB size limit")
         raw = raw_bytes.decode("utf-8")
     except (OSError, UnicodeError) as exc:
         raise RestoreProfileError(f"cannot safely read restore profile: {exc}") from exc
     profile = RestoreProfile.from_json(raw)
     if profile.execution_mode != "unattended":
         return profile
-    if minisign_public_key is None:
-        raise RestoreProfileError("unattended profile requires a configured trusted minisign public key")
-    key_path = Path(minisign_public_key)
-    signature_path = Path(str(profile_path) + ".minisig")
-    _regular_file(key_path, "trusted minisign public key")
-    _regular_file(signature_path, "restore profile signature")
-    executable = minisign_executable or shutil.which("minisign")
-    if not executable:
-        raise RestoreProfileError("minisign is required to authorize unattended restore profiles")
-    temporary_path: str | None = None
-    try:
-        # Verify the exact byte sequence already parsed above. This avoids a
-        # path replacement between parsing and minisign verification.
-        fd, temporary_path = tempfile.mkstemp(prefix=".feclora-profile-verify-")
-        with os.fdopen(fd, "wb") as staged:
-            staged.write(raw_bytes)
-            staged.flush()
-            os.fsync(staged.fileno())
-        subprocess.run(
-            [executable, "-Vm", temporary_path, "-x", str(signature_path), "-p", str(key_path)],
-            check=True, capture_output=True, text=True, timeout=20,
+    parent_info = os.lstat(profile_path.parent)
+    if (info.st_uid != 0 or info.st_mode & 0o077
+            or not stat.S_ISDIR(parent_info.st_mode) or parent_info.st_uid != 0
+            or parent_info.st_mode & 0o022):
+        raise RestoreProfileError(
+            "unattended profile and its directory must be root-owned; profile mode must be 0600"
         )
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise RestoreProfileError(f"restore profile signature verification failed: {exc}") from exc
-    finally:
-        if temporary_path is not None:
-            try:
-                os.unlink(temporary_path)
-            except FileNotFoundError:
-                pass
-    object.__setattr__(profile, "signature_verified", True)
+    object.__setattr__(profile, "authorization_verified", True)
     return profile
 
 
 def save_unattended_restore_profile(
     profile: RestoreProfile,
     path: str | os.PathLike[str],
-    *,
-    minisign_secret_key: str | os.PathLike[str],
-    minisign_executable: str | None = None,
 ) -> Path:
-    """Create a new mode-0600 signed profile without overwriting an existing one."""
+    """Atomically publish a single-use unattended profile under root-only control."""
     if profile.execution_mode != "unattended" or not profile.single_use:
-        raise RestoreProfileError("only single-use unattended profiles can be signed for unattended execution")
+        raise RestoreProfileError("only single-use unattended profiles can be saved for unattended execution")
+    if os.geteuid() != 0:
+        raise RestoreProfileError("unattended restore profiles must be created by root")
     destination = Path(path)
     parent = destination.parent
     try:
         parent_info = os.lstat(parent)
     except OSError as exc:
         raise RestoreProfileError(f"profile destination directory is unavailable: {exc}") from exc
-    if not stat.S_ISDIR(parent_info.st_mode) or parent_info.st_uid != os.geteuid():
-        raise RestoreProfileError("profile destination must be a real directory owned by the current user")
-    signature_path = Path(str(destination) + ".minisig")
-    if os.path.lexists(destination) or os.path.lexists(signature_path):
-        raise RestoreProfileError("refusing to overwrite an existing profile or signature")
-    key_path = Path(minisign_secret_key)
-    _regular_file(key_path, "minisign secret key")
-    key_info = os.stat(key_path, follow_symlinks=False)
-    if key_info.st_uid != os.geteuid() or key_info.st_mode & 0o077:
-        raise RestoreProfileError("minisign secret key must be owned by the current user and mode 0600 or stricter")
-    executable = minisign_executable or shutil.which("minisign")
-    if not executable:
-        raise RestoreProfileError("minisign is required to sign unattended restore profiles")
+    if (not stat.S_ISDIR(parent_info.st_mode) or parent_info.st_uid != 0
+            or parent_info.st_mode & 0o022):
+        raise RestoreProfileError("profile destination must be a root-owned, non-writable directory")
+    if os.path.lexists(destination):
+        raise RestoreProfileError("refusing to overwrite an existing profile")
     temporary_path: str | None = None
     published = False
     try:
@@ -312,34 +274,25 @@ def save_unattended_restore_profile(
             os.fsync(fd)
         finally:
             os.close(fd)
-        # Hard-link publication is atomic and fails if another writer created
-        # the destination after the initial existence check.
         os.link(temporary_path, destination, follow_symlinks=False)
         published = True
         os.unlink(temporary_path)
         temporary_path = None
-        subprocess.run(
-            [executable, "-S", "-s", str(key_path), "-m", str(destination)],
-            check=True, capture_output=True, text=True, timeout=20,
-        )
-        _regular_file(signature_path, "generated profile signature")
-        os.chmod(signature_path, 0o600, follow_symlinks=False)
         directory_fd = os.open(parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0))
         try:
             os.fsync(directory_fd)
         finally:
             os.close(directory_fd)
         return destination
-    except (OSError, subprocess.SubprocessError, RestoreProfileError) as exc:
+    except (OSError, RestoreProfileError) as exc:
         if published:
-            for failed_path in (destination, signature_path):
-                try:
-                    os.unlink(failed_path)
-                except FileNotFoundError:
-                    pass
+            try:
+                os.unlink(destination)
+            except FileNotFoundError:
+                pass
         if isinstance(exc, RestoreProfileError):
             raise
-        raise RestoreProfileError(f"could not publish signed restore profile: {exc}") from exc
+        raise RestoreProfileError(f"could not publish restore profile: {exc}") from exc
     finally:
         if temporary_path is not None:
             try:
