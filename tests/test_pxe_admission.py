@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from feclora.network.pxe_admission import PXEAdmission, PXEAdmissionError
+from feclora.network.pxe_admission import PXEAdmission
 
 
 class PXEAdmissionTests(unittest.TestCase):
