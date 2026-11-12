@@ -15,6 +15,7 @@ from typing import Any, Callable, Mapping
 from .capture import CaptureCancelled, CaptureError, capture_logical_volume
 from .capture_plan import CapturePlanError, plan_storage_capture
 from .image_manifest import ImageManifest, ManifestValidationError
+from .image_publication import ImagePublicationError, publish_image_set
 from .image_security import (
     ImageSecurityError, encrypt_artifact, preflight_image_security,
 )
