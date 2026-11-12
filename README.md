@@ -31,7 +31,7 @@ See [docs/BUILD.md](docs/BUILD.md) for Fedora build-host prerequisites, installe
 
 Operational design notes:
 - [Tool reuse, repository types and optional transports](docs/TOOLING-AND-TRANSPORTS.md)
-- [Optional image-security packages (`age` and `minisign`)](packages/optional-image-security.txt)
+- [Optional image-encryption package (`age`)](packages/optional-image-security.txt)
 - [Durable local storage operations and crash recovery](docs/DURABLE-LOCAL-OPERATIONS.md)
 - [Whole-disk restore and larger-target GPT repair](docs/WHOLE-DISK-RESTORE.md)
 - [Remote disk cloning over server-authenticated TLS](docs/REMOTE-DISK-CLONE.md)
