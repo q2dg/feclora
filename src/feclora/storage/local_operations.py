@@ -204,7 +204,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
     if action in {"capture_disk", "capture_partition"}:
         if params.get("compression") not in {"none", "gzip", "zstd", "lz4"}:
             raise LocalOperationError("unsupported compression")
-        if not all(isinstance(params.get(key), bool) for key in ("encrypt")):
+        if not isinstance(params.get("encrypt"), bool):
             raise LocalOperationError("encrypt must be boolean")
         if "encrypt_passphrase" in params:
             if not isinstance(params["encrypt_passphrase"], bool):
