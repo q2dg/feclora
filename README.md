@@ -34,7 +34,7 @@ Operational design notes:
 - [Optional image-security packages (`age` and `minisign`)](packages/optional-image-security.txt)
 - [Durable local storage operations and crash recovery](docs/DURABLE-LOCAL-OPERATIONS.md)
 - [Whole-disk restore and larger-target GPT repair](docs/WHOLE-DISK-RESTORE.md)
-- [Mutually authenticated remote disk cloning](docs/REMOTE-DISK-CLONE.md)
+- [Remote disk cloning over server-authenticated TLS](docs/REMOTE-DISK-CLONE.md)
 - [Authenticated Server/Client deployment control, signed unicast transfer and multi-client multicast restore](docs/DEPLOYMENT-CONTROL.md)
 - [Server and Client runtime configuration](docs/DEPLOYMENT-SETUP.md)
 - [Signed, single-use unattended restore profiles](docs/RESTORE-PROFILES.md)

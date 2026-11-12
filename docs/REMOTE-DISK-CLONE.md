@@ -62,9 +62,9 @@ writing.
 
 The Server operator must type the exact job-specific phrase:
 
-`ARM JOB_UUID AND READ /dev/SOURCE TO CLIENT_IDENTITY`
+`READ /dev/SOURCE`
 
-This approval binds the Server source disk to the enrolled receiver identity.
+This confirms the selected source device locally; it does not authenticate the Client.
 The READY target path is disclosed to the Server so the session header can
 bind both endpoints; it is not treated as authorization by itself.
 
@@ -120,7 +120,7 @@ existing source-safety checks. The runtime rechecks it before streaming.
 ## Required protocol properties
 
 - TLS 1.3 with mandatory peer certificates and exact enrolled peer identity.
-- Explicit local authorization on both endpoints; mTLS is not an authorization
+- Explicit local authorization on both endpoints; TLS is not an authorization
   substitute.
 - Fresh session UUID and role-bound authorization, including exact source and
   receiver device paths.
@@ -157,7 +157,7 @@ The integration reuses these existing components:
 - `DeploymentJob` validates the `clone` operation, its source disk, unicast
   transport, and absence of an image identifier.
 - `DeploymentControlServer` and `join_deployment()` reuse the persistent
-  mTLS control session, READY/START handshake, peer enrollment and job state.
+  TLS control session, READY/START handshake, peer enrollment and job state.
 - `DeploymentService` owns the existing managed worker, local IPC, job journal,
   and explicit source-side ARM authorization.
 - `ClientDeploymentService` owns local target selection, safety checks,

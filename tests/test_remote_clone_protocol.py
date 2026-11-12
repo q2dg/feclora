@@ -31,8 +31,8 @@ class RemoteCloneProtocolTests(unittest.TestCase):
     def setUp(self):
         self.header = CloneSessionHeader(
             session_id="7a3c4c12-6a88-4f0d-bcc0-90df80a4adf1",
-            source_identity="DNS:source.example",
-            receiver_identity="DNS:receiver.example",
+            source_identity="Server",
+            receiver_identity="Client",
             source_device="/dev/sda",
             receiver_target_device="/dev/sdb",
             source_size_bytes=128 * 1024,
@@ -50,23 +50,23 @@ class RemoteCloneProtocolTests(unittest.TestCase):
     def test_endpoint_authorization_is_role_and_device_specific(self):
         source = authorize_endpoint(
             self.header, role="source",
-            local_identity="DNS:source.example",
-            expected_peer_identity="DNS:receiver.example",
-            confirmation="READ /dev/sda TO DNS:receiver.example",
+            local_identity="Server",
+            expected_peer_identity="Client",
+            confirmation="READ /dev/sda",
         )
         receiver = authorize_endpoint(
             self.header, role="receiver",
-            local_identity="DNS:receiver.example",
-            expected_peer_identity="DNS:source.example",
-            confirmation="ERASE /dev/sdb FROM DNS:source.example",
+            local_identity="Client",
+            expected_peer_identity="Server",
+            confirmation="ERASE /dev/sdb",
         )
         validate_endpoint_authorization(source, self.header, role="source", device_path="/dev/sda")
         validate_endpoint_authorization(receiver, self.header, role="receiver", device_path="/dev/sdb")
         with self.assertRaisesRegex(RemoteCloneProtocolError, "explicit receiver authorization"):
             authorize_endpoint(
                 self.header, role="receiver",
-                local_identity="DNS:receiver.example",
-                expected_peer_identity="DNS:source.example",
+                local_identity="Client",
+                expected_peer_identity="Server",
                 confirmation="yes",
             )
 
@@ -238,7 +238,7 @@ class RemoteCloneProtocolTests(unittest.TestCase):
                 if binary_form:
                     return b"test certificate bytes"
                 return {"subjectAltName": (("DNS", "source.example"),)}
-        verify_peer_identity(FakeTlsSocket(), "DNS:source.example")
+        verify_peer_identity(FakeTlsSocket(), "Server")
         with self.assertRaisesRegex(RemoteCloneProtocolError, "exact SAN"):
             verify_peer_identity(FakeTlsSocket(), "DNS:other.example")
 

@@ -105,8 +105,8 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         self.payload = b"R" * 65536
         self.header = CloneSessionHeader(
             session_id="7a3c4c12-6a88-4f0d-bcc0-90df80a4adf1",
-            source_identity="DNS:source.example",
-            receiver_identity="DNS:receiver.example",
+            source_identity="Server",
+            receiver_identity="Client",
             source_device="/dev/source",
             receiver_target_device="/dev/target",
             source_size_bytes=len(self.payload),
@@ -135,10 +135,10 @@ class RemoteDiskReceiverTests(unittest.TestCase):
             result = receive_remote_disk(
                 TlsSocketProxy(sock),
                 operation_log_path=log_path,
-                local_identity="DNS:receiver.example",
-                expected_peer_identity="DNS:source.example",
+                local_identity="Client",
+                expected_peer_identity="Server",
                 target_path=target_path,
-                confirmation="ERASE /dev/target FROM DNS:source.example",
+                confirmation="ERASE /dev/target",
                 executables=executables or {"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
                 device_validator=lambda _path: True,
                 runner=lambda *args, **kwargs: None,
@@ -155,8 +155,8 @@ class RemoteDiskReceiverTests(unittest.TestCase):
         with patch("feclora.network.remote_clone._geometry", return_value=(len(self.payload), 512, True, "gpt")):
             header = build_remote_clone_header(
                 "/dev/source", "/dev/target",
-                source_identity="DNS:source.example",
-                receiver_identity="DNS:receiver.example",
+                source_identity="Server",
+                receiver_identity="Client",
                 executables={"lsblk": "/usr/bin/lsblk"},
             )
         self.assertEqual(header.source_size_bytes, len(self.payload))
@@ -170,8 +170,8 @@ class RemoteDiskReceiverTests(unittest.TestCase):
             with self.assertRaisesRegex(RemoteDiskCloneError, "marked read-only"):
                 build_remote_clone_header(
                     "/dev/source", "/dev/target",
-                    source_identity="DNS:source.example",
-                    receiver_identity="DNS:receiver.example",
+                    source_identity="Server",
+                    receiver_identity="Client",
                     executables={"lsblk": "/usr/bin/lsblk"},
                 )
 
@@ -235,10 +235,10 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                     TlsSocketProxy(left, peer="receiver.example"),
                     self.header,
                     operation_log_path=os.path.join(directory, "operations.jsonl"),
-                    local_identity="DNS:source.example",
-                    expected_peer_identity="DNS:receiver.example",
+                    local_identity="Server",
+                    expected_peer_identity="Client",
                     source_path="/dev/source",
-                    confirmation="READ /dev/source TO DNS:receiver.example",
+                    confirmation="READ /dev/source",
                     executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
                     device_validator=lambda _path: True,
                     runner=lambda *args, **kwargs: None,
@@ -265,10 +265,10 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                         TlsSocketProxy(left, peer="receiver.example"),
                         self.header,
                         operation_log_path=os.path.join(directory, "operations.jsonl"),
-                        local_identity="DNS:source.example",
-                        expected_peer_identity="DNS:receiver.example",
+                        local_identity="Server",
+                        expected_peer_identity="Client",
                         source_path="/dev/source",
-                        confirmation="READ /dev/source TO DNS:receiver.example",
+                        confirmation="READ /dev/source",
                         executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
                         device_validator=lambda _path: True,
                         safety_check=lambda _path: None,
@@ -478,10 +478,10 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                     receive_remote_disk(
                         TlsSocketProxy(right),
                         operation_log_path=log_path,
-                        local_identity="DNS:receiver.example",
-                        expected_peer_identity="DNS:source.example",
+                        local_identity="Client",
+                        expected_peer_identity="Server",
                         target_path="/dev/target",
-                        confirmation="ERASE /dev/target FROM DNS:source.example",
+                        confirmation="ERASE /dev/target",
                         executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
                         device_validator=lambda _path: True,
                         runner=lambda *args, **kwargs: None,
@@ -510,8 +510,8 @@ class RemoteDiskReceiverTests(unittest.TestCase):
                 receive_remote_disk(
                     TlsSocketProxy(right),
                     operation_log_path=os.path.join(directory, "operations.jsonl"),
-                    local_identity="DNS:receiver.example",
-                    expected_peer_identity="DNS:source.example",
+                    local_identity="Client",
+                    expected_peer_identity="Server",
                     target_path="/dev/target",
                     confirmation="yes",
                     executables={"lsblk": "/usr/bin/lsblk", "dd": "/usr/bin/dd"},
@@ -535,8 +535,8 @@ class RemoteCloneListenerCancellationTests(unittest.TestCase):
 
         header = CloneSessionHeader(
             session_id="7a3c4c12-6a88-4f0d-bcc0-90df80a4adf1",
-            source_identity="DNS:source.example",
-            receiver_identity="DNS:receiver.example",
+            source_identity="Server",
+            receiver_identity="Client",
             source_device="/dev/source",
             receiver_target_device="/dev/target",
             source_size_bytes=65536,
@@ -546,9 +546,9 @@ class RemoteCloneListenerCancellationTests(unittest.TestCase):
         with self.assertRaisesRegex(RemoteDiskCloneCancelled, "waiting for receiver"):
             serve_remote_clone_once(
                 listener, object(), header,
-                local_identity="DNS:source.example",
-                expected_peer_identity="DNS:receiver.example",
-                confirmation="READ /dev/source TO DNS:receiver.example",
+                local_identity="Server",
+                expected_peer_identity="Client",
+                confirmation="READ /dev/source",
                 cancel_check=cancelled,
                 accept_poll_interval=0.05,
             )
@@ -582,8 +582,8 @@ class RemoteCloneListenerCancellationTests(unittest.TestCase):
 
         header = CloneSessionHeader(
             session_id="7a3c4c12-6a88-4f0d-bcc0-90df80a4adf1",
-            source_identity="DNS:source.example",
-            receiver_identity="DNS:receiver.example",
+            source_identity="Server",
+            receiver_identity="Client",
             source_device="/dev/source",
             receiver_target_device="/dev/target",
             source_size_bytes=65536,
@@ -593,9 +593,9 @@ class RemoteCloneListenerCancellationTests(unittest.TestCase):
         with self.assertRaisesRegex(RemoteDiskCloneCancelled, "waiting for receiver"):
             serve_remote_clone_once(
                 listener, object(), header,
-                local_identity="DNS:source.example",
-                expected_peer_identity="DNS:receiver.example",
-                confirmation="READ /dev/source TO DNS:receiver.example",
+                local_identity="Server",
+                expected_peer_identity="Client",
+                confirmation="READ /dev/source",
                 cancel_check=cancelled,
                 accept_poll_interval=0.05,
             )
@@ -610,8 +610,8 @@ class RemoteCloneListenerCancellationTests(unittest.TestCase):
         listener.listen(1)
         header = CloneSessionHeader(
             session_id="7a3c4c12-6a88-4f0d-bcc0-90df80a4adf1",
-            source_identity="DNS:source.example",
-            receiver_identity="DNS:receiver.example",
+            source_identity="Server",
+            receiver_identity="Client",
             source_device="/dev/source",
             receiver_target_device="/dev/target",
             source_size_bytes=65536,
@@ -621,9 +621,9 @@ class RemoteCloneListenerCancellationTests(unittest.TestCase):
         with self.assertRaisesRegex(RemoteDiskCloneError, "polling interval"):
             serve_remote_clone_once(
                 listener, object(), header,
-                local_identity="DNS:source.example",
-                expected_peer_identity="DNS:receiver.example",
-                confirmation="READ /dev/source TO DNS:receiver.example",
+                local_identity="Server",
+                expected_peer_identity="Client",
+                confirmation="READ /dev/source",
                 accept_poll_interval=0,
             )
         self.assertIsNone(listener.gettimeout())
