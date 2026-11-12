@@ -113,7 +113,7 @@ Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS ke
 - [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
 - [x] Make age identity/recipient provisioning optional for baseline enrollment, renewal and deployment. TLS-only enrollment/renewal accepts no age material; renewal does not create an age identity when none is configured. 
 - [x] Remove manifest signing and signature verification from capture, restore, unicast and multicast workflows. Manifests travel over the authenticated control/SSH transport; artifact integrity is verified with SHA-256. Age decryption is required only for artifacts marked age-encrypted.
-- [x] Replace signed unattended-profile authorization with a root-owned mode-0600 profile in a root-owned, non-group/other-writable directory, plus expiry, single-use replay protection and target identity checks.
+- [x] Replace signed standalone restore-profile authorization with a root-owned mode-0600 profile in a root-owned, non-group/other-writable directory, plus expiry, single-use consumption and target identity checks. This local profile mechanism is separate from PXE answer admission.
 - [x] Remove image-manifest signing and key management entirely; retain age recipient/identity rotation separately from TLS PKI.
 - [ ] Expose preflight, per-client status, expiry, progress and rollback in Cockpit.
 - [ ] Test mixed-version clients, interrupted rotation, expiry, wrong SAN/fingerprint and lost Server state.
