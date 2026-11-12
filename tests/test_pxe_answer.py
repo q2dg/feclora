@@ -33,13 +33,23 @@ class PXEAnswerTests(unittest.TestCase):
             "webdav://images.example.net/feclora",
             "webdavs://images.example.net/feclora",
             "https://images.example.net/feclora",
+            "s3://bucket.example.net/feclora",
+        ):
+            with self.subTest(url=url):
+                answer = self.valid_answer()
+                answer["repository_url"] = url
+                validate_pxe_answer(answer)
+
+    def test_rejects_removed_peer_to_peer_schemes(self):
+        for url in (
             "bittorrent://tracker.example.net/feclora",
             "magnet:?xt=urn:btih:0123456789012345678901234567890123456789",
         ):
             with self.subTest(url=url):
                 answer = self.valid_answer()
                 answer["repository_url"] = url
-                validate_pxe_answer(answer)
+                with self.assertRaises(PXEAnswerError):
+                    validate_pxe_answer(answer)
 
     def test_rejects_embedded_repository_credentials(self):
         answer = self.valid_answer()
