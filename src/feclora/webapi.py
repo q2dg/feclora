@@ -2400,7 +2400,10 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             if any(item["id"] == identifier for item in _remote_repository_manager().list()):
                 raise WebAPIError("repository ID is already used by a filesystem repository")
             manager = S3RepositoryManager()
-            return manager.add(identifier, definition) if action == "add_s3_repository" else manager.update(identifier, definition)
+            if action == "add_s3_repository":
+                return manager.add(identifier, definition)
+            with _storage_operation_lock():
+                return manager.update(identifier, definition)
         if action == "check_s3_repository":
             if set(params) != {"id"}:
                 raise WebAPIError("check_s3_repository requires exactly id")
@@ -2410,7 +2413,9 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
             if set(params) != {"id"}:
                 raise WebAPIError("remove_s3_repository requires exactly id")
             from feclora.storage.s3_repository_manager import S3RepositoryManager
-            return S3RepositoryManager().remove(_text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48))
+            identifier = _text(params, "id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
+            with _storage_operation_lock():
+                return S3RepositoryManager().remove(identifier)
         if action == "s3_repository_images":
             if set(params) != {"repository_id"}:
                 raise WebAPIError("s3_repository_images requires repository_id")
