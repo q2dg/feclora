@@ -164,41 +164,29 @@ def _compression() -> tuple[str, int | None] | None:
     return (tool, int(selected)) if selected is not None else None
 
 
-def _image_security_options() -> tuple[str | None, str | None] | None:
+def _image_security_options() -> str | None | bool:
+    """Choose optional age encryption; SHA-256 integrity checks are unconditional."""
+    choices = [("none", "No encryption")]
+    if shutil.which("age"):
+        choices.append(("age", "Encrypt with age"))
     mode = _menu(
-        "Image security",
-        "Choose optional protection for this image. Restore will apply any protection recorded in its manifest.",
-        [
-            ("both", "Encrypt with age and sign with minisign"),
-            ("age", "Encrypt with age only"),
-            ("minisign", "Sign manifest with minisign only"),
-            ("none", "Neither encryption nor signature"),
-        ],
+        "Image encryption",
+        "Choose optional confidentiality protection. SHA-256 integrity verification is always applied.",
+        choices,
     )
     if mode is None:
+        return False
+    if mode == "none":
         return None
-    recipients = None
-    secret_key = None
-    if mode in {"age", "both"}:
-        default_recipients = (
-            "/etc/feclora/pki/age-recipients.txt"
-            if os.path.isfile("/etc/feclora/pki/age-recipients.txt") else ""
-        )
-        recipients = _input(
-            "age recipients", "Path to recipients file (public age keys, one per line):",
-            initial=default_recipients,
-        )
-        if not recipients:
-            return None
-    if mode in {"minisign", "both"}:
-        default_secret = (
-            "/etc/feclora/pki/server.minisign.key"
-            if os.path.isfile("/etc/feclora/pki/server.minisign.key") else ""
-        )
-        secret_key = _input("minisign signing key", "Path to minisign secret key:", initial=default_secret)
-        if not secret_key:
-            return None
-    return recipients, secret_key
+    default_recipients = (
+        "/etc/feclora/pki/age-recipients.txt"
+        if os.path.isfile("/etc/feclora/pki/age-recipients.txt") else ""
+    )
+    recipients = _input(
+        "age recipients", "Path to recipients file (public age keys, one per line):",
+        initial=default_recipients,
+    )
+    return recipients or False
 
 def _repository() -> str:
     os.makedirs(IMAGE_REPOSITORY, mode=0o700, exist_ok=True)
@@ -270,14 +258,14 @@ def _capture_disk(inventory: dict[str, Any]) -> None:
     security = _image_security_options()
     if security is None:
         return
-    recipients, signing_key = security
+    recipients = security
     try:
         manifest = _run_logged("capture_disk", source["path"], image_id, lambda: _run_capture_gauge(
             "Capturing whole disk", f"Reading {source['path']} into image repository.",
             lambda progress: capture_disk(
                 source["path"], image_id, _repository(), compression=compression,
                 compression_level=compression_level, age_recipients_file=recipients,
-                minisign_secret_key=signing_key, progress_callback=progress,
+                progress_callback=progress,
             ),
         ))
         _message("Capture completed", f"Image {manifest.image_id} captured.\nManifest: {manifest.image_id}.manifest.json")
@@ -308,7 +296,7 @@ def _capture_partition(inventory: dict[str, Any]) -> None:
             lambda progress: capture_partition_image(
                 source["path"], image_id, partition_id, _repository(),
                 compression=compression, compression_level=compression_level,
-                age_recipients_file=recipients, minisign_secret_key=signing_key,
+                age_recipients_file=recipients,
                 progress_callback=progress, inventory=inventory,
             ),
         ))
@@ -560,26 +548,12 @@ def _run_restore_gauge(
             gauge.wait()
 
 
-def _restore_security_options(manifest: ImageManifest, manifest_filename: str) -> tuple[str | None, str | None, bool] | None:
+def _restore_security_options(manifest: ImageManifest, manifest_filename: str) -> str | None | bool:
     age_required = any(item.encryption == "age" for item in manifest.artifacts)
-    identity = None
-    if age_required:
-        identity = _input("age identity", "Path to the private age identity file:")
-        if not identity:
-            return None
-    signature = os.path.join(_repository(), manifest_filename + ".minisig")
-    public_key = None
-    require_signature = False
-    if os.path.lexists(signature):
-        public_key = _input(
-            "Trusted minisign public key",
-            "This image is signed. Enter the path to an independently trusted public key. "
-            "Restore is blocked unless the signature verifies:",
-        )
-        if not public_key:
-            return None
-        require_signature = True
-    return identity, public_key, require_signature
+    if not age_required:
+        return None
+    identity = _input("age identity", "Path to the private age identity file:")
+    return identity or False
 
 def _save_unattended_profile(filename: str, manifest: ImageManifest, target: dict[str, Any]) -> None:
     wwn = str(target.get("wwn") or "").strip() or None
@@ -698,7 +672,7 @@ def _restore(inventory: dict[str, Any]) -> None:
     security = _restore_security_options(manifest, filename)
     if security is None:
         return
-    age_identity, minisign_public_key, require_signature = security
+    age_identity = security
     phrase = f"ERASE {target['path']}"
     typed = _input(
         "Destructive confirmation",
@@ -716,7 +690,7 @@ def _restore(inventory: dict[str, Any]) -> None:
                 lambda progress: restore_disk(
                     filename, _repository(), target["path"], confirmation=typed,
                     progress_callback=progress, age_identity_file=age_identity,
-                    minisign_public_key=minisign_public_key, require_signature=require_signature,
+
                 ),
             ))
         elif action == "single-partition":
@@ -724,7 +698,7 @@ def _restore(inventory: dict[str, Any]) -> None:
                 return extract_partition_image(
                     filename, _repository(), partition_selector,
                     age_identity_file=age_identity,
-                    minisign_public_key=minisign_public_key,
+
                     require_signature=require_signature,
                     progress_callback=progress,
                 )
@@ -754,7 +728,7 @@ def _restore(inventory: dict[str, Any]) -> None:
                 lambda progress: restore_partition(
                     filename, _repository(), target["path"], confirmation=typed,
                     progress_callback=progress, age_identity_file=age_identity,
-                    minisign_public_key=minisign_public_key, require_signature=require_signature,
+
                 ),
             ))
         _message(
