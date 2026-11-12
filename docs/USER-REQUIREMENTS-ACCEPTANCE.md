@@ -47,7 +47,7 @@ Current-source note: local Cockpit capture supports eligible active LVM logical 
 
 **Outcome:** Capture a whole disk, partition or supported storage-layer source (including active LVM logical volumes, raw LUKS2 containers and supported Btrfs filesystems) and publish the image, manifest and integrity metadata to a selected remote repository.
 
-Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer provider, distinct from SSHFS), NFS, SMB/CIFS and WebDAV. BitTorrent is a first-class peer-to-peer distribution transport for immutable artifacts, at the same priority as the other remote transports; it is not a mounted repository type or a writable repository contract. The distribution model is single-publisher / multi-reader across every transport: one Client publishes each image, while multiple Clients may concurrently read and restore it. Concurrent publishers for the same image are out of scope. Every endpoint/server/export/share/tracker/peer is external infrastructure administered independently of Feclora. Feclora only connects to it as a client; it must not deploy, configure or administer that infrastructure.
+Required file-repository integrations: SSHFS (mounted filesystem), SFTP (file-transfer provider, distinct from SSHFS), NFS, SMB/CIFS, WebDAV and S3 (object API, not a mount). S3 requires scoped credentials, TLS validation, multipart lifecycle, conditional no-overwrite publication and a manifest-last commit marker. NVMe-oF is a separate block-device transport, not a file repository: Feclora acts only as an NVMe host/client and must validate NQN/NSID identity, multipath, geometry and in-use state before exposing a namespace to storage workflows. The distribution model is single-publisher / multi-reader for committed image sets. Concurrent publishers for the same image are out of scope. Every endpoint, bucket, export, share, subsystem and namespace is external infrastructure administered independently of Feclora. Feclora must not deploy or administer that infrastructure.
 
 - [ ] Cockpit can create, edit, test, connect/mount, inspect, disconnect/unmount and remove each provider advertised as supported.
 - [ ] Credentials/private keys use root-owned protected storage; secrets never enter browser storage, ordinary configuration, logs, journals or URLs.
@@ -58,7 +58,8 @@ Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer pr
 - [ ] Publish manifest, byte count, SHA-256, optional signature and encryption metadata for subsequent verification.
 - [ ] Provider tests cover success, bad credentials, permission denial, insufficient space/quota, disconnect, stale mount, interrupted publication and recovery.
 - [ ] WebDAV uses HTTPS with certificate validation and safe per-repository credentials; never use davfs2's global secrets file as a shortcut for isolated repository secrets.
-- [ ] BitTorrent distribution verifies a trusted manifest and every artifact digest before any restore; peer availability or torrent metadata is never an authenticity signal. Support cancellation, incomplete-download cleanup, bandwidth/peer policy, explicit seeding controls and concurrent multi-Client restores.
+- [ ] S3 object storage supports authenticated inventory, bounded multipart transfer, abort/cleanup of incomplete uploads, immutable object keys, conditional manifest-last publication, independent manifest authenticity and SHA-256/size verification, cancellation and concurrent readers.
+- [ ] NVMe-oF host lifecycle supports discovery/connect/inspect/disconnect of operator-provisioned namespaces, binds NQN/NSID to kernel device identity, handles multipath and refuses disconnect while in use. Fabric security is documented separately from Feclora TLS.
 - [ ] Publish a capture guide per provider, distinguishing SSHFS from SFTP and documenting server-side setup.
 
 ## 4. Restore a remote image to one local disk
@@ -80,7 +81,7 @@ Required client integrations: SSHFS (mounted filesystem), SFTP (file-transfer pr
 **Outcome:** Select one verified image and restore it to multiple remote Clients in one managed deployment. Each Client can boot Feclora manually or by PXE/iPXE, as configured on the Server.
 
 - [ ] Cockpit supports explicit Client selection and named/stable-identity groups; freeze and display the recipient set before authorization.
-- [ ] Select one image from any repository or enabled distribution transport whose read/restore path is supported, including BitTorrent staging only after independent authenticity and digest verification.
+- [ ] Select one image from any repository or enabled distribution transport whose read/restore path is supported, including S3 object retrieval only after independent manifest authenticity and artifact digest verification.
 - [ ] Each Client independently reports identity, boot mode, network, target, capacity, sector size, safety checks and READY state.
 - [ ] Do not start until every required Client is accounted for and independently authorizes its exact destination; missing, duplicate or unexpected Clients block or require explicit resolution.
 - [ ] Unicast and multicast modes show eligibility, network requirements and per-Client status. Multicast acceptance includes switch IGMP snooping/querier behavior.
