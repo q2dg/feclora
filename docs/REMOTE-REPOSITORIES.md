@@ -79,7 +79,7 @@ mount recovery remain unimplemented.
 
 The provider definitions in src/feclora/storage/repository.py validate
 provider inputs, reject unsafe path characters and parent traversal, and
-build argument vectors without invoking a shell. The root-only lifecycle in
+build argument vectors without invoking a shell. Every managed SSHFS, NFS and SMB mount is requested with `nosuid,nodev,noexec`: repository data cannot provide setuid executables, device nodes or executable content to the Feclora host. These restrictive mount flags are independent of the read-only/read-write policy selected for the repository. The root-only lifecycle in
 src/feclora/storage/repository_manager.py persists the currently implemented
 mounted-provider definitions in a mode-0600 registry, creates private mountpoints, checks
 root-owned credential references, invokes helpers without a shell, verifies
