@@ -120,10 +120,10 @@ class DeploymentJob:
         target_type = payload.get("target_type", "disk")
         if not isinstance(target_type, str) or target_type not in {"disk", "partition", "logical_volume"}:
             raise JobValidationError("target_type must be disk, partition or logical_volume")
-        if target_type == "logical_volume" and operation != "restore":
-            raise JobValidationError("logical_volume target_type is valid only for restore jobs")
-        if operation == "save" and target_type != "disk":
-            raise JobValidationError("network save currently supports whole disks only")
+        if target_type == "logical_volume" and operation not in {"save", "restore"}:
+            raise JobValidationError("logical_volume target_type is valid only for save or restore jobs")
+        if operation == "save" and target_type not in {"disk", "logical_volume"}:
+            raise JobValidationError("network save currently supports whole disks or logical volumes only")
         if operation == "clone" and target_type not in {"disk", "partition"}:
             raise JobValidationError("remote clone supports whole disks or partitions only")
         if operation == "clone" and (
