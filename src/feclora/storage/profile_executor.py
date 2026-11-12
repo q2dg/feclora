@@ -361,8 +361,6 @@ def preflight_logical_volume_restore(
 def execute_unattended_restore_profile(
     profile_path: str | os.PathLike[str],
     *,
-    profile_trusted_key: str | os.PathLike[str],
-    image_trusted_key: str | os.PathLike[str],
     consumption_ledger: str | os.PathLike[str],
     repository: str | os.PathLike[str] = "/home/feclora/images",
     age_identity_file: str | os.PathLike[str] | None = None,
@@ -371,10 +369,8 @@ def execute_unattended_restore_profile(
     restore_function: Any = restore_disk,
     command_runner: Any = subprocess.run,
 ) -> ImageManifest:
-    """Run one signed profile; all destructive preflight remains in restore_disk."""
-    profile = load_restore_profile(
-        profile_path, minisign_public_key=profile_trusted_key,
-    )
+    """Run one root-authorized profile; destructive preflight remains in restore_disk."""
+    profile = load_restore_profile(profile_path)
     if profile.execution_mode != "unattended":
         raise RestoreProfileError("profile execution mode is not unattended")
     if profile.layout_policy != "preserve":
@@ -421,8 +417,6 @@ def execute_unattended_restore_profile(
             target_path,
             confirmation=f"ERASE {target_path}",
             age_identity_file=age_identity_file,
-            minisign_public_key=image_trusted_key,
-            require_signature=True,
             pre_write_callback=consume_before_write,
         )
     if profile.on_success in {"reboot", "poweroff"}:
@@ -432,11 +426,9 @@ def execute_unattended_restore_profile(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Execute one signed, single-use feclora whole-disk restore profile."
+        description="Execute one root-authorized, single-use Feclora whole-disk restore profile."
     )
     parser.add_argument("--profile", required=True, help="Path to the signed restore profile JSON")
-    parser.add_argument("--profile-trusted-key", required=True, help="Trusted minisign public key for the profile")
-    parser.add_argument("--image-trusted-key", required=True, help="Trusted minisign public key for the image manifest")
     parser.add_argument("--repository", default="/home/feclora/images")
     parser.add_argument("--consumption-ledger", required=True, help="JSONL replay ledger on a dedicated persistent mounted filesystem")
     parser.add_argument("--operation-log", required=True, help="Persistent JSONL operation journal path")
@@ -445,8 +437,6 @@ def main(argv: list[str] | None = None) -> int:
     try:
         manifest = execute_unattended_restore_profile(
             args.profile,
-            profile_trusted_key=args.profile_trusted_key,
-            image_trusted_key=args.image_trusted_key,
             consumption_ledger=args.consumption_ledger,
             operation_log_path=args.operation_log,
             repository=args.repository,
@@ -455,7 +445,7 @@ def main(argv: list[str] | None = None) -> int:
     except (RestoreProfileError, OSError, RuntimeError, subprocess.SubprocessError) as exc:
         print(f"feclora-restore-profile: {exc}", file=sys.stderr)
         return 1
-    print(f"Verified restore completed: {manifest.image_id}")
+    print(f"Restore completed: {manifest.image_id}")
     return 0
 
 
