@@ -218,7 +218,6 @@ class DeploymentServiceCommandTests(unittest.TestCase):
         service._worker_lock = threading.RLock()
         service._arm_requested = True
         service.coordinator = FakeCoordinator(state=JobState.RUNNING)
-        service._run_job
         class Control:
             def run_one_client_job(self, repository, *, manifest_path=None, saved_image_callback=None):
                 self.repository = repository
