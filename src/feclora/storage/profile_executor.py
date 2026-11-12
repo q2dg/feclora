@@ -1,4 +1,4 @@
-"""Execute signed, single-use unattended whole-disk restore profiles."""
+"""Execute root-authorized, single-use unattended whole-disk restore profiles."""
 from __future__ import annotations
 
 import argparse
@@ -428,7 +428,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Execute one root-authorized, single-use Feclora whole-disk restore profile."
     )
-    parser.add_argument("--profile", required=True, help="Path to the signed restore profile JSON")
+    parser.add_argument("--profile", required=True, help="Path to the root-authorized restore profile JSON")
     parser.add_argument("--repository", default="/home/feclora/images")
     parser.add_argument("--consumption-ledger", required=True, help="JSONL replay ledger on a dedicated persistent mounted filesystem")
     parser.add_argument("--operation-log", required=True, help="Persistent JSONL operation journal path")
