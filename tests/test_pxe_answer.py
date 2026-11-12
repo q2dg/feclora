@@ -25,7 +25,7 @@ class PXEAnswerTests(unittest.TestCase):
         self.assertEqual(result["image_id"], "fedora-workstation")
         self.assertEqual(result["target"]["wwn"], "0x5000abcd1234")
 
-    def test_accepts_supported_repository_schemes(self):
+    def test_accepts_declared_repository_url_schemes(self):
         for url in (
             "sshfs://images.example.net/feclora",
             "smb://images.example.net/images",
