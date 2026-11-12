@@ -79,7 +79,6 @@ class MulticastRuntimeTests(unittest.TestCase):
             "job_id": job.job_id,
             "image_id": job.image_id,
             "manifest_b64": base64.b64encode(b"{}").decode("ascii"),
-            "signature_b64": base64.b64encode(b"signature").decode("ascii"),
         }
         tls = Mock()
         with tempfile.TemporaryDirectory() as repository:
@@ -107,7 +106,6 @@ class MulticastRuntimeTests(unittest.TestCase):
                     job, tls, approval,
                     server_identity="URI:feclora-server",
                     repository=repository,
-                    trusted_server_public_key="/pki/server.pub",
                     firewall=Mock(),
                     network_interface="enp1s0", age_identity_file="/pki/client.age",
                 )
@@ -132,7 +130,6 @@ class MulticastRuntimeTests(unittest.TestCase):
         offer = {
             "type": "transfer_offer", "job_id": job.job_id, "image_id": job.image_id,
             "manifest_b64": base64.b64encode(b"{}").decode("ascii"),
-            "signature_b64": base64.b64encode(b"signature").decode("ascii"),
         }
         tls = Mock()
         with tempfile.TemporaryDirectory() as repository:
@@ -150,7 +147,6 @@ class MulticastRuntimeTests(unittest.TestCase):
             with (
                 patch("feclora.deployment.multicast_runtime.os.stat", side_effect=fake_lstat),
                 patch("feclora.deployment.multicast_runtime.receive_control_message", return_value=offer),
-                patch("feclora.deployment.multicast_runtime.verify_manifest_signature"),
                 patch("feclora.deployment.multicast_runtime.ImageManifest.from_json", return_value=manifest),
                 patch("feclora.deployment.multicast_runtime.receive_multicast_artifact_to_staging", side_effect=fake_receive),
                 patch("feclora.deployment.multicast_runtime.verify_staged_multicast_artifact"),
@@ -182,7 +178,6 @@ class MulticastRuntimeTests(unittest.TestCase):
         offer = {
             "type": "transfer_offer", "job_id": job.job_id, "image_id": job.image_id,
             "manifest_b64": base64.b64encode(b"{}").decode("ascii"),
-            "signature_b64": base64.b64encode(b"signature").decode("ascii"),
         }
         tls = Mock()
         with tempfile.TemporaryDirectory() as repository:
@@ -200,7 +195,6 @@ class MulticastRuntimeTests(unittest.TestCase):
             with (
                 patch("feclora.deployment.multicast_runtime.os.stat", side_effect=fake_lstat),
                 patch("feclora.deployment.multicast_runtime.receive_control_message", return_value=offer),
-                patch("feclora.deployment.multicast_runtime.verify_manifest_signature"),
                 patch("feclora.deployment.multicast_runtime.ImageManifest.from_json", return_value=manifest),
                 patch("feclora.deployment.multicast_runtime.receive_multicast_artifact_to_staging", side_effect=fake_receive),
                 patch("feclora.deployment.multicast_runtime.verify_staged_multicast_artifact"),
@@ -237,7 +231,6 @@ class MulticastRuntimeTests(unittest.TestCase):
                         job, Mock(), approval,
                         server_identity="URI:feclora-server",
                         repository=repository,
-                        trusted_server_public_key="/pki/server.pub",
                         firewall=Mock(),
                         network_interface="enp1s0",
                     )
