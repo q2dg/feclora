@@ -91,7 +91,7 @@ class ImageSecurityTests(unittest.TestCase):
                 "args = sys.argv[1:]\n"
                 "output = args[args.index('--output') + 1]\n"
                 "source = args[-1]\n"
-                "if sys.stdin.buffer.readline() != b'secret\n': sys.exit(3)\n"
+                "if sys.stdin.buffer.readline() != b'secret' + bytes([10]): sys.exit(3)\n"
                 "with open(source, 'rb') as src, open(output, 'wb') as dst: shutil.copyfileobj(src, dst)\n"
             )
         os.chmod(fake_age, 0o700)
@@ -112,7 +112,7 @@ class ImageSecurityTests(unittest.TestCase):
             script.write(
                 "#!/usr/bin/python3\n"
                 "import sys\n"
-                "if sys.stdin.buffer.readline() != b'secret\n': sys.exit(3)\n"
+                "if sys.stdin.buffer.readline() != b'secret' + bytes([10]): sys.exit(3)\n"
             )
         os.chmod(fake_age, 0o700)
         with open(encrypted, "rb") as source:
