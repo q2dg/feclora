@@ -10,10 +10,9 @@ import hashlib
 import os
 import re
 import secrets
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Callable
+from typing import Any, Callable
 
 from .image_manifest import ImageManifest
 
@@ -119,21 +118,28 @@ class S3ObjectRepository:
         if self.progress is not None:
             self.progress(done, total)
 
-    def _exists(self, key: str) -> bool:
+    def _head(self, key: str) -> dict[str, Any] | None:
         try:
-            self.client.head_object(Bucket=self.config.bucket, Key=key)
-            return True
+            return self.client.head_object(Bucket=self.config.bucket, Key=key)
         except Exception as exc:
             response = getattr(exc, "response", {})
             code = str(response.get("Error", {}).get("Code", ""))
             status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
             if code in {"404", "NoSuchKey", "NotFound"} or status == 404:
-                return False
+                return None
             raise S3RepositoryError(f"cannot inspect S3 object {key}: {exc}") from exc
 
+    def _exists(self, key: str) -> bool:
+        return self._head(key) is not None
+
     def _put_file(self, path: Path, key: str, expected_sha256: str, expected_size: int) -> None:
-        if self._exists(key):
-            raise S3RepositoryError(f"refusing to overwrite existing S3 object: {key}")
+        existing = self._head(key)
+        if existing is not None:
+            metadata = existing.get("Metadata", {})
+            if (existing.get("ContentLength") == expected_size
+                    and metadata.get("sha256") == expected_sha256):
+                return
+            raise S3RepositoryError(f"refusing to overwrite a different existing S3 object: {key}")
         if path.stat().st_size != expected_size:
             raise S3RepositoryError(f"local artifact size changed before upload: {path.name}")
         if expected_size < self.multipart_threshold:
@@ -254,12 +260,24 @@ class S3ObjectRepository:
                     filename = key.rsplit("/", 1)[-1]
                     if not filename.endswith(".manifest.json"):
                         continue
-                    body = self.client.get_object(Bucket=self.config.bucket, Key=key)["Body"]
                     try:
-                        manifest = ImageManifest.from_json(body.read().decode("utf-8"))
-                    finally:
-                        body.close()
-                    if filename != f"{manifest.image_id}.manifest.json":
+                        body = self.client.get_object(Bucket=self.config.bucket, Key=key)["Body"]
+                        try:
+                            manifest = ImageManifest.from_json(body.read().decode("utf-8"))
+                        finally:
+                            body.close()
+                        if filename != f"{manifest.image_id}.manifest.json":
+                            continue
+                        complete = True
+                        for artifact in manifest.artifacts:
+                            head = self._head(self._key(artifact.filename))
+                            if (head is None or head.get("ContentLength") != artifact.size_bytes
+                                    or head.get("Metadata", {}).get("sha256") != artifact.sha256):
+                                complete = False
+                                break
+                        if not complete:
+                            continue
+                    except Exception:
                         continue
                     result.append({
                         "image_id": manifest.image_id,
