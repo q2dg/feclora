@@ -377,62 +377,6 @@ def decrypt_artifact_to_temp(
                     pass
 
 
-def sign_manifest(
-    manifest_path: str | os.PathLike[str],
-    secret_key: str | os.PathLike[str],
-    *,
-    minisign_executable: str | None = None,
-) -> str:
-    """Create a detached minisign signature; never overwrite an existing one."""
-    manifest = _regular_file(manifest_path, "manifest")
-    key = _regular_file(secret_key, "minisign secret key")
-    minisign = minisign_executable or shutil.which("minisign")
-    if not minisign:
-        raise ImageSecurityError("minisign executable is required for manifest signing")
-    signature = manifest + ".minisig"
-    if os.path.lexists(signature):
-        raise ImageSecurityError("manifest signature already exists")
-    try:
-        result = subprocess.run(
-            [minisign, "-S", "-s", key, "-x", signature, "-m", manifest],
-            check=False, capture_output=True, text=True,
-        )
-        if result.returncode != 0:
-            detail = (result.stderr or "").strip()[:1000]
-            raise ImageSecurityError("minisign signing failed" + (f": {detail}" if detail else ""))
-        _regular_file(signature, "minisign signature")
-        return signature
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise ImageSecurityError(f"could not sign manifest: {exc}") from exc
-
-
-def verify_manifest_signature(
-    manifest_path: str | os.PathLike[str],
-    public_key: str | os.PathLike[str],
-    *,
-    signature_path: str | os.PathLike[str] | None = None,
-    minisign_executable: str | None = None,
-) -> None:
-    """Verify a detached signature against an independently trusted public key."""
-    manifest = _regular_file(manifest_path, "manifest")
-    key = _regular_file(public_key, "minisign public key")
-    signature = _regular_file(signature_path or (manifest + ".minisig"), "manifest signature")
-    minisign = minisign_executable or shutil.which("minisign")
-    if not minisign:
-        raise ImageSecurityError("minisign executable is required for signature verification")
-    try:
-        result = subprocess.run(
-            [minisign, "-V", "-m", manifest, "-p", key, "-x", signature],
-            check=False, capture_output=True, text=True,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise ImageSecurityError(f"could not verify manifest signature: {exc}") from exc
-    if result.returncode != 0:
-        detail = (result.stderr or result.stdout or "").strip()[:1000]
-        raise ImageSecurityError("manifest signature is invalid" + (f": {detail}" if detail else ""))
-
-
-
 def decrypt_artifact_stream_with_passphrase_to_temp(
     encrypted_stream,
     passphrase: str,
