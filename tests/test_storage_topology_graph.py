@@ -111,6 +111,58 @@ class StorageTopologyGraphTests(unittest.TestCase):
         self.assertEqual(filesystem["allocation_profiles"][1]["profile"], "dup")
         self.assertFalse(filesystem["has_unknown_allocation_profile"])
 
+    def test_unmounted_btrfs_subvolumes_and_chunk_stripes_join_the_graph(self):
+        graph = build_storage_graph({
+            "devices": [
+                {"path": "/dev/sda1", "type": "part", "children": []},
+                {"path": "/dev/sdb1", "type": "part", "children": []},
+            ],
+            "btrfs_topology": {"status": "available", "filesystems": [{
+                "uuid": "fs-uuid", "total_devices": 2,
+                "devices": [
+                    {"devid": 1, "path": "/dev/sda1"},
+                    {"devid": 2, "path": "/dev/sdb1"},
+                ],
+                "allocation_profile_status": "available",
+                "allocation_profiles": [{
+                    "type": "data", "profile": "raid1", "known_profile": True,
+                    "total_bytes": 1048576, "used_bytes": None, "device_ids": [1, 2],
+                }],
+                "chunks": [{
+                    "logical_start": 1048576, "length_bytes": 1048576,
+                    "type": "data", "profile": "raid1", "known_profile": True,
+                    "num_stripes": 2, "device_ids": [1, 2],
+                    "stripes": [
+                        {"index": 0, "devid": 1, "offset_bytes": 0},
+                        {"index": 1, "devid": 2, "offset_bytes": 0},
+                    ],
+                    "device_mapping_complete": True,
+                }],
+                "subvolume_inventory_status": "available",
+                "subvolumes": [
+                    {"id": 256, "uuid": "subvol-1", "kind": "subvolume",
+                     "path": "@", "parent_id": 5, "name": "@", "readonly": False},
+                    {"id": 257, "uuid": "subvol-2", "kind": "snapshot",
+                     "path": "@/snap", "parent_uuid": "subvol-1",
+                     "parent_subvolume_id": 256, "parent_id": 256, "name": "snap",
+                     "readonly": True, "bytes_used": 4096},
+                ],
+            }]},
+            "btrfs_subvolumes": {"mounts": []},
+        })
+        relations = {(edge["source"], edge["target"], edge["relation"]) for edge in graph["edges"]}
+        self.assertIn(("btrfs:fs-uuid", "btrfs-subvolume:subvol-1", "contains_subvolume"), relations)
+        self.assertIn(("btrfs-subvolume:subvol-2", "btrfs-subvolume:subvol-1", "snapshot_of"), relations)
+        self.assertIn(("btrfs-subvolume:subvol-2", "btrfs-subvolume:subvol-1", "nested_under"), relations)
+        self.assertIn(("btrfs:fs-uuid", "btrfs-chunk:fs-uuid:1048576", "contains_chunk"), relations)
+        self.assertIn(("btrfs-chunk:fs-uuid:1048576", "device:/dev/sda1", "stripes_on"), relations)
+        self.assertIn(("btrfs-chunk:fs-uuid:1048576", "device:/dev/sdb1", "stripes_on"), relations)
+        filesystem = next(node for node in graph["nodes"] if node["id"] == "btrfs:fs-uuid")
+        self.assertEqual(filesystem["unmounted_allocation_profiles"][0]["profile"], "raid1")
+        snapshot = next(node for node in graph["nodes"] if node["id"] == "btrfs-subvolume:subvol-2")
+        self.assertTrue(snapshot["readonly"])
+        self.assertEqual(snapshot["bytes_used"], 4096)
+
     def test_joins_stratis_pool_filesystem_mapper_and_backing_device(self):
         graph = build_storage_graph({
             "devices": [{"path": "/dev/dm-3", "type": "lvm", "children": []},
