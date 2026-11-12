@@ -230,7 +230,7 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
             "subvolume_kind": subvolume.get("kind"),
             "parent_uuid": subvolume.get("parent_uuid"),
             "received_uuid": subvolume.get("received_uuid"),
-            "parent_subvolume_id": subvolume.get("parent_subvolume_id"),
+            "snapshot_parent_subvolume_id": subvolume.get("parent_subvolume_id"),
             "parent_id": subvolume.get("parent_id"),
             "parent_dirid": subvolume.get("parent_dirid"),
             "name": subvolume.get("name"),
@@ -256,9 +256,9 @@ def build_storage_graph(inventory: dict[str, Any]) -> dict[str, Any]:
         parent_uuid = subvolume.get("parent_uuid")
         if isinstance(parent_uuid, str) and parent_uuid:
             subvolume_parents.append((node_id, parent_uuid))
-        parent_subvolume_id = subvolume.get("parent_subvolume_id")
-        if isinstance(parent_subvolume_id, int):
-            subvolume_parent_ids.append((node_id, filesystem_uuid, parent_subvolume_id))
+        parent_id = subvolume.get("parent_id")
+        if isinstance(parent_id, int):
+            subvolume_parent_ids.append((node_id, filesystem_uuid, parent_id))
         return node_id
 
     for filesystem in btrfs.get("filesystems", []):
