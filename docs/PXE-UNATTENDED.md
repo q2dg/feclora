@@ -89,8 +89,13 @@ started for unattended PXE kernel parameters. The first connected restore
 provider is NFS: Live mounts it read-only, resolves exactly one whole disk by
 WWN/serial, validates the image manifest and artifact digest, and calls the
 existing whole-disk restore engine. Artifacts may be unencrypted or age-encrypted
-with a symmetric passphrase. When an artifact is encrypted, the restore worker
-waits for the operator to enter the passphrase in Cockpit on that Live client.
+with a symmetric passphrase. This PXE passphrase path applies only to age
+passphrase-encrypted artifacts; recipient-encrypted age artifacts require an
+identity and are not unlocked by this flow. The current capture UI still creates
+recipient-based age artifacts, so creating symmetric-passphrase image sets
+through Cockpit remains a follow-up. When a supported artifact is encrypted,
+the restore worker waits for the operator to enter the passphrase in Cockpit on
+that Live client.
 Cockpit submits it once through the privileged local API; it is held briefly in
 a root-only 0600 file under /run, consumed and unlinked, and is not placed in
 the answer JSON, kernel command line, URL, environment or logs. The Live client
@@ -135,7 +140,8 @@ are not yet complete provider/transport workflows.
       to prevent replay during the current Live session.
 - [ ] Add cross-reboot expiry/replay protection and tie revocation to deployment-job cancellation/expiry.
 - [x] Connect NFS URL to a read-only Live mount for whole-disk restore.
-- [x] Support optional age symmetric decryption with one-shot Cockpit passphrase handoff on the Live client.
+- [x] Support age symmetric decryption with one-shot Cockpit passphrase handoff on the Live client.
+- [ ] Add Cockpit image-capture support for symmetric age passphrases; current capture remains recipient-based.
 - [ ] Connect remaining repository URL schemes to provider and credential facilities.
 - [x] Implement exact whole-disk target resolution, pre-write revalidation and
       execution through the existing verified whole-disk restore engine for NFS.
