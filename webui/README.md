@@ -5,8 +5,7 @@ Feclora's React/PatternFly application is its primary operator interface.
 Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 Other tabs provide durable local operation history, SSHFS/NFS/SMB repository
-management and image-engine integration, signed-image SFTP inventory/import/
-publication, Server CA and TLS trust configuration, optional age recipient
+management and image-engine integration, Server CA and TLS trust configuration, optional age recipient
 management, Server deployment-job authoring/lifecycle, Client job inspection
 and execution, DHCP/static IPv4 profile configuration, PXE preflight and
 service activation, and system status. Server/Client storage jobs use
