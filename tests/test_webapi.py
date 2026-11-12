@@ -381,7 +381,7 @@ class WebAPITests(unittest.TestCase):
              
         }), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
             "feclora.webapi._capture_material",
-            return_value=(Path("/etc/feclora/pki/age-recipients.txt"), None),
+            return_value=Path("/etc/feclora/pki/age-recipients.txt"),
         ), patch("feclora.webapi._repository", return_value=Path("/repo")), patch(
             "feclora.storage.disk_image_partition.extract_partition_image",
             return_value=(extracted, "source-part-abc123.manifest.json"),
@@ -1642,7 +1642,7 @@ class WebAPITests(unittest.TestCase):
                  patch("feclora.webapi._emit"):
                 result = _execute_operation("restore_disk", params, "restore-plain")
             restore.assert_called_once()
-            self.assertIsNone(restore.call_args.kwargs["minisign_public_key"])
+            self.assertNotIn("minisign_public_key", restore.call_args.kwargs)
             self.assertFalse(restore.call_args.kwargs["require_signature"])
             self.assertTrue(result["verified"])
 
@@ -1667,7 +1667,7 @@ class WebAPITests(unittest.TestCase):
             run.assert_not_called()
             self.assertTrue(result["created"])
             self.assertFalse(result["age_encryption_available"])
-            self.assertFalse(result["image_signing_available"])
+            self.assertNotIn("image_signing_available", result)
             self.assertIn("Ordinary imaging remains available", result["message"])
 
 
