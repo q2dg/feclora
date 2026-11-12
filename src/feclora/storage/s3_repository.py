@@ -62,7 +62,9 @@ class S3RepositoryConfig:
             raise S3RepositoryError("S3 prefix contains an unsafe path component")
         if not isinstance(self.access_key_id, str) or not _ACCESS_KEY.fullmatch(self.access_key_id):
             raise S3RepositoryError("S3 access key ID is invalid")
-        if not isinstance(self.secret_access_key, str) or not 8 <= len(self.secret_access_key) <= 256:
+        if (not isinstance(self.secret_access_key, str)
+                or not 8 <= len(self.secret_access_key) <= 256
+                or any(ord(char) < 33 or ord(char) > 126 for char in self.secret_access_key)):
             raise S3RepositoryError("S3 secret access key is invalid")
         if not isinstance(self.read_only, bool):
             raise S3RepositoryError("S3 read_only must be boolean")
@@ -277,18 +279,21 @@ class S3ObjectRepository:
                             manifest = ImageManifest.from_json(body.read().decode("utf-8"))
                         finally:
                             body.close()
-                        if filename != f"{manifest.image_id}.manifest.json":
-                            continue
-                        complete = True
-                        for artifact in manifest.artifacts:
-                            head = self._head(self._artifact_key(manifest.image_id, artifact.filename))
-                            if (head is None or head.get("ContentLength") != artifact.size_bytes
-                                    or head.get("Metadata", {}).get("sha256") != artifact.sha256):
-                                complete = False
-                                break
-                        if not complete:
-                            continue
-                    except Exception:
+                    except Exception as exc:
+                        raise S3RepositoryError(f"cannot read S3 manifest {key}: {exc}") from exc
+                    if filename != f"{manifest.image_id}.manifest.json":
+                        continue
+                    complete = True
+                    for artifact in manifest.artifacts:
+                        head = self._head(self._artifact_key(manifest.image_id, artifact.filename))
+                        if head is None:
+                            complete = False
+                            break
+                        if (head.get("ContentLength") != artifact.size_bytes
+                                or head.get("Metadata", {}).get("sha256") != artifact.sha256):
+                            complete = False
+                            break
+                    if not complete:
                         continue
                     result.append({
                         "image_id": manifest.image_id,
