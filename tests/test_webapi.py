@@ -534,6 +534,7 @@ class WebAPITests(unittest.TestCase):
             "mode": "proxy", "pool_start": None, "pool_end": None,
             "lease_time": "1h", "gateway": None, "dns_server": None,
             "http_port": 8080, "authoritative_confirmed": False,
+            "max_clients": 20, "max_duration_seconds": None,
         }
         with patch("feclora.network.pxe_preflight.validate_pxe_configuration"), patch("feclora.network.interface_discovery.detect_existing_dhcp_server", return_value=None), patch("feclora.network.pxe_service.PXEServiceManager", return_value=manager):
             result = dispatch({"action": "start_pxe_services", "params": params})
