@@ -199,7 +199,8 @@ class PXEServiceManager:
                 sys.executable, "-m", "feclora.network.pxe_admission",
                 "--state", str(self.runtime_dir / "admission.json"),
                 "--bind", "127.0.0.1", "--port", "8765",
-                "--answer-boot-url", f"http://{config.address}:{config.http_port}/unattended-answer-boot.ipxe",
+                "--boot-url-prefix", f"http://{config.address}:{config.http_port}/pxe/boot/",
+                "--boot-script", "/srv/feclora/http/unattended-answer-boot.ipxe",
             ]
             if config.max_clients is not None:
                 admission_argv.extend(["--max-clients", str(config.max_clients)])
