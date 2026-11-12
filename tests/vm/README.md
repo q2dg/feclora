@@ -51,7 +51,7 @@ The same isolated lab has one Server and two independently bootable Clients (BIO
 4. Place one whole-disk image set in the Server repository. Use disposable qcow2 target disks on both Clients; never attach host block devices.
 5. In Server mode choose **Multicast**, **Restore**, select both enrolled Clients, select the image, and use a group in 239.0.0.0/8 with an even UDPcast port base such as 9000. Confirm the displayed network preflight using the exact job-specific phrase.
 6. On each Client select **Client**, enter the same job UUID, select its own local multicast receive interface, select its disposable target disk and type the exact confirmation phrase for that disk and Server identity. The Server must show both MACs READY before it will arm.
-7. Arm once on Server. Each Client receives the signed manifest over mTLS, receives every artifact over UDPcast into private staging, verifies size and SHA-256, restores its selected disk and performs destination read-back verification.
+7. Arm once on Server. Each Client receives the manifest over mTLS, receives every artifact over UDPcast into private staging, verifies size and SHA-256, restores its selected disk and performs destination read-back verification.
 8. Record the Server per-client result, job journal, both destination read-back results and the interface/firewall state. Confirm UDPcast's temporary UDP rules are removed on both Clients and Server.
 9. Repeat negative tests: leave one Client unready (arming must be refused); use a untrusted Server certificate (no disk write); interrupt one receiver (the job must fail rather than report success); and verify no automatic restart after powering a VM off mid-transfer.
 
