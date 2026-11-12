@@ -25,6 +25,7 @@ _IMAGE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _BUCKET = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
 _ACCESS_KEY = re.compile(r"^[A-Za-z0-9/+=_-]{8,128}$")
 _PREFIX_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.=-]{0,127}$")
+_OBJECT_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.=-]{0,254}$")
 _CHUNK = 1024 * 1024
 _DEFAULT_PART_SIZE = 64 * 1024 * 1024
 _MULTIPART_THRESHOLD = 64 * 1024 * 1024
@@ -51,7 +52,7 @@ class S3RepositoryConfig:
             raise S3RepositoryError("S3 region is invalid")
         if (not isinstance(self.bucket, str) or not _BUCKET.fullmatch(self.bucket)
                 or ".." in self.bucket or ".-" in self.bucket or "-." in self.bucket
-                or re.fullmatch(r"\\d+\\.\\d+\\.\\d+\\.\\d+", self.bucket)):
+                or re.fullmatch(r"\d+\.\d+\.\d+\.\d+", self.bucket)):
             raise S3RepositoryError("S3 bucket name is invalid")
         if not isinstance(self.prefix, str) or len(self.prefix) > 512:
             raise S3RepositoryError("S3 prefix is invalid")
@@ -105,12 +106,14 @@ class S3ObjectRepository:
         self.client = client
         self.prefix = config.prefix.strip("/")
 
-    def _key(self, filename: str) -> str:
-        if (not isinstance(filename, str) or not filename or filename in {".", ".."}
-                or "/" in filename or "\\" in filename or "\x00" in filename
-                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,254}", filename)):
-            raise S3RepositoryError("object filename is unsafe")
-        return f"{self.prefix}/{filename}" if self.prefix else filename
+    def _key(self, name: str) -> str:
+        if (not isinstance(name, str) or not name or name.startswith("/")
+                or name.endswith("/") or "\\" in name or "\x00" in name):
+            raise S3RepositoryError("object key is unsafe")
+        components = name.split("/")
+        if any(not _OBJECT_COMPONENT.fullmatch(item) for item in components):
+            raise S3RepositoryError("object key contains an unsafe path component")
+        return f"{self.prefix}/{name}" if self.prefix else name
 
     def _manifest_key(self, image_id: str) -> str:
         if not isinstance(image_id, str) or not _IMAGE_ID.fullmatch(image_id):
