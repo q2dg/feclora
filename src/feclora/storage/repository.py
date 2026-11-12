@@ -93,8 +93,14 @@ class RemoteRepository:
         elif self.provider == "smb":
             if self.credential_file is None:
                 raise RepositoryError("SMB requires a protected credentials file")
-            if not _SAFE_SHARE_RE.fullmatch(self.remote_path.strip("/").split("/")[0]):
+            parts = self.remote_path.strip("/").split("/")
+            if not _SAFE_SHARE_RE.fullmatch(parts[0]):
                 raise RepositoryError("SMB remote_path must begin with a valid share name")
+            # mount.cifs parses the -o value as comma-separated options.
+            # A comma in prefixpath would therefore inject additional mount
+            # options even though subprocess is invoked without a shell.
+            if any("," in part for part in parts[1:]):
+                raise RepositoryError("SMB remote_path components must not contain mount-option separators")
         elif self.provider == "nfs" and (self.username or self.credential_file or self.identity_file):
             raise RepositoryError("NFS does not accept username or credential-file fields")
 
