@@ -31,12 +31,6 @@ remains available; it does not mean persistent across a Live reboot.
 6. Cockpit polls `local_operation_status`; `local_operations` returns
    recent operation summaries and their event history.
 
-SFTP signed-image import and publication use this same durable worker. The
-queue stores only endpoint metadata and encrypted SSH credential references;
-plaintext keys remain inside the transient systemd credential service. The
-worker owns the SFTP child-service lifetime, so cancellation stops and waits
-for that service before image-set staging cleanup. 
-
 ## Recovery and cancellation
 
 The `feclora-local-operation-recovery.service` runs before the Cockpit socket
@@ -54,9 +48,7 @@ A queued job is atomically marked `cancelled` before its worker starts. For an
 active job, Cockpit asks systemd to stop its template unit. The worker converts
 SIGTERM into an orderly cancellation exception, allowing storage-engine
 cleanup to run. Direct child processes are terminated, given a short grace
-period, and killed/reaped if they do not exit. If a storage operation is
-waiting on a separate transient SFTP unit, the worker waits for that unit to
-stop before removing its local staging files.
+period, and killed/reaped if they do not exit. 
 
 Cancellation is not rollback. A running restore or clone can leave its target
 partially written; the journal sets `destination_may_be_partial` and Cockpit
