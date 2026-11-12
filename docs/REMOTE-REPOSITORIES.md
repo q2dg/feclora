@@ -47,14 +47,14 @@ authorization, failure handling, automated tests and operator acceptance cover
 the same image lifecycle.
 
 | Capability | SSHFS | NFS | SMB/CIFS | WebDAV | S3 |
-|---|---|---|---|---|---|---|
-| Connection / mount or transport | Integrated mount lifecycle | Integrated mount lifecycle | Integrated mount lifecycle | Disabled  Not implemented; object API required |
-| Protected credentials | SSH key + pinned host keys | Export/server policy | Encrypted SMB credential | Missing isolated per-repository model  Scoped access/secret references not implemented |
-| Inventory / read / restore | Via verified mounted repository | Via verified mounted repository | Via verified mounted repository | Unavailable  Not implemented |
-| Capture / publish | Writable mount path exists; end-to-end provider acceptance pending | Writable mount path exists; root-squash/ownership acceptance pending | Writable mount path exists; provider acceptance pending | Blocked  Not implemented |
-| Durable Cockpit lifecycle | Local operation engine for image work; mount lifecycle is separate | Same | Same | Unavailable  Not implemented |
-| Byte progress / transfer resume | No provider-specific network telemetry or safe write resume acceptance | Same | Same | Unavailable  Not implemented |
-| Health, interruption and recovery acceptance | Pending live server/network tests | Pending live server/network tests, including root-squash | Pending live server/network tests | Pending design  Design, API lifecycle and acceptance pending |
+|---|---|---|---|---|---|
+| Connection / mount or transport | Integrated mount lifecycle | Integrated mount lifecycle | Integrated mount lifecycle | Disabled | Not implemented; object API required |
+| Protected credentials | SSH key + pinned host keys | Export/server policy | Encrypted SMB credential | Missing isolated per-repository model | Scoped access/secret references not implemented |
+| Inventory / read / restore | Via verified mounted repository | Via verified mounted repository | Via verified mounted repository | Unavailable | Not implemented |
+| Capture / publish | Writable mount path exists; end-to-end provider acceptance pending | Writable mount path exists; root-squash/ownership acceptance pending | Writable mount path exists; provider acceptance pending | Blocked | Not implemented |
+| Durable Cockpit lifecycle | Local operation engine for image work; mount lifecycle is separate | Same | Same | Unavailable | Not implemented |
+| Byte progress / transfer resume | No provider-specific network telemetry or safe write resume acceptance | Same | Same | Unavailable | Not implemented |
+| Health, interruption and recovery acceptance | Pending live server/network tests | Pending live server/network tests, including root-squash | Pending live server/network tests | Pending design | Design, API lifecycle and acceptance pending |
 
 **Interpretation:** SSHFS, NFS and SMB share the mounted-filesystem integration
 but are not yet at production acceptance parity. WebDAV remains fail-closed.
