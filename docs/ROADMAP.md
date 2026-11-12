@@ -26,38 +26,7 @@ NVMe subsystems remain external systems administered by their owners.
 
 ## Implemented in source and Cockpit
 
-- Fedora Server Live kiosk, first-boot administrator password setup, local
-  Cockpit certificate trust and loopback confinement.
-- Block-device, partition, LVM, LUKS, Btrfs and Stratis inventory/topology.
-- Whole-disk and partition image capture/restore, manifests, SHA-256,
-  compression and optional age/minisign protection.
-- Local capture of eligible active LVM logical volumes and restore into an
-  existing active, unmounted linear or thin LV. Feclora does not provision or
-  resize LVM metadata.
-- Raw LUKS2 container partition capture/restore with manifest provenance,
-  exact read-back and post-write UUID/header verification. The mapping remains
-  closed; opened-mapping plaintext restore and LUKS2-on-LV restore are not
-  supported.
-- Single-device Btrfs partition capture and restore, with conservative
-  topology/provenance checks. Multi-device/profile capture, coordinated
-  snapshots and layer-aware Btrfs restore are not implemented.
-- Local whole-disk and partition-to-partition cloning.
-- Durable local operations using a root-owned systemd worker, journals,
-  progress and interruption recovery. Destructive writes are not resumed
-  automatically; interrupted destinations require inspection.
-- Persistent Server/Client deployment services, Server-authenticated TLS
-  control, READY/ARM authorization, unicast image transfer, UDPcast multicast
-  restore and direct whole-disk and partition-to-partition remote cloning.
-- Server/Client Cockpit workflows for DHCP/static IPv4 configuration of an
-  active NetworkManager profile, including a 120-second checkpoint/rollback
-  window and post-apply profile/address verification.
-- PXE/iPXE boot-tree staging, interactive Live boot, and transient
-  dnsmasq/Caddy/firewalld lifecycle.
-- A shared unattended PXE answer workflow: Cockpit validates and publishes a
-  JSON answer and answer-specific iPXE handoff; Live downloads and validates
-  it. The NFS-backed whole-disk path uses stable-target revalidation, the
-  existing restore engine and read-back verification. Authorization is
-  consumed once within the current Live session.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 These are source and Cockpit implementation statements, not claims that an
 ISO, physical hardware, remote provider or physical network has passed
