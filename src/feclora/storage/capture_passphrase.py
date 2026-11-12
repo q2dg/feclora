@@ -75,7 +75,7 @@ def provide(operation_id: str, passphrase: str) -> None:
 def consume(operation_id: str, *, timeout: float = 120.0, poll_interval: float = 0.2) -> str:
     """Wait for and consume exactly one root-owned passphrase file."""
     identifier = _identifier(operation_id)
-    directory = _directory(create=False)
+    directory = _directory(create=True)
     path = directory / identifier
     deadline = time.monotonic() + timeout
     while True:
