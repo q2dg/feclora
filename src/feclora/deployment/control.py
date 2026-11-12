@@ -119,7 +119,6 @@ class DeploymentControlServer:
         tls_context: ssl.SSLContext,
         *,
         local_identity: str,
-        client_identity_to_mac: Mapping[str, str] | None = None,
         firewall: Any = None,
         interface: str | None = None,
         progress_event_sink: Callable[[dict[str, Any]], None] | None = None,
