@@ -73,7 +73,7 @@ def _elevate() -> int:
 
 
 def _capture_image_security_options(config: ClientRuntimeConfig) -> str | None:
-    """Offer optional age encryption; image signatures are not used."""
+    """Offer optional age encryption; SHA-256 integrity checks are unconditional."""
     age_ready = bool(
         config.age_recipients_file
         and os.path.isfile(config.age_recipients_file)
