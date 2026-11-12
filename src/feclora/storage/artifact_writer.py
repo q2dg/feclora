@@ -106,9 +106,17 @@ def write_artifact(
     except OSError as exc:
         raise ArtifactWriteError("cannot safely open destination directory") from exc
 
+    opened_directory = os.fstat(dir_fd)
+    if (not stat.S_ISDIR(opened_directory.st_mode)
+            or (opened_directory.st_dev, opened_directory.st_ino)
+            != (directory_info.st_dev, directory_info.st_ino)):
+        os.close(dir_fd)
+        raise ArtifactWriteError("destination directory changed during inspection")
+
     temp_name = f".feclora-{secrets.token_hex(16)}.tmp"
     raw_fd = None
-    published = False
+    linked = False
+    committed = False
     source_size = 0
     try:
         raw_fd = os.open(
@@ -215,9 +223,13 @@ def write_artifact(
             )
         except FileExistsError as exc:
             raise ArtifactWriteError("destination artifact already exists") from exc
+        # From this point the final name exists. Keep ownership of that link
+        # explicit so a failure removing the staging name or syncing the
+        # directory cannot leave an unreported, discoverable artifact behind.
+        linked = True
         os.unlink(temp_name, dir_fd=dir_fd)
         os.fsync(dir_fd)
-        published = True
+        committed = True
         return ImageArtifact(
             filename=filename,
             role=role,
@@ -236,9 +248,18 @@ def write_artifact(
     finally:
         if raw_fd is not None:
             os.close(raw_fd)
-        if not published:
+        if not committed and linked:
             try:
-                os.unlink(temp_name, dir_fd=dir_fd)
+                os.unlink(filename, dir_fd=dir_fd)
+                os.fsync(dir_fd)
             except FileNotFoundError:
                 pass
+            except OSError:
+                # Preserve the original failure; a remaining final link is
+                # safer than deleting a name we can no longer inspect.
+                pass
+        try:
+            os.unlink(temp_name, dir_fd=dir_fd)
+        except FileNotFoundError:
+            pass
         os.close(dir_fd)
