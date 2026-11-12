@@ -116,8 +116,7 @@ class PXEAnswerClientTests(unittest.TestCase):
                     "image_id": "golden",
                     "repository_url": "nfs://nfs.example/images",
                     "target": {"wwn": "0x5000c50012345678", "serial": None},
-                }, mountpoint=mountpoint, operation_log=log_dir / "operations.jsonl",
-                )
+                }, mountpoint=mountpoint, operation_log=log_dir / "operations.jsonl")
             self.assertEqual(resolved, "/dev/sdb")
             revalidate.assert_called_once()
             self.assertTrue(restore_call.call_args.kwargs["ignore_signature"])
@@ -148,7 +147,7 @@ class PXEAnswerClientTests(unittest.TestCase):
                     "image_id": "golden",
                     "repository_url": "nfs://nfs.example/images",
                     "target": {"wwn": "0x5000c50012345678", "serial": None},
-                    }, mountpoint=mountpoint, operation_log=log_dir / "operations.jsonl",
+                }, mountpoint=mountpoint, operation_log=log_dir / "operations.jsonl",
                 passphrase_provider=provider)
             provider.assert_called_once_with()
             self.assertEqual(restore_call.call_args.kwargs["age_passphrase"], "correct horse battery staple")
@@ -178,7 +177,6 @@ class PXEAnswerClientTests(unittest.TestCase):
                 "image_id": "golden",
                 "repository_url": "sftp://repo.example/images",
                 "target": {"wwn": "0x5000c50012345678", "serial": None},
-                "_pxe_job_id": JOB,
             })
 
 
