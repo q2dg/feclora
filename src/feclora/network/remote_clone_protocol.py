@@ -506,6 +506,8 @@ def create_tls_context(
 ) -> ssl.SSLContext:
     """Create TLS with server-certificate validation and no client authentication."""
     if role == "client":
+        if certificate_file is not None or private_key_file is not None:
+            raise RemoteCloneProtocolError("Client TLS must not present a client certificate")
         if not ca_file:
             raise RemoteCloneProtocolError("client TLS requires the Server CA certificate")
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -520,8 +522,6 @@ def create_tls_context(
     else:
         raise RemoteCloneProtocolError("TLS role must be 'client' or 'server'")
     context.minimum_version = ssl.TLSVersion.TLSv1_2
-    if certificate_file or private_key_file:
-        if not certificate_file or not private_key_file:
-            raise RemoteCloneProtocolError("server certificate and private key must be supplied together")
+    if role == "server":
         context.load_cert_chain(certfile=certificate_file, keyfile=private_key_file)
     return context
