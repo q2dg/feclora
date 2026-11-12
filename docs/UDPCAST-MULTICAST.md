@@ -58,7 +58,7 @@ The authenticated control service, persistent job journal, Client-side
 whole-disk and partition restore dispatch, manifest delivery over the authenticated control channel, private
 staging, verified artifacts and per-client terminal results are
 integrated. Unsigned manifests are accepted when delivered through the
-Server-authenticated TLS control channel; detached minisign signatures are verified
+Server-authenticated TLS control channel; manifests are schema-validated and artifacts are checked with SHA-256
 when present and require an independently trusted key.
 
 - The deployment job binds `target_type` to the authenticated manifest's
@@ -73,9 +73,8 @@ when present and require an independently trusted key.
   inventory. When disabled, UDPcast provides no payload confidentiality; use a
   trusted isolated network or another configured encryption layer.
 - The manifest is delivered over the Server-authenticated TLS control channel and
-  bound to the authorized Server identity. If a detached minisign signature is
-  present, it is additionally verified against an independently trusted key.
-  SHA-256 digests then bind each UDPcast payload to that authenticated manifest.
+  bound to the authorized Server identity. SHA-256 digests bind each UDPcast
+  payload to the manifest delivered over that channel.
   This does not add per-datagram authentication to UDPcast and cannot prevent
   denial of service.
 - Sender and receiver check local interface UP/MULTICAST flags, IPv4 address,
