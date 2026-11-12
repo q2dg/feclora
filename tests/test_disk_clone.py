@@ -69,7 +69,7 @@ class DiskCloneTests(unittest.TestCase):
         )
         self.assertEqual(progress, [(50000, 100000), (100000, 100000)])
     def test_progress_callback_value_error_is_not_treated_as_malformed_dd_output(self):
-        proc = FakeProcess(stderr=b"50000 bytes copied\r")
+        proc = FakeProcess(returncode=None, stderr=b"50000 bytes copied\r")
         with self.assertRaisesRegex(ValueError, "callback failed"):
             clone_disk(
                 "/dev/source", "/dev/target", confirmation="ERASE /dev/target",
