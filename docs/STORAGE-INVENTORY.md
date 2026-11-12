@@ -37,3 +37,23 @@ PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
 Tests use mocked `lsblk` output; they do not access or modify real block devices.
+
+## Btrfs metadata discovery
+
+Btrfs discovery first uses `btrfs filesystem show --raw --all-devices` to
+identify filesystem UUIDs and every detected member device. For each complete
+device set, Feclora runs the read-only
+`btrfs inspect-internal dump-tree --noscan -t root` against the supplied
+members. This reads the on-disk root tree without mounting the filesystem and
+records current subvolume IDs, generations, used bytes, read-only flags,
+subvolume UUIDs, snapshot parent UUIDs, received UUIDs and ROOT_BACKREF parent
+relationships. Subvolume paths are resolved only when the parent chain and
+names are present and unambiguous.
+
+The unmounted root-tree scan does not inspect file contents. Data/Metadata/
+System/GlobalReserve allocation profiles and the detailed `btrfs subvolume
+list` view are still collected only for filesystems already mounted, through
+`findmnt` and read-only Btrfs queries. Unmounted allocation-profile discovery,
+coordinated snapshot-consistent capture and multi-device/profile capture
+remain pending. Incomplete or ambiguous device sets are not flattened into
+standalone partition images.
