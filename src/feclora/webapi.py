@@ -1337,6 +1337,36 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
 
 
 
+def _pxe_age_passphrase_status(params: dict[str, Any]) -> dict[str, Any]:
+    if params:
+        raise WebAPIError("pxe_age_passphrase_status does not accept parameters")
+    try:
+        cmdline = Path("/proc/cmdline").read_text(encoding="ascii")
+    except OSError as exc:
+        raise WebAPIError("cannot verify PXE Live boot mode") from exc
+    if "feclora.pxe_mode=unattended-answer" not in cmdline.split():
+        return {"available": False, "waiting": False, "submitted": False}
+    directory = Path("/run/feclora/pxe")
+    marker = directory / "age-passphrase-needed"
+    try:
+        root_info = os.lstat(directory)
+        if (not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode)
+                or root_info.st_uid != 0 or root_info.st_mode & 0o077):
+            raise WebAPIError("PXE Live runtime directory is not secure")
+        marker_info = os.lstat(marker)
+    except FileNotFoundError:
+        return {"available": True, "waiting": False, "submitted": False}
+    if (not stat.S_ISREG(marker_info.st_mode) or stat.S_ISLNK(marker_info.st_mode)
+            or marker_info.st_uid != 0 or marker_info.st_mode & 0o077):
+        raise WebAPIError("PXE age passphrase request marker is unsafe")
+    try:
+        os.lstat(directory / "age-passphrase")
+        submitted = True
+    except FileNotFoundError:
+        submitted = False
+    return {"available": True, "waiting": not submitted, "submitted": submitted}
+
+
 def _provide_pxe_age_passphrase(params: dict[str, Any]) -> dict[str, Any]:
     """Submit a one-shot symmetric age passphrase to the local PXE Live worker."""
     if set(params) != {"passphrase"}:
@@ -3017,6 +3047,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _revoke_pxe_answer(params)
     if action == "provide_pxe_age_passphrase":
         return _provide_pxe_age_passphrase(params)
+    if action == "pxe_age_passphrase_status":
+        return _pxe_age_passphrase_status(params)
     if action == "pxe_service_status":
         if params:
             raise WebAPIError("pxe_service_status does not accept parameters")
