@@ -135,6 +135,36 @@ class ClientImageRuntimeTests(unittest.TestCase):
         send.assert_called_once()
         self.assertIn(b"transfer_ready", bytes(tls.outgoing))
 
+    def test_logical_volume_save_uses_manifest_backed_lv_capture_and_transfers(self):
+        tls = FakeTLS()
+        approval = LocalTargetApproval(
+            "/dev/vg0/data", "vg0/data logical volume",
+            "READ /dev/vg0/data",
+        )
+        inventory = {"volume_topology": {"status": "available"}}
+        with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
+             patch("feclora.deployment.client_runtime.collect_inventory", return_value=inventory), \
+             patch("feclora.deployment.client_runtime.capture_logical_volume_image") as capture, \
+             patch("feclora.deployment.client_runtime.capture_disk") as disk_capture, \
+             patch("feclora.deployment.client_runtime.send_image_set") as send:
+            result = execute_client_image_job(
+                make_job("save", "logical_volume"), tls, approval,
+                server_identity="URI:feclora-server", repository="/repo",
+                compression="zstd", compression_level=3,
+            )
+        self.assertTrue(result[0])
+        capture.assert_called_once()
+        self.assertEqual(capture.call_args.args[:3], (
+            "/dev/vg0/data", "golden-image", "/repo",
+        ))
+        self.assertEqual(capture.call_args.args[3], inventory)
+        self.assertEqual(capture.call_args.kwargs["compression"], "zstd")
+        self.assertIsNone(capture.call_args.kwargs["age_recipients_file"])
+        disk_capture.assert_not_called()
+        send.assert_called_once()
+        self.assertEqual(send.call_args.kwargs["expected_image_id"], "golden-image")
+        self.assertIn(b"transfer_ready", bytes(tls.outgoing))
+
     def test_save_defaults_to_unencrypted(self):
         tls = FakeTLS()
         approval = LocalTargetApproval(
