@@ -1435,6 +1435,64 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(result["job_state"], "created")
         self.assertEqual(result["authorized_clients"], payload["authorized_clients"])
 
+    def test_create_distributed_restore_from_s3_repository(self):
+        payload = self._valid_deployment_payload(operation="restore")
+        payload["repository_id"] = "s3-archive"
+        config = SimpleNamespace(repository="/repo")
+        s3_manager = SimpleNamespace(
+            list=lambda: [{"id": "s3-archive", "read_only": True}],
+            repository=lambda _identifier: SimpleNamespace(list_images=lambda: [{
+                "image_id": payload["image_id"], "image_type": "disk",
+                "source_size_bytes": 4096, "encrypted": False,
+            }]),
+        )
+        with tempfile.TemporaryDirectory() as directory, patch(
+            "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
+        ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
+            "feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=s3_manager
+        ), patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), patch(
+            "feclora.deployment.journal.DeploymentJournal"
+        ), patch(
+            "feclora.deployment.coordinator.DeploymentCoordinator",
+            return_value=SimpleNamespace(state=SimpleNamespace(value="created")),
+        ):
+            result = dispatch({"action": "create_deployment_job", "params": {"job": payload}})
+        self.assertEqual(result["job_state"], "created")
+
+    def test_create_distributed_capture_to_writable_s3_repository(self):
+        payload = self._valid_deployment_payload(operation="save")
+        payload["repository_id"] = "s3-archive"
+        config = SimpleNamespace(repository="/repo")
+        s3_manager = SimpleNamespace(
+            list=lambda: [{"id": "s3-archive", "read_only": False}],
+            repository=lambda _identifier: SimpleNamespace(list_images=lambda: []),
+        )
+        with tempfile.TemporaryDirectory() as directory, patch(
+            "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
+        ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
+            "feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=s3_manager
+        ), patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), patch(
+            "feclora.deployment.journal.DeploymentJournal"
+        ), patch(
+            "feclora.deployment.coordinator.DeploymentCoordinator",
+            return_value=SimpleNamespace(state=SimpleNamespace(value="created")),
+        ):
+            result = dispatch({"action": "create_deployment_job", "params": {"job": payload}})
+        self.assertEqual(result["job_state"], "created")
+
+    def test_distributed_capture_rejects_read_only_s3_repository(self):
+        payload = self._valid_deployment_payload(operation="save")
+        payload["repository_id"] = "s3-archive"
+        config = SimpleNamespace(repository="/repo")
+        s3_manager = SimpleNamespace(list=lambda: [{"id": "s3-archive", "read_only": True}])
+        with patch(
+            "feclora.deployment.runtime_config.load_server_runtime_config", return_value=config
+        ), patch("feclora.webapi.socket.if_nameindex", return_value=[(1, "lo")]), patch(
+            "feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=s3_manager
+        ):
+            with self.assertRaisesRegex(WebAPIError, "read-only"):
+                dispatch({"action": "create_deployment_job", "params": {"job": payload}})
+
     def test_create_unicast_save_without_optional_encryption(self):
         payload = self._valid_deployment_payload(operation="save")
         config = SimpleNamespace(
