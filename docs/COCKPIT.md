@@ -134,9 +134,10 @@ lifecycle for supported jobs. Cockpit can start a non-boot-enabled
 per-Client READY/running/terminal states, disk-operation byte progress and
 sampled throughput reported over each authenticated TLS control session, with
 Cockpit refreshing active service status every two seconds. The Client's local
-status also tracks image-transfer phase and byte count. Server-side transfer
-progress is not yet reported: artifact bytes and control frames share one TLS
-stream, so telemetry must not be injected into that stream. Operators can explicitly arm a job after every selected Client is
+status also tracks image-transfer phase and byte count. During restore, the Server
+also records the sender-side artifact byte count and throughput in the existing
+journal using a local progress callback; no telemetry frames are injected into
+the TLS artifact stream. Operators can explicitly arm a job after every selected Client is
 READY, cancel only before arming, and stop the service when it is not
 performing storage I/O. The service uses the existing
 coordinator, hash-chained journal, TLS control protocol and transfer engines;
