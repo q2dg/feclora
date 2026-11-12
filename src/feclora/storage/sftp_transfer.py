@@ -140,14 +140,8 @@ def list_image_manifests(
         if name == "manifest.json"
         or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.manifest\.json", name)
     }
-    # The manifest is the inventory/commit marker and is uploaded last.
-    # Requiring its detached signature also keeps inventory fail-closed for
-    # legacy or manually-created incomplete sets. Readers see no manifest
-    # until every artifact and the signature have been published.
-    return sorted(
-        name for name in manifests
-        if name + ".minisig" in entries
-    )
+    # The manifest is the inventory/commit marker and is published last.
+    return sorted(manifests)
 
 
 def _local_regular(path: str | os.PathLike[str]) -> tuple[str, int, str, tuple[int, int, int, int, int]]:
@@ -235,8 +229,8 @@ def download_file(
 ) -> dict[str, Any]:
     """Download privately; when supplied, require the expected SHA-256 before publication.
 
-Only callers handling untrusted manifest/signature metadata may omit the
-expected digest; they must authenticate that metadata before trusting it.
+Only callers handling untrusted manifest metadata may omit the expected
+digest; they must validate the manifest before trusting it.
 """
     target = _remote_path(remote_path)
     if expected_sha256 is not None and (not isinstance(expected_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256)):
@@ -272,7 +266,7 @@ expected digest; they must authenticate that metadata before trusting it.
                 size += len(chunk)
                 digest.update(chunk)
         if expected_sha256 is not None and digest.hexdigest() != expected_sha256:
-            raise SFTPTransferError("downloaded SFTP artifact SHA-256 does not match its signed manifest")
+            raise SFTPTransferError("downloaded SFTP artifact SHA-256 does not match the manifest SHA-256 digest")
         os.link(temporary, destination, follow_symlinks=False)
         os.unlink(temporary)
         directory_fd = os.open(destination.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
