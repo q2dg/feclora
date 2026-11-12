@@ -42,13 +42,11 @@ def make_image_set(directory):
     manifest_path = os.path.join(directory, "golden.manifest.json")
     with open(manifest_path, "w", encoding="utf-8") as stream:
         json.dump(manifest, stream)
-    with open(manifest_path + ".minisig", "wb") as stream:
-        stream.write(b"detached signature")
     return manifest_path
 
 
 class ImageTransferTests(unittest.TestCase):
-    def test_signed_image_set_transfers_and_publishes_manifest_last(self):
+    def test_image_set_transfers_and_publishes_manifest_last(self):
         with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
             manifest_path = make_image_set(source)
             left, right = socket.socketpair()
@@ -59,22 +57,19 @@ class ImageTransferTests(unittest.TestCase):
                 try:
                     send_image_set(
                         left, source, manifest_path, expected_image_id="golden",
-                        trusted_public_key="/trusted/server.pub",
                         progress_callback=lambda current, total: send_progress.append((current, total)),
                     )
                 except Exception as exc:
                     errors.append(exc)
                 finally:
                     left.close()
-            with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
-                thread = threading.Thread(target=sender, daemon=True)
-                thread.start()
-                received_manifest = receive_image_set(
-                    right, target, expected_image_id="golden",
-                    trusted_public_key="/trusted/server.pub",
-                    progress_callback=lambda current, total: receive_progress.append((current, total)),
-                )
-                thread.join(5)
+            thread = threading.Thread(target=sender, daemon=True)
+            thread.start()
+            received_manifest = receive_image_set(
+                right, target, expected_image_id="golden",
+                progress_callback=lambda current, total: receive_progress.append((current, total)),
+            )
+            thread.join(5)
             right.close()
             self.assertFalse(thread.is_alive())
             self.assertFalse(errors, str(errors))
@@ -83,44 +78,13 @@ class ImageTransferTests(unittest.TestCase):
             self.assertEqual(receive_progress[0], (0, 9))
             self.assertEqual(receive_progress[-1], (9, 9))
             self.assertTrue(os.path.isfile(received_manifest))
-            self.assertTrue(os.path.isfile(received_manifest + ".minisig"))
+            self.assertFalse(os.path.lexists(received_manifest + ".minisig"))
             with open(os.path.join(target, "disk.raw"), "rb") as stream:
                 self.assertEqual(stream.read(), b"disk")
             with open(os.path.join(target, "table.txt"), "rb") as stream:
                 self.assertEqual(stream.read(), b"table")
             self.assertFalse(any(name.startswith(".feclora-transfer-") for name in os.listdir(target)))
 
-
-    def test_unsigned_image_set_transfers_over_authenticated_tls_without_minisign(self):
-        with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
-            manifest_path = make_image_set(source)
-            os.unlink(manifest_path + ".minisig")
-            left, right = socket.socketpair()
-            errors = []
-            def sender():
-                try:
-                    send_image_set(left, source, manifest_path, expected_image_id="golden")
-                except Exception as exc:
-                    errors.append(exc)
-                finally:
-                    left.close()
-            thread = threading.Thread(target=sender, daemon=True)
-            thread.start()
-            received_manifest = receive_image_set(right, target, expected_image_id="golden")
-            thread.join(5)
-            right.close()
-            self.assertFalse(thread.is_alive())
-            self.assertEqual(errors, [])
-            self.assertTrue(os.path.isfile(received_manifest))
-            self.assertFalse(os.path.lexists(received_manifest + ".minisig"))
-            self.assertTrue(os.path.isfile(os.path.join(target, "disk.raw")))
-
-    def test_signed_image_transfer_without_trusted_key_fails_before_network_write(self):
-        with tempfile.TemporaryDirectory() as source:
-            manifest_path = make_image_set(source)
-            fake = type("Sink", (), {"sendall": lambda self, data: self.fail("unexpected network write")})()
-            with self.assertRaisesRegex(ImageTransferError, "independently trusted minisign public key"):
-                send_image_set(fake, source, manifest_path, expected_image_id="golden")
 
     def test_sender_rejects_artifact_digest_mismatch_before_network_write(self):
         with tempfile.TemporaryDirectory() as source:
@@ -141,7 +105,6 @@ class ImageTransferTests(unittest.TestCase):
             def sender():
                 send_image_set(
                     left, source, manifest_path, expected_image_id="golden",
-                    trusted_public_key="/trusted/server.pub",
                 )
                 left.close()
             thread = threading.Thread(target=sender, daemon=True)
@@ -151,7 +114,6 @@ class ImageTransferTests(unittest.TestCase):
                     with self.assertRaisesRegex(ImageTransferError, "insufficient staging space"):
                         receive_image_set(
                             right, target, expected_image_id="golden",
-                            trusted_public_key="/trusted/server.pub",
                         )
             right.close()
             thread.join(5)
@@ -194,7 +156,6 @@ class ImageTransferTests(unittest.TestCase):
                 with self.assertRaisesRegex(ImageTransferError, "peer closed"):
                     receive_image_set(
                         right, target, expected_image_id="golden",
-                        trusted_public_key="/trusted/server.pub",
                     )
                 thread.join(5)
             right.close()
@@ -220,7 +181,6 @@ class ImageTransferTests(unittest.TestCase):
                     with patch("feclora.deployment.artifact_transfer.verify_manifest_signature"):
                         send_image_set(
                             left, source, manifest_path, expected_image_id="golden",
-                            trusted_public_key="/trusted/server.pub",
                         )
                 except Exception as exc:
                     sender_errors.append(exc)
@@ -233,7 +193,6 @@ class ImageTransferTests(unittest.TestCase):
                 with self.assertRaisesRegex(ImageTransferError, "could not publish"):
                     receive_image_set(
                         right, target, expected_image_id="golden",
-                        trusted_public_key="/trusted/server.pub",
                     )
                 thread.join(5)
             right.close()
@@ -265,7 +224,6 @@ class ImageTransferTests(unittest.TestCase):
             with self.assertRaisesRegex(ImageTransferError, "does not match"):
                 receive_image_set(
                     right, target, expected_image_id="other",
-                    trusted_public_key="/trusted/server.pub",
                 )
             right.close()
             thread.join(5)
