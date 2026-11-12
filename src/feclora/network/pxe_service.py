@@ -93,6 +93,18 @@ class PXEServiceManager:
             raise PXEServiceError("PXE runtime path must be a real directory")
         os.chmod(self.runtime_dir, 0o711)
 
+    def _clear_stale_admission_state(self) -> None:
+        for name in ("admission.json", "admission.lock"):
+            path = self.runtime_dir / name
+            try:
+                info = path.lstat()
+            except FileNotFoundError:
+                continue
+            if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                    or info.st_uid != os.geteuid() or info.st_mode & 0o077):
+                raise PXEServiceError("stale PXE admission state is unsafe")
+            path.unlink()
+
     def _write_config(self, name: str, content: str, mode: int = 0o600) -> str:
         destination = self.runtime_dir / name
         fd, temporary = tempfile.mkstemp(prefix=f".{name}.", dir=self.runtime_dir)
@@ -163,6 +175,7 @@ class PXEServiceManager:
         self._prepare_runtime()
         if self._read_state() is not None:
             raise PXEServiceError("PXE services already have a persisted active profile; stop it before starting another")
+        self._clear_stale_admission_state()
         # Validate interfaces and daemon prerequisites before touching the
         # published TFTP/HTTP trees. A failed preflight must have no staging
         # side effects.
