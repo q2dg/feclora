@@ -175,6 +175,14 @@ def plan_storage_capture(
             blockers.append("The selected source omits one or more devices belonging to this Btrfs filesystem.")
         if isinstance(filesystem_uuid, str) and filesystem_uuid in mounted_btrfs_uuids:
             blockers.append("The Btrfs filesystem is mounted; a consistent snapshot has not been established.")
+        elif (
+            isinstance(filesystem_uuid, str)
+            and isinstance(inventory.get("btrfs_subvolumes"), dict)
+            and inventory["btrfs_subvolumes"].get("status") == "available"
+        ):
+            warnings.append(
+                "Btrfs snapshot-assisted capture is not implemented; the filesystem must remain cleanly unmounted and quiescent throughout capture."
+            )
         mount_inventory = inventory.get("btrfs_subvolumes")
         if isinstance(mount_inventory, dict) and mount_inventory.get("status") not in (None, "available"):
             blockers.append("Btrfs mount state could not be verified; refusing a layer-aware consistency claim.")
