@@ -336,7 +336,7 @@ class WebAPITests(unittest.TestCase):
             "feclora.webapi.os.path.isfile", return_value=False
         ), patch(
             "feclora.webapi._security_material",
-            return_value={"age_decryption_available": False,  "image_signing_available": False},
+            return_value={"age_decryption_available": False},
         ), patch("feclora.webapi._client_runtime_config", return_value=None), patch(
             "feclora.webapi._capture_material", return_value=None
         ), patch("feclora.webapi._repository", return_value=Path("/repo")), patch(
