@@ -47,60 +47,6 @@ class LocalOperationStoreTests(unittest.TestCase):
         self.assertEqual(validated["action"], "restore_logical_volume")
         self.assertEqual(validated["params"]["target"], "/dev/mapper/vg-root")
 
-zed"):
-            validate_definition(definition)
-
-zstd",
-                "encrypt": False, 
-                "sftp_publish": {
-                    "host": "backup.example.net", "username": "backup",
-                    "remote_directory": "/images/daily", "port": 2222,
-                    "identity_credential": "/etc/credstore.encrypted/feclora/backup-key.cred",
-                    "known_hosts_credential": "/etc/credstore.encrypted/feclora/backup-hosts.cred",
-                },
-            },
-        }
-        validated = validate_definition(definition)
-        self.assertEqual(validated["params"]["sftp_publish"]["port"], 2222)
-
-zstd",
-                "encrypt": False, 
-                "sftp_publish": {
-                    "host": "backup.example.net", "username": "backup",
-                    "remote_directory": "/",
-                    "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-                    "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-                },
-            },
-        }
-        validated = validate_definition(definition)
-        self.assertEqual(validated["params"]["sftp_publish"]["remote_directory"], "/")
-
-zstd",
-                        "encrypt": False, 
-                        "sftp_publish": {
-                            "host": "backup.example.net", "username": "backup",
-                            "remote_directory": remote_directory,
-                            "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-                            "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-                        },
-                    },
-                }
-                with self.assertRaisesRegex(LocalOperationError, "absolute and normalized"):
-                    validate_definition(definition)
-
-zstd",
-                "encrypt": False, 
-                "sftp_publish": {
-                    "host": "backup.example.net", "username": "backup",
-                    "remote_directory": "/images/daily",
-                    "identity_credential": "/etc/credstore.encrypted/feclora/key.cred",
-                    "known_hosts_credential": "/etc/credstore.encrypted/feclora/hosts.cred",
-                },
-            },
-        }
-        validate_definition(definition)
-
     def test_enforces_state_machine_and_hash_chain(self):
         with tempfile.TemporaryDirectory() as root:
             store = LocalOperationStore(os.path.join(root, "jobs"))
@@ -130,9 +76,6 @@ zstd",
             self.assertEqual(recovered["state"], "interrupted")
             self.assertEqual(store.status(identifier)["state"], "interrupted")
 
-
-zed"):
-            validate_definition(definition)
 
     def test_rejects_bad_destructive_confirmation(self):
         with self.assertRaisesRegex(LocalOperationError, "confirmation"):
@@ -236,3 +179,4 @@ zed"):
 
 if __name__ == "__main__":
     unittest.main()
+
