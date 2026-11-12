@@ -1887,12 +1887,6 @@ def _inspect_remote_job(params: dict[str, Any]) -> dict[str, Any]:
                 config.age_recipients_file and os.path.isfile(config.age_recipients_file)
                 and shutil.which("age")
             ),
-            "image_signing_available": bool(
-                config.local_minisign_secret_key and config.local_minisign_public_key
-                and os.path.isfile(config.local_minisign_secret_key)
-                and os.path.isfile(config.local_minisign_public_key)
-                and shutil.which("minisign")
-            ),
         },
         "job": job.to_dict(),
     }
@@ -1986,9 +1980,8 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
     if not required.issubset(params) or set(params) - required - optional:
         raise WebAPIError("start_client_job requires host, job_id, device_path, confirmation and compression, with optional network and per-image security choices")
     image_encrypt = params.get("image_encrypt", False)
-    image_sign = params.get("image_sign", False)
-    if not isinstance(image_encrypt, bool) or not isinstance(image_sign, bool):
-        raise WebAPIError("per-image encryption and signing choices must be boolean")
+    if not isinstance(image_encrypt, bool):
+        raise WebAPIError("per-image encryption choice must be boolean")
     network_interface = params.get("network_interface")
     source_address = params.get("source_address")
     if source_address is not None and network_interface is None:
@@ -1998,20 +1991,13 @@ def _start_client_job(params: dict[str, Any]) -> dict[str, Any]:
         inspection_params.update(network_interface=network_interface, source_address=source_address)
     inspection = _inspect_remote_job(inspection_params)
     job = inspection["job"]
-    if job["operation"] != "save" and (image_encrypt or image_sign):
-        raise WebAPIError("per-image encryption/signing choices are valid only for Client save jobs")
+    if job["operation"] != "save" and image_encrypt:
+        raise WebAPIError("per-image encryption choice is valid only for Client save jobs")
     if image_encrypt:
         from feclora.deployment.runtime_config import load_client_runtime_config
         config = load_client_runtime_config("/etc/feclora/deployment-client.json")
         if not config.age_recipients_file or not os.path.isfile(config.age_recipients_file) or not shutil.which("age"):
             raise WebAPIError("age encryption was selected but this Client has no usable age recipient inventory or age executable")
-    if image_sign:
-        from feclora.deployment.runtime_config import load_client_runtime_config
-        config = load_client_runtime_config("/etc/feclora/deployment-client.json")
-        if (not config.local_minisign_secret_key or not config.local_minisign_public_key
-                or not os.path.isfile(config.local_minisign_secret_key)
-                or not os.path.isfile(config.local_minisign_public_key) or not shutil.which("minisign")):
-            raise WebAPIError("minisign signing was selected but this Client has no usable signing keypair or minisign executable")
     igmp_confirmed = params.get("igmp_confirmed", False)
     multicast_preflight = None
     if job["transport"] == "unicast" and (network_interface is None or source_address is None):
@@ -2448,14 +2434,6 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
             expected_type = "disk" if job.target_type == "disk" else "partition"
             if manifest.image_type != expected_type:
                 raise WebAPIError(f"selected image is not a {expected_type} image")
-            signature_path = Path(str(manifest_path) + ".minisig")
-            if os.path.lexists(signature_path):
-                if not config.server_minisign_public_key:
-                    raise WebAPIError(
-                        "selected image is signed but no independently trusted Server minisign key is configured"
-                    )
-                from feclora.storage.image_security import verify_manifest_signature
-                verify_manifest_signature(manifest_path, config.server_minisign_public_key)
             if job.transport == "multicast":
                 job = replace(
                     job,
@@ -2464,7 +2442,7 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         except WebAPIError:
             raise
         except Exception as exc:
-            raise WebAPIError(f"restore image manifest or present signature is invalid: {exc}") from exc
+            raise WebAPIError(f"restore image manifest is invalid: {exc}") from exc
         if any(item.encryption == "age" for item in manifest.artifacts):
             pki = Path("/etc/feclora/pki")
             recipients_directory = pki / "age-recipients"
@@ -2515,19 +2493,8 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _server_trusted_clients() -> dict[str, Any]:
-    """Return configured image-signing trust entries; this is not Client authentication."""
-    from feclora.deployment.runtime_config import load_server_runtime_config
-    config_path = "/etc/feclora/deployment-server.json"
-    if not os.path.isfile(config_path):
-        return {"clients": []}
-    try:
-        config = load_server_runtime_config(config_path)
-    except Exception as exc:
-        raise WebAPIError(f"cannot read Server trust configuration: {exc}") from exc
-    return {"clients": [
-        {"mac_address": mac, "image_signing": True}
-        for mac in sorted(config.client_minisign_public_keys)
-    ]}
+    """Compatibility endpoint; image-signing trust entries are no longer used."""
+    return {"clients": []}
 
 
 def _export_server_age_recipients(params: dict[str, Any]) -> dict[str, Any]:
