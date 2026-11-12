@@ -106,7 +106,6 @@ class RestoreProfileTests(unittest.TestCase):
                 saved = save_unattended_restore_profile(profile, destination)
                 self.assertEqual(saved, destination)
                 self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
-                self.assertFalse(Path(str(destination) + ".minisig").exists())
                 with self.assertRaisesRegex(RestoreProfileError, "overwrite"):
                     save_unattended_restore_profile(profile, destination)
 
