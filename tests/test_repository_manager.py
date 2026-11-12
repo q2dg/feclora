@@ -127,7 +127,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.manager.add("images", self.definition)
         self.manager._is_mounted = lambda _path: True
         self.manager._mount_record = lambda _path: (
-            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime",
+            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime,nosuid,nodev,noexec",
         )
         self.assertTrue(self.manager.check("images")["verified"])
         with self.assertRaisesRegex(RepositoryManagerError, "unknown repository"):
@@ -150,7 +150,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
             captured.update(kwargs)
             return SimpleNamespace(
                 returncode=0,
-                stdout=f"{self.mount_root / 'images'} fuse.sshfs backup@nas.example.net:/images ro,relatime\n",
+                stdout=f"{self.mount_root / 'images'} fuse.sshfs backup@nas.example.net:/images ro,relatime,nosuid,nodev,noexec\n",
                 stderr="",
             )
 
@@ -161,7 +161,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         )
         record = manager._mount_record(str(self.mount_root / "images"))
         self.assertEqual(record, (
-            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime",
+            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime,nosuid,nodev,noexec",
         ))
         self.assertEqual(captured["timeout"], 5)
         self.assertTrue(captured["argv"][0].endswith("findmnt"))
@@ -199,7 +199,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
 
     def test_mount_reports_success_only_after_matching_mount_verification(self):
         self.manager.add("images", self.definition)
-        record = ("fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime")
+        record = ("fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime,nosuid,nodev,noexec")
         records = iter([None, record, record])
         self.manager._mount_record = lambda _path: next(records)
         result = self.manager.mount("images")
@@ -212,8 +212,8 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.manager.add("images", self.definition)
         records = iter([
             None,
-            ("nfs4", "other.example.net:/wrong", "ro,relatime"),
-            ("nfs4", "other.example.net:/wrong", "ro,relatime"),
+            ("nfs4", "other.example.net:/wrong", "ro,relatime,nosuid,nodev,noexec"),
+            ("nfs4", "other.example.net:/wrong", "ro,relatime,nosuid,nodev,noexec"),
         ])
         self.manager._mount_record = lambda _path: next(records)
         with self.assertRaisesRegex(RepositoryManagerError, "source/type/access-mode verification"):
@@ -310,7 +310,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.manager.add("images", self.definition)
         self.manager._is_mounted = lambda _path: True
         self.manager._mount_record = lambda _path: (
-            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime",
+            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime,nosuid,nodev,noexec",
         )
         lease_fd = self.manager.acquire_usage_lock("images")
         try:
@@ -367,22 +367,30 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
     def test_resolve_requires_expected_sshfs_source_and_access_mode(self):
         self.manager.add("images", self.definition)
         self.manager._mount_record = lambda _path: (
-            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime",
+            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime,nosuid,nodev,noexec",
         )
         self.assertEqual(self.manager.resolve("images"), str(self.mount_root / "images"))
         with self.assertRaisesRegex(RepositoryManagerError, "read-only"):
             self.manager.resolve("images", write=True)
         self.manager._mount_record = lambda _path: (
-            "fuse.sshfs", "attacker@other.example:/other", "ro,relatime",
+            "fuse.sshfs", "attacker@other.example:/other", "ro,relatime,nosuid,nodev,noexec",
         )
         with self.assertRaisesRegex(RepositoryManagerError, "does not match"):
             self.manager.resolve("images")
 
 
+    def test_resolve_rejects_mount_missing_restrictive_safety_options(self):
+        self.manager.add("images", self.definition)
+        self.manager._mount_record = lambda _path: (
+            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime,nosuid,nodev",
+        )
+        with self.assertRaisesRegex(RepositoryManagerError, "missing restrictive safety options.*noexec"):
+            self.manager.resolve("images")
+
     def test_list_marks_mount_verified_only_when_source_and_type_match(self):
         self.manager.add("images", self.definition)
         self.manager._mount_record = lambda _path: (
-            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime",
+            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime,nosuid,nodev,noexec",
         )
         item = self.manager.list()[0]
         self.assertTrue(item["mounted"])
@@ -392,7 +400,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
     def test_list_exposes_unexpected_mount_without_trusting_it(self):
         self.manager.add("images", self.definition)
         self.manager._mount_record = lambda _path: (
-            "nfs4", "attacker.example.net:/other", "ro,relatime",
+            "nfs4", "attacker.example.net:/other", "ro,relatime,nosuid,nodev,noexec",
         )
         item = self.manager.list()[0]
         self.assertTrue(item["mounted"])
@@ -402,7 +410,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
     def test_unmount_refuses_unexpected_filesystem_at_managed_mountpoint(self):
         self.manager.add("images", self.definition)
         self.manager._mount_record = lambda _path: (
-            "nfs4", "other.example.net:/wrong", "ro,relatime",
+            "nfs4", "other.example.net:/wrong", "ro,relatime,nosuid,nodev,noexec",
         )
         with self.assertRaisesRegex(RepositoryManagerError, "does not match"):
             self.manager.unmount("images")
@@ -417,7 +425,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         }
         self.manager.add("images", definition)
         self.manager._mount_record = lambda _path: (
-            "nfs4", "nas.example.net:/exports/images", "ro,relatime",
+            "nfs4", "nas.example.net:/exports/images", "ro,relatime,nosuid,nodev,noexec",
         )
         mounted_states = iter([True, True, False])
         self.manager._is_mounted = lambda _path: next(mounted_states)
@@ -443,7 +451,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
     def test_non_nfs_unmount_does_not_force_detach(self):
         self.manager.add("images", self.definition)
         self.manager._mount_record = lambda _path: (
-            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime",
+            "fuse.sshfs", "backup@nas.example.net:/images", "ro,relatime,nosuid,nodev,noexec",
         )
         mounted_states = iter([True, True, True])
         self.manager._is_mounted = lambda _path: next(mounted_states)
