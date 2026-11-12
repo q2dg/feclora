@@ -150,12 +150,12 @@ def plan_storage_capture(
 
     mounted_btrfs_uuids = {
         mount.get("uuid")
-        for mount in (inventory.get("btrfs_subvolumes") or {}).get("mounts", [])
+        for mount in ((inventory.get("btrfs_subvolumes") or {}).get("mounts", []) or [])
         if isinstance(mount, dict) and isinstance(mount.get("uuid"), str)
     }
     for filesystem in (inventory.get("btrfs_topology") or {}).get("filesystems", []):
         member_records = [
-            item for item in filesystem.get("devices", [])
+            item for item in (filesystem.get("devices", []) or [])
             if isinstance(item, dict) and isinstance(item.get("path"), str)
         ]
         member_paths = {item["path"] for item in member_records}
@@ -195,7 +195,7 @@ def plan_storage_capture(
                     blockers.append("Btrfs uses an unknown allocation profile; refusing layer-aware capture.")
                 member_ids = {
                     item.get("devid") for item in member_records
-                    if isinstance(item.get("devid"), int)
+                    if isinstance(item.get("devid"), int) and not isinstance(item.get("devid"), bool)
                 }
                 def chunk_mapping_is_valid(chunk: Any) -> bool:
                     if not isinstance(chunk, dict) or chunk.get("device_mapping_complete") is not True:
