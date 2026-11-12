@@ -86,8 +86,7 @@ acceptance.
   remain incomplete. Opened-mapping/LUKS2-on-LV restore, provisioning and
   rekeying are unsupported. Raw LUKS2 container-to-partition restore is
   implemented; do not describe all LUKS2 restore as unavailable.
-- **Remote cloning and fleet operations:** remote whole-disk cloning exists;
-  remote partition-to-partition cloning does not. Two-machine fault injection,
+- **Remote cloning and fleet operations:** remote whole-disk and partition-to-partition clone code paths now exist in the shared TLS engine and Cockpit job flow. Two-machine fault injection,
   disconnect/restart recovery and full multi-Client acceptance remain open.
 - **Network configuration:** DHCP/static IPv4 application and checkpoint
   rollback exist. Gateway reachability, DNS resolution, inactive-profile
@@ -115,7 +114,7 @@ acceptance.
 1. Complete and validate unattended PXE across supported providers, with
    cross-reboot expiry/replay protection and Cockpit result reconciliation.
 2. Complete remote repository provider lifecycle and acceptance, including
-   WebDAV; implement BitTorrent as a separate immutable distribution path.
+   WebDAV and S3 object storage; implement NVMe-oF host access as a separate block-device workflow.
 3. Close storage-layer gaps without weakening fail-closed behavior.
 4. Complete remote partition cloning, fleet fault injection and two-machine
    acceptance.
