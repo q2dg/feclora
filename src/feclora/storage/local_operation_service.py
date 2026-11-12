@@ -22,6 +22,17 @@ from feclora.storage.local_operations import (
 RUNTIME = Path("/run/feclora")
 DEVICE_LOCKS = RUNTIME / "local-operation-locks"
 
+# Stable vocabulary shared by every engine and the Cockpit operation history.
+_PROGRESS_PHASES = frozenset({
+    "preflight", "reading", "capturing", "compressing", "encrypting",
+    "signing", "transferring", "publishing", "verifying", "restoring",
+    "cloning", "checking", "finalizing", "working",
+})
+_DIAGNOSTIC_CATEGORIES = frozenset({
+    "permission", "device", "filesystem", "network", "credentials",
+    "integrity", "capacity", "cancelled", "unsupported", "internal",
+})
+
 
 class LocalOperationCancelled(Exception):
     """Raised by the worker after systemd requests an orderly stop."""
@@ -70,6 +81,11 @@ class _ProgressForwarder:
                 details[key] = value
         now = time.monotonic()
         details["elapsed_seconds"] = round(max(0.0, now - self.started_at), 3)
+        phase = event.get("phase")
+        details["phase"] = phase if isinstance(phase, str) and phase in _PROGRESS_PHASES else "working"
+        category = event.get("diagnostic_category")
+        if isinstance(category, str) and category in _DIAGNOSTIC_CATEGORIES:
+            details["diagnostic_category"] = category
         bytes_done = details.get("bytes_done")
         if isinstance(bytes_done, int) and not isinstance(bytes_done, bool):
             if (self.last_bytes_done is not None and self.last_progress_at is not None
