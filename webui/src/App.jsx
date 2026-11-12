@@ -1120,7 +1120,7 @@ export default function App() {
           <Tab eventKey="repositories" title="Remote repositories">
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Remote image repositories</Title>
-                <p>Manage client-side filesystem repositories and image storage transports. SSHFS, NFS, SMB/CIFS and WebDAV are filesystem providers; S3 provides object storage and NVMe-oF block storage.</p>
+                <p>Manage remote image repositories. SSHFS, NFS and SMB/CIFS use mounted filesystems; S3 uses an object-storage API.</p>
               </StackItem>
               <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
                 <Field label="Repository ID"><input className="pf-v5-c-form-control" value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} readOnly={repositoryEditing} required /></Field>
