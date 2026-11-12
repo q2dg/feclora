@@ -512,32 +512,37 @@ class RemoteRepositoryManager:
             # Never unmount an unrelated filesystem that happens to occupy this path.
             self.resolve(identifier)
             unit = f"feclora-repository-{identifier}.service"
-            systemctl = self.which("systemctl") or "systemctl"
             try:
-                active = self.runner(
-                    [systemctl, "is-active", "--quiet", unit],
-                    stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                    check=False, timeout=10,
-                )
-                if active.returncode == 0:
-                    stopped = self.runner(
-                        [systemctl, "stop", unit],
+                # Only mounts backed by LoadCredentialEncrypted run inside a
+                # transient systemd service. Direct mounts have no such unit;
+                # querying systemctl for them would confuse "unit not found"
+                # with an inactive service and could block legitimate unmounts.
+                service_managed = bool(self._encrypted_credential_bindings(repo))
+                if service_managed:
+                    systemctl = self.which("systemctl") or "systemctl"
+                    active = self.runner(
+                        [systemctl, "is-active", "--quiet", unit],
                         stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                        check=False, timeout=30,
+                        check=False, timeout=10,
                     )
-                    if stopped.returncode != 0:
-                        detail = (stopped.stderr or stopped.stdout or "").strip()[:512]
-                        raise RepositoryManagerError("repository mount service could not stop" + (f": {detail}" if detail else ""))
-                elif active.returncode != 3:
-                    # systemctl is-active returns 3 for an inactive unit.
-                    # Other failures (e.g. systemd unavailable or an unknown
-                    # unit state) must not be treated as proof that the
-                    # foreground SSHFS process is gone.
-                    detail = (active.stderr or active.stdout or "").strip()[:512]
-                    raise RepositoryManagerError(
-                        "repository mount service state could not be verified"
-                        + (f": {detail}" if detail else "")
-                    )
+                    if active.returncode == 0:
+                        stopped = self.runner(
+                            [systemctl, "stop", unit],
+                            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                            check=False, timeout=30,
+                        )
+                        if stopped.returncode != 0:
+                            detail = (stopped.stderr or stopped.stdout or "").strip()[:512]
+                            raise RepositoryManagerError("repository mount service could not stop" + (f": {detail}" if detail else ""))
+                    elif active.returncode != 3:
+                        # systemctl is-active returns 3 for an inactive unit.
+                        # Other failures must not be treated as proof that the
+                        # foreground SSHFS process is gone.
+                        detail = (active.stderr or active.stdout or "").strip()[:512]
+                        raise RepositoryManagerError(
+                            "repository mount service state could not be verified"
+                            + (f": {detail}" if detail else "")
+                        )
                 if self._is_mounted(str(mountpoint)):
                     umount = self.which("umount") or "umount"
                     result = self.runner(
