@@ -722,7 +722,7 @@ class CoordinatorControlTests(unittest.TestCase):
             result = server.run_remote_clone_job()
         self.assertEqual(result, {MAC: "succeeded"})
         build.assert_called_once_with(
-            "/dev/sda", "/dev/vdb",
+            "/dev/sda", "/dev/vdb", device_type="disk",
         )
         send.assert_called_once()
         self.assertIs(send.call_args.args[0], fake)
@@ -732,6 +732,35 @@ class CoordinatorControlTests(unittest.TestCase):
             send.call_args.kwargs["confirmation"],
             "READ /dev/sda",
         )
+
+    def test_partition_clone_builds_partition_bound_session_header(self):
+        job = make_job(
+            operation="clone", image_id=None, source_device="/dev/sda1",
+            target_type="partition",
+        )
+        coordinator = DeploymentCoordinator(job)
+        coordinator.register_client(MAC)
+        coordinator.mark_ready(MAC)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.maximum_version = ssl.TLSVersion.TLSv1_3
+        context.verify_mode = ssl.CERT_REQUIRED
+        server = DeploymentControlServer(
+            coordinator, context, local_identity="URI:feclora-server",
+        )
+        fake = FakeSocket()
+        server._sessions[MAC] = fake
+        server._target_devices[MAC] = "/dev/vdb1"
+        header = object()
+        with patch("feclora.deployment.control.build_remote_clone_header", return_value=header) as build, \\
+             patch("feclora.deployment.control.send_remote_disk") as send, \\
+             patch.object(server, "arm_and_start", return_value=(MAC,)), \\
+             patch.object(server, "collect_results", return_value={MAC: "succeeded"}):
+            self.assertEqual(server.run_remote_clone_job(), {MAC: "succeeded"})
+        build.assert_called_once_with(
+            "/dev/sda1", "/dev/vdb1", device_type="partition",
+        )
+        send.assert_called_once()
 
     def test_restore_server_sends_job_bound_transfer_offer_before_image(self):
         coordinator, server, fake = self._server(make_job(image_id="golden"))
