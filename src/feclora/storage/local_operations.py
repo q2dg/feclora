@@ -168,7 +168,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
                 raise LocalOperationError(f"SFTP transfer {field} must reference a registered encrypted credential")
         port = config.get("port", 22)
         if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
-            raise LocalOperationError("SFTP transfer port is invalid")
+            raise LocalOperationError("SFTP port must be an integer between 1 and 65535")
     if "sftp_source" in params:
         config = params["sftp_source"]
         required_sftp = {"host", "username", "remote_directory", "identity_credential", "known_hosts_credential", "expected_manifest_sha256"}
@@ -194,7 +194,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
                 raise LocalOperationError(f"SFTP restore source {field} must reference a registered encrypted credential")
         port = config.get("port", 22)
         if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
-            raise LocalOperationError("SFTP restore source port is invalid")
+            raise LocalOperationError("SFTP port must be an integer between 1 and 65535")
     if action.startswith("restore_") or action.startswith("clone_"):
         target = params.get("target")
         if params.get("confirmation") != f"ERASE {target}" and not (
