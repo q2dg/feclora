@@ -24,8 +24,6 @@ class ImageSecurityTests(unittest.TestCase):
         self.recipients = os.path.join(self.root, "recipients.txt")
         self.identity = os.path.join(self.root, "identity.txt")
         self.manifest = os.path.join(self.root, "image.manifest.json")
-        self.secret = os.path.join(self.root, "minisign.key")
-        self.public = os.path.join(self.root, "minisign.pub")
         for path, data in (
             (self.source, b"compressed bytes"),
             (self.recipients, ("age1" + "a" * 40 + "\n").encode("ascii")),
