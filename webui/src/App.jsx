@@ -19,6 +19,14 @@ const OPERATION_LABELS = {
   clone_partition: "Clone partition to partition"
 };
 
+function flattenDevices(devices) {
+  if (!Array.isArray(devices)) return [];
+  return devices.flatMap((device) => [
+    device,
+    ...flattenDevices(device?.children)
+  ]);
+}
+
 function formatBytes(value) {
   if (!Number.isFinite(value) || value < 0) return "—";
   const units = ["B", "KiB", "MiB", "GiB", "TiB"];
@@ -289,6 +297,7 @@ export default function App() {
     }
     return result;
   }, [inventory, devices]);
+  const inventoryDevices = useMemo(() => flattenDevices(inventory?.devices), [inventory]);
   const clientRemoteJob = clientRemoteInspection?.job;
   const clientRemoteDeviceOptions = clientRemoteJob?.target_type === "logical_volume" ? logicalVolumes : clientRemoteJob?.target_type === "partition" ? partitions : disks;
   const clientRemoteConfirmationPhrase = clientRemoteJob && clientRemoteTarget
@@ -1216,7 +1225,7 @@ export default function App() {
                   {remoteOperation === "clone" ? <Field label={remoteTargetType === "disk" ? "Server source disk" : "Server source partition"} help="Select a source already marked read-only. Feclora independently validates its type, geometry and in-use state before streaming.">
                     <select className="pf-v5-c-form-control" value={remoteSourceDevice} onChange={(e) => setRemoteSourceDevice(e.target.value)} required>
                       <option value="">Select read-only source…</option>
-                      {(inventory?.devices || []).filter((item) => item.type === (remoteTargetType === "disk" ? "disk" : "part") && item.read_only === true).map((item) => <option key={item.path} value={item.path}>{item.path} · {item.model || (remoteTargetType === "disk" ? "Disk" : "Partition")} · {formatBytes(item.size_bytes)}</option>)}
+                      {inventoryDevices.filter((item) => item.type === (remoteTargetType === "disk" ? "disk" : "part") && item.read_only === true).map((item) => <option key={item.path} value={item.path}>{item.path} · {item.model || (remoteTargetType === "disk" ? "Disk" : "Partition")} · {formatBytes(item.size_bytes)}</option>)}
                     </select>
                   </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing disk or partition image. Signed images are verified; unsigned images are accepted through the TLS Server session." : "New identifier for the image captured from Clients."}>
                     {remoteOperation === "restore" ? <select className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)}>
