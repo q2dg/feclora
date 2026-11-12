@@ -428,12 +428,32 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Execute one root-authorized, single-use Feclora whole-disk restore profile."
     )
-    parser.add_argument("--profile", required=True, help="Path to the root-authorized restore profile JSON")
-    parser.add_argument("--repository", default="/home/feclora/images")
-    parser.add_argument("--consumption-ledger", required=True, help="JSONL replay ledger on a dedicated persistent mounted filesystem")
-    parser.add_argument("--operation-log", required=True, help="Persistent JSONL operation journal path")
-    parser.add_argument("--age-identity", help="Protected path to the age identity; never stored in the profile")
+    parser.add_argument(
+        "--profile", default=os.environ.get("FECLORA_PROFILE"),
+        help="Path to the root-authorized restore profile JSON (or FECLORA_PROFILE)",
+    )
+    parser.add_argument(
+        "--repository", default=os.environ.get("FECLORA_IMAGE_REPOSITORY", "/home/feclora/images"),
+    )
+    parser.add_argument(
+        "--consumption-ledger", default=os.environ.get("FECLORA_CONSUMPTION_LEDGER"),
+        help="JSONL replay ledger on a dedicated persistent mounted filesystem",
+    )
+    parser.add_argument(
+        "--operation-log", default=os.environ.get("FECLORA_OPERATION_LOG"),
+        help="Persistent JSONL operation journal path",
+    )
+    parser.add_argument(
+        "--age-identity", default=os.environ.get("FECLORA_AGE_IDENTITY") or None,
+        help="Protected path to the age identity; never stored in the profile",
+    )
     args = parser.parse_args(argv)
+    if not args.profile:
+        parser.error("--profile or FECLORA_PROFILE is required")
+    if not args.consumption_ledger:
+        parser.error("--consumption-ledger or FECLORA_CONSUMPTION_LEDGER is required")
+    if not args.operation_log:
+        parser.error("--operation-log or FECLORA_OPERATION_LOG is required")
     try:
         manifest = execute_unattended_restore_profile(
             args.profile,
