@@ -261,7 +261,7 @@ def send_multicast_artifact(
         raise UDPcastError("Not enough authenticated, ready/running clients for the configured receiver threshold")
     manifest = _load_manifest(manifest_path)
     if manifest.image_id != job.image_id:
-        raise UDPcastError("Signed image manifest does not match the deployment job image_id")
+        raise UDPcastError("Image manifest does not match the deployment job image_id")
     artifact_name = os.path.basename(source_path)
     matches = [item for item in manifest.artifacts if item.filename == artifact_name]
     if len(matches) != 1:
