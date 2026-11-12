@@ -29,7 +29,7 @@ description: Fedora-based disk imaging, cloning and recovery.
       <article class="feature">
         <span class="feature-number">02</span>
         <h3>Clone</h3>
-        <p>Clone whole disks and partitions locally; authenticated remote whole-disk cloning is implemented, with remote partition cloning still pending.</p>
+        <p>Clone whole disks and partitions locally; authenticated remote whole-disk and partition cloning are implemented in source/Cockpit, pending two-host acceptance.</p>
       </article>
       <article class="feature">
         <span class="feature-number">03</span>
@@ -43,7 +43,7 @@ description: Fedora-based disk imaging, cloning and recovery.
     <div>
       <p class="eyebrow">PROJECT STATUS</p>
       <h2 id="status-title">Implemented in stages. Not yet lab-certified.</h2>
-      <p>The Cockpit application exposes local whole-disk, partition and eligible LVM capture/restore, disk and partition cloning, storage and image inventories, and durable local-operation status. Authenticated Server/Client workflows include enrollment, deployment jobs, unicast image transfer, multicast restore and direct remote whole-disk cloning. PXE/iPXE supports interactive Live boot and an initial unattended answer-file path: the Server publishes a validated answer, Live downloads and validates it, and NFS-backed whole-disk restore uses the existing guarded restore engine. This unattended path is not yet a complete fleet solution. Remote partition cloning, complete remote-transport coverage (including WebDAV and BitTorrent), Btrfs snapshot-consistent and multi-device imaging, richer transfer telemetry and end-to-end physical acceptance remain outstanding. Source implementation and automated tests do not establish ISO boot, firmware, hardware, provider or network-lab acceptance.</p>
+      <p>The Cockpit application exposes local whole-disk, partition and eligible LVM capture/restore, disk and partition cloning, storage and image inventories, and durable local-operation status. Authenticated Server/Client workflows include enrollment, deployment jobs, unicast image transfer, multicast restore and direct remote whole-disk and partition cloning. PXE/iPXE supports interactive Live boot and an initial unattended answer-file path: the Server publishes a validated answer, Live downloads and validates it, and NFS-backed whole-disk restore uses the existing guarded restore engine. This unattended path is not yet a complete fleet solution. S3 and NVMe-oF integrations, complete remote-transport coverage (including WebDAV and S3; NVMe-oF block access), Btrfs snapshot-consistent and multi-device imaging, richer transfer telemetry and end-to-end physical acceptance remain outstanding. Source implementation and automated tests do not establish ISO boot, firmware, hardware, provider or network-lab acceptance.</p>
     </div>
     <a class="text-link" href="./ROADMAP.html">See what is next →</a>
   </section>
