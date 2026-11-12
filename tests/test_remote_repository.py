@@ -32,15 +32,15 @@ class RemoteRepositoryTests(unittest.TestCase):
                 provider="sshfs", host="images.example.net", remote_path="/backup",
                 mountpoint="/mnt/ssh", username="backup",
                 identity_file="/etc/feclora/ssh/id_ed25519",
-                known_hosts_file="/etc/feclora/ssh/known_hosts",
+                known_hosts_file="/etc/feclora/ssh/known_hosts", read_only=True,
             ),
             RemoteRepository(
                 provider="nfs", host="nas.example.net", remote_path="/exports/images",
-                mountpoint="/mnt/nfs",
+                mountpoint="/mnt/nfs", read_only=True,
             ),
             RemoteRepository(
                 provider="smb", host="nas.example.net", remote_path="/images",
-                mountpoint="/mnt/smb", credential_file="/etc/feclora/smb.creds",
+                mountpoint="/mnt/smb", credential_file="/etc/feclora/smb.creds", read_only=True,
             ),
         ]
         for repository in repositories:
