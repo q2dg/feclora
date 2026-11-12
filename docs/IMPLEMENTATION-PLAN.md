@@ -159,11 +159,11 @@ Existing foundation: deployment journals, persistent Server service lifecycle, r
 - [x] Persist monotonic elapsed time and sampled bytes/second with local byte-progress checkpoints when consecutive counters are comparable; omit the rate for the first sample or after a counter reset.
 - [ ] Report bytes, phase, throughput, timestamps and bounded diagnostic categories consistently across every local operation; standardize phase and diagnostic categories across all operation engines.
   - The durable journal boundary now normalizes incoming progress phases to a fixed vocabulary and accepts only bounded diagnostic categories; engines still need to emit meaningful phase/category values and Server-side transfer progress remains pending.
-  - Worker failures now persist a bounded diagnostic category derived from errno/exception type (permission, capacity, device, network, credentials, integrity, unsupported, or internal); raw error text remains separately length-limited. Engine-level phase emission and server-side transfer progress are still outstanding.
+  - Worker failures now persist a bounded diagnostic category derived from errno/exception type (permission, capacity, device, network, credentials, integrity, unsupported, or internal); raw error text remains separately length-limited. Engine-level phase emission is still outstanding; Server-side artifact-transfer progress is now emitted by the Server sender and persisted through the existing journal.
 - [x] Detect unfinished local operations across reboot and mark them interrupted for manual review; never resume destructive I/O automatically. Verify and harden detached-worker supervision on live systemd hosts.
 - [x] Add process-independent per-device locks/conflict detection while preserving the existing host-wide storage/deployment exclusion.
 - [x] Expose local operation history and event detail in Cockpit; export and richer filtering remain pending.
-- [ ] Add Server-side artifact-transfer progress; separate control/data channels if required.
+- [x] Add Server-side artifact-transfer progress using the Server sender's local callback and existing journal; do not inject progress frames into the TLS artifact stream.
 - [ ] Keep `dialog`/ `zenity` out of the execution architecture; any future console UI must be a client of the same durable service. The legacy `dialog_app.py` still executes engines in its own process and is not safe to reactivate as-is.
 Acceptance: browser closure does not stop jobs; history survives Cockpit/API and worker service restarts; destructive jobs cannot race on one device; restart never silently resumes writes; all UI clients use the same validation and authorization boundary.
 
