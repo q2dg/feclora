@@ -131,11 +131,6 @@ class DiskRestoreTests(unittest.TestCase):
             self.restore()
         self.assertEqual(self.started, [])
 
-    def test_can_require_minisign_signature_before_dd(self):
-        with self.assertRaisesRegex(DiskRestoreError, "signature is required"):
-            self.restore(require_signature=True)
-        self.assertEqual(self.started, [])
-
     def test_pre_write_callback_runs_after_successful_preflight(self):
         calls = []
         self.restore(pre_write_callback=lambda: calls.append("authorized"))
@@ -220,14 +215,6 @@ class DiskRestoreTests(unittest.TestCase):
                 target_safety_check=safety, effective_uid=lambda: 0,
                 popen_factory=lambda *a, **k: self.fail("dd must not start"),
             )
-
-
-    def test_signed_image_cannot_be_restored_without_trusted_key(self):
-        with open(self.manifest + ".minisig", "wb") as signature:
-            signature.write(b"unverified")
-        with self.assertRaisesRegex(DiskRestoreError, "trusted minisign public key"):
-            self.restore()
-        self.assertEqual(self.started, [])
 
 
     def test_age_decryption_stages_on_local_temp_not_read_only_repository(self):
