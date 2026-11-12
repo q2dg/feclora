@@ -22,7 +22,7 @@ CREDENTIAL_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
 WWN_RE = re.compile(r"^[A-Za-z0-9_.:-]{4,128}$")
 SERIAL_RE = re.compile(r"^[A-Za-z0-9_.:+/-]{1,128}$")
 REPOSITORY_SCHEMES = {
-    "sshfs", "smb", "cifs", "nfs", "webdav", "webdavs",
+    "sshfs", "smb", "cifs", "nfs",
     "http", "https", "s3",
 }
 
