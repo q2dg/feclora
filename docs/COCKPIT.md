@@ -157,7 +157,7 @@ repository and requires an additional 64 MiB safety reserve. A failed or
 unavailable capacity check prevents READY; the runtime repeats a capacity check
 before receiving artifacts. This is a point-in-time preflight, so operators must
 avoid concurrent use of the staging filesystem during deployment.
-The Server arms only when every authorized Client is READY; each Client stages
+The Server arms only when every selected Client is READY; each Client stages
 and verifies every artifact's manifest/digest and any configured encryption
 or signature before writing its local disk.
 Confirm switch IGMP snooping and an active querier on the same VLAN before
@@ -225,46 +225,13 @@ server. A missing DHCP server in the NetworkManager lease is not proof of
 network isolation.
 
 
-## Trusted Client enrollment
-
-The Server setup tab now includes **Trusted Clients · Approve CSR**. On a
-Client, prepare the enrollment request on removable media. Choose independently whether to provision an age decryption identity and a
-minisign image-signing key. The age identity stays local and only its public
-recipient is exported; the signing secret also stays local and only its public
-key is exported. Both options can be left off for TLS-only enrollment. These switches provision
-capabilities only; each capture still asks separately whether that image should
-be encrypted and/or signed.
-
-On the Server, provide the CSR path, optional age-recipient path and Client
-unicast MAC. Paths must refer to regular files on mounted media under
-`/run/media`, `/media` or `/mnt`. Inspect the request first; Cockpit verifies
-the CSR signature and its Feclora Client URI SAN, validates any supplied
-optional public material, and displays the identity/MAC confirmation phrase.
-The approval action requires typing that exact phrase. It then issues and
-enrolls the certificate and exports the CA/certificate bundle plus any
-configured public image-authentication material or recipient inventory.
-Existing bundle files are never overwritten.
-
-Only public enrollment material is copied to removable media. TLS and any
-optional age/signing private keys remain on the Client. When age encryption is
-enabled, each enrolled Client must use a unique age recipient so revocation
-does not accidentally remove another Client's future decryption capability.
-
-Enrollment and renewal accept TLS-only requests: age recipient files and
-minisign public keys are optional inputs. When supplied, the Server registers
-only the corresponding public image-security material. The Client's TLS
-private key remains local. Age identities are provisioned only when the
-optional age tooling is available; a TLS-only renewal does not create a new
-age identity when none is configured. The encrypted CA-backup action is a
-separate optional workflow and asks for an age recipient because encryption
-is its purpose.
+## Optional age recipient inventory
 
 When age encryption is enabled, the Server setup tab can export the current
 public recipient inventory. Each Client can refresh its local recipient list
 from that public inventory after verifying that it includes the Client's own
-age identity. Private age identities remain local. This is an image-encryption
-recipient-management feature, not Client authentication or revocation.
-
+age identity. Private age identities remain local. This manages image
+confidentiality recipients only; it is not Client authentication or revocation.
 
 ## Cockpit deployment-job API
 
@@ -301,7 +268,7 @@ that manual inspection occurred; it does not resume, retry, roll back or touch
 any storage device. The action is rejected for non-interrupted jobs.
 
 A persistent unicast job is limited to one Client; UDPcast multicast
-restore requires at least two authorized Clients. Concurrent unicast fan-out
+restore requires at least two selected Clients. Concurrent unicast fan-out
 and multicast capture remain out of scope.
 
 For each fresh job, use **Start / connect service** to start its
@@ -327,7 +294,7 @@ automatically. The service supports one job per Server at a time and is not
 enabled at boot. Multicast preflight reports local interface/route warnings,
 but switch IGMP snooping/querier and VLAN isolation still require operator
 validation. UDPcast multicast data is not encrypted or authenticated; only
-the control plane uses mTLS.
+the control plane uses Server-authenticated TLS; Clients are not authenticated individually.
 
 
 ## Optional age recipient inventory refresh
@@ -351,7 +318,7 @@ in the Server setup tab.
 
 Cockpit also reports the local managed Server TLS certificate expiry and the associated deployment CA expiry. Certificates with 30 days or fewer remaining are flagged for renewal; expired Server or CA certificates and configuration/inspection errors are surfaced as critical status. This is read-only and does not rotate certificates automatically.
 
-Server TLS certificate renewal is also available in the Cockpit Server setup tab. It requires typing `RENEW SERVER CERTIFICATE`, refuses to proceed while any deployment service is active, renews the certificate using the existing CA and Server private key, verifies the resulting chain, SAN and key match, and atomically replaces `server.crt`. The CA, Server identity, Client trust and image-signing keys are unchanged. This is certificate renewal, not CA rotation or Server key rotation.
+Server TLS certificate renewal is also available in the Cockpit Server setup tab. It requires typing `RENEW SERVER CERTIFICATE`, refuses to proceed while any deployment service is active, renews the certificate using the existing CA and Server private key, verifies the resulting chain, SAN and key match, and atomically replaces `server.crt`. The CA, Server identity and image-signing keys are unchanged. This is certificate renewal, not CA rotation or Server key rotation.
 
 ## Network configuration status
 

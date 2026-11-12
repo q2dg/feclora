@@ -53,7 +53,7 @@ not a product requirement.
   authenticity mechanism is still required before destructive or unattended
   actions; SHA-256 alone detects corruption but does not authenticate the
   publisher.
-- The baseline TLS enrollment, renewal, unicast and multicast deployment paths
+- The baseline Server-authenticated TLS, unicast and multicast deployment paths
   accept absent age/minisign material. The remaining minisign-specific paths are
   the SFTP signed-image-set workflow and signed unattended restore profiles;
   they are optional features, not baseline installation requirements. A
@@ -61,8 +61,9 @@ not a product requirement.
   trust policy is still needed before those features can be used without
   minisign.
 - Server TLS certificate validation, job-scoped MAC selection and Feclora's
-  local device confirmations are separate from optional image encryption/signing. Clients are not authenticated individually. Never substitute one
-  key type or security role for another.
+  local device confirmations are separate from optional image encryption/signing.
+  Clients are not authenticated individually. Never substitute one key type or
+  security role for another.
 
 ## Engineering rules
 

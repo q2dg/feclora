@@ -7,8 +7,7 @@ restoration, disk-to-disk cloning and partition-to-partition cloning. It
 supports device inventory, image selection, compression, optional `age` encryption
 and optional `minisign` signatures, exact destructive confirmations and streamed progress.
 Other tabs provide storage inventory, image inventory, durable local operation
-history, Server identity and trusted-Client administration, removable-media
-Client enrollment and renewal, Server deployment-job authoring/lifecycle,
+history, Server CA and TLS trust configuration, optional age recipient management, Server deployment-job authoring/lifecycle,
 Client job inspection and execution, PXE preflight and service activation, and
 system status. Server/Client storage jobs use READY/ARM authorization gates;
 PXE service activation is a separate, explicit operation. Cockpit Terminal
