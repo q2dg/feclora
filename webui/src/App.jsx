@@ -1094,7 +1094,7 @@ export default function App() {
                     <Alert variant="warning" title="Multicast transport limitation" isInline>UDPcast data packets are not encrypted or authenticated. TLS protects the control plane, not the multicast data stream. Use only on a trusted, isolated deployment network.</Alert>
                   </>}
                   <Field label="Start policy"><input className="pf-v5-c-form-control" value="Manual — exact job-specific typed confirmation required" readOnly /></Field>
-                  <Button type="submit" variant="primary" isDisabled={busy || (remoteOperation === "clone" ? !remoteSourceDevice : !remoteImageId) || !remoteClients.trim() || !remoteInterface}>Validate and save job definition</Button>
+                  <Button type="submit" variant="primary" isDisabled={busy || (remoteOperation === "clone" ? !remoteSourceDevice : !remoteImageId || (remoteOperation === "restore" && !remoteAvailableImages.some((item) => item.image_id === remoteImageId))) || !remoteClients.trim() || !remoteInterface}>Validate and save job definition</Button>
                 </form>
                 {remoteJobResult && <Alert variant="success" title="Job definition persisted" isInline className="pf-v5-u-mt-md">{remoteJobResult.message}<p>Job ID: {remoteJobResult.job_id}</p></Alert>}
                 </CardBody></Card>
