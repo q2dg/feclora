@@ -1,8 +1,4 @@
-"""Adapters for standard age encryption and minisign manifest signatures.
-
-This module delegates cryptographic operations to the upstream command-line
-programs. It does not implement cryptographic primitives or key derivation.
-"""
+"""Adapters for optional age artifact encryption and SHA-256 integrity checks."""
 from __future__ import annotations
 
 from dataclasses import replace
@@ -18,7 +14,7 @@ from .image_manifest import ImageArtifact
 
 
 class ImageSecurityError(RuntimeError):
-    """Encryption, decryption, signing, or verification failed."""
+    """Image encryption or decryption failed."""
 
 
 def _regular_file(path: str | os.PathLike[str], label: str) -> str:
@@ -46,9 +42,7 @@ def _digest_file(path: str) -> tuple[int, str]:
 def preflight_image_security(
     *,
     age_recipients_file: str | os.PathLike[str] | None = None,
-    minisign_secret_key: str | os.PathLike[str] | None = None,
     age_executable: str | None = None,
-    minisign_executable: str | None = None,
 ) -> None:
     """Validate selected optional image-security inputs before a long capture."""
     if age_recipients_file is not None:
@@ -68,19 +62,6 @@ def preflight_image_security(
             raise ImageSecurityError("age executable is required for image encryption")
         if not os.path.isfile(executable) or not os.access(executable, os.X_OK):
             raise ImageSecurityError("configured age executable is unavailable or not executable")
-    if minisign_secret_key is not None:
-        secret_path = _regular_file(minisign_secret_key, "minisign secret key")
-        secret_info = os.stat(secret_path)
-        if secret_info.st_mode & 0o077:
-            raise ImageSecurityError("minisign secret key must not be accessible by group or other users")
-        if secret_info.st_size == 0 or secret_info.st_size > 64 * 1024:
-            raise ImageSecurityError("minisign secret key size is outside the permitted range")
-        executable = minisign_executable or shutil.which("minisign")
-        if not executable:
-            raise ImageSecurityError("minisign executable is required for manifest signing")
-        if not os.path.isfile(executable) or not os.access(executable, os.X_OK):
-            raise ImageSecurityError("configured minisign executable is unavailable or not executable")
-
 
 def encrypt_artifact(
     artifact_path: str | os.PathLike[str],
@@ -390,210 +371,3 @@ def decrypt_artifact_to_temp(
                     os.unlink(temporary)
                 except FileNotFoundError:
                     pass
-
-
-def sign_manifest(
-    manifest_path: str | os.PathLike[str],
-    secret_key: str | os.PathLike[str],
-    *,
-    minisign_executable: str | None = None,
-) -> str:
-    """Create a detached minisign signature; never overwrite an existing one."""
-    manifest = _regular_file(manifest_path, "manifest")
-    key = _regular_file(secret_key, "minisign secret key")
-    minisign = minisign_executable or shutil.which("minisign")
-    if not minisign:
-        raise ImageSecurityError("minisign executable is required for manifest signing")
-    signature = manifest + ".minisig"
-    if os.path.lexists(signature):
-        raise ImageSecurityError("manifest signature already exists")
-    try:
-        result = subprocess.run(
-            [minisign, "-S", "-s", key, "-x", signature, "-m", manifest],
-            check=False, capture_output=True, text=True,
-        )
-        if result.returncode != 0:
-            detail = (result.stderr or "").strip()[:1000]
-            raise ImageSecurityError("minisign signing failed" + (f": {detail}" if detail else ""))
-        _regular_file(signature, "minisign signature")
-        return signature
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise ImageSecurityError(f"could not sign manifest: {exc}") from exc
-
-
-def verify_manifest_signature(
-    manifest_path: str | os.PathLike[str],
-    public_key: str | os.PathLike[str],
-    *,
-    signature_path: str | os.PathLike[str] | None = None,
-    minisign_executable: str | None = None,
-) -> None:
-    """Verify a detached signature against an independently trusted public key."""
-    manifest = _regular_file(manifest_path, "manifest")
-    key = _regular_file(public_key, "minisign public key")
-    signature = _regular_file(signature_path or (manifest + ".minisig"), "manifest signature")
-    minisign = minisign_executable or shutil.which("minisign")
-    if not minisign:
-        raise ImageSecurityError("minisign executable is required for signature verification")
-    try:
-        result = subprocess.run(
-            [minisign, "-V", "-m", manifest, "-p", key, "-x", signature],
-            check=False, capture_output=True, text=True,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise ImageSecurityError(f"could not verify manifest signature: {exc}") from exc
-    if result.returncode != 0:
-        detail = (result.stderr or result.stdout or "").strip()[:1000]
-        raise ImageSecurityError("manifest signature is invalid" + (f": {detail}" if detail else ""))
-
-
-
-def decrypt_artifact_stream_with_passphrase_to_temp(
-    encrypted_stream,
-    passphrase: str,
-    directory: str | os.PathLike[str],
-    *,
-    age_executable: str | None = None,
-) -> str:
-    """Decrypt a passphrase-encrypted age stream through a controlling PTY.
-
-    The passphrase is sent only after age displays its terminal prompt. It is
-    never passed in argv, environment variables, or a pipe separate from the
-    controlling terminal.
-    """
-    import errno
-    import pty
-    import select
-    import signal
-    import time
-    import tty
-
-    if (not isinstance(passphrase, str) or not passphrase
-            or len(passphrase.encode("utf-8")) > 1024
-            or any(char in passphrase for char in "\r\n\x00")):
-        raise ImageSecurityError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
-    if not hasattr(encrypted_stream, "fileno"):
-        raise ImageSecurityError("age encrypted input must be an open file stream")
-    target_dir = os.path.abspath(os.fspath(directory))
-    if not stat.S_ISDIR(os.lstat(target_dir).st_mode):
-        raise ImageSecurityError("decryption staging path must be a real directory")
-    age = age_executable or shutil.which("age")
-    if not age:
-        raise ImageSecurityError("age executable is required for image decryption")
-
-    # Keep the output in a private directory below the selected temp directory.
-    # age can safely create/overwrite the file without a symlink race from
-    # another local user, even when the parent temp directory is shared.
-    private_dir = tempfile.mkdtemp(prefix=".feclora-age-", dir=target_dir)
-    os.chmod(private_dir, 0o700)
-    output_fd, temporary = tempfile.mkstemp(prefix="plaintext-", dir=private_dir)
-    os.fchmod(output_fd, 0o600)
-    os.close(output_fd)
-
-    input_fd = encrypted_stream.fileno()
-    was_inheritable = os.get_inheritable(input_fd)
-    master = None
-    child_pid = None
-    sent = False
-    transcript = bytearray()
-    wait_status = None
-    keep_output = False
-    try:
-        os.set_inheritable(input_fd, True)
-        child_pid, master = pty.fork()
-        if child_pid == 0:
-            try:
-                tty.setraw(0)
-                os.umask(0o077)
-                os.execv(age, [age, "--decrypt", "--output", temporary,
-                               f"/proc/self/fd/{input_fd}"])
-            except BaseException as exc:
-                try:
-                    os.write(2, f"age exec failed: {exc}\n".encode("utf-8", errors="replace"))
-                finally:
-                    os._exit(127)
-
-        deadline = time.monotonic() + 180.0
-        while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise ImageSecurityError("age decryption timed out while waiting for terminal input")
-            readable, _, _ = select.select([master], [], [], min(0.25, remaining))
-            if readable:
-                try:
-                    chunk = os.read(master, 4096)
-                except OSError as exc:
-                    if exc.errno == errno.EIO:
-                        chunk = b""
-                    else:
-                        raise
-                if chunk:
-                    transcript.extend(chunk)
-                    if len(transcript) > 8192:
-                        del transcript[:-8192]
-                    if not sent and b"passphrase:" in bytes(transcript).lower():
-                        os.write(master, passphrase.encode("utf-8") + b"\n")
-                        sent = True
-                elif wait_status is not None:
-                    break
-            waited, status = os.waitpid(child_pid, os.WNOHANG)
-            if waited == child_pid:
-                wait_status = status
-                # Drain any final diagnostic text from the PTY.
-                try:
-                    tail = os.read(master, 4096)
-                except OSError as exc:
-                    if exc.errno == errno.EIO:
-                        tail = b""
-                    else:
-                        raise
-                if tail:
-                    transcript.extend(tail)
-                    continue
-                break
-
-        if wait_status is None:
-            _, wait_status = os.waitpid(child_pid, 0)
-        if not sent:
-            detail = bytes(transcript).decode("utf-8", errors="replace")[-500:]
-            raise ImageSecurityError("age did not request a passphrase on its controlling terminal" +
-                                     (f": {detail}" if detail else ""))
-        if not os.WIFEXITED(wait_status) or os.WEXITSTATUS(wait_status) != 0:
-            detail = bytes(transcript).decode("utf-8", errors="replace").strip()[-500:]
-            raise ImageSecurityError("age passphrase decryption/authentication failed" +
-                                     (f": {detail}" if detail else ""))
-        info = os.lstat(temporary)
-        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_size <= 0:
-            raise ImageSecurityError("age produced no non-empty plaintext artifact")
-        os.chmod(temporary, 0o600)
-        with open(temporary, "rb") as output:
-            os.fsync(output.fileno())
-        keep_output = True
-        return temporary
-    except ImageSecurityError:
-        raise
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise ImageSecurityError(f"could not decrypt passphrase-encrypted age artifact: {exc}") from exc
-    finally:
-        os.set_inheritable(input_fd, was_inheritable)
-        if child_pid is not None and wait_status is None:
-            try:
-                os.kill(child_pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            try:
-                os.waitpid(child_pid, 0)
-            except ChildProcessError:
-                pass
-        if master is not None:
-            os.close(master)
-        # On success, the caller owns the plaintext file and removes it.
-        if not keep_output:
-            try:
-                os.unlink(temporary)
-            except FileNotFoundError:
-                pass
-            try:
-                os.rmdir(private_dir)
-            except OSError:
-                pass
