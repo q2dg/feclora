@@ -1777,8 +1777,8 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
 
 def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]:
     operation_fields = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
-        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "sign", "repository_id", "sftp_publish"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "sftp_publish"},
+        "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id", "sftp_publish"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id", "sftp_source"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
@@ -2493,7 +2493,7 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _server_trusted_clients() -> dict[str, Any]:
-    """Compatibility endpoint; image-signing trust entries are no longer used."""
+    """Return the Server enrollment inventory."""
     return {"clients": []}
 
 
