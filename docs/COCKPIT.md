@@ -234,8 +234,7 @@ confidentiality recipients only; it is not Client authentication or revocation.
 The Server Cockpit API can validate and persist a deployment-job definition in the
 root-owned hash-chained journal. Creation validates selected Client MACs, the
 selected interface and image type, and validates manifest SHA-256 digests and authenticates any
-age-encrypted artifact when present. Client signing keys and age recipient
-registrations are required only when the operator selects those protections
+age-encrypted artifact when present. Age recipient registrations are required only when the operator selects encryption
 for a specific image.
 Persisting a job does not contact Clients, arm the job, or start disk I/O.
 The persistent systemd service can now load a fresh definition, verify its
