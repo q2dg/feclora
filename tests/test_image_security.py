@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 from feclora.storage.image_manifest import ImageArtifact
 from feclora.storage.image_security import (
-    ImageSecurityError, decrypt_artifact_to_temp, encrypt_artifact,
-    sign_manifest, verify_manifest_signature, preflight_image_security,
+    ImageSecurityError, decrypt_artifact_to_temp, decrypt_artifact_stream_with_passphrase_to_temp,
+    encrypt_artifact, sign_manifest, verify_manifest_signature, preflight_image_security,
 )
 
 
@@ -78,6 +78,49 @@ class ImageSecurityTests(unittest.TestCase):
         self.addCleanup(lambda: os.path.exists(staged) and os.unlink(staged))
         self.assertEqual(open(staged, "rb").read(), b"compressed bytes")
         self.assertEqual(os.stat(staged).st_mode & 0o777, 0o600)
+
+    def test_symmetric_age_decryption_uses_private_pty_and_authenticates(self):
+        encrypted = os.path.join(self.root, "disk.raw.gz.age")
+        with open(encrypted, "wb") as stream:
+            stream.write(b"ciphertext")
+        fake_age = os.path.join(self.root, "fake-age")
+        with open(fake_age, "w", encoding="utf-8") as script:
+            script.write(
+                "#!/usr/bin/python3\\n"
+                "import shutil, sys\\n"
+                "args = sys.argv[1:]\\n"
+                "output = args[args.index('--output') + 1]\\n"
+                "source = args[-1]\\n"
+                "if sys.stdin.buffer.readline() != b'secret\\n': sys.exit(3)\\n"
+                "with open(source, 'rb') as src, open(output, 'wb') as dst: shutil.copyfileobj(src, dst)\\n"
+            )
+        os.chmod(fake_age, 0o700)
+        with open(encrypted, "rb") as source:
+            staged = decrypt_artifact_stream_with_passphrase_to_temp(
+                source, "secret", self.root, age_executable=fake_age,
+            )
+        self.addCleanup(lambda: os.path.exists(staged) and os.unlink(staged))
+        self.assertEqual(open(staged, "rb").read(), b"ciphertext")
+        self.assertEqual(os.stat(staged).st_mode & 0o777, 0o600)
+
+    def test_symmetric_age_decryption_rejects_wrong_passphrase(self):
+        encrypted = os.path.join(self.root, "disk.raw.gz.age")
+        with open(encrypted, "wb") as stream:
+            stream.write(b"ciphertext")
+        fake_age = os.path.join(self.root, "fake-age")
+        with open(fake_age, "w", encoding="utf-8") as script:
+            script.write(
+                "#!/usr/bin/python3\\n"
+                "import sys\\n"
+                "if sys.stdin.buffer.readline() != b'secret\\n': sys.exit(3)\\n"
+            )
+        os.chmod(fake_age, 0o700)
+        with open(encrypted, "rb") as source:
+            with self.assertRaisesRegex(ImageSecurityError, "authentication failed"):
+                decrypt_artifact_stream_with_passphrase_to_temp(
+                    source, "wrong", self.root, age_executable=fake_age,
+                )
+        self.assertFalse(any(name.startswith(".feclora-decrypted-") for name in os.listdir(self.root)))
 
     def test_sign_and_verify_manifest(self):
         signature = self.manifest + ".minisig"
