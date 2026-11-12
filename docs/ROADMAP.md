@@ -19,10 +19,10 @@ operator. Persistent Live-session storage is not a product requirement.
 Storage layers and repositories are different concepts. LVM logical volumes,
 raw LUKS2 containers and Btrfs filesystems are possible image sources.
 SSHFS, NFS and SMB/CIFS are mounted repository providers; SFTP is a separate
-file-transfer provider. WebDAV is not implemented. BitTorrent is a planned
-immutable-artifact distribution transport, not a writable repository.
-Remote servers, exports, shares, trackers and peers remain external systems
-administered by their owners.
+file-transfer provider. WebDAV and S3 are planned file-repository providers;
+S3 requires an object API rather than a mount. NVMe-oF is a separate planned
+remote block-device transport. Remote servers, exports, shares, buckets and
+NVMe subsystems remain external systems administered by their owners.
 
 ## Implemented in source and Cockpit
 
@@ -47,7 +47,7 @@ administered by their owners.
   automatically; interrupted destinations require inspection.
 - Persistent Server/Client deployment services, Server-authenticated TLS
   control, READY/ARM authorization, unicast image transfer, UDPcast multicast
-  restore and direct whole-disk remote cloning.
+  restore and direct whole-disk and partition-to-partition remote cloning.
 - Server/Client Cockpit workflows for DHCP/static IPv4 configuration of an
   active NetworkManager profile, including a 120-second checkpoint/rollback
   window and post-apply profile/address verification.
@@ -100,9 +100,13 @@ acceptance.
   Server-side per-Client operation progress/throughput, exist. Standardized
   phase/diagnostic telemetry, operation-history export, detached-worker
   supervision and additional recovery drills remain open.
-- **Distribution:** BitTorrent has no implementation. It remains a planned
-  first-class immutable-artifact transport with authenticated metadata,
-  digest verification, cancellation, cleanup and multi-Client acceptance.
+- **S3 object storage:** planned object API integration is not implemented.
+  It requires scoped SigV4 credentials, multipart lifecycle and abort/cleanup,
+  conditional no-overwrite writes, manifest-last publication, SHA-256 and
+  independent manifest authenticity verification.
+- **NVMe-oF:** planned host-side namespace connection management is not
+  implemented. NQN/NSID identity binding, multipath, in-use protection,
+  fabric-security boundaries and operator acceptance are required.
 - **Release engineering:** the frontend has pinned direct dependencies but
   no committed npm lockfile; CI currently uses npm install, so transitive
   dependency resolution is not reproducible. Dependency/security scanning,
@@ -116,8 +120,8 @@ acceptance.
 2. Complete remote repository provider lifecycle and acceptance, including
    WebDAV and S3 object storage; implement NVMe-oF host access as a separate block-device workflow.
 3. Close storage-layer gaps without weakening fail-closed behavior.
-4. Complete remote partition cloning, fleet fault injection and two-machine
-   acceptance.
+4. Complete remote partition-clone fault injection, transfer recovery and
+   two-machine acceptance.
 5. Complete release engineering: deterministic frontend dependencies,
    security scanning, secret checks and documentation/link checks in CI.
 6. Run and record BIOS/UEFI, real Fedora Live, filesystem, remote-provider,
