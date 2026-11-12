@@ -426,17 +426,9 @@ class DeploymentService:
             raise DeploymentServiceError("operator confirmation is invalid")
         if action == "arm":
             if self.job.operation == "clone":
-                receiver_identity = next(
-                    (identity for identity, mac in self.config.client_identity_to_mac.items()
-                     if mac == self.job.authorized_clients[0]),
-                    None,
-                )
-                if not receiver_identity or not self.job.source_device:
-                    raise DeploymentServiceError("clone source or enrolled receiver identity is unavailable")
-                required = (
-                    f"ARM {self.job.job_id} AND "
-                    f"READ {self.job.source_device} TO {receiver_identity}"
-                )
+                if not self.job.source_device:
+                    raise DeploymentServiceError("clone source device is unavailable")
+                required = f"ARM {self.job.job_id} AND READ {self.job.source_device}"
             else:
                 required = (
                     "ARM MULTICAST " + self.job.job_id + " IGMP-VERIFIED"
@@ -567,7 +559,7 @@ class DeploymentService:
         finally:
             try:
                 self.ipc.stop()
-                # A service stop must never tear down an authenticated session
+                # A service stop must never tear down an control session
                 # while the worker may be writing a target disk. Let the active
                 # engine reach its own terminal state before closing TLS sessions.
                 if self._worker is not None and self._worker.is_alive():

@@ -2801,12 +2801,7 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
                     or directory_info.st_uid != 0 or directory_info.st_mode & 0o077):
                 raise WebAPIError("Server age-recipient registry directories are unsafe")
             for mac in job.authorized_clients:
-                identity = next(
-                    identity for identity, enrolled_mac in config.client_identity_to_mac.items()
-                    if enrolled_mac == mac
-                )
-                client_id = identity.removeprefix("URI:feclora-client-")
-                mapping = recipients_directory / f"{client_id}.txt"
+                mapping = recipients_directory / f"{mac.replace(':', '')}.txt"
                 try:
                     info = os.lstat(mapping)
                     recipient = mapping.read_text(encoding="ascii").strip()
@@ -2842,7 +2837,7 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _server_trusted_clients() -> dict[str, Any]:
-    """Return enrolled Client identities without exposing key material."""
+    """Return configured image-signing trust entries; this is not Client authentication."""
     from feclora.deployment.runtime_config import load_server_runtime_config
     config_path = "/etc/feclora/deployment-server.json"
     if not os.path.isfile(config_path):
@@ -2852,9 +2847,8 @@ def _server_trusted_clients() -> dict[str, Any]:
     except Exception as exc:
         raise WebAPIError(f"cannot read Server trust configuration: {exc}") from exc
     return {"clients": [
-        {"identity": identity, "mac_address": mac,
-         "image_signing": mac in config.client_minisign_public_keys}
-        for identity, mac in sorted(config.client_identity_to_mac.items())
+        {"mac_address": mac, "image_signing": True}
+        for mac in sorted(config.client_minisign_public_keys)
     ]}
 
 

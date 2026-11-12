@@ -41,7 +41,7 @@ _CONTROL_TYPES = {"hello", "inspect", "job", "ready", "start", "result", "cancel
 
 
 class DeploymentControlError(RuntimeError):
-    """An authenticated deployment control exchange failed."""
+    """A deployment control exchange failed."""
 
 
 def _recv_exact(sock: Any, count: int) -> bytes:
@@ -417,15 +417,15 @@ class DeploymentControlServer:
             None,
         )
         if record is None or record.state is not ClientState.RUNNING:
-            raise DeploymentControlError("client must be authenticated, READY and STARTed before image transfer")
+            raise DeploymentControlError("client must be READY and STARTed before image transfer")
         with self._lock:
             tls_socket = self._sessions.get(mac_address.lower())
         if tls_socket is None:
-            raise DeploymentControlError("client has no active authenticated control session")
+            raise DeploymentControlError("client has no active control session")
         return tls_socket
 
     def _record_client_progress(self, mac_address: str, message: dict[str, Any]) -> None:
-        """Validate and retain a progress frame received on the authenticated TLS session."""
+        """Validate and retain a progress frame received on the TLS session."""
         expected = {"type", "job_id", "phase", "completed_bytes", "total_bytes"}
         if set(message) != expected or message.get("type") != "progress":
             raise DeploymentControlError("client progress frame has missing or unknown fields")
@@ -524,7 +524,7 @@ class DeploymentControlServer:
         *,
         trusted_public_key: str | os.PathLike[str] | None = None,
     ) -> ImageManifest:
-        """Send an image set to one mTLS-authenticated running restore client."""
+        """Send an image set to one running restore Client."""
         tls_socket = self._running_session(mac_address, "restore")
         try:
             tls_socket.settimeout(86400)
@@ -550,7 +550,7 @@ class DeploymentControlServer:
         *,
         trusted_public_key: str | os.PathLike[str] | None = None,
     ) -> str:
-        """Receive an image set from one mTLS-authenticated running save client."""
+        """Receive an image set from one running save Client."""
         tls_socket = self._running_session(mac_address, "save")
         try:
             tls_socket.settimeout(86400)
@@ -593,7 +593,7 @@ class DeploymentControlServer:
         manifest_path: str | None = None,
         result_timeout: float = 86400,
     ) -> dict[str, str]:
-        """Arm and run one authenticated unicast save/restore job end to end."""
+        """Arm and run one unicast save/restore job end to end."""
         if self.coordinator.job.transport != "unicast":
             raise DeploymentControlError("run_one_client_job only accepts unicast jobs")
         clients = self.coordinator.clients()
@@ -633,14 +633,14 @@ class DeploymentControlServer:
             raise DeploymentControlError("remote disk clone requires a unicast clone job")
         clients = self.coordinator.clients()
         if len(clients) != 1 or clients[0].state is not ClientState.READY:
-            raise DeploymentControlError("remote disk clone requires exactly one authenticated READY Client")
+            raise DeploymentControlError("remote disk clone requires exactly one READY Client")
         mac = clients[0].mac_address
         with self._lock:
             target_device = self._target_devices.get(mac)
             receiver_identity = "Client"
             tls_socket = self._sessions.get(mac)
         if not target_device or tls_socket is None:
-            raise DeploymentControlError("Client clone target approval or authenticated session is unavailable")
+            raise DeploymentControlError("Client clone target approval or control session is unavailable")
         if not job.source_device:
             raise DeploymentControlError("clone job has no approved Server source device")
         header = build_remote_clone_header(
@@ -694,19 +694,19 @@ class DeploymentControlServer:
         udpcast_config: UDPcastConfig,
         result_timeout: float = 86400,
     ) -> dict[str, str]:
-        """Restore one image to authenticated READY Clients over UDPcast."""
+        """Restore one image to READY Clients over UDPcast."""
         job = self.coordinator.job
         if job.transport != "multicast" or job.operation != "restore":
             raise DeploymentControlError("multicast runtime supports restore jobs only")
         if (udpcast_config.interface != job.network_interface
                 or udpcast_config.data_group != job.multicast_group
                 or udpcast_config.portbase != job.multicast_port):
-            raise DeploymentControlError("UDPcast configuration does not match the authenticated job")
+            raise DeploymentControlError("UDPcast configuration does not match the job")
         clients = self.coordinator.clients()
         if (len(clients) != len(job.authorized_clients)
                 or {item.mac_address for item in clients} != set(job.authorized_clients)
                 or any(item.state is not ClientState.READY for item in clients)):
-            raise DeploymentControlError("every authorized Client must be authenticated and READY before multicast arming")
+            raise DeploymentControlError("every authorized Client must be READY before multicast arming")
         if udpcast_config.min_receivers != len(clients):
             raise DeploymentControlError("UDPcast receiver threshold must equal the enrolled READY Client count")
         signature_path = manifest_path + ".minisig"
@@ -749,7 +749,7 @@ class DeploymentControlServer:
         try:
             for mac, tls_socket in sessions:
                 if tls_socket is None:
-                    raise DeploymentControlError(f"Client {mac} lost its authenticated control session")
+                    raise DeploymentControlError(f"Client {mac} lost its control session")
                 send_control_message(tls_socket, offer)
             for artifact in manifest.artifacts:
                 source_path = os.path.join(repository, artifact.filename)
@@ -859,7 +859,7 @@ def inspect_deployment_job(
         except (JobValidationError, TypeError) as exc:
             raise DeploymentControlError(f"server supplied an invalid deployment job: {exc}") from exc
         if job.job_id != job_id or not job.authorizes_client(mac_address):
-            raise DeploymentControlError("job does not authorize this Client identity")
+            raise DeploymentControlError("job does not authorize this Client MAC")
         if job.transport == "multicast" and job.operation != "restore":
             raise DeploymentControlError("multicast Client jobs currently support restore only")
         return job
@@ -906,7 +906,7 @@ def join_deployment(
         if job.transport == "multicast" and job.operation != "restore":
             raise DeploymentControlError("multicast Client jobs currently support restore only")
         if job.job_id != job_id or not job.authorizes_client(mac_address):
-            raise DeploymentControlError("job does not authorize this client identity")
+            raise DeploymentControlError("job does not authorize this Client MAC")
         approval = prepare_local_target(job)
         if not isinstance(approval, LocalTargetApproval):
             raise DeploymentControlError("local target callback must return a LocalTargetApproval")

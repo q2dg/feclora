@@ -1,4 +1,4 @@
-"""Dialog workflows for authenticated unicast and multi-client multicast deployments."""
+"""Dialog workflows for unicast and multi-client multicast deployments."""
 from __future__ import annotations
 
 import hashlib
@@ -56,7 +56,7 @@ def _choose_job(
 ) -> tuple[DeploymentJob, str | None, list[str]]:
     transport = dialog_app._menu(
         "Deployment transport",
-        "Choose authenticated unicast or one-to-many multicast restore. Multicast supports whole-disk and partition images, including raw LUKS2 containers.",
+        "Choose unicast or one-to-many multicast restore. Multicast supports whole-disk and partition images, including raw LUKS2 containers.",
         [
             ("unicast", "Unicast (one Client; save or restore)"),
             ("multicast", "Multicast (multiple Clients; restore only)"),
@@ -129,7 +129,7 @@ def _choose_job(
     if operation == "restore" and target_type == "disk":
         bind_choice = dialog_app._menu(
             "Stable Client target binding",
-            "Optional for this authenticated Remote jobs workflow. Bind each selected Client to its physical target by WWN and/or serial; transient /dev names are never used as identity.",
+            "Optional for this Remote jobs workflow. Bind each selected Client to its physical target by WWN and/or serial; transient /dev names are never used as identity.",
             [("bind", "Bind stable target identity for every selected Client"),
              ("skip", "Keep interactive local target selection")],
         )
@@ -286,230 +286,6 @@ def _review_previous_journals(directory: str) -> None:
             + "\n".join(summaries),
         )
 
-def _issue_client_from_csr(config_path: str, config: ServerRuntimeConfig) -> None:
-    csr = dialog_app._input(
-        "Client enrollment request",
-        "Path to the Client CSR exported to removable media (the private key stays on that Client):",
-    )
-    if not csr:
-        return
-    identity = inspect_client_csr(csr)
-    mac = dialog_app._input(
-        "Authorize Client",
-        "Enter the unicast MAC address assigned to this Client:",
-    )
-    if not mac:
-        return
-    output_directory = dialog_app._input(
-        "Enrollment response destination",
-        "Path to an existing removable-media directory where the certificate bundle will be written:",
-    )
-    if not output_directory or not os.path.isdir(output_directory) or os.path.islink(output_directory):
-        raise PKIError("enrollment response destination must be an existing real directory")
-    client_id = identity.removeprefix("URI:feclora-client-")
-    pki_directory = os.path.dirname(config.ca_file)
-    recipient_candidates = [
-        os.path.join(os.path.dirname(csr), f"feclora-{client_id}.age-recipient"),
-        os.path.join(os.path.dirname(csr), f"feclora-{client_id}-renewal.age-recipient"),
-    ]
-    recipient_file = next((path for path in recipient_candidates if os.path.lexists(path)), None)
-    recipient = None
-    if recipient_file:
-        recipient_info = os.lstat(recipient_file)
-        if not stat.S_ISREG(recipient_info.st_mode) or stat.S_ISLNK(recipient_info.st_mode):
-            raise PKIError("Client age recipient export must be a regular file, not a symlink")
-        recipient = Path(recipient_file).read_text(encoding="ascii").strip()
-        if not re.fullmatch(r"age1[0-9a-z]{20,}", recipient):
-            raise PKIError("Client age public recipient is malformed")
-    signing_candidates = [
-        os.path.join(os.path.dirname(csr), f"feclora-{client_id}.minisign.pub"),
-        os.path.join(os.path.dirname(csr), f"feclora-{client_id}-renewal.minisign.pub"),
-    ]
-    signing_export = next((path for path in signing_candidates if os.path.lexists(path)), None)
-    if signing_export:
-        signing_info = os.lstat(signing_export)
-        if not stat.S_ISREG(signing_info.st_mode) or stat.S_ISLNK(signing_info.st_mode):
-            raise PKIError("Client minisign public-key export must be a regular file, not a symlink")
-    server_recipients = os.path.join(pki_directory, "age-recipients.txt")
-    exports = [os.path.join(output_directory, "ca.crt")]
-    if config.server_minisign_public_key:
-        exports.append(os.path.join(output_directory, "server.pub"))
-    if os.path.isfile(server_recipients):
-        exports.append(os.path.join(output_directory, "age-recipients.txt"))
-    certificate = os.path.join(output_directory, f"feclora-{client_id}.crt")
-    if any(os.path.lexists(path) for path in [certificate, *exports]):
-        raise PKIError("enrollment response file already exists; choose an empty destination directory")
-    confirmation = dialog_app._input(
-        "Approve Client identity",
-        f"CSR identity: {identity}\nMAC: {mac.lower()}\n\nType exactly: ISSUE {identity} {mac.lower()}",
-    )
-    if confirmation != f"ISSUE {identity} {mac.lower()}":
-        raise PKIError("Client CSR approval confirmation did not match")
-    if os.path.realpath(config.ca_file) != os.path.realpath("/etc/feclora/pki/ca.crt"):
-        raise PKIError("CSR signing is enabled only for the Feclora-managed CA; use external certificate import for an organization PKI")
-    issued = issue_client_certificate(csr, certificate, pki_directory=pki_directory)
-    enroll_confirmation = dialog_app._input(
-        "Add Client to trusted inventory",
-        f"The certificate has been issued. Type exactly: ENROLL {issued} {mac.lower()}",
-    )
-    if enroll_confirmation != f"ENROLL {issued} {mac.lower()}":
-        raise PKIError("certificate issued but not added to the Server allowlist; approve/enroll it explicitly later")
-    signing_key_path = None
-    if signing_export:
-        clients_directory = os.path.join(pki_directory, "clients")
-        os.makedirs(clients_directory, mode=0o700, exist_ok=True)
-        clients_info = os.lstat(clients_directory)
-        if not stat.S_ISDIR(clients_info.st_mode) or stat.S_ISLNK(clients_info.st_mode) or clients_info.st_uid != 0:
-            raise PKIError("Server Client-key directory must be root-owned and real")
-        os.chmod(clients_directory, 0o700)
-        signing_key_path = os.path.join(clients_directory, client_id + ".pub")
-        temporary_key = signing_key_path + ".tmp"
-        if os.path.lexists(temporary_key) or os.path.lexists(signing_key_path):
-            raise PKIError("Client signing-key destination already exists")
-        shutil.copyfile(signing_export, temporary_key)
-        os.chmod(temporary_key, 0o644)
-        os.replace(temporary_key, signing_key_path)
-    enroll_client_certificate(
-        config_path, certificate, mac, minisign_public_key=signing_key_path,
-        confirmation=enroll_confirmation,
-    )
-    if recipient:
-        register_age_recipient(pki_directory, issued, recipient)
-    shutil.copyfile(config.ca_file, exports[0])
-    os.chmod(exports[0], 0o644)
-    if config.server_minisign_public_key:
-        server_export = os.path.join(output_directory, "server.pub")
-        shutil.copyfile(config.server_minisign_public_key, server_export)
-        os.chmod(server_export, 0o644)
-    if os.path.isfile(server_recipients):
-        recipients_export = os.path.join(output_directory, "age-recipients.txt")
-        shutil.copyfile(server_recipients, recipients_export)
-        os.chmod(recipients_export, 0o600)
-    server_digest = (
-        hashlib.sha256(Path(config.server_minisign_public_key).read_bytes()).hexdigest()
-        if config.server_minisign_public_key else None
-    )
-    ca_digest = ca_fingerprint(config.ca_file)
-    detail = f"Identity: {issued}\nCertificate bundle: {output_directory}\nCA SHA-256: {ca_digest}"
-    if server_digest:
-        detail += f"\nServer image-signing key SHA-256: {server_digest}"
-    detail += "\n\nCompare the CA fingerprint on the Client. Verify the optional Server image-signing fingerprint only if provided. The Client private key remains local."
-    dialog_app._message("Client certificate issued", detail)
-
-
-def _manage_client_enrollment(config_path: str) -> None:
-    """Offer CSR issuance, external certificate import, rotation and revocation."""
-    config = load_server_runtime_config(config_path)
-    choice = dialog_app._menu(
-        "Trusted Clients",
-        "Approve a Client CSR for the Feclora-managed CA, import an externally issued certificate, or revoke a Client.",
-        [
-            ("continue", "Continue to deployment"),
-            ("issue", "Approve Client CSR (recommended)"),
-            ("export-age", "Export updated age recipient inventory"),
-            ("fingerprints", "Show CA and Server signing-key fingerprints"),
-            ("enroll", "Import an externally issued Client certificate"),
-            ("revoke", "Revoke an enrolled Client certificate"),
-        ],
-    )
-    if choice in (None, "continue"):
-        return
-    if choice == "issue":
-        _issue_client_from_csr(config_path, config)
-        return
-    if choice == "fingerprints":
-        ca_digest = ca_fingerprint(config.ca_file)
-        detail = f"CA SHA-256: {ca_digest}"
-        if config.server_minisign_public_key:
-            server_digest = hashlib.sha256(Path(config.server_minisign_public_key).read_bytes()).hexdigest()
-            detail += f"\nOptional Server minisign public key SHA-256: {server_digest}"
-        else:
-            detail += "\nServer image-signing key is not configured; TLS enrollment and unsigned image workflows remain available."
-        dialog_app._message("Feclora trust fingerprints", detail)
-        return
-    if choice == "export-age":
-        output_directory = dialog_app._input(
-            "Export encryption recipients",
-            "Path to an existing removable-media directory:",
-        )
-        if not output_directory:
-            return
-        if not os.path.isdir(output_directory) or os.path.islink(output_directory):
-            raise PKIError("recipient export destination must be an existing real directory")
-        source = os.path.join(os.path.dirname(config.ca_file), "age-recipients.txt")
-        destination = os.path.join(output_directory, "age-recipients.txt")
-        if os.path.lexists(destination):
-            raise PKIError("age-recipients.txt already exists in the selected directory")
-        source_info = os.lstat(source)
-        if not stat.S_ISREG(source_info.st_mode) or source_info.st_uid != 0:
-            raise PKIError("Server age recipient inventory is not a root-owned regular file")
-        shutil.copyfile(source, destination)
-        os.chmod(destination, 0o644)
-        dialog_app._message(
-            "Recipient inventory exported",
-            "Take this file to each already-enrolled Client and choose Refresh age recipient inventory. "
-            "This updates future image-encryption recipients; it does not change old encrypted images.",
-        )
-        return
-    if choice == "enroll":
-        certificate = dialog_app._input(
-            "Client certificate",
-            "Absolute path to the root-owned PEM Client certificate (not its private key):",
-        )
-        if not certificate:
-            return
-        identity = inspect_client_certificate(certificate, config.ca_file)
-        mac = dialog_app._input(
-            "Client MAC address",
-            "Enter the unicast MAC address authorized for this certificate:",
-        )
-        if not mac:
-            return
-        public_key = dialog_app._input(
-            "Client image-signing key",
-            "Optional root-owned minisign PUBLIC key path; leave blank for restore-only Client:",
-        )
-        public_key = public_key or None
-        dialog_app._message(
-            "Review Client enrollment",
-            f"Certificate identity: {identity}\nMAC allowlist entry: {mac.lower()}\n"
-            f"Image signing key: {public_key or 'none (restore-only)'}\n\n"
-            "The certificate chain and TLS client purpose have been verified against "
-            "the configured CA. Re-enrolling the same MAC rotates its certificate identity.",
-        )
-        confirmation = dialog_app._input(
-            "Confirm Client enrollment",
-            f"Type exactly: ENROLL {identity} {mac.lower()}",
-        )
-        if confirmation is None:
-            return
-        enrolled = enroll_client_certificate(
-            config_path, certificate, mac,
-            minisign_public_key=public_key, confirmation=confirmation,
-        )
-        dialog_app._message("Client enrolled", f"Enrolled certificate identity: {enrolled}")
-        return
-    selected = dialog_app._menu(
-        "Revoke Client certificate",
-        "Select the certificate identity to remove. Its associated minisign public key is also removed.",
-        [(identity, f"{identity} -> {mac}") for identity, mac in config.client_identity_to_mac.items()],
-    )
-    if selected is None:
-        return
-    confirmation = dialog_app._input(
-        "Confirm Client revocation",
-        f"Type exactly: REVOKE {selected}",
-    )
-    if confirmation is None:
-        return
-    mac = revoke_client_certificate(config_path, selected, confirmation=confirmation)
-    dialog_app._message(
-        "Client revoked",
-        f"Revoked {selected} and removed image-signing trust for {mac}. "
-        "The Client must reconnect with a newly enrolled certificate.",
-    )
-
-
 def run_deployment_server_ui(
     interface: str,
     address: str,
@@ -626,7 +402,7 @@ def run_deployment_server_ui(
                 if len(ready) != expected_clients or len(clients) != expected_clients:
                     dialog_app._message(
                         "Clients not ready",
-                        f"All {expected_clients} authorized Client(s) must be authenticated and READY before arming.",
+                        f"All {expected_clients} selected Client(s) must be READY before arming.",
                     )
                     continue
                 if job.transport == "multicast":
