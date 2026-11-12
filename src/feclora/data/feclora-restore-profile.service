@@ -1,5 +1,5 @@
 [Unit]
-Description=feclora signed single-use unattended disk restore
+Description=Feclora root-authorized single-use unattended disk restore
 ConditionPathExists=/etc/feclora/restore-profile.env
 After=local-fs.target
 RequiresMountsFor=/mnt/restore-media
@@ -8,8 +8,8 @@ Before=getty@tty1.service
 
 [Service]
 Type=oneshot
-User=feclora
-Group=feclora
+User=root
+Group=root
 EnvironmentFile=/etc/feclora/restore-profile.env
 ExecStart=/usr/local/libexec/feclora-restore-profile-env
 TimeoutStartSec=infinity
