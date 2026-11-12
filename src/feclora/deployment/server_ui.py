@@ -124,6 +124,10 @@ def _choose_job(
             if item.get("type") == expected_type and item.get("read_only") is True
             and isinstance(item.get("path"), str)
         ]
+        if not sources:
+            raise DeploymentControlError(
+                f"no read-only Server {target_type} source is available for remote cloning"
+            )
         source_device = dialog_app._menu(
             "Server clone source",
             "Choose a source already marked read-only. Feclora will also check geometry and in-use state.",
