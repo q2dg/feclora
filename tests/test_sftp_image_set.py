@@ -17,7 +17,7 @@ class SFTPImageSetTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.payload = b"partition-image-data"
         self.digest = hashlib.sha256(self.payload).hexdigest()
-        (self.root / "repository" / "part-1.img").write_bytes(self.payload)
+        (self.root / "part-1.img").write_bytes(self.payload)
         document = {
             "schema_version": 1,
             "image_id": "test-image",
