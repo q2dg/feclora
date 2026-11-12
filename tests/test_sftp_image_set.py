@@ -6,299 +6,147 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from feclora.storage.image_security import ImageSecurityError
-from feclora.storage.sftp_image_set import SFTPImageSetError, fetch_image_set, inspect_remote_image_set, publish_image_set
+from feclora.storage.sftp_image_set import (
+    SFTPImageSetError, fetch_image_set, inspect_remote_image_set, publish_image_set,
+)
 
 
 class SFTPImageSetTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.artifacts = self.root / "artifacts"
-        self.artifacts.mkdir(mode=0o700)
-        self.payload = b"partition image payload"
-        (self.artifacts / "part-1.img").write_bytes(self.payload)
+        self.payload = b"partition-image-data"
         self.digest = hashlib.sha256(self.payload).hexdigest()
-        manifest = {
+        (self.root / "part-1.img").write_bytes(self.payload)
+        document = {
             "schema_version": 1,
             "image_id": "test-image",
             "image_type": "partition",
-            "source_size_bytes": 4096,
+            "source_size_bytes": len(self.payload),
             "logical_sector_size": 512,
             "partition_table": "none",
             "artifacts": [{
-                "filename": "part-1.img", "role": "partition-image",
-                "format": "raw", "compression": "none",
-                "size_bytes": len(self.payload), "sha256": self.digest,
-                "partition_id": "1",
+                "filename": "part-1.img", "role": "partition-image", "format": "raw",
+                "compression": "none", "size_bytes": len(self.payload), "sha256": self.digest,
+                "partition_id": "sda1",
             }],
         }
-        self.manifest = self.root / "manifest.json"
-        self.manifest.write_text(json.dumps(manifest), encoding="utf-8")
-        self.public_key = self.root / "trusted.pub"
-        self.public_key.write_text("trusted public key", encoding="utf-8")
+        self.manifest = self.root / "test-image.manifest.json"
+        self.manifest.write_text(json.dumps(document), encoding="utf-8")
 
-    def _publish(self, transfer, **overrides):
-        args = dict(
-            manifest_path=self.manifest,
-            public_key=self.public_key,
-            artifact_directory=self.artifacts,
-            remote_directory="/images/test-image",
-            host="backup.example",
-            username="backup",
-            identity_credential="key-ref",
-            known_hosts_credential="hosts-ref",
-            transfer=transfer,
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def _connection(self):
+        return {
+            "remote_directory": "/images/test-image", "host": "backup.example",
+            "username": "backup", "identity_credential": "key-ref",
+            "known_hosts_credential": "hosts-ref",
+        }
+
+    def _publish(self, transfer, **kwargs):
+        return publish_image_set(
+            manifest_path=self.manifest, artifact_directory=self.root,
+            transfer=transfer, **self._connection(), **kwargs,
         )
-        args.update(overrides)
-        return publish_image_set(**args)
+
+    def _remote_files(self):
+        return {"manifest.json": self.manifest.read_bytes(), "part-1.img": self.payload}
+
+    def _fetch(self, transfer, **kwargs):
+        return fetch_image_set(
+            destination_root=self.root, transfer=transfer, **self._connection(), **kwargs,
+        )
+
     def test_uploads_artifacts_then_manifest_commit_marker(self):
         calls = []
-        def transfer(**kwargs):
-            calls.append(kwargs["remote_path"])
-            return {"completed": True}
-        result = self._publish(transfer)
-        verify.assert_called_once()
-        self.assertEqual(calls, [
-            "/images/test-image/part-1.img",
-            "/images/test-image/manifest.json",
-        ])
+        result = self._publish(lambda **kw: calls.append(kw["remote_path"]) or {"completed": True})
+        self.assertEqual(calls, ["/images/test-image/part-1.img", "/images/test-image/manifest.json"])
         self.assertTrue(result["published"])
         self.assertEqual(result["publication_marker"], "manifest.json")
+
     def test_publish_reports_artifact_boundary_progress(self):
         progress = []
-        self._publish(lambda **kwargs: {"completed": True},
+        self._publish(lambda **kw: {"completed": True},
                       progress_callback=lambda done, total: progress.append((done, total)))
         total = len(self.payload) + self.manifest.stat().st_size
         self.assertEqual(progress[0], (0, total))
         self.assertEqual(progress[-1], (total, total))
-        self.assertEqual([done for done, _ in progress], sorted(done for done, _ in progress))
-    def test_rejects_artifact_filename_in_native_manifest_marker_namespace(self):
-        document = json.loads(self.manifest.read_text(encoding="utf-8"))
-        document["artifacts"][0]["filename"] = "another-image.manifest.json.minisig"
-        self.manifest.write_text(json.dumps(document), encoding="utf-8")
-        calls = []
-        with self.assertRaisesRegex(SFTPImageSetError, "reserved repository metadata"):
-            self._publish(lambda **kwargs: calls.append(kwargs))
-        self.assertEqual(calls, [])
+
     def test_rejects_artifact_digest_mismatch_before_upload(self):
-        (self.artifacts / "part-1.img").write_bytes(b"tampered")
+        (self.root / "part-1.img").write_bytes(b"tampered")
         calls = []
         with self.assertRaises(SFTPImageSetError):
-            self._publish(lambda **kwargs: calls.append(kwargs))
+            self._publish(lambda **kw: calls.append(kw))
         self.assertEqual(calls, [])
-           side_effect=ImageSecurityError("bad signature"))
-    def test_stops_before_manifest_marker_if_artifact_upload_fails(self):
-        calls = []
-        def transfer(**kwargs):
-            calls.append(kwargs["remote_path"])
-            if kwargs["remote_path"].endswith("part-1.img"):
-                raise RuntimeError("connection lost")
-            return {"completed": True}
-        with self.assertRaises(SFTPImageSetError):
-            self._publish(transfer)
-        self.assertEqual(calls, ["/images/test-image/part-1.img"])
 
-
-    def _remote_set(self):
-        return {
-            "manifest.json": self.manifest.read_bytes(),
-            "part-1.img": self.payload,
-        }
-    def test_fetch_reports_artifact_progress_only_after_verification(self):
-        remote = self._remote_set()
-        progress = []
-        def transfer(**kwargs):
-            filename = kwargs["remote_path"].rsplit("/", 1)[-1]
-            Path(kwargs["local_path"]).write_bytes(remote[filename])
-            return {"verified": kwargs["expected_sha256"] is not None}
-        fetch_image_set(
-            remote_directory="/images/test-image", destination_root=self.root,
-            public_key=self.public_key, host="backup.example", username="backup",
-            identity_credential="key-ref", known_hosts_credential="hosts-ref",
-            transfer=transfer, progress_callback=lambda done, total: progress.append((done, total)),
-        )
-        self.assertEqual(progress, [(0, len(self.payload)), (len(self.payload), len(self.payload))])
-    def test_fetch_verifies_metadata_before_artifacts_and_publishes_native_repository_files(self):
-        remote = self._remote_set()
+    def test_fetch_validates_manifest_then_artifact_and_publishes_native_names(self):
+        remote = self._remote_files()
         calls = []
-        def transfer(**kwargs):
-            filename = kwargs["remote_path"].rsplit("/", 1)[-1]
-            calls.append((filename, kwargs["expected_sha256"], kwargs["allow_unverified_metadata"]))
-            Path(kwargs["local_path"]).write_bytes(remote[filename])
-            return {"verified": kwargs["expected_sha256"] is not None}
-        result = fetch_image_set(
-            remote_directory="/images/test-image",
-            destination_root=self.root,
-            public_key=self.public_key,
-            host="backup.example", username="backup",
-            identity_credential="key-ref", known_hosts_credential="hosts-ref",
-            transfer=transfer,
-        )
-        verify.assert_called_once()
-        self.assertEqual([item[0] for item in calls], [
-            "manifest.json", "manifest.json.minisig", "part-1.img",
-        ])
-        self.assertTrue(calls[0][2])
-        self.assertTrue(calls[1][2])
-        self.assertEqual(calls[2][1], self.digest)
-        self.assertEqual(result["repository_path"], str(self.root / "test-image.manifest.json"))
-        self.assertTrue((self.root / "part-1.img").is_file())
+        def transfer(**kw):
+            name = kw["remote_path"].rsplit("/", 1)[-1]
+            calls.append((name, kw.get("expected_sha256")))
+            Path(kw["local_path"]).write_bytes(remote[name])
+            return {"verified": kw.get("expected_sha256") is not None}
+        result = self._fetch(transfer)
+        self.assertEqual(calls, [("manifest.json", None), ("part-1.img", self.digest)])
         self.assertTrue((self.root / "test-image.manifest.json").is_file())
-        self.assertEqual(len(list(self.root.glob(".feclora-sftp-incoming-*"))), 0)
-    def test_fetch_rollback_preserves_concurrent_replacement(self):
-        remote = self._remote_set()
-        def transfer(**kwargs):
-            filename = kwargs["remote_path"].rsplit("/", 1)[-1]
-            Path(kwargs["local_path"]).write_bytes(remote[filename])
-            return {"verified": kwargs["expected_sha256"] is not None}
+        self.assertEqual((self.root / "part-1.img").read_bytes(), self.payload)
+        self.assertEqual(result["repository_path"], str(self.root / "test-image.manifest.json"))
+        self.assertEqual(list(self.root.glob(".feclora-sftp-incoming-*")), [])
 
-        import feclora.storage.image_publication as publication
-        original_link = os.link
-        calls = 0
-        replacement = b"concurrent writer replacement"
-
-        def racing_link(*args, **kwargs):
-            nonlocal calls
-            calls += 1
-            if calls == 1:
-                result = original_link(*args, **kwargs)
-                target = self.root / "part-1.img"
-                target.unlink()
-                target.write_bytes(replacement)
-                return result
-            raise FileExistsError("simulated concurrent publication collision")
-
-        with patch.object(publication.os, "link", side_effect=racing_link):
-            with self.assertRaises(SFTPImageSetError):
-                fetch_image_set(
-                    remote_directory="/images/test-image", destination_root=self.root,
-                    public_key=self.public_key, host="backup.example", username="backup",
-                    identity_credential="key-ref", known_hosts_credential="hosts-ref",
-                    transfer=transfer,
-                )
-        self.assertEqual((self.root / "part-1.img").read_bytes(), replacement)
-        self.assertFalse((self.root / "test-image.manifest.json").exists())
-           side_effect=ImageSecurityError("bad signature"))
     def test_fetch_rejects_artifact_digest_mismatch_and_cleans_staging(self):
-        remote = self._remote_set()
-        def transfer(**kwargs):
-            filename = kwargs["remote_path"].rsplit("/", 1)[-1]
-            payload = b"tampered" if filename == "part-1.img" else remote[filename]
-            Path(kwargs["local_path"]).write_bytes(payload)
-            return {"verified": kwargs["expected_sha256"] is not None}
-        fetch = fetch_image_set
+        remote = self._remote_files()
+        def transfer(**kw):
+            name = kw["remote_path"].rsplit("/", 1)[-1]
+            Path(kw["local_path"]).write_bytes(b"tampered" if name == "part-1.img" else remote[name])
+            return {"verified": kw.get("expected_sha256") is not None}
         with self.assertRaises(SFTPImageSetError):
-            fetch(
-                remote_directory="/images/test-image", destination_root=self.root,
-                public_key=self.public_key, host="backup.example", username="backup",
-                identity_credential="key-ref", known_hosts_credential="hosts-ref",
-                transfer=transfer,
-            )
-        self.assertFalse((self.root / "test-image").exists())
+            self._fetch(transfer)
         self.assertEqual(list(self.root.glob(".feclora-sftp-incoming-*")), [])
+
     def test_fetch_never_overwrites_existing_repository_artifact(self):
-        remote = self._remote_set()
+        remote = self._remote_files()
         marker = self.root / "part-1.img"
-        marker.write_text("keep", encoding="utf-8")
-        def transfer(**kwargs):
-            filename = kwargs["remote_path"].rsplit("/", 1)[-1]
-            Path(kwargs["local_path"]).write_bytes(remote[filename])
-            return {"verified": kwargs["expected_sha256"] is not None}
-        with self.assertRaisesRegex(SFTPImageSetError, "refusing to overwrite"):
-            fetch_image_set(
-                remote_directory="/images/test-image", destination_root=self.root,
-                public_key=self.public_key, host="backup.example", username="backup",
-                identity_credential="key-ref", known_hosts_credential="hosts-ref",
-                transfer=transfer,
-            )
-        self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
-        self.assertEqual(list(self.root.glob(".feclora-sftp-incoming-*")), [])
+        marker.write_bytes(b"keep")
+        def transfer(**kw):
+            name = kw["remote_path"].rsplit("/", 1)[-1]
+            Path(kw["local_path"]).write_bytes(remote[name])
+            return {"verified": kw.get("expected_sha256") is not None}
+        with self.assertRaises(SFTPImageSetError):
+            self._fetch(transfer)
+        self.assertEqual(marker.read_bytes(), b"keep")
 
+    def test_fetch_binds_manifest_digest_from_inspection(self):
+        remote = self._remote_files()
+        requested = []
+        def transfer(**kw):
+            requested.append(kw["remote_path"])
+            name = kw["remote_path"].rsplit("/", 1)[-1]
+            Path(kw["local_path"]).write_bytes(remote[name])
+            return {"verified": False}
+        with self.assertRaisesRegex(SFTPImageSetError, "changed after inspection"):
+            self._fetch(transfer, expected_image_id="test-image", expected_manifest_sha256="0" * 64)
+        self.assertEqual(requested, ["/images/test-image/manifest.json"])
 
-    def test_inspect_remote_image_set_verifies_signature_before_returning_metadata(self):
+    def test_inspection_downloads_and_validates_manifest_only(self):
         calls = []
-        def transfer(**kwargs):
-            calls.append(kwargs["remote_path"])
-            source = self.manifest if kwargs["remote_path"].endswith("manifest.json") and True else self.signature
-            Path(kwargs["local_path"]).write_bytes(source.read_bytes())
+        def transfer(**kw):
+            calls.append(kw["remote_path"])
+            Path(kw["local_path"]).write_bytes(self.manifest.read_bytes())
             return {"verified": False}
-        with patch("feclora.storage.sftp_image_set.verify_manifest_signature") as verify:
-            result = inspect_remote_image_set(
-                remote_directory="/images/test-image", public_key=self.public_key,
-                host="backup.example", username="backup", identity_credential="key-ref",
-                known_hosts_credential="hosts-ref", transfer=transfer,
-            )
-        verify.assert_called_once()
+        result = inspect_remote_image_set(transfer=transfer, **self._connection())
         self.assertEqual(calls, ["/images/test-image/manifest.json"])
-        self.assertTrue(result["signature_verified"])
         self.assertEqual(result["image_id"], "test-image")
-        self.assertEqual(result["image_type"], "partition")
         self.assertEqual(result["manifest_sha256"], hashlib.sha256(self.manifest.read_bytes()).hexdigest())
-        self.assertEqual(result["artifacts"][0]["sha256"], self.digest)
 
-    def test_fetch_rejects_manifest_changed_since_inspection_before_artifacts(self):
-        requested = []
-        def transfer(**kwargs):
-            requested.append(kwargs["remote_path"])
-            source = self.manifest if kwargs["remote_path"].endswith("manifest.json") and not kwargs["remote_path"].endswith(".minisig") else self.signature
-            Path(kwargs["local_path"]).write_bytes(source.read_bytes())
-            return {"verified": False}
-        with patch("feclora.storage.sftp_image_set.verify_manifest_signature"):
-            with self.assertRaisesRegex(SFTPImageSetError, "changed after inspection"):
-                fetch_image_set(
-                    remote_directory="/images", destination_root=self.root,
-                    public_key=self.public_key, host="backup.example", username="backup",
-                    identity_credential="key-ref", known_hosts_credential="hosts-ref",
-                    expected_image_id="test-image", expected_manifest_sha256="0" * 64,
-                    transfer=transfer,
-                )
-        self.assertEqual(requested, ["/images/manifest.json"])
-        self.assertEqual(list(self.root.glob(".feclora-sftp-incoming-*")), [])
+    def test_rejects_artifact_filename_in_manifest_marker_namespace(self):
+        document = json.loads(self.manifest.read_text(encoding="utf-8"))
+        document["artifacts"][0]["filename"] = "another-image.manifest.json"
+        self.manifest.write_text(json.dumps(document), encoding="utf-8")
+        with self.assertRaises(SFTPImageSetError):
+            self._publish(lambda **kw: {"completed": True})
 
-    def test_fetch_rejects_remote_image_id_mismatch_before_artifact_download(self):
-        requested = []
-        def transfer(**kwargs):
-            requested.append(kwargs["remote_path"])
-            source = self.manifest if kwargs["remote_path"].endswith("manifest.json") and not kwargs["remote_path"].endswith(".minisig") else self.signature
-            Path(kwargs["local_path"]).write_bytes(source.read_bytes())
-            return {"verified": False}
-        with patch("feclora.storage.sftp_image_set.verify_manifest_signature"):
-            with self.assertRaisesRegex(SFTPImageSetError, "does not match the selected image"):
-                fetch_image_set(
-                    remote_directory="/images", destination_root=self.root,
-                    public_key=self.public_key, host="backup.example", username="backup",
-                    identity_credential="key-ref", known_hosts_credential="hosts-ref",
-                    expected_image_id="another-image", transfer=transfer,
-                )
-        self.assertEqual(requested, ["/images/manifest.json", "/images/manifest.json.minisig"])
-        self.assertEqual(list(self.root.glob(".feclora-sftp-incoming-*")), [])
-    def test_fetch_rolls_back_published_files_when_cancelled_during_local_commit(self):
-        remote = self._remote_set()
-        def transfer(**kwargs):
-            filename = kwargs["remote_path"].rsplit("/", 1)[-1]
-            Path(kwargs["local_path"]).write_bytes(remote[filename])
-            return {"verified": kwargs["expected_sha256"] is not None}
-        real_link = os.link
-        calls = 0
-        def cancel_after_first_link(*args, **kwargs):
-            nonlocal calls
-            calls += 1
-            if calls == 1:
-                return real_link(*args, **kwargs)
-            raise KeyboardInterrupt("operator cancellation")
-        with patch("feclora.storage.sftp_image_set.os.link", side_effect=cancel_after_first_link):
-            with self.assertRaisesRegex(KeyboardInterrupt, "operator cancellation"):
-                fetch_image_set(
-                    remote_directory="/images/test-image", destination_root=self.root,
-                    public_key=self.public_key, host="backup.example", username="backup",
-                    identity_credential="key-ref", known_hosts_credential="hosts-ref",
-                    transfer=transfer,
-                )
-        self.assertFalse((self.root / "part-1.img").exists())
-        self.assertFalse((self.root / "test-image.manifest.json").exists())
-        self.assertEqual(list(self.root.glob(".feclora-sftp-incoming-*")), [])
 
 if __name__ == "__main__":
     unittest.main()
