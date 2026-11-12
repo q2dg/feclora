@@ -15,6 +15,7 @@ class SFTPImageSetTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
+        (self.root / "repository").mkdir()
         self.payload = b"partition-image-data"
         self.digest = hashlib.sha256(self.payload).hexdigest()
         (self.root / "part-1.img").write_bytes(self.payload)
