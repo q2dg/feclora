@@ -158,8 +158,7 @@ def _client_enrollment_wizard(config_path: str) -> bool:
     fingerprint = _sha256_file(ca_source)
     expected = dialog_app._input(
         "Verify Server CA fingerprint",
-        "Compare the SHA-256 fingerprint with the value shown by the Server, then type it exactly:
-" + fingerprint,
+        "Compare the SHA-256 fingerprint with the value shown by the Server, then type it exactly:\n" + fingerprint,
     )
     if expected is None or expected.replace(":", "").lower() != fingerprint.lower():
         raise PKIError("Server CA fingerprint did not match")
