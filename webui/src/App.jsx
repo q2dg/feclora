@@ -83,7 +83,6 @@ export default function App() {
   const [cancellingOperationId, setCancellingOperationId] = useState("");
   const [remoteRepositories, setRemoteRepositories] = useState([]);
   const [systemdCredentials, setSystemdCredentials] = useState([]);
-  const [publishAfterCapture, setPublishAfterCapture] = useState(false);
   const [credentialId, setCredentialId] = useState("");
   const [credentialKind, setCredentialKind] = useState("ssh-key");
   const [credentialSourceFile, setCredentialSourceFile] = useState("");
@@ -900,41 +899,16 @@ export default function App() {
                         <br />
                         {!security.age_encryption_available && !security.age_executable_available ? <p className="pf-v5-u-color-200">Optional image protection is provisioned during Server setup when the relevant tools are installed. Without them, ordinary capture and restore remain available.</p> : null}
                       </Field>
-                      <Field label="SFTP post-capture publication">
-                        <label><input type="checkbox" checked={publishAfterCapture} disabled={busy} onChange={(e) => setPublishAfterCapture(e.target.checked)} /> Publish this image set to SFTP after capture and manifest and SHA-256 verification</label>
-                        {publishAfterCapture && <>
-                          <Field label="SFTP host"><input className="pf-v5-c-form-control" value={sftpHost} onChange={(e) => setSftpHost(e.target.value)} maxLength={253} required /></Field>
-                          <Field label="SSH username"><input className="pf-v5-c-form-control" value={sftpUsername} onChange={(e) => setSftpUsername(e.target.value)} maxLength={64} required /></Field>
-                          <Field label="Remote image directory"><input className="pf-v5-c-form-control" value={sftpRemoteDirectory} onChange={(e) => setSftpRemoteDirectory(e.target.value)} maxLength={1024} required /></Field>
-                          <Field label="SSH port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={sftpPort} onChange={(e) => setSftpPort(e.target.value)} required /></Field>
-                          <Field label="Encrypted SSH private-key credential"><select className="pf-v5-c-form-control" value={sftpIdentity} onChange={(e) => setSftpIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
-                          <Field label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={sftpKnownHosts} onChange={(e) => setSftpKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
-                        </>}
-                      </Field>
                     </>}
                     {isRestore && <>
-                      {!isLogicalVolume && <Field label="SFTP restore source">
-                        <label><input type="checkbox" checked={restoreFromSftp} disabled={busy || !sftpInspectionMatchesCurrent || sftpRemoteInspection?.image_type !== (isDisk ? "disk" : "partition") || Boolean(selectedRepositoryId)} onChange={(e) => {
-                          const enabled = e.target.checked;
-                          setRestoreFromSftp(enabled);
-                          if (enabled) { setImageId(sftpRemoteInspection.image_id); setRestoreLayoutPreview(null); }
-                        }} /> Fetch and verify the authenticated SFTP image before restoring it</label>
-                        {!sftpInspectionMatchesCurrent && <p>Inspect and verify a remote SFTP image in the Remote Repositories tab using the current connection settings first.</p>}
-                        {selectedRepositoryId && <p>Clear the mounted repository selection to restore directly from SFTP.</p>}
-                      </Field>}
                       <Field label={isDisk ? "Disk image" : isLogicalVolume ? "Logical-volume image" : "Partition image"}>
-                        <select className="pf-v5-c-form-control" value={imageId} disabled={busy || restoreFromSftp} onChange={(e) => {
+                        <select className="pf-v5-c-form-control" value={imageId} disabled={busy} onChange={(e) => {
                           const value = e.target.value;
-                          if (!isLogicalVolume && sftpInspectionMatchesCurrent && value === sftpRemoteInspection.image_id) {
-                            setRestoreFromSftp(true); setImageId(value); setRestoreLayoutPreview(null);
-                          } else {
-                            setImageId(value);
-                            if (isDisk) inspectRestoreLayout(value); else setRestoreLayoutPreview(null);
-                          }
+                          setImageId(value);
+                          if (isDisk) inspectRestoreLayout(value); else setRestoreLayoutPreview(null);
                         }}>
                           <option value="">Select an image…</option>
                           {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
-                          {!isLogicalVolume && sftpInspectionMatchesCurrent && sftpRemoteInspection.image_type === (isDisk ? "disk" : "partition") && <option value={sftpRemoteInspection.image_id}>{sftpRemoteInspection.image_id} · authenticated SFTP image</option>}
                         </select>
                       </Field>
                       <Field label={isDisk ? "Destination disk" : isLogicalVolume ? "Destination logical volume" : "Destination partition"} help={isLogicalVolume ? "Must be an existing active, unmounted linear or thin LV in a healthy VG. Thin-pool free space is estimated, not reserved. Feclora overwrites LV data but does not create or resize LVM metadata." : undefined}>
@@ -1171,7 +1145,7 @@ export default function App() {
           <Tab eventKey="repositories" title="Remote repositories">
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Remote image repositories</Title>
-                <p>Manage client-side filesystem mounts and image-set transfers to external services. SSHFS, NFS and SMB/CIFS are filesystem providers. SFTP supports saved endpoint definitions, image inventory in one configured directory, import, publication and optional publication after durable capture. Metadata inspection is synchronous; durable imports and publications support cancellation and artifact-boundary progress. Continuous byte-level progress and resume remain pending.</p>
+                <p>Manage client-side filesystem repositories and image storage transports. SSHFS, NFS, SMB/CIFS and WebDAV are filesystem providers; S3 provides object storage and NVMe-oF block storage.</p>
                 <Alert variant="warning" title="Provider scope" isInline>Cockpit exposes SSHFS, NFS and SMB/CIFS mounts. SFTP is a separate file-transfer workflow with saved endpoint definitions, one-directory manifest inventory, import, publication and optional durable capture-job publication. Metadata inspection is synchronous; imports and publications run as durable cancellable operations with artifact-boundary progress. Continuous byte-level progress and resume remain pending. WebDAV remains unavailable until its per-repository encrypted credential lifecycle is supported.</Alert>
               </StackItem>
               <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
@@ -1206,49 +1180,6 @@ export default function App() {
                   {systemdCredentials.map((credential) => <Tr key={credential.name}><Td>{credential.id}</Td><Td>{credential.kind}</Td><Td>{credential.path}</Td><Td><Button size="sm" variant="danger" isDisabled={busy || remoteRepositories.some((repo) => (repo.credential_refs || []).includes(credential.path))} onClick={() => removeSystemdCredential(credential)}>Remove</Button></Td></Tr>)}
                   {!systemdCredentials.length && <Tr><Td colSpan={4}>No encrypted credentials imported.</Td></Tr>}
                 </Tbody></Table>
-              </StackItem>
-              <StackItem><Title headingLevel="h2" size="lg">Import an image set from SFTP</Title>
-                <p>The remote directory must contain manifest.json and every artifact named by the manifest. Artifact SHA-256 digests are checked during import. Imported files become visible in the local image inventory.</p>
-                <Card><CardBody><form onSubmit={fetchSftpImageSet}>
-                  <Field label="Saved SFTP repository">
-                    <select className="pf-v5-c-form-control" value={sftpRepositoryId} onChange={(e) => selectSftpRepository(e.target.value)}>
-                      <option value="">Use one-time connection details…</option>
-                      {sftpRepositories.map((item) => <option key={item.id} value={item.id}>{item.id} · {item.username}@{item.host}:{item.port}{item.remote_directory}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="Saved repository ID"><input className="pf-v5-c-form-control" value={sftpRepositoryId} onChange={(e) => setSftpRepositoryId(e.target.value)} maxLength={48} placeholder="e.g. offsite-backup" /></Field>
-                  <p>Saved definitions contain only the SFTP endpoint and encrypted credential references. Private-key and known_hosts contents remain in systemd credentials.</p>
-                  <Button type="button" variant="secondary" onClick={saveSftpRepository} isDisabled={busy || !sftpRepositoryId || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Save connection</Button>{" "}
-                  <Button type="button" variant="secondary" onClick={removeSftpRepository} isDisabled={busy || !sftpRepositoryId || !sftpRepositories.some((item) => item.id === sftpRepositoryId)}>Remove saved connection</Button>
-                  <Field label="SFTP host"><input className="pf-v5-c-form-control" value={sftpHost} onChange={(e) => setSftpHost(e.target.value)} maxLength={253} required /></Field>
-                  <Field label="SSH username"><input className="pf-v5-c-form-control" value={sftpUsername} onChange={(e) => setSftpUsername(e.target.value)} maxLength={64} required /></Field>
-                  <Field label="Remote image directory"><input className="pf-v5-c-form-control" value={sftpRemoteDirectory} onChange={(e) => setSftpRemoteDirectory(e.target.value)} maxLength={1024} required /></Field>
-                  <Field label="SSH port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={sftpPort} onChange={(e) => setSftpPort(e.target.value)} required /></Field>
-                  <Field label="Encrypted SSH private-key credential"><select className="pf-v5-c-form-control" value={sftpIdentity} onChange={(e) => setSftpIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
-                  <Field label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={sftpKnownHosts} onChange={(e) => setSftpKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
-                  <Button type="button" variant="secondary" onClick={listSftpImageManifests} isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>List remote image manifests</Button>{" "}
-                  <Button type="button" variant="secondary" onClick={inspectSftpImageSet} isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Inspect remote image metadata</Button>{" "}
-                  <Button type="submit" variant="primary" isDisabled={busy || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Fetch, verify and import image</Button>
-                </form>
-                {sftpRemoteInventory !== null && <div className="pf-v5-c-content pf-v5-u-mt-md"><strong>Remote manifest markers</strong>{sftpRemoteInventory.length ? <ul>{sftpRemoteInventory.map((name) => <li key={name}>{name}</li>)}</ul> : <p>No Feclora image manifest marker was found in this directory.</p>}</div>}
-                {sftpRemoteInspection && <div className="pf-v5-c-content pf-v5-u-mt-md"><strong>Authenticated remote image</strong><p>{sftpRemoteInspection.image_id} · {sftpRemoteInspection.image_type} · {sftpRemoteInspection.artifact_count} artifacts · {sftpRemoteInspection.source_size_bytes} bytes</p><p>Manifest metadata validated. Artifact bytes have not yet been downloaded or verified.</p><ul>{sftpRemoteInspection.artifacts.map((item) => <li key={item.filename}>{item.filename} · {item.role} · {item.size_bytes} bytes · {item.encryption}</li>)}</ul></div>}
-                </CardBody></Card>
-              </StackItem>
-              <StackItem><Title headingLevel="h2" size="lg">Publish an image set to SFTP</Title>
-                <p>Publishes an already captured image from the local repository after validating its manifest and SHA-256 digests. The remote directory must already exist and be empty for these filenames; existing remote files are never overwritten.</p>
-                <Card><CardBody><form onSubmit={publishSftpImageSet}>
-                  <Field label="Local image"><select className="pf-v5-c-form-control" value={sftpPublishImageId} onChange={(e) => setSftpPublishImageId(e.target.value)} required>
-                    <option value="">Select a local image…</option>
-                    {images.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {item.image_type}</option>)}
-                  </select></Field>
-                  <Field label="SFTP host"><input className="pf-v5-c-form-control" value={sftpHost} onChange={(e) => setSftpHost(e.target.value)} maxLength={253} required /></Field>
-                  <Field label="SSH username"><input className="pf-v5-c-form-control" value={sftpUsername} onChange={(e) => setSftpUsername(e.target.value)} maxLength={64} required /></Field>
-                  <Field label="Remote image directory"><input className="pf-v5-c-form-control" value={sftpRemoteDirectory} onChange={(e) => setSftpRemoteDirectory(e.target.value)} maxLength={1024} required /></Field>
-                  <Field label="SSH port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={sftpPort} onChange={(e) => setSftpPort(e.target.value)} required /></Field>
-                  <Field label="Encrypted SSH private-key credential"><select className="pf-v5-c-form-control" value={sftpIdentity} onChange={(e) => setSftpIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
-                  <Field label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={sftpKnownHosts} onChange={(e) => setSftpKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
-                  <Button type="submit" variant="primary" isDisabled={busy || !sftpPublishImageId || !sftpHost || !sftpUsername || !sftpRemoteDirectory || !sftpIdentity || !sftpKnownHosts}>Publish image set</Button>
-                </form></CardBody></Card>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Configured repositories</Title>
                 <p>“Identity verified” confirms only that findmnt reports the expected source, filesystem type and access mode. It does not test live network connectivity, read/write I/O, latency, free space or quota; use an actual repository operation to validate access.</p>
