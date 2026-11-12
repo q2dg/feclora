@@ -193,10 +193,10 @@ def clone_disk(
                     if progress_callback and line:
                         try:
                             copied = int(line.split()[0].replace(",", ""))
-                            copied = min(source_size, max(0, copied))
-                            progress_callback(copied, source_size, line)
                         except (ValueError, IndexError):
                             continue
+                        copied = min(source_size, max(0, copied))
+                        progress_callback(copied, source_size, line)
                 else:
                     progress_buffer.extend(byte)
         return_code = process.wait()
