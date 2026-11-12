@@ -968,7 +968,7 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
             def client():
                 client_result.append(join_deployment(
                     host, port, client_context,
-                                        expected_server_identity="URI:feclora-server",
+                    expected_server_identity="URI:feclora-server",
                     mac_address=MAC, job_id=JOB_ID,
                     prepare_local_target=lambda offered: approval,
                     execute_job=lambda offered, tls, local: self._receive_test_image(
@@ -977,21 +977,21 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
                 ))
             client_thread = threading.Thread(target=client, daemon=True)
             try:
-                    client_thread.start()
-                    deadline = time.monotonic() + 5
-                    while time.monotonic() < deadline:
-                        records = coordinator.clients()
-                        if records and records[0].state.value == "ready":
-                            break
-                        time.sleep(0.01)
-                    self.assertEqual(coordinator.clients()[0].state.value, "ready")
-                    server.arm_and_start()
-                    server.send_restore_image(
-                        MAC, source, manifest_path,
-                    )
-                    client_thread.join(5)
-                    self.assertFalse(client_thread.is_alive())
-                    results = server.collect_results(timeout=5)
+                client_thread.start()
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
+                    records = coordinator.clients()
+                    if records and records[0].state.value == "ready":
+                        break
+                    time.sleep(0.01)
+                self.assertEqual(coordinator.clients()[0].state.value, "ready")
+                server.arm_and_start()
+                server.send_restore_image(
+                    MAC, source, manifest_path,
+                )
+                client_thread.join(5)
+                self.assertFalse(client_thread.is_alive())
+                results = server.collect_results(timeout=5)
                 self.assertEqual(results, {MAC: "succeeded"})
                 self.assertTrue(client_result[0][1])
                 with open(os.path.join(destination, "disk.raw"), "rb") as stream:
