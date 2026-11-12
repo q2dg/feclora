@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .image_manifest import ImageManifest, ManifestValidationError
+from .image_publication import ImagePublicationError, publish_image_set as publish_local_image_set
 from .image_security import ImageSecurityError, verify_manifest_signature
 from .sftp_transfer import SFTPTransferError
 from .sftp_transfer_service import run_sftp_transfer
@@ -211,48 +212,19 @@ def fetch_image_set(
             if progress_callback is not None:
                 progress_callback(bytes_done, bytes_total)
 
-        # Existing Feclora repositories are flat: artifacts plus
-        # <image_id>.manifest.json and its adjacent .minisig. Publish the
-        # artifacts first, the signature next, and the manifest last so the
-        # manifest remains the visible commit marker expected by _images().
-        published: list[str] = []
+        # Existing Feclora repositories are flat. Reuse the shared dirfd-pinned
+        # publisher so rollback cannot unlink a concurrent replacement. The
+        # native manifest remains the final commit marker.
         manifest_name = f"{manifest.image_id}.manifest.json"
         signature_name = manifest_name + ".minisig"
+        publication_names = [item.filename for item in manifest.artifacts]
+        publication_names.extend((signature_name, manifest_name))
         try:
-            for artifact in manifest.artifacts:
-                source = os.path.join(staging, artifact.filename)
-                target = os.path.join(root, artifact.filename)
-                os.link(source, target, follow_symlinks=False)
-                published.append(target)
-            signature_target = os.path.join(root, signature_name)
-            os.link(signature_path, signature_target, follow_symlinks=False)
-            published.append(signature_target)
-            manifest_target = os.path.join(root, manifest_name)
-            os.link(manifest_path, manifest_target, follow_symlinks=False)
-            published.append(manifest_target)
-            directory_fd = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
-        except FileExistsError as exc:
-            for target in reversed(published):
-                try:
-                    os.unlink(target)
-                except OSError:
-                    pass
+            publish_local_image_set(root, staging, publication_names)
+        except (FileExistsError, ImagePublicationError) as exc:
             raise SFTPImageSetError(
-                "an image artifact or manifest already exists; refusing to overwrite it"
+                "an image artifact or manifest already exists, or safe publication failed; refusing to overwrite it"
             ) from exc
-        except BaseException:
-            # Include orderly worker cancellation: never leave a partially
-            # imported local image set visible without its manifest marker.
-            for target in reversed(published):
-                try:
-                    os.unlink(target)
-                except OSError:
-                    pass
-            raise
         final_path = os.path.join(root, manifest_name)
         return {
             "image_id": manifest.image_id,
