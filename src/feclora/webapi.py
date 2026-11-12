@@ -2271,6 +2271,7 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         except (SourceSafetyError, OSError) as exc:
             raise WebAPIError(f"clone source {job.target_type} is unsafe or in use: {exc}") from exc
     else:
+        remote_image = None
         if job.repository_id is not None:
             from feclora.storage.s3_repository_manager import S3RepositoryManager
             s3_manager = S3RepositoryManager()
@@ -2310,7 +2311,11 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
                 raise
             except Exception as exc:
                 raise WebAPIError(f"restore image manifest is invalid: {exc}") from exc
-        if any(item.encryption == "age" for item in manifest.artifacts):
+        image_is_encrypted = (
+            remote_image["encrypted"] if remote_image is not None
+            else any(item.encryption == "age" for item in manifest.artifacts)
+        )
+        if image_is_encrypted:
             pki = Path("/etc/feclora/pki")
             recipients_directory = pki / "age-recipients"
             try:
