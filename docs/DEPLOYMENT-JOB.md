@@ -118,8 +118,8 @@ PXE answer-file design. The answer-file publication path validates a declarative
 restore answer on the Server and serves it through Caddy over HTTP without
 per-Client identity or enrollment. The Live answer downloader, NFS read-only mount, unique WWN/serial target
 resolution, pre-write revalidation and whole-disk restore engine are connected.
-Other repository providers, replay/expiry controls and physical acceptance
-remain pending. Do not infer authorization from PXE boot,
+Other repository providers, replay/expiry controls and Cockpit result reconciliation
+remain software backlog; physical/network acceptance is optional. Do not infer authorization from PXE boot,
 a DHCP lease, a URL or a job UUID.
 
 ## Managed remote image repository
