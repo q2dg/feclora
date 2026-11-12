@@ -131,14 +131,15 @@ def _progress(done: int, total: int | None) -> None:
            "bytes_total": bytes_total})
 
 
-def _clone_disk_progress(done: int, message: str) -> None:
+def _clone_disk_progress(done: int, total: int, message: str) -> None:
     from feclora.storage.operation_log import record_progress
 
     bytes_done = max(0, int(done))
-    record_progress(bytes_done, None)
+    bytes_total = max(0, int(total))
+    record_progress(bytes_done, bytes_total)
     _emit({
         "event": "progress", "bytes_done": bytes_done,
-        "bytes_total": None, "message": str(message)[:256],
+        "bytes_total": bytes_total, "message": str(message)[:256],
     })
 
 
