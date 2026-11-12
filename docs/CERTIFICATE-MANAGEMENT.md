@@ -7,17 +7,7 @@ identity mapping or per-Client credential.
 
 ## Security model
 
-- The Server presents a TLS certificate whose chain is validated by each
-  Client against the configured CA.
-- Each Client also checks the configured Server SAN identity or certificate
-  fingerprint. The expected identity is configuration, not a Client identity.
-- The Server does not request Client certificates. No Client TLS private key
-  or certificate is generated, installed or sent.
-- The job UUID is only a correlation identifier. A selected MAC address scopes
-  a Client to a deployment job but is not authentication.
-- Server TLS keys, optional minisign signing keys and optional age identities
-  are separate cryptographic roles. Age and minisign are optional image
-  security integrations and are not TLS authentication substitutes.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 ## Initial Server setup
 
@@ -43,12 +33,7 @@ validate the configured Server identity.
 
 ## Encrypted offline CA backup
 
-The Server Cockpit Server setup tab can export an encrypted CA recovery
-archive to a mounted removable-media directory. Supply an age public recipient
-whose corresponding private identity is held separately, preferably offline
-and under different administrative control. The archive contains only the CA
-key, CA certificate and a versioned manifest with the CA fingerprint; it does
-not contain Server endpoint keys, minisign keys or age identities.
+Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 Cockpit can verify an offline backup by decrypting it into a private temporary
 directory and checking the expected entries, manifest, CA fingerprint,
