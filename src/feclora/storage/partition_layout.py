@@ -53,6 +53,8 @@ def plan_proportional_gpt_layout(
     partition_table_type: str,
     minimum_sizes_bytes: Mapping[str, int],
     filesystem_types: Mapping[str, str],
+    source_first_usable_lba: int = 34,
+    source_last_usable_lba: int | None = None,
 ) -> tuple[PlannedPartition, ...]:
     """Return a deterministic, aligned GPT layout or fail closed.
 
@@ -82,11 +84,19 @@ def plan_proportional_gpt_layout(
 
     source_sectors = source_size // sector
     target_sectors = target_size // sector
-    # GPT reserves LBAs 0..33 and the final 33 LBAs for headers/tables.
-    first_usable = 34
-    last_usable_exclusive = target_sectors - 33
-    if last_usable_exclusive <= first_usable:
-        raise PartitionLayoutError("target is too small for GPT metadata")
+    first_usable = _integer(source_first_usable_lba, "source_first_usable_lba", minimum=2)
+    if source_last_usable_lba is None:
+        source_last_usable_lba = source_sectors - 34
+    source_last_usable = _integer(
+        source_last_usable_lba, "source_last_usable_lba", minimum=first_usable
+    )
+    if source_last_usable >= source_sectors - 1:
+        raise PartitionLayoutError("source GPT usable-LBA bounds exceed source capacity")
+    trailing_reserved_sectors = source_sectors - 1 - source_last_usable
+    last_usable_inclusive = target_sectors - 1 - trailing_reserved_sectors
+    last_usable_exclusive = last_usable_inclusive + 1
+    if last_usable_inclusive < first_usable:
+        raise PartitionLayoutError("target is too small for the source GPT entry-array geometry")
 
     normalized: list[dict[str, object]] = []
     seen: set[str] = set()
@@ -112,7 +122,7 @@ def plan_proportional_gpt_layout(
         start = _integer(raw.get("start"), f"{node} start", minimum=0)
         size = _integer(raw.get("size"), f"{node} size")
         end = start + size
-        if end > source_sectors - 33:
+        if end - 1 > source_last_usable:
             raise PartitionLayoutError(f"partition {node} exceeds source GPT usable space")
         if start < previous_end:
             raise PartitionLayoutError("source partitions overlap or are not in start-sector order")
