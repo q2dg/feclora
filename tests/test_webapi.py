@@ -1288,6 +1288,52 @@ class WebAPITests(unittest.TestCase):
         images.assert_called_once_with("nas-images")
 
 
+    def test_remote_repository_inventory_holds_shared_lease_through_manifest_scan(self):
+        from feclora.webapi import _images
+        expected = [{"image_id": "golden", "image_type": "disk"}]
+        manager = Mock()
+        manager.acquire_usage_lock.return_value = 123
+        manager.resolve.return_value = "/mnt/feclora/nas-images"
+        with patch("feclora.webapi._remote_repository_manager", return_value=manager), patch(
+            "feclora.webapi._filesystem_images", return_value=expected,
+        ) as scan, patch("feclora.webapi.os.close") as close:
+            self.assertEqual(_images("nas-images"), expected)
+        manager.acquire_usage_lock.assert_called_once_with("nas-images")
+        manager.resolve.assert_called_once_with("nas-images", write=False)
+        scan.assert_called_once_with(Path("/mnt/feclora/nas-images"))
+        close.assert_called_once_with(123)
+
+    def test_remote_repository_inventory_releases_lease_when_scan_fails(self):
+        from feclora.webapi import _images
+        manager = Mock()
+        manager.acquire_usage_lock.return_value = 456
+        manager.resolve.return_value = "/mnt/feclora/nas-images"
+        with patch("feclora.webapi._remote_repository_manager", return_value=manager), patch(
+            "feclora.webapi._filesystem_images", side_effect=OSError("remote read failed"),
+        ), patch("feclora.webapi.os.close") as close:
+            with self.assertRaisesRegex(WebAPIError, "remote image inventory failed"):
+                _images("nas-images")
+        close.assert_called_once_with(456)
+
+    def test_s3_repository_inventory_holds_shared_lease(self):
+        from feclora.webapi import _images
+        expected = [{"image_id": "golden", "image_type": "disk"}]
+        object_repository = SimpleNamespace(list_images=Mock(return_value=expected))
+        manager = SimpleNamespace(
+            list=lambda: [{"id": "s3-archive"}],
+            acquire_usage_lock=Mock(return_value=789),
+            repository=Mock(return_value=object_repository),
+        )
+        with patch(
+            "feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager,
+        ), patch("feclora.webapi.os.close") as close:
+            self.assertEqual(_images("s3-archive"), expected)
+        manager.acquire_usage_lock.assert_called_once_with("s3-archive")
+        manager.repository.assert_called_once_with("s3-archive")
+        object_repository.list_images.assert_called_once_with()
+        close.assert_called_once_with(789)
+
+
     def test_operation_repository_resolves_only_verified_remote_mount(self):
         from feclora.webapi import _operation_repository
         manager = Mock()
