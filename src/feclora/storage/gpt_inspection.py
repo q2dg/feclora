@@ -122,6 +122,12 @@ def parse_sfdisk_gpt_json(
                 record[target_key] = value
         if "uuid" in record and not _GUID.fullmatch(str(record["uuid"])):
             raise GPTInspectionError(f"{node} has an invalid partition UUID")
+        attrs = item.get("attrs")
+        if attrs is not None:
+            if (not isinstance(attrs, str) or len(attrs) > 1024
+                    or any(ord(character) < 32 or ord(character) == 127 for character in attrs)):
+                raise GPTInspectionError(f"{node} has invalid GPT partition attributes")
+            record["attrs"] = attrs
         result.append(record)
     return tuple(result)
 
