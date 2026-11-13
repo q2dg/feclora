@@ -29,6 +29,8 @@ def parse_sfdisk_gpt_disk_metadata(
     disk_guid = table.get("id")
     if not isinstance(disk_guid, str) or not _GUID.fullmatch(disk_guid):
         raise GPTInspectionError("sfdisk did not report a valid GPT disk GUID")
+    if expected_sector_size not in {512, 4096}:
+        raise GPTInspectionError("expected logical sector size must be 512 or 4096 bytes")
     sector_size = table.get("sectorsize")
     first_lba = table.get("firstlba")
     last_lba = table.get("lastlba")
