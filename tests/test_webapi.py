@@ -59,6 +59,7 @@ class PXEOperationHistoryTests(unittest.TestCase):
         self.assertEqual(item["state"], "interrupted")
         self.assertFalse(item["cancellable"])
         self.assertEqual(item["events"][0]["details"]["target"], "/dev/sda")
+        self.assertEqual(item["events"][0]["details"]["reason"], "originating process exited")
         self.assertEqual(item["events"][1]["details"]["bytes_done"], 4096)
 
 
