@@ -154,8 +154,7 @@ image-set download path. The PXE Server never accesses these repositories.
       from the Live NetworkManager lease on ISO boots.
 - [x] Resolve the repository ID using the normal managed repository managers, unique WWN/serial target resolution,
       pre-write identity revalidation and existing whole-disk restore engine.
-- [x] Add a credential-free HTTPS object-set adapter with verified TLS, redirect rejection, bounded manifest/artifact downloads, local staging-capacity preflight and SHA-256/size verification; it supports public or externally pre-authorized S3-compatible object prefixes.
-- [x] Add one Cockpit JSON answer-file upload control; the repository URL is
+- [x] Add one Cockpit JSON answer-file upload control; the repository ID is
       taken directly from the JSON document.
 - [x] Validate and atomically publish/revoke job-scoped JSON files through Caddy.
 - [x] Register unique iPXE MAC addresses in a persistent Server-side admission ledger; enforce configurable distinct-client and/or elapsed-time limits, and deny direct static access to the boot script.
@@ -164,12 +163,11 @@ image-set download path. The PXE Server never accesses these repositories.
 - [x] Connect the normal SSHFS, NFS, SMB/CIFS and S3 repository managers to the shared whole-disk restore engine.
 - [x] Support age symmetric decryption with one-shot Cockpit passphrase handoff on the Live client.
 - [x] Support symmetric age passphrase encryption for whole-disk capture through Cockpit; partition and logical-volume capture remain recipient-based.
-- [ ] Unify unattended repository resolution with Feclora's existing client-side repository managers for NFS, SSHFS, SMB/CIFS and S3; keep credentials in the normal protected Live configuration and never put secrets in the answer file.
 - [x] Implement exact whole-disk target resolution, pre-write revalidation and
-      execution through the existing verified whole-disk restore engine for NFS and HTTPS.
+      execution through the existing verified whole-disk restore engine.
 - [ ] Execute the automated repository-manager integration tests and add Live acceptance coverage for private credentials, provider mount failures and interrupted restore cleanup.
 - [x] Use the operator-selected HTTP trust assumption; no cryptographic integrity mechanism is provided.
-- [ ] Add automated tests for tampered answers, wrong age passphrase, HTTPS redirect/size/checksum failures, repository errors, ambiguous targets, target swaps and interrupted staging/restore. BIOS/UEFI boot, Caddy against real networks and physical restore are optional operator acceptance, not software completion gates.
+- [ ] Run the automated tests and add coverage for tampered answers, repository errors, ambiguous targets, target swaps and interrupted restore. BIOS/UEFI boot, Caddy against real networks and physical restore are optional operator acceptance, not software completion gates.
 
 Each Live PXE restore writes start, progress and terminal events to
 `/var/lib/feclora/pxe/operations.jsonl`. Cockpit's local Operation history
