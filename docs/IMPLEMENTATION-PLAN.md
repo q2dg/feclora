@@ -193,7 +193,8 @@ Implementation contract for a future proportional-layout mode:
 - [ ] Keep the current exact/raw mode unchanged and fail closed when the destination is smaller.
 - [ ] Add a separate, explicit proportional-layout mode; never silently resize.
 - [ ] Parse and validate the source partition table and every partition boundary, including GPT primary/backup metadata, alignment and logical-sector geometry.
-- [ ] Build a complete destination layout before any destructive write. Reject extended/logical MBR layouts or other schemes until their handling is implemented and tested.
+- [x] Add a preview-only GPT layout planner that validates ordered/non-overlapping source partitions, GPT type GUIDs, 1 MiB alignment, target capacity and caller-supplied minimum sizes. It only permits shrinking ext2/3/4; all other filesystem partitions must retain their original size. The planner does not probe filesystems or write anything.
+- [ ] Integrate trusted offline filesystem-minimum probes and build a complete destination layout before any destructive write. Reject extended/logical MBR layouts or other schemes until their handling is implemented and tested.
 - [ ] Determine filesystem minimum sizes using filesystem-native, read-only checks where available; never infer fit from free-space percentages or lsblk partition size alone.
 - [ ] Initially support only filesystems with a proven offline shrink-and-grow sequence and verified tool availability. Filesystems without a safe shrink path, encrypted/container layers, RAID, LVM, multi-device Btrfs and unknown signatures must remain blocked.
 - [ ] Shrink the filesystem before shrinking its partition; copy only the validated partition extents; recreate/relocate partition metadata; then grow the filesystem to the planned target partition size where appropriate.
