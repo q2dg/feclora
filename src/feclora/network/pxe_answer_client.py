@@ -308,10 +308,16 @@ def _clear_stale_age_passphrase_files(directory: str | os.PathLike[str] = "/run/
 @contextmanager
 def _managed_repository(repository_id: str, image_id: str):
     """Resolve an existing Feclora repository using its normal manager and credentials."""
-    from feclora.storage.s3_repository_manager import S3RepositoryManager
+    from feclora.storage.s3_repository_manager import (
+        REGISTRY as S3_REGISTRY, S3RepositoryManager,
+    )
 
-    s3_manager = S3RepositoryManager()
-    s3_ids = {item["id"] for item in s3_manager.list()}
+    if os.path.lexists(S3_REGISTRY):
+        s3_manager = S3RepositoryManager()
+        s3_ids = {item["id"] for item in s3_manager.list()}
+    else:
+        s3_manager = None
+        s3_ids = set()
     if repository_id in s3_ids:
         usage_fd = s3_manager.acquire_usage_lock(repository_id)
         try:
@@ -325,8 +331,12 @@ def _managed_repository(repository_id: str, image_id: str):
             os.close(usage_fd)
         return
 
-    from feclora.storage.repository_manager import RemoteRepositoryManager
+    from feclora.storage.repository_manager import (
+        REGISTRY as REMOTE_REGISTRY, RemoteRepositoryManager,
+    )
 
+    if not os.path.lexists(REMOTE_REGISTRY):
+        raise PXEAnswerClientError("selected repository ID is not configured in the Live client's Feclora repository managers")
     manager = RemoteRepositoryManager()
     definitions = {item["id"]: item for item in manager.list()}
     if repository_id not in definitions:
