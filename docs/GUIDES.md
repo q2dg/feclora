@@ -62,19 +62,21 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
 - **Interactive PXE boot** — boot-tree staging and service activation exist;
   BIOS/UEFI network-boot acceptance remains pending. It is intended to boot
   the same Live environment as ISO, then use Cockpit interactively.
-- **Unattended PXE answer workflow** — **Partial, end-to-end NFS and credential-free HTTPS whole-disk
-  path implemented**. The iPXE menu offers an answer-file entry. Cockpit
+- **Unattended PXE answer workflow** — shared ISO/PXE answer contract and whole-disk
+  restore path implemented through Feclora's normal SSHFS, NFS, SMB/CIFS and S3
+  repository managers. The iPXE menu offers an answer-file entry. Cockpit
   publishes one validated JSON answer and an answer-specific script through
   Caddy over HTTP. Live downloads and validates the answer, then invokes the
   existing whole-disk restore engine with stable-target revalidation and
-  read-back verification. Before unattended boot, iPXE submits its MAC to a
+  read-back verification. The answer contains only a repository ID; credentials
+  remain in the Live client's normal protected configuration. The PXE Server
+  does not proxy repositories or receive operation results. Before unattended boot, iPXE submits its MAC to a
   loopback admission service behind Caddy. The Server counts distinct MACs,
   permits retries from an already registered MAC, and can stop admitting
   clients at an administrator-configured client cap and/or serving-time
   deadline. Neither limit is enabled by default. The boot script
   is served only through that gate. MAC is spoofable and is not authentication.
-  Other repository providers, richer result reporting and physical acceptance
-  remain pending.
+  Automated provider failure-path coverage and physical acceptance remain pending.
 
 PXE boot or possession of an answer URL alone never authorizes a destructive
 write. The Server-authenticated TLS Remote-jobs workflow remains separate and uses
