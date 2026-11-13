@@ -119,14 +119,21 @@ The answer schema accepts URL schemes for SSHFS, SMB/CIFS, NFS, HTTP(S) and S3. 
 - [x] Register unique iPXE MAC addresses in a persistent Server-side admission ledger; enforce configurable distinct-client and/or elapsed-time limits, and deny direct static access to the boot script.
 - [x] Clear stale answer files and handoff scripts when a new PXE session starts.
 - [x] Keep answer files reusable; explicit revocation and stale-session cleanup remain available. Successful deployment-job cancellation revokes its published answer.
-- [x] Connect NFS URL to a read-only Live mount for whole-disk restore.
+- [x] Connect NFS URL to a read-only Live mount and credential-free HTTPS object prefixes to whole-disk restore.
 - [x] Support age symmetric decryption with one-shot Cockpit passphrase handoff on the Live client.
 - [x] Support symmetric age passphrase encryption for whole-disk capture through Cockpit; partition and logical-volume capture remain recipient-based.
 - [ ] Design and implement a secure, host-independent Live credential provisioning and one-shot consumption flow before enabling private S3, SSHFS or SMB/CIFS. Never copy Server-bound systemd-creds blobs to Clients.
 - [x] Implement exact whole-disk target resolution, pre-write revalidation and
-      execution through the existing verified whole-disk restore engine for NFS.
+      execution through the existing verified whole-disk restore engine for NFS and HTTPS.
 - [ ] Add private S3, SSHFS and SMB/CIFS adapters only after the Live credential flow is implemented and tested; keep unsupported schemes fail-closed.
 - [x] Use the operator-selected HTTP trust assumption; no cryptographic integrity mechanism is provided.
 - [ ] Add automated tests for tampered answers, wrong age passphrase, HTTPS redirect/size/checksum failures, repository errors, ambiguous targets, target swaps and interrupted staging/restore. BIOS/UEFI boot, Caddy against real networks and physical restore are optional operator acceptance, not software completion gates.
+
+Each Live PXE restore writes start, progress and terminal events to
+`/var/lib/feclora/pxe/operations.jsonl`. Cockpit's local Operation history
+merges this journal with durable local operations and marks stale in-progress
+entries interrupted after the originating process exits. PXE history entries
+are read-only in Cockpit; the identity-free Client does not send authenticated
+results to the Server.
 
 The NFS and credential-free HTTPS whole-disk software paths, age passphrase handoff and MAC-based PXE admission gate are connected. Automated software tests are the release gate; BIOS/UEFI PXE boot and physical restore remain optional operator acceptance.
