@@ -116,6 +116,7 @@ def write_artifact(
     temp_name = f".feclora-{secrets.token_hex(16)}.tmp"
     raw_fd = None
     linked = False
+    linked_identity = None
     committed = False
     source_size = 0
     try:
@@ -213,6 +214,7 @@ def write_artifact(
             raw.flush()
             os.fsync(raw.fileno())
 
+        temp_info = os.stat(temp_name, dir_fd=dir_fd, follow_symlinks=False)
         try:
             os.link(
                 temp_name,
@@ -223,9 +225,9 @@ def write_artifact(
             )
         except FileExistsError as exc:
             raise ArtifactWriteError("destination artifact already exists") from exc
-        # From this point the final name exists. Keep ownership of that link
-        # explicit so a failure removing the staging name or syncing the
-        # directory cannot leave an unreported, discoverable artifact behind.
+        # Record the exact inode published by this attempt. Rollback must not
+        # unlink a different file if another actor replaces the final name.
+        linked_identity = (temp_info.st_dev, temp_info.st_ino)
         linked = True
         os.unlink(temp_name, dir_fd=dir_fd)
         os.fsync(dir_fd)
@@ -250,13 +252,15 @@ def write_artifact(
             os.close(raw_fd)
         if not committed and linked:
             try:
-                os.unlink(filename, dir_fd=dir_fd)
-                os.fsync(dir_fd)
+                current = os.stat(filename, dir_fd=dir_fd, follow_symlinks=False)
+                if (current.st_dev, current.st_ino) == linked_identity:
+                    os.unlink(filename, dir_fd=dir_fd)
+                    os.fsync(dir_fd)
             except FileNotFoundError:
                 pass
             except OSError:
                 # Preserve the original failure; a remaining final link is
-                # safer than deleting a name we can no longer inspect.
+                # safer than deleting a name we can no longer identify.
                 pass
         try:
             os.unlink(temp_name, dir_fd=dir_fd)
