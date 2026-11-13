@@ -41,7 +41,7 @@ def parse_sfdisk_gpt_disk_metadata(
             or disk_size_bytes <= 0 or disk_size_bytes % expected_sector_size):
         raise GPTInspectionError("sfdisk GPT disk geometry is incomplete or invalid")
     disk_sectors = disk_size_bytes // expected_sector_size
-    if first_lba < 34 or last_lba < first_lba or last_lba >= disk_sectors - 1:
+    if first_lba < 2 or last_lba < first_lba or last_lba >= disk_sectors - 1:
         raise GPTInspectionError("sfdisk reported invalid GPT usable-LBA bounds")
     return {
         "disk_guid": disk_guid.lower(),
@@ -104,7 +104,7 @@ def parse_sfdisk_gpt_json(
     elif first_lba is not None or last_lba is not None:
         if (isinstance(first_lba, bool) or not isinstance(first_lba, int)
                 or isinstance(last_lba, bool) or not isinstance(last_lba, int)
-                or first_lba < 34 or last_lba < first_lba):
+                or first_lba < 2 or last_lba < first_lba):
             raise GPTInspectionError("sfdisk reported invalid GPT usable-LBA bounds")
 
     partitions = table.get("partitions")
