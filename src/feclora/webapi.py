@@ -68,7 +68,7 @@ def _repository(*, create: bool = False) -> Path:
     except FileNotFoundError:
         return REPOSITORY
     if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != 0 or info.st_mode & 0o077):
+            or info.st_uid != os.geteuid() or info.st_mode & 0o077):
         raise WebAPIError("Feclora image repository must be a private root-owned real directory")
     if create:
         os.chmod(REPOSITORY, 0o700)
