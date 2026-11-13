@@ -231,11 +231,39 @@ class RemoteRepositoryManager:
             os.close(fd)
 
     def list(self) -> list[dict[str, Any]]:
+        """Inspect mount metadata only; remote filesystem health is always unknown.
+
+        No path lookup, stat/statvfs, directory listing or other remote I/O is
+        performed here. A matching findmnt record proves mount identity only.
+        """
         entries = self._load()
         result = []
         for identifier, definition in sorted(entries.items()):
             mountpoint = str(self.mount_root / identifier)
-            mounted = self._is_mounted(mountpoint)
+            mounted: bool | None
+            verified = False
+            mount_state = "unknown"
+            mount_error = None
+            try:
+                record = self._mount_record(mountpoint)
+            except RepositoryManagerError as exc:
+                # A timeout, malformed record or missing findmnt is not proof
+                # that the mount disappeared. Preserve the uncertainty.
+                mounted = None
+                mount_error = str(exc)[:512]
+            else:
+                if record is None:
+                    mounted = False
+                    mount_state = "unmounted"
+                else:
+                    mounted = True
+                    try:
+                        self.resolve(identifier)
+                        verified = True
+                        mount_state = "identity_verified"
+                    except RepositoryManagerError as exc:
+                        mount_state = "mounted_unverified"
+                        mount_error = str(exc)[:512]
             item = {
                 "id": identifier, "provider": definition["provider"],
                 "host": definition["host"], "remote_path": definition["remote_path"],
@@ -248,17 +276,10 @@ class RemoteRepositoryManager:
                     if (value := definition.get(key)) is not None
                     and self._is_encrypted_credential_path(value)
                 ],
-                "mounted": mounted, "verified": False, "mount_error": None,
+                "mounted": mounted, "mount_state": mount_state,
+                "verified": verified, "mount_error": mount_error,
+                "health_state": "unknown",
             }
-            if mounted:
-                try:
-                    self.resolve(identifier)
-                    item["verified"] = True
-                except RepositoryManagerError as exc:
-                    # A mount at the managed path is not necessarily the
-                    # remote filesystem that this repository definition owns.
-                    # Keep it visible as mounted, but never label it trusted.
-                    item["mount_error"] = str(exc)[:512]
             result.append(item)
         return result
 
