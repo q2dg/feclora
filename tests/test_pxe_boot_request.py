@@ -43,6 +43,22 @@ class PXEBootRequestTests(unittest.TestCase):
         self.assertEqual(request.http_port, 8080)
         self.assertEqual(request.answer_url, ANSWER_URL)
 
+    def test_iso_unattended_url_uses_the_same_answer_contract(self):
+        request = parse_pxe_boot_request(f"ro quiet feclora.unattended_url={ANSWER_URL}")
+        self.assertEqual(request.mode, "unattended-answer")
+        self.assertEqual(request.job_id, JOB_ID)
+        self.assertEqual(request.answer_url, ANSWER_URL)
+        self.assertEqual(request.server_address, "192.0.2.10")
+        self.assertEqual(request.http_port, 8080)
+
+    def test_iso_unattended_url_rejects_invalid_or_mixed_handoffs(self):
+        with self.assertRaisesRegex(PXEBootRequestError, "canonical job UUID"):
+            parse_pxe_boot_request("feclora.unattended_url=http://192.0.2.10:8080/answers/not-a-uuid/answer.json")
+        with self.assertRaisesRegex(PXEBootRequestError, "must not be combined"):
+            parse_pxe_boot_request(
+                f"feclora.unattended_url={ANSWER_URL} feclora.pxe_mode=interactive"
+            )
+
     def test_rejects_duplicate_or_incomplete_parameters(self):
         with self.assertRaisesRegex(PXEBootRequestError, "duplicate"):
             parse_pxe_boot_request(
