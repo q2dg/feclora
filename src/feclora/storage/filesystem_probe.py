@@ -218,10 +218,11 @@ def build_proportional_gpt_plan(
     safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
     minimum_probe: Callable[..., int] | None = None,
+    ntfs_minimum_probe: Callable[..., int] | None = None,
 ) -> tuple[PlannedPartition, ...]:
-    """Build a GPT preview using live, read-only probes for every ext partition.
+    """Build a GPT preview using live, read-only probes for shrinkable filesystems.
 
-    Non-ext partitions are fixed at their original byte size. Unknown
+    Filesystems without a native, verified shrink probe remain fixed at their original byte size. Unknown
     filesystem types, missing signatures, probe failures and unsupported
     partition metadata fail closed. This function never writes to a device.
     """
@@ -233,6 +234,7 @@ def build_proportional_gpt_plan(
     if isinstance(sector_size, bool) or not isinstance(sector_size, int) or sector_size not in {512, 4096}:
         raise FilesystemProbeError("logical sector size must be 512 or 4096 bytes")
     probe = minimum_probe or probe_ext_minimum_size
+    ntfs_probe = ntfs_minimum_probe or probe_ntfs_minimum_size
     minimums: dict[str, int] = {}
     for index, partition in enumerate(partitions):
         if not isinstance(partition, Mapping):
@@ -264,6 +266,17 @@ def build_proportional_gpt_plan(
                 raise
             except Exception as exc:
                 raise FilesystemProbeError(f"cannot determine minimum size for {node}: {exc}") from exc
+        elif filesystem in {"ntfs", "ntfs3"}:
+            try:
+                minimums[node] = ntfs_probe(
+                    node, filesystem_type=filesystem, executables=executables,
+                    runner=runner, which=which, device_validator=device_validator,
+                    safety_check=safety_check, effective_uid=effective_uid,
+                )
+            except FilesystemProbeError:
+                raise
+            except Exception as exc:
+                raise FilesystemProbeError(f"cannot determine NTFS minimum size for {node}: {exc}") from exc
         else:
             # No shrink support is assumed for any other filesystem/container.
             minimums[node] = original_bytes
@@ -292,6 +305,7 @@ def preview_proportional_gpt_plan_from_disk(
     safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
     minimum_probe: Callable[..., int] | None = None,
+    ntfs_minimum_probe: Callable[..., int] | None = None,
 ) -> dict[str, object]:
     """Discover an offline GPT source and return a read-only smaller-target plan.
 
@@ -326,6 +340,7 @@ def preview_proportional_gpt_plan_from_disk(
             safety_check=safety_check,
             effective_uid=effective_uid,
             minimum_probe=minimum_probe,
+            ntfs_minimum_probe=ntfs_minimum_probe,
         )
     except (FilesystemProbeError, TypeError, ValueError) as exc:
         raise FilesystemProbeError(f"cannot create proportional GPT preview: {exc}") from exc
