@@ -399,10 +399,8 @@ class RemoteRepositoryManager:
         except (OSError, subprocess.SubprocessError) as exc:
             raise RepositoryManagerError(f"repository mount failed: {exc}") from exc
         if result.returncode != 0:
-            # A helper can fail after the kernel has already installed a
-            # mount. Roll back only when findmnt proves that the mount belongs
-            # to this exact repository; never detach an unexpected filesystem.
-            self._rollback_mount_attempt(repo, str(mountpoint), service_managed=service_managed)
+            # A non-zero helper exit does not prove ownership of any mount
+            # that appeared concurrently; leave it for explicit inspection.
             detail = (result.stderr or result.stdout or "").strip()[:512]
             raise RepositoryManagerError("repository mount failed" + (f": {detail}" if detail else ""))
         mounted = self._is_mounted(str(mountpoint))
@@ -450,10 +448,11 @@ class RemoteRepositoryManager:
     def _rollback_mount_attempt(
         self, repo: RemoteRepository, mountpoint: str, *, service_managed: bool,
     ) -> bool:
-        """Best-effort normal unmount of a mount created by this failed attempt.
+        """Best-effort normal unmount after a successful but failed verification.
 
-        Cleanup is deliberately refused unless findmnt still proves the exact
-        provider/source identity. It never uses lazy or forced detach.
+        The mount helper returned success and findmnt still proves the exact
+        configured provider/source identity. Cleanup never uses lazy or forced
+        detach; a non-zero mount-helper exit is deliberately not rolled back.
         """
         try:
             record = self._mount_record(mountpoint)
