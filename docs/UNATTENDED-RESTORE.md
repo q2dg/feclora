@@ -2,22 +2,29 @@
 
 ## One Live system, one restore path
 
-Feclora ISO and PXE boot the same Fedora Live image. The PXE Server's role is
-limited to serving the Live kernel, initramfs and squashfs and, when used,
+Feclora ISO and PXE boot the same Fedora Live image. The Feclora PXE
+Server is a single deployment component that includes DHCP, Caddy and the
+services needed to publish Live boot assets and unattended answer files.
+DHCP and Caddy are not external infrastructure in this architecture.
+
+The PXE Server serves the Live kernel, initramfs and squashfs and publishes
 the JSON answer file through Caddy. It does not mount repositories, proxy
-image data, or execute restoration.
+image data, execute restoration, or receive client operation results.
 
 Both boot methods use the same answer schema, downloader, validator and Live
-restore client. The boot method supplies only the answer URL:
+restore client. The answer URL is supplied dynamically at boot:
 
-- ISO: add the feclora.unattended_url= kernel argument to the ISO boot entry.
-- PXE: the existing iPXE job boot script passes the job ID and answer URL
-  using the PXE-specific handoff parameters.
+- ISO: the Live client obtains the current answer URL from a Feclora-specific
+  DHCP option. The ISO remains generic; its boot menu does not embed a Caddy
+  address and does not need rebuilding when that address changes.
+- PXE: the PXE boot flow obtains the same current answer URL from the Feclora
+  PXE Server and passes it to the Live environment using the PXE handoff.
 
-The Live service feclora-pxe-answer.service is enabled in the image. It
-starts for either the legacy PXE unattended handoff or the generic
-feclora.unattended_url=* kernel argument. With no unattended argument, it
-does not run and the normal interactive Feclora session is unchanged.
+The DHCP option number and its exact encoding must be defined by the Feclora
+DHCP implementation; no option number is assumed by this architecture.
+Both boot methods enter the same Live answer-fetch service and restore client.
+With no unattended answer supplied, the normal interactive Feclora session
+is unchanged.
 
 ## Caddy answer URL
 
@@ -25,18 +32,14 @@ The current Caddy publication format is:
 
 http://<caddy-ipv4>:<port>/answers/<job-uuid>/answer.json
 
-For an ISO boot, edit the boot entry and append:
+The URL is a public locator, not a client credential. DHCP supplies the
+current URL to ISO clients, so changes to Caddy's address or port are handled
+by updating the PXE Server's DHCP configuration rather than rebuilding the
+ISO. PXE clients use the same published answer endpoint.
 
-feclora.unattended_url=http://<caddy-ipv4>:<port>/answers/<job-uuid>/answer.json
-
-The URL is a public locator, not a client credential. The downloader rejects
-redirects, bounds the response to 64 KiB, and validates the JSON before
-starting any storage operation. The answer server must be reachable from the
-Live environment over the configured network.
-
-The current Caddy PXE publication workflow is managed from the Feclora Server
-Cockpit interface. ISO use can consume an already-published answer URL; it
-does not require the ISO client to authenticate to the PXE Server.
+The downloader rejects redirects, bounds the response to 64 KiB, and
+validates the JSON before starting any storage operation. The answer endpoint
+must be reachable from the Live environment over the configured network.
 
 ## Answer contents and destructive authorization
 
