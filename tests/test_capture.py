@@ -330,6 +330,26 @@ class CaptureTests(unittest.TestCase):
             with open(path, "rb") as stream:
                 self.assertEqual(stream.read(), b"keep")
 
+    def test_failed_repository_directory_sync_rolls_back_own_published_inode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            real_fsync = os.fsync
+
+            def fail_directory_sync(fd):
+                if os.path.isdir(f"/proc/self/fd/{fd}"):
+                    raise OSError("simulated repository directory sync failure")
+                return real_fsync(fd)
+
+            with patch("feclora.storage.capture.os.fsync", side_effect=fail_directory_sync):
+                with self.assertRaisesRegex(CaptureError, "capture failed"):
+                    capture_partition(
+                        "/dev/fake1", None, directory, "part.raw", "1",
+                        {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
+                        source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                        popen_factory=lambda *_args, **_kwargs: FakeProcess(["dd"]),
+                    )
+
+            self.assertEqual(os.listdir(directory), [])
+
     def test_rejects_repository_symlink(self):
         with tempfile.TemporaryDirectory() as directory:
             link = directory + "-link"
