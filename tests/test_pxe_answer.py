@@ -14,7 +14,7 @@ class PXEAnswerTests(unittest.TestCase):
             "schema_version": 1,
             "operation": "restore",
             "image_id": "fedora-workstation",
-            "repository_url": "nfs://images.example.net/feclora",
+            "repository_id": "nas-images",
             "target": {"wwn": "0x5000abcd1234", "serial": None},
             "confirm_destructive": True,
             "start": True,
@@ -25,37 +25,28 @@ class PXEAnswerTests(unittest.TestCase):
         self.assertEqual(result["image_id"], "fedora-workstation")
         self.assertEqual(result["target"]["wwn"], "0x5000abcd1234")
 
-    def test_accepts_declared_repository_url_schemes(self):
-        for url in (
-            "sshfs://images.example.net/feclora",
-            "smb://images.example.net/images",
-            "nfs://images.example.net/export/feclora",
-            "https://images.example.net/feclora",
-            "s3://bucket.example.net/feclora",
-        ):
-            with self.subTest(url=url):
+    def test_accepts_valid_repository_ids(self):
+        for identifier in ("nas", "archive-01", "s3-images"):
+            with self.subTest(identifier=identifier):
                 answer = self.valid_answer()
-                answer["repository_url"] = url
+                answer["repository_id"] = identifier
                 validate_pxe_answer(answer)
 
-    def test_rejects_removed_peer_to_peer_schemes(self):
-        for url in (
-            "bittorrent://tracker.example.net/feclora",
-            "magnet:?xt=urn:btih:0123456789012345678901234567890123456789",
-        ):
-            with self.subTest(url=url):
+    def test_rejects_invalid_repository_ids(self):
+        for identifier in ("", "../nas", "NAS", "nas/images", "a" * 49):
+            with self.subTest(identifier=identifier):
                 answer = self.valid_answer()
-                answer["repository_url"] = url
+                answer["repository_id"] = identifier
                 with self.assertRaises(PXEAnswerError):
                     validate_pxe_answer(answer)
 
-    def test_rejects_unsupported_legacy_scheme(self):
+    def test_rejects_legacy_repository_url_field(self):
         answer = self.valid_answer()
-        answer["repository_url"] = "sftp://images.example.net/images"
+        answer["repository_url"] = "nfs://images.example.net/export"
         with self.assertRaises(PXEAnswerError):
             validate_pxe_answer(answer)
 
-    def test_requires_stable_target_selector(self):
+    def test_requires_stable_target_selector(self):(self):
         answer = self.valid_answer()
         answer["target"] = {"wwn": None, "serial": None}
         with self.assertRaises(PXEAnswerError):
@@ -68,7 +59,7 @@ class PXEAnswerTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(PXEAnswerError):
                 validate_pxe_answer(answer)
 
-    def test_rejects_credential_reference_until_live_handoff_exists(self):
+    def test_rejects_credential_reference(self):
         answer = self.valid_answer()
         answer["credential_ref"] = "archive"
         with self.assertRaisesRegex(PXEAnswerError, "unknown fields"):
