@@ -115,7 +115,7 @@ def inspect_restore_target(
         if not isinstance(child, dict) or child.get("type") != "part":
             raise TargetInspectionError("target contains an unrecognized child storage layer")
         path = child.get("path")
-        if not isinstance(path, str) or not path.startswith(disk_path) or not re.fullmatch(r"(?:p?\\d+|-part\\d+)", path[len(disk_path):]) or path in seen:
+        if not isinstance(path, str) or not path.startswith(disk_path) or not re.fullmatch(r"(?:p?\d+|-part\d+)", path[len(disk_path):]) or path in seen:
             raise TargetInspectionError("target contains duplicate or invalid partition paths")
         seen.add(path)
         partitions.append({
