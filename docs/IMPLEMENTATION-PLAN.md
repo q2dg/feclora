@@ -439,9 +439,17 @@ migration paths must not be conflated with lossless block-level shrinking.
   CRCs, entry-array CRCs, disk GUID, usable bounds, unique partition GUIDs,
   extents, names and array agreement. Source inspection cross-checks those
   bytes against sfdisk's JSON before producing a preview. Tests cover valid
-  512-byte and 4096-byte images and corruption/disagreement cases. This is
-  still preview-only: GPT serialization/writing, staged filesystem shrinking,
-  and post-write validation remain unimplemented.
+  512-byte and 4096-byte images and corruption/disagreement cases. A pure GPT
+  metadata-patch builder now derives a smaller target layout from the validated
+  source: it preserves partition slots, GUIDs, names, type GUIDs, attribute
+  bits and starts; changes only planned end LBAs; and rebuilds the protective
+  MBR, both entry arrays, both headers and their CRCs. It returns aligned byte
+  patches and never writes to either stream. Unknown GPT header extensions,
+  partition relocation/expansion, missing or duplicate PARTUUIDs and target
+  geometry overflow fail closed. Synthetic tests cover rewrite validation and
+  relocation rejection. This remains a builder only: applying patches to the
+  private staging image, filesystem shrinking, read-back verification and
+  destination restore integration are not implemented.
 - GPT inspection and preview records now retain per-partition `attrs` from
   `sfdisk --json` (including firmware/OS-specific attribute bits), instead of
   silently dropping them. This is metadata preservation only: no GPT writer
