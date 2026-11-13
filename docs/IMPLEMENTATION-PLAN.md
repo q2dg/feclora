@@ -377,6 +377,8 @@ not implementation authorization.
   offline grow tool and a matching post-growth checker. Keep preserve-layout as
   the default and require an exact destructive confirmation. Never edit the
   source image or mutate the target before the complete plan is validated.
+- [x] Add read-only whole-disk restore-target inspection: require a real block device resolving as exactly one whole disk; verify offline/unused status with the existing fail-closed source-safety checks; cross-check lsblk and blockdev capacity/logical-sector geometry; inventory existing partition children and stable model/serial/WWN metadata; reject unsupported child storage layers. The result explicitly sets `write_authorized=False`. This is an inspection primitive only: no source/target comparison, target wipe, GPT write, filesystem shrink or restore is authorized.
+
 - [ ] **Read-error-tolerant capture (4):** evaluate GNU ddrescue as an optional
   capture engine for whole disks and supported partitions. Keep a persistent
   mapfile beside private staging state, distinguish complete, recovered-with-
