@@ -45,6 +45,15 @@ class DeploymentJobTests(unittest.TestCase):
         with self.assertRaisesRegex(JobValidationError, "whole disks"):
             DeploymentJob.from_dict(valid_job(operation="save", target_type="partition"))
 
+    def test_logical_volume_save_requires_unicast(self):
+        payload = valid_job(
+            operation="save", target_type="logical_volume",
+            transport="multicast", multicast_group="239.10.10.10",
+            multicast_port=5000,
+        )
+        with self.assertRaisesRegex(JobValidationError, "save jobs require unicast"):
+            DeploymentJob.from_dict(payload)
+
     def test_remote_clone_accepts_partition_target_only(self):
         payload = valid_job(
             operation="clone", image_id=None, source_device="/dev/nvme0n1p2",
