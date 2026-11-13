@@ -76,7 +76,7 @@ def inspect_restore_target(
         inventory = json.loads(invoke(
             "lsblk",
             ["--json", "--bytes", "--tree", "--paths",
-             "--output", "PATH,TYPE,SIZE,LOG-SEC,PTTYPE,MODEL,SERIAL,WWN", disk_path],
+             "--output", "PATH,TYPE,FSTYPE,SIZE,LOG-SEC,PTTYPE,MODEL,SERIAL,WWN", disk_path],
         ))
     except (TypeError, json.JSONDecodeError) as exc:
         raise TargetInspectionError("lsblk returned invalid target inventory JSON") from exc
