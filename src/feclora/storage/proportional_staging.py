@@ -22,6 +22,7 @@ from .disk_restore import (
     _decoded_stream,
     _preflight_decoded_size,
     _verified_artifact_stream,
+    _verify_stored_artifact,
 )
 from .compression import CompressionError
 from .image_manifest import ImageManifest
@@ -131,6 +132,9 @@ def stage_verified_raw_disk_image(
                     decoded.close()
             if total != manifest.source_size_bytes:
                 raise ProportionalStagingError("staged RAW size differs from manifest source size")
+            # Re-hash the still-open source after decoding to detect changes
+            # made in place between the initial verification and staging.
+            _verify_stored_artifact(stored, artifact)
             info = os.lstat(staged_path)
             if not stat.S_ISREG(info.st_mode) or info.st_size != total or info.st_mode & 0o077:
                 raise ProportionalStagingError("staged RAW file failed private-file validation")
