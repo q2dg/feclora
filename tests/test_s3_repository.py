@@ -187,5 +187,29 @@ class S3RepositoryTests(unittest.TestCase):
                 read_only.upload_image_set(root, "lv-one")
 
 
+    def test_multipart_upload_failure_aborts_incomplete_upload(self):
+        class FailingMultipartS3(_S3):
+            def upload_part(self, *, Bucket, Key, UploadId, PartNumber, Body):
+                raise RuntimeError("simulated part transfer failure")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            payload = Path(temporary) / "large-image.raw"
+            payload.write_bytes(b"x" * (5 * 1024 * 1024))
+            client = FailingMultipartS3()
+            repository = S3ObjectRepository(
+                _config(), client=client,
+                part_size=5 * 1024 * 1024,
+                multipart_threshold=5 * 1024 * 1024,
+            )
+            with self.assertRaisesRegex(S3RepositoryError, "multipart upload failed"):
+                repository._put_file(
+                    payload, "server-a/images/large-image.raw",
+                    hashlib.sha256(payload.read_bytes()).hexdigest(),
+                    payload.stat().st_size,
+                )
+            self.assertEqual(client.uploads, {})
+            self.assertEqual(client.objects, {})
+
+
 if __name__ == "__main__":
     unittest.main()
