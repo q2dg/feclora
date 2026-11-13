@@ -59,7 +59,7 @@ must be reachable from the Live environment over the configured network.
 ## Answer contents and destructive authorization
 
 The answer is declarative JSON. It describes a restore operation, image ID,
-repository location, stable target identity (WWN and/or serial), and explicit
+managed repository ID, stable target identity (WWN and/or serial), and explicit
 destructive-start flags. It must not contain shell commands, arbitrary
 executable arguments, device paths, passwords, private keys, bearer tokens or
 per-client identity material.
@@ -83,13 +83,12 @@ not a repository proxy. ISO and PXE must use the same Feclora repository
 configuration and protected credential handling; no repository secrets are
 placed in the answer file and no client authentication/enrollment is added.
 
-The current unattended answer implementation is not yet fully integrated
-with Feclora's normal repository managers. Its working paths are NFS and
-credential-free HTTPS. Supporting SSHFS, SMB/CIFS and private S3 in unattended
-mode requires connecting the answer's repository selection to the existing
-client-side managers and their protected credentials. Until then, those
-providers must fail closed rather than being silently downgraded or exposing
-credentials.
+The answer contains only a repository ID. The Live client resolves it
+through Feclora's existing RemoteRepositoryManager for SSHFS, NFS and SMB/CIFS,
+including mount verification, usage leases and protected credentials. S3 is
+resolved through S3RepositoryManager and its encrypted credential store; image
+sets are staged locally through the existing object repository adapter. The
+PXE Server does not connect to, proxy or receive data from these repositories.
 
 ## Current implementation status
 
@@ -103,11 +102,12 @@ credentials.
       no Caddy address is embedded in the ISO.
 - [ ] Validate option 224 delivery on physical clients in authoritative DHCP
       mode and document upstream DHCP configuration for ProxyDHCP networks.
-- [ ] Replace the PXE-specific repository adapter with the existing Feclora
-      repository managers so all supported remote providers behave identically.
+- [x] Resolve answer repository IDs through the normal SSHFS, NFS, SMB/CIFS
+      and S3 repository managers, without adding a second credential system.
 - [ ] Unify answer-driven execution with durable local operation history and
       the normal unattended restore-profile safety/replay policy.
-- [ ] Add and run automated end-to-end tests for ISO and PXE handoff, repository
-      access, target ambiguity/swap, interruption and post-write verification.
+- [ ] Run the automated test suite and add Live acceptance coverage for ISO/PXE
+      handoff, private repository credentials, target ambiguity/swap, interruption
+      and post-write verification.
 
 No test suite or ISO build has been run as part of these source changes.
