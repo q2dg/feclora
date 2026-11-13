@@ -9,6 +9,7 @@ delegates destructive writes to the existing verified restore engine.
 from __future__ import annotations
 
 import hashlib
+from contextlib import contextmanager
 import os
 import stat
 import subprocess
@@ -503,47 +504,63 @@ def _clear_stale_age_passphrase_files(directory: str | os.PathLike[str] = "/run/
             candidate.unlink()
 
 
+@contextmanager
+def _managed_repository(repository_id: str, image_id: str):
+    """Resolve an existing Feclora repository using its normal manager and credentials."""
+    from feclora.storage.s3_repository_manager import S3RepositoryManager
+
+    s3_manager = S3RepositoryManager()
+    s3_ids = {item["id"] for item in s3_manager.list()}
+    if repository_id in s3_ids:
+        usage_fd = s3_manager.acquire_usage_lock(repository_id)
+        try:
+            object_repository = s3_manager.repository(repository_id)
+            with tempfile.TemporaryDirectory(prefix="feclora-pxe-s3-") as temporary:
+                root = Path(temporary)
+                os.chmod(root, 0o700)
+                object_repository.download_image_set(image_id, root)
+                yield root
+        finally:
+            os.close(usage_fd)
+        return
+
+    from feclora.storage.repository_manager import RemoteRepositoryManager
+
+    manager = RemoteRepositoryManager()
+    definitions = {item["id"]: item for item in manager.list()}
+    if repository_id not in definitions:
+        raise PXEAnswerClientError("selected repository ID is not configured in the Live client's Feclora repository managers")
+    mounted_by_us = False
+    lease_fd = None
+    try:
+        if not definitions[repository_id]["mounted"]:
+            manager.mount(repository_id)
+            mounted_by_us = True
+        lease_fd = manager.acquire_usage_lock(repository_id)
+        repository_path = Path(manager.resolve(repository_id, write=False))
+        yield repository_path
+    finally:
+        if lease_fd is not None:
+            os.close(lease_fd)
+        if mounted_by_us:
+            manager.unmount(repository_id)
+
+
 def execute_live_pxe_restore(
     answer: dict[str, Any],
     *,
-    mountpoint: str | os.PathLike[str] = "/run/feclora/pxe/repository",
     operation_log: str | os.PathLike[str] = "/var/lib/feclora/pxe/operations.jsonl",
     passphrase_provider: Any = _wait_for_age_passphrase,
 ) -> str:
-    """Execute the requested NFS-backed whole-disk restore; other providers fail closed."""
-    repository_url = answer.get("repository_url")
-    if not isinstance(repository_url, str):
-        raise PXEAnswerClientError("PXE answer has no repository URL")
-    if answer.get("credential_ref") is not None:
-        raise PXEAnswerClientError(
-            "credential_ref is not available in the identity-free Live PXE client; refusing to ignore it"
-        )
-    scheme = urlsplit(repository_url).scheme.lower()
-    if scheme not in {"nfs", "https"}:
-        raise PXEAnswerClientError(
-            "PXE restore supports NFS and credential-free HTTPS repositories; other schemes fail closed"
-        )
+    """Restore from a repository selected through Feclora's normal managers."""
+    repository_id = answer.get("repository_id")
+    if not isinstance(repository_id, str):
+        raise PXEAnswerClientError("PXE answer has no managed repository ID")
     selector = RestoreTargetSelector(**answer["target"])
     target = _resolve_target(answer)
     target_path = target["path"]
-    mounted_nfs = scheme == "nfs"
-    temporary_repository = None
-    repository = Path(mountpoint)
-    if mounted_nfs:
-        _mount_nfs_repository(repository_url, repository)
-    elif scheme == "https":
-        temporary_repository = tempfile.TemporaryDirectory(prefix="feclora-pxe-repository-")
-        repository = Path(temporary_repository.name)
-        try:
-            _stage_https_repository(repository_url, answer["image_id"], repository)
-        except Exception:
-            temporary_repository.cleanup()
-            raise
-    else:
-        raise PXEAnswerClientError(
-            "PXE restore supports NFS and credential-free HTTPS repositories; other schemes fail closed"
-        )
-    try:
+
+    with _managed_repository(repository_id, answer["image_id"]) as repository:
         manifest_path = repository / f"{answer['image_id']}.manifest.json"
         try:
             info = os.lstat(manifest_path)
@@ -555,45 +572,34 @@ def execute_live_pxe_restore(
                 raise PXEAnswerClientError("PXE image manifest exceeds the 1 MiB size limit")
             manifest = ImageManifest.from_json(manifest_raw.decode("utf-8"))
         except (OSError, UnicodeError, ManifestValidationError) as exc:
-            raise PXEAnswerClientError(f"cannot load PXE image manifest: {exc}") from exc
+            raise PXEAnswerClientError(f"cannot load managed repository image manifest: {exc}") from exc
         if manifest.image_id != answer["image_id"] or manifest.image_type != "disk":
             raise PXEAnswerClientError("PXE answer requires a matching whole-disk image manifest")
-        encrypted = [item for item in manifest.artifacts if item.encryption == "age"]
         if any(item.encryption not in {"none", "age"} for item in manifest.artifacts):
-            raise PXEAnswerClientError("PXE image set uses an unsupported encryption format")
-        age_passphrase = passphrase_provider() if encrypted else None
-        with operation_record(
-            "restore_disk", target_path, image_id=answer["image_id"], log_path=operation_log,
-        ):
-            def before_write() -> None:
-                _revalidate_target(selector, target_path)
+            raise PXEAnswerClientError("image set uses an unsupported encryption format")
+        age_passphrase = passphrase_provider() if any(
+            item.encryption == "age" for item in manifest.artifacts
+        ) else None
+        try:
+            with operation_record(
+                "restore_disk", target_path, image_id=answer["image_id"], log_path=operation_log,
+            ):
+                def before_write() -> None:
+                    _revalidate_target(selector, target_path)
 
-            try:
-                restore_disk(
-                    str(manifest_path), str(repository), target_path,
-                    confirmation=f"ERASE {target_path}",
-                    ignore_signature=True,
-                    age_passphrase=age_passphrase,
-                    progress_callback=record_progress,
-                    pre_write_callback=before_write,
-                )
-            except Exception as exc:
-                raise PXEAnswerClientError(f"PXE whole-disk restore failed: {exc}") from exc
-            finally:
-                age_passphrase = None
-        return target_path
-    finally:
-        if mounted_nfs:
-            umount_cmd = shutil.which("umount") or "umount"
-            try:
-                subprocess.run(
-                    [umount_cmd, str(repository)],
-                    check=True, capture_output=True, text=True, timeout=30,
-                )
-            except (OSError, subprocess.SubprocessError) as exc:
-                raise PXEAnswerClientError(f"restore ended but NFS repository unmount failed: {exc}") from exc
-        if temporary_repository is not None:
-            temporary_repository.cleanup()
+                try:
+                    restore_disk(
+                        str(manifest_path), str(repository), target_path,
+                        confirmation=f"ERASE {target_path}",
+                        age_passphrase=age_passphrase,
+                        progress_callback=record_progress,
+                        pre_write_callback=before_write,
+                    )
+                except Exception as exc:
+                    raise PXEAnswerClientError(f"PXE whole-disk restore failed: {exc}") from exc
+        finally:
+            age_passphrase = None
+    return target_path
 
 
 def main() -> int:
