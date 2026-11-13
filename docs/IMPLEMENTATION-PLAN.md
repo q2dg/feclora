@@ -369,6 +369,8 @@ not implementation authorization.
 
 ### New implementation work
 
+- [x] Add combined read-only source/target proportional-restore preview: reject the same physical block device even when selected through two paths; require independently inspected offline/unused whole disks, matching supported logical-sector sizes and a strictly smaller target; build the preview from source partition metadata and live ext minimum-size probes; report existing target partitions and model/serial/WWN; preserve `destructive_confirmation_required=True` and `write_authorized=False`. This remains advisory and does not authorize a destructive operation.
+
 - [ ] **Proportional whole-disk restore layout (3):** implement a separate,
   preview-first partition-layout planner and executor. Preserve partition
   starts and required alignment; define explicit handling for EFI, BIOS boot,
