@@ -82,7 +82,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
 
 
     def test_rejects_shrinking_non_ext_filesystem(self):
-        with self.assertRaisesRegex(PartitionLayoutError, "only permits shrinking ext2/3/4"):
+        with self.assertRaisesRegex(PartitionLayoutError, "only permits shrinking ext2/3/4 and NTFS"):
             plan_proportional_gpt_layout(
                 self.partitions,
                 source_size_bytes=8_500_000_000,
@@ -163,7 +163,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         self.assertLessEqual(plan[-1].end_sector, 4_000_000_000 // 512 - 34)
 
     def test_rejects_trimming_final_non_ext_partition(self):
-        with self.assertRaisesRegex(PartitionLayoutError, "only ext2/3/4 can be shortened"):
+        with self.assertRaisesRegex(PartitionLayoutError, "only ext2/3/4 and NTFS can be shortened"):
             plan_proportional_gpt_layout(
                 self.partitions, source_size_bytes=8_500_000_000,
                 target_size_bytes=4_000_000_000, sector_size=512,
