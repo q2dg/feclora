@@ -24,7 +24,7 @@ destination disk is touched.
 | Filesystem | Direct reduction | Alternative | Feclora decision |
 |---|---|---|---|
 | XFS | No supported in-place shrink command | Rebuild a new, smaller XFS filesystem and copy files with an XFS-aware dump/restore workflow | Do not treat as a block-level shrink. Evaluate a separate filesystem-migration executor. |
-| F2FS | Upstream `resize.f2fs` documents a shrink-specific safe-resize option (`-s`), but its same manual page also says the current version only supports expanding a prebuilt filesystem | A version-specific staged shrink may be possible; exact tool/kernel behavior must be demonstrated | Research candidate only. Do not enable in the planner until the Fedora-packaged version, minimum-size behavior and round-trip integrity are tested. |
+| F2FS | The current upstream `resize.f2fs` manual explicitly says the current version only supports expanding a prebuilt filesystem. Its `-s` option description ("safe resize ... only ... w/ shrink resize") does not override that limitation. | Kernel documentation describes online-resize reservation concepts, but that is not proof that Feclora's userspace toolchain can safely shrink an offline image. | Not supported by the current offline shrink path. Keep fixed-size unless a concrete kernel/userspace interface is demonstrated and tested. |
 | exFAT | GParted's current feature matrix marks shrink unsupported; standard `exfatprogs` provides create/check/inspect/tune tools but no filesystem shrink utility | Create a new, smaller exFAT filesystem and copy files | Do not treat as a block-level shrink. Evaluate a separate file-copy migration, with explicit metadata/fidelity limits. |
 
 ### XFS
@@ -43,17 +43,18 @@ existing raw/Partclone restore path.
 
 ### F2FS
 
-The upstream `resize.f2fs` manual includes `-s`, described as a safe-resize
-option usable only with shrink resize. However, the same manual still states
-that the current version only supports expanding a prebuilt filesystem.
-That inconsistency is material: the presence of a shrink flag is not enough
-to claim that a given released binary can shrink a real filesystem.
+The current upstream `resize.f2fs` manual explicitly states that the current
+version only supports expanding a prebuilt filesystem. Although it lists
+`-s` as a safe-resize option usable only with shrink resize, that flag alone
+does not establish a supported shrink workflow. The kernel's current F2FS
+documentation also describes online-resize reservation concepts; this is a
+separate mechanism and must not be conflated with an offline image shrink.
 
-Before enabling F2FS, Feclora needs to identify the exact Fedora package
-version and prove, on disposable images, that the binary can shrink; determine
-how it calculates or validates the minimum; run `fsck.f2fs` before and after;
-and verify file contents and filesystem geometry after the staged operation.
-Until then F2FS remains fixed-size in proportional planning.
+Decision: F2FS remains fixed-size in Feclora's proportional planner. Revisit
+only if a supported kernel/userspace operation is identified for the exact
+Fedora runtime, with documented offline/online requirements, a reliable
+minimum-size calculation, pre/post `fsck.f2fs`, and disposable-image
+round-trip evidence.
 
 ### exFAT
 
@@ -91,3 +92,47 @@ or preserved. It must not be advertised as a lossless block-level shrink.
   https://kernel.googlesource.com/pub/scm/linux/kernel/git/jaegeuk/f2fs-tools/+/refs/heads/master/man/resize.f2fs.8
 - exfatprogs upstream utilities and documented command set:
   https://github.com/exfatprogs/exfatprogs
+
+
+## Concrete migration workflow proposals (not yet executable)
+
+### XFS migration
+
+1. Allocate a private staging workspace with sufficient space for both the
+   source filesystem image and the destination filesystem image.
+2. Create a new XFS filesystem sized to the planned partition extent.
+3. Mount source read-only and destination with required XFS features/options.
+4. Run `xfsdump` from the source and `xfsrestore` into the destination.
+5. Explicitly preserve/restore quotas and verify ACLs, xattrs, SELinux labels,
+   ownership, hard links, sparse files, special files and file contents.
+6. Run `xfs_repair -n` against the unmounted destination; inspect geometry and
+   filesystem UUID, then update the staged GPT only after validation.
+
+This is not byte-identical. It can change filesystem UUID and internal
+metadata; boot references and fstab/initramfs configuration may need updating.
+The current Feclora whole-disk artifact path cannot silently substitute it.
+
+### exFAT migration
+
+1. Create a new exFAT filesystem in a private staging partition sized to fit.
+2. Copy files with an exFAT-aware implementation that preserves supported
+   timestamps, attributes and naming semantics.
+3. Compare directory trees, file sizes and cryptographic hashes; run
+   `fsck.exfat` on the unmounted destination.
+4. Document any metadata that the source or destination implementation cannot
+   preserve. Reject the migration if required metadata fidelity is unknown.
+
+This is not a lossless block-level shrink. The standard exfatprogs command set
+documents formatting, checking, inspection and tuning, not a shrink operation.
+A third-party utility or a newer feature must not be trusted without code
+review and disposable-media testing.
+
+### Common safety boundary
+
+Both migration strategies require a separate, explicit user-selected
+"filesystem migration" mode. They must not be presented as normal proportional
+restore or silently applied to raw/Partclone artifacts. They also require
+source-to-destination file-level verification, updated filesystem identity
+handling, boot configuration analysis, interruption-safe staging and an
+atomic final publication step. Until those components exist, XFS and exFAT
+remain fixed-size in the current planner.
