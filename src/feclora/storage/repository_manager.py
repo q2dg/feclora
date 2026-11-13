@@ -399,6 +399,10 @@ class RemoteRepositoryManager:
         except (OSError, subprocess.SubprocessError) as exc:
             raise RepositoryManagerError(f"repository mount failed: {exc}") from exc
         if result.returncode != 0:
+            # A helper can fail after the kernel has already installed a
+            # mount. Roll back only when findmnt proves that the mount belongs
+            # to this exact repository; never detach an unexpected filesystem.
+            self._rollback_mount_attempt(repo, str(mountpoint), service_managed=service_managed)
             detail = (result.stderr or result.stdout or "").strip()[:512]
             raise RepositoryManagerError("repository mount failed" + (f": {detail}" if detail else ""))
         mounted = self._is_mounted(str(mountpoint))
@@ -416,10 +420,72 @@ class RemoteRepositoryManager:
         try:
             self.resolve(identifier)
         except RepositoryManagerError as exc:
+            self._rollback_mount_attempt(repo, str(mountpoint), service_managed=service_managed)
             raise RepositoryManagerError(
                 f"repository mount did not pass source/type/access-mode verification: {exc}"
             ) from exc
         return {"id": identifier, "mounted": True, "mountpoint": str(mountpoint)}
+
+    def _mount_identity_matches(self, repo: RemoteRepository, record: tuple[str, str, str]) -> bool:
+        """Check provider/source identity without trusting access-mode options."""
+        filesystem, source, options = record
+        if repo.provider == "sshfs":
+            return (
+                filesystem.startswith("fuse.sshfs")
+                and source == f"{repo.username}@{repo.host}:{repo.remote_path}"
+            )
+        if repo.provider == "nfs":
+            return (
+                filesystem in {"nfs", "nfs4"}
+                and source == f"{repo.host}:{repo.remote_path}"
+            )
+        if repo.provider == "smb":
+            share_parts = repo.remote_path.strip("/").split("/", 1)
+            valid = filesystem == "cifs" and source == f"//{repo.host}/{share_parts[0]}"
+            if len(share_parts) == 2:
+                valid = valid and ("prefixpath=" + share_parts[1]) in options.split(",")
+            return valid
+        return False
+
+    def _rollback_mount_attempt(
+        self, repo: RemoteRepository, mountpoint: str, *, service_managed: bool,
+    ) -> bool:
+        """Best-effort normal unmount of a mount created by this failed attempt.
+
+        Cleanup is deliberately refused unless findmnt still proves the exact
+        provider/source identity. It never uses lazy or forced detach.
+        """
+        try:
+            record = self._mount_record(mountpoint)
+            if record is None or not self._mount_identity_matches(repo, record):
+                return False
+            if service_managed:
+                systemctl = self.which("systemctl")
+                if not systemctl:
+                    return False
+                stopped = self.runner(
+                    [systemctl, "stop", f"feclora-repository-{repo.mountpoint.rsplit('/', 1)[-1]}.service"],
+                    stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                    check=False, timeout=30,
+                )
+                if stopped.returncode != 0:
+                    return False
+                record = self._mount_record(mountpoint)
+                if record is None:
+                    return True
+                if not self._mount_identity_matches(repo, record):
+                    return False
+            umount = self.which("umount")
+            if not umount:
+                return False
+            result = self.runner(
+                [umount, "--", mountpoint],
+                stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                check=False, timeout=30,
+            )
+            return result.returncode == 0 and self._mount_record(mountpoint) is None
+        except (OSError, subprocess.SubprocessError, RepositoryManagerError):
+            return False
 
     def _encrypted_credential_bindings(self, repo: RemoteRepository) -> list[tuple[str, str]]:
         """Return validated systemd credential names for encrypted blob paths."""
