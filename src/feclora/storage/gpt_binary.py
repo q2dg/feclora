@@ -148,7 +148,7 @@ def inspect_gpt_binary(
     if disk_sectors < 6:
         raise GPTBinaryError("disk is too small to contain GPT metadata")
     mbr = _read_at(stream, 0, 512)
-    if mbr[510:512] != b"\\x55\\xaa":
+    if mbr[510:512] != b"\x55\xaa":
         raise GPTBinaryError("protective MBR signature is missing")
     mbr_entries = [mbr[446 + i * 16:446 + (i + 1) * 16] for i in range(4)]
     populated = [entry for entry in mbr_entries if entry[4] != 0]
