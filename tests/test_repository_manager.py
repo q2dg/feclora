@@ -354,6 +354,39 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         finally:
             os.close(lease_fd)
 
+    def test_multiple_restore_readers_share_repository_lease(self):
+        self.manager.add("images", self.definition)
+        first = self.manager.acquire_usage_lock("images")
+        second = None
+        try:
+            second = self.manager.acquire_usage_lock("images")
+            with self.assertRaisesRegex(RepositoryManagerError, "active image operation or deployment job"):
+                self.manager._acquire_usage_lock("images", exclusive=True)
+        finally:
+            if second is not None:
+                os.close(second)
+            os.close(first)
+
+    def test_mount_command_failure_does_not_attempt_unmount(self):
+        self.manager.add("images", self.definition)
+
+        def failed_mount(argv, **kwargs):
+            self.calls.append(argv)
+            if argv[0].endswith("findmnt"):
+                return SimpleNamespace(returncode=1, stdout="", stderr="")
+            return SimpleNamespace(returncode=32, stdout="", stderr="mount failed")
+
+        self.manager.runner = failed_mount
+        with self.assertRaisesRegex(RepositoryManagerError, "mount failed"):
+            self.manager.mount("images")
+        self.assertFalse(any(call[0].endswith("umount") for call in self.calls))
+
+    def test_successful_mount_command_without_mount_record_fails_closed(self):
+        self.manager.add("images", self.definition)
+        with self.assertRaisesRegex(RepositoryManagerError, "not mounted"):
+            self.manager.mount("images")
+        self.assertFalse(any(call[0].endswith("umount") for call in self.calls))
+
     def test_unknown_repository_cannot_acquire_usage_lease(self):
         with self.assertRaisesRegex(RepositoryManagerError, "unknown repository"):
             self.manager.acquire_usage_lock("missing")
