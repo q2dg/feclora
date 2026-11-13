@@ -105,7 +105,10 @@ class PXEAnswerClientTests(unittest.TestCase):
                 unmount=lambda identifier: events.append(("unmount", identifier)),
             )
             fake_s3 = SimpleNamespace(list=lambda: [])
+            remote_registry = mount_root / "repositories.json"
+            remote_registry.touch()
             with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=fake_s3), \
+                 patch("feclora.storage.repository_manager.REGISTRY", remote_registry), \
                  patch("feclora.storage.repository_manager.RemoteRepositoryManager", return_value=fake_manager):
                 with _managed_repository("nas-images", "golden") as repository:
                     self.assertEqual(repository, mount_root)
@@ -138,7 +141,10 @@ class PXEAnswerClientTests(unittest.TestCase):
                             events.append(("download", identifier, image_id))
                             (directory / f"{image_id}.manifest.json").write_text("{}", encoding="utf-8")
                     return ObjectRepo()
-            with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=FakeS3()):
+            s3_registry = Path(root) / "s3-repositories.json"
+            s3_registry.touch()
+            with patch("feclora.storage.s3_repository_manager.REGISTRY", s3_registry), \
+                 patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=FakeS3()):
                 with _managed_repository("s3-images", "golden") as repository:
                     self.assertTrue((repository / "golden.manifest.json").is_file())
             self.assertEqual(events, [("lease", "s3-images"), ("download", "s3-images", "golden")])
