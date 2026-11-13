@@ -30,6 +30,7 @@ from feclora.storage.operation_log import operation_record, record_progress
 from feclora.network.pxe_boot_request import (
     PXEBootRequestError,
     parse_pxe_boot_request,
+    parse_dhcp_answer_url,
 )
 
 
@@ -117,11 +118,39 @@ def _publish_runtime_answer(raw: bytes, destination: str | os.PathLike[str]) -> 
     return target
 
 
+def _discover_dhcp_answer_url() -> str | None:
+    """Read Feclora's private DHCP option 224 from the active NetworkManager lease."""
+    try:
+        result = subprocess.run(
+            ["nmcli", "-g", "DHCP4.OPTION", "device", "show"],
+            check=False, capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    import re
+    urls = {
+        match.group(1)
+        for line in result.stdout.splitlines()
+        if (match := re.fullmatch(
+            r"\\s*(?:224|option_224)\\s*=\\s*(https?://\\S+)\\s*",
+            line, flags=re.IGNORECASE,
+        ))
+    }
+    if not urls:
+        return None
+    if len(urls) != 1:
+        raise PXEAnswerClientError("NetworkManager reports conflicting Feclora DHCP answer URLs")
+    return next(iter(urls))
+
+
 def fetch_live_pxe_answer(
     command_line: str | None = None,
     *,
     destination: str | os.PathLike[str] = "/run/feclora/pxe/answer.json",
     downloader: Any = _download_answer,
+    dhcp_url_provider: Any = _discover_dhcp_answer_url,
 ) -> dict[str, Any] | None:
     """Fetch/validate the unattended answer; interactive PXE boots are a no-op."""
     if command_line is None:
@@ -134,7 +163,15 @@ def fetch_live_pxe_answer(
     except PXEBootRequestError as exc:
         raise PXEAnswerClientError(f"invalid PXE boot handoff: {exc}") from exc
     if request.mode == "interactive":
-        return None
+        # ISO boots have no per-job kernel argument. They discover the current
+        # answer through DHCP option 224, which points to the stable Caddy URL.
+        dhcp_url = dhcp_url_provider()
+        if dhcp_url is None:
+            return None
+        try:
+            request = parse_dhcp_answer_url(dhcp_url)
+        except PXEBootRequestError as exc:
+            raise PXEAnswerClientError(f"invalid Feclora DHCP answer URL: {exc}") from exc
     if not request.answer_url:
         raise PXEAnswerClientError("unattended PXE boot has no answer URL")
     raw = downloader(request.answer_url)
