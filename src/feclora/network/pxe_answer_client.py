@@ -2,7 +2,8 @@
 
 The JSON is treated as operator-authorized because this deployment explicitly
 trusts its configured PXE HTTP server. The client still validates the schema,
-uses read-only NFS for repository access, resolves stable disk identity and
+uses read-only NFS or credential-free HTTPS for repository access, resolves
+stable disk identity and
 delegates destructive writes to the existing verified restore engine.
 """
 from __future__ import annotations
