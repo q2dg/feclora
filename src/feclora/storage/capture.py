@@ -405,6 +405,8 @@ def capture_partition(
     process = None
     artifact = None
     final_path = os.path.join(repository_path, filename)
+    published_identity = None
+    committed = False
     try:
         stderr_file = tempfile.TemporaryFile(mode="w+b")
         try:
@@ -477,19 +479,26 @@ def capture_partition(
                 )
 
             # Link is atomic and fails if the destination already exists.
+            staged_path = os.path.join(stage_dir, filename)
+            staged_info = os.stat(staged_path, follow_symlinks=False)
             try:
                 os.link(
-                    os.path.join(stage_dir, filename),
+                    staged_path,
                     final_path,
                     follow_symlinks=False,
                 )
             except FileExistsError as exc:
                 raise CaptureError(f"artifact already exists: {filename}") from exc
-            directory_fd = os.open(repository_path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            published_identity = (staged_info.st_dev, staged_info.st_ino)
+            directory_fd = os.open(
+                repository_path,
+                os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
+            )
             try:
                 os.fsync(directory_fd)
             finally:
                 os.close(directory_fd)
+            committed = True
             return artifact
         finally:
             stderr_file.close()
@@ -507,4 +516,28 @@ def capture_partition(
                         stream.close()
                     except OSError:
                         pass
+        if published_identity is not None and not committed:
+            # Roll back only the exact inode this capture linked. A concurrent
+            # replacement at the final name must never be removed.
+            try:
+                current = os.stat(final_path, follow_symlinks=False)
+                if (current.st_dev, current.st_ino) == published_identity:
+                    os.unlink(final_path)
+                    try:
+                        directory_fd = os.open(
+                            repository_path,
+                            os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
+                        )
+                        try:
+                            os.fsync(directory_fd)
+                        finally:
+                            os.close(directory_fd)
+                    except OSError:
+                        pass
+            except FileNotFoundError:
+                pass
+            except OSError:
+                # Preserve the original operation failure; never broaden cleanup
+                # to a name whose ownership can no longer be established.
+                pass
         shutil.rmtree(stage_dir, ignore_errors=True)
