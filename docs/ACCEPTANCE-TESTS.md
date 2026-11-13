@@ -386,3 +386,22 @@ must not mount, unmount, create, delete or otherwise modify Btrfs objects.
 Mark not run until exercised against a real mounted Btrfs filesystem. This
 inventory does not establish that snapshot capture or restore is supported.
 
+## 10. Capture publication failure and rollback
+
+Run against a disposable local repository directory. This verifies the final
+artifact name is not left visible when capture reports a failure after its
+atomic hard-link publication step.
+
+1. Capture a small disposable partition image and confirm the artifact is
+   published only after the producer exits successfully.
+2. Inject a failure into the repository-directory `fsync` immediately after
+   the final hard link is created. Confirm capture reports failure and removes
+   the final name only if it still identifies the exact inode created by that
+   capture.
+3. Repeat while replacing the final name with a different inode before
+   rollback. Confirm cleanup does not unlink the replacement.
+4. Confirm the attempt's private staging directory is cleaned up where
+   possible, no manifest can expose the failed artifact, and no unrelated
+   published artifact is removed.
+5. Record the injected failure and directory contents. This software test does
+   not replace remote-provider interruption acceptance.
