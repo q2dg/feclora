@@ -326,6 +326,10 @@ def _managed_repository(repository_id: str, image_id: str):
                 root = Path(temporary)
                 os.chmod(root, 0o700)
                 object_repository.download_image_set(image_id, root)
+                # The manager's object repository contains decrypted S3
+                # credentials in its client configuration. Do not retain that
+                # object while the disk restore runs from the local download.
+                del object_repository
                 yield root
         finally:
             os.close(usage_fd)
