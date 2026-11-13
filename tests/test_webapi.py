@@ -1288,6 +1288,17 @@ class WebAPITests(unittest.TestCase):
         images.assert_called_once_with("nas-images")
 
 
+    def test_remote_manifest_inventory_propagates_directory_io_failure(self):
+        from feclora.webapi import _filesystem_images
+        with patch("feclora.webapi.os.scandir", side_effect=OSError("stale NFS handle")):
+            with self.assertRaisesRegex(OSError, "stale NFS handle"):
+                _filesystem_images(Path("/mnt/feclora/nas-images"))
+
+    def test_local_manifest_inventory_allows_missing_repository_directory(self):
+        from feclora.webapi import _filesystem_images
+        with patch("feclora.webapi.os.scandir", side_effect=FileNotFoundError("missing")):
+            self.assertEqual(_filesystem_images(Path("/var/lib/feclora/images"), missing_ok=True), [])
+
     def test_remote_repository_inventory_holds_shared_lease_through_manifest_scan(self):
         from feclora.webapi import _images
         expected = [{"image_id": "golden", "image_type": "disk"}]
