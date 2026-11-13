@@ -413,3 +413,15 @@ not implementation authorization.
 Delivery rule: do not mark a new item complete from documentation or a helper
 primitive alone. Require runtime/API/Cockpit integration, failure-path tests,
 and an acceptance procedure. Never build the ISO as part of this work.
+
+## Filesystem shrink research checkpoint
+
+The current proportional planner supports read-only minimum-size estimates for
+ext2/3/4 and NTFS only. XFS and exFAT remain fixed-size in that block-level
+planner; XFS can use a separate xfsdump/xfsrestore migration, while exFAT
+would require a new filesystem plus file-copy migration. F2FS has an upstream
+shrink-specific `resize.f2fs -s` option, but the same manual page also states
+that the current version only supports expansion. It therefore remains
+disabled pending validation against Feclora's exact Fedora package version.
+See [filesystem shrink research](FILESYSTEM-SHRINK-RESEARCH.md). These
+migration paths must not be conflated with lossless block-level shrinking.
