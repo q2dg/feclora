@@ -269,14 +269,9 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
             "/usr/bin/umount", "--", str(self.mount_root / "images"),
         ])
 
-    def test_mount_failure_rolls_back_matching_partial_mount(self):
+    def test_mount_failure_does_not_detach_unowned_appearing_mount(self):
         self.manager.add("images", self.definition)
-        expected = (
-            "fuse.sshfs", "backup@nas.example.net:/images",
-            "ro,relatime,nosuid,nodev,noexec",
-        )
-        records = iter([None, expected, None])
-        self.manager._mount_record = lambda _path: next(records)
+        self.manager._mount_record = lambda _path: None
         calls = []
 
         def runner(argv, **kwargs):
@@ -289,7 +284,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         with self.assertRaisesRegex(RepositoryManagerError, "connection lost"):
             self.manager.mount("images")
         umount_calls = [call for call in calls if call[0].endswith("umount")]
-        self.assertEqual(len(umount_calls), 1)
+        self.assertEqual(umount_calls, [])
 
     def test_mount_rejects_wrong_filesystem_even_when_mountpoint_is_occupied(self):
         self.manager.add("images", self.definition)
