@@ -1649,6 +1649,8 @@ def _pxe_local_operations(limit: int) -> list[dict[str, Any]]:
                 "pid", "boot_id", "process_start_ticks",
             }
         }
+        if isinstance(event.get("recovery_note"), str):
+            details["reason"] = event["recovery_note"][:512]
         item = grouped.setdefault(operation_id, {
             "operation_id": operation_id,
             "action": "pxe_restore_disk",
