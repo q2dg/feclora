@@ -242,6 +242,26 @@ export default function App() {
   }, []);
 
 
+  const exportLocalOperations = () => {
+    const payload = {
+      schema_version: 1,
+      exported_at: new Date().toISOString(),
+      operations,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2) + "\n"], {
+      type: "application/json",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "feclora-local-operations.json";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    setNotice("The most recent local operation history was exported as JSON.");
+  };
+
   const cancelLocalOperation = async (operationId) => {
     if (!window.confirm("Request cancellation of this operation? A running restore or clone cannot be rolled back and may leave its destination partially written.")) return;
     setCancellingOperationId(operationId); setError(""); setNotice("");
@@ -1231,6 +1251,7 @@ export default function App() {
           </Tab>
           <Tab eventKey="operation-log" title="Operation log">
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Local operation history</Title><p>Durable local operation definitions and state history, including worker progress and terminal diagnostics. Interrupted writes are never resumed automatically. Cancelled or interrupted restores and clones may have partially modified their destination; inspect the target before reuse. Cancellation is orderly and may take time to stop child processes.</p></StackItem>
+              <StackItem><Button variant="secondary" isDisabled={!operations.length} onClick={exportLocalOperations}>Export latest 100 operations as JSON</Button><p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">The export contains the history currently loaded in Cockpit, including device paths and bounded diagnostic messages. Store it with the same care as operational logs.</p></StackItem>
               <StackItem><Table aria-label="Local operation history" variant="compact"><Thead><Tr><Th>Timestamp</Th><Th>Operation</Th><Th>Target</Th><Th>Image</Th><Th>Status</Th><Th>Progress</Th><Th>Operation ID</Th><Th>Details</Th><Th>Control</Th></Tr></Thead><Tbody>
                 {operations.map((item) => {
                   const events = item.events || [];
