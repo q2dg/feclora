@@ -17,7 +17,7 @@ class PXEAnswerStoreTests(unittest.TestCase):
 
     def answer(self):
         return json.dumps({
-            "schema_version": 1, "operation": "restore",
+            "schema_version": 2, "operation": "restore",
             "image_id": "fedora", "repository_id": "nas-images",
             "target": {"wwn": "0x5000abcd", "serial": None},
             "confirm_destructive": True, "start": True,
