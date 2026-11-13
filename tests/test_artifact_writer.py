@@ -132,6 +132,37 @@ class ArtifactWriterTests(unittest.TestCase):
         self.assertFalse(os.path.lexists(os.path.join(self.temp.name, "interrupted.img")))
         self.assertEqual(os.listdir(self.temp.name), [])
 
+    def test_rollback_preserves_concurrent_replacement_of_final_name(self):
+        real_unlink = os.unlink
+        replaced = False
+        final_name = "raced.img"
+
+        def replace_final_before_staging_unlink(path, *args, **kwargs):
+            nonlocal replaced
+            if path.startswith(".feclora-") and path.endswith(".tmp") and not replaced:
+                replaced = True
+                dir_fd = kwargs.get("dir_fd")
+                real_unlink(final_name, dir_fd=dir_fd)
+                replacement_fd = os.open(
+                    final_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600,
+                    dir_fd=dir_fd,
+                )
+                with os.fdopen(replacement_fd, "wb") as stream:
+                    stream.write(b"concurrent replacement")
+                raise OSError("simulated staging unlink failure")
+            return real_unlink(path, *args, **kwargs)
+
+        with patch("feclora.storage.artifact_writer.os.unlink", side_effect=replace_final_before_staging_unlink):
+            with self.assertRaises(ArtifactWriteError):
+                write_artifact(
+                    self.temp.name, final_name, io.BytesIO(self.payload),
+                    role="disk-image", image_format="raw",
+                )
+
+        with open(os.path.join(self.temp.name, final_name), "rb") as stream:
+            self.assertEqual(stream.read(), b"concurrent replacement")
+        self.assertEqual(os.listdir(self.temp.name), [final_name])
+
     def test_rejects_empty_input_and_removes_temporary_file(self):
         with self.assertRaisesRegex(ArtifactWriteError, "empty"):
             write_artifact(self.temp.name, "empty.img", io.BytesIO(b""),
