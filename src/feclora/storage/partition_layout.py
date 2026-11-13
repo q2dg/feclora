@@ -48,12 +48,13 @@ def plan_proportional_gpt_layout(
     sector_size: int,
     partition_table_type: str,
     minimum_sizes_bytes: Mapping[str, int],
+    filesystem_types: Mapping[str, str],
     alignment_bytes: int = 1024 * 1024,
 ) -> tuple[PlannedPartition, ...]:
     """Return a deterministic, aligned GPT layout or fail closed.
 
     All partitions must carry a unique /dev node and a GPT type GUID. The
-    caller must provide a filesystem-native minimum size for every partition.
+    caller must provide a filesystem-native minimum size and detected type for every partition. Only ext2/3/4 may be reduced; all other types must remain at their original byte size.
     The planner preserves partition order and identifiers, packs partitions
     from the first usable GPT LBA, and distributes remaining capacity in
     proportion to each partition's shrinkable source size.
@@ -76,8 +77,8 @@ def plan_proportional_gpt_layout(
         raise PartitionLayoutError("proportional shrink planning requires a smaller target")
     if not isinstance(partitions, Sequence) or isinstance(partitions, (str, bytes)) or not partitions:
         raise PartitionLayoutError("at least one GPT partition is required")
-    if not isinstance(minimum_sizes_bytes, Mapping):
-        raise PartitionLayoutError("filesystem minimum-size map is required")
+    if not isinstance(minimum_sizes_bytes, Mapping) or not isinstance(filesystem_types, Mapping):
+        raise PartitionLayoutError("filesystem minimum-size and type maps are required")
 
     source_sectors = source_size // sector
     target_sectors = target_size // sector
@@ -112,6 +113,13 @@ def plan_proportional_gpt_layout(
             raise PartitionLayoutError("source partitions overlap or are not in start-sector order")
         previous_end = end
         minimum_bytes = _integer(minimum_sizes_bytes.get(node), f"{node} filesystem minimum")
+        filesystem = filesystem_types.get(node)
+        if not isinstance(filesystem, str) or not filesystem:
+            raise PartitionLayoutError(f"{node} filesystem type is unknown")
+        if filesystem.lower() not in {"ext2", "ext3", "ext4"} and minimum_bytes != size * sector:
+            raise PartitionLayoutError(
+                f"{node} uses {filesystem}; this planner only permits shrinking ext2/3/4"
+            )
         minimum_sectors = (minimum_bytes + sector - 1) // sector
         if minimum_sectors > size:
             raise PartitionLayoutError(f"{node} filesystem minimum exceeds its source partition")
