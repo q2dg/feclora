@@ -420,3 +420,33 @@ repository directory.
    replacement contains the attempted artifact.
 5. Do not generalize this local filesystem test to remote provider guarantees;
    repeat provider-specific interruption checks separately.
+## 12. Interrupted capture staging residue
+
+A process or host crash can bypass Python cleanup and leave a private
+`.feclora-capture-*` directory or a low-level `.feclora-*.tmp` file in the
+repository. These names identify staging data, not a committed image. Feclora
+does not automatically delete, resume, promote or publish such residue: age,
+filename and PID alone cannot prove that a shared-repository writer is inactive
+or owns a particular file.
+
+For a controlled recovery on a disposable repository:
+
+1. Stop new captures targeting the repository and establish, using the
+   operator's process/service controls, that no capture writer is still active.
+   Do not rely only on the age of a staging entry or a recorded PID.
+2. Inspect the repository and staging entries without following symlinks.
+   Treat every file inside an interrupted staging directory as incomplete or
+   untrusted, even if it appears to have the expected size.
+3. Do not rename staging data into the published image namespace, create a
+   manifest for it, or resume a partial stream. Start a fresh capture instead.
+4. Remove confirmed abandoned staging entries only as an explicit operator
+   action after independently establishing that no writer can still use them.
+   If ownership or inactivity is uncertain, preserve the entries and escalate
+   for manual review.
+5. Verify that the normal image inventory contains no image for the failed
+   attempt and that unrelated committed images remain intact.
+
+This procedure is intentionally conservative. Automated stale-entry cleanup,
+cross-client writer coordination and crash-resume are not implemented. Record
+the repository, host, Feclora commit, residue names and operator decision;
+never include credentials or secret configuration.
