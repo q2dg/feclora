@@ -184,6 +184,26 @@ Existing foundation: filesystem-specific Partclone command selection for ext2/ex
 
 Acceptance: each supported filesystem has a matching capture/restore mapping, a safe verification path and a recorded real-filesystem round trip. If filesystem-aware capture is unavailable, raw imaging remains an explicit fallback, not an assertion of filesystem-aware optimization.
 
+## P1 — Smaller-destination cloning and restore
+
+A smaller destination must not be enabled by weakening the existing raw-copy capacity checks. The current whole-disk clone copies the source byte range verbatim, and whole-disk restore writes a raw disk artifact; neither operation can safely fit a smaller target by truncation.
+
+Implementation contract for a future proportional-layout mode:
+
+- [ ] Keep the current exact/raw mode unchanged and fail closed when the destination is smaller.
+- [ ] Add a separate, explicit proportional-layout mode; never silently resize.
+- [ ] Parse and validate the source partition table and every partition boundary, including GPT primary/backup metadata, alignment and logical-sector geometry.
+- [ ] Build a complete destination layout before any destructive write. Reject extended/logical MBR layouts or other schemes until their handling is implemented and tested.
+- [ ] Determine filesystem minimum sizes using filesystem-native, read-only checks where available; never infer fit from free-space percentages or lsblk partition size alone.
+- [ ] Initially support only filesystems with a proven offline shrink-and-grow sequence and verified tool availability. Filesystems without a safe shrink path, encrypted/container layers, RAID, LVM, multi-device Btrfs and unknown signatures must remain blocked.
+- [ ] Shrink the filesystem before shrinking its partition; copy only the validated partition extents; recreate/relocate partition metadata; then grow the filesystem to the planned target partition size where appropriate.
+- [ ] Preserve partition identifiers and boot-critical metadata only where the format permits; otherwise report the exact changes and require explicit confirmation.
+- [ ] Verify the resulting partition table, filesystem consistency and byte/data integrity before reporting success. An interrupted operation must leave the target explicitly untrusted.
+- [ ] Add disposable loop-device integration tests for exact-fit, insufficient-used-space, unsupported filesystem, GPT relocation, alignment, cancellation and failures at every destructive stage.
+- [ ] Expose the mode in local and Cockpit workflows only after the same engine and validation contract are integrated end to end.
+
+Until those gates pass, a smaller target is **not supported**. The UI may explain that proportional resizing is a future mode, but must not offer a “continue anyway” action for a raw clone or restore.
+
 ## P1 — Storage discovery and image fidelity
 Scope clarification: LVM logical volumes, LUKS2 containers/open mappings, Btrfs filesystems and Stratis-backed devices are storage source layers/types to inventory and image, not repository or transport types. Repositories/transports are the separate external destinations and distribution mechanisms (SSHFS, NFS, SMB/CIFS and S3;  remains a separate block transport). This is an image-creation and restore-compatibility requirement, not a request for Feclora to administer storage stacks or provision them. Feclora must discover and describe existing layers accurately, then capture the selected block-level or filesystem-level content without silently flattening or omitting them.
 Existing foundation: block inventory, read-only LVM reporting, Btrfs/Stratis inventory, restore profiles and whole-disk layout preview.
