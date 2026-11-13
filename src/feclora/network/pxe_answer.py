@@ -1,8 +1,8 @@
 """Validate declarative PXE answer documents.
 
 Answer documents are data, not executable scripts. They deliberately contain
-no client certificate, private key, password, or local /dev path. Credentials
-for remote repositories are referenced separately by an opaque local ID.
+no client certificate, private key, password, credential reference, or local
+/dev path. Remote repository credentials are not yet supported by Live PXE.
 """
 from __future__ import annotations
 
