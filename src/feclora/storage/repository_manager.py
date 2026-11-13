@@ -485,9 +485,16 @@ class RemoteRepositoryManager:
 
     def acquire_usage_lock(self, identifier: str) -> int:
         """Hold a shared lease while any local or distributed image operation uses this repository."""
-        if identifier not in self._load():
-            raise RepositoryManagerError("unknown repository ID")
-        return self._acquire_usage_lock(identifier, exclusive=False)
+        lock_fd = self._acquire_usage_lock(identifier, exclusive=False)
+        try:
+            # Validate only after taking the lease: otherwise remove() can
+            # delete the registry entry between the existence check and flock.
+            if identifier not in self._load():
+                raise RepositoryManagerError("unknown repository ID")
+            return lock_fd
+        except Exception:
+            os.close(lock_fd)
+            raise
 
     def unmount(self, identifier: str) -> dict[str, Any]:
         entries = self._load()
