@@ -35,8 +35,8 @@ require client authentication or use MAC addresses as authenticated identity.
 ## Deployment preparation
 
 The Cockpit Server setup provides a single file input for the prewritten JSON
-answer. The `repository_url` field inside that JSON identifies the image
-repository; there is no second repository-URL field in Cockpit. The Server
+answer. The `repository_id` field inside that JSON selects a repository already
+configured in the Live client's normal Feclora repository manager; there is no second repository-URL field in Cockpit. The Server
 validates the document and publishes it through its Caddy service over HTTP
 under a generated job UUID. It also publishes an iPXE admission wrapper and a
 separate job-specific boot script. The boot script is available only through
@@ -60,7 +60,7 @@ no shell commands, Python, arbitrary command-line arguments, local
   "schema_version": 1,
   "operation": "restore",
   "image_id": "fedora-workstation",
-  "repository_url": "nfs://images.example.net/exports/feclora",
+  "repository_id": "nas-images",
   "target": {
     "wwn": "0x5000abcd1234",
     "serial": null
@@ -120,10 +120,11 @@ its protected credential storage. The PXE Server is not a storage gateway.
 Do not add per-client certificates, private keys, enrollment, bearer tokens
 or client-specific credentials. The answer file contains repository selection
 and restore parameters only, never passwords, keys or credential-bearing URLs.
-The current unattended PXE adapter has not yet been unified with the complete
-repository manager: NFS and credential-free HTTPS work today, while SSHFS,
-SMB/CIFS and private S3 need integration with the existing Feclora client-side
-repository mechanisms.
+The unattended PXE adapter resolves the selected ID through the existing
+client-side repository managers. SSHFS, NFS and SMB/CIFS use the normal managed
+mount lifecycle and protected credentials; S3 uses the normal encrypted
+credential store and object repository adapter. The PXE answer never contains
+a URL, credential reference or secret.
 
 PXE is only a boot transport. After Live starts, storage access and
 restoration are performed by the Client itself. The PXE Server does not
@@ -133,15 +134,11 @@ channel is required.
 
 ## Provider support status
 
-The unattended answer adapter currently connects NFS and credential-free HTTPS.
-HTTPS uses the same object-key layout as Feclora's S3 adapter and verifies
-TLS, byte count and SHA-256 before restore. This is a limitation of the current
-PXE-specific adapter, not a desired architectural restriction: the next
-integration step is to resolve the selected repository through Feclora's
-existing client-side repository managers so ISO and PXE unattended restores
-support the same configured providers and credentials. Until that work is
-implemented and tested, SSHFS, SMB/CIFS and private S3 must fail closed in the
-unattended adapter. HTTP repository downloads are not accepted.
+The answer selects an existing repository by ID. The Live client uses the
+same RemoteRepositoryManager for SSHFS, NFS and SMB/CIFS, including its normal
+mount verification, usage lease and protected credential handling. S3 uses
+S3RepositoryManager, its usage lease, encrypted credential store and normal
+image-set download path. The PXE Server never accesses these repositories.
 
 ## Current status and acceptance
 
@@ -155,7 +152,7 @@ unattended adapter. HTTP repository downloads are not accepted.
 - [x] Advertise the stable current-answer URL as DHCP option 224 in
       authoritative DHCP mode and the PXE-specific proxy response; discover it
       from the Live NetworkManager lease on ISO boots.
-- [x] Connect the NFS repository adapter, unique WWN/serial target resolution,
+- [x] Resolve the repository ID using the normal managed repository managers, unique WWN/serial target resolution,
       pre-write identity revalidation and existing whole-disk restore engine.
 - [x] Add a credential-free HTTPS object-set adapter with verified TLS, redirect rejection, bounded manifest/artifact downloads, local staging-capacity preflight and SHA-256/size verification; it supports public or externally pre-authorized S3-compatible object prefixes.
 - [x] Add one Cockpit JSON answer-file upload control; the repository URL is
@@ -164,13 +161,13 @@ unattended adapter. HTTP repository downloads are not accepted.
 - [x] Register unique iPXE MAC addresses in a persistent Server-side admission ledger; enforce configurable distinct-client and/or elapsed-time limits, and deny direct static access to the boot script.
 - [x] Clear stale answer files and handoff scripts when a new PXE session starts.
 - [x] Keep answer files reusable; explicit revocation and stale-session cleanup remain available. Successful deployment-job cancellation revokes its published answer.
-- [x] Connect NFS URL to a read-only Live mount and credential-free HTTPS object prefixes to whole-disk restore.
+- [x] Connect the normal SSHFS, NFS, SMB/CIFS and S3 repository managers to the shared whole-disk restore engine.
 - [x] Support age symmetric decryption with one-shot Cockpit passphrase handoff on the Live client.
 - [x] Support symmetric age passphrase encryption for whole-disk capture through Cockpit; partition and logical-volume capture remain recipient-based.
 - [ ] Unify unattended repository resolution with Feclora's existing client-side repository managers for NFS, SSHFS, SMB/CIFS and S3; keep credentials in the normal protected Live configuration and never put secrets in the answer file.
 - [x] Implement exact whole-disk target resolution, pre-write revalidation and
       execution through the existing verified whole-disk restore engine for NFS and HTTPS.
-- [ ] Add unattended tests for the full repository-manager path, including private S3, SSHFS and SMB/CIFS; keep unsupported schemes fail-closed until implemented and tested.
+- [ ] Execute the automated repository-manager integration tests and add Live acceptance coverage for private credentials, provider mount failures and interrupted restore cleanup.
 - [x] Use the operator-selected HTTP trust assumption; no cryptographic integrity mechanism is provided.
 - [ ] Add automated tests for tampered answers, wrong age passphrase, HTTPS redirect/size/checksum failures, repository errors, ambiguous targets, target swaps and interrupted staging/restore. BIOS/UEFI boot, Caddy against real networks and physical restore are optional operator acceptance, not software completion gates.
 
@@ -181,4 +178,4 @@ entries interrupted after the originating process exits. PXE history entries
 are read-only in Cockpit; the identity-free Client does not send authenticated
 results to the Server.
 
-The NFS and credential-free HTTPS whole-disk software paths, age passphrase handoff and MAC-based PXE admission gate are connected. Automated software tests are the release gate; BIOS/UEFI PXE boot and physical restore remain optional operator acceptance.
+The managed repository-manager whole-disk software path and age passphrase handoff are connected. Automated software tests are the release gate; BIOS/UEFI PXE boot and physical restore remain optional operator acceptance.
