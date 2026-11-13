@@ -113,6 +113,9 @@ def preview_proportional_gpt_restore(
         "target_size_bytes": target_size,
         "sector_size": source_sector,
         "partition_table_type": "gpt",
+        "source_gpt_disk_guid": source.get("disk_guid"),
+        "source_gpt_first_usable_lba": source.get("first_usable_lba"),
+        "source_gpt_last_usable_lba": source.get("last_usable_lba"),
         "partitions": plan,
         "existing_target_partitions": target.get("existing_partitions", ()),
         "target_identity": {
