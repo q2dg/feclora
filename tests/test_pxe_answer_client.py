@@ -265,6 +265,18 @@ class PXEAnswerClientTests(unittest.TestCase):
                 with self.assertRaisesRegex(PXEAnswerClientError, "unsafe"):
                     _wait_for_age_passphrase(secret, timeout=1)
 
+    def test_wait_for_age_passphrase_rejects_symlink_without_reading_target(self):
+        with tempfile.TemporaryDirectory() as root:
+            secret = Path(root) / "age-passphrase"
+            target = Path(root) / "outside-secret"
+            target.write_text("must not be read", encoding="utf-8")
+            target.chmod(0o600)
+            secret.symlink_to(target)
+            with patch("feclora.network.pxe_answer_client.os.geteuid", return_value=os.geteuid()):
+                with self.assertRaisesRegex(PXEAnswerClientError, "safely open"):
+                    _wait_for_age_passphrase(secret, timeout=1)
+            self.assertEqual(target.read_text(encoding="utf-8"), "must not be read")
+
     def test_non_nfs_provider_fails_closed(self):
         with self.assertRaisesRegex(PXEAnswerClientError, "supports NFS and credential-free HTTPS"):
             execute_live_pxe_restore({
