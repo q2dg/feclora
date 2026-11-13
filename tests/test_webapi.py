@@ -26,7 +26,8 @@ class PXEOperationHistoryTests(unittest.TestCase):
                 "operation_id": operation_id, "operation": "restore_disk",
                 "target": "/dev/sda", "image_id": "pxe-golden",
                 "pid": 1, "boot_id": "previous-boot", "process_start_ticks": 10,
-                "timestamp": "2026-11-13T00:00:00Z", "status": "started",
+                "timestamp": "2026-11-13T00:00:00Z", "status": "interrupted",
+                "recovery_note": "originating process exited",
             },
             {
                 "operation_id": operation_id, "operation": "restore_disk",
