@@ -30,6 +30,7 @@ class PlannedPartition:
     start_sector: int
     size_sectors: int
     minimum_size_bytes: int
+    attributes: str | None = None
 
     @property
     def end_sector(self) -> int:
@@ -102,6 +103,12 @@ def plan_proportional_gpt_layout(
         seen.add(node)
         if not isinstance(type_guid, str) or not re.fullmatch(r"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}", type_guid):
             raise PartitionLayoutError(f"partition {node} has no valid GPT type GUID")
+        attributes = raw.get("attrs")
+        if attributes is not None and (
+            not isinstance(attributes, str) or len(attributes) > 1024
+            or any(ord(character) < 32 or ord(character) == 127 for character in attributes)
+        ):
+            raise PartitionLayoutError(f"partition {node} has invalid GPT attributes")
         start = _integer(raw.get("start"), f"{node} start", minimum=0)
         size = _integer(raw.get("size"), f"{node} size")
         end = start + size
@@ -131,6 +138,7 @@ def plan_proportional_gpt_layout(
             "type": type_guid,
             "uuid": raw.get("uuid") if isinstance(raw.get("uuid"), str) else None,
             "name": raw.get("name") if isinstance(raw.get("name"), str) else None,
+            "attributes": attributes,
             "source_size": size,
             "minimum_sectors": minimum_sectors,
             "minimum_bytes": minimum_bytes,
@@ -173,5 +181,6 @@ def plan_proportional_gpt_layout(
             start_sector=start,
             size_sectors=size_sectors,
             minimum_size_bytes=int(item["minimum_bytes"]),
+            attributes=item["attributes"] if isinstance(item["attributes"], str) else None,
         ))
     return tuple(result)
