@@ -440,7 +440,7 @@ def _wait_for_age_passphrase(
                 path.unlink()
             except OSError as exc:
                 raise PXEAnswerClientError("cannot remove one-shot age passphrase after reading") from exc
-            if (not value or any(char in value for char in "\\r\\n\\x00")):
+            if (not value or any(char in value for char in "\r\n\x00")):
                 raise PXEAnswerClientError("age passphrase must be 1-1024 UTF-8 bytes without line breaks")
             return value
         raise PXEAnswerClientError("timed out waiting for the age passphrase in Live Cockpit")
