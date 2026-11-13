@@ -143,7 +143,7 @@ registry only; they are not tests of remote image publication. Remote image
 distribution follows a single-publisher / multi-reader contract: one Client
 publishes an image and multiple Clients may read/restore it concurrently.
 
-Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS endpoint. Use a dedicated test account, export or share and a disposable image. Do not reuse production credentials. S3 object-store acceptance will be added with the Cockpit/API integration.
+Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS endpoint. Use a dedicated test account, export or share and a disposable image. Do not reuse production credentials. S3 has a separate object-API acceptance procedure below; it is not a filesystem mount.
 
 1. Prepare the provider endpoint and provision credentials using the provider's root-protected mechanism. Verify SSH host keys for SSHFS, NFS export ownership/mapping or SMB share permissions as appropriate.
 2. Add the repository in Cockpit with the correct provider, endpoint/share,
@@ -172,6 +172,46 @@ Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS end
    repository definition remains available for a later mount.
 10. Record provider version, mount options, identity/access-mode verification,
     actual I/O outcomes, throughput observations, and all failures. Do not record a passing identity check as a passing health check. Never include secrets in the report.
+
+
+## 4. S3-compatible object repository acceptance
+
+S3 is an HTTPS object API, not a mounted filesystem. Run this procedure
+against a disposable bucket or dedicated prefix on Garage, R2, AWS S3 or
+another supported S3-compatible service. Provision access keys through
+Feclora's protected credential store; never put key material in the registry,
+test output or ordinary configuration.
+
+1. Add an S3 repository in Cockpit with the HTTPS endpoint (or provider
+   default), region, bucket, prefix and protected credential reference.
+2. Run the repository connection check. Confirm bucket access is verified
+   without creating, deleting or overwriting objects.
+3. Capture a small disposable disk image and publish it. Confirm every payload
+   object is uploaded before its manifest, and that the manifest is the final
+   commit marker.
+4. List the repository inventory. Confirm malformed, noncanonical or
+   incomplete manifests are not presented as valid images.
+5. Download the image to a clean local staging directory. Verify artifact
+   byte counts and SHA-256 digests against the manifest, then restore to a
+   disposable target and verify read-back.
+6. Attempt to publish the same image ID again and confirm immutable existing
+   objects are not overwritten. Repeat with a read-only repository and confirm
+   upload is rejected.
+7. Exercise a multipart upload failure on a disposable large artifact. Confirm
+   the incomplete multipart upload is aborted and no manifest is published.
+   Also exercise a conditional-completion conflict to verify an existing
+   object is preserved.
+8. If distributed capture/restore is in scope, run it through the normal
+   Server/Client workflow and confirm payload staging, transfer integrity and
+   repository usage leases. This does not turn the PXE server into an artifact
+   relay; PXE clients continue to access their configured repositories
+   directly.
+9. Record provider/API version, endpoint, bucket policy, object count, byte
+   counts, digests, multipart behavior and all failures. Redact access keys
+   and secret configuration.
+
+Unit/API tests do not replace this live-provider acceptance. Record each
+provider as pass, fail or not run independently.
 
 ## 5. Interrupted operation, disconnect and restart recovery
 
