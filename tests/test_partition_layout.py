@@ -162,16 +162,21 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         self.assertGreaterEqual(plan[1].size_sectors * 512, 1024 * 1024 * 1024)
         self.assertLessEqual(plan[-1].end_sector, 4_000_000_000 // 512 - 34)
 
-    def test_rejects_trimming_final_non_ext_partition(self):
-        with self.assertRaisesRegex(PartitionLayoutError, "only ext2/3/4 and NTFS can be shortened"):
-            plan_proportional_gpt_layout(
-                self.partitions, source_size_bytes=8_500_000_000,
-                target_size_bytes=4_000_000_000, sector_size=512,
-                partition_table_type="gpt",
-                minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
-                                     "/dev/source2": 6_000_000 * 512},
-                filesystem_types={"/dev/source1": "vfat", "/dev/source2": "xfs"},
-            )
+    def test_rejects_trimming_final_filesystems_without_a_verified_adapter(self):
+        for filesystem in ("xfs", "f2fs", "exfat"):
+            with self.subTest(filesystem=filesystem):
+                with self.assertRaisesRegex(
+                    PartitionLayoutError, "only ext2/3/4 and NTFS can be shortened"
+                ):
+                    plan_proportional_gpt_layout(
+                        self.partitions, source_size_bytes=8_500_000_000,
+                        target_size_bytes=4_000_000_000, sector_size=512,
+                        partition_table_type="gpt",
+                        minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
+                                             "/dev/source2": 6_000_000 * 512},
+                        filesystem_types={"/dev/source1": "vfat",
+                                          "/dev/source2": filesystem},
+                    )
 
     def test_rejects_layout_that_requires_relocating_later_partitions(self):
         with self.assertRaisesRegex(PartitionLayoutError, "only the final source partition"):
