@@ -1,7 +1,7 @@
 import unittest
 from types import SimpleNamespace
 
-from feclora.storage.filesystem_probe import FilesystemProbeError, probe_ext_minimum_size
+from feclora.storage.filesystem_probe import (\n    FilesystemProbeError, probe_ext_minimum_size, probe_ntfs_minimum_size,\n)
 
 
 class ExtFilesystemProbeTests(unittest.TestCase):
@@ -185,3 +185,98 @@ class ExtFilesystemProbeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NTFSFilesystemProbeTests(unittest.TestCase):
+    def setUp(self):
+        self.commands = []
+
+    def runner(self, command, **kwargs):
+        self.commands.append(command)
+        executable = command[0]
+        if executable.endswith("blkid"):
+            return SimpleNamespace(stdout="ntfs\\n", stderr="")
+        if executable.endswith("ntfsresize"):
+            return SimpleNamespace(
+                stdout="You might resize at 123,456,789 bytes or 123,456,789 bytes (freeing space).\\n",
+                stderr="",
+            )
+        if executable.endswith("blockdev"):
+            return SimpleNamespace(stdout="1000000000\\n", stderr="")
+        raise AssertionError(command)
+
+    def probe(self, **kwargs):
+        return probe_ntfs_minimum_size(
+            "/dev/fake",
+            filesystem_type="ntfs",
+            executables={
+                "blkid": "/sbin/blkid", "ntfsresize": "/sbin/ntfsresize",
+                "blockdev": "/sbin/blockdev",
+            },
+            runner=self.runner,
+            device_validator=lambda _path: True,
+            safety_check=lambda _path: None,
+            effective_uid=lambda: 0,
+            **kwargs,
+        )
+
+    def test_reports_read_only_minimum_and_never_invokes_resize(self):
+        self.assertEqual(self.probe(), 123456789)
+        self.assertIn(
+            ["/sbin/ntfsresize", "--info", "--force", "--no-action", "/dev/fake"],
+            self.commands,
+        )
+        self.assertFalse(any("--size" in command for command in self.commands))
+
+    def test_rejects_ntfs_type_mismatch(self):
+        def runner(command, **kwargs):
+            if command[0].endswith("blkid"):
+                return SimpleNamespace(stdout="ext4\\n", stderr="")
+            return self.runner(command, **kwargs)
+        with self.assertRaisesRegex(FilesystemProbeError, "type mismatch"):
+            probe_ntfs_minimum_size(
+                "/dev/fake", filesystem_type="ntfs",
+                executables={"blkid": "/sbin/blkid", "ntfsresize": "/sbin/ntfsresize",
+                             "blockdev": "/sbin/blockdev"},
+                runner=runner, device_validator=lambda _path: True,
+                safety_check=lambda _path: None, effective_uid=lambda: 0,
+            )
+
+    def test_rejects_ambiguous_minimum_output(self):
+        def runner(command, **kwargs):
+            if command[0].endswith("ntfsresize"):
+                return SimpleNamespace(stdout="minimum unknown\\n", stderr="")
+            return self.runner(command, **kwargs)
+        with self.assertRaisesRegex(FilesystemProbeError, "unambiguous minimum"):
+            probe_ntfs_minimum_size(
+                "/dev/fake", filesystem_type="ntfs",
+                executables={"blkid": "/sbin/blkid", "ntfsresize": "/sbin/ntfsresize",
+                             "blockdev": "/sbin/blockdev"},
+                runner=runner, device_validator=lambda _path: True,
+                safety_check=lambda _path: None, effective_uid=lambda: 0,
+            )
+
+    def test_planner_uses_ntfs_probe_for_final_partition(self):
+        from feclora.storage.filesystem_probe import build_proportional_gpt_plan
+
+        calls = []
+        def probe(path, **kwargs):
+            calls.append((path, kwargs["filesystem_type"]))
+            return 1024 * 1024 * 1024
+
+        partitions = [
+            {"node": "/dev/source1", "start": 2048, "size": 2_000_000,
+             "type": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"},
+            {"node": "/dev/source2", "start": 2_100_000, "size": 6_000_000,
+             "type": "0fc63daf-8483-4772-8e79-3d69d8477de4"},
+        ]
+        plan = build_proportional_gpt_plan(
+            partitions, source_size_bytes=8_500_000_000,
+            target_size_bytes=4_000_000_000, sector_size=512,
+            partition_table_type="gpt",
+            filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ntfs"},
+            ntfs_minimum_probe=probe,
+        )
+        self.assertEqual(calls, [("/dev/source2", "ntfs")])
+        self.assertLess(plan[-1].size_sectors, partitions[-1]["size"])
+        self.assertGreaterEqual(plan[-1].size_sectors * 512, 1024 * 1024 * 1024)
