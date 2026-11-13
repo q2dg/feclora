@@ -32,6 +32,51 @@ def _safe_root(path: str | os.PathLike[str]) -> Path:
     return root
 
 
+def _set_current_answer_alias(root: Path, answer_path: Path) -> None:
+    """Atomically point the stable DHCP URL at the most recently published answer."""
+    alias = root / "unattended-answer.json"
+    if os.path.lexists(alias):
+        info = alias.lstat()
+        if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != os.geteuid()):
+            raise PXEAnswerStoreError("current PXE answer alias is unsafe")
+    fd, temporary = tempfile.mkstemp(prefix=".current-answer-", dir=root)
+    os.close(fd)
+    try:
+        os.unlink(temporary)
+        os.link(answer_path, temporary, follow_symlinks=False)
+        os.replace(temporary, alias)
+        directory_fd = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except OSError as exc:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise PXEAnswerStoreError(f"cannot update current DHCP answer alias: {exc}") from exc
+
+
+def _remove_current_answer_alias(root: Path, answer_path: Path) -> None:
+    """Remove the stable alias only when it still references this job's answer."""
+    alias = root / "unattended-answer.json"
+    try:
+        info = alias.lstat()
+    except FileNotFoundError:
+        return
+    if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+            or info.st_uid != os.geteuid()):
+        raise PXEAnswerStoreError("current PXE answer alias is unsafe")
+    try:
+        matches = os.path.samefile(alias, answer_path)
+    except OSError:
+        matches = False
+    if matches:
+        alias.unlink()
+
+
 def _job_id(value: str) -> str:
     try:
         canonical = str(uuid.UUID(value))
@@ -103,6 +148,7 @@ def publish_pxe_answer(
             os.chmod(temporary, 0o700)
             shutil.rmtree(temporary, ignore_errors=True)
 
+    _set_current_answer_alias(root, destination / "answer.json")
     base = f"http://{parsed_address}:{http_port}/answers/{canonical_job_id}"
     return {"answer_url": base + "/answer.json", "directory": str(destination)}
 
@@ -139,6 +185,13 @@ def clear_stale_pxe_answers(http_root: str | os.PathLike[str]) -> int:
         shutil.rmtree(destination)
         removed += 1
     if removed:
+        alias = root / "unattended-answer.json"
+        if os.path.lexists(alias):
+            alias_info = alias.lstat()
+            if (not stat.S_ISREG(alias_info.st_mode) or stat.S_ISLNK(alias_info.st_mode)
+                    or alias_info.st_uid != os.geteuid()):
+                raise PXEAnswerStoreError("current PXE answer alias is unsafe")
+            alias.unlink()
         directory_fd = os.open(answers, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
             os.fsync(directory_fd)
@@ -179,6 +232,7 @@ def revoke_pxe_answer(http_root: str | os.PathLike[str], job_id: str) -> bool:
             raise PXEAnswerStoreError("PXE answer publication contains an unsafe file")
     if {item.name for item in destination.iterdir()} != {"answer.json"}:
         raise PXEAnswerStoreError("PXE answer publication contains unexpected files")
+    _remove_current_answer_alias(root, destination / "answer.json")
     os.chmod(destination, 0o700)
     for item in destination.iterdir():
         os.chmod(item, 0o600)
