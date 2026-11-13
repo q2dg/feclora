@@ -25,7 +25,7 @@ def make_gpt(sector_size=512, disk_sectors=100):
     disk_guid = uuid.UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
 
     image = bytearray(sector_size * disk_sectors)
-    image[510:512] = b"\\x55\\xaa"
+    image[510:512] = b"\x55\xaa"
     # One protective MBR entry: type EE, starts at LBA 1.
     image[446 + 4] = 0xEE
     struct.pack_into("<II", image, 446 + 8, 1, min(disk_sectors - 1, 0xFFFFFFFF))
