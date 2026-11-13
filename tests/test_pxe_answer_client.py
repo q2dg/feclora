@@ -227,6 +227,32 @@ class PXEAnswerClientTests(unittest.TestCase):
                     self.assertTrue((repository / "golden.manifest.json").is_file())
             self.assertEqual(events, [("lease", "s3-images"), ("download", "s3-images", "golden")])
 
+    def test_s3_client_object_is_released_before_restore_yields_local_copy(self):
+        with tempfile.TemporaryDirectory() as root:
+            events = []
+            class FakeObjectRepository:
+                def download_image_set(self, image_id, directory):
+                    events.append(("download", image_id))
+                    (directory / f"{image_id}.manifest.json").write_text("{}", encoding="utf-8")
+                def __del__(self):
+                    events.append(("client-released",))
+            class FakeS3:
+                def list(self):
+                    return [{"id": "s3-images"}]
+                def acquire_usage_lock(self, _identifier):
+                    return os.open(os.devnull, os.O_RDONLY)
+                def repository(self, _identifier):
+                    return FakeObjectRepository()
+            registry = Path(root) / "s3-repositories.json"
+            registry.touch()
+            with patch("feclora.storage.s3_repository_manager.REGISTRY", registry), \\
+                 patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=FakeS3()):
+                with _managed_repository("s3-images", "golden") as repository:
+                    self.assertTrue((repository / "golden.manifest.json").is_file())
+                    self.assertIn(("client-released",), events)
+                    events.append(("restore-started",))
+            self.assertLess(events.index(("client-released",)), events.index(("restore-started",)))
+
     def test_restore_uses_existing_verified_engine_and_revalidates_target(self):
         with tempfile.TemporaryDirectory() as root:
             repository = Path(root) / "repository"
