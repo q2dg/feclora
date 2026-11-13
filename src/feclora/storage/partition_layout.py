@@ -11,6 +11,12 @@ import re
 from typing import Mapping, Sequence
 
 
+_FIXED_SIZE_FILESYSTEMS = frozenset({
+    "btrfs", "exfat", "fat", "fat16", "fat32", "f2fs",
+    "ntfs", "ntfs3", "swap", "vfat", "xfs",
+})
+
+
 class PartitionLayoutError(ValueError):
     """A proportional destination layout cannot be planned safely."""
 
@@ -116,7 +122,12 @@ def plan_proportional_gpt_layout(
         filesystem = filesystem_types.get(node)
         if not isinstance(filesystem, str) or not filesystem:
             raise PartitionLayoutError(f"{node} filesystem type is unknown")
-        if filesystem.lower() not in {"ext2", "ext3", "ext4"} and minimum_bytes != size * sector:
+        normalized_filesystem = filesystem.lower()
+        if normalized_filesystem not in {"ext2", "ext3", "ext4"} | _FIXED_SIZE_FILESYSTEMS:
+            raise PartitionLayoutError(
+                f"{node} uses unsupported filesystem or storage layer {filesystem}"
+            )
+        if normalized_filesystem not in {"ext2", "ext3", "ext4"} and minimum_bytes != size * sector:
             raise PartitionLayoutError(
                 f"{node} uses {filesystem}; this planner only permits shrinking ext2/3/4"
             )
