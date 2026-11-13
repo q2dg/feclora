@@ -90,17 +90,18 @@ Feclora does not sign image manifests or use detached signature sidecars. Artifa
 ### Destructive-operation security boundary
 
 The answer JSON is declarative data, not shell code. It identifies the image,
-repository and stable whole-disk WWN/serial selector and explicitly requests
-restore/start. The Server validates it before publication. The Live image downloads and validates the answer. NFS or credential-free HTTPS object repository access,
-unique target resolution and immediate pre-write identity revalidation are
-connected for whole-disk restore. Other repository providers and physical
-acceptance remain pending. A URL, DHCP lease, MAC address, job UUID or successful
+managed repository ID and stable whole-disk WWN/serial selector and explicitly requests
+restore/start. The Server validates it before publication. The Live image downloads and validates the answer. The Live client resolves the repository ID through its normal SSHFS, NFS,
+SMB/CIFS or S3 manager, using credentials already protected in its Live
+configuration. The PXE Server does not access remote storage or receive
+operation results. Unique target resolution and immediate pre-write identity
+revalidation are connected for whole-disk restore; physical acceptance remains
+pending. A URL, DHCP lease, MAC address, job UUID or successful
 download is not authorization by itself.
 
 The current implementation downloads and validates the answer in Live and
-connects NFS- or credential-free HTTPS-backed whole-disk restore to the existing engine. The target is
-revalidated immediately before writing and the result is read back. Other
-repository schemes and hardware acceptance remain pending; test only with
+connects managed-repository whole-disk restore to the existing engine. The target is
+revalidated immediately before writing and the result is read back. Hardware acceptance remains pending; test only with
 disposable disks. The PXE Server enforces the configured unique-MAC count
 and/or serving-time limit, but MAC spoofing is not prevented and MAC is not an
 authentication mechanism.
