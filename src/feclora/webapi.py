@@ -1638,6 +1638,7 @@ def _pxe_local_operations(limit: int) -> list[dict[str, Any]]:
             "operation_id": operation_id,
             "action": "pxe_restore_disk",
             "state": state,
+            "cancellable": False,
             "events": [],
         })
         item["state"] = state
