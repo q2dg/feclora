@@ -154,12 +154,17 @@ def inspect_gpt_binary(
     populated = [entry for entry in mbr_entries if entry[4] != 0]
     if len(populated) != 1 or populated[0][4] != 0xEE:
         raise GPTBinaryError("MBR is not a single-entry protective MBR")
+    protective = populated[0]
+    if (protective[0] != 0
+            or struct.unpack_from("<I", protective, 8)[0] != 1
+            or struct.unpack_from("<I", protective, 12)[0] != min(disk_sectors - 1, 0xFFFFFFFF)):
+        raise GPTBinaryError("protective MBR entry has invalid boot flag, start LBA or size")
 
     primary = _header(stream, lba=1, sector_size=sector_size, disk_sectors=disk_sectors)
     backup = _header(stream, lba=disk_sectors - 1, sector_size=sector_size,
                      disk_sectors=disk_sectors)
-    for key in ("revision", "disk_guid", "first_usable_lba", "last_usable_lba",
-                "entry_count", "entry_size", "entries_crc32"):
+    for key in ("revision", "header_size", "disk_guid", "first_usable_lba",
+                "last_usable_lba", "entry_count", "entry_size", "entries_crc32"):
         if primary[key] != backup[key]:
             raise GPTBinaryError(f"primary and backup GPT disagree on {key}")
     if primary["backup_lba"] != backup["current_lba"] or backup["backup_lba"] != primary["current_lba"]:
