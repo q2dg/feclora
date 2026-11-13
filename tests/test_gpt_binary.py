@@ -3,8 +3,9 @@ import struct
 import uuid
 import unittest
 import binascii
+from types import SimpleNamespace
 
-from feclora.storage.gpt_binary import GPTBinaryError, inspect_gpt_binary
+from feclora.storage.gpt_binary import GPTBinaryError, build_gpt_rewrite, inspect_gpt_binary
 
 
 def make_gpt(sector_size=512, disk_sectors=100):
@@ -100,6 +101,53 @@ class BinaryGPTInspectionTests(unittest.TestCase):
         image[446 + 4] = 0x07
         with self.assertRaisesRegex(GPTBinaryError, "protective MBR"):
             self.inspect(image, sector, sectors)
+
+    def test_builds_valid_smaller_gpt_metadata_without_mutating_source(self):
+        image, sector, sectors = make_gpt()
+        original = bytes(image)
+        plan = SimpleNamespace(
+            node="/dev/loop0p1",
+            partuuid="11111111-2222-3333-4444-555555555555",
+            type_guid="0fc63daf-8483-4772-8e79-3d69d8477de4",
+            start_sector=35,
+            size_sectors=16,
+        )
+        target_sectors = 90
+        patches = build_gpt_rewrite(
+            io.BytesIO(image), source_size_bytes=sector * sectors,
+            target_size_bytes=sector * target_sectors, sector_size=sector,
+            planned_partitions=(plan,),
+        )
+        self.assertEqual(bytes(image), original)
+        target = bytearray(sector * target_sectors)
+        target[:len(target)] = image[:len(target)]
+        for offset, data in patches:
+            target[offset:offset + len(data)] = data
+        inspected = inspect_gpt_binary(
+            io.BytesIO(target), sector_size=sector,
+            disk_size_bytes=len(target),
+        )
+        self.assertEqual(inspected["disk_guid"], "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+        self.assertEqual(inspected["partitions"][0]["first_lba"], 35)
+        self.assertEqual(inspected["partitions"][0]["last_lba"], 50)
+        self.assertEqual(inspected["partitions"][0]["attributes"], 0x1000000000000001)
+        self.assertEqual(inspected["partitions"][0]["name"], "root")
+
+    def test_rejects_gpt_rewrite_that_relocates_partition(self):
+        image, sector, sectors = make_gpt()
+        plan = SimpleNamespace(
+            node="/dev/loop0p1",
+            partuuid="11111111-2222-3333-4444-555555555555",
+            type_guid="0fc63daf-8483-4772-8e79-3d69d8477de4",
+            start_sector=36,
+            size_sectors=10,
+        )
+        with self.assertRaisesRegex(GPTBinaryError, "relocate"):
+            build_gpt_rewrite(
+                io.BytesIO(image), source_size_bytes=sector * sectors,
+                target_size_bytes=sector * 90, sector_size=sector,
+                planned_partitions=(plan,),
+            )
 
     def test_rejects_truncated_disk(self):
         image, sector, sectors = make_gpt()
