@@ -93,6 +93,25 @@ class S3RepositoryManagerTests(unittest.TestCase):
         self.manager.update("archive", dict(self.definition, read_only=True))
         self.assertTrue(self.manager.list()[0]["read_only"])
 
+
+    def test_acquire_usage_lock_rechecks_registry_after_lock_and_releases_on_failure(self):
+        self.manager.add("archive", self.definition)
+        acquired_fds = []
+        original_acquire = self.manager._acquire_usage_lock
+
+        def acquire(identifier, *, exclusive):
+            fd = original_acquire(identifier, exclusive=exclusive)
+            acquired_fds.append(fd)
+            return fd
+
+        self.manager._acquire_usage_lock = acquire
+        self.manager._load = lambda: {}
+        with self.assertRaisesRegex(S3RepositoryManagerError, "unknown S3 repository ID"):
+            self.manager.acquire_usage_lock("archive")
+        self.assertEqual(len(acquired_fds), 1)
+        with self.assertRaises(OSError):
+            os.fstat(acquired_fds[0])
+
     def test_repository_decrypts_credential_only_when_requested(self):
         self.manager.add("archive", self.definition)
         with patch("feclora.storage.s3_repository_manager.S3ObjectRepository") as client:
