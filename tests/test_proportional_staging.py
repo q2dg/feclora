@@ -2,6 +2,7 @@ import gzip
 import hashlib
 import os
 import tempfile
+from pathlib import Path
 import unittest
 
 from feclora.storage.image_manifest import ImageManifest
@@ -43,18 +44,18 @@ class VerifiedProportionalStagingTests(unittest.TestCase):
         })
 
     def test_creates_private_decoded_copy_and_removes_it_on_context_exit(self):
-        original = open(os.path.join(self.repository, "disk.raw.gz"), "rb").read()
+        original = Path(self.repository, "disk.raw.gz").read_bytes()
         with stage_verified_raw_disk_image(
             self.manifest, self.repository, staging_root=self.staging_root
         ) as staged:
             self.assertEqual(staged.size_bytes, len(self.payload))
             self.assertEqual(staged.sha256, hashlib.sha256(self.payload).hexdigest())
-            self.assertEqual(open(staged.path, "rb").read(), self.payload)
+            self.assertEqual(Path(staged.path).read_bytes(), self.payload)
             self.assertEqual(os.stat(staged.path).st_mode & 0o777, 0o600)
             self.assertEqual(os.stat(os.path.dirname(staged.path)).st_mode & 0o777, 0o700)
             self.assertEqual(os.listdir(self.staging_root), [os.path.basename(os.path.dirname(staged.path))])
         self.assertEqual(os.listdir(self.staging_root), [])
-        self.assertEqual(open(os.path.join(self.repository, "disk.raw.gz"), "rb").read(), original)
+        self.assertEqual(Path(self.repository, "disk.raw.gz").read_bytes(), original)
 
     def test_rejects_staging_inside_the_source_repository(self):
         with self.assertRaisesRegex(ProportionalStagingError, "outside the image repository"):
