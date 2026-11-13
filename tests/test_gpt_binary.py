@@ -110,7 +110,7 @@ class BinaryGPTInspectionTests(unittest.TestCase):
             partuuid="11111111-2222-3333-4444-555555555555",
             type_guid="0fc63daf-8483-4772-8e79-3d69d8477de4",
             start_sector=35,
-            size_sectors=16,
+            size_sectors=8,
         )
         target_sectors = 90
         patches = build_gpt_rewrite(
@@ -129,7 +129,7 @@ class BinaryGPTInspectionTests(unittest.TestCase):
         )
         self.assertEqual(inspected["disk_guid"], "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
         self.assertEqual(inspected["partitions"][0]["first_lba"], 35)
-        self.assertEqual(inspected["partitions"][0]["last_lba"], 50)
+        self.assertEqual(inspected["partitions"][0]["last_lba"], 42)
         self.assertEqual(inspected["partitions"][0]["attributes"], 0x1000000000000001)
         self.assertEqual(inspected["partitions"][0]["name"], "root")
 
