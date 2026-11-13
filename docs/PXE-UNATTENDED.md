@@ -152,6 +152,9 @@ unattended adapter. HTTP repository downloads are not accepted.
       script; serve the latter only after the Server has registered the MAC.
 - [x] Add a Live boot-time HTTP answer downloader and schema validator; store the
       validated JSON in the root-only Live runtime directory.
+- [x] Advertise the stable current-answer URL as DHCP option 224 in
+      authoritative DHCP mode and the PXE-specific proxy response; discover it
+      from the Live NetworkManager lease on ISO boots.
 - [x] Connect the NFS repository adapter, unique WWN/serial target resolution,
       pre-write identity revalidation and existing whole-disk restore engine.
 - [x] Add a credential-free HTTPS object-set adapter with verified TLS, redirect rejection, bounded manifest/artifact downloads, local staging-capacity preflight and SHA-256/size verification; it supports public or externally pre-authorized S3-compatible object prefixes.
