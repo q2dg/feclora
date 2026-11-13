@@ -70,6 +70,20 @@ class RestoreTargetInspectionTests(unittest.TestCase):
         with self.assertRaisesRegex(TargetInspectionError, "unrecognized child"):
             self.inspect(runner)
 
+        inventory = json.loads(json.dumps(self.inventory))
+        inventory["blockdevices"][0]["children"][0]["path"] = "/dev/sdb-partition1"
+        runner, _ = self.make_runner(inventory=inventory)
+        with self.assertRaisesRegex(TargetInspectionError, "invalid partition paths"):
+            self.inspect(runner)
+
+        inventory = json.loads(json.dumps(self.inventory))
+        inventory["blockdevices"][0]["children"][0]["children"] = [
+            {"path": "/dev/mapper/pv", "type": "lvm"}
+        ]
+        runner, _ = self.make_runner(inventory=inventory)
+        with self.assertRaisesRegex(TargetInspectionError, "unrecognized child"):
+            self.inspect(runner)
+
     def test_refuses_safety_failure_before_inspection(self):
         runner, calls = self.make_runner()
         with self.assertRaisesRegex(TargetInspectionError, "offline and unused"):
