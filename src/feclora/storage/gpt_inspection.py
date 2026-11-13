@@ -212,6 +212,8 @@ def inspect_gpt_source(
             raise GPTInspectionError("lsblk returned invalid partition metadata")
         node = child.get("path")
         fstype = child.get("fstype")
+        if child.get("type") != "part":
+            raise GPTInspectionError("lsblk source-disk child is not a partition")
         if not isinstance(node, str) or node in child_paths:
             raise GPTInspectionError("lsblk returned duplicate or invalid partition paths")
         child_paths.add(node)
