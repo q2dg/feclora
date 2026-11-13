@@ -135,7 +135,7 @@ def probe_ntfs_minimum_size(
     NTFS must be offline and clean enough for ntfsresize's information probe.
     The estimate is advisory; the actual staged shrink must be revalidated.
     """
-    if not isinstance(device_path, str) or not device_path.startswith("/dev/") or "\\x00" in device_path:
+    if not isinstance(device_path, str) or not device_path.startswith("/dev/") or "\x00" in device_path:
         raise FilesystemProbeError("filesystem probe target must be an absolute /dev/ path")
     expected = filesystem_type.lower() if isinstance(filesystem_type, str) else ""
     if expected not in {"ntfs", "ntfs3"}:
@@ -185,8 +185,8 @@ def probe_ntfs_minimum_size(
 
     # ntfsresize --info does not resize; --no-action explicitly prohibits writes.
     result = invoke("ntfsresize", ["--info", "--force", "--no-action", device_path])
-    output = (result.stdout or "") + "\\n" + (result.stderr or "")
-    matches = re.findall(r"You might resize at\\s+([\\d,]+)\\s+bytes", output, re.IGNORECASE)
+    output = (result.stdout or "") + "\n" + (result.stderr or "")
+    matches = re.findall(r"You might resize at\s+([\d,]+)\s+bytes", output, re.IGNORECASE)
     if len(matches) != 1:
         raise FilesystemProbeError("ntfsresize did not report one unambiguous minimum size")
     minimum_bytes = int(matches[0].replace(",", ""))
