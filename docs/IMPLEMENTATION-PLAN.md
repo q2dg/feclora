@@ -425,3 +425,22 @@ that the current version only supports expansion. It therefore remains
 disabled pending validation against Feclora's exact Fedora package version.
 See [filesystem shrink research](FILESYSTEM-SHRINK-RESEARCH.md). These
 migration paths must not be conflated with lossless block-level shrinking.
+
+### Filesystem shrink implementation boundary
+
+- ext2/3/4 and NTFS: read-only minimum-size probes are available to the
+  preview planner. A staged shrink executor is still required before actual
+  smaller-disk restore can be enabled.
+- XFS: no in-place shrink. A future, separately selected migration may use
+  `xfsdump`/`xfsrestore` into a newly created smaller filesystem.
+- exFAT: no shrink operation is provided by the standard exfatprogs tool set;
+  any future support is a separately verified create-and-copy migration.
+- F2FS: keep fixed-size. Upstream `resize.f2fs` documents `-s`, but its
+  manual explicitly says the current version only supports expansion. Do not
+  infer shrink support from the option flag.
+- Regression tests now explicitly reject proportional shortening of XFS,
+  F2FS and exFAT partitions. See [filesystem shrink research](FILESYSTEM-SHRINK-RESEARCH.md).
+
+None of the migration workflows above is implemented or authorized for
+automatic execution. They require a distinct user-visible mode, private
+staging, file-level verification and boot-configuration review.
