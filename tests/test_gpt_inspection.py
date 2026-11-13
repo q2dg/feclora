@@ -1,13 +1,16 @@
 import json
 import unittest
 
-from feclora.storage.gpt_inspection import GPTInspectionError, parse_sfdisk_gpt_json
+from feclora.storage.gpt_inspection import (
+    GPTInspectionError, parse_sfdisk_gpt_json, parse_sfdisk_gpt_disk_metadata,
+)
 
 
 class SfdiskGPTParserTests(unittest.TestCase):
     def payload(self, **overrides):
         table = {
             "label": "gpt",
+            "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
             "unit": "sectors",
             "sectorsize": 512,
             "firstlba": 34,
@@ -32,6 +35,28 @@ class SfdiskGPTParserTests(unittest.TestCase):
         }
         table.update(overrides)
         return json.dumps({"partitiontable": table})
+
+    def test_parses_disk_guid_and_usable_lba_metadata(self):
+        result = parse_sfdisk_gpt_disk_metadata(
+            self.payload(), expected_sector_size=512, disk_size_bytes=536870912
+        )
+        self.assertEqual(result["disk_guid"], "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+        self.assertEqual(result["first_usable_lba"], 34)
+        self.assertEqual(result["last_usable_lba"], 1048542)
+
+    def test_rejects_missing_or_invalid_disk_guid(self):
+        for disk_guid in (None, "invalid-guid"):
+            payload = json.loads(self.payload())
+            if disk_guid is None:
+                payload["partitiontable"].pop("id")
+            else:
+                payload["partitiontable"]["id"] = disk_guid
+            with self.subTest(disk_guid=disk_guid):
+                with self.assertRaisesRegex(GPTInspectionError, "valid GPT disk GUID"):
+                    parse_sfdisk_gpt_disk_metadata(
+                        json.dumps(payload), expected_sector_size=512,
+                        disk_size_bytes=536870912,
+                    )
 
     def test_parses_gpt_partition_records(self):
         result = parse_sfdisk_gpt_json(
