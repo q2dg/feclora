@@ -1305,7 +1305,10 @@ class WebAPITests(unittest.TestCase):
         manager = Mock()
         manager.acquire_usage_lock.return_value = 123
         manager.resolve.return_value = "/mnt/feclora/nas-images"
-        with patch("feclora.webapi._remote_repository_manager", return_value=manager), patch(
+        with patch(
+            "feclora.storage.s3_repository_manager.S3RepositoryManager",
+            return_value=SimpleNamespace(list=lambda: []),
+        ), patch("feclora.webapi._remote_repository_manager", return_value=manager), patch(
             "feclora.webapi._filesystem_images", return_value=expected,
         ) as scan, patch("feclora.webapi.os.close") as close:
             self.assertEqual(_images("nas-images"), expected)
@@ -1319,7 +1322,10 @@ class WebAPITests(unittest.TestCase):
         manager = Mock()
         manager.acquire_usage_lock.return_value = 456
         manager.resolve.return_value = "/mnt/feclora/nas-images"
-        with patch("feclora.webapi._remote_repository_manager", return_value=manager), patch(
+        with patch(
+            "feclora.storage.s3_repository_manager.S3RepositoryManager",
+            return_value=SimpleNamespace(list=lambda: []),
+        ), patch("feclora.webapi._remote_repository_manager", return_value=manager), patch(
             "feclora.webapi._filesystem_images", side_effect=OSError("remote read failed"),
         ), patch("feclora.webapi.os.close") as close:
             with self.assertRaisesRegex(WebAPIError, "remote image inventory failed"):
