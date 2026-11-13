@@ -136,6 +136,10 @@ def stage_verified_raw_disk_image(
             # made in place between initial verification and staging. Age
             # ciphertext has already been authenticated before decryption.
             if artifact.encryption == "none":
+                # Decoding consumes the stored stream. Rewind before the
+                # second integrity pass; otherwise compressed artifacts are
+                # incorrectly hashed as an empty stream at EOF.
+                stored.seek(0)
                 _verify_stored_artifact(stored, artifact)
             info = os.lstat(staged_path)
             if not stat.S_ISREG(info.st_mode) or info.st_size != total or info.st_mode & 0o077:
