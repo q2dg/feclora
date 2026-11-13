@@ -124,6 +124,8 @@ class DeploymentJob:
             raise JobValidationError("logical_volume target_type is valid only for save or restore jobs")
         if operation == "save" and target_type not in {"disk", "logical_volume"}:
             raise JobValidationError("network save currently supports whole disks or logical volumes only")
+        if operation == "save" and payload.get("transport") != "unicast":
+            raise JobValidationError("save jobs require unicast transport")
         if operation == "clone" and target_type not in {"disk", "partition"}:
             raise JobValidationError("remote clone supports whole disks or partitions only")
         if operation == "clone" and (
