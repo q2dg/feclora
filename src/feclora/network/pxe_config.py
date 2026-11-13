@@ -139,19 +139,23 @@ def render_dnsmasq(config: PXENetworkConfig) -> str:
         "dhcp-boot=tag:ipxe,http://" + config.address + ":" + str(config.http_port) + "/boot.ipxe",
         "dhcp-boot=net:bios," + config.bios_boot_file,
         "dhcp-boot=net:efi64," + config.uefi_boot_file,
-        # Private option 224 carries only the public locator. The answer is
-        # published atomically at this stable Caddy path for ISO clients.
-        f'dhcp-option=224,"http://{config.address}:{config.http_port}/unattended-answer.json"',
         "# ProxyDHCP does not assign router options",
     ]
+    answer_url_option = (
+        f'"http://{config.address}:{config.http_port}/unattended-answer.json"'
+    )
     if config.mode == "proxy":
         lines.extend([
             "dhcp-range=" + str(network.network_address) + ",proxy",
+            # ProxyDHCP sends this only in its PXE-specific response. A locally
+            # booted ISO still needs option 224 from the authoritative DHCP.
+            "dhcp-option-pxe=224," + answer_url_option,
         ])
     else:
         lines.extend([
             "dhcp-authoritative",
             f"dhcp-range={config.pool_start},{config.pool_end},{network.netmask},{config.lease_time}",
+            "dhcp-option=224," + answer_url_option,
         ])
         if config.gateway:
             lines.append("dhcp-option=option:router," + config.gateway)
