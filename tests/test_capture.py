@@ -350,6 +350,35 @@ class CaptureTests(unittest.TestCase):
 
             self.assertEqual(os.listdir(directory), [])
 
+    def test_capture_rollback_preserves_replacement_at_final_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            final_path = os.path.join(directory, "part.raw")
+            real_fsync = os.fsync
+            replaced = False
+
+            def replace_then_fail_directory_sync(fd):
+                nonlocal replaced
+                if os.path.isdir(f"/proc/self/fd/{fd}") and not replaced:
+                    replaced = True
+                    os.unlink(final_path)
+                    with open(final_path, "wb") as stream:
+                        stream.write(b"concurrent replacement")
+                    raise OSError("simulated directory sync failure")
+                return real_fsync(fd)
+
+            with patch("feclora.storage.capture.os.fsync", side_effect=replace_then_fail_directory_sync):
+                with self.assertRaisesRegex(CaptureError, "capture failed"):
+                    capture_partition(
+                        "/dev/fake1", None, directory, "part.raw", "1",
+                        {"dd": "/usr/bin/dd"}, device_validator=lambda _path: True,
+                        source_safety_check=lambda _path: None, effective_uid=lambda: 0,
+                        popen_factory=lambda *_args, **_kwargs: FakeProcess(["dd"]),
+                    )
+
+            with open(final_path, "rb") as stream:
+                self.assertEqual(stream.read(), b"concurrent replacement")
+            self.assertEqual(os.listdir(directory), ["part.raw"])
+
     def test_rejects_repository_symlink(self):
         with tempfile.TemporaryDirectory() as directory:
             link = directory + "-link"
