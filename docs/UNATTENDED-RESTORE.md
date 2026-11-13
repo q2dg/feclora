@@ -40,7 +40,9 @@ When an answer is published, the Server atomically updates this stable Caddy
 path to reference the most recently published job answer. Revoking that job
 or starting a new PXE session removes the current alias. This lets the
 operator change the current answer without changing the ISO or its boot
-configuration. The URL is a public locator, not a client credential.
+configuration. The URL is a public locator, not a client credential. It is a
+shared deployment setting: every ISO client receiving option 224 sees the
+same currently published answer, not a per-client assignment.
 
 In authoritative/isolated DHCP mode, Feclora dnsmasq sends option 224 to
 ordinary DHCP clients. In ProxyDHCP mode, dnsmasq can send it only in the
