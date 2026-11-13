@@ -61,9 +61,9 @@ def plan_proportional_gpt_layout(
 
     All partitions must carry a unique /dev node and a GPT type GUID. The
     caller must provide a filesystem-native minimum size and detected type for every partition. Only ext2/3/4 may be reduced; all other types must remain at their original byte size.
-    The planner preserves partition order and identifiers, packs partitions
-    from the first usable GPT LBA, and distributes remaining capacity in
-    proportion to each partition's shrinkable source size.
+    The planner preserves every source partition start and identifier. It
+    may shorten only the final ext2/3/4 partition to the target's last usable
+    GPT LBA. It never relocates partitions or redistributes capacity.
 
     The returned plan is advisory only; it is not an authorization to write.
     """
@@ -88,7 +88,6 @@ def plan_proportional_gpt_layout(
 
     source_sectors = source_size // sector
     target_sectors = target_size // sector
-    alignment_sectors = alignment // sector
     # GPT reserves LBAs 0..33 and the final 33 LBAs for headers/tables.
     first_usable = 34
     last_usable_exclusive = target_sectors - 33
@@ -145,78 +144,41 @@ def plan_proportional_gpt_layout(
             "weight": max(0, size - minimum_sectors),
         })
 
-    first_aligned = _align_up(first_usable, alignment_sectors)
-    # Partition starts must be aligned; partition lengths need only be
-    # sector-aligned. In particular, fixed-size FAT/EFI partitions commonly
-    # do not end on a 1 MiB boundary and must not be rounded or shrunk.
-    # Reserve the worst-case inter-partition alignment padding up front so
-    # the resulting sequential layout is guaranteed to fit.
-    alignment_padding = max(0, len(normalized) - 1) * (alignment_sectors - 1)
-    available_sectors = last_usable_exclusive - first_aligned - alignment_padding
-    minimum_sectors = [
-        (int(item["minimum_bytes"]) + sector - 1) // sector
-        for item in normalized
-    ]
-    maximum_sectors = [int(item["source_size"]) for item in normalized]
-    if any(minimum > maximum for minimum, maximum in zip(minimum_sectors, maximum_sectors)):
-        raise PartitionLayoutError(
-            "a filesystem minimum cannot fit within its original partition"
-        )
-    if sum(minimum_sectors) > available_sectors:
-        raise PartitionLayoutError("filesystem minimum sizes do not fit on the smaller target")
-
-    # Distribute capacity in sectors, respecting each source partition's
-    # original extent. Any alignment slack or unused tail remains unallocated.
-    allocations = [0 for _ in normalized]
-    capacities = [maximum - minimum for minimum, maximum in zip(minimum_sectors, maximum_sectors)]
-    remaining = min(available_sectors - sum(minimum_sectors), sum(capacities))
-    weights = [int(item["weight"]) for item in normalized]
-    if not any(weights):
-        weights = [int(item["source_size"]) for item in normalized]
-    while remaining > 0:
-        active = [i for i, capacity in enumerate(capacities) if allocations[i] < capacity]
-        if not active:
-            break
-        weight_total = sum(weights[i] for i in active)
-        proposed = {
-            i: (remaining * weights[i] // weight_total) if weight_total else 0
-            for i in active
-        }
-        progressed = 0
-        for i in active:
-            grant = min(capacities[i] - allocations[i], proposed[i])
-            if grant:
-                allocations[i] += grant
-                remaining -= grant
-                progressed += grant
-        if remaining <= 0:
-            break
-        if progressed == 0:
-            for i in active:
-                if remaining <= 0:
-                    break
-                if allocations[i] < capacities[i]:
-                    allocations[i] += 1
-                    remaining -= 1
-    size_sectors_list = [
-        minimum + allocation
-        for minimum, allocation in zip(minimum_sectors, allocations)
-    ]
-
+    # Preserve every source partition start. Relocating a partition would
+    # require a separate data-movement transaction and is deliberately not
+    # inferred by this planner.
     result = []
-    cursor = first_aligned
-    for item, size_sectors in zip(normalized, size_sectors_list):
-        cursor = _align_up(cursor, alignment_sectors)
-        if cursor + size_sectors > last_usable_exclusive:
-            raise PartitionLayoutError("planned partition extends into backup GPT metadata")
+    for index, item in enumerate(normalized):
+        start = int(partitions[index]["start"])
+        size_sectors = int(item["source_size"])
+        end_exclusive = start + size_sectors
+        if start < first_usable:
+            raise PartitionLayoutError("source partition starts inside reserved GPT metadata")
+        if start >= last_usable_exclusive:
+            raise PartitionLayoutError("a source partition starts beyond the smaller target GPT boundary")
+        if end_exclusive > last_usable_exclusive:
+            if index != len(normalized) - 1:
+                raise PartitionLayoutError(
+                    "only the final source partition can be shortened without relocating later partitions"
+                )
+            filesystem = str(filesystem_types[str(item["node"])]).lower()
+            if filesystem not in {"ext2", "ext3", "ext4"}:
+                raise PartitionLayoutError(
+                    f"final partition uses {filesystem}; only ext2/3/4 can be shortened"
+                )
+            size_sectors = last_usable_exclusive - start
+            minimum = (int(item["minimum_bytes"]) + sector - 1) // sector
+            if size_sectors < minimum:
+                raise PartitionLayoutError(
+                    "the final ext filesystem minimum does not fit at its original partition start"
+                )
         result.append(PlannedPartition(
             node=str(item["node"]),
             type_guid=str(item["type"]),
             partuuid=item["uuid"] if isinstance(item["uuid"], str) else None,
             name=item["name"] if isinstance(item["name"], str) else None,
-            start_sector=cursor,
+            start_sector=start,
             size_sectors=size_sectors,
             minimum_size_bytes=int(item["minimum_bytes"]),
         ))
-        cursor += size_sectors
     return tuple(result)
