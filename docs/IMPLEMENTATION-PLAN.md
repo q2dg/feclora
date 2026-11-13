@@ -447,15 +447,21 @@ migration paths must not be conflated with lossless block-level shrinking.
   patches and never writes to either stream. Unknown GPT header extensions,
   partition relocation/expansion, missing or duplicate PARTUUIDs and target
   geometry overflow fail closed. Synthetic tests cover rewrite validation and
-  relocation rejection. This remains a builder only: applying patches to the
-  private staging image, filesystem shrinking, read-back verification and
-  destination restore integration are not implemented.
-- GPT inspection and preview records now retain per-partition `attrs` from
+  relocation rejection. A private-staging applier now consumes the builder:
+  it accepts only the verified staging-file descriptor, anchors the open to a
+  private owned directory, rejects symlinks/hard links/non-regular files and
+  changed source digests, applies bounded patches, truncates the private RAW
+  file, fsyncs it, and re-runs the independent binary GPT validator before
+  returning its new size and digest. It has no block-device write path.
+  Synthetic tests cover a smaller-image rewrite and digest-mismatch rejection.
+  This remains a low-level staging primitive: it is not wired to the
+  proportional restore preview/executor, does not shrink filesystems, and
+  does not authorize or perform destination writes.
+- GPT inspection and preview records retain per-partition `attrs` from
   `sfdisk --json` (including firmware/OS-specific attribute bits), instead of
-  silently dropping them. This is metadata preservation only: no GPT writer
-  exists yet. The source-side disk identity and header geometry are now
-  independently validated; a future writer must preserve them deliberately
-  and validate both rewritten copies before any destination write.
+  silently dropping them. Source disk identity and header geometry are
+  independently validated; the staging-only writer preserves them deliberately
+  and validates both rewritten copies before returning.
 - A private RAW staging primitive now verifies the stored artifact, checks the
   decoded byte count, writes a mode-0600 copy under a mode-0700 temporary
   directory outside the image repository, and removes that workspace on
