@@ -590,7 +590,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
 
     def test_resolve_validates_smb_share_prefixpath_and_access_mode(self):
         credentials = Path(self.temp.name) / "smb.credentials"
-        credentials.write_text("username=backup\\npassword=not-a-real-secret\\n", encoding="ascii")
+        credentials.write_text("username=backup\npassword=not-a-real-secret\n", encoding="ascii")
         credentials.chmod(0o600)
         definition = {
             "provider": "smb", "host": "nas.example.net",
