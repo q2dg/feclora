@@ -145,6 +145,8 @@ def build_proportional_gpt_plan(
     if not isinstance(filesystem_types, Mapping):
         raise FilesystemProbeError("filesystem type inventory is required")
 
+    if isinstance(sector_size, bool) or not isinstance(sector_size, int) or sector_size not in {512, 4096}:
+        raise FilesystemProbeError("logical sector size must be 512 or 4096 bytes")
     probe = minimum_probe or probe_ext_minimum_size
     minimums: dict[str, int] = {}
     for index, partition in enumerate(partitions):
