@@ -295,5 +295,19 @@ inactive profile selection, and the full Server/Client enrollment and remote
 clone workflow. The current verifier checks profile activation and address;
 gateway reachability, DNS resolution and end-to-end remote connectivity are
 not yet acceptance-tested.
+## Capture interruption and staging-residue checkpoint
 
+Normal error paths remove the capture's private staging directory and the
+artifact writer's temporary file. A hard process/host crash can bypass those
+cleanup paths. The recovery policy is deliberately non-destructive: staging
+entries are never automatically removed, promoted, resumed or treated as
+committed images. Age, name and PID are insufficient to establish that a
+writer is inactive, especially on shared repositories.
 
+The operator acceptance procedure is documented in
+[ACCEPTANCE-TESTS.md](ACCEPTANCE-TESTS.md#12-interrupted-capture-staging-residue).
+It requires independently stopping/confirming writers, treating residue as
+untrusted, starting a fresh capture, and deleting residue only through an
+explicit operator decision. Automated stale-residue cleanup and crash-resume
+remain out of scope; this is a documented safety boundary, not a claim that
+crash recovery is implemented.
