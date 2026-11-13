@@ -11,7 +11,7 @@ from feclora.network.pxe_answer import (
 class PXEAnswerTests(unittest.TestCase):
     def valid_answer(self):
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "operation": "restore",
             "image_id": "fedora-workstation",
             "repository_id": "nas-images",
