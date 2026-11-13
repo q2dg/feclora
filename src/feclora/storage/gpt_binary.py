@@ -190,7 +190,125 @@ def inspect_gpt_binary(
         "last_usable_lba": primary["last_usable_lba"],
         "entry_count": primary["entry_count"],
         "entry_size": primary["entry_size"],
+        "primary_entries_lba": primary["entries_lba"],
+        "backup_entries_lba": backup["entries_lba"],
         "partitions": partitions,
         "protective_mbr": True,
         "primary_backup_consistent": True,
     }
+
+
+
+def build_gpt_rewrite(
+    source_stream: BinaryIO,
+    *,
+    source_size_bytes: int,
+    target_size_bytes: int,
+    sector_size: int,
+    planned_partitions: tuple[object, ...],
+) -> tuple[tuple[int, bytes], ...]:
+    """Build sector-aligned GPT metadata patches for a smaller staging image.
+
+    The function is pure with respect to both streams: it reads the validated
+    source and returns byte patches; it never writes to either source or target.
+    Partition slots, GUIDs, names, type GUIDs and attribute bits are retained.
+    Only partition end LBAs and target-dependent GPT geometry/CRCs change.
+    """
+    source = inspect_gpt_binary(
+        source_stream, sector_size=sector_size, disk_size_bytes=source_size_bytes
+    )
+    if (isinstance(target_size_bytes, bool) or not isinstance(target_size_bytes, int)
+            or target_size_bytes <= 0 or target_size_bytes >= source_size_bytes
+            or target_size_bytes % sector_size):
+        raise GPTBinaryError("target size must be a smaller positive sector-aligned size")
+    target_sectors = target_size_bytes // sector_size
+    count = int(source["entry_count"])
+    entry_size = int(source["entry_size"])
+    array_bytes = count * entry_size
+    array_sectors = (array_bytes + sector_size - 1) // sector_size
+    primary_entries_lba = 2
+    backup_header_lba = target_sectors - 1
+    backup_entries_lba = backup_header_lba - array_sectors
+    first_usable = int(source["first_usable_lba"])
+    last_usable = backup_entries_lba - 1
+    if last_usable < first_usable:
+        raise GPTBinaryError("target cannot contain GPT metadata and usable partition space")
+
+    source_parts = tuple(source["partitions"])
+    plans = tuple(planned_partitions)
+    if len(plans) != len(source_parts):
+        raise GPTBinaryError("planned partition count differs from source GPT")
+    source_by_number = {int(p["number"]): p for p in source_parts}
+    raw_array = bytearray(_read_at(
+        source_stream, int(source["primary_entries_lba"]) * sector_size, array_bytes
+    ))
+    seen_numbers: set[int] = set()
+    previous_end = first_usable - 1
+    for plan in plans:
+        number = getattr(plan, "node", None)
+        partuuid = getattr(plan, "partuuid", None)
+        type_guid = getattr(plan, "type_guid", None)
+        start = getattr(plan, "start_sector", None)
+        size = getattr(plan, "size_sectors", None)
+        if not isinstance(number, str) or not number.startswith("/dev/"):
+            raise GPTBinaryError("planned partition has no valid source device node")
+        # Device nodes are deliberately not used as GPT slot identifiers.
+        # Match the stable partition GUID supplied by the planner instead.
+        matches = [p for p in source_parts if p["unique_guid"] == partuuid]
+        if len(matches) != 1:
+            raise GPTBinaryError("planned partition does not identify exactly one source PARTUUID")
+        original = matches[0]
+        slot = int(original["number"])
+        if slot in seen_numbers:
+            raise GPTBinaryError("planned partition repeats a source PARTUUID")
+        seen_numbers.add(slot)
+        if type_guid is None or str(type_guid).lower() != str(original["type_guid"]).lower():
+            raise GPTBinaryError("planned partition type GUID differs from source")
+        if (isinstance(start, bool) or not isinstance(start, int)
+                or start != int(original["first_lba"])):
+            raise GPTBinaryError("GPT rewrite cannot relocate a partition")
+        if isinstance(size, bool) or not isinstance(size, int) or size < 1:
+            raise GPTBinaryError("planned partition size is invalid")
+        new_end = start + size - 1
+        if new_end > int(original["last_lba"]) or new_end > last_usable:
+            raise GPTBinaryError("GPT rewrite cannot expand a partition or exceed target geometry")
+        previous_end = max(previous_end, new_end)
+        offset = (slot - 1) * entry_size
+        struct.pack_into("<Q", raw_array, offset + 40, new_end)
+    if seen_numbers != set(source_by_number):
+        raise GPTBinaryError("planned partitions do not cover every source GPT partition")
+
+    array_crc = _crc32(bytes(raw_array))
+    padded_array = bytes(raw_array).ljust(array_sectors * sector_size, b"\\x00")
+    disk_guid_raw = uuid.UUID(str(source["disk_guid"])).bytes_le
+    revision = 0x00010000
+    header_size = _HEADER.size
+
+    def make_header(current: int, backup: int, entries_lba: int) -> bytes:
+        sector = bytearray(sector_size)
+        _HEADER.pack_into(
+            sector, 0, _SIGNATURE, revision, header_size, 0, 0,
+            current, backup, first_usable, last_usable, disk_guid_raw,
+            entries_lba, count, entry_size, array_crc,
+        )
+        crc = _crc32(bytes(sector[:header_size]))
+        struct.pack_into("<I", sector, 16, crc)
+        return bytes(sector)
+
+    mbr = bytearray(_read_at(source_stream, 0, 512))
+    mbr[446:510] = bytes(64)
+    protective_size = min(target_sectors - 1, 0xFFFFFFFF)
+    mbr[446:462] = struct.pack(
+        "<B3sB3sII", 0, b"\\x00\\x02\\x00", 0xEE,
+        b"\\xff\\xff\\xff", 1, protective_size,
+    )
+    patches = (
+        (0, bytes(mbr)),
+        (sector_size, make_header(1, backup_header_lba, primary_entries_lba)),
+        (primary_entries_lba * sector_size, padded_array),
+        (backup_entries_lba * sector_size, padded_array),
+        (backup_header_lba * sector_size, make_header(
+            backup_header_lba, 1, backup_entries_lba
+        )),
+    )
+    return patches
