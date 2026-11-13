@@ -101,3 +101,130 @@ def parse_sfdisk_gpt_json(
             raise GPTInspectionError(f"{node} has an invalid partition UUID")
         result.append(record)
     return tuple(result)
+
+
+def inspect_gpt_source(
+    disk_path: str,
+    *,
+    runner=None,
+    which=None,
+    device_validator=None,
+    safety_check=None,
+    effective_uid=None,
+) -> dict[str, object]:
+    """Discover a whole-disk GPT source and filesystem types using read-only tools.
+
+    The disk must be offline and unused. Returned partition records are suitable
+    as planner input; no partition table or filesystem is modified.
+    """
+    import os
+    import shutil
+    import stat
+    import subprocess
+
+    from .privilege import PrivilegeError, privileged_argv
+    from .source_safety import SourceSafetyError, check_capture_source_safe
+
+    if not isinstance(disk_path, str) or not disk_path.startswith("/dev/") or "\\x00" in disk_path:
+        raise GPTInspectionError("source disk must be an absolute /dev/ path")
+    validator = device_validator or (lambda path: stat.S_ISBLK(os.stat(path).st_mode))
+    try:
+        if not validator(disk_path):
+            raise GPTInspectionError("source path is not a block device")
+    except OSError as exc:
+        raise GPTInspectionError(f"cannot inspect source block device: {exc}") from exc
+
+    run = runner or subprocess.run
+    resolve = which or shutil.which
+    required = {name: resolve(name) for name in ("lsblk", "sfdisk", "blockdev")}
+    missing = [name for name, path in required.items() if not path]
+    if missing:
+        raise GPTInspectionError("required disk inspection tools are missing: " + ", ".join(missing))
+
+    try:
+        if safety_check is None:
+            check_capture_source_safe(
+                disk_path, runner=run, which=resolve, effective_uid=effective_uid
+            )
+        else:
+            safety_check(disk_path)
+    except SourceSafetyError as exc:
+        raise GPTInspectionError(f"source disk must be offline and unused: {exc}") from exc
+    except Exception as exc:
+        raise GPTInspectionError(f"source safety check failed: {exc}") from exc
+
+    uid = effective_uid or os.geteuid
+
+    def invoke(tool: str, args: list[str]) -> str:
+        try:
+            argv = privileged_argv(
+                [required[tool], *args], effective_uid=uid, which=resolve
+            )
+            result = run(
+                argv, check=True, capture_output=True, text=True, timeout=30
+            )
+            return result.stdout
+        except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
+            raise GPTInspectionError(f"{tool} read-only inspection failed: {exc}") from exc
+
+    try:
+        inventory = json.loads(invoke(
+            "lsblk",
+            ["--json", "--bytes", "--tree", "--paths", "--output",
+             "PATH,TYPE,FSTYPE,SIZE,LOG-SEC,PTTYPE", disk_path],
+        ))
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise GPTInspectionError("lsblk returned invalid disk inventory JSON") from exc
+    roots = inventory.get("blockdevices") if isinstance(inventory, dict) else None
+    if not isinstance(roots, list) or len(roots) != 1 or not isinstance(roots[0], dict):
+        raise GPTInspectionError("lsblk did not resolve exactly one source disk")
+    root = roots[0]
+    if root.get("path") != disk_path or root.get("type") != "disk":
+        raise GPTInspectionError("source must resolve to the selected whole disk")
+    sector_size = root.get("log-sec")
+    if isinstance(sector_size, bool) or not isinstance(sector_size, int) or sector_size not in {512, 4096}:
+        raise GPTInspectionError("lsblk did not report a supported logical sector size")
+    if root.get("pttype") != "gpt":
+        raise GPTInspectionError("only GPT source partition tables are supported")
+
+    size_text = invoke("blockdev", ["--getsize64", disk_path]).strip()
+    sector_text = invoke("blockdev", ["--getss", disk_path]).strip()
+    try:
+        disk_size = int(size_text)
+        blockdev_sector = int(sector_text)
+    except (TypeError, ValueError) as exc:
+        raise GPTInspectionError("blockdev returned invalid disk geometry") from exc
+    if disk_size <= 0 or blockdev_sector != sector_size or disk_size % sector_size:
+        raise GPTInspectionError("blockdev and lsblk disk geometry disagree")
+
+    raw_partitions = parse_sfdisk_gpt_json(
+        invoke("sfdisk", ["--json", disk_path]),
+        disk_path=disk_path,
+        expected_sector_size=sector_size,
+    )
+    children = root.get("children") or []
+    if not isinstance(children, list):
+        raise GPTInspectionError("lsblk returned invalid partition hierarchy")
+    filesystem_types: dict[str, str] = {}
+    child_paths: set[str] = set()
+    for child in children:
+        if not isinstance(child, dict):
+            raise GPTInspectionError("lsblk returned invalid partition metadata")
+        node = child.get("path")
+        fstype = child.get("fstype")
+        if not isinstance(node, str) or node in child_paths:
+            raise GPTInspectionError("lsblk returned duplicate or invalid partition paths")
+        child_paths.add(node)
+        if isinstance(fstype, str) and fstype.strip():
+            filesystem_types[node] = fstype.strip().lower()
+    sfdisk_paths = {str(partition["node"]) for partition in raw_partitions}
+    if child_paths != sfdisk_paths:
+        raise GPTInspectionError("lsblk and sfdisk disagree about the source partition set")
+    return {
+        "disk_path": disk_path,
+        "source_size_bytes": disk_size,
+        "sector_size": sector_size,
+        "partition_table_type": "gpt",
+        "partitions": raw_partitions,
+        "filesystem_types": filesystem_types,
+    }
