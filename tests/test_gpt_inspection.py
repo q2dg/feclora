@@ -44,6 +44,19 @@ class SfdiskGPTParserTests(unittest.TestCase):
         self.assertEqual(result["first_usable_lba"], 34)
         self.assertEqual(result["last_usable_lba"], 1048542)
 
+    def test_accepts_four_k_sector_gpt_usable_bounds(self):
+        output = self.payload(sectorsize=4096, firstlba=6, lastlba=131067)
+        metadata = parse_sfdisk_gpt_disk_metadata(
+            output, expected_sector_size=4096, disk_size_bytes=536870912
+        )
+        self.assertEqual(metadata["first_usable_lba"], 6)
+        self.assertEqual(metadata["last_usable_lba"], 131067)
+        records = parse_sfdisk_gpt_json(
+            output, disk_path="/dev/sda", expected_sector_size=4096,
+            disk_size_bytes=536870912,
+        )
+        self.assertEqual(len(records), 2)
+
     def test_rejects_missing_or_invalid_disk_guid(self):
         for disk_guid in (None, "invalid-guid"):
             payload = json.loads(self.payload())
