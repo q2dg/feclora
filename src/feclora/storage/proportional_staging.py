@@ -228,6 +228,9 @@ def apply_gpt_rewrite_to_staged_image(
             if digest.hexdigest() != staged.sha256:
                 raise ProportionalStagingError("staged image digest changed before GPT rewrite")
 
+            source_gpt = inspect_gpt_binary(
+                stream, sector_size=sector_size, disk_size_bytes=staged.size_bytes
+            )
             patches = build_gpt_rewrite(
                 stream,
                 source_size_bytes=staged.size_bytes,
@@ -249,8 +252,31 @@ def apply_gpt_rewrite_to_staged_image(
             verified = inspect_gpt_binary(
                 stream, sector_size=sector_size, disk_size_bytes=target_size_bytes
             )
-            if not verified.get("primary_backup_consistent"):
-                raise ProportionalStagingError("rewritten GPT copies did not validate")
+            if (not verified.get("primary_backup_consistent")
+                    or verified.get("disk_guid") != source_gpt.get("disk_guid")
+                    or verified.get("first_usable_lba") != source_gpt.get("first_usable_lba")
+                    or verified.get("entry_count") != source_gpt.get("entry_count")
+                    or verified.get("entry_size") != source_gpt.get("entry_size")):
+                raise ProportionalStagingError("rewritten GPT identity or geometry differs from source")
+            source_parts = {p["unique_guid"]: p for p in source_gpt["partitions"]}
+            rewritten_parts = {p["unique_guid"]: p for p in verified["partitions"]}
+            if source_parts.keys() != rewritten_parts.keys():
+                raise ProportionalStagingError("rewritten GPT partition identities differ from source")
+            plans_by_uuid = {getattr(p, "partuuid", None): p for p in planned_partitions}
+            if plans_by_uuid.keys() != source_parts.keys():
+                raise ProportionalStagingError("verified GPT does not match the complete partition plan")
+            for partuuid, before in source_parts.items():
+                after = rewritten_parts[partuuid]
+                plan = plans_by_uuid[partuuid]
+                expected_end = plan.start_sector + plan.size_sectors - 1
+                if (after["type_guid"] != before["type_guid"]
+                        or after["first_lba"] != before["first_lba"]
+                        or after["last_lba"] != expected_end
+                        or after["attributes"] != before["attributes"]
+                        or after["name"] != before["name"]):
+                    raise ProportionalStagingError(
+                        f"rewritten GPT partition {partuuid} failed metadata read-back"
+                    )
             output_digest = hashlib.sha256()
             stream.seek(0)
             while True:
