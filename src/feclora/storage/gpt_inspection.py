@@ -69,8 +69,8 @@ def parse_sfdisk_gpt_json(
         if (
             not isinstance(node, str)
             or not node.startswith(disk_path)
-            or "\\x00" in node
-            or not re.fullmatch(r"(?:p?\\d+|-part\\d+)", node[len(disk_path):])
+            or "\x00" in node
+            or not re.fullmatch(r"(?:p?\d+|-part\d+)", node[len(disk_path):])
         ):
             raise GPTInspectionError(f"partition entry {index} does not belong to {disk_path}")
         if node == disk_path or node in seen_paths:
