@@ -89,6 +89,8 @@ The Operations wizard provides:
   configured; artifact integrity is recorded and verified with SHA-256;
 - durable local operation history, with a Cancel control for queued,
   preflight and running jobs, plus JSON export of the latest 100 loaded records.
+  The history also reconciles the Live PXE restore journal, including interrupted
+  results; PXE entries are read-only and cannot be cancelled through this view.
 
 The Operation history tab can request cancellation of queued, preflight or
 running local jobs. Feclora stops the worker and waits for its storage child
