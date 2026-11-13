@@ -308,6 +308,23 @@ def _download_https_object(
                     pass
 
 
+
+def _check_https_staging_capacity(directory: Path, required_bytes: int) -> None:
+    """Require local space for the complete HTTPS image set plus a safety reserve."""
+    if isinstance(required_bytes, bool) or not isinstance(required_bytes, int) or required_bytes <= 0:
+        raise PXEAnswerClientError("HTTPS image set has an invalid total artifact size")
+    reserve_bytes = max(256 * 1024 * 1024, min(required_bytes // 20, 2 * 1024 * 1024 * 1024))
+    try:
+        free_bytes = shutil.disk_usage(directory).free
+    except OSError as exc:
+        raise PXEAnswerClientError(f"cannot inspect local HTTPS staging capacity: {exc}") from exc
+    if free_bytes < required_bytes + reserve_bytes:
+        raise PXEAnswerClientError(
+            "insufficient local staging space for HTTPS image set: "
+            f"{free_bytes} bytes free, {required_bytes} bytes required plus "
+            f"{reserve_bytes} bytes safety reserve"
+        )
+
 def _stage_https_repository(repository_url: str, image_id: str, directory: Path) -> Path:
     """Stage a public or pre-authorized HTTPS image set using S3-compatible object keys.
 
@@ -340,6 +357,9 @@ def _stage_https_repository(repository_url: str, image_id: str, directory: Path)
         raise PXEAnswerClientError(f"HTTPS repository manifest is invalid: {exc}") from exc
     if manifest.image_id != image_id or manifest.image_type != "disk":
         raise PXEAnswerClientError("PXE answer requires a matching whole-disk image manifest")
+    _check_https_staging_capacity(
+        directory, sum(artifact.size_bytes for artifact in manifest.artifacts),
+    )
     for artifact in manifest.artifacts:
         artifact_path = directory / artifact.filename
         artifact_url = urljoin(base, f"{image_id}/{artifact.filename}")
