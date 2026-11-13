@@ -118,16 +118,11 @@ repository manager: NFS and credential-free HTTPS work today, while SSHFS,
 SMB/CIFS and private S3 need integration with the existing Feclora client-side
 repository mechanisms.
 
-PXE result reporting must follow the same identity-free model. The Server may
-accept bounded, job-scoped result reports without client authentication, but
-must treat every field—including MAC address, operation status, progress and
-timestamps—as untrusted client-supplied data. MAC addresses are correlation
-hints only and must never be presented as authenticated identities. Server
-reconciliation must validate the job and event schema, cap request/event sizes,
-rate-limit or otherwise bound ingestion, and keep reported results distinct
-from Server-observed state. No result-ingestion endpoint is implemented yet;
-local Live operation history remains available in Cockpit on the PXE client.
-
+PXE is only a boot transport. After Live starts, storage access and
+restoration are performed by the Client itself. The PXE Server does not
+receive operation logs, progress reports or restore results. Local operation
+history remains on the Live Client; no client authentication or reporting
+channel is required.
 ## Provider support status
 
 The unattended answer adapter currently connects NFS and credential-free HTTPS.
