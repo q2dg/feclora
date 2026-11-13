@@ -99,8 +99,7 @@ class PXEAnswerClientTests(unittest.TestCase):
             events = []
             fake_manager = SimpleNamespace(
                 list=lambda: [{"id": "nas-images", "mounted": False}],
-                mount=lambda identifier: events.append(("mount", identifier)),
-                acquire_usage_lock=lambda identifier: os.open(os.devnull, os.O_RDONLY),
+                ensure_mounted_and_acquire_usage_lock=lambda identifier: (events.append(("mount", identifier)), (os.open(os.devnull, os.O_RDONLY), True))[1],
                 resolve=lambda identifier, write=False: str(mount_root),
                 unmount=lambda identifier: events.append(("unmount", identifier)),
             )
@@ -125,8 +124,7 @@ class PXEAnswerClientTests(unittest.TestCase):
                 raise RuntimeError("simulated lease failure")
             fake_manager = SimpleNamespace(
                 list=lambda: [{"id": "nas-images", "mounted": False}],
-                mount=lambda identifier: events.append(("mount", identifier)),
-                acquire_usage_lock=fail_lease,
+                ensure_mounted_and_acquire_usage_lock=lambda identifier: (events.append(("mount", identifier)), fail_lease(identifier))[1],
                 unmount=lambda identifier: events.append(("unmount", identifier)),
             )
             fake_s3 = SimpleNamespace(list=lambda: [])
@@ -149,8 +147,7 @@ class PXEAnswerClientTests(unittest.TestCase):
             lease_fd = os.open(os.devnull, os.O_RDONLY)
             fake_manager = SimpleNamespace(
                 list=lambda: [{"id": "nas-images", "mounted": False}],
-                mount=lambda identifier: events.append(("mount", identifier)),
-                acquire_usage_lock=lambda _identifier: lease_fd,
+                ensure_mounted_and_acquire_usage_lock=lambda identifier: (events.append(("mount", identifier)), (lease_fd, True))[1],
                 resolve=lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("bad mount")),
                 unmount=lambda identifier: events.append(("unmount", identifier)),
             )
