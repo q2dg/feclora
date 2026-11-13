@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import stat
 from typing import Any, Callable
 
@@ -85,6 +86,20 @@ def preview_proportional_gpt_restore(
         raise ProportionalRestoreError("proportional restore preview requires a strictly smaller target")
     if source.get("partition_table_type") != "gpt":
         raise ProportionalRestoreError("source partition table is not GPT")
+    disk_guid = source.get("disk_guid")
+    first_usable_lba = source.get("first_usable_lba")
+    last_usable_lba = source.get("last_usable_lba")
+    if not isinstance(disk_guid, str) or not re.fullmatch(
+        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+        disk_guid,
+    ):
+        raise ProportionalRestoreError("source GPT disk GUID is missing or invalid")
+    source_sectors = source_size // source_sector
+    if (isinstance(first_usable_lba, bool) or not isinstance(first_usable_lba, int)
+            or isinstance(last_usable_lba, bool) or not isinstance(last_usable_lba, int)
+            or first_usable_lba < 34 or last_usable_lba < first_usable_lba
+            or last_usable_lba >= source_sectors - 1):
+        raise ProportionalRestoreError("source GPT usable-LBA bounds are missing or invalid")
     if target.get("write_authorized") is not False:
         raise ProportionalRestoreError("target inspector did not preserve the no-write guarantee")
 
