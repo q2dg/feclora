@@ -2234,8 +2234,6 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         job = DeploymentJob.from_dict(params["job"])
     except JobValidationError as exc:
         raise WebAPIError(str(exc)) from exc
-    if job.operation == "save" and job.target_type != "disk":
-        raise WebAPIError("Client-side capture currently supports whole-disk jobs only")
     if job.transport == "unicast" and len(job.authorized_clients) != 1:
         raise WebAPIError("persistent unicast deployment supports exactly one Client per job")
     if job.transport == "multicast" and len(job.authorized_clients) < 2:
