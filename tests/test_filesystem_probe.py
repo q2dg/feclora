@@ -223,7 +223,7 @@ class NTFSFilesystemProbeTests(unittest.TestCase):
     def test_reports_read_only_minimum_and_never_invokes_resize(self):
         self.assertEqual(self.probe(), 123456789)
         self.assertIn(
-            ["/sbin/ntfsresize", "--info", "--force", "--no-action", "/dev/fake"],
+            ["/sbin/ntfsresize", "--info", "/dev/fake"],
             self.commands,
         )
         self.assertFalse(any("--size" in command for command in self.commands))
