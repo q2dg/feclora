@@ -152,7 +152,7 @@ Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS end
 3. Mount it through Feclora. Confirm Cockpit distinguishes `unmounted`, `mounted_unverified`, `identity_verified` and `unknown`. The identity check reads mount metadata via `findmnt` with a five-second subprocess timeout; timeout or malformed output must report `unknown`, never `unmounted` or verified. `health_state` must remain `unknown` even when source, filesystem type and access mode match. Inspection must not run stat/statvfs, path lookups, directory listings or any other remote filesystem I/O. A network outage may leave a mount identity record present; this is not evidence of remote availability.
 4. Exercise the remote path with a real inventory/read operation after identity verification. Confirm that it completes (not merely that the mount is listed as verified), then open the repository image inventory. Confirm it lists only images from the
    selected verified repository, not files from the local directory beneath
-   an unmounted mountpoint.
+   an unmounted mountpoint. While a controlled inventory scan holds its shared usage lease, attempt an unmount or definition update and confirm the exclusive lifecycle operation is refused. After the scan exits (including an injected scan error), confirm the lease is released and the lifecycle operation can be retried.
 5. For a read/write provider, have one Client capture and publish a small
    disposable test disk to that repository. Verify its manifest and artifact digests,
    artifact byte counts and cryptographic digests, then restore it to a
