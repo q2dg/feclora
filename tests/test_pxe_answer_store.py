@@ -31,11 +31,15 @@ class PXEAnswerStoreTests(unittest.TestCase):
             )
             self.assertTrue(Path(result["directory"], "answer.json").is_file())
             self.assertEqual(Path(result["directory"], "answer.json").stat().st_mode & 0o777, 0o444)
+            current = Path(tmp) / "unattended-answer.json"
+            self.assertTrue(current.is_file())
+            self.assertTrue(os.path.samefile(current, Path(result["directory"], "answer.json")))
             self.assertEqual(result["answer_url"], f"http://192.0.2.10:8080/answers/{self.JOB_ID}/answer.json")
             published_answer = json.loads(Path(result["directory"], "answer.json").read_text())
             self.assertNotIn("expires_at", published_answer)
 
             self.assertTrue(revoke_pxe_answer(tmp, self.JOB_ID))
+            self.assertFalse(current.exists())
             self.assertFalse(revoke_pxe_answer(tmp, self.JOB_ID))
 
     def test_rejects_invalid_answer_and_noncanonical_job_id(self):
@@ -61,6 +65,7 @@ class PXEAnswerStoreTests(unittest.TestCase):
             self.assertEqual(clear_stale_pxe_answers(tmp), 2)
             self.assertEqual(clear_stale_pxe_answers(tmp), 0)
             self.assertFalse((Path(tmp) / "answers" / self.JOB_ID).exists())
+            self.assertFalse((Path(tmp) / "unattended-answer.json").exists())
 
     def test_refuses_to_replace_existing_job_answer(self):
         with tempfile.TemporaryDirectory() as tmp:
