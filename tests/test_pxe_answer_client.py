@@ -45,7 +45,7 @@ class PXEAnswerClientTests(unittest.TestCase):
                 "quiet feclora.pxe_mode=interactive",
                 destination=destination,
                 downloader=lambda _url: self.fail("interactive boot must not download"),
-                dhcp_url_provider=lambda: None,
+                dhcp_url_provider=lambda: (_ for _ in ()).throw(AssertionError("interactive PXE must not inspect DHCP")),
             )
             self.assertIsNone(result)
             self.assertFalse(destination.exists())
