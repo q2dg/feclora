@@ -10,6 +10,54 @@ from feclora.webapi import WebAPIError, dispatch, _device, _find_inventory_devic
 from feclora.deployment.job import DeploymentJob
 
 
+class PXEOperationHistoryTests(unittest.TestCase):
+    def test_pxe_restore_result_is_reconciled_into_local_history_and_not_cancellable(self):
+        import json
+        import stat
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from feclora.webapi import _local_operations
+
+        operation_id = "8a6d1b3c-1e8e-4d4c-9a50-0f12e4a3b456"
+        events = [
+            {
+                "operation_id": operation_id, "operation": "restore_disk",
+                "target": "/dev/sda", "image_id": "pxe-golden",
+                "pid": 1, "boot_id": "previous-boot", "process_start_ticks": 10,
+                "timestamp": "2026-11-13T00:00:00Z", "status": "started",
+            },
+            {
+                "operation_id": operation_id, "operation": "restore_disk",
+                "target": "/dev/sda", "image_id": "pxe-golden",
+                "pid": 1, "boot_id": "previous-boot", "process_start_ticks": 10,
+                "timestamp": "2026-11-13T00:00:01Z", "status": "progress",
+                "bytes_done": 4096, "bytes_total": 8192,
+            },
+        ]
+        class EmptyStore:
+            def list(self, limit=100):
+                return []
+        with tempfile.TemporaryDirectory() as root:
+            journal = Path(root) / "operations.jsonl"
+            journal.write_text("".join(json.dumps(event) + "\n" for event in events), encoding="utf-8")
+            fake_stat = SimpleNamespace(
+                st_mode=stat.S_IFREG | 0o600, st_uid=0, st_size=journal.stat().st_size,
+            )
+            with patch("feclora.webapi._PXE_OPERATION_LOG_PATH", journal), \
+                 patch("feclora.webapi._local_operation_store", return_value=EmptyStore()), \
+                 patch("feclora.webapi.os.lstat", return_value=fake_stat):
+                result = _local_operations({"limit": 10})
+        self.assertEqual(len(result["operations"]), 1)
+        item = result["operations"][0]
+        self.assertEqual(item["action"], "pxe_restore_disk")
+        self.assertEqual(item["state"], "interrupted")
+        self.assertFalse(item["cancellable"])
+        self.assertEqual(item["events"][0]["details"]["target"], "/dev/sda")
+        self.assertEqual(item["events"][1]["details"]["bytes_done"], 4096)
+
+
 class WebAPITests(unittest.TestCase):
     def test_image_manifest_rejects_root_squash_anonymous_ownership(self):
         import stat
