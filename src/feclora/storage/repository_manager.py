@@ -258,7 +258,8 @@ class RemoteRepositoryManager:
                 else:
                     mounted = True
                     try:
-                        self.resolve(identifier)
+                        repo = _repository(identifier, definition, owner_uid=self.owner_uid)
+                        self._verify_mount_record(repo, record)
                         verified = True
                         mount_state = "identity_verified"
                     except RepositoryManagerError as exc:
@@ -730,6 +731,14 @@ class RemoteRepositoryManager:
         record = self._mount_record(mountpoint)
         if record is None:
             raise RepositoryManagerError("repository is not mounted")
+        self._verify_mount_record(repo, record, write=write)
+        return mountpoint
+
+    @staticmethod
+    def _verify_mount_record(
+        repo: RemoteRepository, record: tuple[str, str, str], *, write: bool = False,
+    ) -> None:
+        """Validate local mount metadata only; never access the remote filesystem."""
         filesystem, source, options = record
         if repo.provider == "sshfs":
             expected_source = f"{repo.username}@{repo.host}:{repo.remote_path}"
@@ -765,7 +774,6 @@ class RemoteRepositoryManager:
             raise RepositoryManagerError("repository is not mounted read/write")
         if not write and repo.read_only and "ro" not in option_set:
             raise RepositoryManagerError("repository was configured read-only but is mounted read/write")
-        return mountpoint
 
     def _mount_record(self, mountpoint: str) -> tuple[str, str, str] | None:
         findmnt = self.which("findmnt")
