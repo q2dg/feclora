@@ -244,6 +244,53 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
             "mountpoint": str(self.mount_root / "images"),
         })
 
+    def test_failed_mount_verification_rolls_back_only_matching_source(self):
+        self.manager.add("images", self.definition)
+        expected = (
+            "fuse.sshfs", "backup@nas.example.net:/images",
+            "ro,relatime",
+        )
+        records = iter([None, expected, expected, expected, None])
+        self.manager._mount_record = lambda _path: next(records)
+        calls = []
+
+        def runner(argv, **kwargs):
+            calls.append(argv)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        self.manager.runner = runner
+        with self.assertRaisesRegex(
+            RepositoryManagerError, "missing restrictive safety options",
+        ):
+            self.manager.mount("images")
+        umount_calls = [call for call in calls if call[0].endswith("umount")]
+        self.assertEqual(len(umount_calls), 1)
+        self.assertEqual(umount_calls[0], [
+            "/usr/bin/umount", "--", str(self.mount_root / "images"),
+        ])
+
+    def test_mount_failure_rolls_back_matching_partial_mount(self):
+        self.manager.add("images", self.definition)
+        expected = (
+            "fuse.sshfs", "backup@nas.example.net:/images",
+            "ro,relatime,nosuid,nodev,noexec",
+        )
+        records = iter([None, expected, None])
+        self.manager._mount_record = lambda _path: next(records)
+        calls = []
+
+        def runner(argv, **kwargs):
+            calls.append(argv)
+            if argv[0] == "/usr/bin/sshfs":
+                return SimpleNamespace(returncode=32, stdout="", stderr="connection lost")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        self.manager.runner = runner
+        with self.assertRaisesRegex(RepositoryManagerError, "connection lost"):
+            self.manager.mount("images")
+        umount_calls = [call for call in calls if call[0].endswith("umount")]
+        self.assertEqual(len(umount_calls), 1)
+
     def test_mount_rejects_wrong_filesystem_even_when_mountpoint_is_occupied(self):
         self.manager.add("images", self.definition)
         records = iter([
