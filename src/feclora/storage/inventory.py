@@ -162,3 +162,42 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def assess_disk_compatibility(source: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:
+    """Compare two inventoried whole disks without probing or modifying either."""
+    blockers: list[str] = []
+    warnings: list[str] = []
+    if source.get("type") != "disk" or target.get("type") != "disk":
+        blockers.append("Both source and destination must be whole disks.")
+    source_path, target_path = source.get("path"), target.get("path")
+    if not source_path or not target_path:
+        blockers.append("A source or destination device path is unknown.")
+    elif source_path == target_path:
+        blockers.append("Source and destination refer to the same device path.")
+    if target.get("read_only"):
+        blockers.append("Destination is marked read-only.")
+    if target.get("mountpoints"):
+        blockers.append("Destination has mounted filesystems: " + ", ".join(target["mountpoints"]))
+    if source.get("mountpoints"):
+        warnings.append("Source has mounted filesystems: " + ", ".join(source["mountpoints"]) + ".")
+    source_size, target_size = source.get("size_bytes"), target.get("size_bytes")
+    if not isinstance(source_size, int) or source_size <= 0:
+        warnings.append("Source capacity is unknown; capacity compatibility cannot be established.")
+    elif not isinstance(target_size, int) or target_size <= 0:
+        blockers.append("Destination capacity is unknown; refusing an unverified size comparison.")
+    elif target_size < source_size:
+        blockers.append(f"Destination is smaller than source ({target_size} < {source_size} bytes).")
+    elif target_size > source_size:
+        warnings.append("Destination is larger; partition layout will be copied as-is (no proportional growth).")
+    source_sector, target_sector = source.get("logical_sector_size"), target.get("logical_sector_size")
+    if source_sector not in {512, 4096} or target_sector not in {512, 4096}:
+        warnings.append("Logical sector size is unknown or unsupported; engine preflight must decide.")
+    elif source_sector != target_sector:
+        blockers.append(f"Logical sector sizes differ ({source_sector} vs {target_sector} bytes).")
+    source_transport, target_transport = source.get("transport"), target.get("transport")
+    if source_transport and target_transport and source_transport != target_transport:
+        warnings.append(f"Transport differs ({source_transport} to {target_transport}); verify target firmware/driver support.")
+    if not source.get("model") or not target.get("model"):
+        warnings.append("Model metadata is incomplete; physical device identity should be checked manually.")
+    return {"compatible": not blockers, "blockers": blockers, "warnings": warnings}
