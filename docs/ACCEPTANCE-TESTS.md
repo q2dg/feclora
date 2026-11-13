@@ -149,7 +149,7 @@ Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS end
 2. Add the repository in Cockpit with the correct provider, endpoint/share,
    remote path and access mode. Credential contents must never be pasted into
    Cockpit fields or stored in ordinary project configuration.
-3. Mount it through Feclora. Confirm Cockpit reports mounted and **identity verified** and that provider source, filesystem type and access mode match the intended endpoint. This check reads mount metadata via `findmnt` with a five-second subprocess timeout; timeout or malformed output is an error, not a successful check. It is not a live connectivity, read/write, latency, free-space or quota health probe. A stale mount may still pass identity verification.
+3. Mount it through Feclora. Confirm Cockpit distinguishes `unmounted`, `mounted_unverified`, `identity_verified` and `unknown`. The identity check reads mount metadata via `findmnt` with a five-second subprocess timeout; timeout or malformed output must report `unknown`, never `unmounted` or verified. `health_state` must remain `unknown` even when source, filesystem type and access mode match. Inspection must not run stat/statvfs, path lookups, directory listings or any other remote filesystem I/O. A network outage may leave a mount identity record present; this is not evidence of remote availability.
 4. Exercise the remote path with a real inventory/read operation after identity verification. Confirm that it completes (not merely that the mount is listed as verified), then open the repository image inventory. Confirm it lists only images from the
    selected verified repository, not files from the local directory beneath
    an unmounted mountpoint.
@@ -170,7 +170,7 @@ Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS end
    an anonymous UID is expected to be rejected.
 9. Unmount through Feclora, confirm the mount is gone, and verify the
    repository definition remains available for a later mount.
-10. Record provider version, mount options, identity/access-mode verification,
+9a. With the remote endpoint disconnected, inspect the repository state. Confirm inspection remains bounded, reports only the locally observable mount identity and leaves health unknown. Confirm no automatic unmount, forced detach or lazy detach occurs. If `findmnt` is made to time out or return malformed output in a controlled test, the state must be `unknown` and the mount must remain untouched.\n10. Record provider version, mount options, identity/access-mode verification,
     actual I/O outcomes, throughput observations, and all failures. Do not record a passing identity check as a passing health check. Never include secrets in the report.
 
 
