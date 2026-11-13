@@ -552,5 +552,81 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         result_queue.join_thread()
 
 
+    def test_resolve_validates_nfs_source_type_and_access_mode(self):
+        definition = {
+            "provider": "nfs", "host": "nas.example.net",
+            "remote_path": "/exports/images", "username": None,
+            "credential_file": None, "identity_file": None,
+            "known_hosts_file": None, "port": None,
+            "read_only": False,
+        }
+        self.manager.add("nfs-images", definition)
+        self.manager._mount_record = lambda _path: (
+            "nfs4", "nas.example.net:/exports/images",
+            "rw,relatime,nosuid,nodev,noexec",
+        )
+        self.assertEqual(
+            self.manager.resolve("nfs-images", write=True),
+            str(self.mount_root / "nfs-images"),
+        )
+        self.manager._mount_record = lambda _path: (
+            "nfs4", "other.example.net:/exports/images",
+            "rw,relatime,nosuid,nodev,noexec",
+        )
+        with self.assertRaisesRegex(RepositoryManagerError, "source or type"):
+            self.manager.resolve("nfs-images")
+        self.manager._mount_record = lambda _path: (
+            "nfs4", "nas.example.net:/exports/images",
+            "ro,relatime,nosuid,nodev,noexec",
+        )
+        with self.assertRaisesRegex(RepositoryManagerError, "not mounted read/write"):
+            self.manager.resolve("nfs-images", write=True)
+        self.manager._mount_record = lambda _path: (
+            "ext4", "nas.example.net:/exports/images",
+            "rw,relatime,nosuid,nodev,noexec",
+        )
+        with self.assertRaisesRegex(RepositoryManagerError, "source or type"):
+            self.manager.resolve("nfs-images")
+
+    def test_resolve_validates_smb_share_prefixpath_and_access_mode(self):
+        credentials = Path(self.temp.name) / "smb.credentials"
+        credentials.write_text("username=backup\\npassword=not-a-real-secret\\n", encoding="ascii")
+        credentials.chmod(0o600)
+        definition = {
+            "provider": "smb", "host": "nas.example.net",
+            "remote_path": "/images/archive", "username": None,
+            "credential_file": str(credentials), "identity_file": None,
+            "known_hosts_file": None, "port": None,
+            "read_only": False,
+        }
+        self.manager.add("smb-images", definition)
+        self.manager._mount_record = lambda _path: (
+            "cifs", "//nas.example.net/images",
+            "rw,relatime,nosuid,nodev,noexec,prefixpath=archive",
+        )
+        self.assertEqual(
+            self.manager.resolve("smb-images", write=True),
+            str(self.mount_root / "smb-images"),
+        )
+        self.manager._mount_record = lambda _path: (
+            "cifs", "//nas.example.net/images",
+            "rw,relatime,nosuid,nodev,noexec,prefixpath=other",
+        )
+        with self.assertRaisesRegex(RepositoryManagerError, "source or type"):
+            self.manager.resolve("smb-images")
+        self.manager._mount_record = lambda _path: (
+            "cifs", "//other.example.net/images",
+            "rw,relatime,nosuid,nodev,noexec,prefixpath=archive",
+        )
+        with self.assertRaisesRegex(RepositoryManagerError, "source or type"):
+            self.manager.resolve("smb-images")
+        self.manager._mount_record = lambda _path: (
+            "cifs", "//nas.example.net/images",
+            "ro,relatime,nosuid,nodev,noexec,prefixpath=archive",
+        )
+        with self.assertRaisesRegex(RepositoryManagerError, "not mounted read/write"):
+            self.manager.resolve("smb-images", write=True)
+
+
 if __name__ == "__main__":
     unittest.main()
