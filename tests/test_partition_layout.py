@@ -39,14 +39,20 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         source_sectors = 8_500_000_000 // 4096
         target_sectors = 5_000_000_000 // 4096
         source_last = source_sectors - 1 - 5
+        partitions = [
+            {"node": "/dev/source1", "start": 2048, "size": 250_000,
+             "type": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"},
+            {"node": "/dev/source2", "start": 260_000, "size": 1_000_000,
+             "type": "0fc63daf-8483-4772-8e79-3d69d8477de4"},
+        ]
         plan = plan_proportional_gpt_layout(
-            self.partitions,
+            partitions,
             source_size_bytes=8_500_000_000,
             target_size_bytes=5_000_000_000,
             sector_size=4096,
             partition_table_type="gpt",
-            minimum_sizes_bytes={"/dev/source1": 2_000_000 * 4096,
-                                 "/dev/source2": 1024 * 1024 * 1024},
+            minimum_sizes_bytes={"/dev/source1": 250_000 * 4096,
+                                 "/dev/source2": 512 * 1024 * 1024},
             filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
             source_first_usable_lba=6,
             source_last_usable_lba=source_last,
