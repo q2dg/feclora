@@ -80,6 +80,20 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
                 filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
             )
 
+
+    def test_rejects_shrinking_non_ext_filesystem(self):
+        with self.assertRaisesRegex(PartitionLayoutError, "only permits shrinking ext2/3/4"):
+            plan_proportional_gpt_layout(
+                self.partitions,
+                source_size_bytes=8_500_000_000,
+                target_size_bytes=5_000_000_000,
+                sector_size=512,
+                partition_table_type="gpt",
+                minimum_sizes_bytes={"/dev/source1": 256 * 1024 * 1024,
+                                     "/dev/source2": 1024 * 1024 * 1024},
+                filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
+            )
+
     def test_requires_a_strictly_smaller_destination(self):
         with self.assertRaisesRegex(PartitionLayoutError, "smaller target"):
             plan_proportional_gpt_layout(
