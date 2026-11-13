@@ -44,9 +44,25 @@ class PXEAnswerClientTests(unittest.TestCase):
                 "quiet feclora.pxe_mode=interactive",
                 destination=destination,
                 downloader=lambda _url: self.fail("interactive boot must not download"),
+                dhcp_url_provider=lambda: None,
             )
             self.assertIsNone(result)
             self.assertFalse(destination.exists())
+
+    def test_iso_boot_discovers_current_answer_url_from_dhcp(self):
+        with tempfile.TemporaryDirectory() as root:
+            destination = Path(root) / "pxe" / "answer.json"
+            stable_url = "http://192.0.2.10:8080/unattended-answer.json"
+            seen = []
+            result = fetch_live_pxe_answer(
+                "quiet ro",
+                destination=destination,
+                downloader=lambda url: (seen.append(url) or answer()),
+                dhcp_url_provider=lambda: stable_url,
+            )
+            self.assertEqual(seen, [stable_url])
+            self.assertEqual(result["image_id"], "golden")
+            self.assertEqual(destination.read_bytes(), answer())
 
     def test_unattended_boot_downloads_validates_and_publishes_answer(self):
         with tempfile.TemporaryDirectory() as root:
