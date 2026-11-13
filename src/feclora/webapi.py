@@ -1608,7 +1608,7 @@ def _pxe_local_operations(limit: int) -> list[dict[str, Any]]:
     if info.st_size > 2 * 1024 * 1024:
         raise WebAPIError("PXE operation journal exceeds the Cockpit read limit")
     records = []
-    for line in path.read_text(encoding="utf-8").splitlines()[-500:]:
+    for line in path.read_text(encoding="utf-8").splitlines():
         try:
             event = json.loads(line)
         except json.JSONDecodeError:
