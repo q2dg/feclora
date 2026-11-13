@@ -10,7 +10,8 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
     def setUp(self):
         self.partitions = [
             {"node": "/dev/source1", "start": 2048, "size": 2_000_000,
-             "type": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b", "uuid": "AAAA", "name": "EFI"},
+             "type": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b", "uuid": "AAAA", "name": "EFI",
+             "attrs": "RequiredPartition,NoBlockIOProtocol"},
             {"node": "/dev/source2", "start": 2_100_000, "size": 6_000_000,
              "type": "0fc63daf-8483-4772-8e79-3d69d8477de4", "uuid": "BBBB", "name": "root"},
         ]
@@ -28,10 +29,24 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         )
         self.assertEqual([item.partuuid for item in plan], ["AAAA", "BBBB"])
         self.assertEqual([item.name for item in plan], ["EFI", "root"])
+        self.assertEqual(plan[0].attributes, "RequiredPartition,NoBlockIOProtocol")
         self.assertEqual([item.start_sector for item in plan], [2048, 2_100_000])
         self.assertLessEqual(plan[-1].end_sector, 5_000_000_000 // 512 - 34)
         self.assertTrue(all(left.end_sector < right.start_sector for left, right in zip(plan, plan[1:])))
         self.assertEqual(plan[0].minimum_size_bytes, 2_000_000 * 512)
+
+    def test_rejects_invalid_gpt_partition_attributes(self):
+        invalid = [dict(item) for item in self.partitions]
+        invalid[0]["attrs"] = ["not", "a", "string"]
+        with self.assertRaisesRegex(PartitionLayoutError, "invalid GPT attributes"):
+            plan_proportional_gpt_layout(
+                invalid, source_size_bytes=8_500_000_000,
+                target_size_bytes=5_000_000_000, sector_size=512,
+                partition_table_type="gpt",
+                minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
+                                     "/dev/source2": 1024 * 1024 * 1024},
+                filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
+            )
 
     def test_rejects_minimum_sizes_that_do_not_fit(self):
         with self.assertRaisesRegex(PartitionLayoutError, "only the final source partition"):
