@@ -159,3 +159,30 @@ class ExtFilesystemProbeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_device_preview_connects_discovery_to_planner_without_write_authority(self):
+        from unittest.mock import patch
+        from feclora.storage.filesystem_probe import preview_proportional_gpt_plan_from_disk
+
+        discovered = {
+            "disk_path": "/dev/sda",
+            "source_size_bytes": 8_500_000_000,
+            "sector_size": 512,
+            "partition_table_type": "gpt",
+            "partitions": [{
+                "node": "/dev/sda1", "start": 2048, "size": 8_000_000,
+                "type": "0fc63daf-8483-4772-8e79-3d69d8477de4",
+            }],
+            "filesystem_types": {"/dev/sda1": "ext4"},
+        }
+        with patch("feclora.storage.gpt_inspection.inspect_gpt_source", return_value=discovered):
+            result = preview_proportional_gpt_plan_from_disk(
+                "/dev/sda",
+                target_size_bytes=5_000_000_000,
+                minimum_probe=lambda *_args, **_kwargs: 1024 * 1024 * 1024,
+            )
+        self.assertEqual(result["source_disk"], "/dev/sda")
+        self.assertFalse(result["write_authorized"])
+        self.assertEqual(result["target_size_bytes"], 5_000_000_000)
+        self.assertEqual(len(result["partitions"]), 1)
