@@ -7,13 +7,14 @@ does not shrink filesystems, edit GPT, authorize a target, or restore a disk.
 from __future__ import annotations
 
 import hashlib
+import lzma
 import os
 import shutil
 import stat
 import tempfile
+import zlib
 from contextlib import contextmanager
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Iterator
 
 from .disk_restore import (
@@ -22,6 +23,7 @@ from .disk_restore import (
     _preflight_decoded_size,
     _verified_artifact_stream,
 )
+from .compression import CompressionError
 from .image_manifest import ImageManifest
 
 
@@ -141,7 +143,7 @@ def stage_verified_raw_disk_image(
             finally:
                 os.close(directory_fd)
             yield StagedRawDiskImage(staged_path, total, digest.hexdigest())
-    except (DiskRestoreError, OSError) as exc:
+    except (DiskRestoreError, CompressionError, OSError, EOFError, lzma.LZMAError, zlib.error) as exc:
         raise ProportionalStagingError(f"could not prepare verified private RAW staging: {exc}") from exc
     finally:
         if staged_path is not None:
