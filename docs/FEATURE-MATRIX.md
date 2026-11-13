@@ -59,3 +59,20 @@ creation and laboratory validation are operator-owned steps.
 | Repositories | S3 object storage | Implemented as a separate object API, never a filesystem mount; distributed restore fetches and verifies objects on the Server before TLS delivery, and distributed Client capture publishes to S3 only after a verified TLS receive. | Cockpit local and distributed image workflows | Automated failure-injection coverage is a software gate; live S3-compatible provider acceptance is optional operator validation |
 
 Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
+
+
+## Clonezilla-inspired follow-up status
+
+| Capability | Current Feclora status | Remaining work |
+|---|---|---|
+| Independent image verification | Implemented: read-only verification report checks stored digest/size, encryption authentication, decompression and decoded image size | Review any uncovered artifact roles; no new verifier should duplicate the existing path |
+| One image to multiple targets | Implemented for multiple authorized remote Clients through UDPcast multicast; each Client independently validates its target | No same-host multi-disk restore workflow; keep this distinction explicit |
+| Proportional partition resizing | Not implemented; current whole-disk layout preview is read-only and preserve-layout restore does not grow partitions/filesystems | Preview-first sector planner, safe filesystem-specific growth, post-growth verification and destructive-operation tests |
+| Read-error-tolerant capture | Not implemented as a recoverable imaging mode | Evaluate ddrescue, mapfile lifecycle, incomplete/degraded manifest semantics and explicit resume authorization |
+| Standalone recovery ISO/USB workflow | Existing Feclora Live ISO is bootable; no separate documented recovery-media production workflow | Specify reproducible media workflow, integrity checks and operator runbook; ISO generation remains operator-owned |
+| Filesystem coverage | Partclone mappings exist for ext2/3/4, XFS, NTFS, FAT, exFAT, F2FS and Btrfs, with explicit raw fallback | Validate real filesystem round trips and exact shipped tool versions |
+| Post-restore actions | Local rescue UI offers no action, reboot or poweroff after successful read-back verification | Preserve verification-before-action ordering; arbitrary shell hooks are not included |
+| Hardware compatibility diagnostics | Inventory reports device identity, geometry, filesystems and storage topology | Add a consolidated source/target compatibility preflight and explain every blocker/warning |
+| Multicast restore | Implemented for multiple authorized Clients using UDPcast and per-Client target validation | Real switch/IGMP and multi-host acceptance remains operator validation |
+| Incremental/differential images | Documentation study only | No implementation authorized |
+| Mountable images / individual-file recovery | Documentation study only | No implementation authorized |
