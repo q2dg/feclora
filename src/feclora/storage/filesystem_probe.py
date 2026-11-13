@@ -1,4 +1,4 @@
-"""Read-only minimum-size probing for offline ext2/3/4 filesystems."""
+"""Read-only minimum-size probing for offline ext2/3/4 and NTFS filesystems."""
 from __future__ import annotations
 
 import os
@@ -107,6 +107,91 @@ def probe_ext_minimum_size(
     if minimum_blocks <= 0:
         raise FilesystemProbeError("resize2fs returned an invalid minimum block count")
     minimum_bytes = minimum_blocks * block_size
+
+    capacity_result = invoke("blockdev", ["--getsize64", device_path])
+    try:
+        capacity = int(capacity_result.stdout.strip())
+    except (TypeError, ValueError) as exc:
+        raise FilesystemProbeError("blockdev returned an invalid device capacity") from exc
+    if capacity <= 0 or minimum_bytes > capacity:
+        raise FilesystemProbeError("estimated filesystem minimum exceeds the partition capacity")
+    return minimum_bytes
+
+
+
+def probe_ntfs_minimum_size(
+    device_path: str,
+    *,
+    filesystem_type: str,
+    executables: dict[str, str | None] | None = None,
+    runner: Callable[..., Any] | None = None,
+    which: Callable[[str], str | None] | None = None,
+    device_validator: Callable[[str], bool] | None = None,
+    safety_check: Callable[[str], None] | None = None,
+    effective_uid: Callable[[], int] | None = None,
+) -> int:
+    """Return ntfsresize's read-only minimum-size estimate in bytes.
+
+    NTFS must be offline and clean enough for ntfsresize's information probe.
+    The estimate is advisory; the actual staged shrink must be revalidated.
+    """
+    if not isinstance(device_path, str) or not device_path.startswith("/dev/") or "\\x00" in device_path:
+        raise FilesystemProbeError("filesystem probe target must be an absolute /dev/ path")
+    expected = filesystem_type.lower() if isinstance(filesystem_type, str) else ""
+    if expected not in {"ntfs", "ntfs3"}:
+        raise FilesystemProbeError("only NTFS minimum-size probes are supported")
+
+    validator = device_validator or (lambda path: stat.S_ISBLK(os.stat(path).st_mode))
+    try:
+        if not validator(device_path):
+            raise FilesystemProbeError("filesystem probe target is not an accessible block device")
+    except OSError as exc:
+        raise FilesystemProbeError(f"cannot inspect filesystem probe target: {exc}") from exc
+
+    run = runner or subprocess.run
+    resolve = which or shutil.which
+    available = executables or {}
+    required = {
+        "blkid": available.get("blkid") or resolve("blkid"),
+        "ntfsresize": available.get("ntfsresize") or resolve("ntfsresize"),
+        "blockdev": available.get("blockdev") or resolve("blockdev"),
+    }
+    missing = [name for name, executable in required.items() if not executable]
+    if missing:
+        raise FilesystemProbeError("required filesystem probe tools are missing: " + ", ".join(missing))
+
+    try:
+        if safety_check is None:
+            check_capture_source_safe(device_path, runner=run, which=resolve)
+        else:
+            safety_check(device_path)
+    except SourceSafetyError as exc:
+        raise FilesystemProbeError(f"filesystem must be offline and unused: {exc}") from exc
+
+    uid = effective_uid or os.geteuid
+
+    def invoke(name: str, args: list[str]) -> Any:
+        try:
+            argv = privileged_argv([required[name], *args], effective_uid=uid)
+            return run(argv, check=True, capture_output=True, text=True, timeout=120)
+        except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
+            raise FilesystemProbeError(f"{name} read-only probe failed: {exc}") from exc
+
+    detected = invoke("blkid", ["-p", "-s", "TYPE", "-o", "value", device_path]).stdout.strip().lower()
+    if detected not in {"ntfs", "ntfs3"}:
+        raise FilesystemProbeError(
+            f"filesystem type mismatch: expected NTFS, detected {detected or 'unknown'}"
+        )
+
+    # ntfsresize --info does not resize; --no-action explicitly prohibits writes.
+    result = invoke("ntfsresize", ["--info", "--force", "--no-action", device_path])
+    output = (result.stdout or "") + "\\n" + (result.stderr or "")
+    matches = re.findall(r"You might resize at\\s+([\\d,]+)\\s+bytes", output, re.IGNORECASE)
+    if len(matches) != 1:
+        raise FilesystemProbeError("ntfsresize did not report one unambiguous minimum size")
+    minimum_bytes = int(matches[0].replace(",", ""))
+    if minimum_bytes <= 0:
+        raise FilesystemProbeError("ntfsresize returned an invalid minimum size")
 
     capacity_result = invoke("blockdev", ["--getsize64", device_path])
     try:
