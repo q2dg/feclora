@@ -428,6 +428,11 @@ migration paths must not be conflated with lossless block-level shrinking.
 
 ### Filesystem shrink implementation boundary
 
+- GPT inspection and preview records now retain per-partition `attrs` from
+  `sfdisk --json` (including firmware/OS-specific attribute bits), instead of
+  silently dropping them. This is metadata preservation only: no GPT writer
+  exists yet, and disk-level GPT identity/header geometry still need an
+  explicit preservation and validation design before any rewrite.
 - A private RAW staging primitive now verifies the stored artifact, checks the
   decoded byte count, writes a mode-0600 copy under a mode-0700 temporary
   directory outside the image repository, and removes that workspace on
