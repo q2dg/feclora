@@ -116,7 +116,7 @@ def _entries(raw: bytes, *, header: dict[str, object]) -> tuple[dict[str, object
         previous_end = last_lba
         name_bytes = entry[56:128]
         try:
-            name = name_bytes.decode("utf-16le", errors="strict").split("\\x00", 1)[0]
+            name = name_bytes.decode("utf-16le", errors="strict").split("\x00", 1)[0]
         except UnicodeDecodeError as exc:
             raise GPTBinaryError(f"GPT partition {index + 1} has an invalid UTF-16 name") from exc
         result.append({
