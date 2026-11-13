@@ -93,12 +93,14 @@ credentials.
 
 - [x] PXE boots the same Fedora Live kernel, initramfs and squashfs as the ISO.
 - [x] PXE unattended handoff downloads a bounded, validated Caddy answer.
-- [x] ISO and PXE now share the same Live answer-fetch service and parser
-      contract; ISO supplies feclora.unattended_url.
+- [x] ISO and PXE share the same Live answer-fetch service and parser;
+      ISO discovers the stable current-answer URL through DHCP option 224.
 - [x] Whole-disk restore resolves WWN/serial, rechecks the target before writing
       and uses Feclora's verified disk restore engine.
-- [ ] Make the ISO build expose a documented boot-menu entry/configuration
-      mechanism for unattended URL injection without manual kernel editing.
+- [x] Keep the ISO generic and discover the current answer URL from DHCP;
+      no Caddy address is embedded in the ISO.
+- [ ] Validate option 224 delivery on physical clients in authoritative DHCP
+      mode and document upstream DHCP configuration for ProxyDHCP networks.
 - [ ] Replace the PXE-specific repository adapter with the existing Feclora
       repository managers so all supported remote providers behave identically.
 - [ ] Unify answer-driven execution with durable local operation history and
