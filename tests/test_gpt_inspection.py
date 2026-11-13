@@ -303,7 +303,8 @@ class GPTSourceDiscoveryTests(unittest.TestCase):
 def self_payload():
     return json.dumps({
         "partitiontable": {
-            "label": "gpt", "unit": "sectors", "sectorsize": 512,
+            "label": "gpt", "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "unit": "sectors", "sectorsize": 512,
             "firstlba": 34, "lastlba": 1048542,
             "partitions": [
                 {"node": "/dev/sda1", "start": 2048, "size": 102400,
