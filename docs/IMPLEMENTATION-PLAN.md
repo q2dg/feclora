@@ -428,9 +428,15 @@ migration paths must not be conflated with lossless block-level shrinking.
 
 ### Filesystem shrink implementation boundary
 
+- A private RAW staging primitive now verifies the stored artifact, checks the
+  decoded byte count, writes a mode-0600 copy under a mode-0700 temporary
+  directory outside the image repository, and removes that workspace on
+  context exit. It does not alter the original artifact and is not yet wired
+  into a restore executor.
 - ext2/3/4 and NTFS: read-only minimum-size probes are available to the
-  preview planner. A staged shrink executor is still required before actual
-  smaller-disk restore can be enabled.
+  preview planner. A staged filesystem-shrink executor, GPT rewrite and
+  end-to-end restore integration are still required before smaller-disk
+  restore can be enabled.
 - XFS: no in-place shrink. A future, separately selected migration may use
   `xfsdump`/`xfsrestore` into a newly created smaller filesystem.
 - exFAT: no shrink operation is provided by the standard exfatprogs tool set;
