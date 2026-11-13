@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import stat
 import tempfile
@@ -10,6 +11,22 @@ from unittest.mock import patch
 from feclora.storage.repository_manager import (
     RemoteRepositoryManager, RepositoryManagerError,
 )
+
+
+def _try_exclusive_repository_lock(registry, mount_root, result_queue):
+    manager = RemoteRepositoryManager(
+        registry=Path(registry), mount_root=Path(mount_root),
+        runner=lambda _argv, **_kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""),
+        which=lambda name: "/usr/bin/" + name,
+        effective_uid=lambda: 0, owner_uid=os.getuid(),
+    )
+    try:
+        fd = manager._acquire_usage_lock("images", exclusive=True)
+    except RepositoryManagerError as exc:
+        result_queue.put(("blocked", str(exc)))
+    else:
+        os.close(fd)
+        result_queue.put(("acquired", ""))
 
 
 class RemoteRepositoryManagerTests(unittest.TestCase):
@@ -455,6 +472,40 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         umount_calls = [call for call in calls if call[0].endswith("umount")]
         self.assertEqual(len(umount_calls), 1)
         self.assertNotIn("--force", umount_calls[0])
+
+
+    def test_usage_lock_excludes_other_process_and_recovers_after_release(self):
+        self.manager.add("images", self.definition)
+        context = multiprocessing.get_context("fork")
+        result_queue = context.Queue()
+        lease_fd = self.manager.acquire_usage_lock("images")
+        try:
+            process = context.Process(
+                target=_try_exclusive_repository_lock,
+                args=(str(self.registry), str(self.mount_root), result_queue),
+            )
+            process.start()
+            process.join(timeout=5)
+            self.assertFalse(process.is_alive(), "lock contender did not terminate")
+            self.assertEqual(process.exitcode, 0)
+            status, message = result_queue.get(timeout=2)
+            self.assertEqual(status, "blocked")
+            self.assertIn("active image operation or deployment job", message)
+        finally:
+            os.close(lease_fd)
+
+        process = context.Process(
+            target=_try_exclusive_repository_lock,
+            args=(str(self.registry), str(self.mount_root), result_queue),
+        )
+        process.start()
+        process.join(timeout=5)
+        self.assertFalse(process.is_alive(), "lock contender did not terminate after lease release")
+        self.assertEqual(process.exitcode, 0)
+        status, message = result_queue.get(timeout=2)
+        self.assertEqual((status, message), ("acquired", ""))
+        result_queue.close()
+        result_queue.join_thread()
 
 
 if __name__ == "__main__":
