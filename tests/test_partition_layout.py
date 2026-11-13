@@ -22,8 +22,9 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
             target_size_bytes=5_000_000_000,
             sector_size=512,
             partition_table_type="gpt",
-            minimum_sizes_bytes={"/dev/source1": 256 * 1024 * 1024,
+            minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
                                  "/dev/source2": 1024 * 1024 * 1024},
+            filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
         )
         self.assertEqual([item.partuuid for item in plan], ["AAAA", "BBBB"])
         self.assertEqual([item.name for item in plan], ["EFI", "root"])
@@ -40,8 +41,9 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
                 target_size_bytes=1_000_000_000,
                 sector_size=512,
                 partition_table_type="gpt",
-                minimum_sizes_bytes={"/dev/source1": 600_000_000,
+                minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
                                      "/dev/source2": 600_000_000},
+                filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
             )
 
     def test_requires_minimum_for_every_partition(self):
@@ -52,7 +54,8 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
                 target_size_bytes=5_000_000_000,
                 sector_size=512,
                 partition_table_type="gpt",
-                minimum_sizes_bytes={"/dev/source1": 256 * 1024 * 1024},
+                minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512},
+                filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
             )
 
     def test_rejects_overlap_and_unknown_partition_type(self):
@@ -63,7 +66,8 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
                 overlapping, source_size_bytes=8_500_000_000,
                 target_size_bytes=5_000_000_000, sector_size=512,
                 partition_table_type="gpt",
-                minimum_sizes_bytes={"/dev/source1": 1, "/dev/source2": 1},
+                minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512, "/dev/source2": 1},
+                filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
             )
         unknown = [dict(item) for item in self.partitions]
         unknown[0].pop("type")
@@ -72,7 +76,8 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
                 unknown, source_size_bytes=8_500_000_000,
                 target_size_bytes=5_000_000_000, sector_size=512,
                 partition_table_type="gpt",
-                minimum_sizes_bytes={"/dev/source1": 1, "/dev/source2": 1},
+                minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512, "/dev/source2": 1},
+                filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
             )
 
     def test_requires_a_strictly_smaller_destination(self):
@@ -81,7 +86,8 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
                 self.partitions, source_size_bytes=8_500_000_000,
                 target_size_bytes=8_500_000_000, sector_size=512,
                 partition_table_type="gpt",
-                minimum_sizes_bytes={"/dev/source1": 1, "/dev/source2": 1},
+                minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512, "/dev/source2": 1},
+                filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
             )
 
 
