@@ -105,7 +105,7 @@ security boundary.
 
 Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
-## Credential and result model
+## Repository and client model
 
 ISO and PXE Live clients run the same Feclora application and access
 repositories directly, using the normal client-side repository manager and
@@ -123,6 +123,7 @@ restoration are performed by the Client itself. The PXE Server does not
 receive operation logs, progress reports or restore results. Local operation
 history remains on the Live Client; no client authentication or reporting
 channel is required.
+
 ## Provider support status
 
 The unattended answer adapter currently connects NFS and credential-free HTTPS.
