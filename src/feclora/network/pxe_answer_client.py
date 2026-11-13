@@ -345,13 +345,10 @@ def _managed_repository(repository_id: str, image_id: str):
     definitions = {item["id"]: item for item in manager.list()}
     if repository_id not in definitions:
         raise PXEAnswerClientError("selected repository ID is not configured in the Live client's Feclora repository managers")
-    mounted_by_us = False
     lease_fd = None
+    mounted_by_us = False
     try:
-        if not definitions[repository_id]["mounted"]:
-            manager.mount(repository_id)
-            mounted_by_us = True
-        lease_fd = manager.acquire_usage_lock(repository_id)
+        lease_fd, mounted_by_us = manager.ensure_mounted_and_acquire_usage_lock(repository_id)
         repository_path = Path(manager.resolve(repository_id, write=False))
         yield repository_path
     finally:
