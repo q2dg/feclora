@@ -428,6 +428,12 @@ migration paths must not be conflated with lossless block-level shrinking.
 
 ### Filesystem shrink implementation boundary
 
+- Read-only GPT inspection now also captures and validates the disk GUID,
+  logical sector size and source usable-LBA bounds from `sfdisk --json`.
+  Proportional previews require this disk-level metadata and expose it without
+  authorizing writes. It is not yet used to emit a rewritten GPT: primary and
+  backup header/entry-array serialization, CRC generation, backup placement,
+  and post-write validation remain unimplemented.
 - GPT inspection and preview records now retain per-partition `attrs` from
   `sfdisk --json` (including firmware/OS-specific attribute bits), instead of
   silently dropping them. This is metadata preservation only: no GPT writer
