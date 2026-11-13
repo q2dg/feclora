@@ -17,6 +17,7 @@ from feclora.network.pxe_answer_client import (
     _wait_for_age_passphrase,
     _download_https_object,
     _check_https_staging_capacity,
+    _discover_dhcp_answer_url,
 )
 
 
@@ -48,6 +49,24 @@ class PXEAnswerClientTests(unittest.TestCase):
             )
             self.assertIsNone(result)
             self.assertFalse(destination.exists())
+
+    def test_networkmanager_dhcp_option_224_is_discovered(self):
+        expected = "http://192.0.2.10:8080/unattended-answer.json"
+        result = SimpleNamespace(returncode=0, stdout=f"domain_name = example\n224 = {expected}\n")
+        with patch("feclora.network.pxe_answer_client.subprocess.run", return_value=result):
+            self.assertEqual(_discover_dhcp_answer_url(), expected)
+
+    def test_conflicting_dhcp_answer_options_fail_closed(self):
+        result = SimpleNamespace(
+            returncode=0,
+            stdout=(
+                "224 = http://192.0.2.10:8080/unattended-answer.json\n"
+                "224 = http://192.0.2.11:8080/unattended-answer.json\n"
+            ),
+        )
+        with patch("feclora.network.pxe_answer_client.subprocess.run", return_value=result):
+            with self.assertRaisesRegex(PXEAnswerClientError, "conflicting"):
+                _discover_dhcp_answer_url()
 
     def test_iso_boot_discovers_current_answer_url_from_dhcp(self):
         with tempfile.TemporaryDirectory() as root:
