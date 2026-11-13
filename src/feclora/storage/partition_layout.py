@@ -56,7 +56,7 @@ def plan_proportional_gpt_layout(
     """Return a deterministic, aligned GPT layout or fail closed.
 
     All partitions must carry a unique /dev node and a GPT type GUID. The
-    caller must provide a filesystem-native minimum size and detected type for every partition. Only ext2/3/4 may be reduced; all other types must remain at their original byte size.
+    caller must provide a filesystem-native minimum size and detected type for every partition. Only ext2/3/4 and NTFS may be reduced; all other types must remain at their original byte size.
     The planner preserves every source partition start and identifier. It
     may shorten only the final ext2/3/4 partition to the target's last usable
     GPT LBA. It never relocates partitions or redistributes capacity.
@@ -119,9 +119,9 @@ def plan_proportional_gpt_layout(
             raise PartitionLayoutError(
                 f"{node} uses unsupported filesystem or storage layer {filesystem}"
             )
-        if normalized_filesystem not in {"ext2", "ext3", "ext4"} and minimum_bytes != size * sector:
+        if normalized_filesystem not in {"ext2", "ext3", "ext4", "ntfs", "ntfs3"} and minimum_bytes != size * sector:
             raise PartitionLayoutError(
-                f"{node} uses {filesystem}; this planner only permits shrinking ext2/3/4"
+                f"{node} uses {filesystem}; this planner only permits shrinking ext2/3/4 and NTFS"
             )
         minimum_sectors = (minimum_bytes + sector - 1) // sector
         if minimum_sectors > size:
@@ -155,9 +155,9 @@ def plan_proportional_gpt_layout(
                     "only the final source partition can be shortened without relocating later partitions"
                 )
             filesystem = str(filesystem_types[str(item["node"])]).lower()
-            if filesystem not in {"ext2", "ext3", "ext4"}:
+            if filesystem not in {"ext2", "ext3", "ext4", "ntfs", "ntfs3"}:
                 raise PartitionLayoutError(
-                    f"final partition uses {filesystem}; only ext2/3/4 can be shortened"
+                    f"final partition uses {filesystem}; only ext2/3/4 and NTFS can be shortened"
                 )
             size_sectors = last_usable_exclusive - start
             minimum = (int(item["minimum_bytes"]) + sector - 1) // sector
