@@ -157,10 +157,6 @@ class ExtFilesystemProbeTests(unittest.TestCase):
         self.assertEqual(self.commands, [])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_device_preview_connects_discovery_to_planner_without_write_authority(self):
         from unittest.mock import patch
         from feclora.storage.filesystem_probe import preview_proportional_gpt_plan_from_disk
@@ -186,3 +182,6 @@ if __name__ == "__main__":
         self.assertFalse(result["write_authorized"])
         self.assertEqual(result["target_size_bytes"], 5_000_000_000)
         self.assertEqual(len(result["partitions"]), 1)
+
+if __name__ == "__main__":
+    unittest.main()
