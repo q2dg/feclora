@@ -97,6 +97,31 @@ security boundary.
 
 Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
+## Credential and result model
+
+PXE Live clients remain identity-free. Do not add per-client certificates,
+private keys, enrollment, bearer tokens or client-specific credentials to enable
+private repositories or report results. The Server is the only component that
+holds repository credentials. The intended provider design is a Server-side,
+job-scoped, read-only repository view: the Server leases and mounts/accesses
+the selected private S3, SSHFS or SMB/CIFS repository using its existing
+root-managed credentials, then exposes only the selected image artifacts to
+Live over the existing PXE HTTP service. The Live client downloads those
+artifacts through the existing bounded HTTPS staging and SHA-256/size
+verification path. No repository secret or credential-bearing URL is sent to
+the client. This Server-side gateway is a design requirement, not an
+implemented feature; private providers remain unavailable until it exists.
+
+PXE result reporting must follow the same identity-free model. The Server may
+accept bounded, job-scoped result reports without client authentication, but
+must treat every field—including MAC address, operation status, progress and
+timestamps—as untrusted client-supplied data. MAC addresses are correlation
+hints only and must never be presented as authenticated identities. Server
+reconciliation must validate the job and event schema, cap request/event sizes,
+rate-limit or otherwise bound ingestion, and keep reported results distinct
+from Server-observed state. No result-ingestion endpoint is implemented yet;
+local Live operation history remains available in Cockpit on the PXE client.
+
 ## Provider support status
 
 The answer schema accepts URL schemes for SSHFS, SMB/CIFS, NFS, HTTP(S) and S3. PXE restore currently connects NFS and credential-free HTTPS. HTTPS uses the same object-key layout as Feclora's S3 adapter: `<prefix>/<image_id>.manifest.json` and `<prefix>/<image_id>/<artifact filename>`. TLS certificate validation is enabled, redirects are rejected, and every artifact is size/SHA-256 verified before restore. A public S3 bucket or HTTPS object gateway can therefore be used through its HTTPS base prefix. Private S3, `s3://`, SSHFS and SMB/CIFS remain unavailable until a secure Live credential handoff is implemented; `credential_ref` fails closed. HTTP repository downloads are not accepted. Current repository support and limitations are tracked in `REMOTE-REPOSITORIES.md`.
@@ -122,10 +147,10 @@ The answer schema accepts URL schemes for SSHFS, SMB/CIFS, NFS, HTTP(S) and S3. 
 - [x] Connect NFS URL to a read-only Live mount and credential-free HTTPS object prefixes to whole-disk restore.
 - [x] Support age symmetric decryption with one-shot Cockpit passphrase handoff on the Live client.
 - [x] Support symmetric age passphrase encryption for whole-disk capture through Cockpit; partition and logical-volume capture remain recipient-based.
-- [ ] Design and implement a secure, host-independent Live credential provisioning and one-shot consumption flow before enabling private S3, SSHFS or SMB/CIFS. Never copy Server-bound systemd-creds blobs to Clients.
+- [ ] Implement a Server-side, job-scoped read-only repository gateway for private S3, SSHFS and SMB/CIFS. Keep all repository credentials on the Server; never provision client identities or copy Server-bound systemd-creds blobs to Live.
 - [x] Implement exact whole-disk target resolution, pre-write revalidation and
       execution through the existing verified whole-disk restore engine for NFS and HTTPS.
-- [ ] Add private S3, SSHFS and SMB/CIFS adapters only after the Live credential flow is implemented and tested; keep unsupported schemes fail-closed.
+- [ ] Add private S3, SSHFS and SMB/CIFS through the Server-side read-only gateway; keep unsupported schemes fail-closed until the gateway is implemented and tested.
 - [x] Use the operator-selected HTTP trust assumption; no cryptographic integrity mechanism is provided.
 - [ ] Add automated tests for tampered answers, wrong age passphrase, HTTPS redirect/size/checksum failures, repository errors, ambiguous targets, target swaps and interrupted staging/restore. BIOS/UEFI boot, Caddy against real networks and physical restore are optional operator acceptance, not software completion gates.
 
