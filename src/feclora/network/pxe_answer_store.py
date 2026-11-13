@@ -155,6 +155,13 @@ def publish_pxe_answer(
 def clear_stale_pxe_answers(http_root: str | os.PathLike[str]) -> int:
     """Remove all safely published answer directories before a new PXE session."""
     root = _safe_root(http_root)
+    alias = root / "unattended-answer.json"
+    if os.path.lexists(alias):
+        alias_info = alias.lstat()
+        if (not stat.S_ISREG(alias_info.st_mode) or stat.S_ISLNK(alias_info.st_mode)
+                or alias_info.st_uid != os.geteuid()):
+            raise PXEAnswerStoreError("current PXE answer alias is unsafe")
+        alias.unlink()
     answers = root / "answers"
     try:
         info = answers.lstat()
@@ -185,13 +192,6 @@ def clear_stale_pxe_answers(http_root: str | os.PathLike[str]) -> int:
         shutil.rmtree(destination)
         removed += 1
     if removed:
-        alias = root / "unattended-answer.json"
-        if os.path.lexists(alias):
-            alias_info = alias.lstat()
-            if (not stat.S_ISREG(alias_info.st_mode) or stat.S_ISLNK(alias_info.st_mode)
-                    or alias_info.st_uid != os.geteuid()):
-                raise PXEAnswerStoreError("current PXE answer alias is unsafe")
-            alias.unlink()
         directory_fd = os.open(answers, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
             os.fsync(directory_fd)
