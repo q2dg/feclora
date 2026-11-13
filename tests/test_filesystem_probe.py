@@ -195,14 +195,14 @@ class NTFSFilesystemProbeTests(unittest.TestCase):
         self.commands.append(command)
         executable = command[0]
         if executable.endswith("blkid"):
-            return SimpleNamespace(stdout="ntfs\\n", stderr="")
+            return SimpleNamespace(stdout="ntfs\n", stderr="")
         if executable.endswith("ntfsresize"):
             return SimpleNamespace(
-                stdout="You might resize at 123,456,789 bytes or 123,456,789 bytes (freeing space).\\n",
+                stdout="You might resize at 123,456,789 bytes or 123,456,789 bytes (freeing space).\n",
                 stderr="",
             )
         if executable.endswith("blockdev"):
-            return SimpleNamespace(stdout="1000000000\\n", stderr="")
+            return SimpleNamespace(stdout="1000000000\n", stderr="")
         raise AssertionError(command)
 
     def probe(self, **kwargs):
@@ -231,7 +231,7 @@ class NTFSFilesystemProbeTests(unittest.TestCase):
     def test_rejects_ntfs_type_mismatch(self):
         def runner(command, **kwargs):
             if command[0].endswith("blkid"):
-                return SimpleNamespace(stdout="ext4\\n", stderr="")
+                return SimpleNamespace(stdout="ext4\n", stderr="")
             return self.runner(command, **kwargs)
         with self.assertRaisesRegex(FilesystemProbeError, "type mismatch"):
             probe_ntfs_minimum_size(
@@ -245,7 +245,7 @@ class NTFSFilesystemProbeTests(unittest.TestCase):
     def test_rejects_ambiguous_minimum_output(self):
         def runner(command, **kwargs):
             if command[0].endswith("ntfsresize"):
-                return SimpleNamespace(stdout="minimum unknown\\n", stderr="")
+                return SimpleNamespace(stdout="minimum unknown\n", stderr="")
             return self.runner(command, **kwargs)
         with self.assertRaisesRegex(FilesystemProbeError, "unambiguous minimum"):
             probe_ntfs_minimum_size(
