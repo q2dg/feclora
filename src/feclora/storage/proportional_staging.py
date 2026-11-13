@@ -190,27 +190,33 @@ def apply_gpt_rewrite_to_staged_image(
     if not isinstance(path, str) or not os.path.isabs(path) or "\x00" in path:
         raise ProportionalStagingError("staged image path is invalid")
     parent = os.path.dirname(path)
+    basename = os.path.basename(path)
+    directory_fd = -1
     try:
-        parent_info = os.lstat(parent)
-        path_info = os.lstat(path)
-    except OSError as exc:
-        raise ProportionalStagingError(f"staged image is unavailable: {exc}") from exc
-    if not stat.S_ISDIR(parent_info.st_mode) or parent_info.st_mode & 0o077:
-        raise ProportionalStagingError("staging workspace is not a private directory")
-    if (not stat.S_ISREG(path_info.st_mode) or path_info.st_mode & 0o077
-            or path_info.st_nlink != 1 or path_info.st_size != staged.size_bytes):
-        raise ProportionalStagingError("staged image is not a private, single-link regular file")
+        directory_fd = os.open(
+            parent,
+            os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
+        )
+        parent_info = os.fstat(directory_fd)
+        if (not stat.S_ISDIR(parent_info.st_mode) or parent_info.st_mode & 0o077
+                or parent_info.st_uid != os.geteuid()):
+            raise ProportionalStagingError("staging workspace is not a private owned directory")
+        path_info = os.stat(basename, dir_fd=directory_fd, follow_symlinks=False)
+        if (not stat.S_ISREG(path_info.st_mode) or path_info.st_mode & 0o077
+                or path_info.st_nlink != 1 or path_info.st_size != staged.size_bytes
+                or path_info.st_uid != os.geteuid()):
+            raise ProportionalStagingError("staged image is not a private, single-link regular file")
 
-    flags = os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
-    try:
-        fd = os.open(path, flags)
+        flags = os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(basename, flags, dir_fd=directory_fd)
         with os.fdopen(fd, "r+b", buffering=0) as stream:
             fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
             opened = os.fstat(stream.fileno())
-            current_path = os.lstat(path)
+            current_path = os.stat(basename, dir_fd=directory_fd, follow_symlinks=False)
             if (not stat.S_ISREG(opened.st_mode) or opened.st_dev != current_path.st_dev
                     or opened.st_ino != current_path.st_ino or opened.st_nlink != 1
-                    or opened.st_size != staged.size_bytes or opened.st_mode & 0o077):
+                    or opened.st_size != staged.size_bytes or opened.st_mode & 0o077
+                    or opened.st_uid != os.geteuid()):
                 raise ProportionalStagingError("staged image identity changed before GPT rewrite")
             digest = hashlib.sha256()
             stream.seek(0)
@@ -256,3 +262,6 @@ def apply_gpt_rewrite_to_staged_image(
             return StagedRawDiskImage(path, target_size_bytes, output_digest.hexdigest())
     except (OSError, GPTBinaryError) as exc:
         raise ProportionalStagingError(f"private staged GPT rewrite failed validation: {exc}") from exc
+    finally:
+        if directory_fd >= 0:
+            os.close(directory_fd)
