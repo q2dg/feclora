@@ -1598,17 +1598,32 @@ _PXE_OPERATION_LOG_PATH = Path("/var/lib/feclora/pxe/operations.jsonl")
 
 def _pxe_local_operations(limit: int) -> list[dict[str, Any]]:
     path = _PXE_OPERATION_LOG_PATH
+    fd = None
     try:
-        info = os.lstat(path)
+        fd = os.open(
+            path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+        )
     except FileNotFoundError:
         return []
-    if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != 0 or info.st_mode & 0o077):
-        raise WebAPIError("PXE operation journal must be a private root-owned regular file")
-    if info.st_size > 2 * 1024 * 1024:
-        raise WebAPIError("PXE operation journal exceeds the Cockpit read limit")
+    except OSError as exc:
+        raise WebAPIError(f"cannot safely open PXE operation journal: {exc}") from exc
+    try:
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077):
+            raise WebAPIError("PXE operation journal must be a private root-owned regular file")
+        if info.st_size > 2 * 1024 * 1024:
+            raise WebAPIError("PXE operation journal exceeds the Cockpit read limit")
+        with os.fdopen(fd, "r", encoding="utf-8") as stream:
+            fd = None
+            raw = stream.read(2 * 1024 * 1024 + 1)
+        if len(raw.encode("utf-8")) > 2 * 1024 * 1024:
+            raise WebAPIError("PXE operation journal exceeds the Cockpit read limit")
+    finally:
+        if fd is not None:
+            os.close(fd)
     records = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in raw.splitlines():
         try:
             event = json.loads(line)
         except json.JSONDecodeError:
