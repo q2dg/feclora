@@ -35,6 +35,40 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         self.assertTrue(all(left.end_sector < right.start_sector for left, right in zip(plan, plan[1:])))
         self.assertEqual(plan[0].minimum_size_bytes, 2_000_000 * 512)
 
+    def test_uses_inspected_nonstandard_gpt_usable_lba_geometry(self):
+        source_sectors = 8_500_000_000 // 4096
+        target_sectors = 5_000_000_000 // 4096
+        source_last = source_sectors - 1 - 5
+        plan = plan_proportional_gpt_layout(
+            self.partitions,
+            source_size_bytes=8_500_000_000,
+            target_size_bytes=5_000_000_000,
+            sector_size=4096,
+            partition_table_type="gpt",
+            minimum_sizes_bytes={"/dev/source1": 2_000_000 * 4096,
+                                 "/dev/source2": 1024 * 1024 * 1024},
+            filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
+            source_first_usable_lba=6,
+            source_last_usable_lba=source_last,
+        )
+        self.assertEqual(plan[0].start_sector, 2048)
+        self.assertLessEqual(plan[-1].end_sector, target_sectors - 1 - 5)
+
+    def test_rejects_source_gpt_bounds_outside_source_capacity(self):
+        with self.assertRaisesRegex(PartitionLayoutError, "source GPT usable-LBA bounds"):
+            plan_proportional_gpt_layout(
+                self.partitions,
+                source_size_bytes=8_500_000_000,
+                target_size_bytes=5_000_000_000,
+                sector_size=512,
+                partition_table_type="gpt",
+                minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
+                                     "/dev/source2": 1024 * 1024 * 1024},
+                filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
+                source_first_usable_lba=34,
+                source_last_usable_lba=8_500_000_000 // 512,
+            )
+
     def test_rejects_invalid_gpt_partition_attributes(self):
         invalid = [dict(item) for item in self.partitions]
         invalid[0]["attrs"] = ["not", "a", "string"]
