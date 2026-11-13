@@ -21,7 +21,7 @@ mounted source, filesystem type and access mode before returning a repository
 to image operations. A verified mount identity is not a live connectivity or
 read/write health check.
 
-Cockpit image inventory holds a shared repository usage lease for the entire manifest scan. The lease prevents unmount, definition changes or removal from racing with the scan; it is released on both success and failure. S3 inventory similarly holds its object-repository usage lease while listing committed image sets. Inventory is a real remote read operation, not a connectivity probe, and may still fail or block according to the remote provider's behavior.
+Cockpit image inventory holds a shared repository usage lease for the entire manifest scan. The lease prevents unmount, definition changes or removal from racing with the scan; it is released on both success and failure. S3 inventory similarly holds its object-repository usage lease while listing committed image sets. Inventory is a real remote read operation, not a connectivity probe, and may still fail or block according to the remote provider's behavior. Directory enumeration, manifest metadata and manifest-read I/O errors fail the inventory request rather than being presented as a successful partial or empty inventory; invalid manifest content and non-root-owned/non-regular manifest files remain excluded.
 
 The image engine publishes immutable artifacts and a manifest commit marker.
 Local publication uses no-overwrite links and publishes the manifest last.
