@@ -464,18 +464,28 @@ def _initialize_security() -> dict[str, Any]:
 
 
 
-def _filesystem_images(path: Path) -> list[dict[str, Any]]:
-    """Read committed image manifests from a repository already protected by its caller."""
-    if not path.exists():
-        return []
+def _filesystem_images(
+    path: Path, *, missing_ok: bool = False,
+) -> list[dict[str, Any]]:
+    """Read committed manifests; surface repository I/O failures instead of partial inventory."""
+    try:
+        with os.scandir(path) as entries:
+            manifest_paths = sorted(
+                Path(entry.path) for entry in entries
+                if entry.name.endswith(".manifest.json")
+            )
+    except FileNotFoundError:
+        if missing_ok:
+            return []
+        raise
     items = []
-    for manifest_path in sorted(path.glob("*.manifest.json")):
+    for manifest_path in manifest_paths:
+        info = os.lstat(manifest_path)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
+            continue
         try:
-            info = os.lstat(manifest_path)
-            if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
-                continue
             manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, ManifestValidationError):
+        except (UnicodeError, ManifestValidationError):
             continue
         items.append({
             "image_id": manifest.image_id,
@@ -492,7 +502,7 @@ def _filesystem_images(path: Path) -> list[dict[str, Any]]:
 
 def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
     if repository_id is None:
-        return _filesystem_images(_repository())
+        return _filesystem_images(_repository(), missing_ok=True)
     from feclora.storage.s3_repository_manager import S3RepositoryManager
     manager = S3RepositoryManager()
     if any(item["id"] == repository_id for item in manager.list()):
