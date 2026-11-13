@@ -209,7 +209,7 @@ def apply_gpt_rewrite_to_staged_image(
 
         flags = os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
         fd = os.open(basename, flags, dir_fd=directory_fd)
-        with os.fdopen(fd, "r+b", buffering=0) as stream:
+        with os.fdopen(fd, "r+b") as stream:
             fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
             opened = os.fstat(stream.fileno())
             current_path = os.stat(basename, dir_fd=directory_fd, follow_symlinks=False)
