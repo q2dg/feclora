@@ -311,3 +311,79 @@ untrusted, starting a fresh capture, and deleting residue only through an
 explicit operator decision. Automated stale-residue cleanup and crash-resume
 remain out of scope; this is a documented safety boundary, not a claim that
 crash recovery is implemented.
+
+
+## Clonezilla-inspired feature follow-up (2026-11-13)
+
+This section records the requested scope without conflating existing capabilities
+with new work. The two research-only items at the end are documentation studies,
+not implementation authorization.
+
+### Existing foundations to retain and close
+
+- [x] **Independent image verification (1):** the `verify_image` API and
+  Cockpit report already validate stored size/SHA-256, age authentication,
+  compression decoding and decoded raw size. Preserve this read-only path;
+  add any missing artifact-role coverage only when a concrete gap is found.
+- [x] **One image to multiple machines (2):** UDPcast multicast restore already
+  distributes a verified image set to multiple authorized Clients. Each Client
+  independently selects and validates its own target. This is not a local
+  same-host multi-disk restore workflow; do not claim that it is.
+- [x] **Filesystem breadth (7), software foundation:** Partclone mappings cover
+  ext2/3/4, XFS, NTFS, FAT, exFAT, F2FS and Btrfs, with explicit raw fallback.
+  Real disposable-filesystem round trips and exact Fedora utility compatibility
+  remain operator validation gates.
+- [x] **Post-restore action (8), basic:** the local rescue UI offers no action,
+  reboot or poweroff after successful read-back verification. Keep actions
+  strictly after successful verification; do not add arbitrary shell execution.
+- [~] **Hardware compatibility diagnostics (9), partial:** inventory exposes
+  model, vendor, transport, serial, capacity, sector size, partitions and
+  storage-layer topology. A consolidated preflight compatibility report
+  comparing source requirements with a proposed target is still required.
+- [x] **Multicast deployment (11):** authenticated Server/Client coordination
+  with UDPcast artifact distribution and per-Client verification/restore is
+  implemented. Network-switch IGMP and real multi-host acceptance remain
+  operator validation.
+
+### New implementation work
+
+- [ ] **Proportional whole-disk restore layout (3):** implement a separate,
+  preview-first partition-layout planner and executor. Preserve partition
+  starts and required alignment; define explicit handling for EFI, BIOS boot,
+  recovery, swap, LVM, LUKS and unknown filesystems; reject layouts that would
+  move or shrink unsupported partitions. Grow only filesystems with a verified
+  offline grow tool and a matching post-growth checker. Keep preserve-layout as
+  the default and require an exact destructive confirmation. Never edit the
+  source image or mutate the target before the complete plan is validated.
+- [ ] **Read-error-tolerant capture (4):** evaluate GNU ddrescue as an optional
+  capture engine for whole disks and supported partitions. Keep a persistent
+  mapfile beside private staging state, distinguish complete, recovered-with-
+  errors and incomplete results, record bad-sector statistics in a versioned
+  manifest extension, and never publish a normal restorable image when
+  unreadable ranges remain. Do not silently zero-fill unreadable sectors or
+  treat a partial capture as complete. Resume only through an explicitly
+  selected, identity-revalidated source and matching mapfile.
+- [ ] **Standalone recovery media (5):** define a supported workflow for
+  producing a recovery USB/ISO from the existing Feclora Live runtime, with
+  architecture/firmware prerequisites, reproducible build inputs, integrity
+  checks and a recovery runbook. The existing Live ISO is already bootable;
+  this item is about a documented, repeatable recovery-media artifact and
+  workflow, not an ISO build performed by the assistant or an implicit
+  persistence target.
+
+### Documentation studies only — do not implement yet
+
+- [ ] **Incremental and differential images:** research block-level change
+  tracking, dependency-chain integrity, retention, chain compaction, crash
+  consistency and full-chain restore/verification semantics. No incremental
+  or differential capture, manifest schema, API or UI is authorized yet.
+- [ ] **Mountable images and file-level recovery:** research a safe random-
+  access image/container format and read-only partition/filesystem exposure,
+  including encrypted/compressed artifacts, loop/device-mapper integration,
+  namespace isolation, symlink/hardlink handling and selective extraction.
+  No image mounting, FUSE export or individual-file restore implementation is
+  authorized yet.
+
+Delivery rule: do not mark a new item complete from documentation or a helper
+primitive alone. Require runtime/API/Cockpit integration, failure-path tests,
+and an acceptance procedure. Never build the ISO as part of this work.
