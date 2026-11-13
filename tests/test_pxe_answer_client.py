@@ -21,7 +21,7 @@ URL = f"http://192.0.2.10:8080/answers/{JOB}/answer.json"
 
 def answer() -> bytes:
     return json.dumps({
-        "schema_version": 1, "operation": "restore", "image_id": "golden",
+        "schema_version": 2, "operation": "restore", "image_id": "golden",
         "repository_id": "nas-images",
         "target": {"wwn": "0x5000c50012345678", "serial": None},
         "confirm_destructive": True, "start": True,
@@ -89,7 +89,7 @@ class PXEAnswerClientTests(unittest.TestCase):
             with self.assertRaises(PXEAnswerClientError):
                 fetch_live_pxe_answer(
                     f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB} feclora.pxe_answer_url={URL}",
-                    destination=destination, downloader=lambda _url: b'{"schema_version":1}',
+                    destination=destination, downloader=lambda _url: b'{"schema_version":2}',
                 )
             self.assertFalse(destination.exists())
 
