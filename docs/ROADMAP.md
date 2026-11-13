@@ -36,7 +36,7 @@ transport. Age encryption is optional.
 
 ## Remaining engineering work
 
-- **Unattended PXE:** NFS and credential-free HTTPS whole-disk restore are integrated. Private S3/SSHFS/SMB adapters require a secure Live credential provisioning design; Server-side fleet result reconciliation and automated failure-path coverage remain open; the Live client's local PXE result is visible in Cockpit operation history. BIOS/UEFI/physical validation is optional. Unattended PXE can count distinct iPXE MAC addresses and enforce optional
+- **Unattended PXE:** whole-disk restore now resolves repository IDs through the Live client's normal SSHFS, NFS, SMB/CIFS and S3 managers. Credentials remain in the protected Live configuration; the PXE Server serves boot assets and answer JSON only. Automated provider failure-path coverage and physical acceptance remain open; operation history stays local to the Live client. BIOS/UEFI/physical validation is optional. Unattended PXE can count distinct iPXE MAC addresses and enforce optional
   administrator-configured client-count and/or elapsed-time limits; neither
   limit is enabled by default. MAC is an operational identifier, not authentication. This answer workflow is separate
   from authenticated Server/Client Remote jobs.
