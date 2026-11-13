@@ -44,7 +44,8 @@ class PXEOperationHistoryTests(unittest.TestCase):
             journal.write_text("".join(json.dumps(event) + "\n" for event in events), encoding="utf-8")
             journal.chmod(0o600)
             with patch("feclora.webapi._PXE_OPERATION_LOG_PATH", journal), \
-                 patch("feclora.webapi._local_operation_store", return_value=EmptyStore()):
+                 patch("feclora.webapi._local_operation_store", return_value=EmptyStore()), \
+                 patch("feclora.webapi.os.geteuid", return_value=journal.stat().st_uid):
                 result = _local_operations({"limit": 10})
         self.assertEqual(len(result["operations"]), 1)
         item = result["operations"][0]
