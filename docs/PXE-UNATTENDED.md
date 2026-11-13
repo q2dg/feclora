@@ -2,45 +2,46 @@
 
 ## Intended operating model
 
-For the common ISO/PXE answer-file contract and ISO boot configuration, see
+For the common ISO/PXE answer-file contract and dynamic URL discovery, see
 [UNATTENDED-RESTORE.md](UNATTENDED-RESTORE.md).
 
 PXE is a network boot method for the **same Feclora Fedora Live environment**
-used by the ISO. It is not a separate thin Client, installer, or per-machine
+used by the ISO. It is not a separate thin client, installer, or per-machine
 provisioning workflow.
 
-The PXE Server publishes only the Live kernel, initramfs and squashfs through
-Caddy. It does not proxy storage access or participate in restoration after
-boot. The iPXE entry starts the same Feclora Live image as the ISO. An
-unattended PXE boot passes the answer URL through the kernel command line; a
-conditional Live systemd service downloads and validates it. ISO boots use
-the same service and answer schema by adding the generic
-feclora.unattended_url kernel argument with the Caddy answer URL. Both routes
-therefore enter the same Live restore client; only the mechanism that supplies
-the URL differs.
+The Feclora PXE Server is the single deployment component containing DHCP,
+Caddy and the services needed to distribute Live boot assets and publish
+answer files. DHCP and Caddy are internal parts of this server, not external
+dependencies. DHCP provides the current Caddy answer URL to ISO clients, so
+the ISO stays generic when the server address or port changes. PXE boot
+obtains and passes the same answer URL to the Live client.
+
+The PXE Server publishes the Live kernel, initramfs and squashfs and the
+answer JSON through Caddy. It does not proxy storage access, mount remote
+repositories, execute restoration, or receive operation logs, progress or
+restore results. Both ISO and PXE enter the same Live answer-fetch service,
+validator and restore client.
 
 There is no per-client USB, identity medium, certificate, private key,
-enrollment bundle or manual identity provisioning in this model. The PXE
-client must not mount or look for `FECLORA-CLIENT` media.
+enrollment bundle or manual identity provisioning in this model. Do not
+require client authentication or use MAC addresses as authenticated identity.
 
 ## Deployment preparation
 
 The Cockpit Server setup provides a single file input for the prewritten JSON
 answer. The `repository_url` field inside that JSON identifies the image
 repository; there is no second repository-URL field in Cockpit. The Server
-validates the document and publishes it through Caddy over HTTP under a
-generated job UUID. It also publishes an iPXE admission wrapper and a separate
-job-specific boot script. The boot script is available only through the
-admission endpoint, not through Caddy's static file server.
+validates the document and publishes it through its Caddy service over HTTP
+under a generated job UUID. It also publishes an iPXE admission wrapper and a
+separate job-specific boot script. The boot script is available only through
+the admission endpoint, not through Caddy's static file server.
 
 The PXE Server does not host, copy, mount or proxy the image repository. It
 serves the Live boot assets and the answer JSON only. The Live client is
-responsible for connecting to remote storage using Feclora's normal repository
-configuration and credential handling. The current unattended answer adapter
-still supports only NFS and credential-free HTTPS; integration with the full
-Feclora repository manager (including SSHFS, SMB/CIFS and private S3) remains
-work to do. Do not send repository credentials in the answer file or introduce
-per-client authentication.
+responsible for connecting directly to external SSHFS, NFS, SMB/CIFS and S3
+repositories using Feclora's normal client-side repository configuration and
+protected credential handling. Do not send repository credentials in the
+answer file or introduce per-client authentication.
 
 ## Answer document, version 1
 
