@@ -1,20 +1,15 @@
-"""Fetch a shared HTTP PXE answer and run its supported unattended restore.
+"""Fetch a shared HTTP answer and restore through Feclora repository managers.
 
 The JSON is treated as operator-authorized because this deployment explicitly
-trusts its configured PXE HTTP server. The client still validates the schema,
-uses read-only NFS or credential-free HTTPS for repository access, resolves
-stable disk identity and
-delegates destructive writes to the existing verified restore engine.
+trusts its configured PXE HTTP server. Repository credentials remain in the
+Live client's normal protected configuration.
 """
 from __future__ import annotations
 
-import hashlib
 from contextlib import contextmanager
 import os
 import stat
 import subprocess
-import shutil
-from urllib.parse import unquote, urljoin, urlsplit
 import sys
 import tempfile
 import urllib.error
@@ -219,200 +214,6 @@ def _resolve_target(answer: dict[str, Any]) -> dict[str, Any]:
         raise PXEAnswerClientError("resolved PXE target has no valid block-device path")
     return target
 
-
-def _mount_nfs_repository(repository_url: str, mountpoint: Path) -> None:
-    parsed = urlsplit(repository_url)
-    try:
-        port = parsed.port
-    except ValueError as exc:
-        raise PXEAnswerClientError("NFS repository URL has an invalid port") from exc
-    host = parsed.hostname or ""
-    path = unquote(parsed.path)
-    if (parsed.scheme.lower() != "nfs" or not host or port is not None
-            or parsed.username is not None or parsed.password is not None
-            or parsed.query or parsed.fragment or not path.startswith("/")
-            or any(part in {".", ".."} for part in path.split("/"))
-            or any(ord(char) < 32 for char in path)
-            or ":" in host or not all(char.isalnum() or char in ".-" for char in host)):
-        raise PXEAnswerClientError("NFS repository URL must be nfs://host/absolute/export/path without credentials or options")
-    mount_cmd, umount_cmd, findmnt_cmd = (
-        shutil.which("mount"), shutil.which("umount"), shutil.which("findmnt")
-    )
-    if not mount_cmd or not umount_cmd or not findmnt_cmd:
-        raise PXEAnswerClientError("mount, umount and findmnt are required for NFS PXE repositories")
-    mountpoint.mkdir(mode=0o700, parents=True, exist_ok=True)
-    info = os.lstat(mountpoint)
-    if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode):
-        raise PXEAnswerClientError("PXE repository mountpoint is not a real directory")
-    if any(mountpoint.iterdir()):
-        raise PXEAnswerClientError("PXE repository mountpoint is not empty")
-    source = f"{host}:{path}"
-    try:
-        subprocess.run(
-            [mount_cmd, "-t", "nfs", "-o",
-             "ro,nosuid,nodev,noexec,proto=tcp,timeo=30,retrans=2", source, str(mountpoint)],
-            check=True, capture_output=True, text=True, timeout=45,
-        )
-        check = subprocess.run(
-            [findmnt_cmd, "--noheadings", "--mountpoint", str(mountpoint),
-             "--output", "FSTYPE,OPTIONS,SOURCE"],
-            check=True, capture_output=True, text=True, timeout=10,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        try:
-            subprocess.run([umount_cmd, str(mountpoint)], check=False, capture_output=True, timeout=15)
-        except (OSError, subprocess.SubprocessError):
-            pass
-        raise PXEAnswerClientError(f"cannot mount PXE NFS repository read-only: {exc}") from exc
-    fields = check.stdout.split()
-    if len(fields) < 3 or fields[0].lower() not in {"nfs", "nfs4"} or "ro" not in fields[1].split(","):
-        try:
-            subprocess.run([umount_cmd, str(mountpoint)], check=False, capture_output=True, timeout=15)
-        except (OSError, subprocess.SubprocessError):
-            pass
-        raise PXEAnswerClientError("PXE repository mount is not verified as a read-only NFS mount")
-
-
-
-def _download_https_object(
-    url: str,
-    *,
-    destination: Path | None = None,
-    max_bytes: int,
-    expected_size: int | None = None,
-    expected_sha256: str | None = None,
-    timeout: float = 30.0,
-) -> bytes | None:
-    """Fetch one immutable HTTPS object without redirects and with strict bounds."""
-    opener = urllib.request.build_opener(_NoRedirect)
-    request = urllib.request.Request(
-        url, headers={"Accept": "application/octet-stream, application/json",
-                      "User-Agent": "Feclora-PXE/1"}, method="GET",
-    )
-    digest = hashlib.sha256()
-    total = 0
-    chunks = bytearray() if destination is None else None
-    output = None
-    try:
-        if destination is not None:
-            output = destination.open("xb")
-        with opener.open(request, timeout=timeout) as response:
-            if response.status != 200:
-                raise PXEAnswerClientError(f"HTTPS repository returned HTTP {response.status}")
-            declared = response.headers.get("Content-Length")
-            if declared is not None:
-                try:
-                    declared_size = int(declared)
-                except (TypeError, ValueError) as exc:
-                    raise PXEAnswerClientError("HTTPS repository returned an invalid Content-Length") from exc
-                if declared_size < 0 or declared_size > max_bytes:
-                    raise PXEAnswerClientError("HTTPS repository object exceeds its size limit")
-                if expected_size is not None and declared_size != expected_size:
-                    raise PXEAnswerClientError("HTTPS repository object size differs from its manifest")
-            while True:
-                chunk = response.read(min(1024 * 1024, max_bytes + 1 - total))
-                if not chunk:
-                    break
-                total += len(chunk)
-                if total > max_bytes:
-                    raise PXEAnswerClientError("HTTPS repository object exceeds its size limit")
-                digest.update(chunk)
-                if output is not None:
-                    output.write(chunk)
-                else:
-                    chunks.extend(chunk)
-        if expected_size is not None and total != expected_size:
-            raise PXEAnswerClientError("HTTPS repository object size differs from its manifest")
-        if expected_sha256 is not None and digest.hexdigest() != expected_sha256:
-            raise PXEAnswerClientError("HTTPS repository object SHA-256 differs from its manifest")
-        if output is not None:
-            output.flush()
-            os.fsync(output.fileno())
-            output.close()
-            output = None
-            return None
-        return bytes(chunks)
-    except PXEAnswerClientError:
-        raise
-    except (OSError, urllib.error.URLError, urllib.error.HTTPError, TimeoutError,
-            subprocess.SubprocessError) as exc:
-        raise PXEAnswerClientError(f"cannot download HTTPS repository object: {exc}") from exc
-    finally:
-        if output is not None:
-            output.close()
-            if destination is not None:
-                try:
-                    destination.unlink()
-                except FileNotFoundError:
-                    pass
-
-
-
-def _check_https_staging_capacity(directory: Path, required_bytes: int) -> None:
-    """Require local space for the complete HTTPS image set plus a safety reserve."""
-    if isinstance(required_bytes, bool) or not isinstance(required_bytes, int) or required_bytes <= 0:
-        raise PXEAnswerClientError("HTTPS image set has an invalid total artifact size")
-    reserve_bytes = max(256 * 1024 * 1024, min(required_bytes // 20, 2 * 1024 * 1024 * 1024))
-    try:
-        free_bytes = shutil.disk_usage(directory).free
-    except OSError as exc:
-        raise PXEAnswerClientError(f"cannot inspect local HTTPS staging capacity: {exc}") from exc
-    if free_bytes < required_bytes + reserve_bytes:
-        raise PXEAnswerClientError(
-            "insufficient local staging space for HTTPS image set: "
-            f"{free_bytes} bytes free, {required_bytes} bytes required plus "
-            f"{reserve_bytes} bytes safety reserve"
-        )
-
-def _stage_https_repository(repository_url: str, image_id: str, directory: Path) -> Path:
-    """Stage a public or pre-authorized HTTPS image set using S3-compatible object keys.
-
-    The URL is a base prefix. The manifest is image_id.manifest.json and
-    payloads are image_id/filename, matching Feclora's S3 key layout.
-    TLS certificate validation uses Python's default verified HTTPS context.
-    """
-    parsed = urlsplit(repository_url)
-    try:
-        port = parsed.port
-    except ValueError as exc:
-        raise PXEAnswerClientError("HTTPS repository URL has an invalid port") from exc
-    decoded_path = unquote(parsed.path)
-    if (parsed.scheme.lower() != "https" or not parsed.hostname
-            or parsed.username is not None or parsed.password is not None
-            or parsed.query or parsed.fragment
-            or any(part in {".", ".."} for part in decoded_path.split("/"))
-            or any(ord(char) < 32 for char in decoded_path)):
-        raise PXEAnswerClientError(
-            "HTTPS repository URL must be a credential-free HTTPS base prefix without query or fragment"
-        )
-    if port is not None and not 1 <= port <= 65535:
-        raise PXEAnswerClientError("HTTPS repository URL port is invalid")
-    base = repository_url.rstrip("/") + "/"
-    manifest_url = urljoin(base, f"{image_id}.manifest.json")
-    manifest_bytes = _download_https_object(manifest_url, max_bytes=1024 * 1024)
-    try:
-        manifest = ImageManifest.from_json(manifest_bytes.decode("utf-8"))
-    except (UnicodeError, ManifestValidationError) as exc:
-        raise PXEAnswerClientError(f"HTTPS repository manifest is invalid: {exc}") from exc
-    if manifest.image_id != image_id or manifest.image_type != "disk":
-        raise PXEAnswerClientError("PXE answer requires a matching whole-disk image manifest")
-    _check_https_staging_capacity(
-        directory, sum(artifact.size_bytes for artifact in manifest.artifacts),
-    )
-    for artifact in manifest.artifacts:
-        artifact_path = directory / artifact.filename
-        artifact_url = urljoin(base, f"{image_id}/{artifact.filename}")
-        _download_https_object(
-            artifact_url, destination=artifact_path,
-            max_bytes=artifact.size_bytes, expected_size=artifact.size_bytes,
-            expected_sha256=artifact.sha256,
-        )
-    manifest_path = directory / f"{image_id}.manifest.json"
-    with manifest_path.open("xb") as output:
-        output.write(manifest_bytes)
-        output.flush()
-        os.fsync(output.fileno())
-    return manifest_path
 
 def _revalidate_target(selector: RestoreTargetSelector, expected_path: str) -> None:
     try:
