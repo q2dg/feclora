@@ -42,9 +42,6 @@ def _integer(value: object, field: str, *, minimum: int = 1) -> int:
     return value
 
 
-def _align_up(value: int, alignment: int) -> int:
-    return ((value + alignment - 1) // alignment) * alignment
-
 
 def plan_proportional_gpt_layout(
     partitions: Sequence[Mapping[str, object]],
@@ -55,7 +52,6 @@ def plan_proportional_gpt_layout(
     partition_table_type: str,
     minimum_sizes_bytes: Mapping[str, int],
     filesystem_types: Mapping[str, str],
-    alignment_bytes: int = 1024 * 1024,
 ) -> tuple[PlannedPartition, ...]:
     """Return a deterministic, aligned GPT layout or fail closed.
 
@@ -70,13 +66,10 @@ def plan_proportional_gpt_layout(
     source_size = _integer(source_size_bytes, "source_size_bytes")
     target_size = _integer(target_size_bytes, "target_size_bytes")
     sector = _integer(sector_size, "sector_size")
-    alignment = _integer(alignment_bytes, "alignment_bytes")
     if partition_table_type != "gpt":
         raise PartitionLayoutError("only GPT partition tables are supported by proportional planning")
     if sector not in {512, 4096}:
         raise PartitionLayoutError("logical sector size must be 512 or 4096 bytes")
-    if alignment % sector:
-        raise PartitionLayoutError("alignment must be a multiple of logical sector size")
     if source_size % sector or target_size % sector:
         raise PartitionLayoutError("source and target sizes must be sector aligned")
     if target_size >= source_size:
