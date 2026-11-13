@@ -135,30 +135,30 @@ def plan_proportional_gpt_layout(
         })
 
     first_aligned = _align_up(first_usable, alignment_sectors)
-    usable_alignment_units = (last_usable_exclusive - first_aligned) // alignment_sectors
-    minimum_units = [
-        (int(item["minimum_sectors"]) + alignment_sectors - 1) // alignment_sectors
+    # Partition starts must be aligned; partition lengths need only be
+    # sector-aligned. In particular, fixed-size FAT/EFI partitions commonly
+    # do not end on a 1 MiB boundary and must not be rounded or shrunk.
+    # Reserve the worst-case inter-partition alignment padding up front so
+    # the resulting sequential layout is guaranteed to fit.
+    alignment_padding = max(0, len(normalized) - 1) * (alignment_sectors - 1)
+    available_sectors = last_usable_exclusive - first_aligned - alignment_padding
+    minimum_sectors = [
+        (int(item["minimum_bytes"]) + sector - 1) // sector
         for item in normalized
     ]
-    # Never grow a partition beyond its original extent. Round the maximum
-    # down to a complete alignment unit; any tail remains unallocated.
-    maximum_units = [
-        int(item["source_size"]) // alignment_sectors
-        for item in normalized
-    ]
-    if any(minimum > maximum for minimum, maximum in zip(minimum_units, maximum_units)):
+    maximum_sectors = [int(item["source_size"]) for item in normalized]
+    if any(minimum > maximum for minimum, maximum in zip(minimum_sectors, maximum_sectors)):
         raise PartitionLayoutError(
-            "a filesystem minimum cannot fit within its original partition after alignment"
+            "a filesystem minimum cannot fit within its original partition"
         )
-    if sum(minimum_units) > usable_alignment_units:
+    if sum(minimum_sectors) > available_sectors:
         raise PartitionLayoutError("filesystem minimum sizes do not fit on the smaller target")
 
-    # Distribute only capacity that can be used without enlarging any source
-    # partition. Weighted water-filling respects each partition's original
-    # size and leaves the rest of the target disk unallocated.
+    # Distribute capacity in sectors, respecting each source partition's
+    # original extent. Any alignment slack or unused tail remains unallocated.
     allocations = [0 for _ in normalized]
-    capacities = [maximum - minimum for minimum, maximum in zip(minimum_units, maximum_units)]
-    remaining = min(usable_alignment_units - sum(minimum_units), sum(capacities))
+    capacities = [maximum - minimum for minimum, maximum in zip(minimum_sectors, maximum_sectors)]
+    remaining = min(available_sectors - sum(minimum_sectors), sum(capacities))
     weights = [int(item["weight"]) for item in normalized]
     if not any(weights):
         weights = [int(item["source_size"]) for item in normalized]
@@ -181,21 +181,21 @@ def plan_proportional_gpt_layout(
         if remaining <= 0:
             break
         if progressed == 0:
-            # Integer rounding can produce zero shares. Award one alignment
-            # unit at a time in stable source order, still respecting caps.
             for i in active:
                 if remaining <= 0:
                     break
                 if allocations[i] < capacities[i]:
                     allocations[i] += 1
                     remaining -= 1
-        # Recompute weights after any partition reaches its original-size cap.
-    size_units = [minimum + allocation for minimum, allocation in zip(minimum_units, allocations)]
+    size_sectors_list = [
+        minimum + allocation
+        for minimum, allocation in zip(minimum_sectors, allocations)
+    ]
 
     result = []
     cursor = first_aligned
-    for item, units in zip(normalized, size_units):
-        size_sectors = units * alignment_sectors
+    for item, size_sectors in zip(normalized, size_sectors_list):
+        cursor = _align_up(cursor, alignment_sectors)
         if cursor + size_sectors > last_usable_exclusive:
             raise PartitionLayoutError("planned partition extends into backup GPT metadata")
         result.append(PlannedPartition(
