@@ -52,6 +52,7 @@ def parse_pxe_boot_request(command_line: str) -> PXEBootRequest:
         raise PXEBootRequestError("kernel command line contains invalid quoting") from exc
     keys = {
         "feclora.pxe_mode", "feclora.pxe_job_id", "feclora.pxe_answer_url",
+        "feclora.unattended_url",
     }
     values: dict[str, str] = {}
     for argument in arguments:
@@ -65,6 +66,30 @@ def parse_pxe_boot_request(command_line: str) -> PXEBootRequest:
         if not value or any(ord(char) < 33 or ord(char) > 126 for char in value):
             raise PXEBootRequestError(f"invalid PXE handoff value: {key}")
         values[key] = value
+
+    # ISO and PXE boots use the same Live service and answer contract. The ISO
+    # needs only the public Caddy URL; PXE keeps its existing explicit job
+    # handoff for compatibility with the admission/boot-script flow.
+    if "feclora.unattended_url" in values:
+        if len(values) != 1:
+            raise PXEBootRequestError("generic unattended URL must not be combined with PXE handoff parameters")
+        answer_url = values["feclora.unattended_url"]
+        parsed = urlsplit(answer_url)
+        parts = parsed.path.split("/")
+        if len(parts) != 4 or parts[1] != "answers" or parts[3] != "answer.json":
+            raise PXEBootRequestError("unattended URL path must identify /answers/<job-uuid>/answer.json")
+        job_id = parts[2]
+        try:
+            canonical = str(uuid.UUID(job_id))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise PXEBootRequestError("unattended answer URL must contain a canonical job UUID") from exc
+        if canonical != job_id:
+            raise PXEBootRequestError("unattended answer URL job ID must use canonical UUID notation")
+        address, port = _answer_endpoint(answer_url, job_id)
+        return PXEBootRequest(
+            mode="unattended-answer", job_id=job_id, server_address=address,
+            http_port=port, answer_url=answer_url,
+        )
 
     mode = values.get("feclora.pxe_mode", "interactive")
     if mode == "interactive":
