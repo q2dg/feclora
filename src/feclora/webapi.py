@@ -1593,12 +1593,83 @@ def _local_operation_status(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError(f"cannot read local operation status: {exc}") from exc
 
 
+_PXE_OPERATION_LOG_PATH = Path("/var/lib/feclora/pxe/operations.jsonl")
+
+
+def _pxe_local_operations(limit: int) -> list[dict[str, Any]]:
+    path = _PXE_OPERATION_LOG_PATH
+    try:
+        info = os.lstat(path)
+    except FileNotFoundError:
+        return []
+    if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+            or info.st_uid != 0 or info.st_mode & 0o077):
+        raise WebAPIError("PXE operation journal must be a private root-owned regular file")
+    if info.st_size > 2 * 1024 * 1024:
+        raise WebAPIError("PXE operation journal exceeds the Cockpit read limit")
+    records = []
+    for line in path.read_text(encoding="utf-8").splitlines()[-500:]:
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(event, dict) and event.get("operation") == "restore_disk":
+            records.append(event)
+    from feclora.storage.operation_log import reconcile_interrupted
+    records = reconcile_interrupted(records)
+    grouped: dict[str, dict[str, Any]] = {}
+    state_map = {
+        "started": "running", "progress": "running", "completed": "completed",
+        "failed": "failed", "cancelled": "cancelled", "interrupted": "interrupted",
+    }
+    for event in records:
+        operation_id = event.get("operation_id")
+        state = state_map.get(event.get("status"))
+        if not isinstance(operation_id, str) or state is None:
+            continue
+        details = {
+            key: value for key, value in event.items()
+            if key not in {
+                "operation_id", "operation", "timestamp", "status",
+                "pid", "boot_id", "process_start_ticks",
+            }
+        }
+        item = grouped.setdefault(operation_id, {
+            "operation_id": operation_id,
+            "action": "pxe_restore_disk",
+            "state": state,
+            "events": [],
+        })
+        item["state"] = state
+        item["events"].append({
+            "state": "progress" if event.get("status") == "progress" else state,
+            "timestamp": event.get("timestamp"),
+            "details": details,
+        })
+    result = list(grouped.values())
+    result.sort(
+        key=lambda item: str(item["events"][-1].get("timestamp") or ""),
+        reverse=True,
+    )
+    return result[:limit]
+
+
 def _local_operations(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) - {"limit"}:
         raise WebAPIError("local_operations accepts only an optional limit")
     limit = params.get("limit", 100)
     try:
-        return {"operations": _local_operation_store().list(limit=limit)}
+        operations = _local_operation_store().list(limit=limit)
+        operations.extend(_pxe_local_operations(limit))
+        operations.sort(
+            key=lambda item: str(
+                (item.get("events") or [{}])[-1].get("timestamp") or ""
+            ),
+            reverse=True,
+        )
+        return {"operations": operations[:limit]}
+    except WebAPIError:
+        raise
     except Exception as exc:
         raise WebAPIError(f"cannot read local operation history: {exc}") from exc
 
