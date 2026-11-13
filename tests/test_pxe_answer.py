@@ -68,6 +68,12 @@ class PXEAnswerTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(PXEAnswerError):
                 validate_pxe_answer(answer)
 
+    def test_rejects_credential_reference_until_live_handoff_exists(self):
+        answer = self.valid_answer()
+        answer["credential_ref"] = "archive"
+        with self.assertRaisesRegex(PXEAnswerError, "unknown fields"):
+            validate_pxe_answer(answer)
+
     def test_rejects_unknown_and_missing_fields(self):
         answer = self.valid_answer()
         answer["device_path"] = "/dev/sda"
