@@ -124,6 +124,29 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         self.assertLessEqual(plan[0].size_sectors, self.partitions[0]["size"])
         self.assertLessEqual(plan[1].size_sectors, self.partitions[1]["size"])
 
+    def test_keeps_known_non_ext_filesystems_fixed_size(self):
+        plan = plan_proportional_gpt_layout(
+            self.partitions, source_size_bytes=8_500_000_000,
+            target_size_bytes=5_000_000_000, sector_size=512,
+            partition_table_type="gpt",
+            minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
+                                 "/dev/source2": 6_000_000 * 512},
+            filesystem_types={"/dev/source1": "vfat", "/dev/source2": "xfs"},
+        )
+        self.assertEqual(plan[0].size_sectors, 2_000_000)
+        self.assertEqual(plan[1].size_sectors, 6_000_000)
+
+    def test_rejects_unknown_filesystem_or_storage_layer(self):
+        with self.assertRaisesRegex(PartitionLayoutError, "unsupported filesystem or storage layer"):
+            plan_proportional_gpt_layout(
+                self.partitions, source_size_bytes=8_500_000_000,
+                target_size_bytes=5_000_000_000, sector_size=512,
+                partition_table_type="gpt",
+                minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
+                                     "/dev/source2": 6_000_000 * 512},
+                filesystem_types={"/dev/source1": "vfat", "/dev/source2": "LVM2_member"},
+            )
+
     def test_requires_a_strictly_smaller_destination(self):
         with self.assertRaisesRegex(PartitionLayoutError, "smaller target"):
             plan_proportional_gpt_layout(
