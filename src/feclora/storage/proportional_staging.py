@@ -132,8 +132,9 @@ def stage_verified_raw_disk_image(
                     decoded.close()
             if total != manifest.source_size_bytes:
                 raise ProportionalStagingError("staged RAW size differs from manifest source size")
-            # Re-hash the still-open source after decoding to detect changes
-            # made in place between the initial verification and staging.
+            # Re-hash unencrypted source bytes after decoding to detect changes
+            # made in place between initial verification and staging. Age
+            # ciphertext has already been authenticated before decryption.
             if artifact.encryption == "none":
                 _verify_stored_artifact(stored, artifact)
             info = os.lstat(staged_path)
@@ -157,7 +158,4 @@ def stage_verified_raw_disk_image(
             except FileNotFoundError:
                 pass
         if stage_dir is not None:
-            try:
-                os.rmdir(stage_dir)
-            except FileNotFoundError:
-                pass
+            shutil.rmtree(stage_dir, ignore_errors=True)
