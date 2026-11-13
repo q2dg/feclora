@@ -117,6 +117,79 @@ class PXEAnswerClientTests(unittest.TestCase):
                 ("mount", "nas-images"), ("restore", "golden"), ("unmount", "nas-images"),
             ])
 
+    def test_remote_repository_unmounts_if_lease_acquisition_fails(self):
+        with tempfile.TemporaryDirectory() as root:
+            events = []
+            def fail_lease(_identifier):
+                events.append(("lease-failed", "nas-images"))
+                raise RuntimeError("simulated lease failure")
+            fake_manager = SimpleNamespace(
+                list=lambda: [{"id": "nas-images", "mounted": False}],
+                mount=lambda identifier: events.append(("mount", identifier)),
+                acquire_usage_lock=fail_lease,
+                unmount=lambda identifier: events.append(("unmount", identifier)),
+            )
+            fake_s3 = SimpleNamespace(list=lambda: [])
+            registry = Path(root) / "repositories.json"
+            registry.touch()
+            with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=fake_s3), \\
+                 patch("feclora.storage.repository_manager.REGISTRY", registry), \\
+                 patch("feclora.storage.repository_manager.RemoteRepositoryManager", return_value=fake_manager):
+                with self.assertRaisesRegex(RuntimeError, "lease failure"):
+                    with _managed_repository("nas-images", "golden"):
+                        self.fail("repository must not be yielded without a usage lease")
+            self.assertEqual(events, [
+                ("mount", "nas-images"), ("lease-failed", "nas-images"),
+                ("unmount", "nas-images"),
+            ])
+
+    def test_remote_repository_closes_lease_and_unmounts_if_resolution_fails(self):
+        with tempfile.TemporaryDirectory() as root:
+            events = []
+            lease_fd = os.open(os.devnull, os.O_RDONLY)
+            fake_manager = SimpleNamespace(
+                list=lambda: [{"id": "nas-images", "mounted": False}],
+                mount=lambda identifier: events.append(("mount", identifier)),
+                acquire_usage_lock=lambda _identifier: lease_fd,
+                resolve=lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("bad mount")),
+                unmount=lambda identifier: events.append(("unmount", identifier)),
+            )
+            fake_s3 = SimpleNamespace(list=lambda: [])
+            registry = Path(root) / "repositories.json"
+            registry.touch()
+            with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=fake_s3), \\
+                 patch("feclora.storage.repository_manager.REGISTRY", registry), \\
+                 patch("feclora.storage.repository_manager.RemoteRepositoryManager", return_value=fake_manager):
+                with self.assertRaisesRegex(RuntimeError, "bad mount"):
+                    with _managed_repository("nas-images", "golden"):
+                        self.fail("unverified mount must not be yielded")
+            with self.assertRaises(OSError):
+                os.fstat(lease_fd)
+            self.assertEqual(events, [("mount", "nas-images"), ("unmount", "nas-images")])
+
+    def test_s3_repository_closes_lease_if_image_download_fails(self):
+        with tempfile.TemporaryDirectory() as root:
+            lease_fd = os.open(os.devnull, os.O_RDONLY)
+            class FakeS3:
+                def list(self):
+                    return [{"id": "s3-images"}]
+                def acquire_usage_lock(self, _identifier):
+                    return lease_fd
+                def repository(self, _identifier):
+                    class ObjectRepo:
+                        def download_image_set(self, _image_id, _directory):
+                            raise RuntimeError("simulated S3 download failure")
+                    return ObjectRepo()
+            registry = Path(root) / "s3-repositories.json"
+            registry.touch()
+            with patch("feclora.storage.s3_repository_manager.REGISTRY", registry), \\
+                 patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=FakeS3()):
+                with self.assertRaisesRegex(RuntimeError, "download failure"):
+                    with _managed_repository("s3-images", "golden"):
+                        self.fail("failed S3 download must not yield a repository")
+            with self.assertRaises(OSError):
+                os.fstat(lease_fd)
+
     def test_unknown_repository_fails_closed(self):
         with tempfile.TemporaryDirectory() as root:
             absent_s3 = Path(root) / "absent-s3.json"
