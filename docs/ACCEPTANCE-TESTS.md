@@ -405,3 +405,18 @@ atomic hard-link publication step.
    published artifact is removed.
 5. Record the injected failure and directory contents. This software test does
    not replace remote-provider interruption acceptance.
+
+## 11. Artifact-writer rollback ownership
+
+Run the low-level artifact-writer failure-injection test on a disposable local
+repository directory.
+
+1. Inject a failure while removing the writer's private temporary name after
+   the final hard link has been created.
+2. Before rollback runs, replace the final name with a different inode.
+3. Confirm rollback preserves the replacement and removes only the temporary
+   name still owned by the failed writer.
+4. Confirm the operation reports failure and does not claim that the
+   replacement contains the attempted artifact.
+5. Do not generalize this local filesystem test to remote provider guarantees;
+   repeat provider-specific interruption checks separately.
