@@ -140,18 +140,56 @@ def plan_proportional_gpt_layout(
         (int(item["minimum_sectors"]) + alignment_sectors - 1) // alignment_sectors
         for item in normalized
     ]
+    # Never grow a partition beyond its original extent. Round the maximum
+    # down to a complete alignment unit; any tail remains unallocated.
+    maximum_units = [
+        int(item["source_size"]) // alignment_sectors
+        for item in normalized
+    ]
+    if any(minimum > maximum for minimum, maximum in zip(minimum_units, maximum_units)):
+        raise PartitionLayoutError(
+            "a filesystem minimum cannot fit within its original partition after alignment"
+        )
     if sum(minimum_units) > usable_alignment_units:
         raise PartitionLayoutError("filesystem minimum sizes do not fit on the smaller target")
 
-    extra_units = usable_alignment_units - sum(minimum_units)
+    # Distribute only capacity that can be used without enlarging any source
+    # partition. Weighted water-filling respects each partition's original
+    # size and leaves the rest of the target disk unallocated.
+    allocations = [0 for _ in normalized]
+    capacities = [maximum - minimum for minimum, maximum in zip(minimum_units, maximum_units)]
+    remaining = min(usable_alignment_units - sum(minimum_units), sum(capacities))
     weights = [int(item["weight"]) for item in normalized]
     if not any(weights):
         weights = [int(item["source_size"]) for item in normalized]
-    weight_total = sum(weights)
-    allocations = [(extra_units * weight) // weight_total for weight in weights]
-    remainder = extra_units - sum(allocations)
-    for index in range(remainder):
-        allocations[index % len(allocations)] += 1
+    while remaining > 0:
+        active = [i for i, capacity in enumerate(capacities) if allocations[i] < capacity]
+        if not active:
+            break
+        weight_total = sum(weights[i] for i in active)
+        proposed = {
+            i: (remaining * weights[i] // weight_total) if weight_total else 0
+            for i in active
+        }
+        progressed = 0
+        for i in active:
+            grant = min(capacities[i] - allocations[i], proposed[i])
+            if grant:
+                allocations[i] += grant
+                remaining -= grant
+                progressed += grant
+        if remaining <= 0:
+            break
+        if progressed == 0:
+            # Integer rounding can produce zero shares. Award one alignment
+            # unit at a time in stable source order, still respecting caps.
+            for i in active:
+                if remaining <= 0:
+                    break
+                if allocations[i] < capacities[i]:
+                    allocations[i] += 1
+                    remaining -= 1
+        # Recompute weights after any partition reaches its original-size cap.
     size_units = [minimum + allocation for minimum, allocation in zip(minimum_units, allocations)]
 
     result = []
