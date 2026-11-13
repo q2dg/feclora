@@ -16,7 +16,7 @@ from feclora.storage.disk_clone import DiskCloneCancelled, DiskCloneError, clone
 from feclora.storage.disk_image_partition import DiskImagePartitionError, extract_partition_image
 from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError, restore_disk
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
-from feclora.storage.inventory import InventoryError, collect_inventory
+from feclora.storage.inventory import InventoryError, collect_inventory, assess_disk_compatibility
 from feclora.storage.partition_image_capture import PartitionImageCaptureError, capture_partition_image
 from feclora.storage.partition_clone import PartitionCloneCancelled, PartitionCloneError, clone_partition
 from feclora.storage.partition_restore import PartitionRestoreCancelled, PartitionRestoreError, restore_partition
@@ -328,6 +328,14 @@ def _clone_disk(inventory: dict[str, Any]) -> None:
         choices,
     )
     if target_path is None:
+        return
+    compatibility = assess_disk_compatibility(source, next(item for item in targets if item.get("path") == target_path))
+    report = ["Preflight compatibility: " + ("NO BLOCKERS FOUND" if compatibility["compatible"] else "BLOCKED")]
+    report.extend("BLOCKER: " + item for item in compatibility["blockers"])
+    report.extend("WARNING: " + item for item in compatibility["warnings"])
+    report.append("This report is advisory; the cloning engine repeats its own safety and geometry checks.")
+    _message("Disk compatibility preflight", "\\n".join(report))
+    if not compatibility["compatible"]:
         return
     phrase = f"ERASE {target_path}"
     typed = _input("Destructive confirmation", f"Source: {source['path']}\nDestination: {target_path}\nType exactly:\n{phrase}")
