@@ -162,6 +162,20 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         self.assertGreaterEqual(plan[1].size_sectors * 512, 1024 * 1024 * 1024)
         self.assertLessEqual(plan[-1].end_sector, 4_000_000_000 // 512 - 34)
 
+    def test_shortens_final_ntfs_partition_when_native_minimum_fits(self):
+        plan = plan_proportional_gpt_layout(
+            self.partitions, source_size_bytes=8_500_000_000,
+            target_size_bytes=4_000_000_000, sector_size=512,
+            partition_table_type="gpt",
+            minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
+                                 "/dev/source2": 1024 * 1024 * 1024},
+            filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ntfs"},
+        )
+        self.assertEqual(plan[-1].start_sector, self.partitions[-1]["start"])
+        self.assertLess(plan[-1].size_sectors, self.partitions[-1]["size"])
+        self.assertGreaterEqual(plan[-1].size_sectors * 512, 1024 * 1024 * 1024)
+        self.assertLessEqual(plan[-1].end_sector, 4_000_000_000 // 512 - 34)
+
     def test_rejects_trimming_final_filesystems_without_a_verified_adapter(self):
         for filesystem in ("xfs", "f2fs", "exfat"):
             with self.subTest(filesystem=filesystem):
