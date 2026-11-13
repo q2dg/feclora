@@ -129,15 +129,12 @@ def _discover_dhcp_answer_url() -> str | None:
         return None
     if result.returncode != 0:
         return None
-    import re
-    urls = {
-        match.group(1)
-        for line in result.stdout.splitlines()
-        if (match := re.fullmatch(
-            r"\\s*(?:224|option_224)\\s*=\\s*(https?://\\S+)\\s*",
-            line, flags=re.IGNORECASE,
-        ))
-    }
+    urls = set()
+    for line in result.stdout.splitlines():
+        key, separator, value = line.partition("=")
+        candidate = value.strip()
+        if separator and key.strip().lower() in {"224", "option_224"} and candidate.startswith(("http://", "https://")):
+            urls.add(candidate)
     if not urls:
         return None
     if len(urls) != 1:
