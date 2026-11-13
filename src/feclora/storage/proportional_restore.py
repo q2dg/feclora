@@ -117,6 +117,8 @@ def preview_proportional_gpt_restore(
             safety_check=safety_check,
             effective_uid=effective_uid,
             minimum_probe=minimum_probe,
+            source_first_usable_lba=first_usable_lba,
+            source_last_usable_lba=last_usable_lba,
         )
     except Exception as exc:
         raise ProportionalRestoreError(f"cannot construct a safe proportional layout: {exc}") from exc
