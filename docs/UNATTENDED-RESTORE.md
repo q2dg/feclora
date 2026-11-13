@@ -12,30 +12,43 @@ the JSON answer file through Caddy. It does not mount repositories, proxy
 image data, execute restoration, or receive client operation results.
 
 Both boot methods use the same answer schema, downloader, validator and Live
-restore client. The answer URL is supplied dynamically at boot:
+restore client. The current answer URL is supplied dynamically:
 
-- ISO: the Live client obtains the current answer URL from a Feclora-specific
-  DHCP option. The ISO remains generic; its boot menu does not embed a Caddy
-  address and does not need rebuilding when that address changes.
-- PXE: the PXE boot flow obtains the same current answer URL from the Feclora
-  PXE Server and passes it to the Live environment using the PXE handoff.
+- ISO: NetworkManager reads DHCP private option 224 from its active IPv4
+  lease. The ISO contains no Caddy address and needs no rebuild when the
+  server address or port changes.
+- PXE: the iPXE handoff passes the job-scoped answer URL directly to the same
+  Live service. The PXE DHCP proxy also advertises option 224 in its
+  PXE-specific response.
 
-The DHCP option number and its exact encoding must be defined by the Feclora
-DHCP implementation; no option number is assumed by this architecture.
-Both boot methods enter the same Live answer-fetch service and restore client.
-With no unattended answer supplied, the normal interactive Feclora session
-is unchanged.
+The Live service runs after network-online on both ISO and PXE boots. It
+prefers an explicit PXE/kernel handoff; otherwise it looks for option 224.
+If no answer URL is supplied, it exits without changing the normal
+interactive Feclora session.
 
 ## Caddy answer URL
 
-The current Caddy publication format is:
+The job-scoped publication remains:
 
 http://<caddy-ipv4>:<port>/answers/<job-uuid>/answer.json
 
-The URL is a public locator, not a client credential. DHCP supplies the
-current URL to ISO clients, so changes to Caddy's address or port are handled
-by updating the PXE Server's DHCP configuration rather than rebuilding the
-ISO. PXE clients use the same published answer endpoint.
+For ISO clients, DHCP option 224 carries the stable locator:
+
+http://<caddy-ipv4>:<port>/unattended-answer.json
+
+When an answer is published, the Server atomically updates this stable Caddy
+path to reference the most recently published job answer. Revoking that job
+or starting a new PXE session removes the current alias. This lets the
+operator change the current answer without changing the ISO or its boot
+configuration. The URL is a public locator, not a client credential.
+
+In authoritative/isolated DHCP mode, Feclora dnsmasq sends option 224 to
+ordinary DHCP clients. In ProxyDHCP mode, dnsmasq can send it only in the
+PXE-specific proxy response; a locally booted ISO receives its lease from
+the upstream authoritative DHCP server, which must also be configured to
+send option 224 if ISO unattended discovery is required in that network.
+The PXE Server still owns its DHCP/ProxyDHCP component; this distinction is
+a consequence of ProxyDHCP not assigning the client's IP lease.
 
 The downloader rejects redirects, bounds the response to 64 KiB, and
 validates the JSON before starting any storage operation. The answer endpoint
