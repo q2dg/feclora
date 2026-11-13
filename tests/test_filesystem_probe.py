@@ -82,6 +82,65 @@ class ExtFilesystemProbeTests(unittest.TestCase):
                 safety_check=lambda _path: None, effective_uid=lambda: 0,
             )
 
+    def test_builds_plan_using_ext_probe_and_keeps_other_filesystems_fixed(self):
+        from feclora.storage.filesystem_probe import build_proportional_gpt_plan
+
+        calls = []
+        def probe(path, **kwargs):
+            calls.append((path, kwargs["filesystem_type"]))
+            return 1024 * 1024 * 1024
+
+        plan = build_proportional_gpt_plan(
+            [
+                {"node": "/dev/source1", "start": 2048, "size": 2_000_000,
+                 "type": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"},
+                {"node": "/dev/source2", "start": 2_100_000, "size": 6_000_000,
+                 "type": "0fc63daf-8483-4772-8e79-3d69d8477de4"},
+            ],
+            source_size_bytes=8_500_000_000,
+            target_size_bytes=5_000_000_000,
+            sector_size=512,
+            partition_table_type="gpt",
+            filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
+            minimum_probe=probe,
+        )
+        self.assertEqual(calls, [("/dev/source2", "ext4")])
+        self.assertEqual(plan[0].size_sectors, 2_000_000)
+        self.assertLessEqual(plan[1].size_sectors, 6_000_000)
+
+    def test_build_plan_rejects_unknown_filesystem_without_guessing(self):
+        from feclora.storage.filesystem_probe import build_proportional_gpt_plan
+
+        with self.assertRaisesRegex(FilesystemProbeError, "unknown"):
+            build_proportional_gpt_plan(
+                [{"node": "/dev/source1", "start": 2048, "size": 2_000_000,
+                  "type": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"}],
+                source_size_bytes=8_500_000_000,
+                target_size_bytes=5_000_000_000,
+                sector_size=512,
+                partition_table_type="gpt",
+                filesystem_types={},
+                minimum_probe=lambda *_args, **_kwargs: 1,
+            )
+
+    def test_build_plan_propagates_ext_probe_failure_closed(self):
+        from feclora.storage.filesystem_probe import build_proportional_gpt_plan
+
+        def failed_probe(*_args, **_kwargs):
+            raise FilesystemProbeError("filesystem is mounted")
+
+        with self.assertRaisesRegex(FilesystemProbeError, "mounted"):
+            build_proportional_gpt_plan(
+                [{"node": "/dev/source1", "start": 2048, "size": 2_000_000,
+                  "type": "0fc63daf-8483-4772-8e79-3d69d8477de4"}],
+                source_size_bytes=8_500_000_000,
+                target_size_bytes=5_000_000_000,
+                sector_size=512,
+                partition_table_type="gpt",
+                filesystem_types={"/dev/source1": "ext4"},
+                minimum_probe=failed_probe,
+            )
+
     def test_runs_safety_check_before_any_probe(self):
         def unsafe(_path):
             from feclora.storage.source_safety import SourceSafetyError
