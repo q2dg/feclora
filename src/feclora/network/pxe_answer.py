@@ -41,7 +41,7 @@ def validate_pxe_answer(value: object) -> dict[str, object]:
     optional = {"description"}
     if not required.issubset(value) or set(value) - required - optional:
         raise PXEAnswerError("PXE answer document has missing or unknown fields")
-    if value["schema_version"] != 1 or isinstance(value["schema_version"], bool):
+    if value["schema_version"] != 2 or isinstance(value["schema_version"], bool):
         raise PXEAnswerError("unsupported PXE answer schema_version")
     if value["operation"] != "restore":
         raise PXEAnswerError("PXE answer currently supports restore only")
@@ -70,7 +70,7 @@ def validate_pxe_answer(value: object) -> dict[str, object]:
     ):
         raise PXEAnswerError("description must be text under 257 characters")
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "operation": "restore",
         "image_id": image_id,
         "repository_id": repository_id,
