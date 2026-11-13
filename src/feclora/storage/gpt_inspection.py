@@ -15,6 +15,40 @@ _GUID = re.compile(
 )
 
 
+def parse_sfdisk_gpt_disk_metadata(
+    output: str, *, expected_sector_size: int, disk_size_bytes: int
+) -> dict[str, object]:
+    """Validate disk-level GPT identity and usable-LBA bounds from sfdisk JSON."""
+    try:
+        payload = json.loads(output)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise GPTInspectionError("sfdisk returned invalid JSON") from exc
+    table = payload.get("partitiontable") if isinstance(payload, dict) else None
+    if not isinstance(table, dict) or table.get("label") != "gpt":
+        raise GPTInspectionError("sfdisk JSON has no GPT partitiontable object")
+    disk_guid = table.get("id")
+    if not isinstance(disk_guid, str) or not _GUID.fullmatch(disk_guid):
+        raise GPTInspectionError("sfdisk did not report a valid GPT disk GUID")
+    sector_size = table.get("sectorsize")
+    first_lba = table.get("firstlba")
+    last_lba = table.get("lastlba")
+    if (isinstance(sector_size, bool) or sector_size != expected_sector_size
+            or isinstance(first_lba, bool) or not isinstance(first_lba, int)
+            or isinstance(last_lba, bool) or not isinstance(last_lba, int)
+            or isinstance(disk_size_bytes, bool) or not isinstance(disk_size_bytes, int)
+            or disk_size_bytes <= 0 or disk_size_bytes % expected_sector_size):
+        raise GPTInspectionError("sfdisk GPT disk geometry is incomplete or invalid")
+    disk_sectors = disk_size_bytes // expected_sector_size
+    if first_lba < 34 or last_lba < first_lba or last_lba >= disk_sectors - 1:
+        raise GPTInspectionError("sfdisk reported invalid GPT usable-LBA bounds")
+    return {
+        "disk_guid": disk_guid.lower(),
+        "first_usable_lba": first_lba,
+        "last_usable_lba": last_lba,
+        "sector_size": sector_size,
+    }
+
+
 def parse_sfdisk_gpt_json(
     output: str,
     *,
@@ -230,8 +264,12 @@ def inspect_gpt_source(
             or disk_size % sector_size):
         raise GPTInspectionError("blockdev and lsblk disk geometry disagree")
 
+    sfdisk_json = invoke("sfdisk", ["--json", disk_path])
+    disk_metadata = parse_sfdisk_gpt_disk_metadata(
+        sfdisk_json, expected_sector_size=sector_size, disk_size_bytes=disk_size
+    )
     raw_partitions = parse_sfdisk_gpt_json(
-        invoke("sfdisk", ["--json", disk_path]),
+        sfdisk_json,
         disk_path=disk_path,
         expected_sector_size=sector_size,
         disk_size_bytes=disk_size,
@@ -261,6 +299,7 @@ def inspect_gpt_source(
         "source_size_bytes": disk_size,
         "sector_size": sector_size,
         "partition_table_type": "gpt",
+        **disk_metadata,
         "partitions": raw_partitions,
         "filesystem_types": filesystem_types,
     }
