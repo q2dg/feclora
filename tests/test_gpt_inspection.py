@@ -20,6 +20,7 @@ class SfdiskGPTParserTests(unittest.TestCase):
                     "type": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
                     "uuid": "11111111-2222-3333-4444-555555555555",
                     "name": "EFI System",
+                    "attrs": "RequiredPartition,NoBlockIOProtocol",
                 },
                 {
                     "node": "/dev/sda2",
@@ -40,6 +41,7 @@ class SfdiskGPTParserTests(unittest.TestCase):
         self.assertEqual(result[0]["node"], "/dev/sda1")
         self.assertEqual(result[0]["start"], 2048)
         self.assertEqual(result[0]["name"], "EFI System")
+        self.assertEqual(result[0]["attrs"], "RequiredPartition,NoBlockIOProtocol")
         self.assertEqual(result[1]["size"], 204800)
 
     def test_rejects_non_gpt_and_non_sector_units(self):
@@ -103,6 +105,14 @@ class SfdiskGPTParserTests(unittest.TestCase):
             parse_sfdisk_gpt_json(
                 json.dumps(payload), disk_path="/dev/sda",
                 expected_sector_size=512, disk_size_bytes=536870912,
+            )
+
+    def test_rejects_invalid_gpt_partition_attributes(self):
+        payload = json.loads(self.payload())
+        payload["partitiontable"]["partitions"][0]["attrs"] = ["not", "a", "string"]
+        with self.assertRaisesRegex(GPTInspectionError, "invalid GPT partition attributes"):
+            parse_sfdisk_gpt_json(
+                json.dumps(payload), disk_path="/dev/sda", expected_sector_size=512
             )
 
     def test_rejects_malformed_input_and_empty_partition_list(self):
