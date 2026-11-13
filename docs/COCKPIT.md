@@ -88,7 +88,7 @@ The Operations wizard provides:
 - optional image-security key initialization, age encryption and manifest
   signing when those features are configured;
 - durable local operation history, with a Cancel control for queued,
-  preflight and running jobs.
+  preflight and running jobs, plus JSON export of the latest 100 loaded records.
 
 The Operation history tab can request cancellation of queued, preflight or
 running local jobs. Feclora stops the worker and waits for its storage child
