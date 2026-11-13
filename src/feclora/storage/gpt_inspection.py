@@ -20,6 +20,7 @@ def parse_sfdisk_gpt_json(
     *,
     disk_path: str,
     expected_sector_size: int,
+    disk_size_bytes: int | None = None,
 ) -> tuple[dict[str, object], ...]:
     """Parse sfdisk --json output into planner records; never executes writes."""
     if (
@@ -52,6 +53,24 @@ def parse_sfdisk_gpt_json(
         or sector_size != expected_sector_size
     ):
         raise GPTInspectionError("sfdisk logical sector size does not match the inspected disk")
+    first_lba = table.get("firstlba")
+    last_lba = table.get("lastlba")
+    if disk_size_bytes is not None:
+        if (isinstance(disk_size_bytes, bool) or not isinstance(disk_size_bytes, int)
+                or disk_size_bytes <= 0 or disk_size_bytes % expected_sector_size):
+            raise GPTInspectionError("source disk capacity is invalid for GPT bounds validation")
+        disk_sectors = disk_size_bytes // expected_sector_size
+        if (isinstance(first_lba, bool) or not isinstance(first_lba, int)
+                or isinstance(last_lba, bool) or not isinstance(last_lba, int)):
+            raise GPTInspectionError("sfdisk did not report GPT firstlba and lastlba bounds")
+        if first_lba < 34 or last_lba < first_lba or last_lba >= disk_sectors - 1:
+            raise GPTInspectionError("sfdisk reported invalid GPT usable-LBA bounds")
+    elif first_lba is not None or last_lba is not None:
+        if (isinstance(first_lba, bool) or not isinstance(first_lba, int)
+                or isinstance(last_lba, bool) or not isinstance(last_lba, int)
+                or first_lba < 34 or last_lba < first_lba):
+            raise GPTInspectionError("sfdisk reported invalid GPT usable-LBA bounds")
+
     partitions = table.get("partitions")
     if not isinstance(partitions, list) or not partitions:
         raise GPTInspectionError("GPT source has no readable partitions")
@@ -83,6 +102,10 @@ def parse_sfdisk_gpt_json(
             raise GPTInspectionError(f"{node} has an invalid GPT type GUID")
         if start < previous_end:
             raise GPTInspectionError("GPT partitions overlap or are not in start-sector order")
+        if first_lba is not None and start < first_lba:
+            raise GPTInspectionError(f"{node} starts before the GPT usable-LBA range")
+        if last_lba is not None and start + size - 1 > last_lba:
+            raise GPTInspectionError(f"{node} extends beyond the GPT usable-LBA range")
         previous_end = start + size
         seen_paths.add(node)
         record: dict[str, object] = {
@@ -201,6 +224,7 @@ def inspect_gpt_source(
         invoke("sfdisk", ["--json", disk_path]),
         disk_path=disk_path,
         expected_sector_size=sector_size,
+        disk_size_bytes=disk_size,
     )
     children = root.get("children") or []
     if not isinstance(children, list):
