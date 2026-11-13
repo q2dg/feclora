@@ -483,6 +483,33 @@ class RemoteRepositoryManager:
                 os.close(fd)
             raise RepositoryManagerError(f"cannot acquire repository usage lock: {exc}") from exc
 
+    def ensure_mounted_and_acquire_usage_lock(self, identifier: str) -> tuple[int, bool]:
+        """Ensure a verified mount exists and atomically downgrade its lock to a shared lease.
+
+        Keeping the exclusive descriptor from the mount decision through the
+        shared-lock downgrade prevents another process from unmounting the
+        repository in the gap between mount() and acquire_usage_lock().
+        The boolean reports whether this call mounted the repository.
+        """
+        lock_fd = self._acquire_usage_lock(identifier, exclusive=True)
+        mounted_by_us = False
+        try:
+            if identifier not in self._load():
+                raise RepositoryManagerError("unknown repository ID")
+            mountpoint = self.mount_root / identifier
+            if self._is_mounted(str(mountpoint)):
+                self.resolve(identifier, write=False)
+            else:
+                self._mount_locked(identifier)
+                mounted_by_us = True
+            # flock conversion on the same open-file description is atomic:
+            # the caller holds a shared lease before any competing EX lock wins.
+            fcntl.flock(lock_fd, fcntl.LOCK_SH)
+            return lock_fd, mounted_by_us
+        except Exception:
+            os.close(lock_fd)
+            raise
+
     def acquire_usage_lock(self, identifier: str) -> int:
         """Hold a shared lease while any local or distributed image operation uses this repository."""
         lock_fd = self._acquire_usage_lock(identifier, exclusive=False)
