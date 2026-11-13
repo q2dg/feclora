@@ -12,6 +12,9 @@ class ProportionalRestorePreviewTests(unittest.TestCase):
             "source_size_bytes": 2 * 1024 * 1024 * 1024,
             "sector_size": 512,
             "partition_table_type": "gpt",
+            "disk_guid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "first_usable_lba": 34,
+            "last_usable_lba": 4194270,
             "partitions": (
                 {"node": "/dev/src1", "start": 2048, "size": 204800,
                  "type": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"},
@@ -43,6 +46,9 @@ class ProportionalRestorePreviewTests(unittest.TestCase):
         self.assertEqual(result["source_size_bytes"], self.source["source_size_bytes"])
         self.assertEqual(result["target_size_bytes"], self.target["target_size_bytes"])
         self.assertEqual(result["target_identity"]["serial"], "TARGET-123")
+        self.assertEqual(result["source_gpt_disk_guid"], "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+        self.assertEqual(result["source_gpt_first_usable_lba"], 34)
+        self.assertEqual(result["source_gpt_last_usable_lba"], 4194270)
         self.assertEqual(len(result["partitions"]), 2)
         self.assertTrue(result["destructive_confirmation_required"])
         self.assertFalse(result["write_authorized"])
