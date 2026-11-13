@@ -25,6 +25,12 @@ class PXEAnswerTests(unittest.TestCase):
         self.assertEqual(result["image_id"], "fedora-workstation")
         self.assertEqual(result["target"]["wwn"], "0x5000abcd1234")
 
+    def test_rejects_previous_schema_version(self):
+        answer = self.valid_answer()
+        answer["schema_version"] = 1
+        with self.assertRaisesRegex(PXEAnswerError, "unsupported"):
+            validate_pxe_answer(answer)
+
     def test_accepts_valid_repository_ids(self):
         for identifier in ("nas", "archive-01", "s3-images"):
             with self.subTest(identifier=identifier):
