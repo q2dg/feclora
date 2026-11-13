@@ -184,6 +184,13 @@ class GPTSourceDiscoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(GPTInspectionError, "partition set"):
             self.inspect(runner)
 
+    def test_refuses_lsblk_capacity_disagreement(self):
+        inventory = json.loads(json.dumps(self.inventory))
+        inventory["blockdevices"][0]["size"] += 512
+        runner, _ = self.make_runner(inventory=inventory)
+        with self.assertRaisesRegex(GPTInspectionError, "geometry disagree"):
+            self.inspect(runner)
+
     def test_refuses_sector_geometry_disagreement(self):
         runner, _ = self.make_runner(sector="4096")
         with self.assertRaisesRegex(GPTInspectionError, "geometry disagree"):
