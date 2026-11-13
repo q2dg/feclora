@@ -43,6 +43,27 @@ def _answer_endpoint(value: str, job_id: str) -> tuple[str, int]:
     return str(address), port
 
 
+def parse_dhcp_answer_url(value: str) -> PXEBootRequest:
+    """Validate the stable, DHCP-advertised Caddy answer locator."""
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+        address = ipaddress.ip_address(parsed.hostname or "")
+    except ValueError as exc:
+        raise PXEBootRequestError("DHCP answer URL must contain a valid IPv4 listener and port") from exc
+    if (parsed.scheme != "http" or address.version != 4 or address.is_unspecified
+            or address.is_loopback or address.is_multicast or port is None or not 1 <= port <= 65535
+            or parsed.username is not None or parsed.password is not None
+            or parsed.query or parsed.fragment or parsed.path != "/unattended-answer.json"):
+        raise PXEBootRequestError(
+            "DHCP answer URL must be plain HTTP to a usable IPv4 listener at /unattended-answer.json"
+        )
+    return PXEBootRequest(
+        mode="unattended-answer", server_address=str(address),
+        http_port=port, answer_url=value,
+    )
+
+
 def parse_pxe_boot_request(command_line: str) -> PXEBootRequest:
     if not isinstance(command_line, str) or len(command_line) > 65536:
         raise PXEBootRequestError("kernel command line must be text under 64 KiB")
