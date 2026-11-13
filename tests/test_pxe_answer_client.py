@@ -132,8 +132,8 @@ class PXEAnswerClientTests(unittest.TestCase):
             fake_s3 = SimpleNamespace(list=lambda: [])
             registry = Path(root) / "repositories.json"
             registry.touch()
-            with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=fake_s3), \\
-                 patch("feclora.storage.repository_manager.REGISTRY", registry), \\
+            with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=fake_s3), \
+                 patch("feclora.storage.repository_manager.REGISTRY", registry), \
                  patch("feclora.storage.repository_manager.RemoteRepositoryManager", return_value=fake_manager):
                 with self.assertRaisesRegex(RuntimeError, "lease failure"):
                     with _managed_repository("nas-images", "golden"):
@@ -157,8 +157,8 @@ class PXEAnswerClientTests(unittest.TestCase):
             fake_s3 = SimpleNamespace(list=lambda: [])
             registry = Path(root) / "repositories.json"
             registry.touch()
-            with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=fake_s3), \\
-                 patch("feclora.storage.repository_manager.REGISTRY", registry), \\
+            with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=fake_s3), \
+                 patch("feclora.storage.repository_manager.REGISTRY", registry), \
                  patch("feclora.storage.repository_manager.RemoteRepositoryManager", return_value=fake_manager):
                 with self.assertRaisesRegex(RuntimeError, "bad mount"):
                     with _managed_repository("nas-images", "golden"):
@@ -182,7 +182,7 @@ class PXEAnswerClientTests(unittest.TestCase):
                     return ObjectRepo()
             registry = Path(root) / "s3-repositories.json"
             registry.touch()
-            with patch("feclora.storage.s3_repository_manager.REGISTRY", registry), \\
+            with patch("feclora.storage.s3_repository_manager.REGISTRY", registry), \
                  patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=FakeS3()):
                 with self.assertRaisesRegex(RuntimeError, "download failure"):
                     with _managed_repository("s3-images", "golden"):
