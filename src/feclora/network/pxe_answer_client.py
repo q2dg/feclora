@@ -313,7 +313,7 @@ def _managed_repository(repository_id: str, image_id: str):
     )
 
     if os.path.lexists(S3_REGISTRY):
-        s3_manager = S3RepositoryManager()
+        s3_manager = S3RepositoryManager(registry=S3_REGISTRY)
         s3_ids = {item["id"] for item in s3_manager.list()}
     else:
         s3_manager = None
@@ -337,7 +337,7 @@ def _managed_repository(repository_id: str, image_id: str):
 
     if not os.path.lexists(REMOTE_REGISTRY):
         raise PXEAnswerClientError("selected repository ID is not configured in the Live client's Feclora repository managers")
-    manager = RemoteRepositoryManager()
+    manager = RemoteRepositoryManager(registry=REMOTE_REGISTRY)
     definitions = {item["id"]: item for item in manager.list()}
     if repository_id not in definitions:
         raise PXEAnswerClientError("selected repository ID is not configured in the Live client's Feclora repository managers")
