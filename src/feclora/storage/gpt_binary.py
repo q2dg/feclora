@@ -184,6 +184,8 @@ def inspect_gpt_binary(
     partitions = _entries(primary_array, header=primary)
     return {
         "disk_guid": primary["disk_guid"],
+        "revision": primary["revision"],
+        "header_size": primary["header_size"],
         "sector_size": sector_size,
         "disk_size_bytes": disk_size_bytes,
         "first_usable_lba": primary["first_usable_lba"],
@@ -222,6 +224,8 @@ def build_gpt_rewrite(
             or target_size_bytes % sector_size):
         raise GPTBinaryError("target size must be a smaller positive sector-aligned size")
     target_sectors = target_size_bytes // sector_size
+    if source["header_size"] != _HEADER.size or source["revision"] != 0x00010000:
+        raise GPTBinaryError("GPT header extensions are not supported for metadata rewriting")
     count = int(source["entry_count"])
     entry_size = int(source["entry_size"])
     array_bytes = count * entry_size
