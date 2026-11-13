@@ -12,15 +12,21 @@ provisioning workflow.
 The Feclora PXE Server is the single deployment component containing DHCP,
 Caddy and the services needed to distribute Live boot assets and publish
 answer files. DHCP and Caddy are internal parts of this server, not external
-dependencies. DHCP provides the current Caddy answer URL to ISO clients, so
-the ISO stays generic when the server address or port changes. PXE boot
-obtains and passes the same answer URL to the Live client.
+dependencies. In authoritative/isolated DHCP mode, dnsmasq supplies private
+DHCP option 224 with the stable Caddy URL
+`/unattended-answer.json`; the ISO stays generic when the server address or
+port changes. In ProxyDHCP mode, dnsmasq includes the locator in its
+PXE-specific response, while a locally booted ISO also needs option 224 from
+the upstream authoritative DHCP server. PXE iPXE handoff passes the
+job-specific answer URL directly to the same Live client.
 
 The PXE Server publishes the Live kernel, initramfs and squashfs and the
 answer JSON through Caddy. It does not proxy storage access, mount remote
 repositories, execute restoration, or receive operation logs, progress or
 restore results. Both ISO and PXE enter the same Live answer-fetch service,
-validator and restore client.
+validator and restore client. The Live service checks the NetworkManager
+DHCPv4 lease for option 224 on ISO boots and otherwise leaves interactive
+boots unchanged.
 
 There is no per-client USB, identity medium, certificate, private key,
 enrollment bundle or manual identity provisioning in this model. Do not
