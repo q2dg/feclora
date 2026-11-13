@@ -202,6 +202,25 @@ class GPTSourceDiscoveryTests(unittest.TestCase):
     def payload(self):
         return self_payload()
 
+    def binary_inspector(self, path, *, sector_size, disk_size_bytes):
+        return {
+            "disk_guid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "sector_size": sector_size,
+            "first_usable_lba": 34,
+            "last_usable_lba": 1048542,
+            "primary_backup_consistent": True,
+            "partitions": [
+                {"first_lba": 2048, "last_lba": 104447,
+                 "type_guid": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
+                 "unique_guid": "11111111-2222-3333-4444-555555555555",
+                 "name": "EFI System"},
+                {"first_lba": 104448, "last_lba": 309247,
+                 "type_guid": "0fc63daf-8483-4772-8e79-3d69d8477de4",
+                 "unique_guid": "22222222-3333-4444-5555-666666666666",
+                 "name": ""},
+            ],
+        }
+
     def inspect(self, runner):
         return inspect_gpt_source(
             "/dev/sda",
@@ -210,6 +229,7 @@ class GPTSourceDiscoveryTests(unittest.TestCase):
             device_validator=lambda path: True,
             safety_check=lambda path: None,
             effective_uid=lambda: 0,
+            binary_inspector=self.binary_inspector,
         )
 
     def test_discovers_geometry_partition_table_and_filesystems(self):
@@ -223,6 +243,21 @@ class GPTSourceDiscoveryTests(unittest.TestCase):
         })
         self.assertEqual(len(result["partitions"]), 2)
         self.assertTrue(any("sfdisk" in arg for arg in calls[-1]))
+
+    def test_refuses_binary_and_sfdisk_disk_identity_disagreement(self):
+        runner, _ = self.make_runner()
+        def wrong_binary(path, *, sector_size, disk_size_bytes):
+            result = self.binary_inspector(
+                path, sector_size=sector_size, disk_size_bytes=disk_size_bytes
+            )
+            result["disk_guid"] = "bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee"
+            return result
+        with self.assertRaisesRegex(GPTInspectionError, "disk metadata disagree"):
+            inspect_gpt_source(
+                "/dev/sda", runner=runner, which=lambda name: "/usr/sbin/" + name,
+                device_validator=lambda path: True, safety_check=lambda path: None,
+                effective_uid=lambda: 0, binary_inspector=wrong_binary,
+            )
 
     def test_refuses_partition_inventory_mismatch(self):
         inventory = self.inventory.copy()
@@ -272,9 +307,12 @@ def self_payload():
             "firstlba": 34, "lastlba": 1048542,
             "partitions": [
                 {"node": "/dev/sda1", "start": 2048, "size": 102400,
-                 "type": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"},
+                 "type": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
+                 "uuid": "11111111-2222-3333-4444-555555555555",
+                 "name": "EFI System"},
                 {"node": "/dev/sda2", "start": 104448, "size": 204800,
-                 "type": "0fc63daf-8483-4772-8e79-3d69d8477de4"},
+                 "type": "0fc63daf-8483-4772-8e79-3d69d8477de4",
+                 "uuid": "22222222-3333-4444-5555-666666666666"},
             ],
         }
     })
