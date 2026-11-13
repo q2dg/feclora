@@ -121,42 +121,40 @@ def plan_proportional_gpt_layout(
             "weight": max(0, size - minimum_sectors),
         })
 
-    cursor = first_usable
-    starts: list[int] = []
-    for _ in normalized:
-        cursor = _align_up(cursor, alignment_sectors)
-        starts.append(cursor)
-        cursor += 1
-    gaps = sum(starts[i] - (first_usable if i == 0 else starts[i - 1] + 1)
-               for i in range(len(starts)))
-    usable_partition_sectors = last_usable_exclusive - first_usable - gaps
-    minima = [int(item["minimum_sectors"]) for item in normalized]
-    minimum_total = sum(minima)
-    if minimum_total > usable_partition_sectors:
+    first_aligned = _align_up(first_usable, alignment_sectors)
+    usable_alignment_units = (last_usable_exclusive - first_aligned) // alignment_sectors
+    minimum_units = [
+        (int(item["minimum_sectors"]) + alignment_sectors - 1) // alignment_sectors
+        for item in normalized
+    ]
+    if sum(minimum_units) > usable_alignment_units:
         raise PartitionLayoutError("filesystem minimum sizes do not fit on the smaller target")
 
-    extra = usable_partition_sectors - minimum_total
+    extra_units = usable_alignment_units - sum(minimum_units)
     weights = [int(item["weight"]) for item in normalized]
     if not any(weights):
         weights = [int(item["source_size"]) for item in normalized]
     weight_total = sum(weights)
-    allocations = [(extra * weight) // weight_total for weight in weights]
-    remainder = extra - sum(allocations)
+    allocations = [(extra_units * weight) // weight_total for weight in weights]
+    remainder = extra_units - sum(allocations)
     for index in range(remainder):
         allocations[index % len(allocations)] += 1
-    sizes = [minimum + allocation for minimum, allocation in zip(minima, allocations)]
+    size_units = [minimum + allocation for minimum, allocation in zip(minimum_units, allocations)]
 
     result = []
-    for item, start, size, minimum in zip(normalized, starts, sizes, minima):
-        if start + size > last_usable_exclusive:
+    cursor = first_aligned
+    for item, units, minimum in zip(normalized, size_units, minimum_units):
+        size_sectors = units * alignment_sectors
+        if cursor + size_sectors > last_usable_exclusive:
             raise PartitionLayoutError("planned partition extends into backup GPT metadata")
         result.append(PlannedPartition(
             node=str(item["node"]),
             type_guid=str(item["type"]),
             partuuid=item["uuid"] if isinstance(item["uuid"], str) else None,
             name=item["name"] if isinstance(item["name"], str) else None,
-            start_sector=start,
-            size_sectors=size,
-            minimum_size_bytes=minimum * sector,
+            start_sector=cursor,
+            size_sectors=size_sectors,
+            minimum_size_bytes=minimum * alignment_sectors * sector,
         ))
+        cursor += size_sectors
     return tuple(result)
