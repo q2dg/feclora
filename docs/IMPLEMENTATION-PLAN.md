@@ -192,7 +192,7 @@ Implementation contract for a future proportional-layout mode:
 
 - [ ] Keep the current exact/raw mode unchanged and fail closed when the destination is smaller.
 - [ ] Add a separate, explicit proportional-layout mode; never silently resize.
-- [x] Add read-only whole-disk source discovery using `lsblk`, `blockdev` and `sfdisk`; require an offline/unused whole disk, GPT, matching logical-sector geometry and exact agreement between the discovered partition set. Validate ordered/non-overlapping partition extents, device nodes and GUIDs, and require sfdisk's first/last usable LBAs to fit the actual disk capacity and contain every partition. This validates the reported usable range, not the raw primary/backup GPT header or entry-array checksums; destination-side inspection remains pending.
+- [x] Add read-only whole-disk source discovery using `lsblk`, `blockdev` and `sfdisk`; require an offline/unused whole disk, GPT, matching logical-sector geometry and exact agreement between the discovered partition set. Validate ordered/non-overlapping partition extents, device nodes and GUIDs, and require sfdisk's first/last usable LBAs to fit the actual disk capacity and contain every partition. The source's protective MBR, primary/backup GPT headers, header CRCs, entry-array CRCs, disk GUID, usable-LBA bounds and partition records are independently read from the block device and cross-checked against sfdisk. Destination-side binary inspection remains pending.
 - [x] Add a preview-only GPT layout planner that validates ordered/non-overlapping source partitions, GPT type GUIDs, target capacity and caller-supplied minimum sizes. It preserves every source partition start and identifier; it never relocates or repacks partitions. It may shorten only the final ext2/3/4 or NTFS partition, and only when its filesystem-native probed minimum fits before the target backup GPT metadata. Other filesystems retain exact original size; unknown filesystems/storage layers fail closed. Earlier partitions that cross the target boundary, or a final unsupported partition that crosses it, are rejected. This is intentionally narrower than a general proportional resize, but avoids an unimplemented data-relocation algorithm.
 - [x] Integrate trusted offline filesystem-minimum probes into a read-only source-to-smaller-target preview API; no write authorization is returned. Reject extended/logical MBR layouts or other schemes until their handling is implemented and tested.
 - [x] Add read-only ext2/3/4 and NTFS minimum-size probes: ext verifies the detected type, runs `e2fsck -f -n`, reads the ext block size and `resize2fs -P` estimate; NTFS verifies the detected type and runs `ntfsresize --info` (read-only). Both bound the estimate by block-device capacity and refuse mounted/busy/root-backed sources through the existing source-safety checks. Estimates remain advisory; the staged shrink must independently succeed and be checked.
@@ -434,15 +434,20 @@ migration paths must not be conflated with lossless block-level shrinking.
   from the inspected source's trailing GPT-reserved geometry instead of
   assuming 33 reserved sectors. This handles both 512-byte and 4096-byte
   logical sectors and non-default GPT entry-array reservation sizes while
-  preserving the source first-usable LBA. Tests cover 4Kn geometry and
-  out-of-capacity bounds. This is still preview-only: primary and backup
-  header/entry-array serialization, CRC generation, backup placement, and
-  post-write validation remain unimplemented.
+  preserving the source first-usable LBA. A new read-only binary GPT
+  validator now checks the protective MBR, primary and backup headers, header
+  CRCs, entry-array CRCs, disk GUID, usable bounds, unique partition GUIDs,
+  extents, names and array agreement. Source inspection cross-checks those
+  bytes against sfdisk's JSON before producing a preview. Tests cover valid
+  512-byte and 4096-byte images and corruption/disagreement cases. This is
+  still preview-only: GPT serialization/writing, staged filesystem shrinking,
+  and post-write validation remain unimplemented.
 - GPT inspection and preview records now retain per-partition `attrs` from
   `sfdisk --json` (including firmware/OS-specific attribute bits), instead of
   silently dropping them. This is metadata preservation only: no GPT writer
-  exists yet, and disk-level GPT identity/header geometry still need an
-  explicit preservation and validation design before any rewrite.
+  exists yet. The source-side disk identity and header geometry are now
+  independently validated; a future writer must preserve them deliberately
+  and validate both rewritten copies before any destination write.
 - A private RAW staging primitive now verifies the stored artifact, checks the
   decoded byte count, writes a mode-0600 copy under a mode-0700 temporary
   directory outside the image repository, and removes that workspace on
