@@ -94,6 +94,7 @@ def _entries(raw: bytes, *, header: dict[str, object]) -> tuple[dict[str, object
     last_usable = int(header["last_usable_lba"])
     result = []
     seen_guids: set[str] = set()
+    previous_end = first_usable - 1
     for index in range(count):
         entry = raw[index * size:(index + 1) * size]
         type_raw, unique_raw, first_lba, last_lba, attributes = _ENTRY_PREFIX.unpack_from(entry)
