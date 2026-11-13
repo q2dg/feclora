@@ -28,7 +28,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         )
         self.assertEqual([item.partuuid for item in plan], ["AAAA", "BBBB"])
         self.assertEqual([item.name for item in plan], ["EFI", "root"])
-        self.assertTrue(all(item.start_sector * 512 % (1024 * 1024) == 0 for item in plan))
+        self.assertEqual([item.start_sector for item in plan], [2048, 2_100_000])
         self.assertLessEqual(plan[-1].end_sector, 5_000_000_000 // 512 - 34)
         self.assertTrue(all(left.end_sector < right.start_sector for left, right in zip(plan, plan[1:])))
         self.assertEqual(plan[0].minimum_size_bytes, 2_000_000 * 512)
@@ -145,6 +145,43 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
                 minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
                                      "/dev/source2": 6_000_000 * 512},
                 filesystem_types={"/dev/source1": "vfat", "/dev/source2": "LVM2_member"},
+            )
+
+    def test_shortens_only_the_final_ext_partition_and_preserves_starts(self):
+        plan = plan_proportional_gpt_layout(
+            self.partitions, source_size_bytes=8_500_000_000,
+            target_size_bytes=4_000_000_000, sector_size=512,
+            partition_table_type="gpt",
+            minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
+                                 "/dev/source2": 1024 * 1024 * 1024},
+            filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
+        )
+        self.assertEqual([item.start_sector for item in plan], [2048, 2_100_000])
+        self.assertEqual(plan[0].size_sectors, 2_000_000)
+        self.assertLess(plan[1].size_sectors, self.partitions[1]["size"])
+        self.assertGreaterEqual(plan[1].size_sectors * 512, 1024 * 1024 * 1024)
+        self.assertLessEqual(plan[-1].end_sector, 4_000_000_000 // 512 - 34)
+
+    def test_rejects_trimming_final_non_ext_partition(self):
+        with self.assertRaisesRegex(PartitionLayoutError, "only ext2/3/4 can be shortened"):
+            plan_proportional_gpt_layout(
+                self.partitions, source_size_bytes=8_500_000_000,
+                target_size_bytes=4_000_000_000, sector_size=512,
+                partition_table_type="gpt",
+                minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
+                                     "/dev/source2": 6_000_000 * 512},
+                filesystem_types={"/dev/source1": "vfat", "/dev/source2": "xfs"},
+            )
+
+    def test_rejects_layout_that_requires_relocating_later_partitions(self):
+        with self.assertRaisesRegex(PartitionLayoutError, "only the final source partition"):
+            plan_proportional_gpt_layout(
+                self.partitions, source_size_bytes=8_500_000_000,
+                target_size_bytes=1_000_000_000, sector_size=512,
+                partition_table_type="gpt",
+                minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
+                                     "/dev/source2": 1024 * 1024 * 1024},
+                filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
             )
 
     def test_requires_a_strictly_smaller_destination(self):
