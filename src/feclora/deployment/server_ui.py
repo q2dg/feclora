@@ -74,7 +74,7 @@ def _choose_job(
         if transport == "multicast" else
         [
             ("restore", "Restore an image to one Client disk or partition"),
-            ("save", "Capture one Client disk and store an image"),
+            ("save", "Capture one Client disk or logical volume and store an image"),
             ("clone", "Clone a Server disk or partition directly to one Client"),
         ]
     )
@@ -137,7 +137,12 @@ def _choose_job(
             raise DeploymentControlError(f"clone source is unsafe or in use: {exc}") from exc
         image_id = None
     else:
-        target_type = "disk"
+        target_type = dialog_app._menu(
+            "Client capture source type", "Choose the source type to capture on the selected Client.",
+            [("disk", "Whole disk"), ("logical_volume", "Logical volume")],
+        )
+        if target_type is None:
+            raise DeploymentControlError("Client capture source type selection cancelled")
         image_id = dialog_app._input("New image identifier", "Enter a unique image identifier:")
         if image_id is None:
             raise DeploymentControlError("image creation cancelled")
