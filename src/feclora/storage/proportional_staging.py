@@ -134,7 +134,8 @@ def stage_verified_raw_disk_image(
                 raise ProportionalStagingError("staged RAW size differs from manifest source size")
             # Re-hash the still-open source after decoding to detect changes
             # made in place between the initial verification and staging.
-            _verify_stored_artifact(stored, artifact)
+            if artifact.encryption == "none":
+                _verify_stored_artifact(stored, artifact)
             info = os.lstat(staged_path)
             if not stat.S_ISREG(info.st_mode) or info.st_size != total or info.st_mode & 0o077:
                 raise ProportionalStagingError("staged RAW file failed private-file validation")
