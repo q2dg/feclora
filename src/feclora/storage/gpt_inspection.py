@@ -282,6 +282,8 @@ def inspect_gpt_source(
 
         try:
             with open(disk_path, "rb", buffering=0) as disk_stream:
+                if not stat.S_ISBLK(os.fstat(disk_stream.fileno()).st_mode):
+                    raise GPTInspectionError("opened source is no longer a block device")
                 binary_metadata = inspect_gpt_binary(
                     disk_stream, sector_size=sector_size, disk_size_bytes=disk_size
                 )
