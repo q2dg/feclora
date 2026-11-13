@@ -12,7 +12,7 @@ class PXEAnswerAPITests(unittest.TestCase):
 
     def answer(self) -> bytes:
         return json.dumps({
-            "schema_version": 1,
+            "schema_version": 2,
             "operation": "restore",
             "image_id": "fedora",
             "repository_id": "nas-images",
