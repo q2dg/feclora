@@ -13,7 +13,7 @@ from typing import Mapping, Sequence
 
 _FIXED_SIZE_FILESYSTEMS = frozenset({
     "btrfs", "exfat", "fat", "fat16", "fat32", "f2fs",
-    "ntfs", "ntfs3", "swap", "vfat", "xfs",
+    "swap", "vfat", "xfs",
 })
 
 
@@ -58,8 +58,8 @@ def plan_proportional_gpt_layout(
     All partitions must carry a unique /dev node and a GPT type GUID. The
     caller must provide a filesystem-native minimum size and detected type for every partition. Only ext2/3/4 and NTFS may be reduced; all other types must remain at their original byte size.
     The planner preserves every source partition start and identifier. It
-    may shorten only the final ext2/3/4 partition to the target's last usable
-    GPT LBA. It never relocates partitions or redistributes capacity.
+    may shorten only the final ext2/3/4 or NTFS partition to the target's
+    last usable GPT LBA. It never relocates partitions or redistributes capacity.
 
     The returned plan is advisory only; it is not an authorization to write.
     """
@@ -163,7 +163,7 @@ def plan_proportional_gpt_layout(
             minimum = (int(item["minimum_bytes"]) + sector - 1) // sector
             if size_sectors < minimum:
                 raise PartitionLayoutError(
-                    "the final ext filesystem minimum does not fit at its original partition start"
+                    "the final filesystem minimum does not fit at its original partition start"
                 )
         result.append(PlannedPartition(
             node=str(item["node"]),
