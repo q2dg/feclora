@@ -112,7 +112,8 @@ def inspect_restore_target(
     partitions: list[dict[str, object]] = []
     seen: set[str] = set()
     for child in children:
-        if (not isinstance(child, dict) or child.get("type") != "part"\n                or child.get("children")):
+        if (not isinstance(child, dict) or child.get("type") != "part"
+                or child.get("children")):
             raise TargetInspectionError("target contains an unrecognized child storage layer")
         path = child.get("path")
         if not isinstance(path, str) or not path.startswith(disk_path) or not re.fullmatch(r"(?:p?\d+|-part\d+)", path[len(disk_path):]) or path in seen:
