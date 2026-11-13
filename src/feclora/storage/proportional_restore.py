@@ -97,7 +97,7 @@ def preview_proportional_gpt_restore(
     source_sectors = source_size // source_sector
     if (isinstance(first_usable_lba, bool) or not isinstance(first_usable_lba, int)
             or isinstance(last_usable_lba, bool) or not isinstance(last_usable_lba, int)
-            or first_usable_lba < 34 or last_usable_lba < first_usable_lba
+            or first_usable_lba < 2 or last_usable_lba < first_usable_lba
             or last_usable_lba >= source_sectors - 1):
         raise ProportionalRestoreError("source GPT usable-LBA bounds are missing or invalid")
     if target.get("write_authorized") is not False:
