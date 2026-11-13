@@ -89,10 +89,6 @@ class SfdiskGPTParserTests(unittest.TestCase):
             )
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -201,3 +197,6 @@ def self_payload():
             ],
         }
     })
+
+if __name__ == "__main__":
+    unittest.main()
