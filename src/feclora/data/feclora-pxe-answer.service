@@ -1,8 +1,9 @@
 [Unit]
-Description=Fetch and validate the shared Feclora PXE answer
+Description=Fetch and validate the shared Feclora unattended restore answer
 Wants=network-online.target NetworkManager-wait-online.service
 After=network-online.target NetworkManager-wait-online.service
 ConditionKernelCommandLine=feclora.pxe_mode=unattended-answer
+ConditionKernelCommandLine=feclora.unattended_url=*
 
 [Service]
 Type=simple
