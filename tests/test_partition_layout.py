@@ -31,7 +31,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         self.assertTrue(all(item.start_sector * 512 % (1024 * 1024) == 0 for item in plan))
         self.assertLessEqual(plan[-1].end_sector, 5_000_000_000 // 512 - 34)
         self.assertTrue(all(left.end_sector < right.start_sector for left, right in zip(plan, plan[1:])))
-        self.assertEqual(plan[0].minimum_size_bytes, 256 * 1024 * 1024)
+        self.assertEqual(plan[0].minimum_size_bytes, 2_000_000 * 512)
 
     def test_rejects_minimum_sizes_that_do_not_fit(self):
         with self.assertRaisesRegex(PartitionLayoutError, "do not fit"):
