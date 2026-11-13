@@ -279,7 +279,7 @@ def build_gpt_rewrite(
         raise GPTBinaryError("planned partitions do not cover every source GPT partition")
 
     array_crc = _crc32(bytes(raw_array))
-    padded_array = bytes(raw_array).ljust(array_sectors * sector_size, b"\\x00")
+    padded_array = bytes(raw_array).ljust(array_sectors * sector_size, b"\x00")
     disk_guid_raw = uuid.UUID(str(source["disk_guid"])).bytes_le
     revision = 0x00010000
     header_size = _HEADER.size
@@ -299,8 +299,8 @@ def build_gpt_rewrite(
     mbr[446:510] = bytes(64)
     protective_size = min(target_sectors - 1, 0xFFFFFFFF)
     mbr[446:462] = struct.pack(
-        "<B3sB3sII", 0, b"\\x00\\x02\\x00", 0xEE,
-        b"\\xff\\xff\\xff", 1, protective_size,
+        "<B3sB3sII", 0, b"\x00\x02\x00", 0xEE,
+        b"\xff\xff\xff", 1, protective_size,
     )
     patches = (
         (0, bytes(mbr)),
