@@ -484,7 +484,8 @@ class RemoteRepositoryManager:
                 check=False, timeout=30,
             )
             return result.returncode == 0 and self._mount_record(mountpoint) is None
-        except (OSError, subprocess.SubprocessError, RepositoryManagerError):
+        except Exception:
+            # Cleanup must never replace the original mount/verification error.
             return False
 
     def _encrypted_credential_bindings(self, repo: RemoteRepository) -> list[tuple[str, str]]:
