@@ -1641,7 +1641,8 @@ def _pxe_local_operations(limit: int) -> list[dict[str, Any]]:
             "cancellable": False,
             "events": [],
         })
-        item["state"] = state
+        if not (event.get("status") == "progress" and item["state"] == "interrupted"):
+            item["state"] = state
         item["events"].append({
             "state": "progress" if event.get("status") == "progress" else state,
             "timestamp": event.get("timestamp"),
