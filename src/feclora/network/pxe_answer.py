@@ -1,15 +1,13 @@
 """Validate declarative PXE answer documents.
 
-Answer documents are data, not executable scripts. They deliberately contain
-no client certificate, private key, password, credential reference, or local
-/dev path. Remote repository credentials are not yet supported by Live PXE.
+Answer documents contain only an existing Feclora repository ID. Repository
+credentials and connection details remain in the Live client's normal,
+root-managed repository configuration.
 """
 from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
-from urllib.parse import urlsplit
 
 
 class PXEAnswerError(ValueError):
@@ -18,12 +16,9 @@ class PXEAnswerError(ValueError):
 
 MAX_ANSWER_BYTES = 64 * 1024
 IMAGE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+REPOSITORY_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
 WWN_RE = re.compile(r"^[A-Za-z0-9_.:-]{4,128}$")
 SERIAL_RE = re.compile(r"^[A-Za-z0-9_.:+/-]{1,128}$")
-REPOSITORY_SCHEMES = {
-    "sshfs", "smb", "cifs", "nfs",
-    "http", "https", "s3",
-}
 
 
 def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -35,35 +30,12 @@ def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     return result
 
 
-def _repository_url(value: object) -> str:
-    if not isinstance(value, str) or len(value) > 2048:
-        raise PXEAnswerError("repository_url must be a URL under 2048 characters")
-    if any(ord(char) < 33 or ord(char) > 126 for char in value):
-        raise PXEAnswerError("repository_url contains whitespace or control characters")
-    try:
-        parsed = urlsplit(value)
-        port = parsed.port
-    except ValueError as exc:
-        raise PXEAnswerError("repository_url is malformed") from exc
-    if parsed.scheme.lower() not in REPOSITORY_SCHEMES:
-        raise PXEAnswerError("repository_url scheme is not supported")
-    if parsed.username is not None or parsed.password is not None:
-        raise PXEAnswerError("repository_url must not embed usernames or passwords")
-    if not parsed.hostname:
-        raise PXEAnswerError("repository_url must contain a host")
-    if port is not None and not 1 <= port <= 65535:
-        raise PXEAnswerError("repository_url port is invalid")
-    if parsed.fragment:
-        raise PXEAnswerError("repository_url must not contain a fragment")
-    return value
-
-
 def validate_pxe_answer(value: object) -> dict[str, object]:
     """Validate the version-1 unattended whole-disk restore answer."""
     if not isinstance(value, dict):
         raise PXEAnswerError("PXE answer document must be a JSON object")
     required = {
-        "schema_version", "operation", "image_id", "repository_url",
+        "schema_version", "operation", "image_id", "repository_id",
         "target", "confirm_destructive", "start",
     }
     optional = {"description"}
@@ -76,7 +48,9 @@ def validate_pxe_answer(value: object) -> dict[str, object]:
     image_id = value["image_id"]
     if not isinstance(image_id, str) or not IMAGE_ID_RE.fullmatch(image_id):
         raise PXEAnswerError("image_id is invalid")
-    repository_url = _repository_url(value["repository_url"])
+    repository_id = value["repository_id"]
+    if not isinstance(repository_id, str) or not REPOSITORY_ID_RE.fullmatch(repository_id):
+        raise PXEAnswerError("repository_id is invalid")
     target = value["target"]
     if not isinstance(target, dict) or set(target) != {"wwn", "serial"}:
         raise PXEAnswerError("target must contain exactly wwn and serial selectors")
@@ -99,7 +73,7 @@ def validate_pxe_answer(value: object) -> dict[str, object]:
         "schema_version": 1,
         "operation": "restore",
         "image_id": image_id,
-        "repository_url": repository_url,
+        "repository_id": repository_id,
         "target": {"wwn": wwn, "serial": serial},
         "confirm_destructive": True,
         "start": True,
