@@ -526,6 +526,38 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.assertNotIn("--force", umount_calls[0])
 
 
+    def test_smb_unmount_never_force_detaches(self):
+        credentials = Path(self.temp.name) / "smb.credentials"
+        credentials.write_text("username=backup\npassword=secret\n", encoding="ascii")
+        credentials.chmod(0o600)
+        definition = {
+            "provider": "smb", "host": "nas.example.net",
+            "remote_path": "/images", "username": None,
+            "credential_file": str(credentials), "identity_file": None,
+            "known_hosts_file": None, "port": None, "read_only": True,
+        }
+        self.manager.add("images", definition)
+        self.manager._mount_record = lambda _path: (
+            "cifs", "//nas.example.net/images",
+            "ro,relatime,nosuid,nodev,noexec",
+        )
+        mounted_states = iter([True, True, True])
+        self.manager._is_mounted = lambda _path: next(mounted_states)
+        calls = []
+
+        def runner(argv, **kwargs):
+            calls.append(argv)
+            if argv[0].endswith("umount"):
+                return SimpleNamespace(returncode=32, stdout="", stderr="busy")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        self.manager.runner = runner
+        with self.assertRaisesRegex(RepositoryManagerError, "repository remains mounted"):
+            self.manager.unmount("images")
+        umount_calls = [call for call in calls if call[0].endswith("umount")]
+        self.assertEqual(len(umount_calls), 1)
+        self.assertNotIn("--force", umount_calls[0])
+
     def test_ensure_mounted_returns_shared_lease_without_exclusive_gap(self):
         self.manager.add("images", self.definition)
         self.manager._is_mounted = lambda _path: True
