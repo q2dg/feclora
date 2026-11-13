@@ -13,7 +13,6 @@ from feclora.deployment.job import DeploymentJob
 class PXEOperationHistoryTests(unittest.TestCase):
     def test_pxe_restore_result_is_reconciled_into_local_history_and_not_cancellable(self):
         import json
-        import stat
         import tempfile
         from pathlib import Path
         from types import SimpleNamespace
@@ -43,12 +42,9 @@ class PXEOperationHistoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             journal = Path(root) / "operations.jsonl"
             journal.write_text("".join(json.dumps(event) + "\n" for event in events), encoding="utf-8")
-            fake_stat = SimpleNamespace(
-                st_mode=stat.S_IFREG | 0o600, st_uid=0, st_size=journal.stat().st_size,
-            )
+            journal.chmod(0o600)
             with patch("feclora.webapi._PXE_OPERATION_LOG_PATH", journal), \
-                 patch("feclora.webapi._local_operation_store", return_value=EmptyStore()), \
-                 patch("feclora.webapi.os.fstat", return_value=fake_stat):
+                 patch("feclora.webapi._local_operation_store", return_value=EmptyStore()):
                 result = _local_operations({"limit": 10})
         self.assertEqual(len(result["operations"]), 1)
         item = result["operations"][0]
