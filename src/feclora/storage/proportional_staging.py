@@ -7,6 +7,7 @@ does not shrink filesystems, edit GPT, authorize a target, or restore a disk.
 from __future__ import annotations
 
 import hashlib
+import fcntl
 import lzma
 import os
 import shutil
@@ -26,6 +27,7 @@ from .disk_restore import (
 )
 from .compression import CompressionError
 from .image_manifest import ImageManifest
+from .gpt_binary import GPTBinaryError, build_gpt_rewrite, inspect_gpt_binary
 
 
 class ProportionalStagingError(RuntimeError):
@@ -163,3 +165,94 @@ def stage_verified_raw_disk_image(
                 pass
         if stage_dir is not None:
             shutil.rmtree(stage_dir, ignore_errors=True)
+
+
+def apply_gpt_rewrite_to_staged_image(
+    staged: StagedRawDiskImage,
+    *,
+    target_size_bytes: int,
+    sector_size: int,
+    planned_partitions: tuple[object, ...],
+) -> StagedRawDiskImage:
+    """Rewrite GPT metadata on one private regular staging file, then verify it.
+
+    This deliberately accepts a staging descriptor rather than a device path.
+    Symlinks, hard-linked files, non-regular files and non-private workspaces
+    are rejected. The original image repository and all block devices remain
+    outside this function's write path.
+    """
+    if not isinstance(staged, StagedRawDiskImage):
+        raise ProportionalStagingError("a verified staged RAW image is required")
+    if (isinstance(target_size_bytes, bool) or not isinstance(target_size_bytes, int)
+            or target_size_bytes <= 0 or target_size_bytes >= staged.size_bytes):
+        raise ProportionalStagingError("target size must be smaller than the staged source")
+    path = staged.path
+    if not isinstance(path, str) or not os.path.isabs(path) or "\x00" in path:
+        raise ProportionalStagingError("staged image path is invalid")
+    parent = os.path.dirname(path)
+    try:
+        parent_info = os.lstat(parent)
+        path_info = os.lstat(path)
+    except OSError as exc:
+        raise ProportionalStagingError(f"staged image is unavailable: {exc}") from exc
+    if not stat.S_ISDIR(parent_info.st_mode) or parent_info.st_mode & 0o077:
+        raise ProportionalStagingError("staging workspace is not a private directory")
+    if (not stat.S_ISREG(path_info.st_mode) or path_info.st_mode & 0o077
+            or path_info.st_nlink != 1 or path_info.st_size != staged.size_bytes):
+        raise ProportionalStagingError("staged image is not a private, single-link regular file")
+
+    flags = os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags)
+        with os.fdopen(fd, "r+b", buffering=0) as stream:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+            opened = os.fstat(stream.fileno())
+            current_path = os.lstat(path)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_dev != current_path.st_dev
+                    or opened.st_ino != current_path.st_ino or opened.st_nlink != 1
+                    or opened.st_size != staged.size_bytes or opened.st_mode & 0o077):
+                raise ProportionalStagingError("staged image identity changed before GPT rewrite")
+            digest = hashlib.sha256()
+            stream.seek(0)
+            while True:
+                chunk = stream.read(1024 * 1024)
+                if not chunk:
+                    break
+                digest.update(chunk)
+            if digest.hexdigest() != staged.sha256:
+                raise ProportionalStagingError("staged image digest changed before GPT rewrite")
+
+            patches = build_gpt_rewrite(
+                stream,
+                source_size_bytes=staged.size_bytes,
+                target_size_bytes=target_size_bytes,
+                sector_size=sector_size,
+                planned_partitions=planned_partitions,
+            )
+            for offset, data in patches:
+                if (isinstance(offset, bool) or not isinstance(offset, int) or offset < 0
+                        or not isinstance(data, bytes) or offset + len(data) > target_size_bytes):
+                    raise ProportionalStagingError("GPT rewrite produced an out-of-range patch")
+            for offset, data in patches:
+                stream.seek(offset)
+                stream.write(data)
+            stream.truncate(target_size_bytes)
+            stream.flush()
+            os.fsync(stream.fileno())
+
+            verified = inspect_gpt_binary(
+                stream, sector_size=sector_size, disk_size_bytes=target_size_bytes
+            )
+            if not verified.get("primary_backup_consistent"):
+                raise ProportionalStagingError("rewritten GPT copies did not validate")
+            output_digest = hashlib.sha256()
+            stream.seek(0)
+            while True:
+                chunk = stream.read(1024 * 1024)
+                if not chunk:
+                    break
+                output_digest.update(chunk)
+            os.fsync(stream.fileno())
+            return StagedRawDiskImage(path, target_size_bytes, output_digest.hexdigest())
+    except (OSError, GPTBinaryError) as exc:
+        raise ProportionalStagingError(f"private staged GPT rewrite failed validation: {exc}") from exc
