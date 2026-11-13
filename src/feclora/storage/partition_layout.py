@@ -7,6 +7,7 @@ separate, trusted offline probe. Unknown minima fail closed.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Mapping, Sequence
 
 
@@ -45,6 +46,7 @@ def plan_proportional_gpt_layout(
     source_size_bytes: int,
     target_size_bytes: int,
     sector_size: int,
+    partition_table_type: str,
     minimum_sizes_bytes: Mapping[str, int],
     alignment_bytes: int = 1024 * 1024,
 ) -> tuple[PlannedPartition, ...]:
@@ -62,6 +64,8 @@ def plan_proportional_gpt_layout(
     target_size = _integer(target_size_bytes, "target_size_bytes")
     sector = _integer(sector_size, "sector_size")
     alignment = _integer(alignment_bytes, "alignment_bytes")
+    if partition_table_type != "gpt":
+        raise PartitionLayoutError("only GPT partition tables are supported by proportional planning")
     if sector not in {512, 4096}:
         raise PartitionLayoutError("logical sector size must be 512 or 4096 bytes")
     if alignment % sector:
@@ -97,8 +101,8 @@ def plan_proportional_gpt_layout(
         if node in seen:
             raise PartitionLayoutError(f"duplicate partition node: {node}")
         seen.add(node)
-        if not isinstance(type_guid, str) or not type_guid.strip():
-            raise PartitionLayoutError(f"partition {node} has no GPT type GUID")
+        if not isinstance(type_guid, str) or not re.fullmatch(r"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}", type_guid):
+            raise PartitionLayoutError(f"partition {node} has no valid GPT type GUID")
         start = _integer(raw.get("start"), f"{node} start", minimum=0)
         size = _integer(raw.get("size"), f"{node} size")
         end = start + size
@@ -118,6 +122,7 @@ def plan_proportional_gpt_layout(
             "name": raw.get("name") if isinstance(raw.get("name"), str) else None,
             "source_size": size,
             "minimum_sectors": minimum_sectors,
+            "minimum_bytes": minimum_bytes,
             "weight": max(0, size - minimum_sectors),
         })
 
@@ -143,7 +148,7 @@ def plan_proportional_gpt_layout(
 
     result = []
     cursor = first_aligned
-    for item, units, minimum in zip(normalized, size_units, minimum_units):
+    for item, units in zip(normalized, size_units):
         size_sectors = units * alignment_sectors
         if cursor + size_sectors > last_usable_exclusive:
             raise PartitionLayoutError("planned partition extends into backup GPT metadata")
@@ -154,7 +159,7 @@ def plan_proportional_gpt_layout(
             name=item["name"] if isinstance(item["name"], str) else None,
             start_sector=cursor,
             size_sectors=size_sectors,
-            minimum_size_bytes=minimum * alignment_sectors * sector,
+            minimum_size_bytes=int(item["minimum_bytes"]),
         ))
         cursor += size_sectors
     return tuple(result)
