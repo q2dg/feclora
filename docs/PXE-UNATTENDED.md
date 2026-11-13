@@ -112,7 +112,7 @@ The answer schema accepts URL schemes for SSHFS, SMB/CIFS, NFS, HTTP(S) and S3. 
       validated JSON in the root-only Live runtime directory.
 - [x] Connect the NFS repository adapter, unique WWN/serial target resolution,
       pre-write identity revalidation and existing whole-disk restore engine.
-- [x] Add a credential-free HTTPS object-set adapter with verified TLS, redirect rejection, bounded manifest/artifact downloads and SHA-256/size verification; it supports public or externally pre-authorized S3-compatible object prefixes.
+- [x] Add a credential-free HTTPS object-set adapter with verified TLS, redirect rejection, bounded manifest/artifact downloads, local staging-capacity preflight and SHA-256/size verification; it supports public or externally pre-authorized S3-compatible object prefixes.
 - [x] Add one Cockpit JSON answer-file upload control; the repository URL is
       taken directly from the JSON document.
 - [x] Validate and atomically publish/revoke job-scoped JSON files through Caddy.
