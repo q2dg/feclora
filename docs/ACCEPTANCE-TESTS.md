@@ -168,9 +168,9 @@ Run this procedure independently for each configured SSHFS, NFS and SMB/CIFS end
 8. For NFS, explicitly test the configured root-squash/ownership policy.
    Root-owned manifest validation must remain enforced; a manifest mapped to
    an anonymous UID is expected to be rejected.
+8a. With the remote endpoint disconnected while its mount remains present, inspect the repository state. Confirm inspection remains bounded, reports only the locally observable mount identity and leaves health unknown. Confirm no automatic unmount, forced detach or lazy detach occurs. If `findmnt` is made to time out or return malformed output in a controlled test, the state must be `unknown` and the mount must remain untouched.
 9. Unmount through Feclora, confirm the mount is gone, and verify the
    repository definition remains available for a later mount.
-9a. With the remote endpoint disconnected, inspect the repository state. Confirm inspection remains bounded, reports only the locally observable mount identity and leaves health unknown. Confirm no automatic unmount, forced detach or lazy detach occurs. If `findmnt` is made to time out or return malformed output in a controlled test, the state must be `unknown` and the mount must remain untouched.
 10. Record provider version, mount options, identity/access-mode verification,
     actual I/O outcomes, throughput observations, and all failures. Do not record a passing identity check as a passing health check. Never include secrets in the report.
 
