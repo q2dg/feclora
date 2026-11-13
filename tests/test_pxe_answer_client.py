@@ -16,6 +16,7 @@ from feclora.network.pxe_answer_client import (
     execute_live_pxe_restore,
     _wait_for_age_passphrase,
     _download_https_object,
+    _check_https_staging_capacity,
 )
 
 
@@ -156,6 +157,17 @@ class PXEAnswerClientTests(unittest.TestCase):
             revalidate.assert_called_once()
             self.assertTrue(restore_call.call_args.kwargs["ignore_signature"])
             self.assertTrue((log_dir / "operations.jsonl").is_file())
+
+    def test_https_staging_requires_artifact_space_plus_reserve(self):
+        required = 10 * 1024 * 1024 * 1024
+        reserve = max(256 * 1024 * 1024, min(required // 20, 2 * 1024 * 1024 * 1024))
+        with patch("feclora.network.pxe_answer_client.shutil.disk_usage",
+                   return_value=SimpleNamespace(free=required + reserve - 1)):
+            with self.assertRaisesRegex(PXEAnswerClientError, "insufficient local staging space"):
+                _check_https_staging_capacity(Path("/tmp"), required)
+        with patch("feclora.network.pxe_answer_client.shutil.disk_usage",
+                   return_value=SimpleNamespace(free=required + reserve)):
+            _check_https_staging_capacity(Path("/tmp"), required)
 
     def test_https_object_download_checks_size_and_sha256(self):
         payload = b"verified artifact bytes"
