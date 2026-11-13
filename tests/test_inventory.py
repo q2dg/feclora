@@ -104,6 +104,27 @@ class ParseInventoryTests(unittest.TestCase):
             with self.assertRaisesRegex(InventoryError, "permission error"):
                 collect_inventory()
 
+    def test_disk_compatibility_accepts_equal_or_larger_matching_disks(self):
+        from feclora.storage.inventory import assess_disk_compatibility
+        source = {"type":"disk", "path":"/dev/sda", "size_bytes":1000, "logical_sector_size":512, "read_only":True, "mountpoints":[], "transport":"sata", "model":"A"}
+        target = {"type":"disk", "path":"/dev/sdb", "size_bytes":2000, "logical_sector_size":512, "read_only":False, "mountpoints":[], "transport":"sata", "model":"B"}
+        result = assess_disk_compatibility(source, target)
+        self.assertTrue(result["compatible"])
+        self.assertTrue(any("larger" in warning for warning in result["warnings"]))
+
+    def test_disk_compatibility_blocks_unsafe_geometry_and_target_state(self):
+        from feclora.storage.inventory import assess_disk_compatibility
+        source = {"type":"disk", "path":"/dev/sda", "size_bytes":2000, "logical_sector_size":512, "mountpoints":[]}
+        target = {"type":"disk", "path":"/dev/sdb", "size_bytes":1000, "logical_sector_size":4096, "read_only":True, "mountpoints":["/mnt/data"]}
+        result = assess_disk_compatibility(source, target)
+        self.assertFalse(result["compatible"])
+        self.assertGreaterEqual(len(result["blockers"]), 3)
+
+    def test_disk_compatibility_blocks_same_device(self):
+        from feclora.storage.inventory import assess_disk_compatibility
+        disk = {"type":"disk", "path":"/dev/sda", "size_bytes":1000, "logical_sector_size":512, "mountpoints":[]}
+        self.assertFalse(assess_disk_compatibility(disk, disk)["compatible"])
+
 
 if __name__ == "__main__":
     unittest.main()
