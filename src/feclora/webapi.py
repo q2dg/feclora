@@ -1611,7 +1611,7 @@ def _pxe_local_operations(limit: int) -> list[dict[str, Any]]:
     try:
         info = os.fstat(fd)
         if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077):
-            raise WebAPIError("PXE operation journal must be a private root-owned regular file")
+            raise WebAPIError("PXE operation journal must be a private service-owned regular file")
         if info.st_size > 2 * 1024 * 1024:
             raise WebAPIError("PXE operation journal exceeds the Cockpit read limit")
         with os.fdopen(fd, "r", encoding="utf-8") as stream:
