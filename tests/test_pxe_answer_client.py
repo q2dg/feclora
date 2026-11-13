@@ -118,13 +118,18 @@ class PXEAnswerClientTests(unittest.TestCase):
             ])
 
     def test_unknown_repository_fails_closed(self):
-        with patch("feclora.storage.s3_repository_manager.S3RepositoryManager",
-                   return_value=SimpleNamespace(list=lambda: [])), \
-             patch("feclora.storage.repository_manager.RemoteRepositoryManager",
-                   return_value=SimpleNamespace(list=lambda: [])):
-            with self.assertRaisesRegex(PXEAnswerClientError, "not configured"):
-                with _managed_repository("missing", "golden"):
-                    self.fail("unknown repository must not yield a path")
+        with tempfile.TemporaryDirectory() as root:
+            absent_s3 = Path(root) / "absent-s3.json"
+            absent_remote = Path(root) / "absent-remote.json"
+            with patch("feclora.storage.s3_repository_manager.REGISTRY", absent_s3), \
+                 patch("feclora.storage.s3_repository_manager.S3RepositoryManager",
+                       return_value=SimpleNamespace(list=lambda: [])), \
+                 patch("feclora.storage.repository_manager.REGISTRY", absent_remote), \
+                 patch("feclora.storage.repository_manager.RemoteRepositoryManager",
+                       return_value=SimpleNamespace(list=lambda: [])):
+                with self.assertRaisesRegex(PXEAnswerClientError, "not configured"):
+                    with _managed_repository("missing", "golden"):
+                        self.fail("unknown repository must not yield a path")
 
     def test_s3_repository_uses_existing_manager_and_downloads_image_set(self):
         with tempfile.TemporaryDirectory() as root:
