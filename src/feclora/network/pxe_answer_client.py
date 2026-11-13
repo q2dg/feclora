@@ -160,8 +160,11 @@ def fetch_live_pxe_answer(
     except PXEBootRequestError as exc:
         raise PXEAnswerClientError(f"invalid PXE boot handoff: {exc}") from exc
     if request.mode == "interactive":
-        # ISO boots have no per-job kernel argument. They discover the current
-        # answer through DHCP option 224, which points to the stable Caddy URL.
+        # An explicit interactive PXE selection must never inherit a currently
+        # published answer. Only generic ISO boots (no PXE mode argument) use
+        # DHCP option 224 for unattended discovery.
+        if "feclora.pxe_mode=interactive" in command_line.split():
+            return None
         dhcp_url = dhcp_url_provider()
         if dhcp_url is None:
             return None
