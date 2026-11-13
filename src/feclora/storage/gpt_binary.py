@@ -99,7 +99,7 @@ def _entries(raw: bytes, *, header: dict[str, object]) -> tuple[dict[str, object
         entry = raw[index * size:(index + 1) * size]
         type_raw, unique_raw, first_lba, last_lba, attributes = _ENTRY_PREFIX.unpack_from(entry)
         if type_raw == bytes(16):
-            if unique_raw != bytes(16) or first_lba or last_lba or attributes:
+            if any(entry[16:]):
                 raise GPTBinaryError(f"unused GPT entry {index + 1} contains nonzero fields")
             continue
         if unique_raw == bytes(16):
