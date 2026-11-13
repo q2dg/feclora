@@ -15,7 +15,7 @@ class PXEAnswerAPITests(unittest.TestCase):
             "schema_version": 1,
             "operation": "restore",
             "image_id": "fedora",
-            "repository_url": "nfs://repo.example/images",
+            "repository_id": "nas-images",
             "target": {"wwn": "0x5000abcd", "serial": None},
             "confirm_destructive": True,
             "start": True,
