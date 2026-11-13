@@ -54,6 +54,15 @@ class ProportionalRestorePreviewTests(unittest.TestCase):
         self.assertFalse(result["write_authorized"])
         self.assertEqual(result["existing_target_partitions"], self.target["existing_partitions"])
 
+    def test_refuses_missing_or_invalid_source_gpt_identity_metadata(self):
+        for field, value in (("disk_guid", None), ("first_usable_lba", None),
+                             ("last_usable_lba", 9_999_999)):
+            source = dict(self.source)
+            source[field] = value
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(ProportionalRestoreError, "source GPT"):
+                    self.preview(source=source)
+
     def test_refuses_same_physical_device_even_through_different_paths(self):
         with self.assertRaisesRegex(ProportionalRestoreError, "same physical"):
             self.preview(identity=lambda path: (8, 0))
