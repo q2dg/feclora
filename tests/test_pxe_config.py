@@ -30,6 +30,7 @@ class PXEConfigTests(unittest.TestCase):
         self.assertIn("interface=enp1s0", rendered)
         self.assertIn("listen-address=192.0.2.1", rendered)
         self.assertIn("dhcp-range=192.0.2.0,proxy", rendered)
+        self.assertIn('dhcp-option=224,"http://192.0.2.1:8080/unattended-answer.json"', rendered)
         self.assertNotIn("dhcp-authoritative", rendered)
         self.assertNotIn("0.0.0.0", rendered)
 
