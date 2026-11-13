@@ -1,14 +1,20 @@
 import gzip
+import binascii
+import struct
+import uuid
 import hashlib
 import os
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 
 from feclora.storage.image_manifest import ImageManifest
 from feclora.storage.proportional_staging import (
     ProportionalStagingError,
     stage_verified_raw_disk_image,
+    StagedRawDiskImage,
+    apply_gpt_rewrite_to_staged_image,
 )
 
 
@@ -93,6 +99,97 @@ class VerifiedProportionalStagingTests(unittest.TestCase):
                 partition_manifest, self.repository, staging_root=self.staging_root
             ):
                 self.fail("partition image must not be staged as a whole disk")
+
+
+    def _synthetic_gpt(self):
+        sector_size = 512
+        disk_sectors = 100
+        entry_count = 128
+        entry_size = 128
+        array = bytearray(entry_count * entry_size)
+        type_guid = uuid.UUID("0fc63daf-8483-4772-8e79-3d69d8477de4")
+        unique_guid = uuid.UUID("11111111-2222-3333-4444-555555555555")
+        first_usable = 34
+        last_usable = disk_sectors - 34
+        struct.pack_into("<16s16sQQQ", array, 0, type_guid.bytes_le,
+                         unique_guid.bytes_le, 35, 44, 0)
+        array[56:64] = "root".encode("utf-16le")
+        array_crc = binascii.crc32(array) & 0xffffffff
+        disk_guid = uuid.UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+        image = bytearray(sector_size * disk_sectors)
+        image[510:512] = b"\\x55\\xaa"
+        image[450] = 0xee
+        struct.pack_into("<II", image, 454, 1, disk_sectors - 1)
+        array_sectors = len(array) // sector_size
+
+        def header(current, backup, entries):
+            raw = bytearray(sector_size)
+            struct.pack_into("<8sIIIIQQQQ16sQIII", raw, 0, b"EFI PART",
+                             0x10000, 92, 0, 0, current, backup, first_usable,
+                             last_usable, disk_guid.bytes_le, entries,
+                             entry_count, entry_size, array_crc)
+            struct.pack_into("<I", raw, 16, binascii.crc32(raw[:92]) & 0xffffffff)
+            return raw
+
+        backup_entries = disk_sectors - 1 - array_sectors
+        image[2 * sector_size:2 * sector_size + len(array)] = array
+        image[backup_entries * sector_size:backup_entries * sector_size + len(array)] = array
+        image[sector_size:2 * sector_size] = header(1, disk_sectors - 1, 2)
+        image[(disk_sectors - 1) * sector_size:] = header(
+            disk_sectors - 1, 1, backup_entries
+        )
+        return bytes(image)
+
+    def test_applies_gpt_only_to_private_regular_staging_file_and_verifies(self):
+        workspace = os.path.join(self.staging_root, "private")
+        os.mkdir(workspace, 0o700)
+        os.chmod(workspace, 0o700)
+        path = os.path.join(workspace, "disk.raw")
+        original = self._synthetic_gpt()
+        with open(path, "xb") as stream:
+            stream.write(original)
+        os.chmod(path, 0o600)
+        staged = StagedRawDiskImage(
+            path, len(original), hashlib.sha256(original).hexdigest()
+        )
+        plan = SimpleNamespace(
+            node="/dev/loop0p1",
+            partuuid="11111111-2222-3333-4444-555555555555",
+            type_guid="0fc63daf-8483-4772-8e79-3d69d8477de4",
+            start_sector=35,
+            size_sectors=8,
+        )
+        result = apply_gpt_rewrite_to_staged_image(
+            staged, target_size_bytes=90 * 512, sector_size=512,
+            planned_partitions=(plan,),
+        )
+        self.assertEqual(result.size_bytes, 90 * 512)
+        self.assertEqual(os.path.getsize(path), 90 * 512)
+        self.assertNotEqual(Path(path).read_bytes(), original[:90 * 512])
+        from feclora.storage.gpt_binary import inspect_gpt_binary
+        with open(path, "rb") as stream:
+            metadata = inspect_gpt_binary(
+                stream, sector_size=512, disk_size_bytes=90 * 512
+            )
+        self.assertTrue(metadata["primary_backup_consistent"])
+        self.assertEqual(metadata["partitions"][0]["last_lba"], 42)
+        self.assertEqual(result.sha256, hashlib.sha256(Path(path).read_bytes()).hexdigest())
+
+    def test_rejects_staged_file_digest_mismatch_before_mutation(self):
+        workspace = os.path.join(self.staging_root, "private-digest")
+        os.mkdir(workspace, 0o700)
+        os.chmod(workspace, 0o700)
+        path = os.path.join(workspace, "disk.raw")
+        payload = b"not a disk"
+        Path(path).write_bytes(payload)
+        os.chmod(path, 0o600)
+        staged = StagedRawDiskImage(path, len(payload), "0" * 64)
+        with self.assertRaisesRegex(ProportionalStagingError, "digest changed"):
+            apply_gpt_rewrite_to_staged_image(
+                staged, target_size_bytes=512, sector_size=512,
+                planned_partitions=(),
+            )
+        self.assertEqual(Path(path).read_bytes(), payload)
 
 
 if __name__ == "__main__":
