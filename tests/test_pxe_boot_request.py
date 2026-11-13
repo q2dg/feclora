@@ -6,6 +6,7 @@ from pathlib import Path
 from feclora.network.pxe_boot_request import (
     PXEBootRequestError,
     parse_pxe_boot_request,
+    parse_dhcp_answer_url,
 )
 from feclora.network.boot_tree import (
     LiveBootAssetError,
@@ -42,6 +43,23 @@ class PXEBootRequestTests(unittest.TestCase):
         self.assertEqual(request.server_address, "192.0.2.10")
         self.assertEqual(request.http_port, 8080)
         self.assertEqual(request.answer_url, ANSWER_URL)
+
+    def test_dhcp_answer_url_uses_stable_caddy_endpoint(self):
+        request = parse_dhcp_answer_url("http://192.0.2.10:8080/unattended-answer.json")
+        self.assertEqual(request.mode, "unattended-answer")
+        self.assertIsNone(request.job_id)
+        self.assertEqual(request.server_address, "192.0.2.10")
+        self.assertEqual(request.http_port, 8080)
+
+    def test_dhcp_answer_url_rejects_unsafe_endpoints(self):
+        for url in (
+            "http://127.0.0.1:8080/unattended-answer.json",
+            "https://192.0.2.10:8080/unattended-answer.json",
+            "http://192.0.2.10:8080/answers/current/answer.json",
+            "http://user@192.0.2.10:8080/unattended-answer.json",
+        ):
+            with self.subTest(url=url), self.assertRaises(PXEBootRequestError):
+                parse_dhcp_answer_url(url)
 
     def test_iso_unattended_url_uses_the_same_answer_contract(self):
         request = parse_pxe_boot_request(f"ro quiet feclora.unattended_url={ANSWER_URL}")
