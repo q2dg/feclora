@@ -493,6 +493,31 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         self.assertNotIn("--force", umount_calls[0])
 
 
+    def test_ensure_mounted_returns_shared_lease_without_exclusive_gap(self):
+        self.manager.add("images", self.definition)
+        self.manager._is_mounted = lambda _path: True
+        self.manager.resolve = lambda _identifier, write=False: str(self.mount_root / "images")
+        lease_fd, mounted_by_us = self.manager.ensure_mounted_and_acquire_usage_lock("images")
+        self.assertFalse(mounted_by_us)
+        context = multiprocessing.get_context("fork")
+        result_queue = context.Queue()
+        try:
+            process = context.Process(
+                target=_try_exclusive_repository_lock,
+                args=(str(self.registry), str(self.mount_root), result_queue),
+            )
+            process.start()
+            process.join(timeout=5)
+            self.assertFalse(process.is_alive(), "exclusive lock contender did not terminate")
+            self.assertEqual(process.exitcode, 0)
+            status, message = result_queue.get(timeout=2)
+            self.assertEqual(status, "blocked")
+            self.assertIn("active image operation or deployment job", message)
+        finally:
+            os.close(lease_fd)
+            result_queue.close()
+            result_queue.join_thread()
+
     def test_usage_lock_excludes_other_process_and_recovers_after_release(self):
         self.manager.add("images", self.definition)
         context = multiprocessing.get_context("fork")
