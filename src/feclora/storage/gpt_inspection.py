@@ -176,6 +176,7 @@ def inspect_gpt_source(
     device_validator=None,
     safety_check=None,
     effective_uid=None,
+    binary_inspector=None,
 ) -> dict[str, object]:
     """Discover a whole-disk GPT source and filesystem types using read-only tools.
 
@@ -276,6 +277,45 @@ def inspect_gpt_source(
         expected_sector_size=sector_size,
         disk_size_bytes=disk_size,
     )
+    if binary_inspector is None:
+        from .gpt_binary import GPTBinaryError, inspect_gpt_binary
+
+        try:
+            with open(disk_path, "rb", buffering=0) as disk_stream:
+                binary_metadata = inspect_gpt_binary(
+                    disk_stream, sector_size=sector_size, disk_size_bytes=disk_size
+                )
+        except (OSError, GPTBinaryError) as exc:
+            raise GPTInspectionError(f"binary GPT validation failed: {exc}") from exc
+    else:
+        try:
+            binary_metadata = binary_inspector(
+                disk_path, sector_size=sector_size, disk_size_bytes=disk_size
+            )
+        except Exception as exc:
+            raise GPTInspectionError(f"binary GPT validation failed: {exc}") from exc
+
+    if (not isinstance(binary_metadata, dict)
+            or binary_metadata.get("disk_guid") != disk_metadata["disk_guid"]
+            or binary_metadata.get("sector_size") != sector_size
+            or binary_metadata.get("first_usable_lba") != disk_metadata["first_usable_lba"]
+            or binary_metadata.get("last_usable_lba") != disk_metadata["last_usable_lba"]
+            or binary_metadata.get("primary_backup_consistent") is not True):
+        raise GPTInspectionError("binary GPT and sfdisk disk metadata disagree")
+    binary_partitions = binary_metadata.get("partitions")
+    if not isinstance(binary_partitions, (list, tuple)) or len(binary_partitions) != len(raw_partitions):
+        raise GPTInspectionError("binary GPT and sfdisk partition counts disagree")
+    for binary_part, text_part in zip(binary_partitions, raw_partitions):
+        if (not isinstance(binary_part, dict)
+                or binary_part.get("first_lba") != text_part["start"]
+                or binary_part.get("last_lba") != text_part["start"] + text_part["size"] - 1
+                or str(binary_part.get("type_guid", "")).lower() != str(text_part["type"]).lower()
+                or (text_part.get("uuid") is not None
+                    and str(binary_part.get("unique_guid", "")).lower() != str(text_part["uuid"]).lower())
+                or (text_part.get("name") is not None
+                    and binary_part.get("name") != text_part["name"])):
+            raise GPTInspectionError("binary GPT and sfdisk partition records disagree")
+
     children = root.get("children") or []
     if not isinstance(children, list):
         raise GPTInspectionError("lsblk returned invalid partition hierarchy")
