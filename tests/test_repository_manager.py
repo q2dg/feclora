@@ -490,6 +490,8 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         item = self.manager.list()[0]
         self.assertTrue(item["mounted"])
         self.assertTrue(item["verified"])
+        self.assertEqual(item["mount_state"], "identity_verified")
+        self.assertEqual(item["health_state"], "unknown")
         self.assertIsNone(item["mount_error"])
 
     def test_list_exposes_unexpected_mount_without_trusting_it(self):
@@ -500,7 +502,49 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
         item = self.manager.list()[0]
         self.assertTrue(item["mounted"])
         self.assertFalse(item["verified"])
+        self.assertEqual(item["mount_state"], "mounted_unverified")
+        self.assertEqual(item["health_state"], "unknown")
         self.assertIn("does not match", item["mount_error"])
+
+    def test_list_reports_findmnt_timeout_as_unknown_not_unmounted(self):
+        self.manager.add("images", self.definition)
+        calls = []
+
+        def runner(argv, **kwargs):
+            calls.append(argv)
+            raise TimeoutError("findmnt timed out")
+
+        self.manager.runner = runner
+        item = self.manager.check("images")
+        self.assertIsNone(item["mounted"])
+        self.assertEqual(item["mount_state"], "unknown")
+        self.assertFalse(item["verified"])
+        self.assertEqual(item["health_state"], "unknown")
+        self.assertIn("cannot verify repository mount state", item["mount_error"])
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(calls[0][0].endswith("findmnt"))
+        self.assertFalse(any(any(token in call for token in ("stat", "ls", "find")) for call in calls))
+
+    def test_matching_mount_identity_does_not_claim_remote_health(self):
+        self.manager.add("images", self.definition)
+        calls = []
+
+        def runner(argv, **kwargs):
+            calls.append(argv)
+            return SimpleNamespace(
+                returncode=0,
+                stdout=f"{self.mount_root / 'images'} fuse.sshfs backup@nas.example.net:/images ro,relatime,nosuid,nodev,noexec\\n",
+                stderr="",
+            )
+
+        self.manager.runner = runner
+        item = self.manager.check("images")
+        self.assertTrue(item["mounted"])
+        self.assertTrue(item["verified"])
+        self.assertEqual(item["mount_state"], "identity_verified")
+        self.assertEqual(item["health_state"], "unknown")
+        self.assertTrue(calls)
+        self.assertTrue(all(call[0].endswith("findmnt") for call in calls))
 
     def test_unmount_refuses_unexpected_filesystem_at_managed_mountpoint(self):
         self.manager.add("images", self.definition)
