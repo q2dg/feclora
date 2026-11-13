@@ -219,6 +219,8 @@ def build_proportional_gpt_plan(
     effective_uid: Callable[[], int] | None = None,
     minimum_probe: Callable[..., int] | None = None,
     ntfs_minimum_probe: Callable[..., int] | None = None,
+    source_first_usable_lba: int = 34,
+    source_last_usable_lba: int | None = None,
 ) -> tuple[PlannedPartition, ...]:
     """Build a GPT preview using live, read-only probes for shrinkable filesystems.
 
@@ -290,6 +292,8 @@ def build_proportional_gpt_plan(
             partition_table_type=partition_table_type,
             minimum_sizes_bytes=minimums,
             filesystem_types=filesystem_types,
+            source_first_usable_lba=source_first_usable_lba,
+            source_last_usable_lba=source_last_usable_lba,
         )
     except (TypeError, ValueError) as exc:
         raise FilesystemProbeError(f"proportional GPT layout is unsafe: {exc}") from exc
@@ -341,6 +345,8 @@ def preview_proportional_gpt_plan_from_disk(
             effective_uid=effective_uid,
             minimum_probe=minimum_probe,
             ntfs_minimum_probe=ntfs_minimum_probe,
+            source_first_usable_lba=int(source["first_usable_lba"]),
+            source_last_usable_lba=int(source["last_usable_lba"]),
         )
     except (FilesystemProbeError, TypeError, ValueError) as exc:
         raise FilesystemProbeError(f"cannot create proportional GPT preview: {exc}") from exc
