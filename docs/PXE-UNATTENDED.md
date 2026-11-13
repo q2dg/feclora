@@ -49,7 +49,7 @@ repositories using Feclora's normal client-side repository configuration and
 protected credential handling. Do not send repository credentials in the
 answer file or introduce per-client authentication.
 
-## Answer document, version 1
+## Answer document, version 2
 
 The first supported answer schema is deliberately data-only JSON. It contains
 no shell commands, Python, arbitrary command-line arguments, local
@@ -57,7 +57,7 @@ no shell commands, Python, arbitrary command-line arguments, local
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "operation": "restore",
   "image_id": "fedora-workstation",
   "repository_id": "nas-images",
