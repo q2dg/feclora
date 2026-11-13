@@ -190,7 +190,7 @@ def inspect_gpt_source(
     from .privilege import PrivilegeError, privileged_argv
     from .source_safety import SourceSafetyError, check_capture_source_safe
 
-    if not isinstance(disk_path, str) or not disk_path.startswith("/dev/") or "\\x00" in disk_path:
+    if not isinstance(disk_path, str) or not disk_path.startswith("/dev/") or "\x00" in disk_path:
         raise GPTInspectionError("source disk must be an absolute /dev/ path")
     validator = device_validator or (lambda path: stat.S_ISBLK(os.stat(path).st_mode))
     try:
