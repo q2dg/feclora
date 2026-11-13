@@ -233,9 +233,16 @@ class S3RepositoryManager:
             raise
 
     def acquire_usage_lock(self, identifier: str) -> int:
-        if identifier not in self._load():
-            raise S3RepositoryManagerError("unknown S3 repository ID")
-        return self._acquire_usage_lock(identifier, exclusive=False)
+        usage_fd = self._acquire_usage_lock(identifier, exclusive=False)
+        try:
+            # Check existence while holding the lease so remove() cannot
+            # delete the definition between validation and lock acquisition.
+            if identifier not in self._load():
+                raise S3RepositoryManagerError("unknown S3 repository ID")
+            return usage_fd
+        except Exception:
+            os.close(usage_fd)
+            raise
 
     def remove(self, identifier):
         if not isinstance(identifier, str) or not _ID.fullmatch(identifier):
