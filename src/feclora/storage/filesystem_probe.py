@@ -195,3 +195,61 @@ def build_proportional_gpt_plan(
         )
     except (TypeError, ValueError) as exc:
         raise FilesystemProbeError(f"proportional GPT layout is unsafe: {exc}") from exc
+
+
+def preview_proportional_gpt_plan_from_disk(
+    source_disk_path: str,
+    *,
+    target_size_bytes: int,
+    runner: Callable[..., Any] | None = None,
+    which: Callable[[str], str | None] | None = None,
+    device_validator: Callable[[str], bool] | None = None,
+    safety_check: Callable[[str], None] | None = None,
+    effective_uid: Callable[[], int] | None = None,
+    minimum_probe: Callable[..., int] | None = None,
+) -> dict[str, object]:
+    """Discover an offline GPT source and return a read-only smaller-target plan.
+
+    This is a preview API only. It does not inspect or authorize the destination
+    device, shrink filesystems, write GPT metadata, copy data, or verify a
+    completed restore.
+    """
+    from .gpt_inspection import GPTInspectionError, inspect_gpt_source
+
+    try:
+        source = inspect_gpt_source(
+            source_disk_path,
+            runner=runner,
+            which=which,
+            device_validator=device_validator,
+            safety_check=safety_check,
+            effective_uid=effective_uid,
+        )
+    except GPTInspectionError as exc:
+        raise FilesystemProbeError(f"cannot inspect proportional source disk: {exc}") from exc
+    try:
+        plan = build_proportional_gpt_plan(
+            source["partitions"],
+            source_size_bytes=int(source["source_size_bytes"]),
+            target_size_bytes=target_size_bytes,
+            sector_size=int(source["sector_size"]),
+            partition_table_type=str(source["partition_table_type"]),
+            filesystem_types=source["filesystem_types"],
+            runner=runner,
+            which=which,
+            device_validator=device_validator,
+            safety_check=safety_check,
+            effective_uid=effective_uid,
+            minimum_probe=minimum_probe,
+        )
+    except (FilesystemProbeError, TypeError, ValueError) as exc:
+        raise FilesystemProbeError(f"cannot create proportional GPT preview: {exc}") from exc
+    return {
+        "source_disk": source_disk_path,
+        "source_size_bytes": source["source_size_bytes"],
+        "target_size_bytes": target_size_bytes,
+        "sector_size": source["sector_size"],
+        "partition_table_type": source["partition_table_type"],
+        "partitions": plan,
+        "write_authorized": False,
+    }
