@@ -34,7 +34,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         self.assertEqual(plan[0].minimum_size_bytes, 2_000_000 * 512)
 
     def test_rejects_minimum_sizes_that_do_not_fit(self):
-        with self.assertRaisesRegex(PartitionLayoutError, "do not fit"):
+        with self.assertRaisesRegex(PartitionLayoutError, "only the final source partition"):
             plan_proportional_gpt_layout(
                 self.partitions,
                 source_size_bytes=8_500_000_000,
