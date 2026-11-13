@@ -66,7 +66,12 @@ def parse_sfdisk_gpt_json(
         start = item.get("start")
         size = item.get("size")
         type_guid = item.get("type")
-        if not isinstance(node, str) or not node.startswith(disk_path) or "\x00" in node:
+        if (
+            not isinstance(node, str)
+            or not node.startswith(disk_path)
+            or "\\x00" in node
+            or not re.fullmatch(r"(?:p?\\d+|-part\\d+)", node[len(disk_path):])
+        ):
             raise GPTInspectionError(f"partition entry {index} does not belong to {disk_path}")
         if node == disk_path or node in seen_paths:
             raise GPTInspectionError(f"partition entry {index} has a duplicate or invalid node")
