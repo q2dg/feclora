@@ -464,16 +464,8 @@ def _initialize_security() -> dict[str, Any]:
 
 
 
-def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
-    if repository_id is not None:
-        from feclora.storage.s3_repository_manager import S3RepositoryManager
-        manager = S3RepositoryManager()
-        if any(item["id"] == repository_id for item in manager.list()):
-            try:
-                return manager.repository(repository_id).list_images()
-            except Exception as exc:
-                raise WebAPIError(f"S3 image inventory failed: {exc}") from exc
-    path = _operation_repository({"repository_id": repository_id}, write=False) if repository_id else _repository()
+def _filesystem_images(path: Path) -> list[dict[str, Any]]:
+    """Read committed image manifests from a repository already protected by its caller."""
     if not path.exists():
         return []
     items = []
@@ -496,6 +488,35 @@ def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
             "artifact_count": len(manifest.artifacts),
         })
     return items
+
+
+def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
+    if repository_id is None:
+        return _filesystem_images(_repository())
+    from feclora.storage.s3_repository_manager import S3RepositoryManager
+    manager = S3RepositoryManager()
+    if any(item["id"] == repository_id for item in manager.list()):
+        lease_fd = None
+        try:
+            lease_fd = manager.acquire_usage_lock(repository_id)
+            return manager.repository(repository_id).list_images()
+        except Exception as exc:
+            raise WebAPIError(f"S3 image inventory failed: {exc}") from exc
+        finally:
+            if lease_fd is not None:
+                os.close(lease_fd)
+
+    manager = _remote_repository_manager()
+    lease_fd = None
+    try:
+        lease_fd = manager.acquire_usage_lock(repository_id)
+        path = Path(manager.resolve(repository_id, write=False))
+        return _filesystem_images(path)
+    except Exception as exc:
+        raise WebAPIError(f"remote image inventory failed: {exc}") from exc
+    finally:
+        if lease_fd is not None:
+            os.close(lease_fd)
 
 
 def _inspect_image_layout(params: dict[str, Any]) -> dict[str, Any]:
