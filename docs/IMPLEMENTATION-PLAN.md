@@ -452,7 +452,9 @@ migration paths must not be conflated with lossless block-level shrinking.
   private owned directory, rejects symlinks/hard links/non-regular files and
   changed source digests, applies bounded patches, truncates the private RAW
   file, fsyncs it, and re-runs the independent binary GPT validator before
-  returning its new size and digest. It has no block-device write path.
+  returning its new size and digest. Read-back also compares disk identity,
+  usable geometry, partition GUIDs, starts, planned ends, type GUIDs, names
+  and attribute bits against the source and plan. It has no block-device write path.
   Synthetic tests cover a smaller-image rewrite and digest-mismatch rejection.
   This remains a low-level staging primitive: it is not wired to the
   proportional restore preview/executor, does not shrink filesystems, and
