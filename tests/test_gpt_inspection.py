@@ -10,6 +10,8 @@ class SfdiskGPTParserTests(unittest.TestCase):
             "label": "gpt",
             "unit": "sectors",
             "sectorsize": 512,
+            "firstlba": 34,
+            "lastlba": 1048542,
             "partitions": [
                 {
                     "node": "/dev/sda1",
@@ -78,6 +80,29 @@ class SfdiskGPTParserTests(unittest.TestCase):
         with self.assertRaisesRegex(GPTInspectionError, "type GUID"):
             parse_sfdisk_gpt_json(
                 json.dumps(table), disk_path="/dev/sda", expected_sector_size=512
+            )
+
+    def test_validates_gpt_usable_lba_bounds_against_disk_capacity(self):
+        payload = json.loads(self.payload())
+        payload["partitiontable"]["partitions"][0]["start"] = 33
+        with self.assertRaisesRegex(GPTInspectionError, "before the GPT usable"):
+            parse_sfdisk_gpt_json(
+                json.dumps(payload), disk_path="/dev/sda",
+                expected_sector_size=512, disk_size_bytes=536870912,
+            )
+        payload = json.loads(self.payload())
+        payload["partitiontable"]["lastlba"] = 2_000_000
+        with self.assertRaisesRegex(GPTInspectionError, "invalid GPT usable-LBA"):
+            parse_sfdisk_gpt_json(
+                json.dumps(payload), disk_path="/dev/sda",
+                expected_sector_size=512, disk_size_bytes=536870912,
+            )
+        payload = json.loads(self.payload())
+        payload["partitiontable"].pop("firstlba")
+        with self.assertRaisesRegex(GPTInspectionError, "did not report GPT"):
+            parse_sfdisk_gpt_json(
+                json.dumps(payload), disk_path="/dev/sda",
+                expected_sector_size=512, disk_size_bytes=536870912,
             )
 
     def test_rejects_malformed_input_and_empty_partition_list(self):
@@ -189,6 +214,7 @@ def self_payload():
     return json.dumps({
         "partitiontable": {
             "label": "gpt", "unit": "sectors", "sectorsize": 512,
+            "firstlba": 34, "lastlba": 1048542,
             "partitions": [
                 {"node": "/dev/sda1", "start": 2048, "size": 102400,
                  "type": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"},
