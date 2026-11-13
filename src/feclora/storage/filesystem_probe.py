@@ -183,8 +183,8 @@ def probe_ntfs_minimum_size(
             f"filesystem type mismatch: expected NTFS, detected {detected or 'unknown'}"
         )
 
-    # ntfsresize --info does not resize; --no-action explicitly prohibits writes.
-    result = invoke("ntfsresize", ["--info", "--force", "--no-action", device_path])
+    # ntfsresize --info opens the filesystem read-only and never changes it.
+    result = invoke("ntfsresize", ["--info", device_path])
     output = (result.stdout or "") + "\n" + (result.stderr or "")
     matches = re.findall(r"You might resize at\s+([\d,]+)\s+bytes", output, re.IGNORECASE)
     if len(matches) != 1:
