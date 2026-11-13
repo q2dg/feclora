@@ -217,7 +217,11 @@ def inspect_gpt_source(
         blockdev_sector = int(sector_text)
     except (TypeError, ValueError) as exc:
         raise GPTInspectionError("blockdev returned invalid disk geometry") from exc
-    if disk_size <= 0 or blockdev_sector != sector_size or disk_size % sector_size:
+    lsblk_size = root.get("size")
+    if (isinstance(lsblk_size, bool) or not isinstance(lsblk_size, int)
+            or lsblk_size <= 0 or lsblk_size != disk_size
+            or blockdev_sector != sector_size or disk_size <= 0
+            or disk_size % sector_size):
         raise GPTInspectionError("blockdev and lsblk disk geometry disagree")
 
     raw_partitions = parse_sfdisk_gpt_json(
