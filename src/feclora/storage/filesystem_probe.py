@@ -6,7 +6,9 @@ import re
 import shutil
 import stat
 import subprocess
-from typing import Any, Callable
+from typing import Any, Callable, Mapping, Sequence
+
+from .partition_layout import PlannedPartition, plan_proportional_gpt_layout
 
 from .privilege import PrivilegeError, privileged_argv
 from .source_safety import SourceSafetyError, check_capture_source_safe
@@ -114,3 +116,80 @@ def probe_ext_minimum_size(
     if capacity <= 0 or minimum_bytes > capacity:
         raise FilesystemProbeError("estimated filesystem minimum exceeds the partition capacity")
     return minimum_bytes
+
+
+def build_proportional_gpt_plan(
+    partitions: Sequence[Mapping[str, object]],
+    *,
+    source_size_bytes: int,
+    target_size_bytes: int,
+    sector_size: int,
+    partition_table_type: str,
+    filesystem_types: Mapping[str, str],
+    executables: dict[str, str | None] | None = None,
+    runner: Callable[..., Any] | None = None,
+    which: Callable[[str], str | None] | None = None,
+    device_validator: Callable[[str], bool] | None = None,
+    safety_check: Callable[[str], None] | None = None,
+    effective_uid: Callable[[], int] | None = None,
+    minimum_probe: Callable[..., int] | None = None,
+) -> tuple[PlannedPartition, ...]:
+    """Build a GPT preview using live, read-only probes for every ext partition.
+
+    Non-ext partitions are fixed at their original byte size. Unknown
+    filesystem types, missing signatures, probe failures and unsupported
+    partition metadata fail closed. This function never writes to a device.
+    """
+    if not isinstance(partitions, Sequence) or isinstance(partitions, (str, bytes)) or not partitions:
+        raise FilesystemProbeError("at least one partition is required for proportional planning")
+    if not isinstance(filesystem_types, Mapping):
+        raise FilesystemProbeError("filesystem type inventory is required")
+
+    probe = minimum_probe or probe_ext_minimum_size
+    minimums: dict[str, int] = {}
+    for index, partition in enumerate(partitions):
+        if not isinstance(partition, Mapping):
+            raise FilesystemProbeError(f"partition {index} metadata is invalid")
+        node = partition.get("node")
+        size_sectors = partition.get("size")
+        if not isinstance(node, str) or not node.startswith("/dev/"):
+            raise FilesystemProbeError(f"partition {index} has an invalid device node")
+        if isinstance(size_sectors, bool) or not isinstance(size_sectors, int) or size_sectors <= 0:
+            raise FilesystemProbeError(f"{node} has an invalid partition size")
+        filesystem = filesystem_types.get(node)
+        if not isinstance(filesystem, str) or not filesystem.strip():
+            raise FilesystemProbeError(f"{node} filesystem type is unknown")
+        filesystem = filesystem.lower()
+        original_bytes = size_sectors * sector_size
+        if filesystem in {"ext2", "ext3", "ext4"}:
+            try:
+                minimums[node] = probe(
+                    node,
+                    filesystem_type=filesystem,
+                    executables=executables,
+                    runner=runner,
+                    which=which,
+                    device_validator=device_validator,
+                    safety_check=safety_check,
+                    effective_uid=effective_uid,
+                )
+            except FilesystemProbeError:
+                raise
+            except Exception as exc:
+                raise FilesystemProbeError(f"cannot determine minimum size for {node}: {exc}") from exc
+        else:
+            # No shrink support is assumed for any other filesystem/container.
+            minimums[node] = original_bytes
+
+    try:
+        return plan_proportional_gpt_layout(
+            partitions,
+            source_size_bytes=source_size_bytes,
+            target_size_bytes=target_size_bytes,
+            sector_size=sector_size,
+            partition_table_type=partition_table_type,
+            minimum_sizes_bytes=minimums,
+            filesystem_types=filesystem_types,
+        )
+    except (TypeError, ValueError) as exc:
+        raise FilesystemProbeError(f"proportional GPT layout is unsafe: {exc}") from exc
