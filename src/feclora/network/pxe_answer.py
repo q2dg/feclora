@@ -18,7 +18,6 @@ class PXEAnswerError(ValueError):
 
 MAX_ANSWER_BYTES = 64 * 1024
 IMAGE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
-CREDENTIAL_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
 WWN_RE = re.compile(r"^[A-Za-z0-9_.:-]{4,128}$")
 SERIAL_RE = re.compile(r"^[A-Za-z0-9_.:+/-]{1,128}$")
 REPOSITORY_SCHEMES = {
@@ -67,7 +66,7 @@ def validate_pxe_answer(value: object) -> dict[str, object]:
         "schema_version", "operation", "image_id", "repository_url",
         "target", "confirm_destructive", "start",
     }
-    optional = {"credential_ref", "description"}
+    optional = {"description"}
     if not required.issubset(value) or set(value) - required - optional:
         raise PXEAnswerError("PXE answer document has missing or unknown fields")
     if value["schema_version"] != 1 or isinstance(value["schema_version"], bool):
@@ -90,11 +89,6 @@ def validate_pxe_answer(value: object) -> dict[str, object]:
         raise PXEAnswerError("target requires a WWN and/or serial selector")
     if value["confirm_destructive"] is not True or value["start"] is not True:
         raise PXEAnswerError("unattended restore requires explicit confirm_destructive and start flags")
-    credential_ref = value.get("credential_ref")
-    if credential_ref is not None and (
-        not isinstance(credential_ref, str) or not CREDENTIAL_ID_RE.fullmatch(credential_ref)
-    ):
-        raise PXEAnswerError("credential_ref must be a valid local credential identifier")
     description = value.get("description")
     if description is not None and (
         not isinstance(description, str) or len(description) > 256
@@ -109,7 +103,6 @@ def validate_pxe_answer(value: object) -> dict[str, object]:
         "target": {"wwn": wwn, "serial": serial},
         "confirm_destructive": True,
         "start": True,
-        **({"credential_ref": credential_ref} if credential_ref is not None else {}),
         **({"description": description} if description is not None else {}),
     }
 
