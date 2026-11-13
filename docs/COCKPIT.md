@@ -85,8 +85,8 @@ The Operations wizard provides:
   destructive confirmation;
 - streamed byte-progress events from the storage engine;
 - LVM capture and restore are limited to active, uniquely identified logical volumes in healthy volume groups; hidden, snapshot, RAID, striped, cache and unknown LV layouts are excluded. Restore overwrites data in an existing unmounted LV and does not create or resize LVM metadata. Raw LV images receive exact read-back verification; Partclone images receive a filesystem-specific read-only consistency check.
-- optional image-security key initialization, age encryption and manifest
-  signing when those features are configured;
+- optional image-security key initialization and age encryption when
+  configured; artifact integrity is recorded and verified with SHA-256;
 - durable local operation history, with a Cancel control for queued,
   preflight and running jobs, plus JSON export of the latest 100 loaded records.
 
