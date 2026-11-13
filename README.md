@@ -15,14 +15,14 @@ Project website: https://q2dg.github.io/feclora/
 - Persistent Server/Client services, managed Server identity, Client enrollment and Server-authenticated TLS control and unicast transfer.
 - UDPcast multicast restore and remote whole-disk / partition cloning.
 - Network configuration and PXE/iPXE interactive Live boot.
-- An initial unattended PXE workflow for NFS-backed whole-disk restore.
+- An unattended PXE workflow using the same managed repositories as the Live application for whole-disk restore.
 
 The Live session is ephemeral. Credentials, certificates and temporary configuration are regenerated at boot. Images and other durable artifacts are stored in repositories selected by the operator.
 
 ## Current limitations
 
 - SSHFS, NFS and SMB/CIFS file repositories are implemented. S3 has a separate object API, encrypted credentials, local capture/restore staging, and distributed Client capture/restore through the Server's authenticated TLS transfer path. Live-provider acceptance against Garage, R2 and AWS S3 is optional and is not part of the software completion gate.
-- Unattended PXE supports NFS and credential-free HTTPS object repositories for whole-disk restore; private S3, SSHFS and SMB require a secure Live credential handoff and remain unavailable.
+- Unattended PXE selects a repository ID and resolves it through the Live client's normal SSHFS, NFS, SMB/CIFS or S3 manager; credentials remain in the normal protected Live configuration.
 - Multi-device Btrfs imaging, snapshot-assisted storage capture and several advanced LUKS/LVM workflows are not supported.
 - Automated tests and source validation do not prove ISO boot, firmware compatibility or physical-hardware acceptance.
 
