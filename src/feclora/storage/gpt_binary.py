@@ -94,7 +94,6 @@ def _entries(raw: bytes, *, header: dict[str, object]) -> tuple[dict[str, object
     last_usable = int(header["last_usable_lba"])
     result = []
     seen_guids: set[str] = set()
-    previous_end = first_usable - 1
     for index in range(count):
         entry = raw[index * size:(index + 1) * size]
         type_raw, unique_raw, first_lba, last_lba, attributes = _ENTRY_PREFIX.unpack_from(entry)
@@ -276,7 +275,6 @@ def build_gpt_rewrite(
         new_end = start + size - 1
         if new_end > int(original["last_lba"]) or new_end > last_usable:
             raise GPTBinaryError("GPT rewrite cannot expand a partition or exceed target geometry")
-        previous_end = max(previous_end, new_end)
         offset = (slot - 1) * entry_size
         struct.pack_into("<Q", raw_array, offset + 40, new_end)
     if seen_numbers != set(source_by_number):
@@ -306,13 +304,25 @@ def build_gpt_rewrite(
         "<B3sB3sII", 0, b"\x00\x02\x00", 0xEE,
         b"\xff\xff\xff", 1, protective_size,
     )
-    patches = (
+    patches_list = [
         (0, bytes(mbr)),
         (sector_size, make_header(1, backup_header_lba, primary_entries_lba)),
+    ]
+    # The truncated source may leave its old backup array inside the target.
+    # Clear that stale metadata first; the new backup array patch below wins
+    # wherever the old and new extents overlap.
+    old_backup_start = int(source["backup_entries_lba"]) * sector_size
+    if old_backup_start < target_size_bytes:
+        old_backup_length = min(
+            array_sectors * sector_size, target_size_bytes - old_backup_start
+        )
+        patches_list.append((old_backup_start, bytes(old_backup_length)))
+    patches_list.extend((
         (primary_entries_lba * sector_size, padded_array),
         (backup_entries_lba * sector_size, padded_array),
         (backup_header_lba * sector_size, make_header(
             backup_header_lba, 1, backup_entries_lba
         )),
-    )
+    ))
+    patches = tuple(patches_list)
     return patches
