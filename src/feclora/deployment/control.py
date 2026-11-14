@@ -777,7 +777,7 @@ class DeploymentControlServer:
                 verify_artifact_file(os.path.join(repository, artifact.filename), artifact)
         except (OSError, UnicodeError, ManifestValidationError, UDPcastError) as exc:
             raise DeploymentControlError(f"cannot verify multicast image manifest: {exc}") from exc
-        expected_macs = tuple(sorted(job.authorized_clients))
+        expected_macs = tuple(sorted(item.mac_address for item in clients))
         started = self.arm_and_start()
         if tuple(sorted(started)) != expected_macs:
             raise DeploymentControlError("not every selected Client accepted the multicast START")
