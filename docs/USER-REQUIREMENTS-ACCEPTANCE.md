@@ -1,6 +1,6 @@
 # User requirements and end-to-end acceptance contract
 
-This document defines the release target for the bootable Feclora Live system. Cockpit is the primary operator interface. A capability is complete only when its backend/runtime, Cockpit workflow, security and failure behavior, automated tests, operator validation procedure and GitHub Pages guide agree. A library, command builder, prototype, API endpoint or shell-only recipe is not an end-user feature.
+This document defines the release target for the bootable Feclora Live system. Cockpit is the primary operator interface. Engineering completion requires its backend/runtime, Cockpit workflow, security and failure behavior, automated tests and matching operator guide. Release acceptance additionally requires the repository owner to execute and record the hands-on checks in [MAINTAINER-ACCEPTANCE.md](MAINTAINER-ACCEPTANCE.md). A library, command builder, prototype, API endpoint or shell-only recipe is not an end-user feature.
 
 ## Operating modes
 
@@ -39,7 +39,7 @@ DHCP and static IPv4 must be supported independently on Server and Client where 
 - [ ] Automated fault injection covers established-session disconnect, timeout and service restart; disposable two-host testing validates the complete operation.
 - [ ] Publish separate remote disk-clone and partition-clone guides, including DHCP and static configurations.
 
-Storage-source clarification: LVM logical volumes, raw LUKS2 containers, opened LUKS mappings and Btrfs filesystems are image sources/layers, not repository types. Capture and restore support must describe the exact byte scope and dependencies. Btrfs is imaged at filesystem/block-device level (including supported multi-device sets), not as separate subvolume artifacts. Remote repositories and distribution transports remain the distinct external destinations used to store or deliver those images.
+Storage-source clarification: LVM logical volumes, raw LUKS2 containers, opened LUKS mappings and Btrfs filesystems are image sources/layers, not repository types. Capture and restore support must describe the exact byte scope and dependencies. The intended model is filesystem/block-device imaging, not separate subvolume artifacts; current source does not yet implement coordinated multi-device Btrfs image-set capture/restore. Remote repositories and distribution transports remain the distinct external destinations used to store or deliver those images.
 
 Current-source note: local Cockpit capture supports eligible active LVM logical volumes, verified raw LUKS2 partition containers and single-device Btrfs partition images. Local Cockpit LV restore now supports existing active, unmounted linear/thin targets with raw read-back verification or a read-only Partclone filesystem check; it does not provision or resize LVM metadata. Deployment-job LV restore is implemented in unicast and multicast source paths but still requires exact-commit automated and multi-Client hardware acceptance. Deployment-job LV capture, dedicated opened-mapping capture, coordinated multi-device Btrfs capture, snapshot-assisted capture, opened-mapping restore, LUKS2-on-LV restore, LUKS2 provisioning/rekeying and Btrfs layer-aware restore remain incomplete. Local partition restore supports only raw LUKS2 container images with matching manifest UUID/dependency, exact raw read-back and post-write LUKS2 UUID/JSON header verification; the container remains closed and credentials are not captured or used. An opt-in disposable loop-device acceptance harness additionally runs the unicast Client runtime and Feclora's framed control/artifact transfer protocol over a local socket pair, then tests rejection of a wrong key, unlock with the original key and byte-for-byte plaintext recovery. It does not validate live Server-authenticated TLS negotiation or routed networking. Multicast LUKS2 Client dispatch is covered by automated runtime tests; actual UDPcast/IGMP and two-Client block-device behavior must be recorded using the existing multi-client VM runbook. The loop-device harness has not yet been run on a real Fedora/Linux host, so its execution and recorded host/kernel/cryptsetup/commit remain operator acceptance tasks. The multi-device Btrfs wording above is a release target, not a claim of current support.
 
@@ -55,7 +55,7 @@ Required repository integrations: SSHFS, NFS and SMB/CIFS mounted filesystems, p
 - [ ] Verify provider identity, endpoint/share/path, protocol/filesystem type, access mode, health and free space/quota where available.
 - [ ] Cockpit allows selecting the repository and capturing a whole disk, partition or supported active LVM logical volume into it. Raw LUKS2 container capture must verify the header is LUKS2; LUKS1 and unknown headers are unsupported. Btrfs uses filesystem/block-device imaging, not separate subvolume artifacts; unsupported multi-device/profile combinations fail closed.
 - [ ] Publication is staged/committed so interrupted uploads cannot appear complete; protect against accidental overwrite and stale mounts. Concurrent readers must see only committed, immutable image sets. Concurrent publishers for the same image are not required.
-- [ ] Publish manifest, byte count, SHA-256, optional signature and encryption metadata for subsequent verification.
+- [ ] Publish the manifest, byte count, SHA-256 and encryption metadata for subsequent integrity verification. Feclora does not currently sign manifests or detached sidecars; do not document signatures as an implemented capability.
 - [ ] Provider tests cover success, bad credentials, permission denial, insufficient space/quota, disconnect, stale mount, interrupted publication and recovery.
 - [ ] S3 object storage supports authenticated inventory, bounded multipart transfer, abort/cleanup of incomplete uploads, immutable object keys, conditional manifest-last publication, independent manifest authenticity and SHA-256/size verification, cancellation and concurrent readers.
 - [ ] Publish a capture guide per provider, documenting server-side setup.
@@ -71,7 +71,7 @@ Feclora does not sign image manifests or use detached signature sidecars. Artifa
 **Outcome:** Select one verified image and restore it to multiple remote Clients in one managed deployment. Each Client can boot Feclora manually or by PXE/iPXE, as configured on the Server.
 
 - [ ] Cockpit supports explicit Client selection and named/stable-identity groups; freeze and display the recipient set before authorization.
-- [ ] Select one image from any repository or enabled distribution transport whose read/restore path is supported, including S3 object retrieval only after independent manifest authenticity and artifact digest verification.
+- [ ] Select one image from any repository or enabled distribution transport whose read/restore path is supported, including S3 object retrieval after manifest/schema validation and artifact size/SHA-256 verification; authenticity relies on the protected repository and authenticated transport, not a detached signature.
 - [ ] Each Client independently reports identity, boot mode, network, target, capacity, sector size, safety checks and READY state.
 - [ ] Do not start until every required Client is accounted for and independently authorizes its exact destination; missing, duplicate or unexpected Clients block or require explicit resolution.
 - [ ] Unicast and multicast modes show eligibility, network requirements and per-Client status. Multicast acceptance includes switch IGMP snooping/querier behavior.
@@ -106,14 +106,14 @@ Per-client TLS identity, USB identity media, manual enrollment and per-client ke
 
 - [ ] GitHub Pages guide index links every procedure and labels each workflow Available, Partial/limited or Planned consistently with the feature matrix.
 - [ ] Each of the six requirements has a user-facing step-by-step guide or a clearly marked Planned entry until complete.
-- [ ] Guides include prerequisites, roles, DHCP/static examples where relevant, exact Cockpit navigation, screenshots, expected results, warnings, verification, troubleshooting and recovery.
+- [ ] Guides include prerequisites, roles, DHCP/static examples where relevant, exact Cockpit navigation, real screenshots or mockups explicitly labeled as illustrative, expected results, warnings, verification, troubleshooting and recovery.
 - [ ] Provider guides state exact supported operations and limitations.
 - [ ] Internal links resolve in the rendered Pages site; documentation build/link checks run in CI.
 - [ ] README, ROADMAP, FEATURE-MATRIX, GUIDES and IMPLEMENTATION-PLAN agree. No primitive, CLI-only path or acceptance recipe is presented as a completed Cockpit workflow.
 
 ## ISO release gate
 
-The maintainer builds the ISO; the project must not generate or publish it. Software completion still requires a reproducible build definition and documented package set. Before calling the requested experience ready, the resulting image must boot in BIOS and UEFI, expose Cockpit, and exercise relevant local/network workflows on disposable devices. Hardware and physical network results are operator acceptance, never inferred from unit tests.
+The repository owner builds the ISO using the documented procedure; this work does not generate or publish it. Engineering completion still requires a reproducible build definition and documented package set. Before calling the requested experience release-accepted, the owner must boot the image in BIOS and UEFI, exercise Cockpit/kiosk on VMs and hardware, test restores on disposable real disks, validate live repository providers and multi-Client deployments, and test interactive/unattended PXE on an isolated network. Record the evidence in [MAINTAINER-ACCEPTANCE.md](MAINTAINER-ACCEPTANCE.md); never infer it from unit tests.
 
 ## Global safety and definition of done
 
