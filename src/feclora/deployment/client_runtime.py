@@ -13,7 +13,9 @@ import stat
 import shutil
 from typing import Any, Callable
 
-from feclora.deployment.artifact_transfer import ImageTransferError, receive_image_set, send_image_set
+from feclora.deployment.artifact_transfer import (
+    ImageTransferError, TRANSFER_IDLE_TIMEOUT_SECONDS, receive_image_set, send_image_set,
+ )
 from feclora.deployment.control import LocalTargetApproval, receive_control_message, send_control_message
 from feclora.deployment.job import DeploymentJob
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
@@ -57,7 +59,7 @@ def execute_client_image_job(
         raise ClientImageRuntimeError(f"cannot inspect locally selected device: {exc}") from exc
     if not stat.S_ISBLK(info.st_mode):
         raise ClientImageRuntimeError("local device selection must resolve to a block device")
-    tls_socket.settimeout(86400)
+    tls_socket.settimeout(TRANSFER_IDLE_TIMEOUT_SECONDS)
     if job.operation == "clone":
         required = f"ERASE {local_device_path}"
         if confirmation != required:
