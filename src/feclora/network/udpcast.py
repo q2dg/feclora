@@ -539,6 +539,7 @@ def receive_physical_multicast_stream(
     udp_receiver: str | None = None,
     runner_popen: Callable[..., Any] = subprocess.Popen,
     cancel_check: Callable[[], bool] | None = None,
+    ready_callback: Callable[[], None] | None = None,
     firewall: Any,
 ) -> dict[str, Any]:
     """Receive UDPcast bytes directly into an approved block-device writer and verify read-back."""
@@ -558,6 +559,8 @@ def receive_physical_multicast_stream(
                 )
                 if process.stdout is None:
                     raise UDPcastError("udp-receiver did not expose its physical stream output pipe")
+                if ready_callback is not None:
+                    ready_callback()
                 result = verify_received_physical_stream(
                     process.stdout, write, flush, readback,
                     expected_bytes=expected_bytes,
