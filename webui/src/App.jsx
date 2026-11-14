@@ -71,6 +71,7 @@ export default function App() {
   const [remoteStartPolicy, setRemoteStartPolicy] = useState("manual");
   const [remoteExpectedClients, setRemoteExpectedClients] = useState("2");
   const [remoteStartDeadline, setRemoteStartDeadline] = useState("");
+  const [remotePostAction, setRemotePostAction] = useState("none");
   const [remoteTransport, setRemoteTransport] = useState("unicast");
   const [remoteMulticastGroup, setRemoteMulticastGroup] = useState("239.10.10.10");
   const [remoteMulticastPort, setRemoteMulticastPort] = useState("9000");
@@ -729,7 +730,8 @@ export default function App() {
         multicast_port: remoteTransport === "multicast" ? Number(remoteMulticastPort) : null,
         start_policy: remoteStartPolicy,
         expected_clients: remoteStartPolicy === "expected_clients" ? Number(remoteExpectedClients) : null,
-        start_deadline: remoteStartPolicy === "deadline" ? new Date(remoteStartDeadline).toISOString() : null
+        start_deadline: remoteStartPolicy === "deadline" ? new Date(remoteStartDeadline).toISOString() : null,
+        post_action: remoteOperation === "save" ? "none" : remotePostAction
       };
       const result = await callFeclora("create_deployment_job", { job });
       setRemoteJobResult(result); setNotice(result.message); await refresh();
@@ -1135,6 +1137,14 @@ export default function App() {
                   </Field>}
                   {remoteStartPolicy === "deadline" && <Field label="Start deadline (local time)" help="The deadline opens the start gate; it does not start disk I/O automatically. The Server operator must still enter the exact authorization phrase after the deadline.">
                     <input className="pf-v5-c-form-control" type="datetime-local" value={remoteStartDeadline} onChange={(e) => setRemoteStartDeadline(e.target.value)} required />
+                  </Field>}
+                  {remoteOperation !== "save" && <Field label="Final action on each successful Client">
+                    <select className="pf-v5-c-form-control" value={remotePostAction} onChange={(e) => setRemotePostAction(e.target.value)}>
+                      <option value="none">Do nothing — leave Client running</option>
+                      <option value="reboot">Reboot Client after verified write</option>
+                      <option value="poweroff">Shut down Client after verified write</option>
+                    </select>
+                    <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Applied independently by each Client only after its write/read-back verification and successful result report. Failed or disconnected Clients are not rebooted or shut down.</div>
                   </Field>}
                   <Button type="submit" variant="primary" isDisabled={busy || (remoteOperation === "clone" ? !remoteSourceDevice : !remoteImageId || (remoteOperation === "restore" && !remoteAvailableImages.some((item) => item.image_id === remoteImageId))) || !remoteClients.trim() || !remoteInterface || (remoteStartPolicy === "expected_clients" && (!Number.isInteger(Number(remoteExpectedClients)) || Number(remoteExpectedClients) < 1 || Number(remoteExpectedClients) > remoteClients.split(/[\\s,;]+/).filter(Boolean).length)) || (remoteStartPolicy === "deadline" && (!remoteStartDeadline || !Number.isFinite(new Date(remoteStartDeadline).getTime())))}>Validate and save job definition</Button>
                 </form>
