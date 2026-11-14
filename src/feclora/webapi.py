@@ -1231,6 +1231,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
+        "capture_p2v": {"source", "image_id", "repository_id"},
     }
     if action not in allowed:
         raise WebAPIError("operation parameters do not match the selected operation")
@@ -1329,6 +1330,60 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 age_recipients_file=recipients_file if encrypt else None,
             )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
+    elif action == "capture_p2v":
+        from feclora.storage.p2v import convert_block_device_to_qcow2
+        import json
+        import tempfile
+        source = _device(params["source"], "source")
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        repository_id = params.get("repository_id")
+        if repository_id is not None:
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
+                raise WebAPIError("P2V currently publishes to filesystem repositories; S3 QCOW2 object publication is not yet supported")
+        repository = _operation_repository(params, write=True, create_local=True)
+        output_path = repository / f"{image_id}.qcow2"
+        metadata_path = repository / f"{image_id}.p2v.json"
+        if os.path.lexists(output_path) or os.path.lexists(metadata_path):
+            raise WebAPIError("P2V image identifier already exists in the selected repository")
+        temporary_directory = tempfile.mkdtemp(prefix=".feclora-p2v-publish-", dir=repository)
+        os.chmod(temporary_directory, 0o700)
+        staged_output = Path(temporary_directory) / f"{image_id}.qcow2"
+        try:
+            converted = convert_block_device_to_qcow2(source, staged_output)
+            metadata = {
+                "schema_version": 1, "image_id": image_id, "format": "qcow2",
+                "source_device": source,
+                "virtual_size_bytes": converted["virtual_size_bytes"],
+                "file_size_bytes": converted["file_size_bytes"],
+                "verified": True,
+                "bootability_note": "QCOW2 conversion preserves disk sectors and partition metadata; guest boot may require driver or initramfs changes.",
+            }
+            metadata_tmp = Path(temporary_directory) / f"{image_id}.p2v.json"
+            with metadata_tmp.open("x", encoding="utf-8") as stream:
+                json.dump(metadata, stream, sort_keys=True, separators=(",", ":"))
+                stream.write("\\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.link(staged_output, output_path)
+            try:
+                os.link(metadata_tmp, metadata_path)
+            except Exception:
+                os.unlink(output_path)
+                raise
+            directory_fd = os.open(repository, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        finally:
+            import shutil
+            shutil.rmtree(temporary_directory, ignore_errors=True)
+        result = {
+            "image_id": image_id, "output_path": str(output_path),
+            "virtual_size_bytes": converted["virtual_size_bytes"],
+            "file_size_bytes": converted["file_size_bytes"], "verified": True,
+        }
     elif action == "extract_partition_image":
         from feclora.storage.disk_image_partition import extract_partition_image
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
