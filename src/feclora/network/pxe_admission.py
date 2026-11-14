@@ -195,15 +195,6 @@ class PXEAdmission:
             raise PXEAdmissionError("report job ID must be a UUID") from exc
         if canonical != job_id or not self.is_admitted(mac):
             raise PXEAdmissionError("PXE client is not admitted for this report")
-        answer = self.http_root / "answers" / canonical / "answer.json"
-        try:
-            info = answer.lstat()
-        except OSError as exc:
-            raise PXEAdmissionError("reported PXE answer job is not currently published") from exc
-        if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
-                or info.st_uid != os.geteuid() or info.st_mode & 0o022
-                or info.st_size > 65536):
-            raise PXEAdmissionError("published PXE answer is unsafe")
         allowed = {"event_id", "operation_id", "operation", "timestamp", "status",
                    "target", "image_id", "bytes_done", "bytes_total", "error_type", "error"}
         if not isinstance(event, dict) or set(event) - allowed or not {
@@ -253,6 +244,7 @@ class PXEAdmission:
                 existing = path.lstat()
             except FileNotFoundError:
                 existing = None
+            known_started = False
             if existing is not None:
                 if (not stat.S_ISREG(existing.st_mode) or stat.S_ISLNK(existing.st_mode)
                         or existing.st_uid != os.geteuid() or existing.st_mode & 0o077
@@ -264,8 +256,27 @@ class PXEAdmission:
                             previous = json.loads(line)
                         except json.JSONDecodeError:
                             continue
-                        if isinstance(previous, dict) and previous.get("event_id") == event_id:
+                        if not isinstance(previous, dict):
+                            continue
+                        if previous.get("event_id") == event_id:
                             return False
+                        if (previous.get("job_id") == canonical
+                                and previous.get("operation_id") == operation_id
+                                and previous.get("client_mac") == mac.lower()
+                                and previous.get("status") == "started"):
+                            known_started = True
+            if event["status"] == "started":
+                answer = self.http_root / "answers" / canonical / "answer.json"
+                try:
+                    info = answer.lstat()
+                except OSError as exc:
+                    raise PXEAdmissionError("new PXE restore reports require a currently published answer") from exc
+                if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                        or info.st_uid != os.geteuid() or info.st_mode & 0o022
+                        or info.st_size > 65536):
+                    raise PXEAdmissionError("published PXE answer is unsafe")
+            elif not known_started:
+                raise PXEAdmissionError("PXE restore report has no previously received start event")
             record = {
                 **event, "event_id": event_id, "operation_id": operation_id,
                 "job_id": canonical, "client_mac": mac.lower(),
