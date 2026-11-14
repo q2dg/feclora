@@ -646,57 +646,82 @@ class DeploymentControlServer:
         operation_log_path: str | None = None,
         result_timeout: float = 86400,
     ) -> dict[str, str]:
-        """Clone the Server-local source to one READY Client over its existing Server-authenticated TLS session."""
+        """Clone one Server-local source to every READY Client over independent TLS sessions.
+
+        Transfers are deliberately serialized on the Server so the source disk is
+        read by only one sender at a time. Each Client retains its own local target
+        approval and read-back verification; one failed receiver does not suppress
+        attempts to the other already-authorized receivers.
+        """
         job = self.coordinator.job
         if job.operation != "clone" or job.transport != "unicast":
             raise DeploymentControlError("remote clone requires a unicast clone job")
         clients = self.coordinator.clients()
-        if len(clients) != 1 or clients[0].state is not ClientState.READY:
-            raise DeploymentControlError("remote clone requires exactly one READY Client")
-        mac = clients[0].mac_address
-        with self._lock:
-            target_device = self._target_devices.get(mac)
-            tls_socket = self._sessions.get(mac)
-        if not target_device or tls_socket is None:
-            raise DeploymentControlError("Client clone target approval or control session is unavailable")
+        if (not clients or len(clients) != len(job.authorized_clients)
+                or {item.mac_address for item in clients} != set(job.authorized_clients)
+                or any(item.state is not ClientState.READY for item in clients)):
+            raise DeploymentControlError("every selected Client must be READY before remote clone arming")
         if not job.source_device:
             raise DeploymentControlError("clone job has no approved Server source device")
-        header = build_remote_clone_header(
-            job.source_device, target_device, device_type=job.target_type,
-        )
-        started = self.arm_and_start()
-        if started != (mac,):
-            return self.collect_results(timeout=result_timeout)
-        try:
-            def report_progress(completed: int, total: int) -> None:
-                now = time.monotonic()
-                with self._lock:
-                    previous = self._progress.get(mac)
-                    rate = 0.0
-                    if previous and previous.get("phase") == "clone" and now > previous.get("monotonic", now):
-                        rate = max(0.0, (completed - previous["completed_bytes"]) / (now - previous["monotonic"]))
-                    self._progress[mac] = {
-                        "phase": "clone", "completed_bytes": completed,
-                        "total_bytes": total, "bytes_per_second": round(rate, 1),
-                        "updated_at": datetime.now(timezone.utc).isoformat(),
-                        "monotonic": now,
-                    }
 
-            kwargs: dict[str, Any] = {
-                "source_path": job.source_device,
-                "confirmation": f"READ {job.source_device}",
-                "progress_callback": report_progress,
-            }
-            if operation_log_path is not None:
-                kwargs["operation_log_path"] = operation_log_path
-            send_remote_disk(tls_socket, header, **kwargs)
-        except Exception as exc:
-            self._record_transfer_failure(mac, f"remote {job.target_type} clone failed: {exc}")
-        finally:
-            with self._lock:
-                current = self._progress.get(mac)
-                if current is not None:
-                    current.pop("monotonic", None)
+        transfers: dict[str, tuple[Any, Any]] = {}
+        with self._lock:
+            for record in clients:
+                mac = record.mac_address
+                target_device = self._target_devices.get(mac)
+                tls_socket = self._sessions.get(mac)
+                if not target_device or tls_socket is None:
+                    raise DeploymentControlError(
+                        f"Client {mac} clone target approval or control session is unavailable"
+                    )
+                header = build_remote_clone_header(
+                    job.source_device, target_device, device_type=job.target_type,
+                )
+                transfers[mac] = (tls_socket, header)
+
+        started = self.arm_and_start()
+        if set(started) != set(transfers):
+            return self.collect_results(timeout=result_timeout)
+
+        for mac in sorted(started):
+            tls_socket, header = transfers[mac]
+            try:
+                def report_progress(completed: int, total: int, *, client_mac: str = mac) -> None:
+                    now = time.monotonic()
+                    with self._lock:
+                        previous = self._progress.get(client_mac)
+                        rate = 0.0
+                        if (previous and previous.get("phase") == "clone"
+                                and now > previous.get("monotonic", now)):
+                            rate = max(
+                                0.0,
+                                (completed - previous["completed_bytes"])
+                                / (now - previous["monotonic"]),
+                            )
+                        self._progress[client_mac] = {
+                            "phase": "clone", "completed_bytes": completed,
+                            "total_bytes": total, "bytes_per_second": round(rate, 1),
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                            "monotonic": now,
+                        }
+
+                kwargs: dict[str, Any] = {
+                    "source_path": job.source_device,
+                    "confirmation": f"READ {job.source_device}",
+                    "progress_callback": report_progress,
+                }
+                if operation_log_path is not None:
+                    kwargs["operation_log_path"] = operation_log_path
+                send_remote_disk(tls_socket, header, **kwargs)
+            except Exception as exc:
+                self._record_transfer_failure(
+                    mac, f"remote {job.target_type} clone failed: {exc}",
+                )
+            finally:
+                with self._lock:
+                    current = self._progress.get(mac)
+                    if current is not None:
+                        current.pop("monotonic", None)
         return self.collect_results(timeout=result_timeout)
 
     def run_multicast_restore_job(
