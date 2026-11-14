@@ -307,6 +307,38 @@ class PhysicalMulticastProcessTests(unittest.TestCase):
         self.assertEqual(bytes(stored), payload)
         self.assertTrue(result["verified"])
 
+    def test_receiver_checks_overflow_only_after_receiver_process_exits(self):
+        payload = b"approved-bytes"
+        state = {"exited": False}
+        class Pipe:
+            def read(self, count):
+                if not state["exited"]:
+                    raise AssertionError("overflow probe ran before udp-receiver exited")
+                return b"x" if count == 1 else b""
+        class Process:
+            returncode = 0
+            def __init__(self, **kwargs):
+                self.stdout = Pipe()
+            def wait(self, **kwargs):
+                state["exited"] = True
+                return self.returncode
+        stored = bytearray()
+        def readback(count):
+            offset = len(readback.data)
+            chunk = bytes(stored[offset:offset + count])
+            readback.data.extend(chunk)
+            return chunk
+        readback.data = bytearray()
+        with self.assertRaisesRegex(UDPcastError, "beyond the approved device capacity"):
+            receive_physical_multicast_stream(
+                lambda view: stored.extend(view) or len(view), lambda: None, readback,
+                expected_bytes=len(payload),
+                expected_sha256=hashlib.sha256(payload).hexdigest(),
+                config=self.config, udp_receiver="/usr/bin/udp-receiver",
+                runner_popen=lambda argv, **kwargs: Process(**kwargs),
+                firewall=self.firewall,
+            )
+
     def test_receiver_rejects_stream_digest_mismatch(self):
         payload = b"received bytes"
         class Process:
