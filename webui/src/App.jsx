@@ -68,6 +68,9 @@ export default function App() {
   const [remoteSourceDevice, setRemoteSourceDevice] = useState("");
   const [remoteTargetType, setRemoteTargetType] = useState("disk");
   const [remoteClients, setRemoteClients] = useState("");
+  const [remoteStartPolicy, setRemoteStartPolicy] = useState("manual");
+  const [remoteExpectedClients, setRemoteExpectedClients] = useState("2");
+  const [remoteStartDeadline, setRemoteStartDeadline] = useState("");
   const [remoteTransport, setRemoteTransport] = useState("unicast");
   const [remoteMulticastGroup, setRemoteMulticastGroup] = useState("239.10.10.10");
   const [remoteMulticastPort, setRemoteMulticastPort] = useState("9000");
@@ -724,7 +727,9 @@ export default function App() {
         ...((remoteOperation === "restore" || remoteOperation === "save") && remoteSelectedRepository ? { repository_id: remoteSelectedRepository.id } : {}),
         multicast_group: remoteTransport === "multicast" ? remoteMulticastGroup : null,
         multicast_port: remoteTransport === "multicast" ? Number(remoteMulticastPort) : null,
-        start_policy: "manual", expected_clients: null, start_deadline: null
+        start_policy: remoteStartPolicy,
+        expected_clients: remoteStartPolicy === "expected_clients" ? Number(remoteExpectedClients) : null,
+        start_deadline: remoteStartPolicy === "deadline" ? new Date(remoteStartDeadline).toISOString() : null
       };
       const result = await callFeclora("create_deployment_job", { job });
       setRemoteJobResult(result); setNotice(result.message); await refresh();
@@ -1118,8 +1123,20 @@ export default function App() {
                     <Field label="UDPcast even portbase"><input className="pf-v5-c-form-control" type="number" min="1024" max="65534" step="2" value={remoteMulticastPort} onChange={(e) => setRemoteMulticastPort(e.target.value)} /></Field>
                     <Alert variant="warning" title="Multicast transport limitation" isInline>UDPcast data packets are not encrypted or authenticated. TLS protects the control plane, not the multicast data stream. Use only on a trusted, isolated deployment network.</Alert>
                   </>}
-                  <Field label="Start policy"><input className="pf-v5-c-form-control" value="Manual — exact job-specific typed confirmation required" readOnly /></Field>
-                  <Button type="submit" variant="primary" isDisabled={busy || (remoteOperation === "clone" ? !remoteSourceDevice : !remoteImageId || (remoteOperation === "restore" && !remoteAvailableImages.some((item) => item.image_id === remoteImageId))) || !remoteClients.trim() || !remoteInterface}>Validate and save job definition</Button>
+                  <Field label="Start policy">
+                    <select className="pf-v5-c-form-control" value={remoteStartPolicy} onChange={(e) => setRemoteStartPolicy(e.target.value)}>
+                      <option value="manual">Manual — every selected Client must be READY</option>
+                      <option value="expected_clients">Start gate — minimum READY Client count</option>
+                      <option value="deadline">Start gate — wait until UTC deadline</option>
+                    </select>
+                  </Field>
+                  {remoteStartPolicy === "expected_clients" && <Field label="Minimum READY Clients" help={`Must be between 1 and the ${remoteClients.split(/[\\s,;]+/).filter(Boolean).length} selected Client(s). The Server still requires explicit job-specific authorization.`}>
+                    <input className="pf-v5-c-form-control" type="number" min="1" max={Math.max(1, remoteClients.split(/[\\s,;]+/).filter(Boolean).length)} value={remoteExpectedClients} onChange={(e) => setRemoteExpectedClients(e.target.value)} required />
+                  </Field>}
+                  {remoteStartPolicy === "deadline" && <Field label="Start deadline (local time)" help="The deadline opens the start gate; it does not start disk I/O automatically. The Server operator must still enter the exact authorization phrase after the deadline.">
+                    <input className="pf-v5-c-form-control" type="datetime-local" value={remoteStartDeadline} onChange={(e) => setRemoteStartDeadline(e.target.value)} required />
+                  </Field>}
+                  <Button type="submit" variant="primary" isDisabled={busy || (remoteOperation === "clone" ? !remoteSourceDevice : !remoteImageId || (remoteOperation === "restore" && !remoteAvailableImages.some((item) => item.image_id === remoteImageId))) || !remoteClients.trim() || !remoteInterface || (remoteStartPolicy === "expected_clients" && (!Number.isInteger(Number(remoteExpectedClients)) || Number(remoteExpectedClients) < 1 || Number(remoteExpectedClients) > remoteClients.split(/[\\s,;]+/).filter(Boolean).length)) || (remoteStartPolicy === "deadline" && (!remoteStartDeadline || !Number.isFinite(new Date(remoteStartDeadline).getTime())))}>Validate and save job definition</Button>
                 </form>
                 {remoteJobResult && <Alert variant="success" title="Job definition persisted" isInline className="pf-v5-u-mt-md">{remoteJobResult.message}<p>Job ID: {remoteJobResult.job_id}</p></Alert>}
                 </CardBody></Card>
