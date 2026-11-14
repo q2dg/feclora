@@ -248,5 +248,81 @@ class UDPcastConfigTests(unittest.TestCase):
             self.assertEqual(os.listdir(directory), [])
 
 
+class PhysicalMulticastProcessTests(unittest.TestCase):
+    def setUp(self):
+        self.config = UDPcastConfig("enp1s0", "239.10.10.1", "239.10.10.2")
+        self.firewall = Mock()
+        self.firewall.is_open.return_value = False
+
+    def test_sender_uses_pipe_and_hashes_exact_source_without_file_arguments(self):
+        payload = b"approved physical source"
+        class Process:
+            returncode = 0
+            def __init__(self, **kwargs):
+                self.stdin = kwargs["stdin"]
+            def wait(self, **kwargs):
+                return self.returncode
+        calls = []
+        def popen(argv, **kwargs):
+            calls.append((argv, kwargs))
+            return Process(**kwargs)
+        result = send_physical_multicast_stream(
+            io.BytesIO(payload), len(payload), self.config,
+            udp_sender="/usr/bin/udp-sender", runner_popen=popen,
+            firewall=self.firewall,
+        )
+        argv, kwargs = calls[0]
+        self.assertEqual(kwargs["stdin"], __import__("subprocess").PIPE)
+        self.assertNotIn("--file", argv)
+        self.assertEqual(result["sha256"], hashlib.sha256(payload).hexdigest())
+        self.assertEqual(result["bytes_sent"], len(payload))
+
+    def test_receiver_writes_directly_and_verifies_readback(self):
+        payload = b"multicast-to-block-device"
+        class Process:
+            returncode = 0
+            def __init__(self, **kwargs):
+                self.stdout = io.BytesIO(payload)
+            def wait(self, **kwargs):
+                return self.returncode
+        stored = bytearray()
+        def write(view):
+            stored.extend(view)
+            return len(view)
+        def readback(count):
+            start = len(readback.data)
+            chunk = bytes(stored[start:start + count])
+            readback.data.extend(chunk)
+            return chunk
+        readback.data = bytearray()
+        result = receive_physical_multicast_stream(
+            write, lambda: None, readback,
+            expected_bytes=len(payload),
+            expected_sha256=hashlib.sha256(payload).hexdigest(),
+            config=self.config, udp_receiver="/usr/bin/udp-receiver",
+            runner_popen=lambda argv, **kwargs: Process(**kwargs),
+            firewall=self.firewall,
+        )
+        self.assertEqual(bytes(stored), payload)
+        self.assertTrue(result["verified"])
+
+    def test_receiver_rejects_stream_digest_mismatch(self):
+        payload = b"received bytes"
+        class Process:
+            returncode = 0
+            def __init__(self, **kwargs):
+                self.stdout = io.BytesIO(payload)
+            def wait(self, **kwargs):
+                return self.returncode
+        with self.assertRaisesRegex(UDPcastError, "SHA-256"):
+            receive_physical_multicast_stream(
+                lambda view: len(view), lambda: None, lambda count: payload[:count],
+                expected_bytes=len(payload), expected_sha256="0" * 64,
+                config=self.config, udp_receiver="/usr/bin/udp-receiver",
+                runner_popen=lambda argv, **kwargs: Process(**kwargs),
+                firewall=self.firewall,
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
