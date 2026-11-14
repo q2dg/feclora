@@ -17,6 +17,7 @@ from feclora.storage.disk_image_partition import DiskImagePartitionError, extrac
 from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError, restore_disk
 from feclora.storage.proportional_staging import ProportionalStagingError, stage_verified_raw_disk_image
 from feclora.storage.staged_proportional_restore import StagedProportionalRestoreError, restore_staged_proportional_image
+from feclora.storage.source_safety import check_capture_source_safe
 from feclora.storage.proportional_restore_workflow import ProportionalRestoreWorkflowError, prepare_from_offline_source_disk
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import InventoryError, collect_inventory, assess_disk_compatibility
@@ -681,11 +682,17 @@ def _restore(inventory: dict[str, Any]) -> None:
             return
         try:
             target_stat = os.stat(target["path"])
+            source_stat = os.stat(source_for_proportional["path"])
             if not stat.S_ISBLK(target_stat.st_mode):
                 raise OSError("selected destination is not a block device")
+            if not stat.S_ISBLK(source_stat.st_mode):
+                raise OSError("selected source is not a block device")
             selected_target_identity = target_stat.st_rdev
-        except OSError as exc:
-            _message("Proportional restore blocked", f"Cannot capture destination identity: {exc}")
+            selected_source_identity = source_stat.st_rdev
+            if selected_target_identity == selected_source_identity:
+                raise OSError("source and destination resolve to the same physical block device")
+        except (OSError, KeyError) as exc:
+            _message("Proportional restore blocked", f"Cannot establish distinct source and destination identities: {exc}")
             return
 
     partition_selector = None
@@ -761,6 +768,20 @@ def _restore(inventory: dict[str, Any]) -> None:
                 if typed_proportional != f"ERASE {target['path']}":
                     _message("Restore cancelled", "Confirmation did not match. No destination write was started.")
                     return
+                def revalidate_offline_source():
+                    try:
+                        current_source = os.stat(source_for_proportional["path"])
+                    except OSError as exc:
+                        raise ProportionalRestoreWorkflowError(
+                            f"selected source disk is no longer available: {exc}"
+                        ) from exc
+                    if (not stat.S_ISBLK(current_source.st_mode)
+                            or current_source.st_rdev != selected_source_identity):
+                        raise ProportionalRestoreWorkflowError(
+                            "selected source disk identity changed during proportional restore"
+                        )
+                    check_capture_source_safe(source_for_proportional["path"])
+
                 _run_logged(
                     "restore_proportional_disk", target["path"], manifest.image_id,
                     lambda: restore_staged_proportional_image(
@@ -768,6 +789,7 @@ def _restore(inventory: dict[str, Any]) -> None:
                         sector_size=manifest.logical_sector_size,
                         expected_device_identity=selected_target_identity,
                         confirmation=typed_proportional,
+                        pre_write_callback=revalidate_offline_source,
                     ),
                 )
         elif action == "whole-disk":
