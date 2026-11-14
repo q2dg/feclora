@@ -1383,8 +1383,6 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
     elif action == "capture_p2v":
         from feclora.storage.p2v import convert_block_device_to_qcow2
-        import json
-        import tempfile
         source = _device(params["source"], "source")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         repository_id = params.get("repository_id")
@@ -1428,7 +1426,6 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             finally:
                 os.close(directory_fd)
         finally:
-            import shutil
             shutil.rmtree(temporary_directory, ignore_errors=True)
         result = {
             "image_id": image_id, "output_path": str(output_path),
