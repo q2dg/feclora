@@ -43,7 +43,8 @@ class PhysicalMulticastPreflightTests(unittest.TestCase):
         self.assertEqual(descriptor, 41)
         self.assertEqual(open_device.call_args.args[0], "/dev/sda")
         flags = open_device.call_args.args[1]
-        self.assertTrue(flags & os.O_RDONLY)
+        self.assertFalse(flags & os.O_WRONLY)
+        self.assertFalse(flags & os.O_RDWR)
         self.assertFalse(flags & os.O_EXCL)
 
     def test_destination_descriptor_uses_kernel_exclusive_open(self):
