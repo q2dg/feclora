@@ -105,3 +105,33 @@ build an ISO, and does not introduce client authentication or a PXE proxy.
 Automated tests cover confirmation, staging digest, exact capacity,
 device-identity recheck, write/read-back flow and read-back mismatch. They
 have been added but have not been executed.
+
+
+## Interactive proportional restore workflow
+
+The local rescue UI now exposes a separate proportional restore choice for
+whole-disk GPT images. The operator selects the smaller destination and the
+original source disk. The source must still be present, offline and unused:
+its capacity and logical sector size must match the image, and its partition
+PARTUUIDs, GPT type GUIDs, start sectors and byte capacities must match the
+verified staged GPT exactly.
+
+The inventory now requests PARTUUID, PARTTYPE, PARTLABEL and START from
+`lsblk`. The workflow maps staged GPT entries to the selected source
+partitions by PARTUUID, then runs the ext2/3/4 or NTFS minimum-size probes
+read-only against those source partitions. Unsupported, unknown, mounted,
+busy or inconsistent filesystems fail closed. The actual filesystem shrink
+and GPT rewrite are performed only on the private RAW staging copy.
+
+Before asking for the final destructive confirmation, the UI presents the
+source, destination, resulting image size and each planned partition's
+PARTUUID, start sector, planned sector count and minimum filesystem size.
+Only after the exact `ERASE /dev/...` phrase is entered does the guarded
+destination writer run. It also requires the destination's block-device
+identity captured at selection time and rechecks it, capacity, sector size
+and safety immediately before writing.
+
+This interactive path is for proportional GPT restore only. It does not add
+client authentication, a PXE proxy or an artifact relay. It does not modify
+the original source disk or repository artifact. No ISO build is part of this
+workflow. Tests have been added but have not been executed.
