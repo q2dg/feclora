@@ -81,7 +81,7 @@ expose the answer endpoint to untrusted networks.
 After boot, the Live client accesses image storage directly. The PXE Server is
 not a repository proxy. ISO and PXE must use the same Feclora repository
 configuration and protected credential handling; no repository secrets are
-placed in the answer file and no client authentication/enrollment is added.
+placed in the answer file.
 
 The answer contains only a repository ID. The Live client resolves it
 through Feclora's existing RemoteRepositoryManager for SSHFS, NFS and SMB/CIFS,
