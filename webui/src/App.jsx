@@ -13,6 +13,7 @@ import { LANGUAGES, useLanguagePreference } from "./i18n.js";
 const OPERATION_LABELS = {
   capture_disk: "Create a whole-disk image",
   capture_p2v: "Convert physical disk to QCOW2 (P2V)",
+  export_p2v_s3: "Export P2V QCOW2 from S3",
   build_recovery_iso: "Build a self-contained recovery ISO",
   capture_partition: "Create a partition image",
   capture_logical_volume: "Create a logical-volume image",
@@ -101,6 +102,7 @@ export default function App() {
   const [repositoryId, setRepositoryId] = useState("");
   const [repositoryEditing, setRepositoryEditing] = useState(false);
   const [selectedRepositoryId, setSelectedRepositoryId] = useState("");
+  const [exportDestinationRepositoryId, setExportDestinationRepositoryId] = useState("");
   const [repositoryImages, setRepositoryImages] = useState([]);
   const [repositoryProvider, setRepositoryProvider] = useState("sshfs");
   const [repositoryHost, setRepositoryHost] = useState("");
@@ -325,6 +327,7 @@ export default function App() {
       ? `ERASE ${clientRemoteTarget}`
       : `READ ${clientRemoteTarget} TO ${clientRemoteInspection.server_identity}`)
     : "";
+  const isExportP2V = operation === "export_p2v_s3";
   const isCapture = operation.startsWith("capture_");
   const isRestore = operation.startsWith("restore_");
   const isDisk = operation.endsWith("_disk") || operation === "capture_p2v";
@@ -336,7 +339,7 @@ export default function App() {
     : remoteRepositories.find((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified) || s3Repositories.find((repo) => repo.id === selectedRepositoryId);
   const availableImages = selectedRepositoryId ? repositoryImages : images;
   const remoteAvailableImages = remoteSelectedRepository ? repositoryImages : images;
-  const matchingImages = availableImages.filter((item) => item.image_type === (isDisk ? "disk" : isLogicalVolume ? "logical_volume" : "partition"));
+  const matchingImages = availableImages.filter((item) => item.image_type === (isExportP2V ? "virtual_disk" : isDisk ? "disk" : isLogicalVolume ? "logical_volume" : "partition"));
   const expectedConfirmation = operation === "clone_partition"
     ? (source && target ? `ERASE ${target} FROM ${source}` : "")
     : (isRestore || operation.startsWith("clone_")) && target ? `ERASE ${target}` : "";
@@ -347,7 +350,11 @@ export default function App() {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setProgress(null); setOperationResult(null);
     try {
       let params;
-      if (operation === "build_recovery_iso") params = {
+      if (operation === "export_p2v_s3") params = {
+        image_id: imageId, source_repository_id: selectedRepositoryId,
+        ...(exportDestinationRepositoryId ? { destination_repository_id: exportDestinationRepositoryId } : {})
+      };
+      else if (operation === "build_recovery_iso") params = {
         base_iso_path: recoveryBaseISO, image_id: imageId,
         target_wwn: recoveryTargetWWN.trim() || null,
         target_serial: recoveryTargetSerial.trim() || null,
@@ -933,6 +940,29 @@ export default function App() {
                         {Object.entries(OPERATION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                       </select>
                     </Field>
+                    {isExportP2V && <>
+                      <Alert variant="info" title="Verified S3 P2V export" isInline>
+                        Select an S3 source repository and a committed QCOW2. Feclora downloads the object to private staging, verifies its size and SHA-256 against the committed metadata, then publishes the QCOW2 and metadata sidecar to a filesystem repository. The sidecar is linked last; existing files are never overwritten.
+                      </Alert>
+                      <Field label="S3 source repository">
+                        <select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => selectImageRepository(e.target.value)} required>
+                          <option value="">Select an S3 repository…</option>
+                          {s3Repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · S3{repo.read_only ? " · read-only" : ""}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Committed P2V image">
+                        <select className="pf-v5-c-form-control" value={imageId} disabled={busy || !selectedRepositoryId} onChange={(e) => setImageId(e.target.value)} required>
+                          <option value="">Select a QCOW2 image…</option>
+                          {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Filesystem destination repository" help="Local is the default. Remote destinations must already be mounted, verified and writable. S3 cannot be selected as the destination for this export operation.">
+                        <select className="pf-v5-c-form-control" value={exportDestinationRepositoryId} disabled={busy} onChange={(e) => setExportDestinationRepositoryId(e.target.value)}>
+                          <option value="">Local repository</option>
+                          {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
+                        </select>
+                      </Field>
+                    </>}
                     {operation === "build_recovery_iso" && <>
                       <Alert variant="info" title="Self-contained recovery media" isInline>
                         Select the Feclora Live base ISO and an existing disk image. Feclora creates a separate bootable ISO containing the verified image, its manifest and a narrowly scoped unattended restore answer. The base ISO and source image remain unchanged. Output is written to the selected filesystem repository; S3 is not supported for ISO output. If the image is age-encrypted, the matching decryption identity must be provisioned separately on the recovery Live system; no keys or passphrases are embedded.
@@ -994,7 +1024,7 @@ export default function App() {
                         <br />
                         {!security.age_encryption_available && !security.age_executable_available ? <p className="pf-v5-u-color-200">Optional image protection is provisioned during Server setup when the relevant tools are installed. Without them, ordinary capture and restore remain available.</p> : null}
                       </Field>}
-                      {operation === "capture_p2v" && <Alert variant="info" title="P2V output" isInline>Creates a verified QCOW2 disk file and a .p2v.json metadata sidecar in the selected filesystem repository. S3 publication and direct VM boot remediation are not included. The source disk is read-only; the guest may still need drivers or initramfs changes to boot.</Alert>}
+                      {operation === "capture_p2v" && <Alert variant="info" title="P2V output" isInline>Creates a verified QCOW2 disk file and a .p2v.json metadata sidecar in the selected filesystem repository, or publishes both to S3 with the metadata sidecar as the commit marker. Direct VM boot remediation is not included. The source disk is read-only; the guest may still need drivers or initramfs changes to boot.</Alert>}
                     </>}
                     {isRestore && <>
                       <Field label={isDisk ? "Disk image" : isLogicalVolume ? "Logical-volume image" : "Partition image"}>
