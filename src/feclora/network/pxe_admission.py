@@ -13,6 +13,7 @@ import os
 import re
 import tempfile
 import time
+import uuid
 from pathlib import Path
 from typing import Callable
 from urllib.parse import urlsplit
@@ -185,6 +186,107 @@ class PXEAdmission:
         except OSError as exc:
             raise PXEAdmissionError(f"cannot read unattended PXE boot script: {exc}") from exc
 
+    def record_report(self, job_id: str, mac: str, event: dict) -> bool:
+        """Persist one bounded client-asserted event; return False for duplicates."""
+        try:
+            canonical = str(uuid.UUID(job_id))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise PXEAdmissionError("report job ID must be a UUID") from exc
+        if canonical != job_id or not self.is_admitted(mac):
+            raise PXEAdmissionError("PXE client is not admitted for this report")
+        answer = Path("/srv/feclora/http") / "answers" / canonical / "answer.json"
+        try:
+            info = answer.lstat()
+        except OSError as exc:
+            raise PXEAdmissionError("reported PXE answer job is not currently published") from exc
+        if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != os.geteuid() or info.st_mode & 0o022
+                or info.st_size > 65536):
+            raise PXEAdmissionError("published PXE answer is unsafe")
+        allowed = {"event_id", "operation_id", "operation", "timestamp", "status",
+                   "target", "image_id", "bytes_done", "bytes_total", "error_type", "error"}
+        if not isinstance(event, dict) or set(event) - allowed or not {
+            "event_id", "operation_id", "operation", "timestamp", "status",
+            "target", "image_id"
+        }.issubset(event):
+            raise PXEAdmissionError("PXE report event has an invalid schema")
+        try:
+            event_id = str(uuid.UUID(event["event_id"]))
+            operation_id = str(uuid.UUID(event["operation_id"]))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise PXEAdmissionError("PXE report event identifiers must be UUIDs") from exc
+        if event_id != event["event_id"] or operation_id != event["operation_id"]:
+            raise PXEAdmissionError("PXE report event identifiers must be canonical UUIDs")
+        if (event["operation"] != "restore_disk"
+                or event["status"] not in {"started", "progress", "completed", "failed", "cancelled"}
+                or not isinstance(event["timestamp"], str) or len(event["timestamp"]) > 40
+                or not isinstance(event["target"], str) or len(event["target"]) > 256
+                or not isinstance(event["image_id"], str) or len(event["image_id"]) > 128):
+            raise PXEAdmissionError("PXE report event fields are invalid")
+        for key in ("bytes_done", "bytes_total"):
+            value = event.get(key)
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int)
+                                      or value < 0 or value > 2**63 - 1):
+                raise PXEAdmissionError(key + " must be a non-negative integer or null")
+        for key in ("error_type", "error"):
+            value = event.get(key)
+            if value is not None and (not isinstance(value, str) or len(value) > 512):
+                raise PXEAdmissionError(key + " must be text under 513 characters")
+        directory = Path("/var/lib/feclora/pxe")
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        directory_info = directory.lstat()
+        if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
+                or directory_info.st_uid != os.geteuid() or directory_info.st_mode & 0o077):
+            raise PXEAdmissionError("PXE report journal directory is unsafe")
+        path = directory / "remote-reports.jsonl"
+        lock_path = directory / "remote-reports.lock"
+        lock_fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+            try:
+                existing = path.lstat()
+            except FileNotFoundError:
+                existing = None
+            if existing is not None:
+                if (not stat.S_ISREG(existing.st_mode) or stat.S_ISLNK(existing.st_mode)
+                        or existing.st_uid != os.geteuid() or existing.st_mode & 0o077
+                        or existing.st_size > 8 * 1024 * 1024):
+                    raise PXEAdmissionError("PXE report journal is unsafe or exceeds 8 MiB")
+                with path.open("r", encoding="utf-8") as stream:
+                    for line in stream:
+                        try:
+                            previous = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if isinstance(previous, dict) and previous.get("event_id") == event_id:
+                            return False
+            record = {
+                **event, "event_id": event_id, "operation_id": operation_id,
+                "job_id": canonical, "client_mac": mac.lower(),
+                "received_at": time.time(),
+            }
+            fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT
+                         | getattr(os, "O_NOFOLLOW", 0), 0o600)
+            try:
+                metadata = os.fstat(fd)
+                if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid():
+                    raise PXEAdmissionError("PXE report journal file is unsafe")
+                os.fchmod(fd, 0o600)
+                payload = (json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
+                view = memoryview(payload)
+                while view:
+                    count = os.write(fd, view)
+                    if count <= 0:
+                        raise PXEAdmissionError("short write to PXE report journal")
+                    view = view[count:]
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+            return True
+        finally:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            os.close(lock_fd)
+
     def status(self) -> dict:
         fd = self._locked()
         try:
@@ -216,6 +318,32 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
+
+    def do_POST(self) -> None:
+        path = urlsplit(self.path).path
+        prefix, _, job_id = path.rpartition("/")
+        if prefix != "/pxe/report":
+            self._reply(404, b"not found\n")
+            return
+        declared = self.headers.get("Content-Length")
+        try:
+            length = int(declared) if declared is not None else -1
+        except ValueError:
+            length = -1
+        if length < 1 or length > 16384:
+            self._reply(413, b"invalid report size\n")
+            return
+        try:
+            value = json.loads(self.rfile.read(length).decode("utf-8"))
+            if not isinstance(value, dict) or set(value) != {"client_mac", "event"}:
+                raise PXEAdmissionError("report body must contain client_mac and event")
+            if not isinstance(value["client_mac"], str) or not _MAC_RE.fullmatch(value["client_mac"]):
+                raise PXEAdmissionError("report client MAC is invalid")
+            created = self.admission.record_report(job_id, value["client_mac"], value["event"])
+        except (UnicodeError, json.JSONDecodeError, PXEAdmissionError, OSError) as exc:
+            self._reply(400, (str(exc)[:512] + "\n").encode("utf-8"))
+            return
+        self._reply(200, b"recorded\n" if created else b"duplicate\n")
 
     def do_GET(self) -> None:
         path = urlsplit(self.path).path
