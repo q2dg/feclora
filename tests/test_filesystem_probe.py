@@ -1,7 +1,9 @@
 import unittest
 from types import SimpleNamespace
 
-from feclora.storage.filesystem_probe import (\n    FilesystemProbeError, probe_ext_minimum_size, probe_ntfs_minimum_size,\n)
+from feclora.storage.filesystem_probe import (
+    FilesystemProbeError, probe_ext_minimum_size, probe_ntfs_minimum_size,
+)
 
 
 class ExtFilesystemProbeTests(unittest.TestCase):
