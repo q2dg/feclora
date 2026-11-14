@@ -1021,8 +1021,8 @@ def inspect_deployment_job(
             raise DeploymentControlError(f"server supplied an invalid deployment job: {exc}") from exc
         if job.job_id != job_id or not job.authorizes_client(mac_address):
             raise DeploymentControlError("job does not authorize this Client MAC")
-        if job.transport == "multicast" and job.operation != "restore":
-            raise DeploymentControlError("multicast Client jobs currently support restore only")
+        if job.transport == "multicast" and job.operation not in {"restore", "clone"}:
+            raise DeploymentControlError("multicast Client jobs support restore or physical clone only")
         return job
 
 
@@ -1063,8 +1063,8 @@ def join_deployment(
             job = DeploymentJob.from_dict(offer["job"])
         except (JobValidationError, TypeError) as exc:
             raise DeploymentControlError(f"server supplied an invalid deployment job: {exc}") from exc
-        if job.transport == "multicast" and job.operation != "restore":
-            raise DeploymentControlError("multicast Client jobs currently support restore only")
+        if job.transport == "multicast" and job.operation not in {"restore", "clone"}:
+            raise DeploymentControlError("multicast Client jobs support restore or physical clone only")
         if job.job_id != job_id or not job.authorizes_client(mac_address):
             raise DeploymentControlError("job does not authorize this Client MAC")
         approval = prepare_local_target(job)
