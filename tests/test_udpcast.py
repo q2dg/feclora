@@ -311,7 +311,14 @@ class PhysicalMulticastProcessTests(unittest.TestCase):
         payload = b"approved-bytes"
         state = {"exited": False}
         class Pipe:
+            def __init__(self):
+                self.remaining = payload
             def read(self, count):
+                # The exact-length stream read must happen while the receiver
+                # is running; only the one-byte overflow probe waits for exit.
+                if self.remaining:
+                    chunk, self.remaining = self.remaining[:count], self.remaining[count:]
+                    return chunk
                 if not state["exited"]:
                     raise AssertionError("overflow probe ran before udp-receiver exited")
                 return b"x" if count == 1 else b""
