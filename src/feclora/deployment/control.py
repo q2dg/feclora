@@ -855,6 +855,14 @@ class DeploymentControlServer:
                 raise DeploymentControlError("Server source changed between hash scan and multicast send")
             return self.collect_results(timeout=result_timeout)
         except (PhysicalMulticastError, OSError, UDPcastError, DeploymentControlError) as exc:
+            # Once START has been issued, let failed/timeout receivers report
+            # their terminal state so the durable journal does not leave peers
+            # permanently RUNNING after a no-data or interrupted multicast.
+            if self.coordinator.state in {JobState.ARMED, JobState.RUNNING}:
+                try:
+                    self.collect_results(timeout=udpcast_config.max_wait_seconds + 60)
+                except Exception:
+                    pass
             raise DeploymentControlError(f"physical multicast clone failed: {exc}") from exc
         finally:
             if source_fd is not None:
