@@ -62,7 +62,6 @@ def _device_record(value: Mapping[str, Any], role: str) -> dict[str, Any]:
 
 def build_physical_device_record(
     device: Mapping[str, Any],
-    devices: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...],
     *,
     sysfs_root: str = "/sys",
 ) -> dict[str, Any]:
