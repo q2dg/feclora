@@ -26,16 +26,19 @@ description: Fedora-based disk imaging, cloning, recovery and network deployment
     <h2 id="what-title">A focused toolset for imaging and deployment.</h2>
     <div class="feature-grid">
       <article class="feature">
+        <img class="feature-visual" src="{{ '/assets/mockups/capture-wizard.svg' | relative_url }}" alt="Illustrative mockup of selecting a source disk for capture">
         <span class="feature-number">01 · IMAGE</span>
         <h3>Capture and restore</h3>
         <p>Create manifest-backed disk and partition images, verify byte counts and SHA-256 digests, and restore to compatible targets with explicit safety checks.</p>
       </article>
       <article class="feature">
+        <img class="feature-visual" src="{{ '/assets/mockups/restore-wizard.svg' | relative_url }}" alt="Illustrative mockup of reviewing a restore destination">
         <span class="feature-number">02 · CLONE</span>
         <h3>Clone locally or remotely</h3>
         <p>Copy disks or partitions directly, or stream a clone from a Feclora Server to an approved Client over authenticated TLS.</p>
       </article>
       <article class="feature">
+        <img class="feature-visual" src="{{ '/assets/mockups/network-deployment.svg' | relative_url }}" alt="Illustrative mockup of Server and Client deployment readiness">
         <span class="feature-number">03 · DEPLOY</span>
         <h3>Deploy across a network</h3>
         <p>Coordinate Client jobs, multicast restore and interactive or unattended PXE boot, while keeping destructive authorization explicit.</p>
