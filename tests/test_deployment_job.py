@@ -270,6 +270,20 @@ class DeploymentJobTests(unittest.TestCase):
                 start_policy="deadline", start_deadline="2030-01-01T12:00:00"
             ))
 
+    def test_post_action_defaults_to_none_and_round_trips(self):
+        default_job = DeploymentJob.from_dict(valid_job())
+        self.assertEqual(default_job.post_action, "none")
+        reboot_job = DeploymentJob.from_dict(valid_job(post_action="reboot"))
+        self.assertEqual(DeploymentJob.from_json(reboot_job.to_json()).post_action, "reboot")
+        poweroff_job = DeploymentJob.from_dict(valid_job(post_action="poweroff"))
+        self.assertEqual(DeploymentJob.from_json(poweroff_job.to_json()).post_action, "poweroff")
+
+    def test_post_action_rejects_save_and_unknown_values(self):
+        with self.assertRaisesRegex(JobValidationError, "only for restore and clone"):
+            DeploymentJob.from_dict(valid_job(operation="save", post_action="reboot"))
+        with self.assertRaisesRegex(JobValidationError, "post_action"):
+            DeploymentJob.from_dict(valid_job(post_action="shell"))
+
     def test_rejects_invalid_json_and_unsupported_schema(self):
         with self.assertRaisesRegex(JobValidationError, "valid JSON"):
             DeploymentJob.from_json("{")
