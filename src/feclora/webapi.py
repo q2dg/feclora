@@ -1304,7 +1304,7 @@ def _read_pxe_answer_source(params: dict[str, Any]) -> bytes:
                         os.chmod(known_hosts_path, 0o600)
                         remote_file = f"{repo.remote_path.rstrip('/')}/{source_path}"
                         command = [
-                            scp, "-q", "-B", "-oBatchMode=yes",
+                            scp, "-q", "-B", "-O", "-oBatchMode=yes",
                             "-oStrictHostKeyChecking=yes",
                             f"-oUserKnownHostsFile={known_hosts_path}",
                             "-oIdentitiesOnly=yes", "-oConnectTimeout=10",
