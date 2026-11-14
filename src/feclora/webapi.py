@@ -1995,6 +1995,72 @@ def _pxe_local_operations(limit: int) -> list[dict[str, Any]]:
     return result[:limit]
 
 
+def _pxe_remote_operations(limit: int) -> list[dict[str, Any]]:
+    """Read bounded, client-asserted PXE reports received by the Server."""
+    path = Path("/var/lib/feclora/pxe/remote-reports.jsonl")
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                     | getattr(os, "O_CLOEXEC", 0))
+    except FileNotFoundError:
+        return []
+    except OSError as exc:
+        raise WebAPIError(f"cannot safely open PXE remote report journal: {exc}") from exc
+    try:
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
+                or info.st_mode & 0o077 or info.st_size > 8 * 1024 * 1024):
+            raise WebAPIError("PXE remote report journal is unsafe or exceeds 8 MiB")
+        with os.fdopen(fd, "r", encoding="utf-8") as stream:
+            fd = None
+            raw = stream.read(8 * 1024 * 1024 + 1)
+    finally:
+        if fd is not None:
+            os.close(fd)
+    grouped: dict[str, dict[str, Any]] = {}
+    states = {
+        "started": "running", "progress": "running", "completed": "completed",
+        "failed": "failed", "cancelled": "cancelled",
+    }
+    for line in raw.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if (not isinstance(event, dict) or event.get("operation") != "restore_disk"
+                or event.get("status") not in states
+                or not isinstance(event.get("operation_id"), str)
+                or not isinstance(event.get("client_mac"), str)
+                or not isinstance(event.get("job_id"), str)):
+            continue
+        operation_id = event["operation_id"] + "@" + event["client_mac"]
+        state = states[event["status"]]
+        details = {
+            key: value for key, value in event.items()
+            if key not in {"event_id", "operation_id", "operation", "timestamp",
+                           "status", "received_at", "pid", "boot_id",
+                           "process_start_ticks"}
+        }
+        item = grouped.setdefault(operation_id, {
+            "operation_id": operation_id,
+            "action": "pxe_remote_restore_disk",
+            "state": state,
+            "cancellable": False,
+            "events": [],
+        })
+        item["state"] = state
+        item["events"].append({
+            "state": "progress" if event["status"] == "progress" else state,
+            "timestamp": event.get("timestamp"),
+            "details": details,
+        })
+    result = list(grouped.values())
+    result.sort(
+        key=lambda item: str(item["events"][-1].get("timestamp") or ""),
+        reverse=True,
+    )
+    return result[:limit]
+
+
 def _local_operations(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) - {"limit"}:
         raise WebAPIError("local_operations accepts only an optional limit")
@@ -2002,6 +2068,7 @@ def _local_operations(params: dict[str, Any]) -> dict[str, Any]:
     try:
         operations = _local_operation_store().list(limit=limit)
         operations.extend(_pxe_local_operations(limit))
+        operations.extend(_pxe_remote_operations(limit))
         operations.sort(
             key=lambda item: str(
                 (item.get("events") or [{}])[-1].get("timestamp") or ""
