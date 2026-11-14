@@ -953,19 +953,19 @@ export default function App() {
                       </Alert>
                       <Field t={t} label={t("S3 source repository")}>
                         <select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => { setImageId(""); selectImageRepository(e.target.value); }} required>
-                          <option value="">Select an S3 repository…</option>
+                          <option value="">{t("Select an S3 repository…")}</option>
                           {s3Repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · S3{repo.read_only ? " · read-only" : ""}</option>)}
                         </select>
                       </Field>
                       <Field t={t} label={t("Committed P2V image")}>
                         <select className="pf-v5-c-form-control" value={imageId} disabled={busy || !selectedRepositoryId} onChange={(e) => setImageId(e.target.value)} required>
-                          <option value="">Select a QCOW2 image…</option>
+                          <option value="">{t("Select a QCOW2 image…")}</option>
                           {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                         </select>
                       </Field>
                       <Field t={t} label={t("Filesystem destination repository")} help="Local is the default. Remote destinations must already be mounted, verified and writable. S3 cannot be selected as the destination for this export operation.">
                         <select className="pf-v5-c-form-control" value={exportDestinationRepositoryId} disabled={busy} onChange={(e) => setExportDestinationRepositoryId(e.target.value)}>
-                          <option value="">Local repository</option>
+                          <option value="">{t("Local repository")}</option>
                           {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
                         </select>
                       </Field>
@@ -979,14 +979,14 @@ export default function App() {
                       </Field>
                       <Field t={t} label={t("imageRepository")}>
                         <select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => selectImageRepository(e.target.value)}>
-                          <option value="">Local repository</option>
-                          {remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? "read-only" : "read/write"}</option>)}
+                          <option value="">{t("Local repository")}</option>
+                          {remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? t("Read-only") : t("Read/write")}</option>)}
                           {s3Repositories.map((repo) => <option key={repo.id} value={repo.id} disabled>{repo.id} · S3 (unsupported output)</option>)}
                         </select>
                       </Field>
                       <Field t={t} label={t("Whole-disk image to embed")}>
                         <select className="pf-v5-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)} required>
-                          <option value="">Select a disk image…</option>
+                          <option value="">{t("Select a disk image…")}</option>
                           {availableImages.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                         </select>
                       </Field>
@@ -1106,8 +1106,8 @@ export default function App() {
             </Stack>
           </Tab>
           <Tab eventKey="images" title={t("tabImages")}>
-            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("availableImages")}</Title><Field t={t} label={t("Image repository")} help="Local is the default; filesystem shares must be mounted and verified. S3 repositories use object transfers."><select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(event) => selectImageRepository(event.target.value)}><option value="">Local repository</option>{remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? "read-only" : "read/write"}</option>)}
-                    {s3Repositories.filter((repo) => !remoteRepositories.some((remoteRepo) => remoteRepo.id === repo.id)).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · S3 object storage · {repo.read_only ? "read-only" : "read/write"}</option>)}</select></Field></StackItem>
+            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("availableImages")}</Title><Field t={t} label={t("Image repository")} help="Local is the default; filesystem shares must be mounted and verified. S3 repositories use object transfers."><select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(event) => selectImageRepository(event.target.value)}><option value="">{t("Local repository")}</option>{remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? t("Read-only") : t("Read/write")}</option>)}
+                    {s3Repositories.filter((repo) => !remoteRepositories.some((remoteRepo) => remoteRepo.id === repo.id)).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · S3 object storage · {repo.read_only ? t("Read-only") : t("Read/write")}</option>)}</select></Field></StackItem>
               <StackItem>
                 <Card><CardBody>
                   <Title headingLevel="h3" size="lg">{t("extractPartition")}</Title>
@@ -1129,7 +1129,7 @@ export default function App() {
                   </>}
                   <Field t={t} label={t("Partition to extract")} help="Choose a partition from the verified table preview. The selector is cleared whenever the source image changes.">
                     <select className="pf-v5-c-form-control" value={extractPartitionSelector} onChange={(event) => { setExtractPartitionSelector(event.target.value); setExtractPartitionResult(null); }} disabled={!extractLayout || !extractLayout.partitions.length}>
-                      <option value="">Select partition…</option>
+                      <option value="">{t("Select partition…")}</option>
                       {(extractLayout?.partitions || []).map((part) => <option key={part.node} value={part.selector}>{part.node} · {part.uuid || part.name || part.selector} · {formatBytes(part.size_bytes)}</option>)}
                     </select>
                   </Field>
@@ -1557,7 +1557,7 @@ export default function App() {
                   </Field>
                   <Field t={t} label={t("Local multicast receive interface (also used for the Server connection)")} help="Select the local IPv4 interface/address used for the Server connection and, for multicast jobs, the UDPcast receive interface. The address and interface are revalidated before connection or receive startup.">
                     <select className="pf-v5-c-form-control" value={clientRemoteInterface} onChange={(event) => { setClientRemoteInterface(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); setClientRemoteIgmpConfirmed(false); }}>
-                      <option value="">Select Client interface/address…</option>
+                      <option value="">{t("Select Client interface/address…")}</option>
                       {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
                     </select>
                   </Field>
@@ -1579,7 +1579,7 @@ export default function App() {
 
                       <Field t={t} label={clientRemoteJob.target_type === "logical_volume" ? "Local destination logical volume" : clientRemoteJob.target_type === "partition" ? "Local destination partition" : "Local destination disk"} help={clientRemoteJob.target_type === "logical_volume" ? "Choose an existing healthy linear or thin LV. It must be active, unmounted and large enough; Feclora will not create or resize LVM metadata. The Client rechecks the LVM topology before READY and immediately before writing." : "The selected block device is rechecked against live inventory immediately before READY. Root, mounted or busy destinations are rejected by the storage engine."}>
                         <select className="pf-v5-c-form-control" value={clientRemoteTarget} onChange={(event) => { setClientRemoteTarget(event.target.value); setClientRemoteConfirmation(""); }}>
-                          <option value="">Select local target…</option>
+                          <option value="">{t("Select local target…")}</option>
                           {clientRemoteDeviceOptions.map((device) => <option key={device.path} value={device.path}>{device.path} · {device.model || device.name || device.type} · {device.size_bytes || ""}</option>)}
                         </select>
                       </Field>
