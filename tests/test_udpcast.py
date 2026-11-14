@@ -296,16 +296,19 @@ class PhysicalMulticastProcessTests(unittest.TestCase):
             readback.data.extend(chunk)
             return chunk
         readback.data = bytearray()
+        ready = []
         result = receive_physical_multicast_stream(
             write, lambda: None, readback,
             expected_bytes=len(payload),
             expected_sha256=hashlib.sha256(payload).hexdigest(),
             config=self.config, udp_receiver="/usr/bin/udp-receiver",
             runner_popen=lambda argv, **kwargs: Process(**kwargs),
+            ready_callback=lambda: ready.append(True),
             firewall=self.firewall,
         )
         self.assertEqual(bytes(stored), payload)
         self.assertTrue(result["verified"])
+        self.assertEqual(ready, [True])
 
     def test_receiver_checks_overflow_only_after_receiver_process_exits(self):
         payload = b"approved-bytes"
