@@ -190,6 +190,18 @@ class DeploymentCoordinator:
             ready = self._ready_count()
             if ready == 0:
                 return False
+            # A physical clone is a cohort operation: no Client may start
+            # writing until every explicitly selected Client has completed
+            # local target approval and reached READY. A threshold or deadline
+            # must never weaken this all-clients barrier.
+            if self.job.operation == "clone":
+                selected = {mac.lower() for mac in self.job.authorized_clients}
+                ready_clients = {
+                    mac for mac, record in self._clients.items()
+                    if record.state is ClientState.READY
+                }
+                if ready_clients != selected:
+                    return False
             if self.job.start_policy == "manual":
                 return True
             if self.job.start_policy == "expected_clients":
