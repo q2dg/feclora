@@ -195,6 +195,7 @@ def open_approved_block_device(
     current: Mapping[str, Any],
     *,
     role: str,
+    sysfs_root: str = "/sys",
 ) -> int:
     """Open an already-approved block device with role-specific kernel exclusivity.
 
@@ -223,6 +224,9 @@ def open_approved_block_device(
         actual = f"{os.major(info.st_rdev)}:{os.minor(info.st_rdev)}"
         if actual != approved["major_minor"]:
             raise PhysicalMulticastError(f"{role} block identity changed between inventory and open")
+        sysfs_link = os.path.join(sysfs_root, "dev", "block", actual)
+        if not os.path.exists(sysfs_link) or os.path.realpath(sysfs_link) != approved["sysfs_path"]:
+            raise PhysicalMulticastError(f"{role} sysfs identity changed between inventory and open")
         return descriptor
     except Exception:
         os.close(descriptor)
