@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 176" role="img" aria-labelledby="title desc">
+  <title id="title">Feclora</title>
+  <desc id="desc">Layered storage disks surrounded by a circular data-flow arrow, followed by the Feclora wordmark.</desc>
+  <defs>
+    <linearGradient id="disk" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#28c3df"/>
+      <stop offset="1" stop-color="#1760a8"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(14 10)">
+    <path d="M112 18a68 68 0 0 1 65 48" fill="none" stroke="#24b7d4" stroke-width="11" stroke-linecap="round"/>
+    <path d="m168 53 13 16-21 3" fill="none" stroke="#24b7d4" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M177 108a68 68 0 0 1-117 27" fill="none" stroke="#1d6eb0" stroke-width="11" stroke-linecap="round"/>
+    <path d="m70 146-16-12 20-8" fill="none" stroke="#1d6eb0" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <ellipse cx="112" cy="53" rx="48" ry="15" fill="#0c2b50"/>
+    <path d="M64 53v24c0 9 22 16 48 16s48-7 48-16V53c0 9-22 16-48 16S64 62 64 53Z" fill="url(#disk)"/>
+    <path d="M64 77v23c0 9 22 16 48 16s48-7 48-16V77c0 9-22 16-48 16S64 86 64 77Z" fill="#155a92"/>
+    <path d="M64 100v20c0 9 22 16 48 16s48-7 48-16v-20c0 9-22 16-48 16S64 109 64 100Z" fill="#0c2b50"/>
+    <path d="M154 41 173 22l2 26" fill="none" stroke="#9bdc3b" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="55" cy="133" r="6" fill="#9bdc3b"/>
+    <circle cx="169" cy="114" r="6" fill="#24b7d4"/>
+  </g>
+  <text x="220" y="111" fill="#102b4b" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="70" font-weight="750" letter-spacing="-3">feclora</text>
+  <path d="M224 130h248" stroke="#24b7d4" stroke-width="5" stroke-linecap="round"/>
+</svg>
