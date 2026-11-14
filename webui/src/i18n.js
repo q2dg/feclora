@@ -578,7 +578,10 @@ const APP_UI_TEXT_MISC = {
     "Answer published": "Respuesta publicada",
     "age symmetric passphrase": "Contraseña simétrica de age",
     "Server host override": "Anfitrión del Servidor alternativo",
-    "Use enrolled Server host": "Usar el anfitrión del Servidor registrado"
+    "Use enrolled Server host": "Usar el anfitrión del Servidor registrado",
+    "Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.": "Configure el perfil de NetworkManager en esta máquina. Use esta página en el Servidor o en cada Cliente por separado.",
+    "Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.": "Los Clientes no tienen certificados ni credenciales individuales. Los trabajos seleccionan Clientes por MAC; los Clientes HTTPS/TLS verifican el certificado del Servidor.",
+    "No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.": "No hay reconexión automática ni reanudación de operaciones de disco. Inspeccione el destino local y el registro del Servidor antes de crear otro trabajo."
   },
   "ca": {
     "Capture whole disks from Clients to Server": "Captura discs sencers dels Clients al Servidor",
@@ -631,7 +634,10 @@ const APP_UI_TEXT_MISC = {
     "Answer published": "Resposta publicada",
     "age symmetric passphrase": "Contrasenya simètrica d'age",
     "Server host override": "Amfitrió alternatiu del Servidor",
-    "Use enrolled Server host": "Fes servir l'amfitrió del Servidor registrat"
+    "Use enrolled Server host": "Fes servir l'amfitrió del Servidor registrat",
+    "Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.": "Configura el perfil de NetworkManager en aquesta màquina. Fes servir aquesta pàgina al Servidor o a cada Client independentment.",
+    "Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.": "Els Clients no tenen certificats ni credencials individuals. Les tasques seleccionen els Clients per MAC; els Clients HTTPS/TLS verifiquen el certificat del Servidor.",
+    "No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.": "No hi ha reconnexió automàtica ni represa de les operacions de disc. Inspecciona la destinació local i el registre del Servidor abans de crear una altra tasca."
   },
   "gl": {
     "Capture whole disks from Clients to Server": "Capturar discos completos dos Clientes ao Servidor",
@@ -684,7 +690,10 @@ const APP_UI_TEXT_MISC = {
     "Answer published": "Resposta publicada",
     "age symmetric passphrase": "Contrasinal simétrico de age",
     "Server host override": "Host alternativo do Servidor",
-    "Use enrolled Server host": "Usar o host do Servidor rexistrado"
+    "Use enrolled Server host": "Usar o host do Servidor rexistrado",
+    "Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.": "Configure o perfil de NetworkManager nesta máquina. Use esta páxina no Servidor ou en cada Cliente por separado.",
+    "Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.": "Os Clientes non teñen certificados nin credenciais individuais. Os traballos seleccionan Clientes por MAC; os Clientes HTTPS/TLS verifican o certificado do Servidor.",
+    "No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.": "Non hai reconexión automática nin continuación das operacións de disco. Inspeccione o destino local e o rexistro do Servidor antes de crear outro traballo."
   },
   "eu": {
     "Capture whole disks from Clients to Server": "Harrapatu Bezeroen disko osoak Zerbitzarira",
@@ -737,7 +746,10 @@ const APP_UI_TEXT_MISC = {
     "Answer published": "Erantzuna argitaratuta",
     "age symmetric passphrase": "age pasahitz simetrikoa",
     "Server host override": "Zerbitzariaren ostalari-ordezkoa",
-    "Use enrolled Server host": "Erabili erregistratutako Zerbitzari-ostalaria"
+    "Use enrolled Server host": "Erabili erregistratutako Zerbitzari-ostalaria",
+    "Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.": "Konfiguratu NetworkManager profila makina honetan. Erabili orri hau Zerbitzarian edo Bezero bakoitzean bereizita.",
+    "Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.": "Bezeroek ez dute ziurtagiririk edo banakako kredentzialik. Lanek MAC bidez hautatzen dituzte Bezeroak; HTTPS/TLS Bezeroek Zerbitzariaren ziurtagiria egiaztatzen dute.",
+    "No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.": "Ez dago birkonektatze automatikorik edo disko-eragiketak berrabiarazterik. Aztertu tokiko helmuga eta Zerbitzariaren egunkaria beste lan bat sortu aurretik."
   },
   "pt": {
     "Capture whole disks from Clients to Server": "Capturar discos completos dos Clientes para o Servidor",
@@ -790,7 +802,10 @@ const APP_UI_TEXT_MISC = {
     "Answer published": "Resposta publicada",
     "age symmetric passphrase": "Frase-passe simétrica age",
     "Server host override": "Anfitrião alternativo do Servidor",
-    "Use enrolled Server host": "Usar o anfitrião do Servidor registado"
+    "Use enrolled Server host": "Usar o anfitrião do Servidor registado",
+    "Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.": "Configure o perfil do NetworkManager nesta máquina. Use esta página no Servidor ou em cada Cliente independentemente.",
+    "Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.": "Os Clientes não têm certificados nem credenciais individuais. Os trabalhos selecionam Clientes por MAC; os Clientes HTTPS/TLS verificam o certificado do Servidor.",
+    "No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.": "Não existe reconexão automática nem retoma das operações de disco. Inspecione o destino local e o registo do Servidor antes de criar outro trabalho."
   },
   "fr": {
     "Capture whole disks from Clients to Server": "Capturer les disques entiers des Clients vers le Serveur",
@@ -843,7 +858,10 @@ const APP_UI_TEXT_MISC = {
     "Answer published": "Réponse publiée",
     "age symmetric passphrase": "Phrase secrète symétrique age",
     "Server host override": "Hôte du Serveur de remplacement",
-    "Use enrolled Server host": "Utiliser l’hôte du Serveur enregistré"
+    "Use enrolled Server host": "Utiliser l’hôte du Serveur enregistré",
+    "Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.": "Configurez le profil NetworkManager sur cette machine. Utilisez cette page sur le Serveur ou sur chaque Client séparément.",
+    "Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.": "Les Clients ne possèdent ni certificats ni identifiants individuels. Les tâches sélectionnent les Clients par MAC ; les Clients HTTPS/TLS vérifient le certificat du Serveur.",
+    "No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.": "Aucune reconnexion automatique ni reprise des opérations sur disque n’est disponible. Examinez la destination locale et le journal du Serveur avant de créer une autre tâche."
   },
   "de": {
     "Capture whole disks from Clients to Server": "Vollständige Client-Festplatten auf den Server erfassen",
@@ -896,7 +914,10 @@ const APP_UI_TEXT_MISC = {
     "Answer published": "Antwort veröffentlicht",
     "age symmetric passphrase": "Symmetrische age-Passphrase",
     "Server host override": "Server-Hostüberschreibung",
-    "Use enrolled Server host": "Registrierten Server-Host verwenden"
+    "Use enrolled Server host": "Registrierten Server-Host verwenden",
+    "Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.": "Konfigurieren Sie das NetworkManager-Profil auf diesem Rechner. Verwenden Sie diese Seite auf dem Server oder auf jedem Client separat.",
+    "Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.": "Clients besitzen keine Zertifikate oder individuellen Zugangsdaten. Aufträge wählen Clients anhand ihrer MAC-Adresse aus; HTTPS/TLS-Clients prüfen das Serverzertifikat.",
+    "No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.": "Eine automatische Wiederverbindung oder Fortsetzung von Festplattenvorgängen ist nicht verfügbar. Prüfen Sie das lokale Ziel und das Serverprotokoll, bevor Sie einen neuen Auftrag erstellen."
   },
   "it": {
     "Capture whole disks from Clients to Server": "Acquisisci i dischi interi dei Client sul Server",
@@ -949,7 +970,10 @@ const APP_UI_TEXT_MISC = {
     "Answer published": "Risposta pubblicata",
     "age symmetric passphrase": "Passphrase simmetrica age",
     "Server host override": "Override host Server",
-    "Use enrolled Server host": "Usa l'host Server registrato"
+    "Use enrolled Server host": "Usa l'host Server registrato",
+    "Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.": "Configura il profilo NetworkManager su questa macchina. Usa questa pagina sul Server o su ciascun Client separatamente.",
+    "Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.": "I Client non hanno certificati né credenziali individuali. I processi selezionano i Client tramite MAC; i Client HTTPS/TLS verificano il certificato del Server.",
+    "No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.": "Non sono disponibili la riconnessione automatica né la ripresa delle operazioni su disco. Controlla la destinazione locale e il registro del Server prima di creare un altro processo."
   },
   "zh": {
     "Capture whole disks from Clients to Server": "将客户端整盘采集到服务器",
@@ -1002,7 +1026,10 @@ const APP_UI_TEXT_MISC = {
     "Answer published": "应答已发布",
     "age symmetric passphrase": "age 对称口令",
     "Server host override": "服务器主机覆盖",
-    "Use enrolled Server host": "使用已登记的服务器主机"
+    "Use enrolled Server host": "使用已登记的服务器主机",
+    "Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.": "在此计算机上配置 NetworkManager 配置文件。请在服务器或每个客户端上分别使用此页面。",
+    "Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.": "客户端没有证书或个人凭据。部署作业通过 MAC 地址选择客户端；HTTPS/TLS 客户端验证服务器证书。",
+    "No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.": "不支持自动重新连接或恢复磁盘操作。创建新作业前，请检查本地目标和服务器日志。"
   },
   "ja": {
     "Capture whole disks from Clients to Server": "Client のディスク全体を Server に取り込む",
@@ -1055,7 +1082,10 @@ const APP_UI_TEXT_MISC = {
     "Answer published": "応答を公開しました",
     "age symmetric passphrase": "age 対称パスフレーズ",
     "Server host override": "Server ホストの上書き",
-    "Use enrolled Server host": "登録済み Server ホストを使用"
+    "Use enrolled Server host": "登録済み Server ホストを使用",
+    "Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.": "このマシンの NetworkManager プロファイルを設定します。このページはサーバーまたは各クライアントで個別に使用してください。",
+    "Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.": "クライアントには証明書や個別の認証情報はありません。ジョブは MAC アドレスでクライアントを選択し、HTTPS/TLS クライアントはサーバー証明書を検証します。",
+    "No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.": "自動再接続やディスク操作の再開には対応していません。新しいジョブを作成する前に、ローカルの宛先とサーバーのログを確認してください。"
   },
   "ru": {
     "Capture whole disks from Clients to Server": "Собирать целые диски клиентов на сервер",
@@ -1108,7 +1138,10 @@ const APP_UI_TEXT_MISC = {
     "Answer published": "Ответ опубликован",
     "age symmetric passphrase": "Симметричная парольная фраза age",
     "Server host override": "Переопределение узла сервера",
-    "Use enrolled Server host": "Использовать зарегистрированный узел сервера"
+    "Use enrolled Server host": "Использовать зарегистрированный узел сервера",
+    "Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.": "Настройте профиль NetworkManager на этом компьютере. Используйте эту страницу отдельно на сервере или каждом клиенте.",
+    "Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.": "У клиентов нет сертификатов или индивидуальных учётных данных. Задания выбирают клиентов по MAC-адресу; HTTPS/TLS-клиенты проверяют сертификат сервера。",
+    "No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.": "Автоматическое переподключение и возобновление дисковых операций не поддерживаются. Перед созданием нового задания проверьте локальное назначение и журнал сервера。"
   },
   "ar": {
     "Capture whole disks from Clients to Server": "التقاط الأقراص الكاملة من العملاء إلى الخادم",
@@ -1161,7 +1194,10 @@ const APP_UI_TEXT_MISC = {
     "Answer published": "تم نشر الإجابة",
     "age symmetric passphrase": "عبارة مرور age متماثلة",
     "Server host override": "تجاوز مضيف الخادم",
-    "Use enrolled Server host": "استخدام مضيف الخادم المسجل"
+    "Use enrolled Server host": "استخدام مضيف الخادم المسجل",
+    "Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.": "اضبط ملف تعريف NetworkManager على هذا الجهاز. استخدم هذه الصفحة على الخادم أو على كل عميل بشكل مستقل.",
+    "Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.": "لا تملك العملاء شهادات أو بيانات اعتماد فردية. تحدد المهام العملاء بواسطة MAC؛ ويتحقق عملاء HTTPS/TLS من شهادة الخادم.",
+    "No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.": "لا تتوفر إعادة الاتصال التلقائي أو استئناف عمليات القرص. افحص الوجهة المحلية وسجل الخادم قبل إنشاء مهمة أخرى."
   },
   "tr": {
     "Capture whole disks from Clients to Server": "İstemcilerin tüm disklerini Sunucuya yakala",
@@ -1214,7 +1250,10 @@ const APP_UI_TEXT_MISC = {
     "Answer published": "Yanıt yayımlandı",
     "age symmetric passphrase": "age simetrik parola",
     "Server host override": "Sunucu ana bilgisayar geçersiz kılması",
-    "Use enrolled Server host": "Kayıtlı Sunucu ana bilgisayarını kullan"
+    "Use enrolled Server host": "Kayıtlı Sunucu ana bilgisayarını kullan",
+    "Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.": "Bu makinede NetworkManager profilini yapılandırın. Bu sayfayı Sunucuda veya her İstemcide ayrı ayrı kullanın.",
+    "Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.": "İstemcilerin sertifikaları veya bireysel kimlik bilgileri yoktur. İşler İstemcileri MAC adresiyle seçer; HTTPS/TLS İstemcileri Sunucu sertifikasını doğrular.",
+    "No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.": "Otomatik yeniden bağlanma veya disk işlemlerine devam etme desteklenmez. Yeni bir iş oluşturmadan önce yerel hedefi ve Sunucu günlüğünü inceleyin."
   }
 };
 for (const [language, values] of Object.entries(APP_UI_TEXT_MISC)) Object.assign(DICTS[language], values);
