@@ -48,12 +48,12 @@ def _header(stream: BinaryIO, *, lba: int, sector_size: int, disk_sectors: int) 
         raise GPTBinaryError(f"GPT signature is missing at LBA {lba}")
     if revision < 0x00010000 or header_size < _HEADER.size or header_size > sector_size:
         raise GPTBinaryError("GPT header revision or size is unsupported")
-    if reserved != 0:
-        raise GPTBinaryError("GPT header reserved field is nonzero")
     header_bytes = bytearray(raw_sector[:header_size])
     struct.pack_into("<I", header_bytes, 16, 0)
     if _crc32(bytes(header_bytes)) != stored_crc:
         raise GPTBinaryError(f"GPT header CRC mismatch at LBA {lba}")
+    if reserved != 0:
+        raise GPTBinaryError("GPT header reserved field is nonzero")
     if current_lba != lba or backup_lba >= disk_sectors or backup_lba == current_lba:
         raise GPTBinaryError(f"GPT header LBA pointers are invalid at LBA {lba}")
     if first_usable < 2 or last_usable < first_usable or last_usable >= disk_sectors - 1:
