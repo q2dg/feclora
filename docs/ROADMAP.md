@@ -32,9 +32,9 @@ P2V conversion/export; interactive PXE; and an unattended PXE whole-disk
 answer workflow.
 
 These are source/integration statements, not a claim of production acceptance.
-Image artifacts record byte count and SHA-256. Feclora does not sign image
-manifests or detached sidecars; authenticity depends on the protected
-repository and authenticated transport. Age encryption is optional.
+Image artifacts record byte count and SHA-256. The digest detects artifact
+corruption relative to the manifest; repository access controls and
+authenticated transport form the trust boundary. Age encryption is optional.
 
 ## Remaining engineering work
 
