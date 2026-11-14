@@ -15,7 +15,7 @@ from feclora.storage.disk_capture import DiskCaptureError, capture_disk
 from feclora.storage.disk_clone import DiskCloneCancelled, DiskCloneError, clone_disk
 from feclora.storage.disk_image_partition import DiskImagePartitionError, extract_partition_image
 from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError, restore_disk
-from feclora.storage.proportional_staging import stage_verified_raw_disk_image
+from feclora.storage.proportional_staging import ProportionalStagingError, stage_verified_raw_disk_image
 from feclora.storage.proportional_restore import StagedProportionalRestoreError, restore_staged_proportional_image
 from feclora.storage.proportional_restore_workflow import ProportionalRestoreWorkflowError, prepare_from_offline_source_disk
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
@@ -815,7 +815,7 @@ def _restore(inventory: dict[str, Any]) -> None:
     except (DiskRestoreCancelled, PartitionRestoreCancelled) as exc:
         _message("Restore cancelled", str(exc) + "\nThe target may contain a partial restore and must not be used.")
     except (DiskRestoreError, PartitionRestoreError, DiskImagePartitionError,
-            StagedProportionalRestoreError, ProportionalRestoreWorkflowError,
+            StagedProportionalRestoreError, ProportionalRestoreWorkflowError, ProportionalStagingError,
             OperationLogError, OSError) as exc:
         _message("Restore failed", str(exc))
 
