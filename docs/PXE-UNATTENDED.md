@@ -176,10 +176,14 @@ image-set download path. The PXE Server never accesses these repositories.
 - [ ] Run the automated tests and add coverage for tampered answers, repository errors, ambiguous targets, target swaps and interrupted restore. BIOS/UEFI boot, Caddy against real networks and physical restore are optional operator acceptance, not software completion gates.
 
 Each Live PXE restore writes start, progress and terminal events to
-`/var/lib/feclora/pxe/operations.jsonl`. Cockpit's local Operation history
-merges this journal with durable local operations and marks stale in-progress
-entries interrupted after the originating process exits. PXE history entries
-are read-only in Cockpit; the identity-free Client does not send authenticated
-results to the Server.
+`/var/lib/feclora/pxe/operations.jsonl` and sends best-effort copies to the
+Server. Cockpit's Operation history shows Server-received remote Client
+events alongside local operations. Remote records include the job UUID and
+reported MAC address. Because the transport is plain HTTP and the MAC is
+client-reported, these records are operational telemetry, not authenticated
+proof of which machine performed a restore or whether a reported result is
+true. The Server validates event schemas, bounds payload sizes, rejects
+reports from MACs not admitted for the current session, and ignores duplicate
+event IDs.
 
 The managed repository-manager whole-disk software path and age passphrase handoff are connected. Automated software tests are the release gate; BIOS/UEFI PXE boot and physical restore remain optional operator acceptance.
