@@ -8,6 +8,7 @@ untyped destructive operation is exposed.
 from __future__ import annotations
 
 import json
+import hashlib
 import base64
 from dataclasses import replace
 import ipaddress
@@ -467,19 +468,19 @@ def _initialize_security() -> dict[str, Any]:
 def _filesystem_images(
     path: Path, *, missing_ok: bool = False,
 ) -> list[dict[str, Any]]:
-    """Read committed manifests; surface repository I/O failures instead of partial inventory."""
+    """Read committed image manifests and verified QCOW2 P2V sidecars."""
     try:
         with os.scandir(path) as entries:
-            manifest_paths = sorted(
-                Path(entry.path) for entry in entries
-                if entry.name.endswith(".manifest.json")
-            )
+            names = sorted(entry.name for entry in entries)
     except FileNotFoundError:
         if missing_ok:
             return []
         raise
     items = []
-    for manifest_path in manifest_paths:
+    for name in names:
+        if not name.endswith(".manifest.json"):
+            continue
+        manifest_path = path / name
         info = os.lstat(manifest_path)
         if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
             continue
@@ -488,15 +489,44 @@ def _filesystem_images(
         except (UnicodeError, ManifestValidationError):
             continue
         items.append({
-            "image_id": manifest.image_id,
-            "image_type": manifest.image_type,
+            "image_id": manifest.image_id, "image_type": manifest.image_type,
             "source_size_bytes": manifest.source_size_bytes,
             "logical_sector_size": manifest.logical_sector_size,
             "encrypted": bool(manifest.artifacts) and all(
                 artifact.encryption == "age" for artifact in manifest.artifacts
-            ),
-            "artifact_count": len(manifest.artifacts),
+            ), "artifact_count": len(manifest.artifacts),
         })
+    for name in names:
+        if not name.endswith(".p2v.json"):
+            continue
+        metadata_path = path / name
+        try:
+            info = os.lstat(metadata_path)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
+                continue
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            image_id = name[:-len(".p2v.json")]
+            qcow2_path = path / f"{image_id}.qcow2"
+            qcow2_info = os.lstat(qcow2_path)
+            if (metadata.get("schema_version") != 1 or metadata.get("image_id") != image_id
+                    or metadata.get("format") != "qcow2" or metadata.get("verified") is not True
+                    or not stat.S_ISREG(qcow2_info.st_mode) or qcow2_info.st_uid != 0
+                    or qcow2_info.st_size != metadata.get("file_size_bytes")):
+                continue
+            digest = hashlib.sha256()
+            with qcow2_path.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            if digest.hexdigest() != metadata.get("qcow2_sha256"):
+                continue
+            items.append({
+                "image_id": image_id, "image_type": "virtual_disk", "format": "qcow2",
+                "source_size_bytes": metadata.get("virtual_size_bytes"),
+                "artifact_bytes": metadata.get("file_size_bytes"), "artifact_count": 1,
+                "encrypted": False, "verified": True,
+            })
+        except (OSError, UnicodeError, ValueError, TypeError):
+            continue
     return items
 
 
@@ -1385,52 +1415,88 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         source = _device(params["source"], "source")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         repository_id = params.get("repository_id")
-        if repository_id is not None:
-            from feclora.storage.s3_repository_manager import S3RepositoryManager
-            if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
-                raise WebAPIError("P2V currently publishes to filesystem repositories; S3 QCOW2 object publication is not yet supported")
-        repository = _operation_repository(params, write=True, create_local=True)
+        from feclora.storage.s3_repository_manager import S3RepositoryManager
+        s3_manager = S3RepositoryManager()
+        is_s3 = repository_id is not None and any(item["id"] == repository_id for item in s3_manager.list())
+        s3_lease = None
+        temporary_context = None
+        if is_s3:
+            try:
+                s3_lease = s3_manager.acquire_usage_lock(repository_id)
+                s3_repository = s3_manager.repository(repository_id, progress=_progress)
+                if s3_repository.config.read_only:
+                    raise WebAPIError("S3 repository is configured read-only")
+            except Exception as exc:
+                if s3_lease is not None:
+                    os.close(s3_lease)
+                raise WebAPIError(f"selected S3 repository is not safely available: {exc}") from exc
+            temporary_context = tempfile.TemporaryDirectory(prefix="feclora-p2v-s3-")
+            repository = Path(temporary_context.name)
+            os.chmod(repository, 0o700)
+        else:
+            repository = _operation_repository(params, write=True, create_local=True)
         output_path = repository / f"{image_id}.qcow2"
         metadata_path = repository / f"{image_id}.p2v.json"
         if os.path.lexists(output_path) or os.path.lexists(metadata_path):
+            if temporary_context:
+                temporary_context.cleanup()
+            if s3_lease is not None:
+                os.close(s3_lease)
             raise WebAPIError("P2V image identifier already exists in the selected repository")
         temporary_directory = tempfile.mkdtemp(prefix=".feclora-p2v-publish-", dir=repository)
         os.chmod(temporary_directory, 0o700)
         staged_output = Path(temporary_directory) / f"{image_id}.qcow2"
         try:
             converted = convert_block_device_to_qcow2(source, staged_output)
+            digest = hashlib.sha256()
+            with staged_output.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(chunk)
             metadata = {
                 "schema_version": 1, "image_id": image_id, "format": "qcow2",
-                "source_device": source,
-                "virtual_size_bytes": converted["virtual_size_bytes"],
-                "file_size_bytes": converted["file_size_bytes"],
+                "source_device": source, "virtual_size_bytes": converted["virtual_size_bytes"],
+                "file_size_bytes": converted["file_size_bytes"], "qcow2_sha256": digest.hexdigest(),
                 "verified": True,
                 "bootability_note": "QCOW2 conversion preserves disk sectors and partition metadata; guest boot may require driver or initramfs changes.",
             }
             metadata_tmp = Path(temporary_directory) / f"{image_id}.p2v.json"
             with metadata_tmp.open("x", encoding="utf-8") as stream:
                 json.dump(metadata, stream, sort_keys=True, separators=(",", ":"))
-                stream.write("\n")
+                stream.write("\\n")
                 stream.flush()
                 os.fsync(stream.fileno())
-            os.link(staged_output, output_path)
-            try:
-                os.link(metadata_tmp, metadata_path)
-            except Exception:
-                os.unlink(output_path)
-                raise
-            directory_fd = os.open(repository, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
+            if is_s3:
+                s3_result = s3_repository.publish_p2v(image_id, staged_output, metadata_tmp)
+                result = {
+                    "image_id": image_id, "repository_id": repository_id, "format": "qcow2",
+                    "virtual_size_bytes": converted["virtual_size_bytes"],
+                    "file_size_bytes": converted["file_size_bytes"], "sha256": digest.hexdigest(),
+                    "verified": bool(s3_result.get("committed")),
+                }
+            else:
+                os.link(staged_output, output_path)
+                try:
+                    os.link(metadata_tmp, metadata_path)
+                except Exception:
+                    os.unlink(output_path)
+                    raise
+                directory_fd = os.open(repository, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+                result = {
+                    "image_id": image_id, "output_path": str(output_path),
+                    "virtual_size_bytes": converted["virtual_size_bytes"],
+                    "file_size_bytes": converted["file_size_bytes"], "sha256": digest.hexdigest(),
+                    "verified": True,
+                }
         finally:
             shutil.rmtree(temporary_directory, ignore_errors=True)
-        result = {
-            "image_id": image_id, "output_path": str(output_path),
-            "virtual_size_bytes": converted["virtual_size_bytes"],
-            "file_size_bytes": converted["file_size_bytes"], "verified": True,
-        }
+            if temporary_context:
+                temporary_context.cleanup()
+            if s3_lease is not None:
+                os.close(s3_lease)
     elif action == "extract_partition_image":
         from feclora.storage.disk_image_partition import extract_partition_image
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
