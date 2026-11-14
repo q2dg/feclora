@@ -71,7 +71,7 @@ def prepare_from_offline_source_disk(
     if not gpt.get("primary_backup_consistent"):
         raise ProportionalRestoreWorkflowError("staged GPT copies are inconsistent")
     partitions = gpt.get("partitions")
-    if not isinstance(partitions, list) or not partitions:
+    if not isinstance(partitions, (list, tuple)) or not partitions:
         raise ProportionalRestoreWorkflowError("staged image has no GPT partitions")
 
     source_parts = [
