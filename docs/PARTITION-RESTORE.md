@@ -1,3 +1,11 @@
+---
+layout: default
+title: Partition restore
+---
+
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
 # Partition restore
 
 `feclora.storage.partition_restore.restore_partition` restores a single
