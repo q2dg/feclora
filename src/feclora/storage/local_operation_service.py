@@ -44,6 +44,7 @@ _OPERATION_DEFAULT_PHASE = {
     "clone_partition": "cloning",
     "extract_partition_image": "reading",
     "capture_p2v": "capturing",
+    "build_recovery_iso": "working",
 }
 
 
@@ -244,7 +245,8 @@ def execute(operation_id: str) -> int:
                            "source", "bytes_copied", "verified", "encrypted",
                            "artifact_count", "repository_path", "output_path",
                            "virtual_size_bytes", "file_size_bytes",
-                           "artifacts_verified", "published", "manifest_sha256"}
+                           "artifacts_verified", "published", "manifest_sha256",
+                           "sha256", "payload_size_bytes", "boot_catalog_preserved"}
                 and isinstance(value, (str, int, bool, type(None)))
             }
             store.append(operation_id, "completed", safe_result)
