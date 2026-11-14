@@ -373,6 +373,7 @@ class TransferFailureTests(unittest.TestCase):
             events.append("all-client-ready")
             return {"type": "physical_ready", "job_id": JOB_ID, "ready": True, "detail": "ready"}
         with patch("feclora.storage.inventory.collect_inventory", return_value={"devices": [{"path": "/dev/sda", "type": "disk", "children": []}]}), \
+             patch("feclora.storage.source_safety.check_capture_source_safe"), \
              patch("feclora.network.physical_multicast.build_physical_device_record", return_value=identity), \
              patch("feclora.network.physical_multicast.validate_physical_multicast_cohort"), \
              patch("feclora.network.physical_multicast.open_approved_block_device", return_value=44), \
