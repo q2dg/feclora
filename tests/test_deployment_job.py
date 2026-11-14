@@ -129,6 +129,14 @@ class DeploymentJobTests(unittest.TestCase):
                 source_identity=identity,
             ))
 
+        with self.assertRaisesRegex(JobValidationError, "requires manual start"):
+            DeploymentJob.from_dict(valid_job(
+                operation="clone", image_id=None, source_device="/dev/sda",
+                transport="multicast", multicast_group="239.10.10.10",
+                multicast_port=5000, start_policy="expected_clients",
+                expected_clients=1,
+            ))
+
     def test_restore_job_can_reference_a_simple_remote_repository_id(self):
         job = DeploymentJob.from_dict(valid_job(repository_id="nas-images"))
         self.assertEqual(job.repository_id, "nas-images")
