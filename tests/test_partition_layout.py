@@ -19,7 +19,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
     def test_plans_aligned_layout_that_fits_and_preserves_identity(self):
         plan = plan_proportional_gpt_layout(
             self.partitions,
-            source_size_bytes=8_500_000_000,
+            source_size_bytes=8_499_999_744,
             target_size_bytes=5_000_000_000,
             sector_size=512,
             partition_table_type="gpt",
@@ -36,8 +36,8 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         self.assertEqual(plan[0].minimum_size_bytes, 2_000_000 * 512)
 
     def test_uses_inspected_nonstandard_gpt_usable_lba_geometry(self):
-        source_sectors = 8_500_000_000 // 4096
-        target_sectors = 5_000_000_000 // 4096
+        source_sectors = 8_499_998_720 // 4096
+        target_sectors = 4_999_999_488 // 4096
         source_last = source_sectors - 1 - 5
         partitions = [
             {"node": "/dev/source1", "start": 2048, "size": 250_000,
@@ -47,8 +47,8 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         ]
         plan = plan_proportional_gpt_layout(
             partitions,
-            source_size_bytes=8_500_000_000,
-            target_size_bytes=5_000_000_000,
+            source_size_bytes=8_499_998_720,
+            target_size_bytes=4_999_999_488,
             sector_size=4096,
             partition_table_type="gpt",
             minimum_sizes_bytes={"/dev/source1": 250_000 * 4096,
@@ -64,7 +64,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         with self.assertRaisesRegex(PartitionLayoutError, "source GPT usable-LBA bounds"):
             plan_proportional_gpt_layout(
                 self.partitions,
-                source_size_bytes=8_500_000_000,
+                source_size_bytes=8_499_999_744,
                 target_size_bytes=5_000_000_000,
                 sector_size=512,
                 partition_table_type="gpt",
@@ -80,7 +80,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         invalid[0]["attrs"] = ["not", "a", "string"]
         with self.assertRaisesRegex(PartitionLayoutError, "invalid GPT attributes"):
             plan_proportional_gpt_layout(
-                invalid, source_size_bytes=8_500_000_000,
+                invalid, source_size_bytes=8_499_999_744,
                 target_size_bytes=5_000_000_000, sector_size=512,
                 partition_table_type="gpt",
                 minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
@@ -92,7 +92,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         with self.assertRaisesRegex(PartitionLayoutError, "only the final source partition"):
             plan_proportional_gpt_layout(
                 self.partitions,
-                source_size_bytes=8_500_000_000,
+                source_size_bytes=8_499_999_744,
                 target_size_bytes=1_000_000_000,
                 sector_size=512,
                 partition_table_type="gpt",
@@ -105,7 +105,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         with self.assertRaisesRegex(PartitionLayoutError, "filesystem minimum"):
             plan_proportional_gpt_layout(
                 self.partitions,
-                source_size_bytes=8_500_000_000,
+                source_size_bytes=8_499_999_744,
                 target_size_bytes=5_000_000_000,
                 sector_size=512,
                 partition_table_type="gpt",
@@ -118,7 +118,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         overlapping[1]["start"] = 1_500_000
         with self.assertRaisesRegex(PartitionLayoutError, "overlap"):
             plan_proportional_gpt_layout(
-                overlapping, source_size_bytes=8_500_000_000,
+                overlapping, source_size_bytes=8_499_999_744,
                 target_size_bytes=5_000_000_000, sector_size=512,
                 partition_table_type="gpt",
                 minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512, "/dev/source2": 1},
@@ -128,7 +128,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         unknown[0].pop("type")
         with self.assertRaisesRegex(PartitionLayoutError, "valid GPT type GUID"):
             plan_proportional_gpt_layout(
-                unknown, source_size_bytes=8_500_000_000,
+                unknown, source_size_bytes=8_499_999_744,
                 target_size_bytes=5_000_000_000, sector_size=512,
                 partition_table_type="gpt",
                 minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512, "/dev/source2": 1},
@@ -140,7 +140,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         with self.assertRaisesRegex(PartitionLayoutError, "only permits shrinking ext2/3/4 and NTFS"):
             plan_proportional_gpt_layout(
                 self.partitions,
-                source_size_bytes=8_500_000_000,
+                source_size_bytes=8_499_999_744,
                 target_size_bytes=5_000_000_000,
                 sector_size=512,
                 partition_table_type="gpt",
@@ -152,7 +152,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
     def test_never_grows_partitions_to_consume_target_free_space(self):
         plan = plan_proportional_gpt_layout(
             self.partitions,
-            source_size_bytes=8_500_000_000,
+            source_size_bytes=8_499_999_744,
             target_size_bytes=8_000_000_000,
             sector_size=512,
             partition_table_type="gpt",
@@ -168,7 +168,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
     def test_preserves_unallocated_space_when_source_partitions_are_smaller(self):
         plan = plan_proportional_gpt_layout(
             self.partitions,
-            source_size_bytes=8_500_000_000,
+            source_size_bytes=8_499_999_744,
             target_size_bytes=7_000_000_000,
             sector_size=512,
             partition_table_type="gpt",
@@ -181,7 +181,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
 
     def test_keeps_known_non_ext_filesystems_fixed_size(self):
         plan = plan_proportional_gpt_layout(
-            self.partitions, source_size_bytes=8_500_000_000,
+            self.partitions, source_size_bytes=8_499_999_744,
             target_size_bytes=5_000_000_000, sector_size=512,
             partition_table_type="gpt",
             minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
@@ -194,7 +194,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
     def test_rejects_unknown_filesystem_or_storage_layer(self):
         with self.assertRaisesRegex(PartitionLayoutError, "unsupported filesystem or storage layer"):
             plan_proportional_gpt_layout(
-                self.partitions, source_size_bytes=8_500_000_000,
+                self.partitions, source_size_bytes=8_499_999_744,
                 target_size_bytes=5_000_000_000, sector_size=512,
                 partition_table_type="gpt",
                 minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
@@ -204,7 +204,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
 
     def test_shortens_only_the_final_ext_partition_and_preserves_starts(self):
         plan = plan_proportional_gpt_layout(
-            self.partitions, source_size_bytes=8_500_000_000,
+            self.partitions, source_size_bytes=8_499_999_744,
             target_size_bytes=4_000_000_000, sector_size=512,
             partition_table_type="gpt",
             minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
@@ -219,7 +219,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
 
     def test_shortens_final_ntfs_partition_when_native_minimum_fits(self):
         plan = plan_proportional_gpt_layout(
-            self.partitions, source_size_bytes=8_500_000_000,
+            self.partitions, source_size_bytes=8_499_999_744,
             target_size_bytes=4_000_000_000, sector_size=512,
             partition_table_type="gpt",
             minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
@@ -238,7 +238,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
                     PartitionLayoutError, "only ext2/3/4 and NTFS can be shortened"
                 ):
                     plan_proportional_gpt_layout(
-                        self.partitions, source_size_bytes=8_500_000_000,
+                        self.partitions, source_size_bytes=8_499_999_744,
                         target_size_bytes=4_000_000_000, sector_size=512,
                         partition_table_type="gpt",
                         minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
@@ -250,7 +250,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
     def test_rejects_layout_that_requires_relocating_later_partitions(self):
         with self.assertRaisesRegex(PartitionLayoutError, "only the final source partition"):
             plan_proportional_gpt_layout(
-                self.partitions, source_size_bytes=8_500_000_000,
+                self.partitions, source_size_bytes=8_499_999_744,
                 target_size_bytes=1_000_000_000, sector_size=512,
                 partition_table_type="gpt",
                 minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512,
@@ -261,7 +261,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
     def test_requires_a_strictly_smaller_destination(self):
         with self.assertRaisesRegex(PartitionLayoutError, "smaller target"):
             plan_proportional_gpt_layout(
-                self.partitions, source_size_bytes=8_500_000_000,
+                self.partitions, source_size_bytes=8_499_999_744,
                 target_size_bytes=8_500_000_000, sector_size=512,
                 partition_table_type="gpt",
                 minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512, "/dev/source2": 1},
