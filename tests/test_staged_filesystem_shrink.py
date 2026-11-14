@@ -134,6 +134,17 @@ class StagedExtFilesystemShrinkTests(unittest.TestCase):
         ))
         self.assertIn(["/sbin/losetup", "--detach", "/dev/loop7"], self.commands)
 
+    def test_skips_resize_when_existing_filesystem_already_fits(self):
+        self.block_count = 800
+        result = self.shrink()
+        self.assertEqual(result.sha256, self.initial_digest)
+        self.assertFalse(any(
+            command[0].endswith("resize2fs") and "-P" not in command
+            for command in self.commands
+        ))
+        self.assertIn(["/sbin/losetup", "--detach", "/dev/loop7"], self.commands)
+
+
     def test_rejects_filesystem_target_larger_than_planned_partition(self):
         staged = StagedRawDiskImage(self.path, os.path.getsize(self.path), self.initial_digest)
         with self.assertRaisesRegex(StagedFilesystemShrinkError, "exceeds"):
