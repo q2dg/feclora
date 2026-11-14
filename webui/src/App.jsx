@@ -754,9 +754,9 @@ export default function App() {
         ...((remoteOperation === "restore" || remoteOperation === "save") && remoteSelectedRepository ? { repository_id: remoteSelectedRepository.id } : {}),
         multicast_group: remoteTransport === "multicast" ? remoteMulticastGroup : null,
         multicast_port: remoteTransport === "multicast" ? Number(remoteMulticastPort) : null,
-        start_policy: remoteStartPolicy,
-        expected_clients: remoteStartPolicy === "expected_clients" ? Number(remoteExpectedClients) : null,
-        start_deadline: remoteStartPolicy === "deadline" ? new Date(remoteStartDeadline).toISOString() : null,
+        start_policy: remoteOperation === "clone" ? "manual" : remoteStartPolicy,
+        expected_clients: remoteOperation !== "clone" && remoteStartPolicy === "expected_clients" ? Number(remoteExpectedClients) : null,
+        start_deadline: remoteOperation !== "clone" && remoteStartPolicy === "deadline" ? new Date(remoteStartDeadline).toISOString() : null,
         post_action: remoteOperation === "save" ? "none" : remotePostAction
       };
       const result = await callFeclora("create_deployment_job", { job });
@@ -1208,18 +1208,18 @@ export default function App() {
                     <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">The job binds to the selected Server interface. Configure the Client independently from its local Cockpit Network tab; this does not test end-to-end reachability to an offline Client.</div>
                   </Field>
                   <Field label="Transport">
-                    <select className="pf-v5-c-form-control" value={remoteTransport} disabled={remoteOperation === "clone"} onChange={(e) => setRemoteTransport(e.target.value)}>
+                    <select className="pf-v5-c-form-control" value={remoteTransport} onChange={(e) => setRemoteTransport(e.target.value)}>
                       <option value="unicast">Authenticated unicast</option>
-                      <option value="multicast" disabled={remoteOperation === "save"}>UDPcast multicast restore</option>
+                      <option value="multicast" disabled={remoteOperation === "save"}>{remoteOperation === "clone" ? "UDPcast physical disk multicast clone" : "UDPcast multicast image restore"}</option>
                     </select>
                   </Field>
                   {remoteTransport === "multicast" && <>
                     <Field label="Administratively scoped multicast group"><input className="pf-v5-c-form-control" value={remoteMulticastGroup} onChange={(e) => setRemoteMulticastGroup(e.target.value)} /></Field>
                     <Field label="UDPcast even portbase"><input className="pf-v5-c-form-control" type="number" min="1024" max="65534" step="2" value={remoteMulticastPort} onChange={(e) => setRemoteMulticastPort(e.target.value)} /></Field>
-                    <Alert variant="warning" title="Multicast transport limitation" isInline>UDPcast data packets are not encrypted or authenticated. TLS protects the control plane, not the multicast data stream. Use only on a trusted, isolated deployment network.</Alert>
+                    <Alert variant="warning" title="Multicast transport limitation" isInline>UDPcast data packets are not encrypted or authenticated. TLS protects the control plane, not the multicast data stream. Physical clone also requires every selected Client READY and a separate exclusive destination-open acknowledgement before transmission. Use only on a trusted, isolated deployment network.</Alert>
                   </>}
                   <Field label="Start policy">
-                    <select className="pf-v5-c-form-control" value={remoteStartPolicy} onChange={(e) => setRemoteStartPolicy(e.target.value)}>
+                    <select className="pf-v5-c-form-control" value={remoteOperation === "clone" ? "manual" : remoteStartPolicy} disabled={remoteOperation === "clone"} onChange={(e) => setRemoteStartPolicy(e.target.value)}>
                       <option value="manual">Manual — every selected Client must be READY</option>
                       <option value="expected_clients">Start gate — minimum READY Client count</option>
                       <option value="deadline">Start gate — wait until UTC deadline</option>
