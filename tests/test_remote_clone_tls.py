@@ -70,7 +70,7 @@ class ServerAuthenticatedTlsTests(unittest.TestCase):
                         )
         connect.assert_not_called()
 
-    def test_server_accepts_tls_without_requesting_client_certificate(self):
+    def test_server_accepts_client_without_peer_credentials(self):
         raw = Mock()
         wrapped = FakeTlsSocket("source.example")
         context = Mock()
@@ -88,7 +88,7 @@ class ServerAuthenticatedTlsTests(unittest.TestCase):
         self.assertEqual(context.verify_mode, __import__("ssl").CERT_REQUIRED)
         context.load_cert_chain.assert_not_called()
 
-    def test_server_context_does_not_request_client_certificate(self):
+    def test_server_context_does_not_verify_client_identity(self):
         with patch("feclora.network.remote_clone_protocol.ssl.SSLContext") as factory:
             context = factory.return_value
             result = create_tls_context(
@@ -101,7 +101,7 @@ class ServerAuthenticatedTlsTests(unittest.TestCase):
         )
 
     @unittest.skipUnless(shutil.which("openssl"), "openssl is required for certificate integration test")
-    def test_real_tls_server_authentication_without_client_certificate(self):
+    def test_real_server_authenticated_tls_without_client_credentials(self):
         with tempfile.TemporaryDirectory() as directory:
             def run(*args):
                 subprocess.run(args, check=True, capture_output=True, text=True)
@@ -141,7 +141,7 @@ class ServerAuthenticatedTlsTests(unittest.TestCase):
                 accepted, _address = listener.accept()
                 with accept_tls(server_context, accepted) as peer:
                     result["version"] = peer.version()
-                    result["client_certificate"] = peer.getpeercert()
+                    result["peer_certificate"] = peer.getpeercert()
 
             worker = threading.Thread(target=accept)
             worker.start()
@@ -157,7 +157,7 @@ class ServerAuthenticatedTlsTests(unittest.TestCase):
             worker.join(timeout=5)
             self.assertFalse(worker.is_alive())
             self.assertIn(result["version"], {"TLSv1.2", "TLSv1.3"})
-            self.assertIsNone(result["client_certificate"])
+            self.assertIsNone(result["peer_certificate"])
 
 
 if __name__ == "__main__":
