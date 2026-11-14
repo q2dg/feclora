@@ -88,7 +88,8 @@ equal the staged image size exactly (larger disks are not silently accepted),
 and its logical sector size must match the GPT geometry. The restore checks
 that the target is not mounted, busy, held by device-mapper, active swap, or
 backing the live root. It records the block-device identity and repeats
-identity, geometry and safety checks immediately before writing. The operator
+identity, geometry and safety checks immediately before writing. The caller must also supply the block-device identity captured when the target
+was selected; the current identity must match it before any write. The operator
 must provide the exact confirmation phrase `ERASE /dev/...`.
 
 The writer streams from the already-open locked staging file to `dd` through
