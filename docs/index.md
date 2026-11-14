@@ -10,7 +10,7 @@ description: Fedora-based disk imaging, cloning, recovery and network deployment
 <main class="landing">
   <header class="hero">
     <a class="brand" href="{{ '/' | relative_url }}" aria-label="Feclora home">
-      <img src="{{ '/assets/feclora-logo.svg' | relative_url }}" alt="Feclora">
+      <picture><source media="(prefers-color-scheme: dark)" srcset="{{ '/assets/feclora-logo-dark.svg' | relative_url }}"><img src="{{ '/assets/feclora-logo.svg' | relative_url }}" alt="Feclora"></picture>
     </a>
     <p class="eyebrow">FEDORA LIVE · DISK IMAGING · DEPLOYMENT</p>
     <h1>Disk imaging and recovery, with a clear path from one machine to many.</h1>
