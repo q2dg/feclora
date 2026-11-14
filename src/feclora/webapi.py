@@ -1362,7 +1362,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             metadata_tmp = Path(temporary_directory) / f"{image_id}.p2v.json"
             with metadata_tmp.open("x", encoding="utf-8") as stream:
                 json.dump(metadata, stream, sort_keys=True, separators=(",", ":"))
-                stream.write("\\n")
+                stream.write("\n")
                 stream.flush()
                 os.fsync(stream.fileno())
             os.link(staged_output, output_path)
