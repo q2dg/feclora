@@ -750,8 +750,8 @@ def _restore(inventory: dict[str, Any]) -> None:
                     f"Prepared image: {prepared.size_bytes:,} bytes\n"
                     f"Destination capacity: {target_size:,} bytes\n"
                     "Filesystem shrink and GPT rewrite were performed only on a private staging copy.\n"
-                    "The original source disk and repository artifact have not been modified.\\n"
-                    "Planned partitions:\\n" + "\\n".join(partition_plan)
+                    "The original source disk and repository artifact have not been modified.\n"
+                    "Planned partitions:\n" + "\n".join(partition_plan)
                 )
                 _message("Proportional restore review", summary)
                 typed_proportional = _input(
