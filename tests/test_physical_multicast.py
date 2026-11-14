@@ -32,6 +32,10 @@ class PhysicalMulticastPreflightTests(unittest.TestCase):
         self.assertEqual(source["path"], "/dev/sda")
         self.assertEqual(target["path"], "/dev/sdb")
 
+    def test_rejects_identical_device_path(self):
+        with self.assertRaisesRegex(PhysicalMulticastError, "same device path"):
+            validate_physical_multicast_pair(self.source, {**self.target, "path": self.source["path"]})
+
     def test_rejects_major_minor_alias_even_when_paths_differ(self):
         alias = {**self.target, "major_minor": self.source["major_minor"]}
         with self.assertRaisesRegex(PhysicalMulticastError, "major/minor"):
