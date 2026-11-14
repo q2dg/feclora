@@ -60,6 +60,7 @@ syslinux
 
 # Physical-to-virtual conversion and QCOW2 validation
 qemu-img
+xorriso
 
 # Storage and inspection tools
 # Remote image repository mounts (enabled only by explicit Cockpit action)
