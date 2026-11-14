@@ -39,8 +39,6 @@ Cancelling the Cockpit operation stops the producer and prevents publication.
 
 ## Manifest-backed image capture
 
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
-
 ## Scope and operator procedure
 
 This workflow captures one partition only. It does not capture a partition
