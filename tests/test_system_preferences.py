@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from feclora.system_preferences import (
@@ -27,18 +29,24 @@ class KeyboardLayoutTests(unittest.TestCase):
     def test_applies_persistent_and_active_console_keymap_without_shell(self):
         result = Mock(returncode=0, stdout="", stderr="")
         with patch("feclora.system_preferences.subprocess.run", return_value=result) as run:
-            applied = set_keyboard_layout({"layout": "ca"})
+            with tempfile.TemporaryDirectory() as directory:
+                config = Path(directory) / "kiosk-keyboard.conf"
+                applied = set_keyboard_layout({"layout": "ca"}, config_path=config)
+                self.assertIn("XKB_DEFAULT_LAYOUT=es", config.read_text())
+                self.assertIn("XKB_DEFAULT_VARIANT=cat", config.read_text())
         self.assertTrue(applied["applied"])
         self.assertEqual(applied["keymap"], "es")
         self.assertEqual(run.call_args_list[0].args[0], ["/usr/bin/localectl", "set-keymap", "es"])
         self.assertEqual(run.call_args_list[1].args[0], ["/usr/bin/loadkeys", "es"])
+        self.assertEqual(run.call_args_list[2].args[0], ["/usr/bin/systemd-run", "--unit=feclora-keyboard-restart", "--on-active=2s", "--collect", "/usr/bin/systemctl", "restart", "feclora-kiosk.service"])
         self.assertIs(run.call_args_list[0].kwargs["check"], False)
 
     def test_reports_command_failure(self):
         result = Mock(returncode=1, stdout="", stderr="missing keymap")
         with patch("feclora.system_preferences.subprocess.run", return_value=result):
-            with self.assertRaisesRegex(KeyboardLayoutError, "missing keymap"):
-                set_keyboard_layout({"layout": "us"})
+            with tempfile.TemporaryDirectory() as directory:
+                with self.assertRaisesRegex(KeyboardLayoutError, "missing keymap"):
+                    set_keyboard_layout({"layout": "us"}, config_path=Path(directory) / "kiosk-keyboard.conf")
 
 
 if __name__ == "__main__":
