@@ -11,6 +11,7 @@ import { callFeclora, waitForLocalOperation } from "./api.js";
 const OPERATION_LABELS = {
   capture_disk: "Create a whole-disk image",
   capture_p2v: "Convert physical disk to QCOW2 (P2V)",
+  build_recovery_iso: "Build a self-contained recovery ISO",
   capture_partition: "Create a partition image",
   capture_logical_volume: "Create a logical-volume image",
   restore_disk: "Restore a whole-disk image",
@@ -189,6 +190,9 @@ export default function App() {
   const [confirmation, setConfirmation] = useState("");
   const [progress, setProgress] = useState(null);
   const [operationResult, setOperationResult] = useState(null);
+  const [recoveryBaseISO, setRecoveryBaseISO] = useState("");
+  const [recoveryTargetWWN, setRecoveryTargetWWN] = useState("");
+  const [recoveryTargetSerial, setRecoveryTargetSerial] = useState("");
 
   const applyNetworkProfile = async (event) => {
     event.preventDefault();
@@ -340,7 +344,14 @@ export default function App() {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setProgress(null); setOperationResult(null);
     try {
       let params;
-      if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt: encrypt || encryptPassphraseMode, ...(encryptPassphraseMode ? { encrypt_passphrase: true } : {}), ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
+      if (operation === "build_recovery_iso") params = {
+        base_iso_path: recoveryBaseISO, image_id: imageId,
+        target_wwn: recoveryTargetWWN.trim() || null,
+        target_serial: recoveryTargetSerial.trim() || null,
+        confirm_build: confirmation,
+        ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
+      };
+      else if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt: encrypt || encryptPassphraseMode, ...(encryptPassphraseMode ? { encrypt_passphrase: true } : {}), ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else if (operation === "capture_logical_volume") params = { source, image_id: imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else if (operation === "capture_p2v") params = { source, image_id: imageId, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
@@ -868,7 +879,12 @@ export default function App() {
     finally { setBusy(false); }
   };
 
-  const operationReady = isCapture
+  const recoveryRepositoryIsS3 = s3Repositories.some((repo) => repo.id === selectedRepositoryId);
+  const recoveryExpectedConfirmation = imageId ? `BUILD ${imageId}` : "";
+  const operationReady = operation === "build_recovery_iso"
+    ? Boolean(recoveryBaseISO.trim() && imageId && (recoveryTargetWWN.trim() || recoveryTargetSerial.trim())
+      && confirmation === recoveryExpectedConfirmation && !recoveryRepositoryIsS3 && !selectedRepository?.read_only)
+    : isCapture
     ? Boolean(source && imageId && (!selectedRepository?.read_only) && (operation !== "capture_partition" || partitionId || imageId))
     : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation && (!isDisk || !restoreLayoutPreview || !restoreTargetDevice || restoreTargetDevice.size_bytes >= restoreLayoutPreview.source_size_bytes))
       : Boolean(source && target && source !== target && confirmation === expectedConfirmation);
@@ -913,6 +929,39 @@ export default function App() {
                         {Object.entries(OPERATION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                       </select>
                     </Field>
+                    {operation === "build_recovery_iso" && <>
+                      <Alert variant="info" title="Self-contained recovery media" isInline>
+                        Select the Feclora Live base ISO and an existing disk image. Feclora creates a separate bootable ISO containing the verified image, its manifest and a narrowly scoped unattended restore answer. The base ISO and source image remain unchanged. Output is written to the selected filesystem repository; S3 is not supported for ISO output.
+                      </Alert>
+                      <Field label="Base Feclora Live ISO path" help="Absolute path to a local .iso file accessible to the Feclora service, for example /home/feclora/Downloads/feclora-live.iso.">
+                        <input className="pf-v5-c-form-control" value={recoveryBaseISO} onChange={(e) => setRecoveryBaseISO(e.target.value)} placeholder="/path/to/feclora-live.iso" required />
+                      </Field>
+                      <Field label="Image repository">
+                        <select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => selectImageRepository(e.target.value)}>
+                          <option value="">Local repository</option>
+                          {remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? "read-only" : "read/write"}</option>)}
+                          {s3Repositories.map((repo) => <option key={repo.id} value={repo.id} disabled>{repo.id} · S3 (unsupported output)</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Whole-disk image to embed">
+                        <select className="pf-v5-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)} required>
+                          <option value="">Select a disk image…</option>
+                          {availableImages.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Target disk WWN (recommended)" help="The recovery answer will only authorize a disk whose identity matches this WWN and/or serial. Use at least one selector.">
+                        <input className="pf-v5-c-form-control" value={recoveryTargetWWN} onChange={(e) => setRecoveryTargetWWN(e.target.value)} maxLength={128} />
+                      </Field>
+                      <Field label="Target disk serial (alternative or additional selector)">
+                        <input className="pf-v5-c-form-control" value={recoveryTargetSerial} onChange={(e) => setRecoveryTargetSerial(e.target.value)} maxLength={128} />
+                      </Field>
+                      {recoveryExpectedConfirmation && <Alert variant="warning" title="Confirm ISO creation" isInline>
+                        Type exactly <strong>{recoveryExpectedConfirmation}</strong>. This creates a separate ISO file; it does not restore or write to any disk now. The embedded answer will request a destructive restore only when booted and its target identity matches.
+                      </Alert>}
+                      {recoveryExpectedConfirmation && <Field label="Typed build confirmation">
+                        <input className="pf-v5-c-form-control" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} autoComplete="off" />
+                      </Field>}
+                    </>}
                     {isCapture && <>
                       <Field label={isDisk ? "Source disk" : isLogicalVolume ? "Source logical volume" : "Source partition"}>
                         <select className="pf-v5-c-form-control" value={source} onChange={(e) => setSource(e.target.value)}>
