@@ -10,7 +10,7 @@ from feclora.storage.proportional_restore_workflow import (
 
 class ProportionalRestoreWorkflowTests(unittest.TestCase):
     def setUp(self):
-        self.staged = StagedRawDiskImage("/private/stage/disk.raw", 1024 * 1024, "a" * 64)
+        self.staged = StagedRawDiskImage("/private/stage/disk.raw", 4 * 1024 * 1024, "a" * 64)
         self.source = {
             "type": "disk",
             "path": "/dev/sda",
@@ -27,19 +27,19 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
         self.gpt = {
             "primary_backup_consistent": True,
             "first_usable_lba": 34,
-            "last_usable_lba": 2014,
+            "last_usable_lba": 8158,
             "partitions": [{
                 "unique_guid": "11111111-2222-3333-4444-555555555555",
                 "type_guid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
                 "first_lba": 2048,
-                "last_lba": 2049,
+                "last_lba": 4095,
                 "attributes": 0,
                 "name": "root",
             }],
         }
 
     @patch("feclora.storage.proportional_restore_workflow.prepare_proportional_staged_image",
-           return_value=StagedRawDiskImage("/private/stage/prepared.raw", 512 * 1024, "b" * 64))
+           return_value=StagedRawDiskImage("/private/stage/prepared.raw", 2 * 1024 * 1024, "b" * 64))
     @patch("feclora.storage.proportional_restore_workflow.build_proportional_gpt_plan",
            return_value=("planned-partition",))
     @patch("feclora.storage.proportional_restore_workflow.inspect_gpt_binary")
@@ -55,7 +55,7 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
         planned_input = planner.call_args.args[0]
         self.assertEqual(planned_input[0]["node"], "/dev/sda1")
         self.assertEqual(planned_input[0]["start"], 2048)
-        self.assertEqual(planned_input[0]["size"], 2)
+        self.assertEqual(planned_input[0]["size"], 2048)
         prepare.assert_called_once()
         self.assertIs(prepare.call_args.args[0], self.staged)
 
