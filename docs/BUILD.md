@@ -1,3 +1,11 @@
+---
+layout: default
+title: Build and validate the live ISO
+---
+
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
 # Build and validate the live ISO
 
 This procedure describes how to build the Fedora 45 x86_64 Feclora Live kiosk appliance and how to validate it in disposable QEMU virtual machines.
