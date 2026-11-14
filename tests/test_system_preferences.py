@@ -60,6 +60,7 @@ class KeyboardLayoutTests(unittest.TestCase):
                     })()
                 return info
             with patch("feclora.system_preferences.KIOSK_KEYBOARD_CONFIG", config), \
+                 patch("feclora.system_preferences.VCONSOLE_CONFIG", config.parent / "missing-vconsole.conf"), \
                  patch("feclora.system_preferences.os.lstat", side_effect=trusted_lstat):
                 self.assertEqual(get_keyboard_layout()["layout"], "ca")
 
