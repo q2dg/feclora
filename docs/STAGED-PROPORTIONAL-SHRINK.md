@@ -145,3 +145,8 @@ destination write, it rechecks that the original source still has the same
 identity and remains offline/unused; the destination writer independently
 rechecks its captured identity, exact capacity, logical sector size and
 source-safety state.
+
+At selection time, the live `st_rdev` identities are also compared with the
+`MAJ:MIN` values captured by the storage inventory. A stale inventory (for
+example, a disk removed and replaced between inventory collection and
+selection) is rejected before source probing or destination confirmation.
