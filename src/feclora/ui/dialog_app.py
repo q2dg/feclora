@@ -337,7 +337,7 @@ def _clone_disk(inventory: dict[str, Any]) -> None:
     report.extend("BLOCKER: " + item for item in compatibility["blockers"])
     report.extend("WARNING: " + item for item in compatibility["warnings"])
     report.append("This report is advisory; the cloning engine repeats its own safety and geometry checks.")
-    _message("Disk compatibility preflight", "\\n".join(report))
+    _message("Disk compatibility preflight", "\n".join(report))
     if not compatibility["compatible"]:
         return
     phrase = f"ERASE {target_path}"
@@ -644,7 +644,7 @@ def _restore(inventory: dict[str, Any]) -> None:
             ("single-partition", "Extract and restore one selected partition only"),
             ("cancel", "Cancel"),
         ])
-        if action not in {"whole-disk", "single-partition"}:
+        if action not in {"whole-disk", "proportional", "single-partition"}:
             return
     else:
         action = "partition-image"
@@ -734,19 +734,19 @@ def _restore(inventory: dict[str, Any]) -> None:
                     sector_size=manifest.logical_sector_size,
                 )
                 summary = (
-                    f"Image: {manifest.image_id}\\n"
-                    f"Offline source (read-only probes): {source_for_proportional['path']}\\n"
-                    f"Destination: {target['path']}\\n"
-                    f"Original image: {staged.size_bytes:,} bytes\\n"
-                    f"Prepared image: {prepared.size_bytes:,} bytes\\n"
-                    f"Destination capacity: {target_size:,} bytes\\n"
-                    "Filesystem shrink and GPT rewrite were performed only on a private staging copy.\\n"
+                    f"Image: {manifest.image_id}\n"
+                    f"Offline source (read-only probes): {source_for_proportional['path']}\n"
+                    f"Destination: {target['path']}\n"
+                    f"Original image: {staged.size_bytes:,} bytes\n"
+                    f"Prepared image: {prepared.size_bytes:,} bytes\n"
+                    f"Destination capacity: {target_size:,} bytes\n"
+                    "Filesystem shrink and GPT rewrite were performed only on a private staging copy.\n"
                     "The original source disk and repository artifact have not been modified."
                 )
                 _message("Proportional restore review", summary)
                 typed_proportional = _input(
                     "Destructive confirmation",
-                    summary + f"\\n\\nType exactly:\\nERASE {target['path']}",
+                    summary + f"\n\nType exactly:\nERASE {target['path']}",
                 )
                 if typed_proportional != f"ERASE {target['path']}":
                     _message("Restore cancelled", "Confirmation did not match. No destination write was started.")
