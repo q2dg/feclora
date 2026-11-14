@@ -669,6 +669,29 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
             result_queue.close()
             result_queue.join_thread()
 
+
+    def test_failed_shared_lease_downgrade_unmounts_mount_created_by_this_call(self):
+        self.manager.add("images", self.definition)
+        events = []
+        self.manager._is_mounted = lambda _path: False
+        self.manager._mount_locked = lambda _identifier: events.append(("mount", "images"))
+        self.manager.unmount = lambda identifier: events.append(("unmount", identifier))
+        import feclora.storage.repository_manager as repository_manager
+        real_flock = repository_manager.fcntl.flock
+        calls = 0
+
+        def fail_shared_downgrade(fd, operation):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise OSError("simulated shared lease downgrade failure")
+            return real_flock(fd, operation)
+
+        with patch("feclora.storage.repository_manager.fcntl.flock", side_effect=fail_shared_downgrade):
+            with self.assertRaisesRegex(OSError, "shared lease downgrade failure"):
+                self.manager.ensure_mounted_and_acquire_usage_lock("images")
+        self.assertEqual(events, [("mount", "images"), ("unmount", "images")])
+
     def test_usage_lock_excludes_other_process_and_recovers_after_release(self):
         self.manager.add("images", self.definition)
         context = multiprocessing.get_context("fork")
