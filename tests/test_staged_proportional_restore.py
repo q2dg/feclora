@@ -98,7 +98,7 @@ class StagedProportionalRestoreTests(unittest.TestCase):
            return_value={"primary_backup_consistent": True})
     def test_logical_sector_size_mismatch_prevents_write(self, _gpt):
         runner = lambda *_args, **_kwargs: SimpleNamespace(
-            stdout=f"{len(self.payload)} disk 4096 0\\n"
+            stdout=f"{len(self.payload)} disk 4096 0\n"
         )
         with self.assertRaisesRegex(StagedProportionalRestoreError, "logical sector size"):
             self._restore(runner=runner)
