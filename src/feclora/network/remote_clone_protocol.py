@@ -1,9 +1,9 @@
 """Bounded framing and integrity primitives for one-to-one remote block-device cloning.
 
 TLS setup and local device authorization are deliberately separate concerns.
-Callers must use TLS that authenticates the Server certificate only. Client
-identity is not authenticated; explicit local authorization at both endpoints
-and validated streams/devices remain required.
+Clients validate the Server certificate. Deployment job membership is checked
+against the MAC address reported by the Client; local target approval and
+validated streams/devices remain required.
 """
 from __future__ import annotations
 
