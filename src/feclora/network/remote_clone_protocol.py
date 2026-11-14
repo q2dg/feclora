@@ -346,13 +346,19 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def _send_frame(sock: Any, payload: bytes, maximum: int) -> None:
     if not payload or len(payload) > maximum:
         raise RemoteCloneProtocolError("protocol frame is empty or exceeds the configured maximum")
-    sock.sendall(struct.pack("!I", len(payload)) + payload)
+    try:
+        sock.sendall(struct.pack("!I", len(payload)) + payload)
+    except (OSError, TimeoutError) as exc:
+        raise RemoteCloneProtocolError(f"peer send failed or timed out: {exc}") from exc
 
 
 def _recv_exact(sock: Any, count: int) -> bytes:
     chunks = bytearray()
     while len(chunks) < count:
-        chunk = sock.recv(count - len(chunks))
+        try:
+            chunk = sock.recv(count - len(chunks))
+        except (OSError, TimeoutError) as exc:
+            raise RemoteCloneProtocolError(f"peer receive failed or timed out: {exc}") from exc
         if not chunk:
             raise RemoteCloneProtocolError("peer disconnected before the frame or disk stream completed")
         chunks.extend(chunk)
@@ -418,7 +424,10 @@ def send_disk_stream(
             raise RemoteCloneProtocolError("source ended before the declared block-device byte count")
         if len(chunk) > expected_size - total:
             raise RemoteCloneProtocolError("source returned more bytes than requested")
-        sock.sendall(chunk)
+        try:
+            sock.sendall(chunk)
+        except (OSError, TimeoutError) as exc:
+            raise RemoteCloneProtocolError(f"disk stream send failed or timed out after {total} bytes: {exc}") from exc
         digest.update(chunk)
         total += len(chunk)
         if progress_callback is not None:
@@ -452,7 +461,10 @@ def receive_disk_stream(
         chunk = _recv_exact(sock, min(chunk_size, expected_size - total))
         view = memoryview(chunk)
         while view:
-            written = destination.write(view)
+            try:
+                written = destination.write(view)
+            except OSError as exc:
+                raise RemoteCloneProtocolError(f"disk stream destination write failed after {total} bytes: {exc}") from exc
             if (isinstance(written, bool) or not isinstance(written, int)
                     or written <= 0 or written > len(view)):
                 raise RemoteCloneProtocolError("destination writer returned an invalid byte count")
