@@ -940,7 +940,7 @@ export default function App() {
                   <form onSubmit={runOperation}>
                     <Field label={t("operation")}>
                       <select className="pf-v5-c-form-control" value={operation} onChange={(e) => { setOperation(e.target.value); setSource(""); setTarget(""); setImageId(""); setPartitionId(""); setRestoreLayoutPreview(null); setConfirmation(""); setOperationResult(null); }}>
-                        {Object.entries(OPERATION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                        {Object.entries(OPERATION_LABELS).map(([value, label]) => <option key={value} value={value}>{value === "export_p2v_s3" ? t("exportP2v") : label}</option>)}
                       </select>
                     </Field>
                     {isExportP2V && <>
