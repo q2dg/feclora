@@ -53,16 +53,16 @@ export default function KeyboardPreferences({ language = "en" }) {
       <p>{t("chooseLayout")}</p>
       <Form>
         <FormGroup label={t("keyboard")} fieldId="feclora-keyboard-layout">
-          <select id="feclora-keyboard-layout" className="pf-v5-c-form-control" value={layout} onChange={(event) => setLayout(event.target.value)} disabled={busy}>
+          <select id="feclora-keyboard-layout" className="pf-v6-c-form-control" value={layout} onChange={(event) => setLayout(event.target.value)} disabled={busy}>
             {LAYOUTS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </select>
         </FormGroup>
         <Button variant="primary" onClick={apply} isLoading={busy} isDisabled={busy}>{t("applyLayout")}</Button>
       </Form>
-      {current && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{t("currentKeymap")}: {current.keymap || "unknown"}</p>}
-      {notice && <Alert variant="success" title={t("layoutApplied")} isInline className="pf-v5-u-mt-md">{notice}</Alert>}
-      {error && <Alert variant="danger" title={t("layoutFailed")} isInline className="pf-v5-u-mt-md">{error}</Alert>}
-      <Alert variant="info" title={t("keyboardScope")} isInline className="pf-v5-u-mt-md">{t("keyboardScopeText")}</Alert>
+      {current && <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{t("currentKeymap")}: {current.keymap || "unknown"}</p>}
+      {notice && <Alert variant="success" title={t("layoutApplied")} isInline className="pf-v6-u-mt-md">{notice}</Alert>}
+      {error && <Alert variant="danger" title={t("layoutFailed")} isInline className="pf-v6-u-mt-md">{error}</Alert>}
+      <Alert variant="info" title={t("keyboardScope")} isInline className="pf-v6-u-mt-md">{t("keyboardScopeText")}</Alert>
     </CardBody>
   </Card>;
 }
