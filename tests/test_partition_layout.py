@@ -262,7 +262,7 @@ class ProportionalGPTLayoutTests(unittest.TestCase):
         with self.assertRaisesRegex(PartitionLayoutError, "smaller target"):
             plan_proportional_gpt_layout(
                 self.partitions, source_size_bytes=8_499_999_744,
-                target_size_bytes=8_500_000_000, sector_size=512,
+                target_size_bytes=8_499_999_744, sector_size=512,
                 partition_table_type="gpt",
                 minimum_sizes_bytes={"/dev/source1": 2_000_000 * 512, "/dev/source2": 1},
                 filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ext4"},
