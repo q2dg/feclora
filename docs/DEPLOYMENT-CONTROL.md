@@ -21,8 +21,9 @@ Server-authenticated TLS HELLO/JOB/READY exchange and independently approves
 its local disk and receive interface. Server refuses to arm unless every
 selected Client is READY. UDPcast then sends the artifacts to all Clients.
 UDPcast itself does not encrypt or authenticate datagrams; use a trusted,
-isolated multicast segment. Manifest signatures and SHA-256 are checked before
-disk writes. Enable age encryption when artifact confidentiality is required.
+isolated multicast segment. The manifest schema, artifact byte counts and
+SHA-256 digests are checked before disk writes. Enable age encryption when
+artifact confidentiality is required.
 
 ## Remote disk clone
 
