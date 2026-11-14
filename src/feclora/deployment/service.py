@@ -493,7 +493,14 @@ class DeploymentService:
     def _run_job(self) -> None:
         self._last_error = None
         try:
-            if self.job.operation == "clone":
+            if self.job.operation == "clone" and self.job.transport == "multicast":
+                udpcast = udpcast_config_for_job(
+                    self.job, min_receivers=len(self.job.authorized_clients),
+                )
+                self.control.run_physical_multicast_clone_job(
+                    udpcast_config=udpcast,
+                )
+            elif self.job.operation == "clone":
                 self.control.run_remote_clone_job(
                     operation_log_path="/var/lib/feclora/operations.jsonl",
                 )
