@@ -318,7 +318,7 @@ Disk restore also presents a read-only layout preview after selecting a whole-di
 
 Cockpit image inventory provides an on-demand read-only verification report for every artifact. It verifies stored artifact SHA-256 and size, age authentication when the artifact is age-encrypted, compression integrity and decoded whole-disk size. Images are reported as verified only when every stored digest and decoded artifact check succeeds.
 
-Client certificates and Client certificate renewal are not used. Cockpit
+Cockpit
 reports the expiry of the locally configured Server TLS certificate and its
 deployment CA. This is read-only; Server certificate renewal remains available
 in the Server setup tab.
