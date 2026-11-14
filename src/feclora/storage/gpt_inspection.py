@@ -219,7 +219,7 @@ def inspect_gpt_source(
     except SourceSafetyError as exc:
         raise GPTInspectionError(f"source disk must be offline and unused: {exc}") from exc
     except Exception as exc:
-        raise GPTInspectionError(f"source safety check failed: {exc}") from exc
+        raise GPTInspectionError(f"source disk must be offline and unused; safety check failed: {exc}") from exc
 
     uid = effective_uid or os.geteuid
 
