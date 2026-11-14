@@ -250,44 +250,68 @@ Existing foundation: block inventory, read-only LVM reporting, Btrfs/Stratis inv
 Acceptance: inventory accurately identifies VG/LV, Btrfs snapshots and LUKS layers; capture plans state exactly what bytes and metadata are included; unsupported/degraded layouts fail closed before destructive work; successful restores verify the resulting topology and data.
 
 
-## P1 — GitHub Pages guides
-Publish task-oriented guides only when the exact workflow is implemented; mark future workflows as planned.
-1. [x] Local disk-to-disk clone ([published guide](GUIDE-LOCAL-DISK-CLONE.md)).
-2. [x] Remote disk-to-disk and partition-to-partition clone ([operational guide](REMOTE-DISK-CLONE.md)).
-3. [ ] Capture disk image to remote SSHFS repository.
-4. [ ] Restore image from SSHFS to one disk.
-5. [ ] Restore image to multiple remote clients.
-6. [ ] Restore multiple clients using PXE. Implemented: the active Server job publishes/revokes a non-secret iPXE handoff; Cockpit exports each job UUID and operational target selection to the Live handoff; the Live image mounts that medium read-only and automatically starts the PXE Client service for unattended boots. The first automatic path supports one Client per unicast whole-disk job, requires a WWN/serial binding, resolves exactly one local disk, and retains Server READY/ARM. Remaining: simultaneous multi-Client/multicast PXE, partition/LV targets, Server-side result reconciliation and BIOS/UEFI PXE VMs.
-PXE handoff, identity media and the current supported scope are documented in [docs/PXE-UNATTENDED.md](PXE-UNATTENDED.md).
+## P1 — Published operator guides
 
-7. [ ] Unattended multi-client PXE restore. The Server-authenticated single-Client path now consumes a job UUID and selected MAC, fetches the active job over Server-authenticated TLS, resolves one disk using the job's stable WWN/serial binding, runs local preflight, and waits for the explicit Server ARM gate. Boot parameters and job UUIDs alone never authorize writes. Partition restore, multicast unattended execution, and full operator result reconciliation remain pending.
-8. [ ] Initial Server setup and Client Server-trust configuration.
-9. [ ] Repository and credential administration.
-10. [ ] Storage-layer restore and fidelity: local LV restore and raw LUKS2 container-to-partition restore are implemented; deployment LV acceptance, operator execution of the LUKS2 loop-device and multi-Client multicast runbooks, opened-mapping/LUKS2-on-LV semantics, provisioning/rekeying, and Btrfs snapshot/multi-device support remain pending. No additional LUKS2 implementation work is planned until operator acceptance results identify a concrete defect.
-11. [ ] Interrupted-operation recovery.
+The public Jekyll site is published from `docs/` through GitHub Actions.
+The current entry points are:
 
-The [guide index](GUIDES.md) distinguishes available procedures from planned
-workflows. Do not publish an operational recipe for an unimplemented path.
-Every guide needs prerequisites, supported layouts, exact Cockpit steps, expected results, verification, failure recovery and data-loss warnings. Use version-matched screenshots or clearly labeled mockups, plus role/network diagrams; mockups are illustrative and not runtime acceptance evidence.
+- [Getting started](GETTING-STARTED.md): prepare the Live session, configure a repository, capture and restore a disk, and continue to network workflows.
+- [Operator guide index](GUIDES.md): task-oriented index with current capability status.
+- [Whole-disk capture](WHOLE-DISK-CAPTURE.md) and [whole-disk restore](WHOLE-DISK-RESTORE.md).
+- [Partition capture](PARTITION-CAPTURE.md) and [partition restore](PARTITION-RESTORE.md).
+- [Local disk clone](GUIDE-LOCAL-DISK-CLONE.md) and [remote disk/partition clone](REMOTE-DISK-CLONE.md).
+- [Server/Client setup](DEPLOYMENT-SETUP.md), [remote repositories](REMOTE-REPOSITORIES.md), and [unattended PXE](PXE-UNATTENDED.md).
+- [Feature matrix](FEATURE-MATRIX.md), [build procedure](BUILD.md), and [operational lifecycle](OPERATIONS.md).
 
-## Operator acceptance guides
+Three SVG UI mockups are published for capture, restore and Server/Client
+deployment. Each is visibly labelled as illustrative and is not runtime
+evidence. Real screenshots must be captured from a version-matched build and
+must not expose secrets or host-identifying data.
 
-- [x] Publish step-by-step operator procedures for physical two-machine clone, multi-Client unicast/multicast restore, SSHFS/NFS/SMB/ repository checks, interruption/restart recovery and repository lease protection ([ACCEPTANCE-TESTS.md](ACCEPTANCE-TESTS.md)).
-- [ ] Optional operator acceptance: hardware, network and real remote-service runs may be recorded by maintainers, but are not required for software-backlog completion and are not to be simulated or claimed from CI.
+A guide is considered operational only when the corresponding path exists in
+source and Cockpit, its prerequisites and limits are accurate, destructive
+steps and failure behavior are explicit, and the guide includes verification.
+Do not publish a recipe for an unimplemented workflow.
+
+## Maintainer-owned release acceptance
+
+The repository maintainer owns the hands-on acceptance record in
+[MAINTAINER-ACCEPTANCE.md](MAINTAINER-ACCEPTANCE.md). It includes ISO build,
+BIOS/UEFI boot, Cockpit/kiosk behavior, disposable-disk restore, real
+SSHFS/NFS/SMB/S3 providers, multi-Client unicast/multicast and isolated-network
+interactive/unattended PXE. Real screenshots may be added after these runs.
+
+These checks are not software-development tasks for this implementation
+backlog and do not prevent continued source-level engineering. They remain
+required evidence before describing a release as accepted. A mockup, unit test
+or successful CI run must never be substituted for the maintainer's real
+acceptance result.
 
 ## P1 — Governance and release engineering
-- [x] Maintainer selected and published GNU GPL v3.0 or later (`GPL-3.0-or-later`) in the repository root LICENSE file.
-- [ ] Add reproducible frontend lockfile and deterministic CI installation.
-- [ ] Reconcile README, Cockpit README, roadmap, feature matrix and operator docs.
-- [ ] Add dependency/security scanning and secret-leak checks.
-- [ ] Define Fedora baseline and dependency/version policy.
-- [ ] Document configuration backup (excluding PKI private keys), upgrades, rollback and disaster recovery.
-- [ ] Document release checksums/signatures and provenance.
 
-## ISO build and acceptance policy
-Actually building the ISO is NOT a required completion gate. The documented build procedure is sufficient documentation of how an operator can produce it. Do not spend implementation time generating or publishing an ISO unless the maintainer explicitly requests it. Physical hardware, external network and live-service acceptance are also explicitly outside the requested software scope.
+- [x] Publish GNU GPL v3.0 or later (`GPL-3.0-or-later`) in the repository root.
+- [x] Pin frontend direct dependencies to exact versions and enforce the policy in CI.
+- [x] Run npm dependency audit, Dependabot and CodeQL for Python and JavaScript/TypeScript.
+- [ ] Commit `webui/package-lock.json` and verify clean-checkout `npm ci`; transitive frontend resolution is not yet reproducible.
+- [ ] Complete and review the 14 advertised UI locales; translation coverage is still incomplete.
+- [x] Document backup, upgrade, rollback, ephemeral-session boundaries and release evidence in [OPERATIONS.md](OPERATIONS.md).
+- [ ] Define and implement a release-artifact signing/provenance process if signed releases are required. Image manifests currently use SHA-256 integrity metadata but are not digitally signed.
+- [ ] Continue reconciling user-facing docs with the feature matrix and source; remove obsolete duplicates rather than retaining competing descriptions.
 
-This does not waive software-level checks: Python tests, static checks, frontend dependency installation/build, CI, shell-script validation and documentation/link checks remain project responsibilities. Keep build instructions/scripts maintained. Actual ISO builds, BIOS/UEFI boot, destructive physical-disk tests, target-network PXE boot, switch/IGMP tests and live external repository checks are optional operator activities, not prerequisites for completing the software backlog.
+## ISO build and release-acceptance policy
+
+Keep the ISO build scripts and [build procedure](BUILD.md) accurate and
+reproducible. ISO generation, BIOS/UEFI boot, destructive restore on disposable
+media, physical hardware, live external repositories, multi-host networking
+and PXE acceptance are performed and recorded by the repository maintainer.
+They are not tasks to be simulated by CI or represented as completed by
+source-level tests.
+
+A release must not be called accepted until the maintainer records the required
+checks in [MAINTAINER-ACCEPTANCE.md](MAINTAINER-ACCEPTANCE.md). This ownership
+boundary does not waive software-level responsibilities: Python tests, static
+checks, frontend audit/build, ShellCheck, CodeQL and documentation builds remain
+part of engineering CI.
 
 ## Definition of done
 - Implementation and Cockpit integration are present where applicable.
