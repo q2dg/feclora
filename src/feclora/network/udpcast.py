@@ -457,3 +457,113 @@ def discard_staged_multicast_artifact(staged_path: str) -> None:
         return
     except OSError as exc:
         raise UDPcastError(f"Could not remove staged multicast artifact: {exc}") from exc
+
+
+def send_physical_multicast_stream(
+    source_stream: Any,
+    expected_bytes: int,
+    config: UDPcastConfig,
+    *,
+    udp_sender: str | None = None,
+    runner_popen: Callable[..., Any] = subprocess.Popen,
+    cancel_check: Callable[[], bool] | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
+    firewall: Any,
+) -> dict[str, Any]:
+    """Multicast an exact physical-device byte stream through a pipe, never a file."""
+    executable = udp_sender or shutil.which("udp-sender")
+    if not executable:
+        raise UDPcastError("udp-sender is required for physical multicast")
+    if isinstance(expected_bytes, bool) or not isinstance(expected_bytes, int) or expected_bytes <= 0:
+        raise UDPcastError("physical multicast source size must be a positive integer")
+    with multicast_firewall_scope(firewall, config.interface, config.portbase):
+        try:
+            with tempfile.TemporaryFile(mode="w+b") as log:
+                process = runner_popen(
+                    build_physical_stream_sender_argv(executable, config),
+                    stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                    stderr=log, close_fds=True,
+                )
+                if process.stdin is None:
+                    raise UDPcastError("udp-sender did not expose its physical stream input pipe")
+                result = feed_physical_stream_to_sender(
+                    source_stream, process.stdin, expected_bytes,
+                    cancel_check=cancel_check, progress_callback=progress_callback,
+                )
+                try:
+                    return_code = process.wait(timeout=config.max_wait_seconds + 86400)
+                except subprocess.TimeoutExpired as exc:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                    raise UDPcastError("physical multicast sender timed out") from exc
+                if return_code != 0:
+                    log.seek(0)
+                    detail = log.read(4096).decode("utf-8", errors="replace").strip()
+                    raise UDPcastError("udp-sender failed" + (f": {detail}" if detail else ""))
+                return result
+        except UDPcastError:
+            raise
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise UDPcastError(f"physical multicast sender failed: {exc}") from exc
+
+
+def receive_physical_multicast_stream(
+    write: Callable[[memoryview], int],
+    flush: Callable[[], None],
+    readback: Callable[[int], bytes],
+    *,
+    expected_bytes: int,
+    expected_sha256: str,
+    config: UDPcastConfig,
+    udp_receiver: str | None = None,
+    runner_popen: Callable[..., Any] = subprocess.Popen,
+    cancel_check: Callable[[], bool] | None = None,
+    firewall: Any,
+) -> dict[str, Any]:
+    """Receive UDPcast bytes directly into an approved block-device writer and verify read-back."""
+    executable = udp_receiver or shutil.which("udp-receiver")
+    if not executable:
+        raise UDPcastError("udp-receiver is required for physical multicast")
+    if isinstance(expected_bytes, bool) or not isinstance(expected_bytes, int) or expected_bytes <= 0:
+        raise UDPcastError("physical multicast destination size must be a positive integer")
+    with multicast_firewall_scope(firewall, config.interface, config.portbase):
+        try:
+            with tempfile.TemporaryFile(mode="w+b") as log:
+                process = runner_popen(
+                    build_physical_stream_receiver_argv(executable, config),
+                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                    stderr=log, close_fds=True,
+                )
+                if process.stdout is None:
+                    raise UDPcastError("udp-receiver did not expose its physical stream output pipe")
+                result = verify_received_physical_stream(
+                    process.stdout, write, flush, readback,
+                    expected_bytes=expected_bytes,
+                    expected_sha256=expected_sha256,
+                )
+                extra = process.stdout.read(1)
+                if extra:
+                    raise UDPcastError("physical multicast receiver supplied bytes beyond the approved device capacity")
+                try:
+                    return_code = process.wait(timeout=config.max_wait_seconds + 86400)
+                except subprocess.TimeoutExpired as exc:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                    raise UDPcastError("physical multicast receiver timed out") from exc
+                if return_code != 0:
+                    log.seek(0)
+                    detail = log.read(4096).decode("utf-8", errors="replace").strip()
+                    raise UDPcastError("udp-receiver failed" + (f": {detail}" if detail else ""))
+                return result
+        except UDPcastError:
+            raise
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise UDPcastError(f"physical multicast receiver failed: {exc}") from exc
