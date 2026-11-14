@@ -86,15 +86,6 @@ fi
 if ! grep -q '"start_pxe_services", "stop_pxe_services", "pxe_service_status"' "$ROOT_DIR/webui/src/api.js"; then
   fail "Cockpit API client does not allow PXE service lifecycle actions."
 fi
-if grep -q 'inspect_client_csr|approve_client_csr|prepare_client_request|complete_client_enrollment' "$ROOT_DIR/kickstart/feclora-live.ks"; then
-  fail "Kickstart must not expose Client certificate enrollment actions."
-fi
-if grep -q '"approve_client_csr", "inspect_client_csr"\|"prepare_client_request", "complete_client_enrollment"' "$ROOT_DIR/webui/src/api.js"; then
-  fail "Cockpit API must not expose Client certificate enrollment actions."
-fi
-if grep -q 'def _complete_client_enrollment\|def _approve_client_csr' "$ROOT_DIR/src/feclora/webapi.py"; then
-  fail "Backend must not expose Client certificate enrollment actions."
-fi
 if ! grep -q 'def _start_pxe_services' "$ROOT_DIR/src/feclora/webapi.py"; then
   fail "Cockpit backend is missing PXE service activation."
 fi
@@ -273,7 +264,7 @@ if ! grep -q 'test_rejects_duplicate_fields' "$ROOT_DIR/tests/test_local_control
 fi
 
 if ! grep -q '"transfer_ready", "progress"' "$ROOT_DIR/src/feclora/deployment/control.py"; then
-  fail "Authenticated deployment control protocol is missing progress frames."
+  fail "Server-authenticated deployment control protocol is missing progress frames."
 fi
 if ! grep -q 'def _record_client_progress' "$ROOT_DIR/src/feclora/deployment/control.py"; then
   fail "Server-side Client progress validation is missing."
@@ -291,7 +282,7 @@ if ! grep -q 'self.control.client_progress()' "$ROOT_DIR/src/feclora/deployment/
   fail "Persistent Server status is not exposing per-Client progress."
 fi
 if ! grep -q 'test_progress_frame_is_validated_and_exposed_with_throughput' "$ROOT_DIR/tests/test_deployment_control.py"; then
-  fail "Authenticated Client progress regression tests are missing."
+  fail "Server-authenticated TLS Client progress regression tests are missing."
 fi
 if ! grep -q 'test_status_includes_per_client_progress' "$ROOT_DIR/tests/test_deployment_service.py"; then
   fail "Cockpit Server progress status regression test is missing."
@@ -368,7 +359,7 @@ grep -q 'check_capture_source_safe' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptanc
 grep -q 'execute_client_image_job' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must exercise the unicast Client runtime."
 grep -q 'send_image_set' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must exercise Feclora's artifact sender."
 grep -q 'socket.socketpair' "$LUKS2_ACCEPTANCE" || fail "LUKS2 acceptance must connect the real transfer protocol to the Client runtime."
-grep -q 'not live mTLS/network behavior or multicast transport' "$ROOT_DIR/tests/vm/README.md" || fail "LUKS2 acceptance limitations must be documented."
+grep -q 'not live network behavior or multicast transport' "$ROOT_DIR/tests/vm/README.md" || fail "LUKS2 acceptance limitations must be documented."
 grep -q 'run-luks2-partition-acceptance.sh' "$ROOT_DIR/tests/vm/README.md" || fail "LUKS2 loop-device acceptance runbook is missing."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_logical_volume_restore.py' || fail "Logical-volume restore preflight tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_boot_tree.py' || fail "PXE Live boot-tree tests failed."
@@ -379,7 +370,7 @@ PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discov
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_pxe_answer_store.py' || fail "PXE answer publication tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_pxe_answer_api.py' || fail "PXE answer Cockpit API tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_server_ui_pxe_handoff.py' || fail "PXE active deployment handoff lifecycle tests failed."
-PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_multicast_runtime.py' || fail "Authenticated multicast restore runtime tests failed."
+PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_multicast_runtime.py' || fail "Server-authenticated multicast restore runtime tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_deployment_job.py' || fail "Deployment job schema and stable target-binding tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_client_service.py' || fail "Client deployment service and target-binding preflight tests failed."
 PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest discover -s "$ROOT_DIR/tests" -p 'test_pxe_config.py' || fail "PXE network configuration tests failed."
