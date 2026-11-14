@@ -5,6 +5,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 KS_FILE="${FECLORA_KS:-${ROOT_DIR}/kickstart/feclora-live.ks}"
 RESULT_DIR="${FECLORA_RESULT_DIR:-${ROOT_DIR}/out}"
 INSTALL_ISO="${FEDORA_INSTALL_ISO:-}"
+PXE_ANSWER_PUBLIC_KEY="${FECLORA_PXE_ANSWER_PUBLIC_KEY_FILE:-}"
 RELEASEVER="${FECLORA_RELEASEVER:-45}"
 
 usage() {
@@ -17,6 +18,7 @@ Environment:
   FECLORA_KS          Kickstart file (default: kickstart/feclora-live.ks).
   FECLORA_RESULT_DIR  Output directory (default: out/).
   FECLORA_RELEASEVER  Fedora release version (default: 45).
+  FECLORA_PXE_ANSWER_PUBLIC_KEY_FILE  Optional minisign public key embedded in the Live image for PXE answer verification.
 
 Run on a Fedora 45 x86_64 build host. Install lorax, lorax-lmc-virt,
 qemu-kvm and the other build dependencies first. The build requires root.
@@ -32,6 +34,11 @@ fi
 if [[ -z "${INSTALL_ISO}" || ! -f "${INSTALL_ISO}" ]]; then
   echo "FEDORA_INSTALL_ISO must point to an existing Fedora DVD ISO." >&2
   usage >&2
+  exit 2
+fi
+
+if [[ -n "${PXE_ANSWER_PUBLIC_KEY}" && ! -f "${PXE_ANSWER_PUBLIC_KEY}" ]]; then
+  echo "FECLORA_PXE_ANSWER_PUBLIC_KEY_FILE does not point to a regular file." >&2
   exit 2
 fi
 
@@ -71,9 +78,12 @@ RESULT_DIR="$(cd -- "${RESULT_DIR}" && pwd)"
 APP_STAGE="${RESULT_DIR}/feclora-app"
 AUGMENTED_ISO="${RESULT_DIR}/feclora-installer.iso"
 rm -rf "${APP_STAGE}"
-mkdir -p "${APP_STAGE}/src" "${APP_STAGE}/webui/dist"
+mkdir -p "${APP_STAGE}/src" "${APP_STAGE}/webui/dist" "${APP_STAGE}/config"
 cp -a "${ROOT_DIR}/src/feclora" "${APP_STAGE}/src/feclora"
 cp -a "${ROOT_DIR}/webui/dist/." "${APP_STAGE}/webui/dist/"
+if [[ -n "${PXE_ANSWER_PUBLIC_KEY}" ]]; then
+  install -m 0644 "${PXE_ANSWER_PUBLIC_KEY}" "${APP_STAGE}/config/pxe-answer.pub"
+fi
 
 # mkksiso positional arguments are: Kickstart, input ISO, output ISO.
 mkksiso --add "${APP_STAGE}" "${KS_FILE}" "${INSTALL_ISO}" "${AUGMENTED_ISO}"
