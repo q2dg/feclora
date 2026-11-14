@@ -698,7 +698,7 @@ def _restore(inventory: dict[str, Any]) -> None:
             return
 
     security = _restore_security_options(manifest, filename)
-    if security is None:
+    if security is False:
         return
     age_identity = security
     phrase = f"ERASE {target['path']}"
