@@ -1,7 +1,8 @@
 # Server certificate and trust setup
 
-Feclora uses TLS to let each Client verify the Server. Client certificates and
-mutual TLS are not used. The Server does not authenticate individual Clients;
+Feclora uses TLS to let each Client verify the Server. The current control protocol does not request or validate Client certificates,
+and mutual TLS is not used. Client CSR/issuance and certificate-inspection
+helpers are not integrated into this protocol. The Server does not authenticate individual Clients;
 deployment jobs select Clients by MAC address.
 
 ## Security model
@@ -46,7 +47,7 @@ Clients have no certificates.
 
 ## Explicit non-goals
 
-- No Client certificate enrollment, renewal or revocation.
+- No integrated Client certificate enrollment, renewal or revocation workflow in the active deployment protocol.
 - No mutual TLS, per-Client token or individual Client authentication.
 - No trust-on-first-network-contact.
 - No export or transfer of the CA or Server private key.
