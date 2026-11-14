@@ -143,6 +143,7 @@ def shrink_staged_ntfs_filesystem(
 
     loop_device: str | None = None
     primary_error: BaseException | None = None
+    resize_needed = False
     try:
         attached = invoke("losetup", [
             "--find", "--show", "--offset", str(offset),
@@ -213,22 +214,26 @@ def shrink_staged_ntfs_filesystem(
         current_bytes = _reported_bytes(before_output, "Current volume size")
         if minimum_bytes > current_bytes:
             raise StagedNTFSShrinkError("ntfsresize minimum exceeds the reported current volume size")
-        if target_filesystem_size_bytes >= current_bytes:
-            raise StagedNTFSShrinkError("NTFS target must be smaller than the current filesystem")
+        if minimum_bytes > current_bytes:
+            raise StagedNTFSShrinkError("ntfsresize minimum exceeds the reported current volume size")
         if target_filesystem_size_bytes < minimum_bytes:
             raise StagedNTFSShrinkError("NTFS target is below the staged filesystem minimum")
+        resize_needed = target_filesystem_size_bytes < current_bytes
+        if not resize_needed and current_bytes > target_partition_size_bytes:
+            raise StagedNTFSShrinkError("existing NTFS filesystem exceeds the planned partition capacity")
 
-        invoke("ntfsresize", [
-            "--size", str(target_filesystem_size_bytes), loop_device,
-        ], command_timeout=timeout)
+        if resize_needed:
+            invoke("ntfsresize", [
+                "--size", str(target_filesystem_size_bytes), loop_device,
+            ], command_timeout=timeout)
 
-        after = invoke("ntfsresize", ["--info", loop_device])
-        after_output = (after.stdout or "") + "\n" + (after.stderr or "")
-        verified_current = _reported_bytes(after_output, "Current volume size")
-        verified_minimum = _reported_bytes(after_output, "You might resize at")
-        if (verified_current > target_filesystem_size_bytes
-                or verified_current <= 0 or verified_minimum > verified_current):
-            raise StagedNTFSShrinkError("NTFS filesystem size failed post-shrink read-back")
+            after = invoke("ntfsresize", ["--info", loop_device])
+            after_output = (after.stdout or "") + "\n" + (after.stderr or "")
+            verified_current = _reported_bytes(after_output, "Current volume size")
+            verified_minimum = _reported_bytes(after_output, "You might resize at")
+            if (verified_current > target_filesystem_size_bytes
+                    or verified_current <= 0 or verified_minimum > verified_current):
+                raise StagedNTFSShrinkError("NTFS filesystem size failed post-shrink read-back")
     except BaseException as exc:
         primary_error = exc
         raise
@@ -250,6 +255,6 @@ def shrink_staged_ntfs_filesystem(
         output_digest = _digest_file(staged.path)
     except OSError as exc:
         raise StagedNTFSShrinkError(f"cannot hash staged RAW after NTFS shrink: {exc}") from exc
-    if output_digest == staged.sha256:
+    if resize_needed and output_digest == staged.sha256:
         raise StagedNTFSShrinkError("NTFS shrink reported success but staged RAW bytes did not change")
     return StagedRawDiskImage(staged.path, staged.size_bytes, output_digest)
