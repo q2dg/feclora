@@ -155,13 +155,14 @@ def restore_staged_proportional_image(
         write_stderr = tempfile.TemporaryFile(mode="w+b")
         try:
             command = privileged_argv(
-                [dd, f"if=/proc/self/fd/{image_fd}", f"of={target_path}",
-                 "bs=4M", "conv=fsync", "status=none"],
+                [dd, f"of={target_path}", "bs=4M", "conv=fsync", "status=none"],
                 effective_uid=effective_uid,
             )
+            # Feed the already-open locked staging inode through standard input.
+            # sudo preserves stdin, unlike arbitrary inherited descriptors.
             write_process = factory(
-                command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                stderr=write_stderr, close_fds=True, pass_fds=(image_fd,),
+                command, stdin=image_fd, stdout=subprocess.DEVNULL,
+                stderr=write_stderr, close_fds=True,
             )
         except (OSError, PrivilegeError) as exc:
             raise StagedProportionalRestoreError(f"could not start destination write: {exc}") from exc
