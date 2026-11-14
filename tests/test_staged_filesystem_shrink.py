@@ -23,6 +23,7 @@ class StagedExtFilesystemShrinkTests(unittest.TestCase):
         self.initial_digest = self.digest()
         self.commands = []
         self.block_count = 2000
+        self.minimum_blocks = 900
         self.mapping_valid = True
 
     def tearDown(self):
@@ -53,7 +54,7 @@ class StagedExtFilesystemShrinkTests(unittest.TestCase):
             return SimpleNamespace(stdout=f"Block size: 4096\nBlock count: {self.block_count}\n", stderr="")
         if args[0].endswith("resize2fs") and "-P" in args:
             return SimpleNamespace(
-                stdout="Estimated minimum size of the filesystem: 900\n", stderr=""
+                stdout=f"Estimated minimum size of the filesystem: {self.minimum_blocks}\n", stderr=""
             )
         if args[0].endswith("resize2fs"):
             self.block_count = int(args[-1])
@@ -122,6 +123,16 @@ class StagedExtFilesystemShrinkTests(unittest.TestCase):
         with self.assertRaisesRegex(StagedFilesystemShrinkError, "digest mismatch"):
             self.shrink()
         self.assertEqual(self.commands, [])
+
+    def test_rejects_target_below_staged_minimum_before_resize(self):
+        self.minimum_blocks = 1001
+        with self.assertRaisesRegex(StagedFilesystemShrinkError, "below the staged filesystem minimum"):
+            self.shrink()
+        self.assertFalse(any(
+            command[0].endswith("resize2fs") and "-P" not in command
+            for command in self.commands
+        ))
+        self.assertIn(["/sbin/losetup", "--detach", "/dev/loop7"], self.commands)
 
     def test_rejects_filesystem_target_larger_than_planned_partition(self):
         staged = StagedRawDiskImage(self.path, os.path.getsize(self.path), self.initial_digest)
