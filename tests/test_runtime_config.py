@@ -26,37 +26,26 @@ class RuntimeConfigTests(unittest.TestCase):
             "schema_version": 1, "bind_address": "192.0.2.2", "port": 9443,
             "local_identity": "URI:feclora-server", "ca_file": "/pki/ca.crt",
             "certificate_file": "/pki/server.crt", "private_key_file": "/pki/server.key",
-            "client_identity_to_mac": {"URI:feclora-client-01": "52:54:00:12:34:56"},
             "repository": "/repo",
         }
 
     def client_config(self):
         return {
             "schema_version": 1, "host": "192.0.2.2", "port": 9443,
-            "local_identity": "URI:feclora-client-01", "server_identity": "URI:feclora-server",
+            "server_identity": "URI:feclora-server",
             "mac_address": "52:54:00:12:34:56", "ca_file": "/pki/ca.crt",
-            "certificate_file": "/pki/client.crt", "private_key_file": "/pki/client.key",
             "age_identity_file": None, "age_recipients_file": None, "repository": "/repo",
         }
 
-    def test_loads_server_enrollment_mapping(self):
+    def test_loads_server_configuration_without_client_enrollment_state(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self.write_config(directory, self.server_config())
             with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
                 config = load_server_runtime_config(path)
         self.assertEqual(config.bind_address, "192.0.2.2")
-        self.assertEqual(config.client_identity_to_mac["URI:feclora-client-01"], "52:54:00:12:34:56")
+        self.assertEqual(config.local_identity, "URI:feclora-server")
 
-    def test_server_config_allows_empty_allowlist_after_revoking_all_clients(self):
-        payload = self.server_config()
-        payload["client_identity_to_mac"] = {}
-        with tempfile.TemporaryDirectory() as directory:
-            path = self.write_config(directory, payload)
-            with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
-                config = load_server_runtime_config(path)
-        self.assertEqual(dict(config.client_identity_to_mac), {})
-
-    def test_loads_client_tls_and_optional_age_config(self):
+    def test_loads_client_server_trust_and_optional_age_config(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self.write_config(directory, self.client_config())
             with patch("feclora.deployment.runtime_config.os.lstat", side_effect=fake_lstat):
