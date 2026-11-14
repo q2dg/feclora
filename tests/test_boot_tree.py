@@ -5,6 +5,7 @@ from pathlib import Path
 from feclora.network.boot_tree import (
     LiveBootAssetError,
     render_ipxe_script,
+    render_unattended_answer_ipxe_script,
     stage_live_boot_assets,
 )
 
@@ -18,6 +19,16 @@ class LiveBootTreeTests(unittest.TestCase):
         self.assertIn("item unattended", script)
         self.assertIn("rd.neednet=1", script)
         self.assertIn("initrd ${live_base}/initrd.img", script)
+
+    def test_unattended_handoff_passes_job_and_admitted_mac_to_live(self):
+        job_id = "123e4567-e89b-12d3-a456-426614174000"
+        answer_url = f"http://192.0.2.10:8080/answers/{job_id}/answer.json"
+        script = render_unattended_answer_ipxe_script(
+            "192.0.2.10", job_id, answer_url, 8080,
+        )
+        self.assertIn(f"feclora.pxe_job_id={job_id}", script)
+        self.assertIn("feclora.pxe_client_mac=${net0/mac}", script)
+        self.assertIn(f"feclora.pxe_answer_url={answer_url}", script)
 
     def test_stages_kernel_initramfs_squashfs_and_script_read_only(self):
         with tempfile.TemporaryDirectory() as tmp:
