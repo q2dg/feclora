@@ -162,6 +162,32 @@ def build_physical_device_record(
     return _device_record(record, "Selected")
 
 
+def assert_distinct_physical_devices(
+    left: Mapping[str, Any],
+    right: Mapping[str, Any],
+    *,
+    left_role: str,
+    right_role: str,
+) -> None:
+    """Compare cross-host hardware identity; paths and dev_t are host-local."""
+    first = _device_record(left, left_role)
+    second = _device_record(right, right_role)
+    comparable = []
+    if first.get("wwn") and second.get("wwn"):
+        comparable.append(("WWN", first["wwn"], second["wwn"]))
+    if first.get("serial") and second.get("serial"):
+        comparable.append(("serial", first["serial"], second["serial"]))
+    if not comparable:
+        raise PhysicalMulticastError(
+            f"cannot establish distinct hardware identity between {left_role} and {right_role}: no common WWN or serial field"
+        )
+    for label, first_value, second_value in comparable:
+        if first_value.casefold() == second_value.casefold():
+            raise PhysicalMulticastError(
+                f"{left_role} and {right_role} share the same {label} hardware identity"
+            )
+
+
 def validate_physical_multicast_pair(
     source: Mapping[str, Any],
     destination: Mapping[str, Any],
@@ -169,16 +195,11 @@ def validate_physical_multicast_pair(
     """Validate independently inventoried Server source and Client destination."""
     src = _device_record(source, "Server source")
     dst = _device_record(destination, "Client destination")
-    if src["path"] == dst["path"]:
-        raise PhysicalMulticastError("source and destination use the same device path")
-    if src["major_minor"] == dst["major_minor"]:
-        raise PhysicalMulticastError("source and destination resolve to the same major/minor device")
-    if src["sysfs_path"] == dst["sysfs_path"]:
-        raise PhysicalMulticastError("source and destination resolve to the same sysfs device")
-    if src.get("wwn") and dst.get("wwn") and src["wwn"].casefold() == dst["wwn"].casefold():
-        raise PhysicalMulticastError("source and destination share the same WWN hardware identity")
-    if src.get("serial") and dst.get("serial") and src["serial"].casefold() == dst["serial"].casefold():
-        raise PhysicalMulticastError("source and destination share the same hardware serial identity")
+    # /dev paths, major/minor numbers and sysfs paths are local to each host;
+    # only globally stable hardware identifiers can prove a cross-host alias.
+    assert_distinct_physical_devices(
+        src, dst, left_role="Server source", right_role="Client destination",
+    )
     if src["read_only"] is not True:
         raise PhysicalMulticastError("Server source must be hardware/kernel read-only")
     if dst["read_only"] is not False:
@@ -421,4 +442,11 @@ def validate_physical_multicast_cohort(
             source_current, current,
         )
         validated.append((mac, destination))
+    for index, (first_mac, first_destination) in enumerate(validated):
+        for second_mac, second_destination in validated[index + 1:]:
+            assert_distinct_physical_devices(
+                first_destination, second_destination,
+                left_role=f"Client {first_mac} destination",
+                right_role=f"Client {second_mac} destination",
+            )
     return tuple(validated)
