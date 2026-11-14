@@ -36,6 +36,7 @@ def prepare_from_offline_source_disk(
     device_validator: Callable[[str], bool] | None = None,
     safety_check: Callable[[str], None] | None = None,
     effective_uid: Callable[[], int] | None = None,
+    plan_callback: Callable[[tuple[object, ...]], None] | None = None,
 ) -> StagedRawDiskImage:
     """Probe the selected offline source read-only, then shrink only its private copy.
 
@@ -151,6 +152,8 @@ def prepare_from_offline_source_disk(
             source_first_usable_lba=int(gpt["first_usable_lba"]),
             source_last_usable_lba=int(gpt["last_usable_lba"]),
         )
+        if plan_callback is not None:
+            plan_callback(tuple(plans))
         return prepare_proportional_staged_image(
             staged,
             target_size_bytes=target_size_bytes,
