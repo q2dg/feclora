@@ -64,10 +64,20 @@ class PXEAdmissionTests(unittest.TestCase):
             }
             self.assertTrue(admission.record_report(job_id, mac, event))
             self.assertFalse(admission.record_report(job_id, mac, event))
+            # Revoking the answer prevents new boots but must not discard the
+            # terminal status of a restore that already reported its start.
+            answer.parent.chmod(0o700)
+            answer.unlink()
+            progress = {
+                **event, "event_id": str(uuid.uuid4()), "status": "progress",
+                "bytes_done": 100, "bytes_total": 100,
+            }
+            self.assertTrue(admission.record_report(job_id, mac, progress))
             rows = [__import__("json").loads(line) for line in report_path.read_text().splitlines()]
-            self.assertEqual(len(rows), 1)
+            self.assertEqual(len(rows), 2)
             self.assertEqual(rows[0]["client_mac"], mac)
             self.assertEqual(rows[0]["job_id"], job_id)
+            self.assertEqual(rows[1]["status"], "progress")
 
     def test_state_survives_admission_process_restart(self):
         with tempfile.TemporaryDirectory() as tmp:
