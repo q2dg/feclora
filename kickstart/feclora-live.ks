@@ -68,6 +68,7 @@ fuse-sshfs
 nfs-utils
 cifs-utils
 age
+minisign
 partclone
 zstd
 lz4
