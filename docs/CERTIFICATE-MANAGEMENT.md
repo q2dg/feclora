@@ -6,6 +6,10 @@ deployment jobs select Clients by MAC address.
 
 ## Security model
 
+The manifest stores artifact byte counts and SHA-256 digests. Repository access
+controls and authenticated transport provide the trust boundary; a digest
+alone does not authenticate the publisher.
+
 Feclora does not sign image manifests or use detached signature sidecars.
 Artifact integrity is checked with the byte count and SHA-256 digest recorded
 in the manifest; authenticity relies on the protected local repository and
@@ -47,4 +51,4 @@ Clients have no certificates.
 - No trust-on-first-network-contact.
 - No export or transfer of the CA or Server private key.
 - No OCSP/CRL requirement or public Internet dependency.
-- No conflation of TLS keys with optional image-signing or encryption keys.
+- TLS keys are separate from optional age-encryption identities.
