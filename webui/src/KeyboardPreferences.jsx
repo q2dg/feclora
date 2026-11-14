@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Alert, Button, Card, CardBody, CardTitle, Form, FormGroup } from "@patternfly/react-core";
 import { callFeclora } from "./api.js";
-import { useLanguagePreference } from "./i18n.js";
+import { translate } from "./i18n.js";
 
 const LAYOUTS = [
   ["us", "English (US)"], ["us-intl", "English (US, international dead keys)"],
@@ -12,8 +12,8 @@ const LAYOUTS = [
   ["zh", "中文 (US físico)"]
 ];
 
-export default function KeyboardPreferences() {
-  const { t } = useLanguagePreference();
+export default function KeyboardPreferences({ language = "en" }) {
+  const t = (key) => translate(language, key);
   const [layout, setLayout] = useState("us");
   const [current, setCurrent] = useState(null);
   const [busy, setBusy] = useState(false);
