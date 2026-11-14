@@ -308,6 +308,31 @@ class ClientProgressTests(unittest.TestCase):
 
 
 class TransferFailureTests(unittest.TestCase):
+    def test_physical_clone_start_carries_server_digest_metadata(self):
+        mac2 = "52:54:00:12:34:57"
+        job = make_job(
+            operation="clone", image_id=None, source_device="/dev/sda",
+            transport="multicast", multicast_group="239.10.10.10",
+            multicast_port=5000, authorized_clients=[MAC, mac2],
+        )
+        coordinator = DeploymentCoordinator(job)
+        for mac in (MAC, mac2):
+            coordinator.register_client(mac)
+            coordinator.mark_ready(mac)
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server._lock = threading.RLock()
+        server._sessions = {MAC: FakeSocket(), mac2: FakeSocket()}
+        messages = []
+        metadata = {"expected_bytes": 8192, "sha256": "a" * 64}
+        with patch("feclora.deployment.control.send_control_message",
+                   side_effect=lambda sock, payload: messages.append(dict(payload))):
+            self.assertEqual(set(server.arm_and_start(physical_stream=metadata)), {MAC, mac2})
+        starts = [item for item in messages if item.get("type") == "start"]
+        self.assertEqual(len(starts), 2)
+        self.assertTrue(all(item["physical_stream"] == metadata for item in starts))
+
+
     def test_restore_transfer_timeout_is_reported_failed_and_closes_session(self):
         coordinator = DeploymentCoordinator(make_job())
         coordinator.register_client(MAC)
