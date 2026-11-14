@@ -1165,7 +1165,7 @@ export default function App() {
               </StackItem>
               <StackItem>
                 <Card><CardBody><form onSubmit={createRemoteJob}>
-                  <Field t={t} label={t("Operation")}>
+                  <Field t={t} label={t("operation")}>
                     <select className="pf-v5-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); if (e.target.value === "save" || e.target.value === "clone") { setRemoteTransport("unicast"); setRemoteTargetType("disk"); } }}>
                       <option value="restore">Restore a Server image to Clients</option>
                       <option value="save">{t("Capture whole disks from Clients to Server")}</option>
@@ -1622,7 +1622,7 @@ export default function App() {
           <Tab eventKey="system" title={t("system")}>
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("systemStatus")}</Title></StackItem>
               <StackItem><KeyboardPreferences language={language} /></StackItem>
-              <StackItem><Table aria-label={t("Feclora services")} variant="compact"><Thead><Tr><Th>{t("Component")}</Th><Th>{t("status")}</Th></Tr></Thead><Tbody>
+              <StackItem><Table aria-label={t("Feclora services")} variant="compact"><Thead><Tr><Th>{t("component")}</Th><Th>{t("status")}</Th></Tr></Thead><Tbody>
                 {Object.entries(status?.services || {}).map(([name, value]) => <Tr key={name}><Td>{name}</Td><Td>{value}</Td></Tr>)}
                 <Tr><Td>{t("Server deployment configuration")}</Td><Td>{status?.server_configured ? "Configured" : "Not configured"}</Td></Tr>
                 <Tr><Td>{t("Client deployment configuration")}</Td><Td>{status?.client_configured ? "Configured" : "Not configured"}</Td></Tr>
