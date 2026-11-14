@@ -63,11 +63,10 @@ For a multi-Client restore, the Cockpit job form can select either the local
 Server image repository or a mounted, verified SSHFS/NFS/SMB repository. The
 job journal stores only the managed repository ID, not a path. The Server
 resolves that ID again when the persistent deployment service starts, validates
-the manifest and verifies any detached signature against an independently
-trusted key, then streams from that mount to each selected READY Client
-(unicast) or to the complete READY receiver set (UDPcast multicast). Unsigned
-images are transferred over the Server-authenticated TLS control session and each
-artifact is checked against the manifest's exact size and SHA-256.
+the manifest and each artifact's exact size and SHA-256 digest, then streams
+from that mount to each selected READY Client (unicast) or to the complete
+READY receiver set (UDPcast multicast). The Server-authenticated TLS control
+session protects the transfer channel.
 Keep the repository mounted until all Client terminal results have been
 collected. The remote repository's files must satisfy Feclora's root-owned
 image-manifest checks; NFS root-squash may prevent this.
