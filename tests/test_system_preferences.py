@@ -34,9 +34,9 @@ class KeyboardLayoutTests(unittest.TestCase):
     def test_applies_persistent_and_active_console_keymap_without_shell(self):
         def runner(command, **kwargs):
             if command == ["/usr/bin/localectl", "list-x11-keymap-layouts"]:
-                return Mock(returncode=0, stdout="us\\nes\\nfr\\nde\\njp\\ncn\\n", stderr="")
+                return Mock(returncode=0, stdout="us\nes\nfr\nde\njp\ncn\n", stderr="")
             if command == ["/usr/bin/localectl", "list-x11-keymap-variants", "es"]:
-                return Mock(returncode=0, stdout="cat\\nnodeadkeys\\n", stderr="")
+                return Mock(returncode=0, stdout="cat\nnodeadkeys\n", stderr="")
             return Mock(returncode=0, stdout="", stderr="")
         with patch("feclora.system_preferences.subprocess.run", side_effect=runner) as run:
             with tempfile.TemporaryDirectory() as directory:
@@ -45,7 +45,7 @@ class KeyboardLayoutTests(unittest.TestCase):
                 self.assertIn("FECLORA_KEYBOARD_LAYOUT=ca", config.read_text())
                 self.assertIn("XKB_DEFAULT_LAYOUT=es", config.read_text())
                 self.assertIn("XKB_DEFAULT_VARIANT=cat", config.read_text())
-                self.assertTrue(config.read_text().endswith("XKB_DEFAULT_OPTIONS=\\n"))
+                self.assertTrue(config.read_text().endswith("XKB_DEFAULT_OPTIONS=\n"))
         self.assertTrue(applied["applied"])
         self.assertEqual(applied["keymap"], "es")
         self.assertEqual(run.call_args_list[2].args[0], ["/usr/bin/localectl", "set-keymap", "es"])
@@ -56,11 +56,11 @@ class KeyboardLayoutTests(unittest.TestCase):
     def test_rejects_xkb_variant_missing_from_the_shipped_image(self):
         def runner(command, **kwargs):
             if command == ["/usr/bin/localectl", "list-x11-keymap-layouts"]:
-                return Mock(returncode=0, stdout="us\\nes\\n", stderr="")
+                return Mock(returncode=0, stdout="us\nes\n", stderr="")
             if command == ["/usr/bin/localectl", "list-x11-keymap-variants", "es"]:
-                return Mock(returncode=0, stdout="nodeadkeys\\n", stderr="")
+                return Mock(returncode=0, stdout="nodeadkeys\n", stderr="")
             raise AssertionError("keyboard must not be changed after XKB preflight failure")
-        with self.assertRaisesRegex(KeyboardLayoutError, r"es\\(cat\\)"):
+        with self.assertRaisesRegex(KeyboardLayoutError, r"es\(cat\)"):
             set_keyboard_layout({"layout": "ca"}, runner=runner, config_path=Path("/tmp/not-used"))
 
     def test_reads_the_exact_saved_layout_alias(self):
