@@ -95,6 +95,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
         "capture_p2v": {"source", "image_id", "repository_id"},
+        "build_recovery_iso": {"base_iso_path", "image_id", "target_wwn", "target_serial", "confirm_build", "repository_id"},
     }
     if not isinstance(action, str) or action not in fields or not isinstance(params, dict):
         raise LocalOperationError("unsupported local storage operation")
@@ -107,6 +108,19 @@ def validate_definition(value: Any) -> dict[str, Any]:
         accepted = accepted + tuple(item - {"encrypt_passphrase"} for item in accepted)
     if set(params) not in accepted:
         raise LocalOperationError("operation parameters do not match the selected operation")
+    if action == "build_recovery_iso":
+        path = params.get("base_iso_path")
+        if (not isinstance(path, str) or not path.startswith("/") or len(path) > 4096
+                or "\\x00" in path or os.path.normpath(path) != path):
+            raise LocalOperationError("base_iso_path must be an absolute normalized file path")
+        if params.get("confirm_build") != f"BUILD {params.get('image_id')}":
+            raise LocalOperationError("recovery ISO build confirmation does not match the selected image")
+        for key in ("target_wwn", "target_serial"):
+            value = params.get(key)
+            if value is not None and (not isinstance(value, str) or not value or len(value) > 128):
+                raise LocalOperationError(f"{key} is invalid")
+        if params.get("target_wwn") is None and params.get("target_serial") is None:
+            raise LocalOperationError("recovery ISO requires a target WWN and/or serial selector")
     for key in ("source", "target"):
         if key in params:
             device = params[key]
