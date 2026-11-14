@@ -702,13 +702,15 @@ def _restore(inventory: dict[str, Any]) -> None:
         return
     age_identity = security
     phrase = f"ERASE {target['path']}"
-    typed = _input(
-        "Destructive confirmation",
-        f"Image: {manifest.image_id}\nTarget: {target['path']}\nType exactly:\n{phrase}",
-    )
-    if typed != phrase:
-        _message("Restore cancelled", "The confirmation did not match. No write was started.")
-        return
+    typed = None
+    if action != "proportional":
+        typed = _input(
+            "Destructive confirmation",
+            f"Image: {manifest.image_id}\nTarget: {target['path']}\nType exactly:\n{phrase}",
+        )
+        if typed != phrase:
+            _message("Restore cancelled", "The confirmation did not match. No write was started.")
+            return
 
     try:
         if action == "proportional":
