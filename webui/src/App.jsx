@@ -1006,7 +1006,7 @@ export default function App() {
                     {isCapture && <>
                       <Field label={isDisk ? "Source disk" : isLogicalVolume ? "Source logical volume" : "Source partition"}>
                         <select className="pf-v5-c-form-control" value={source} onChange={(e) => setSource(e.target.value)}>
-                          <option value="">Select a source device…</option>
+                          <option value="">{t("Select a source device…")}</option>
                           {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path}{d.lvm_name ? ` · ${d.lvm_name} (${d.lvm_path})` : ""} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
                         </select>
                       </Field>
@@ -1014,17 +1014,17 @@ export default function App() {
                         <input className="pf-v5-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)} maxLength={128} required />
                       </Field>
                       {operation === "capture_partition" && <Field label="Partition identifier"><input className="pf-v5-c-form-control" value={partitionId} onChange={(e) => setPartitionId(e.target.value)} maxLength={128} placeholder={imageId || "e.g. rootfs"} /></Field>}
-                      {operation !== "capture_p2v" && <Field label="Compression">
+                      {operation !== "capture_p2v" && <Field label={t("Compression")}>
                         <select className="pf-v5-c-form-control" value={compression} onChange={(e) => setCompression(e.target.value)}>
                           <option value="zstd">Zstandard (recommended)</option><option value="lz4">LZ4 (fast)</option><option value="gzip">Gzip</option><option value="xz">XZ</option><option value="none">None</option>
                         </select>
                       </Field>}
-                      {operation !== "capture_p2v" && <Field label="Image security">
+                      {operation !== "capture_p2v" && <Field label={t("Image security")}>
                         <label><input type="checkbox" checked={encrypt} disabled={!security.age_encryption_available && !security.age_executable_available} onChange={(e) => { setEncrypt(e.target.checked); if (!e.target.checked) { setEncryptPassphraseMode(false); setCapturePassphrase(""); } }} /> Encrypt artifacts with age</label>
                         {operation === "capture_disk" && encrypt && security.age_executable_available && <>
                           <br />
                           <label><input type="checkbox" checked={encryptPassphraseMode} onChange={(e) => { setEncryptPassphraseMode(e.target.checked); setCapturePassphrase(""); }} /> Use a symmetric passphrase instead of recipient keys</label>
-                          {encryptPassphraseMode && <Field label="Image encryption passphrase" help="Sent once to the worker through /run and consumed immediately. It is not saved in the operation journal or image manifest.">
+                          {encryptPassphraseMode && <Field label={t("Image encryption passphrase")} help="Sent once to the worker through /run and consumed immediately. It is not saved in the operation journal or image manifest.">
                             <input className="pf-v5-c-form-control" type="password" autoComplete="new-password" value={capturePassphrase} onChange={(e) => setCapturePassphrase(e.target.value)} maxLength={1024} />
                           </Field>}
                         </>}
@@ -1040,13 +1040,13 @@ export default function App() {
                           setImageId(value);
                           if (isDisk) inspectRestoreLayout(value); else setRestoreLayoutPreview(null);
                         }}>
-                          <option value="">Select an image…</option>
+                          <option value="">{t("Select an image…")}</option>
                           {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                         </select>
                       </Field>
                       <Field label={isDisk ? "Destination disk" : isLogicalVolume ? "Destination logical volume" : "Destination partition"} help={isLogicalVolume ? "Must be an existing active, unmounted linear or thin LV in a healthy VG. Thin-pool free space is estimated, not reserved. Feclora overwrites LV data but does not create or resize LVM metadata." : undefined}>
                         <select className="pf-v5-c-form-control" value={target} onChange={(e) => setTarget(e.target.value)}>
-                          <option value="">Select a destination…</option>
+                          <option value="">{t("Select a destination…")}</option>
                           {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
                         </select>
                       </Field>
@@ -1057,7 +1057,7 @@ export default function App() {
                               Source image: {formatBytes(restoreLayoutPreview.source_size_bytes)} · Destination: {formatBytes(restoreTargetDevice.size_bytes)} · {restoreLayoutPreview.partitions.length} partitions. The source partition layout is written as captured; extra destination capacity is left unused. No automatic partition/filesystem growth is performed.
                             </Alert>}
                         <Table aria-label="Restore source partition layout preview" variant="compact">
-                          <Thead><Tr><Th>Partition</Th><Th>UUID / label</Th><Th>Start sector</Th><Th>Size</Th></Tr></Thead>
+                          <Thead><Tr><Th>{t("Partition")}</Th><Th>UUID / label</Th><Th>Start sector</Th><Th>Size</Th></Tr></Thead>
                           <Tbody>{restoreLayoutPreview.partitions.map((part) => <Tr key={part.node}>
                             <Td>{part.node}</Td><Td>{part.uuid || part.name || "—"}</Td><Td>{part.start_sector}</Td><Td>{formatBytes(part.size_bytes)}</Td>
                           </Tr>)}</Tbody>
@@ -1067,13 +1067,13 @@ export default function App() {
                     {operation.startsWith("clone_") && <>
                       <Field label={isDisk ? "Source disk" : "Source partition"}>
                         <select className="pf-v5-c-form-control" value={source} onChange={(e) => setSource(e.target.value)}>
-                          <option value="">Select source…</option>
+                          <option value="">{t("Select source…")}</option>
                           {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
                         </select>
                       </Field>
                       <Field label={isDisk ? "Destination disk" : "Destination partition"}>
                         <select className="pf-v5-c-form-control" value={target} onChange={(e) => setTarget(e.target.value)}>
-                          <option value="">Select destination…</option>
+                          <option value="">{t("Select destination…")}</option>
                           {deviceOptions.filter((d) => d.path !== source).map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
                         </select>
                       </Field>
@@ -1121,7 +1121,7 @@ export default function App() {
                   {extractLayout && <>
                     <Alert variant="info" title="Verified partition-table preview" isInline>{extractLayout.message} Source size: {formatBytes(extractLayout.source_size_bytes)} · Logical sector: {extractLayout.logical_sector_size} bytes · {extractLayout.partitions.length} partitions.</Alert>
                     <Table aria-label="Source image partition layout" variant="compact">
-                      <Thead><Tr><Th>Partition</Th><Th>UUID / label</Th><Th>Start sector</Th><Th>Size</Th></Tr></Thead>
+                      <Thead><Tr><Th>{t("Partition")}</Th><Th>UUID / label</Th><Th>Start sector</Th><Th>Size</Th></Tr></Thead>
                       <Tbody>{extractLayout.partitions.map((part) => <Tr key={part.node}>
                         <Td>{part.node}</Td><Td>{part.uuid || part.name || "—"}</Td><Td>{part.start_sector}</Td><Td>{formatBytes(part.size_bytes)}</Td>
                       </Tr>)}</Tbody>
@@ -1192,9 +1192,9 @@ export default function App() {
                   </Field>}
                   {(remoteOperation === "save" || remoteOperation === "restore" || remoteOperation === "clone") && <Field label={remoteOperation === "clone" ? "Clone device type" : remoteOperation === "save" ? "Capture source type" : "Restore target type"}>
                     <select className="pf-v5-c-form-control" value={remoteTargetType} onChange={(e) => { setRemoteTargetType(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); }}>
-                      <option value="disk">Whole disk</option>
-                      {remoteOperation !== "clone" && <option value="logical_volume">Logical volume</option>}
-                      {remoteOperation !== "save" && <option value="partition">Partition</option>}
+                      <option value="disk">{t("Whole disk")}</option>
+                      {remoteOperation !== "clone" && <option value="logical_volume">{t("Logical volume")}</option>}
+                      {remoteOperation !== "save" && <option value="partition">{t("Partition")}</option>}
                     </select>
                   </Field>}
                   <Field label="Selected Client MAC addresses" help={remoteOperation === "clone" ? "Enter one or more selected Client MAC addresses. Each Client independently selects and confirms its own destination of the selected device type. Transfers are serialized from the Server source; each Client verifies its own write." : "Enter one or more MAC addresses for unicast clone, exactly one for unicast save/restore, or at least two for multicast restore. Server checks that each MAC is selected for this job; MAC is not authentication."}>
@@ -1207,9 +1207,9 @@ export default function App() {
                     </select>
                     <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">The job binds to the selected Server interface. Configure the Client independently from its local Cockpit Network tab; this does not test end-to-end reachability to an offline Client.</div>
                   </Field>
-                  <Field label="Transport">
+                  <Field label={t("Transport")}>
                     <select className="pf-v5-c-form-control" value={remoteTransport} onChange={(e) => setRemoteTransport(e.target.value)}>
-                      <option value="unicast">Authenticated unicast</option>
+                      <option value="unicast">{t("Authenticated unicast")}</option>
                       <option value="multicast" disabled={remoteOperation === "save"}>{remoteOperation === "clone" ? "UDPcast physical disk multicast clone" : "UDPcast multicast image restore"}</option>
                     </select>
                   </Field>
@@ -1233,9 +1233,9 @@ export default function App() {
                   </Field>}
                   {remoteOperation !== "save" && <Field label="Final action on each successful Client">
                     <select className="pf-v5-c-form-control" value={remotePostAction} onChange={(e) => setRemotePostAction(e.target.value)}>
-                      <option value="none">Do nothing — leave Client running</option>
-                      <option value="reboot">Reboot Client after verified write</option>
-                      <option value="poweroff">Shut down Client after verified write</option>
+                      <option value="none">{t("Do nothing — leave Client running")}</option>
+                      <option value="reboot">{t("Reboot Client after verified write")}</option>
+                      <option value="poweroff">{t("Shut down Client after verified write")}</option>
                     </select>
                     <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Applied independently by each Client only after its write/read-back verification and successful result report. Failed or disconnected Clients are not rebooted or shut down.</div>
                   </Field>}
@@ -1246,8 +1246,8 @@ export default function App() {
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Persisted remote jobs</Title>
                 <p>Interrupted jobs can only be closed for audit after you have inspected every Client and destination manually. This does not resume or retry disk operations.</p>
-                <Table aria-label="Persisted remote deployment jobs" variant="compact"><Thead><Tr><Th>Job ID</Th><Th>Operation</Th><Th>Image</Th><Th>Target</Th><Th>Transport</Th><Th>State</Th><Th>Client progress</Th><Th>Recovery</Th><Th>Events</Th><Th>Service and execution</Th></Tr></Thead><Tbody>
-                  {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.operation === "clone" ? job.source_device : job.image_id}</Td><Td>{job.target_type}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{Object.entries(job.clients || {}).map(([mac, client]) => mac + ": " + client.state).join(", ") || "Not connected"}</Td><Td>{job.interrupted ? <Stack hasGutter><StackItem><Label color="orange">Review required · no auto-resume</Label></StackItem><StackItem><input className="pf-v5-c-form-control" aria-label={`Reconciliation confirmation for ${job.job_id}`} placeholder={`RECONCILE ${job.job_id}`} value={reconcileConfirmations[job.job_id] || ""} onChange={(event) => setReconcileConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem><StackItem><Button variant="secondary" size="sm" isDisabled={busy || reconcileConfirmations[job.job_id] !== `RECONCILE ${job.job_id}`} onClick={() => reconcileDeploymentJob(job.job_id)}>Close for audit</Button></StackItem></Stack> : "—"}</Td><Td>{job.event_count}</Td><Td>
+                <Table aria-label="Persisted remote deployment jobs" variant="compact"><Thead><Tr><Th>{t("Job ID")}</Th><Th>Operation</Th><Th>Image</Th><Th>{t("Target")}</Th><Th>{t("Transport")}</Th><Th>{t("State")}</Th><Th>Client progress</Th><Th>{t("Recovery")}</Th><Th>{t("Events")}</Th><Th>{t("Service and execution")}</Th></Tr></Thead><Tbody>
+                  {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.operation === "clone" ? job.source_device : job.image_id}</Td><Td>{job.target_type}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{Object.entries(job.clients || {}).map(([mac, client]) => mac + ": " + client.state).join(", ") || "Not connected"}</Td><Td>{job.interrupted ? <Stack hasGutter><StackItem><Label color="orange">{t("Review required · no auto-resume")}</Label></StackItem><StackItem><input className="pf-v5-c-form-control" aria-label={`Reconciliation confirmation for ${job.job_id}`} placeholder={`RECONCILE ${job.job_id}`} value={reconcileConfirmations[job.job_id] || ""} onChange={(event) => setReconcileConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem><StackItem><Button variant="secondary" size="sm" isDisabled={busy || reconcileConfirmations[job.job_id] !== `RECONCILE ${job.job_id}`} onClick={() => reconcileDeploymentJob(job.job_id)}>{t("Close for audit")}</Button></StackItem></Stack> : "—"}</Td><Td>{job.event_count}</Td><Td>
                     <Stack hasGutter>
                       <StackItem>
                         <Button size="sm" variant="secondary" isDisabled={busy || job.interrupted || (!job.service_active && job.job_state !== "created")} onClick={() => startDeploymentService(job.job_id)}>{job.service_active ? "Connect / inspect service" : "Start / connect service"}</Button>
@@ -1276,11 +1276,11 @@ export default function App() {
                         {serviceStatuses[job.job_id].multicast_preflight?.error && <StackItem><Alert variant="danger" isInline title="Multicast preflight failed">{serviceStatuses[job.job_id].multicast_preflight.error}</Alert></StackItem>}
                         {serviceStatuses[job.job_id].job_state === "created" && <>
                           <StackItem><input className="pf-v5-c-form-control" aria-label={"Start authorization confirmation for " + job.job_id} placeholder={deploymentArmPhrase(job) || "Enrolled Client identity unavailable"} value={serviceConfirmations[job.job_id] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem>
-                          <StackItem><Button size="sm" variant="primary" isDisabled={busy || !deploymentArmPhrase(job) || serviceConfirmations[job.job_id] !== deploymentArmPhrase(job)} onClick={() => sendDeploymentServiceCommand(job.job_id, "arm_deployment_job", serviceConfirmations[job.job_id])}>Authorize and execute</Button></StackItem>
+                          <StackItem><Button size="sm" variant="primary" isDisabled={busy || !deploymentArmPhrase(job) || serviceConfirmations[job.job_id] !== deploymentArmPhrase(job)} onClick={() => sendDeploymentServiceCommand(job.job_id, "arm_deployment_job", serviceConfirmations[job.job_id])}>{t("Authorize and execute")}</Button></StackItem>
                           <StackItem><input className="pf-v5-c-form-control" aria-label={"Cancel confirmation for " + job.job_id} placeholder={"CANCEL " + job.job_id} value={serviceConfirmations[job.job_id + "-cancel"] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id + "-cancel"]: event.target.value }))} /></StackItem>
-                          <StackItem><Button size="sm" variant="secondary" isDisabled={busy || serviceConfirmations[job.job_id + "-cancel"] !== "CANCEL " + job.job_id} onClick={() => sendDeploymentServiceCommand(job.job_id, "cancel_deployment_job", serviceConfirmations[job.job_id + "-cancel"])}>Cancel before arm</Button></StackItem>
+                          <StackItem><Button size="sm" variant="secondary" isDisabled={busy || serviceConfirmations[job.job_id + "-cancel"] !== "CANCEL " + job.job_id} onClick={() => sendDeploymentServiceCommand(job.job_id, "cancel_deployment_job", serviceConfirmations[job.job_id + "-cancel"])}>{t("Cancel before arm")}</Button></StackItem>
                         </>}
-                        {!(serviceStatuses[job.job_id].worker_active) && serviceStatuses[job.job_id].job_state !== "running" && !(serviceStatuses[job.job_id].clients || []).some((client) => client.state === "running") && <StackItem><Button size="sm" variant="link" isDisabled={busy} onClick={() => stopDeploymentService(job.job_id)}>Stop service</Button></StackItem>}
+                        {!(serviceStatuses[job.job_id].worker_active) && serviceStatuses[job.job_id].job_state !== "running" && !(serviceStatuses[job.job_id].clients || []).some((client) => client.state === "running") && <StackItem><Button size="sm" variant="link" isDisabled={busy} onClick={() => stopDeploymentService(job.job_id)}>{t("Stop service")}</Button></StackItem>}
                         {serviceStatuses[job.job_id].last_error && <StackItem><Alert variant="danger" isInline title="Execution error">{serviceStatuses[job.job_id].last_error}</Alert></StackItem>}
                       </>}
                     </Stack>
@@ -1292,9 +1292,9 @@ export default function App() {
           </Tab>
           <Tab eventKey="deployments" title={t("tabHistory")}>
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("deploymentJournals")}</Title></StackItem>
-              <StackItem><Table aria-label="Feclora deployment history" variant="compact"><Thead><Tr><Th>Job ID</Th><Th>State</Th><Th>Interrupted</Th><Th>Clients</Th><Th>Last durable progress</Th><Th>Events</Th></Tr></Thead><Tbody>
+              <StackItem><Table aria-label="Feclora deployment history" variant="compact"><Thead><Tr><Th>{t("Job ID")}</Th><Th>{t("State")}</Th><Th>Interrupted</Th><Th>Clients</Th><Th>Last durable progress</Th><Th>{t("Events")}</Th></Tr></Thead><Tbody>
                 {journals.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.job_state}</Td><Td>{job.interrupted ? <Label color="orange">Review required</Label> : "No"}</Td><Td>{Object.entries(job.clients || {}).map(([mac, state]) => mac + ": " + state).join(", ") || "—"}</Td><Td>{Object.entries(job.progress || {}).map(([mac, progress]) => mac + ": " + progress.phase + " " + (progress.completed_bytes / (1024 * 1024)).toFixed(1) + " MiB" + (progress.total_bytes === null ? "" : " / " + (progress.total_bytes / (1024 * 1024)).toFixed(1) + " MiB")).join("; ") || "No durable checkpoint"}</Td><Td>{job.event_count}</Td></Tr>)}
-                {!journals.length && <Tr><Td colSpan={6}>No deployment jobs recorded.</Td></Tr>}
+                {!journals.length && <Tr><Td colSpan={6}>{t("No deployment jobs recorded.")}</Td></Tr>}
               </Tbody></Table></StackItem>
             </Stack>
           </Tab>
@@ -1319,7 +1319,7 @@ export default function App() {
                 {repositoryProvider === "smb" && <Field label="Encrypted SMB credentials"><select className="pf-v5-c-form-control" value={repositoryCredentials} onChange={(e) => setRepositoryCredentials(e.target.value)} required><option value="">Select imported SMB credential</option>{systemdCredentials.filter((item) => item.kind === "smb").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>}
                 <Field label="Port (optional)"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={repositoryPort} onChange={(e) => setRepositoryPort(e.target.value)} /></Field>
                 <Field label="Mount access"><select className="pf-v5-c-form-control" value={repositoryReadOnly ? "ro" : "rw"} onChange={(e) => setRepositoryReadOnly(e.target.value === "ro")}>
-                  <option value="ro">Read-only</option><option value="rw">Read/write (image capture)</option>
+                  <option value="ro">{t("Read-only")}</option><option value="rw">Read/write (image capture)</option>
                 </select></Field>
                 <Button type="submit" variant="primary" isDisabled={busy || !repositoryId || !repositoryHost || !repositoryPath}>{repositoryEditing ? "Update repository definition" : "Save repository definition"}</Button>{" "}{repositoryEditing && <Button type="button" variant="link" onClick={resetRemoteRepositoryForm} isDisabled={busy}>Cancel edit</Button>}
               </form></CardBody></Card></StackItem>
@@ -1333,7 +1333,7 @@ export default function App() {
                   <Button type="submit" variant="primary" isDisabled={busy || !credentialId || !credentialSourceFile}>Import and encrypt credential</Button>
                 </form></CardBody></Card>
                 <Table aria-label="Encrypted repository credentials" variant="compact"><Thead><Tr><Th>ID</Th><Th>Type</Th><Th>Encrypted reference</Th><Th>Action</Th></Tr></Thead><Tbody>
-                  {systemdCredentials.map((credential) => <Tr key={credential.name}><Td>{credential.id}</Td><Td>{credential.kind}</Td><Td>{credential.path}</Td><Td><Button size="sm" variant="danger" isDisabled={busy || remoteRepositories.some((repo) => (repo.credential_refs || []).includes(credential.path)) || s3Repositories.some((repo) => (repo.credential_refs || []).includes(credential.path))} onClick={() => removeSystemdCredential(credential)}>Remove</Button></Td></Tr>)}
+                  {systemdCredentials.map((credential) => <Tr key={credential.name}><Td>{credential.id}</Td><Td>{credential.kind}</Td><Td>{credential.path}</Td><Td><Button size="sm" variant="danger" isDisabled={busy || remoteRepositories.some((repo) => (repo.credential_refs || []).includes(credential.path)) || s3Repositories.some((repo) => (repo.credential_refs || []).includes(credential.path))} onClick={() => removeSystemdCredential(credential)}>{t("Remove")}</Button></Td></Tr>)}
                   {!systemdCredentials.length && <Tr><Td colSpan={4}>No encrypted credentials imported.</Td></Tr>}
                 </Tbody></Table>
               </StackItem>
@@ -1346,23 +1346,23 @@ export default function App() {
                   <Field label="Bucket"><input className="pf-v5-c-form-control" value={s3Bucket} onChange={(e) => setS3Bucket(e.target.value)} maxLength={63} required /></Field>
                   <Field label="Object prefix"><input className="pf-v5-c-form-control" value={s3Prefix} onChange={(e) => setS3Prefix(e.target.value)} maxLength={512} /></Field>
                   <Field label="Encrypted S3 credential"><select className="pf-v5-c-form-control" value={s3CredentialId} onChange={(e) => setS3CredentialId(e.target.value)} required><option value="">Select imported S3 key pair</option>{systemdCredentials.filter((item) => item.kind === "s3").map((item) => <option key={item.id} value={item.id}>{item.id}</option>)}</select></Field>
-                  <Field label="Access"><select className="pf-v5-c-form-control" value={s3ReadOnly ? "ro" : "rw"} onChange={(e) => setS3ReadOnly(e.target.value === "ro")}><option value="ro">Read-only</option><option value="rw">Read/write</option></select></Field>
+                  <Field label="Access"><select className="pf-v5-c-form-control" value={s3ReadOnly ? "ro" : "rw"} onChange={(e) => setS3ReadOnly(e.target.value === "ro")}><option value="ro">{t("Read-only")}</option><option value="rw">{t("Read/write")}</option></select></Field>
                   <Button type="submit" variant="primary" isDisabled={busy || !s3RepositoryId || !s3Bucket || !s3CredentialId}>Save S3 repository</Button>
                 </form></CardBody></Card>
                 <Table aria-label="S3 object repositories" variant="compact"><Thead><Tr><Th>ID</Th><Th>Endpoint</Th><Th>Bucket / prefix</Th><Th>Access</Th><Th>Actions</Th></Tr></Thead><Tbody>
-                  {s3Repositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.endpoint_url || "AWS S3"} · {repo.region}</Td><Td>{repo.bucket}/{repo.prefix}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td><Button size="sm" variant="secondary" isDisabled={busy} onClick={() => runS3RepositoryAction("check_s3_repository", repo.id)}>Test connection</Button>{" "}<Button size="sm" variant="danger" isDisabled={busy} onClick={() => runS3RepositoryAction("remove_s3_repository", repo.id)}>Remove</Button></Td></Tr>)}
-                  {!s3Repositories.length && <Tr><Td colSpan={5}>No S3 object repositories configured.</Td></Tr>}
+                  {s3Repositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.endpoint_url || "AWS S3"} · {repo.region}</Td><Td>{repo.bucket}/{repo.prefix}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td><Button size="sm" variant="secondary" isDisabled={busy} onClick={() => runS3RepositoryAction("check_s3_repository", repo.id)}>{t("Test connection")}</Button>{" "}<Button size="sm" variant="danger" isDisabled={busy} onClick={() => runS3RepositoryAction("remove_s3_repository", repo.id)}>{t("Remove")}</Button></Td></Tr>)}
+                  {!s3Repositories.length && <Tr><Td colSpan={5}>{t("No S3 object repositories configured.")}</Td></Tr>}
                 </Tbody></Table>
               </StackItem>
-              <StackItem><Title headingLevel="h2" size="lg">Configured repositories</Title>
+              <StackItem><Title headingLevel="h2" size="lg">{t("Configured repositories")}</Title>
                 <p>“Identity verified” confirms only that findmnt reports the expected source, filesystem type and access mode. Remote health is always unknown: this inspection does not test network connectivity or perform remote filesystem I/O. An unknown mount state is not treated as unmounted; do not mount, edit or remove the repository until its state is resolved.</p>
                 <Table aria-label="Remote image repositories" variant="compact"><Thead><Tr><Th>ID</Th><Th>Provider</Th><Th>Remote location</Th><Th>Access</Th><Th>Mount identity</Th><Th>Actions</Th></Tr></Thead><Tbody>
-                  {remoteRepositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.provider}</Td><Td>{repo.host}:{repo.remote_path}<br />{repo.mountpoint}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td>{repo.mount_state === "unknown" ? <><Label color="grey">State unknown</Label>{repo.mount_error && <div className="pf-v5-u-color-danger pf-v5-u-font-size-sm">{repo.mount_error}</div>}</> : repo.mount_state === "unmounted" ? <Label color="grey">Unmounted</Label> : repo.verified ? <Label color="green">Mounted · identity verified</Label> : <><Label color="red">Mounted · unverified</Label>{repo.mount_error && <div className="pf-v5-u-color-danger pf-v5-u-font-size-sm">{repo.mount_error}</div>}</>}{repo.health_state === "unknown" && <div className="pf-v5-u-color-secondary pf-v5-u-font-size-sm">Remote health unknown</div>}</Td><Td>
-                    <Button size="sm" variant="secondary" isDisabled={busy || repo.mount_state !== "unmounted"} onClick={() => editRemoteRepository(repo)}>Edit</Button>{" "}
+                  {remoteRepositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.provider}</Td><Td>{repo.host}:{repo.remote_path}<br />{repo.mountpoint}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td>{repo.mount_state === "unknown" ? <><Label color="grey">State unknown</Label>{repo.mount_error && <div className="pf-v5-u-color-danger pf-v5-u-font-size-sm">{repo.mount_error}</div>}</> : repo.mount_state === "unmounted" ? <Label color="grey">Unmounted</Label> : repo.verified ? <Label color="green">Mounted · identity verified</Label> : <><Label color="red">Mounted · unverified</Label>{repo.mount_error && <div className="pf-v5-u-color-danger pf-v5-u-font-size-sm">{repo.mount_error}</div>}</>}{repo.health_state === "unknown" && <div className="pf-v5-u-color-secondary pf-v5-u-font-size-sm">{t("Remote health unknown")}</div>}</Td><Td>
+                    <Button size="sm" variant="secondary" isDisabled={busy || repo.mount_state !== "unmounted"} onClick={() => editRemoteRepository(repo)}>{t("Edit")}</Button>{" "}
                     <Button size="sm" variant="secondary" isDisabled={busy} onClick={() => runRemoteRepositoryAction("check_remote_repository", repo.id)}>Check mount identity</Button>{" "}
-                    <Button size="sm" variant="secondary" isDisabled={busy || repo.mount_state !== "unmounted"} onClick={() => runRemoteRepositoryAction("mount_remote_repository", repo.id)}>Mount</Button>{" "}
-                    <Button size="sm" variant="secondary" isDisabled={busy || repo.mount_state !== "identity_verified"} onClick={() => runRemoteRepositoryAction("unmount_remote_repository", repo.id)}>Unmount</Button>{" "}
-                    <Button size="sm" variant="danger" isDisabled={busy || repo.mount_state !== "unmounted"} onClick={() => runRemoteRepositoryAction("remove_remote_repository", repo.id)}>Remove</Button>
+                    <Button size="sm" variant="secondary" isDisabled={busy || repo.mount_state !== "unmounted"} onClick={() => runRemoteRepositoryAction("mount_remote_repository", repo.id)}>{t("Mount")}</Button>{" "}
+                    <Button size="sm" variant="secondary" isDisabled={busy || repo.mount_state !== "identity_verified"} onClick={() => runRemoteRepositoryAction("unmount_remote_repository", repo.id)}>{t("Unmount")}</Button>{" "}
+                    <Button size="sm" variant="danger" isDisabled={busy || repo.mount_state !== "unmounted"} onClick={() => runRemoteRepositoryAction("remove_remote_repository", repo.id)}>{t("Remove")}</Button>
                   </Td></Tr>)}
                   {!remoteRepositories.length && <Tr><Td colSpan={6}>No remote repositories configured.</Td></Tr>}
                 </Tbody></Table>
@@ -1372,7 +1372,7 @@ export default function App() {
           <Tab eventKey="operation-log" title={t("tabOperationLog")}>
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("localOperationHistory")}</Title><p>Durable local operation definitions and state history, including worker progress and terminal diagnostics. Interrupted writes are never resumed automatically. Cancelled or interrupted restores and clones may have partially modified their destination; inspect the target before reuse. Cancellation is orderly and may take time to stop child processes.</p></StackItem>
               <StackItem><Button variant="secondary" isDisabled={!operations.length} onClick={exportLocalOperations}>Export latest 100 operations as JSON</Button><p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">The export contains the history currently loaded in Cockpit, including device paths and bounded diagnostic messages. Store it with the same care as operational logs.</p></StackItem>
-              <StackItem><Table aria-label="Local operation history" variant="compact"><Thead><Tr><Th>Timestamp</Th><Th>Operation</Th><Th>Target</Th><Th>Image</Th><Th>Status</Th><Th>Progress</Th><Th>Operation ID</Th><Th>Details</Th><Th>Control</Th></Tr></Thead><Tbody>
+              <StackItem><Table aria-label="Local operation history" variant="compact"><Thead><Tr><Th>Timestamp</Th><Th>Operation</Th><Th>{t("Target")}</Th><Th>Image</Th><Th>Status</Th><Th>Progress</Th><Th>Operation ID</Th><Th>Details</Th><Th>Control</Th></Tr></Thead><Tbody>
                 {operations.map((item) => {
                   const events = item.events || [];
                   const latest = events[events.length - 1] || {};
@@ -1388,7 +1388,7 @@ export default function App() {
                     <Td>{item.cancellable !== false && ["queued", "preflight", "running"].includes(item.state) ? <Button size="sm" variant="danger" isDisabled={cancellingOperationId === item.operation_id} onClick={() => cancelLocalOperation(item.operation_id)}>{cancellingOperationId === item.operation_id ? "Requesting…" : "Cancel"}</Button> : "—"}</Td>
                   </Tr>;
                 })}
-                {!operations.length && <Tr><Td colSpan={9}>No local operations recorded.</Td></Tr>}
+                {!operations.length && <Tr><Td colSpan={9}>{t("No local operations recorded.")}</Td></Tr>}
               </Tbody></Table></StackItem>
             </Stack>
           </Tab>
