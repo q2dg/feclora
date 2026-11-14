@@ -11,6 +11,7 @@ import ipaddress
 import json
 import os
 import re
+import stat
 import tempfile
 import time
 import uuid
@@ -147,9 +148,7 @@ class PXEAdmission:
             if not self._within_time_limit(state):
                 return False, "PXE serving time limit has elapsed"
             known = normalized in state["macs"]
-            if self.max_clients is None:
-                return True, "admitted without a client-count limit"
-            if not known and len(state["macs"]) >= self.max_clients:
+            if not known and self.max_clients is not None and len(state["macs"]) >= self.max_clients:
                 return False, "PXE client limit has been reached"
             if not known:
                 state["macs"].append(normalized)
@@ -166,9 +165,7 @@ class PXEAdmission:
         try:
             fcntl.flock(fd, fcntl.LOCK_SH)
             state = self._read()
-            return self._within_time_limit(state) and (
-                self.max_clients is None or mac.lower() in state["macs"]
-            )
+            return self._within_time_limit(state) and mac.lower() in state["macs"]
         finally:
             fcntl.flock(fd, fcntl.LOCK_UN)
             os.close(fd)
