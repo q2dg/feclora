@@ -1244,7 +1244,7 @@ export default function App() {
                 {remoteJobResult && <Alert variant="success" title={t("Job definition persisted")} isInline className="pf-v5-u-mt-md">{remoteJobResult.message}<p>Job ID: {remoteJobResult.job_id}</p></Alert>}
                 </CardBody></Card>
               </StackItem>
-              <StackItem><Title headingLevel="h2" size="lg">Persisted remote jobs</Title>
+              <StackItem><Title headingLevel="h2" size="lg">{t("Persisted remote jobs")}</Title>
                 <p>Interrupted jobs can only be closed for audit after you have inspected every Client and destination manually. This does not resume or retry disk operations.</p>
                 <Table aria-label={t("Persisted remote deployment jobs")} variant="compact"><Thead><Tr><Th>{t("Job ID")}</Th><Th>{t("operation")}</Th><Th>{t("Image")}</Th><Th>{t("Target")}</Th><Th>{t("Transport")}</Th><Th>{t("State")}</Th><Th>Client progress</Th><Th>{t("Recovery")}</Th><Th>{t("Events")}</Th><Th>{t("Service and execution")}</Th></Tr></Thead><Tbody>
                   {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.operation === "clone" ? job.source_device : job.image_id}</Td><Td>{job.target_type}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{Object.entries(job.clients || {}).map(([mac, client]) => mac + ": " + client.state).join(", ") || "Not connected"}</Td><Td>{job.interrupted ? <Stack hasGutter><StackItem><Label color="orange">{t("Review required · no auto-resume")}</Label></StackItem><StackItem><input className="pf-v5-c-form-control" aria-label={`Reconciliation confirmation for ${job.job_id}`} placeholder={`RECONCILE ${job.job_id}`} value={reconcileConfirmations[job.job_id] || ""} onChange={(event) => setReconcileConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem><StackItem><Button variant="secondary" size="sm" isDisabled={busy || reconcileConfirmations[job.job_id] !== `RECONCILE ${job.job_id}`} onClick={() => reconcileDeploymentJob(job.job_id)}>{t("Close for audit")}</Button></StackItem></Stack> : "—"}</Td><Td>{job.event_count}</Td><Td>
@@ -1323,7 +1323,7 @@ export default function App() {
                 </select></Field>
                 <Button type="submit" variant="primary" isDisabled={busy || !repositoryId || !repositoryHost || !repositoryPath}>{repositoryEditing ? "Update repository definition" : "Save repository definition"}</Button>{" "}{repositoryEditing && <Button type="button" variant="link" onClick={resetRemoteRepositoryForm} isDisabled={busy}>Cancel edit</Button>}
               </form></CardBody></Card></StackItem>
-                            <StackItem><Title headingLevel="h2" size="lg">Encrypted repository credentials</Title>
+                            <StackItem><Title headingLevel="h2" size="lg">{t("Encrypted repository credentials")}</Title>
                 <p>Import a root-owned private source file (mode 0600, no symlinks or hard links). For S3, provide a JSON file with exactly access_key_id and secret_access_key. Cockpit submits only its path; the API encrypts its contents with systemd-creds and never returns secret material. The source file remains in place and must be protected or securely removed by the operator.</p>
                 <Card><CardBody><form onSubmit={importSystemdCredential}>
                   <Field t={t} label={t("Credential ID")}><input className="pf-v5-c-form-control" value={credentialId} onChange={(e) => setCredentialId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
@@ -1337,7 +1337,7 @@ export default function App() {
                   {!systemdCredentials.length && <Tr><Td colSpan={4}>No encrypted credentials imported.</Td></Tr>}
                 </Tbody></Table>
               </StackItem>
-              <StackItem><Title headingLevel="h2" size="lg">S3 object repositories</Title>
+              <StackItem><Title headingLevel="h2" size="lg">{t("S3 object repositories")}</Title>
                 <p>S3 is object storage, not a filesystem mount. Local operations use private staging and verified object transfers. Distributed jobs fetch and verify S3 images on the Server before authenticated TLS delivery to Clients; Client captures are published to S3 only after the TLS transfer has been verified. Clients never receive S3 credentials.</p>
                 <Card><CardBody><form onSubmit={saveS3Repository}>
                   <Field t={t} label={t("Repository ID")}><input className="pf-v5-c-form-control" value={s3RepositoryId} onChange={(e) => setS3RepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
@@ -1427,7 +1427,7 @@ export default function App() {
               </StackItem>
             </Stack>
           </Tab>
-          <Tab eventKey="server" title="Server setup">
+          <Tab eventKey="server" title={t("Server setup")}>
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem>
                 <Title headingLevel="h2" size="xl">{t("Initialize deployment Server identity")}</Title>
@@ -1473,7 +1473,7 @@ export default function App() {
                 {serverRenewResult && <Alert variant="success" title="Server certificate renewed" isInline>{serverRenewResult.message} · Server certificate expires in {serverRenewResult.expiry_days} days; CA expires in {serverRenewResult.ca_expiry_days} days.</Alert>}
               </CardBody></Card></StackItem>}
               <StackItem>
-                <Title headingLevel="h2" size="xl">PXE network profile preflight</Title>
+                <Title headingLevel="h2" size="xl">{t("PXE network profile preflight")}</Title>
                 <p>Validate a proposed PXE network configuration before any service is started. Select the same management interface above.</p>
                 <Field t={t} label="DHCP mode">
                   <select className="pf-v5-c-form-control" value={pxeMode} onChange={(e) => { setPxeMode(e.target.value); setPxePreflight(null); }}>
@@ -1543,7 +1543,7 @@ export default function App() {
           </Tab>
           <Tab eventKey="client-jobs" title={t("Client jobs")}>
             <Stack hasGutter className="pf-v5-u-pt-lg">
-              <StackItem><Title headingLevel="h2" size="xl">Remote job on this Client</Title>
+              <StackItem><Title headingLevel="h2" size="xl">{t("Remote job on this Client")}</Title>
                 <p>Inspect the Server job over TLS; the Client does not authenticate itself, choose this machine's local target, type the exact destructive/read confirmation, then connect. The Client reports READY after approval and waits for the Server operator to authorize and start the operation.</p>
               </StackItem>
               {!status?.client_configured && <StackItem><Alert variant="warning" title={t("Client enrollment required")} isInline>Configure Server trust on this Client before inspecting or joining a remote job.</Alert></StackItem>}
@@ -1567,7 +1567,7 @@ export default function App() {
                 </StackItem>
                 {clientRemoteJob && <StackItem>
                   <Card><CardBody>
-                    <Title headingLevel="h3" size="lg">Authenticated Server job</Title>
+                    <Title headingLevel="h3" size="lg">{t("Authenticated Server job")}</Title>
                     <p>Operation: {clientRemoteJob.operation}{clientRemoteJob.operation === "clone" ? " · Server source: " + clientRemoteJob.source_device : " · Image: " + clientRemoteJob.image_id}</p>
                     <p>Target type: {clientRemoteJob.target_type} · Transport: {clientRemoteJob.transport}</p>
                     <p>Server identity: {clientRemoteInspection.server_identity}</p>
@@ -1605,7 +1605,7 @@ export default function App() {
                 </StackItem>}
                 {clientRemoteJobStatus && <StackItem>
                   <Card><CardBody>
-                    <Title headingLevel="h3" size="lg">Client service status</Title>
+                    <Title headingLevel="h3" size="lg">{t("Client service status")}</Title>
                     <Label color={clientRemoteJobStatus.phase === "completed" ? "green" : clientRemoteJobStatus.phase === "failed" || clientRemoteJobStatus.phase === "interrupted" ? "red" : "blue"}>{clientRemoteJobStatus.phase}</Label>
                     <p>{clientRemoteJobStatus.detail}</p>
                     {clientRemoteJobStatus.target_description && <p>Approved target: {clientRemoteJobStatus.target_description}</p>}
