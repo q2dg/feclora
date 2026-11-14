@@ -37,10 +37,17 @@ def parse_luks_metadata(payload: str) -> dict[str, Any]:
         raise LuksInventoryError("cryptsetup returned invalid LUKS2 JSON metadata") from exc
     if not isinstance(metadata, dict):
         raise LuksInventoryError("LUKS2 metadata must be a JSON object")
-    segments = metadata.get("segments") if isinstance(metadata.get("segments"), dict) else {}
-    keyslots = metadata.get("keyslots") if isinstance(metadata.get("keyslots"), dict) else {}
-    tokens = metadata.get("tokens") if isinstance(metadata.get("tokens"), dict) else {}
-    config = metadata.get("config") if isinstance(metadata.get("config"), dict) else {}
+    luks_uuid = metadata.get("uuid")
+    if not isinstance(luks_uuid, str) or not _LUKS_UUID.fullmatch(luks_uuid):
+        raise LuksInventoryError("LUKS2 metadata has no valid canonical UUID")
+    segments = metadata.get("segments")
+    keyslots = metadata.get("keyslots")
+    tokens = metadata.get("tokens")
+    config = metadata.get("config")
+    if not isinstance(segments, dict) or not segments:
+        raise LuksInventoryError("LUKS2 metadata has no valid encryption segments")
+    if not isinstance(keyslots, dict) or not isinstance(tokens, dict) or not isinstance(config, dict):
+        raise LuksInventoryError("LUKS2 metadata has an invalid keyslot, token or config section")
     return {
         "version": 2,
         "uuid": metadata.get("uuid"),
