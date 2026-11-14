@@ -165,6 +165,8 @@ done
 
 grep -qx "qemu-img" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include qemu-img."
 grep -qx "qemu-img" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include qemu-img."
+grep -qx "xorriso" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include xorriso."
+grep -qx "xorriso" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include xorriso."
 
 for codec in zstd lz4; do
   grep -qx "$codec" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $codec."
