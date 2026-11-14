@@ -40,6 +40,7 @@ _ALLOWED_FIELDS = {
     "start_deadline",
     "staging_required_bytes",
     "source_device",
+    "source_identity",
     "repository_id",
     "target_bindings",
     "post_action",
@@ -65,6 +66,7 @@ class DeploymentJob:
     schema_version: int = 1
     staging_required_bytes: int | None = None
     source_device: str | None = None
+    source_identity_json: str | None = None
     repository_id: str | None = None
     target_bindings: tuple[tuple[str, str | None, str | None], ...] = ()
     post_action: str = "none"
@@ -84,7 +86,7 @@ class DeploymentJob:
             raise JobValidationError("Job document must be a JSON object")
         unknown = set(payload) - _ALLOWED_FIELDS
         missing = _ALLOWED_FIELDS - set(payload) - {
-            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type", "staging_required_bytes", "source_device", "repository_id", "target_bindings", "post_action"
+            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type", "staging_required_bytes", "source_device", "repository_id", "target_bindings", "post_action", "source_identity"
         }
         if unknown:
             raise JobValidationError(f"Unknown job fields: {', '.join(sorted(unknown))}")
@@ -128,6 +130,30 @@ class DeploymentJob:
                 raise JobValidationError("clone source_device must be a normalized absolute /dev path")
         elif source_device is not None:
             raise JobValidationError("source_device is only valid for clone jobs")
+        source_identity = payload.get("source_identity")
+        source_identity_json = None
+        if source_identity is not None:
+            required_identity_fields = {
+                "path", "major_minor", "sysfs_path", "wwn", "serial", "size_bytes",
+                "logical_sector_size", "physical_sector_size", "read_only",
+                "mountpoints", "holders", "backs_system", "busy",
+            }
+            if (operation != "clone" or payload.get("transport") != "multicast"
+                    or not isinstance(source_identity, dict)
+                    or set(source_identity) != required_identity_fields):
+                raise JobValidationError("source_identity is valid only as a complete physical multicast clone source binding")
+            try:
+                source_identity_json = json.dumps(
+                    source_identity, sort_keys=True, separators=(",", ":"), allow_nan=False,
+                )
+            except (TypeError, ValueError) as exc:
+                raise JobValidationError("source_identity must be a finite JSON object") from exc
+            if len(source_identity_json) > 8192:
+                raise JobValidationError("source_identity exceeds the job metadata limit")
+        if operation == "clone" and payload.get("transport") == "multicast" and source_identity_json is None:
+            # The Server API injects this binding after inspecting its own disk inventory.
+            # Client-side parsing must accept the not-yet-bound request before that step.
+            pass
         post_action = payload.get("post_action", "none")
         if not isinstance(post_action, str) or post_action not in {"none", "reboot", "poweroff"}:
             raise JobValidationError("post_action must be none, reboot, or poweroff")
@@ -271,6 +297,7 @@ class DeploymentJob:
             target_type=target_type,
             staging_required_bytes=staging_required_bytes,
             source_device=source_device,
+            source_identity_json=source_identity_json,
             repository_id=repository_id,
             target_bindings=tuple(sorted(bindings)),
             post_action=post_action,
@@ -306,6 +333,8 @@ class DeploymentJob:
             document["staging_required_bytes"] = self.staging_required_bytes
         if self.source_device is not None:
             document["source_device"] = self.source_device
+        if self.source_identity_json is not None:
+            document["source_identity"] = json.loads(self.source_identity_json)
         if self.repository_id is not None:
             document["repository_id"] = self.repository_id
         if self.post_action != "none":
