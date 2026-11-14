@@ -53,6 +53,7 @@ def _normalize_device(device: dict[str, Any]) -> dict[str, Any]:
         "partuuid": device.get("partuuid"),
         "partition_type_guid": device.get("parttype"),
         "partition_label": device.get("partlabel"),
+        "start_sector": device.get("start"),
         "major_minor": device.get("maj:min"),
         "logical_sector_size": device.get("log-sec"),
         "mountpoints": _clean_mountpoints(
