@@ -31,7 +31,7 @@ must be protected with equivalent least-privilege permissions. Symlink paths are
 For each Client, provision the CA certificate and configure the Server address
 and expected Server certificate identity. Clients do not create, import or
 present TLS certificates. The Server never authenticates individual Clients.
-Do not put private keys or CA signing material in TFTP/HTTP boot assets.
+Do not put private keys or CA private key in TFTP/HTTP boot assets.
 
 ## Server configuration
 
