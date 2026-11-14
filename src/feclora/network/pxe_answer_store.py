@@ -11,6 +11,9 @@ import uuid
 from pathlib import Path
 
 from feclora.network.pxe_answer import PXEAnswerError, parse_pxe_answer
+from feclora.network.pxe_answer_signing import (
+    PRIVATE_KEY, PUBLIC_KEY, PXEAnswerSignatureError, sign_answer_file, verify_answer_file,
+)
 
 
 class PXEAnswerStoreError(RuntimeError):
@@ -94,8 +97,10 @@ def publish_pxe_answer(
     *,
     address: str,
     http_port: int = 8080,
+    signing_key: str | os.PathLike[str] = PRIVATE_KEY,
+    public_key: str | os.PathLike[str] = PUBLIC_KEY,
 ) -> dict[str, str]:
-    """Atomically publish a validated JSON answer for retrieval over HTTP."""
+    """Atomically publish a validated and signed JSON answer over HTTP."""
     canonical_job_id = _job_id(job_id)
     root = _safe_root(http_root)
     try:
@@ -131,7 +136,14 @@ def publish_pxe_answer(
             output.write(raw_answer)
             output.flush()
             os.fsync(output.fileno())
+        signature_path = temporary / "answer.json.minisig"
+        try:
+            sign_answer_file(answer_path, signature_path, private_key=signing_key)
+            verify_answer_file(answer_path, signature_path, public_key=public_key)
+        except PXEAnswerSignatureError as exc:
+            raise PXEAnswerStoreError(f"cannot authenticate PXE answer publication: {exc}") from exc
         os.chmod(answer_path, 0o444)
+        os.chmod(signature_path, 0o444)
         os.chmod(temporary, 0o555)
         os.rename(temporary, destination)
         directory_fd = os.open(answers, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
@@ -178,9 +190,9 @@ def clear_stale_pxe_answers(http_root: str | os.PathLike[str]) -> int:
         if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
                 or directory_info.st_uid != os.geteuid()):
             raise PXEAnswerStoreError("PXE answer job path is not a safe directory")
-        if {item.name for item in destination.iterdir()} != {"answer.json"}:
+        if {item.name for item in destination.iterdir()} != {"answer.json", "answer.json.minisig"}:
             raise PXEAnswerStoreError(f"PXE answer {canonical_job_id} contains unexpected or missing files")
-        for name in ("answer.json",):
+        for name in ("answer.json", "answer.json.minisig"):
             item = destination / name
             item_info = item.lstat()
             if (not stat.S_ISREG(item_info.st_mode) or stat.S_ISLNK(item_info.st_mode)
