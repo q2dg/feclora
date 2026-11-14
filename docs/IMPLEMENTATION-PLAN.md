@@ -119,7 +119,7 @@ Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the 
 Acceptance: the Server binds the selected source and READY Client target into the session; the receiver independently verifies its local selection; both peers authorize independently; receiver read-back verifies; partial writes are marked untrusted; the persistent service survives browser disconnect.
 
 ## P0 — Server TLS lifecycle
-Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS keypair rotation under the existing CA. Broader CA rotation/migration is deferred. Deployment Clients validate the Server certificate; Client certificates and per-Client authentication are outside Feclora's design.
+Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS keypair rotation under the existing CA. Broader CA rotation/migration is deferred. Deployment Clients validate the Server certificate; the Server associates sessions with reported Client MAC addresses.
 - [x] Add a root-owned, atomic CA trust-bundle builder that validates CA constraints, certificate-signing usage, unique SHA-256 fingerprints and bounded PEM inputs. (Local building block only; authenticated package distribution remains pending.)
 - [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
 - [x] Keep age identity/recipient provisioning optional during Server and Client setup; TLS trust configuration does not depend on age encryption. 
