@@ -23,10 +23,10 @@ The adapter does **not** write to block devices, select a restore target,
 authenticate clients, establish TLS, or mark a deployment client successful.
 Its firewalld scope is integrated with the existing temporary PXE zone when
 both use the same firewall-manager instance.
-The caller must complete the TLS 1.3 mutual-authenticated control handshake,
-bind the peer certificate identity to an authorized job client, collect local
-target authorization/readiness, and call the coordinator before the sender
-function. On the receiver, the authenticated control service must deliver the
+The caller must complete the TLS 1.3 Server-authenticated control handshake,
+associate the Client's reported MAC with the selected job entry for operational
+scoping, collect local target authorization/readiness, and call the coordinator
+before the sender function. MAC addresses are not cryptographic identities. On the receiver, the authenticated control service must deliver the
 expected manifest metadata and target authorization over the authenticated
 TLS channel independently of UDPcast. Only after `verify_staged_multicast_artifact` succeeds may the
 existing protected restore workflow be called. Keep the staged file until the
@@ -57,9 +57,9 @@ and [upstream command-line documentation](https://www.udpcast.linux.lu/cmd.html)
 The authenticated control service, persistent job journal, Client-side
 whole-disk and partition restore dispatch, manifest delivery over the authenticated control channel, private
 staging, verified artifacts and per-client terminal results are
-integrated. Manifests are schema-validated and their artifacts are checked by SHA-256 when delivered through the
-Server-authenticated TLS control channel; manifests are schema-validated and artifacts are checked with SHA-256
-when present and require an independently trusted key.
+integrated. Manifests are schema-validated and each artifact is checked against its
+recorded byte count and SHA-256 digest when delivered through the
+Server-authenticated TLS control channel.
 
 - The deployment job binds `target_type` to the authenticated manifest's
   `image_type`. A disk job cannot be paired with a partition manifest or vice
@@ -91,9 +91,9 @@ when present and require an independently trusted key.
 ## Optional encryption and integrity
 
 UDPcast is a transport and does not encrypt or authenticate its data plane.
-Feclora does not use manifest signatures. Age may be enabled for artifact
-confidentiality; when disabled, UDPcast provides no payload confidentiality, so
-use a trusted isolated network or another configured encryption layer.
+Age may be enabled for artifact confidentiality; when disabled, UDPcast
+provides no payload confidentiality, so use a trusted isolated network or
+another configured encryption layer.
 
 The manifest arrives over the Server-authenticated TLS control channel. SHA-256
 checks detect artifact corruption and bind received bytes to the manifest
