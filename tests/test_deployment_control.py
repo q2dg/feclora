@@ -445,7 +445,7 @@ class TransferFailureTests(unittest.TestCase):
 
 
 class TLSContextTests(unittest.TestCase):
-    def test_server_accepts_context_without_client_certificates(self):
+    def test_server_accepts_context_without_client_identity_credentials(self):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         self.assertEqual(context.verify_mode, ssl.CERT_NONE)
         server = DeploymentControlServer(
@@ -1048,7 +1048,7 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
         ], check=True, capture_output=True)
         return cert, key
 
-    def test_mtls_session_transfers_image_set_before_client_result(self):
+    def test_tls_session_transfers_image_set_before_client_result(self):
         with tempfile.TemporaryDirectory() as directory:
             ca_key = os.path.join(directory, "ca.key")
             ca_cert = os.path.join(directory, "ca.crt")
@@ -1059,9 +1059,6 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
             ], check=True, capture_output=True)
             server_cert, server_key = self._certificate(
                 directory, "server", "URI:feclora-server", ca_key, ca_cert,
-            )
-            client_cert, client_key = self._certificate(
-                directory, "client", "URI:feclora-client", ca_key, ca_cert,
             )
             server_context = create_tls_context(
                 "server", certificate_file=server_cert, private_key_file=server_key,
@@ -1167,9 +1164,6 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
             server_cert, server_key = self._certificate(
                 directory, "server", "URI:feclora-server", ca_key, ca_cert,
             )
-            client_cert, client_key = self._certificate(
-                directory, "client", "URI:feclora-client", ca_key, ca_cert,
-            )
             server_context = create_tls_context(
                 "server", certificate_file=server_cert, private_key_file=server_key,
             )
@@ -1224,7 +1218,7 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
                 server.stop()
 
 
-    def test_mtls_client_save_transfers_image_and_reports_result(self):
+    def test_tls_client_save_transfers_image_and_reports_result(self):
         with tempfile.TemporaryDirectory() as directory:
             ca_key = os.path.join(directory, "ca.key")
             ca_cert = os.path.join(directory, "ca.crt")
@@ -1235,9 +1229,6 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
             ], check=True, capture_output=True)
             server_cert, server_key = self._certificate(
                 directory, "server", "URI:feclora-server", ca_key, ca_cert,
-            )
-            client_cert, client_key = self._certificate(
-                directory, "client", "URI:feclora-client", ca_key, ca_cert,
             )
             server_context = create_tls_context(
                 "server", certificate_file=server_cert, private_key_file=server_key,
