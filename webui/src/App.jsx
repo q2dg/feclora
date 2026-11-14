@@ -1132,8 +1132,8 @@ export default function App() {
                       <option value="deadline">Start gate — wait until UTC deadline</option>
                     </select>
                   </Field>
-                  {remoteStartPolicy === "expected_clients" && <Field label="Minimum READY Clients" help={`Must be between 1 and the ${remoteClients.split(/[\\s,;]+/).filter(Boolean).length} selected Client(s). The Server still requires explicit job-specific authorization.`}>
-                    <input className="pf-v5-c-form-control" type="number" min="1" max={Math.max(1, remoteClients.split(/[\\s,;]+/).filter(Boolean).length)} value={remoteExpectedClients} onChange={(e) => setRemoteExpectedClients(e.target.value)} required />
+                  {remoteStartPolicy === "expected_clients" && <Field label="Minimum READY Clients" help={`Must be between 1 and the ${remoteClients.split(/[\s,;]+/).filter(Boolean).length} selected Client(s). The Server still requires explicit job-specific authorization.`}>
+                    <input className="pf-v5-c-form-control" type="number" min="1" max={Math.max(1, remoteClients.split(/[\s,;]+/).filter(Boolean).length)} value={remoteExpectedClients} onChange={(e) => setRemoteExpectedClients(e.target.value)} required />
                   </Field>}
                   {remoteStartPolicy === "deadline" && <Field label="Start deadline (local time)" help="The deadline opens the start gate; it does not start disk I/O automatically. The Server operator must still enter the exact authorization phrase after the deadline.">
                     <input className="pf-v5-c-form-control" type="datetime-local" value={remoteStartDeadline} onChange={(e) => setRemoteStartDeadline(e.target.value)} required />
@@ -1146,7 +1146,7 @@ export default function App() {
                     </select>
                     <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Applied independently by each Client only after its write/read-back verification and successful result report. Failed or disconnected Clients are not rebooted or shut down.</div>
                   </Field>}
-                  <Button type="submit" variant="primary" isDisabled={busy || (remoteOperation === "clone" ? !remoteSourceDevice : !remoteImageId || (remoteOperation === "restore" && !remoteAvailableImages.some((item) => item.image_id === remoteImageId))) || !remoteClients.trim() || !remoteInterface || (remoteStartPolicy === "expected_clients" && (!Number.isInteger(Number(remoteExpectedClients)) || Number(remoteExpectedClients) < 1 || Number(remoteExpectedClients) > remoteClients.split(/[\\s,;]+/).filter(Boolean).length)) || (remoteStartPolicy === "deadline" && (!remoteStartDeadline || !Number.isFinite(new Date(remoteStartDeadline).getTime())))}>Validate and save job definition</Button>
+                  <Button type="submit" variant="primary" isDisabled={busy || (remoteOperation === "clone" ? !remoteSourceDevice : !remoteImageId || (remoteOperation === "restore" && !remoteAvailableImages.some((item) => item.image_id === remoteImageId))) || !remoteClients.trim() || !remoteInterface || (remoteStartPolicy === "expected_clients" && (!Number.isInteger(Number(remoteExpectedClients)) || Number(remoteExpectedClients) < 1 || Number(remoteExpectedClients) > remoteClients.split(/[\s,;]+/).filter(Boolean).length)) || (remoteStartPolicy === "deadline" && (!remoteStartDeadline || !Number.isFinite(new Date(remoteStartDeadline).getTime())))}>Validate and save job definition</Button>
                 </form>
                 {remoteJobResult && <Alert variant="success" title="Job definition persisted" isInline className="pf-v5-u-mt-md">{remoteJobResult.message}<p>Job ID: {remoteJobResult.job_id}</p></Alert>}
                 </CardBody></Card>
