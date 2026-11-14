@@ -731,6 +731,9 @@ export default function App() {
   };
 
   const deploymentArmPhrase = (job) => {
+    if (job.operation === "clone" && job.transport === "multicast") {
+      return "ARM PHYSICAL MULTICAST " + job.job_id + " FROM " + job.source_device + " IGMP-VERIFIED";
+    }
     if (job.transport === "multicast") return "ARM MULTICAST " + job.job_id + " IGMP-VERIFIED";
     if (job.operation === "clone") {
       return "ARM " + job.job_id + " AND READ " + job.source_device;
