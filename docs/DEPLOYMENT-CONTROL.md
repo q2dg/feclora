@@ -57,7 +57,3 @@ Still required:
   devices over the network;
 - multicast live progress, unicast multi-client fan-out, multicast save and
   post-job power policies.
-
-## Optional cryptographic integrations
-
-Artifact byte counts and SHA-256 digests are checked against the manifest. Repository access controls and authenticated transport provide the trust boundary.
