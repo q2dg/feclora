@@ -44,7 +44,7 @@ For an interrupted job, the startup review offers an explicit operator reconcili
 
 Clients do not enroll or authenticate individually. The Server certificate
 identity is used only by Clients to verify the Server. A selected Client MAC
-is operational job selection, not an authentication credential.
+is the Client's reported operational identifier for job selection and status tracking; it is not cryptographic proof of identity.
 
 The bind address must exactly match the IPv4 address selected in Server mode.
 The Server UI creates either a one-client unicast save/restore job or a multi-client multicast restore job and displays the job UUID. For restore jobs, it can also collect an optional stable target binding for each selected Client (WWN, serial number, or both). When configured, the Client checks those identifiers against its current device inventory before READY; the operator still selects the local device and types the destructive confirmation. Jobs without a binding retain the ordinary interactive selection. Each selected Client operator enters that UUID. The Server listener opens TCP/9443 only on the selected interface in Feclora's temporary firewalld zone. During multicast transfers it temporarily adds the UDPcast port pair and IGMP on that same interface. The listener and temporary firewall rules are removed when the job UI exits.
