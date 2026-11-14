@@ -2659,8 +2659,8 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError(f"configure the Feclora Server before creating jobs: {exc}") from exc
     if job.network_interface not in {name for _, name in socket.if_nameindex()}:
         raise WebAPIError("selected network interface does not exist")
-    if job.transport == "multicast" and job.operation != "restore":
-        raise WebAPIError("network capture currently supports unicast only")
+    if job.transport == "multicast" and job.operation not in {"restore", "clone"}:
+        raise WebAPIError("multicast transport supports restore or whole-disk physical clone only")
     if job.operation == "save":
         if job.repository_id is None:
             existing_ids = {item["image_id"] for item in _images()}
