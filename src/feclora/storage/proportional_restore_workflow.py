@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import stat
 from collections.abc import Callable
 from typing import Any
 
@@ -16,6 +17,28 @@ from .proportional_staging import StagedRawDiskImage
 
 class ProportionalRestoreWorkflowError(RuntimeError):
     """The source inventory cannot safely describe the staged image."""
+
+
+def require_distinct_block_devices(
+    source_path: str,
+    target_path: str,
+    *,
+    stat_device: Callable[[str], Any] = os.stat,
+) -> tuple[Any, Any]:
+    """Return stable rdev identities and reject aliases of the same physical disk."""
+    if (not isinstance(source_path, str) or not source_path.startswith("/dev/")
+            or not isinstance(target_path, str) or not target_path.startswith("/dev/")):
+        raise ProportionalRestoreWorkflowError("source and destination must be /dev block-device paths")
+    try:
+        source = stat_device(source_path)
+        target = stat_device(target_path)
+    except OSError as exc:
+        raise ProportionalRestoreWorkflowError(f"cannot inspect source or destination identity: {exc}") from exc
+    if not stat.S_ISBLK(source.st_mode) or not stat.S_ISBLK(target.st_mode):
+        raise ProportionalRestoreWorkflowError("source and destination must both be block devices")
+    if source.st_rdev == target.st_rdev:
+        raise ProportionalRestoreWorkflowError("source and destination resolve to the same physical block device")
+    return source.st_rdev, target.st_rdev
 
 
 def _walk(items):
