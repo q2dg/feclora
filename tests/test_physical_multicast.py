@@ -165,6 +165,29 @@ class PhysicalMulticastStreamTests(unittest.TestCase):
         self.assertEqual(result["readback_sha256"], result["sha256"])
         self.assertEqual(flushed, [True])
 
+    def test_cancellation_stops_before_next_destination_write(self):
+        checks = iter((False, True))
+        writes = []
+        with self.assertRaisesRegex(PhysicalMulticastError, "cancelled"):
+            write_and_verify_stream(
+                io.BytesIO(b"x" * 8192),
+                lambda view: writes.append(bytes(view)) or len(view),
+                lambda: None, lambda count: b"x" * count,
+                expected_bytes=8192, chunk_size=4096,
+                cancel_check=lambda: next(checks),
+            )
+        self.assertEqual(len(writes), 1)
+
+    def test_cancellation_stops_during_readback(self):
+        checks = iter((False, False, True))
+        with self.assertRaisesRegex(PhysicalMulticastError, "read-back"):
+            write_and_verify_stream(
+                io.BytesIO(b"x" * 8192), lambda view: len(view),
+                lambda: None, lambda count: b"x" * count,
+                expected_bytes=8192, chunk_size=4096,
+                cancel_check=lambda: next(checks),
+            )
+
     def test_rejects_early_stream_eof(self):
         with self.assertRaisesRegex(PhysicalMulticastError, "ended early"):
             write_and_verify_stream(io.BytesIO(b"short"), lambda view: len(view),
