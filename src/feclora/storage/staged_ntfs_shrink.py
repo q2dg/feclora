@@ -197,9 +197,13 @@ def shrink_staged_ntfs_filesystem(
             raise StagedNTFSShrinkError(
                 f"staged NTFS shrink requires NTFS; detected {detected or 'unknown'}"
             )
-        capacity = int(invoke(
+        capacity_output = invoke(
             "blockdev", ["--getsize64", loop_device], command_timeout=60
-        ).stdout.strip())
+        ).stdout.strip()
+        try:
+            capacity = int(capacity_output)
+        except (TypeError, ValueError) as exc:
+            raise StagedNTFSShrinkError("blockdev returned an invalid loop partition capacity") from exc
         if capacity != source_partition_bytes:
             raise StagedNTFSShrinkError("loop partition capacity differs from source GPT geometry")
 
@@ -207,6 +211,8 @@ def shrink_staged_ntfs_filesystem(
         before_output = (before.stdout or "") + "\n" + (before.stderr or "")
         minimum_bytes = _reported_bytes(before_output, "You might resize at")
         current_bytes = _reported_bytes(before_output, "Current volume size")
+        if minimum_bytes > current_bytes:
+            raise StagedNTFSShrinkError("ntfsresize minimum exceeds the reported current volume size")
         if target_filesystem_size_bytes >= current_bytes:
             raise StagedNTFSShrinkError("NTFS target must be smaller than the current filesystem")
         if target_filesystem_size_bytes < minimum_bytes:
