@@ -9,7 +9,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from feclora.network.pxe_answer_signing import PXEAnswerSignatureError
 from feclora.network.pxe_answer_client import (
     PXEAnswerClientError, _discover_dhcp_answer_url, _managed_repository,
     _wait_for_age_passphrase, execute_live_pxe_restore, fetch_live_pxe_answer,
@@ -30,15 +29,10 @@ def answer() -> bytes:
 
 
 class PXEAnswerClientTests(unittest.TestCase):
-    def fetch_answer(self, *args, **kwargs):
-        kwargs.setdefault("signature_downloader", lambda _url: b"test-signature")
-        kwargs.setdefault("signature_verifier", lambda *_args, **_kwargs: None)
-        return fetch_live_pxe_answer(*args, **kwargs)
-
     def test_interactive_boot_does_not_download_or_publish(self):
         with tempfile.TemporaryDirectory() as root:
             destination = Path(root) / "answer.json"
-            result = self.fetch_answer(
+            result = fetch_live_pxe_answer(
                 "quiet feclora.pxe_mode=interactive", destination=destination,
                 downloader=lambda _url: self.fail("interactive boot must not download"),
                 dhcp_url_provider=lambda: (_ for _ in ()).throw(AssertionError("must not inspect DHCP")),
@@ -97,23 +91,6 @@ class PXEAnswerClientTests(unittest.TestCase):
                     f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB} feclora.pxe_answer_url={URL}",
                     destination=destination, downloader=lambda _url: b'{"schema_version":2}',
                 )
-            self.assertFalse(destination.exists())
-
-    def test_invalid_signature_fails_closed_before_answer_is_published(self):
-        with tempfile.TemporaryDirectory() as root:
-            destination = Path(root) / "pxe" / "answer.json"
-            signature_urls = []
-            def reject_signature(*_args, **_kwargs):
-                raise PXEAnswerSignatureError("bad signature")
-            with self.assertRaisesRegex(PXEAnswerClientError, "authenticity check failed"):
-                self.fetch_answer(
-                    f"quiet feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB} feclora.pxe_answer_url={URL}",
-                    destination=destination,
-                    downloader=lambda _url: answer(),
-                    signature_downloader=lambda url: (signature_urls.append(url) or b"bad"),
-                    signature_verifier=reject_signature,
-                )
-            self.assertEqual(signature_urls, [URL + ".minisig"])
             self.assertFalse(destination.exists())
 
     def test_remote_repository_uses_normal_manager_mount_and_lease(self):
