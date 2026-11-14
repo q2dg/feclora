@@ -87,6 +87,8 @@ local Client approval and the Server's explicit ARM step.
 - [Cockpit interface and runtime boundaries](COCKPIT.html)
 - [Certificate and enrollment policy](CERTIFICATE-MANAGEMENT.html)
 - [Six end-user workflows and release acceptance contract](USER-REQUIREMENTS-ACCEPTANCE.html)
+- [Operational lifecycle: backup, upgrade, rollback and distribution](OPERATIONS.html)
+- [Maintainer-owned release acceptance checklist](MAINTAINER-ACCEPTANCE.html)
 - [Implementation backlog](IMPLEMENTATION-PLAN.html)
 - [Feature and compatibility matrix](FEATURE-MATRIX.html)
 
