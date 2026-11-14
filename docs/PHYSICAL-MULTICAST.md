@@ -2,50 +2,32 @@
 
 ## Status
 
-Not integrated. The existing UDPcast multicast restore still transports manifest-backed image artifacts into private Client staging directories; it does not stream a Server block device directly into Client block devices. A new isolated safety module now provides fail-closed source/destination identity and geometry checks, identity revalidation, and exact-length stream write/read-back SHA-256 primitives with short-write handling. It also validates the complete selected Client cohort as an all-or-nothing preflight: every selected MAC must be uniquely present and READY, every Client must have its own approved and revalidated destination, and every source/destination pair must pass alias, use-state, capacity and sector checks before a caller can proceed. UDPcast stdin/stdout command builders and bounded source/receiver stream adapters have also been added; the receiver adapter checks the Server-provided digest after local read-back. Role-specific descriptor helpers now open the Server source read-only and the Client destination read/write with Linux `O_EXCL`, then verify the opened block device's major/minor identity; positional write/flush/read-back callbacks are available. These components are still not connected to the deployment job schema, Server/Client services, Cockpit, or durable per-client results. Do not describe physical multicast as implemented.
+The direct whole-disk multicast clone path is now wired through the persistent deployment service and Cockpit. It uses the existing `clone` operation with `multicast` transport; it is separate from multicast image restore. The Server binds the source's kernel identity when the job is created, validates the complete selected Client cohort, and reads the source directly through a read-only block descriptor. Clients independently select and approve their own whole-disk destinations, report their inventory identity over the Server-authenticated TLS control channel, then revalidate and open the destination exclusively before acknowledging physical readiness. The Server starts UDPcast only after every selected Client has acknowledged that its receiver is running and its destination is open.
 
-## Intended operation
+The data stream travels directly from the Server block device through UDPcast to Client block descriptors. No RAW/IMG staging file or image repository is involved. Every Client flushes and reads back the exact written range and compares SHA-256. Per-client terminal results use the existing durable deployment journal; configured post-actions remain restricted to Clients that report successful verification.
 
-1. The Server operator selects one whole physical disk. The server reopens it read-only and records a stable identity tuple (major/minor, sysfs path, WWN, serial, size and logical/physical sector sizes). The identity and geometry are rechecked immediately before streaming.
-2. The operator selects the Client set and multicast network parameters. The job definition records the source identity and geometry, but never trusts a browser-supplied device path as proof of identity.
-3. Each Client independently inventories its local disks, selects one destination and explicitly approves it. The Client sends its observed identity and geometry over the authenticated control channel.
-4. The Server rejects the job unless every selected Client is READY and every destination is independently validated. A destination is rejected if it aliases the source device (including major/minor identity), is mounted, backs the running system, is otherwise busy, is smaller than the source, or has incompatible sector geometry.
-5. Only after the operator enters the job-specific arm phrase does the Server stream raw bytes from the read-only source block device through UDPcast. The Server must not create a RAW/IMG staging artifact.
-6. Each Client writes the received stream directly to its approved block device. It tracks the exact byte count, handles short writes, flushes and fsyncs, then reads back the written range and compares SHA-256 against a digest calculated by the Server for the exact source stream. The control channel records per-client results.
-7. A Client is successful only after readback verification. Post-actions (none/reboot/poweroff) are permitted only for individually verified clients and must use the existing strict allowlist.
+Automated coverage uses fake/in-memory I/O only. Real multi-host UDPcast/IGMP acceptance and disposable-media operator validation remain outstanding. Do not test against valuable or host system disks.
 
-## Safety invariants
+## Operation and safety gates
 
-- Never open the Server source writable. Never write to the Server source.
-- Never infer identity from device names alone. Revalidate stable identity and major/minor immediately before use.
-- Never permit source/destination aliasing, including multipath or alternate device-node aliases.
-- Never let a Client accept a destination chosen by the Server. Client-local approval is mandatory.
-- No writes before all required READY responses and explicit Server authorization.
-- No automatic retry after a partial physical write. Mark the Client as requiring operator inspection; do not resume from an uncertain offset.
-- No destructive integration tests against host block devices. Use regular-file-backed fake block-device abstractions and injected readers/writers.
-- Do not weaken existing TLS control authentication, job journaling, threshold/deadline policy, or post-action allowlists.
+1. The Server operator selects a whole physical disk that is already marked read-only. At job creation, the privileged API captures its major/minor, sysfs path, WWN/serial, capacity and sector geometry as the immutable source binding.
+2. The job must use multicast transport, at least two selected Clients, and the manual start policy. The operator configures the Server multicast interface, group and even UDPcast port base.
+3. Each Client independently selects and types confirmation for a local whole-disk destination. Before READY, the Client inventories its identity, geometry, mountpoints, holders and system-use state.
+4. The Server requires every explicitly selected Client to be READY, not merely a threshold. It rejects source/destination path, major/minor, sysfs, WWN or serial aliases; mounted, held, system-backed or busy devices; undersized targets; and logical/physical sector mismatches.
+5. The Server opens the bound source read-only and computes the expected SHA-256. It sends the exact byte count and digest with START. Each Client then re-inventories its destination, compares it with its READY identity, opens it read/write with Linux `O_EXCL`, starts `udp-receiver`, and sends a separate physical-ready acknowledgement.
+6. The Server waits for every selected Client's physical-ready acknowledgement before starting `udp-sender`. It streams exactly the source disk capacity from the read-only descriptor. No intermediate image artifact is created.
+7. Each Client writes directly to its approved block descriptor with positional I/O, handles short writes, fsyncs, reads back the exact range and compares SHA-256 with the Server digest. It sends a terminal result only after verification.
+8. A Client may request the configured fixed post-action only after its own successful read-back and successful result report. Failed or interrupted Clients are not rebooted or powered off.
 
-## Protocol and implementation boundaries
+## Trust and network boundaries
 
-Use the existing authenticated deployment control channel for job metadata, readiness, authorization and per-client results. UDPcast is only the data plane. Add a new operation identifier rather than overloading clone or restore; its schema must bind the source identity, source geometry, destination approval, stream length and digest algorithm.
+- TLS authenticates the Server to Clients and protects the control channel. Clients do not present certificates; a reported MAC is an operational allowlist identifier, not cryptographic Client authentication.
+- UDPcast multicast payloads are not encrypted or authenticated. Use only on a trusted, isolated deployment network with suitable IGMP snooping/querier configuration.
+- The Server source is never opened writable. Client destinations are never selected by the Server.
+- Source and destination identities are revalidated at the write boundary; the opened descriptor's block major/minor is checked to close path-reuse races.
+- Any incomplete or failed physical write requires operator inspection. The operation does not automatically retry or resume.
+- Tests use fake descriptors, temporary sysfs fixtures and in-memory streams only. No physical block-device writes are performed by CI.
 
-The Server must calculate a streaming digest while reading the source. Every receiver must independently calculate a digest while writing and perform a readback digest after flush. If the source cannot be read consistently, the stream length changes, any receiver disconnects, or any digest differs, the job fails closed.
+## Remaining acceptance
 
-Do not route this operation through image manifests, repository managers, S3, or temporary image artifacts: the defining property is direct physical block-device streaming.
-
-## Required automated coverage
-
-- source is opened read-only and source identity changes are rejected (identity validation primitives added; actual source opening/revalidation integration remains outstanding);
-- destination alias detection across device nodes and major/minor identities (major/minor and sysfs alias checks covered by the new safety primitive);
-- mounted, system-backed, undersized and incompatible-sector destinations rejected (preflight primitive implemented; runtime inventory binding remains outstanding);
-- no data-plane start before all READY and explicit arm;
-- source read errors and short reads fail closed;
-- receiver short writes are handled and flush/read-back verification is required by the new stream primitive; the UDPcast pipe adapter is unit-tested, while flush errors, disconnects and durable incomplete-state reporting still need runtime integration;
-- successful stream requires byte-count and readback digest agreement per Client (in-memory stream primitive and UDPcast pipe adapters added; not yet connected to the deployment service);
-- one failed Client does not cause successful post-actions on that Client;
-- no retry/resume after uncertain partial writes;
-- fake I/O only; no physical block devices in CI.
-
-## Acceptance boundary
-
-Implementation is not complete until the Cockpit workflow, durable job schema/journal, Server runtime, Client runtime, UDPcast data plane, per-client readback verification, recovery state and automated tests are integrated. A design document or a passing mock transport test alone is not completion.
+The implementation is integrated in schema, privileged API, durable deployment service, Server/Client control protocol, Cockpit and fake-I/O tests. Remaining work is operational acceptance on disposable disks and multiple isolated VMs: verify multicast routing, IGMP behavior, UDPcast version/CLI compatibility, failure handling on receiver loss, read-back throughput and power actions. Do not mark hardware/network acceptance complete until those tests have actually been performed.
