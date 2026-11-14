@@ -115,7 +115,7 @@ querier behavior has been independently configured and checked.
    authentication.
 2. Record each Client's target disk identity, capacity, sector size and
    existing partition layout. Confirm all targets are disposable.
-3. For unicast, create a restore job for one enrolled Client and complete the
+3. For unicast, create a restore job for one selected Client and complete the
    READY, ARM, restore and read-back verification sequence. Repeat separately
    for the next Client.
 4. For multicast, create one restore job authorizing at least two Clients.
