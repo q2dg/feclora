@@ -1435,7 +1435,7 @@ export default function App() {
                 <Button variant="primary" onClick={bootstrapServer} isLoading={busy} isDisabled={busy || !serverBinding || status?.server_configured}>{t("Initialize Server identity")}</Button>
               </StackItem>
               {status?.server_configured && <StackItem><Alert variant="success" title={t("Server configuration exists")} isInline>The existing configuration is not overwritten by this wizard. Continue with the remaining Server and PXE setup once those Cockpit workflows are available.</Alert></StackItem>}
-              {status?.server_configured && <StackItem><Alert variant="info" title={t("Client identification")} isInline>{t("Deployment jobs select participants by their reported MAC addresses. Clients verify the Server TLS certificate; the Server does not authenticate individual Clients.")}</Alert></StackItem>}
+              {status?.server_configured && <StackItem><Alert variant="info" title={t("Client identification")} isInline>{t("Deployment jobs select participants by their reported MAC addresses. Clients verify the Server TLS certificate.")}</Alert></StackItem>}
               {status?.server_configured && <StackItem><Card><CardBody>
 
               </CardBody></Card></StackItem>}
