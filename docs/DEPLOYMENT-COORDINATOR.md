@@ -1,7 +1,8 @@
 # Deployment coordinator
 
 `feclora.deployment.coordinator.DeploymentCoordinator` is the in-process
-state machine shared by Server mode and the future network control service.
+state machine used by the persistent Server deployment service and its
+Server-authenticated control protocol.
 
 ## Lifecycle
 
@@ -26,7 +27,9 @@ authentication mechanism. It must only be supplied by a future transport
 adapter after verifying a cryptographic peer identity and job authorization.
 MAC addresses are not credentials.
 
-The coordinator is thread-safe and in-memory. It does not persist jobs, open
-sockets, start PXE/DHCP/TFTP, send multicast, mount repositories, or invoke
-storage utilities. Process restart loses its state. No disk writes can be
-triggered through this module.
+The coordinator is thread-safe and keeps the active state in memory. When
+configured with the deployment journal as its event sink, transitions are
+persisted for operator review and restart reconciliation; live sessions and
+active I/O are not resumed after a process restart. The coordinator itself
+does not open sockets, start PXE/DHCP/TFTP, send multicast, mount repositories
+or invoke storage utilities. It does not trigger disk writes.
