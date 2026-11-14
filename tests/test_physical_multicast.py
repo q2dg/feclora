@@ -94,7 +94,7 @@ class PhysicalMulticastPreflightTests(unittest.TestCase):
     def test_source_descriptor_is_opened_read_only_and_verified_as_block_device(self):
         info = SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=os.makedev(8, 0))
         with patch("feclora.network.physical_multicast.os.open", return_value=41) as open_device, \
-             patch("feclora.network.physical_multicast.os.fstat", return_value=info):
+             patch("feclora.network.physical_multicast.os.fstat", return_value=info), patch("feclora.network.physical_multicast.os.path.exists", return_value=True), patch("feclora.network.physical_multicast.os.path.realpath", return_value=self.source["sysfs_path"]):
             descriptor = open_approved_block_device(
                 self.source, self.source, role="Server source",
             )
@@ -108,7 +108,7 @@ class PhysicalMulticastPreflightTests(unittest.TestCase):
     def test_destination_descriptor_uses_kernel_exclusive_open(self):
         info = SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=os.makedev(8, 16))
         with patch("feclora.network.physical_multicast.os.open", return_value=42) as open_device, \
-             patch("feclora.network.physical_multicast.os.fstat", return_value=info):
+             patch("feclora.network.physical_multicast.os.fstat", return_value=info), patch("feclora.network.physical_multicast.os.path.exists", return_value=True), patch("feclora.network.physical_multicast.os.path.realpath", return_value=self.target["sysfs_path"]):
             descriptor = open_approved_block_device(
                 self.target, self.target, role="Client destination",
             )
