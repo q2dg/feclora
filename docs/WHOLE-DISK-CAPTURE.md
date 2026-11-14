@@ -43,6 +43,4 @@ ignore incomplete image sets without a manifest.
 
 ## Cockpit operator procedure
 
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
-
 **Screenshots are pending.** Follow the [Cockpit screenshot capture plan](assets/screenshots/README.md). The repository currently has no validated Cockpit screenshot set. Capture each step from a real, version-matched Fedora Live build and store it under `docs/assets/screenshots/`; clearly labeled mockups are acceptable when real screenshots are unavailable; see the screenshot and mockup policy.
