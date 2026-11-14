@@ -48,7 +48,7 @@ class KeyboardLayoutTests(unittest.TestCase):
     def test_reads_the_exact_saved_layout_alias(self):
         with tempfile.TemporaryDirectory() as directory:
             config = Path(directory) / "kiosk-keyboard.conf"
-            config.write_text("FECLORA_KEYBOARD_LAYOUT=ca\\nXKB_DEFAULT_LAYOUT=es\\n")
+            config.write_text("FECLORA_KEYBOARD_LAYOUT=ca\nXKB_DEFAULT_LAYOUT=es\n")
             original_lstat = os.lstat
             def trusted_lstat(path):
                 info = original_lstat(path)
