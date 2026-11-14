@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
 import stat
+import os
 
 from feclora.storage.proportional_staging import StagedRawDiskImage
 from feclora.storage.proportional_restore_workflow import (
@@ -32,6 +33,18 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
             require_distinct_block_devices("/dev/sda", "/dev/sdb", stat_device=devices.__getitem__),
             (2048, 2064),
         )
+
+    def test_rejects_stale_inventory_major_minor_identity(self):
+        devices = {
+            "/dev/sda": SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=os.makedev(8, 0)),
+            "/dev/sdb": SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=os.makedev(8, 16)),
+        }
+        with self.assertRaisesRegex(ProportionalRestoreWorkflowError, "source no longer matches"):
+            require_distinct_block_devices(
+                "/dev/sda", "/dev/sdb",
+                source_major_minor="8:1", target_major_minor="8:16",
+                stat_device=devices.__getitem__,
+            )
 
     def test_rejects_regular_file_as_destination(self):
         devices = {
