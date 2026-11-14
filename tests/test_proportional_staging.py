@@ -186,7 +186,7 @@ class VerifiedProportionalStagingTests(unittest.TestCase):
         staged = StagedRawDiskImage(path, len(payload), "0" * 64)
         with self.assertRaisesRegex(ProportionalStagingError, "digest changed"):
             apply_gpt_rewrite_to_staged_image(
-                staged, target_size_bytes=512, sector_size=512,
+                staged, target_size_bytes=1, sector_size=512,
                 planned_partitions=(),
             )
         self.assertEqual(Path(path).read_bytes(), payload)
