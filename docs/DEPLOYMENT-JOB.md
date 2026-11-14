@@ -122,8 +122,8 @@ cache, snapshot and unknown layouts are rejected.
 
 A parsed job does not authenticate a peer or start a write. Production control
 traffic uses TLS with Server-certificate verification by the Client only. The
-Server does not authenticate individual Clients; it checks the reported MAC
-against the active job as operational job scoping, not identity proof.
+The Server associates each session with the MAC address reported by the
+Client and checks it against the active job's selected MAC list.
 The Client checks its own selected target and reports READY only after local
 preflight and typed confirmation. The Server requires the complete authorized
 READY set and a separate explicit ARM action before it sends START.
@@ -132,7 +132,7 @@ The existing Remote jobs workflow uses Server-authenticated TLS, job-scoped
 MAC selection and its READY/ARM lifecycle. That workflow is separate from the new shared
 PXE answer-file design. The answer-file publication path validates a declarative
 restore answer on the Server and serves it through Caddy over HTTP without
-per-Client credential or enrollment. The Live answer downloader, NFS read-only mount, unique WWN/serial target
+without per-Client credentials. The Live answer downloader, NFS read-only mount, unique WWN/serial target
 resolution, pre-write revalidation and whole-disk restore engine are connected.
 Other repository providers, replay/expiry controls and Cockpit result reconciliation
 remain software backlog; physical/network acceptance is optional. Do not infer authorization from PXE boot,
