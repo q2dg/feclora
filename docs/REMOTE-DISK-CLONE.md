@@ -45,7 +45,7 @@ that a Client is online or reachable.
 - Server operator: explicitly arms the job after the Client is READY.
 
 The Client's destination path is sent to the Server because the source and
-receiver must agree on the clone target. This is not Client authentication.
+receiver must agree on the clone target. The MAC address is used for operational job selection only.
 The receiver independently revalidates its block-device identity, block-device
 class, capacity, logical sector size, writable status and destructive safety
 immediately before writing. A smaller target is rejected.
@@ -90,9 +90,9 @@ check the source device.
 ## Required protocol properties
 
 - TLS with Server certificate validation by the Client; no Client
-  certificate or client authentication.
+  certificate or per-Client credential.
 - Explicit local source and receiver device approvals.
-- Fresh session UUID for correlation, not authentication.
+- Fresh session UUID for correlation.
 - Strict bounded header and terminal-frame sizes; reject duplicate or unknown
   security-critical fields.
 - Bounded streaming (64 KiB–4 MiB chunks), exact byte counts, SHA-256 and
