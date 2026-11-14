@@ -148,6 +148,33 @@ item 1 key (FIRST_CHUNK_TREE CHUNK_ITEM 2097152) itemoff 200 itemsize 80
 """
 
 
+    def test_rejects_noncanonical_filesystem_uuid(self):
+        payload = SAMPLE.replace(
+            "01234567-89ab-cdef-0123-456789abcdef",
+            "0123456789ab-cdef-0123-456789abcdef",
+            1,
+        )
+        with self.assertRaises(BtrfsInventoryError):
+            parse_filesystem_show(payload)
+
+    def test_rejects_duplicate_member_device_ids(self):
+        payload = """Label: array uuid: 01234567-89ab-cdef-0123-456789abcdef
+        Total devices 2 FS bytes used 123456
+        devid 1 size 1000000 path /dev/sda1
+        devid 1 size 2000000 path /dev/sdb1
+"""
+        with self.assertRaisesRegex(BtrfsInventoryError, "duplicate device ID"):
+            parse_filesystem_show(payload)
+
+    def test_rejects_missing_member_device_path(self):
+        payload = """Label: array uuid: 01234567-89ab-cdef-0123-456789abcdef
+        Total devices 1 FS bytes used 123456
+        devid 1 size 1000000 path missing
+"""
+        with self.assertRaisesRegex(BtrfsInventoryError, "missing or invalid"):
+            parse_filesystem_show(payload)
+
+
 class BtrfsSubvolumeTests(unittest.TestCase):
 
 
