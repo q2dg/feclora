@@ -1232,6 +1232,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
         "capture_p2v": {"source", "image_id", "repository_id"},
+        "build_recovery_iso": {"base_iso_path", "image_id", "target_wwn", "target_serial", "confirm_build", "repository_id"},
     }
     if action not in allowed:
         raise WebAPIError("operation parameters do not match the selected operation")
@@ -1249,7 +1250,57 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         raise WebAPIError("operation parameters do not match the selected operation")
     started = time.monotonic()
     _emit({"event": "started", "operation_id": operation_id, "operation": action})
-    if action == "capture_disk":
+    if action == "build_recovery_iso":
+        from feclora.storage.recovery_iso import build_recovery_iso
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        base_iso = params.get("base_iso_path")
+        if (not isinstance(base_iso, str) or not os.path.isabs(base_iso)
+                or os.path.normpath(base_iso) != base_iso or len(base_iso) > 4096
+                or not base_iso.lower().endswith(".iso")):
+            raise WebAPIError("base_iso_path must be an absolute path to a Live .iso file")
+        if params.get("confirm_build") != f"BUILD {image_id}":
+            raise WebAPIError("recovery ISO build confirmation does not match the selected image")
+        target_wwn = params.get("target_wwn")
+        target_serial = params.get("target_serial")
+        if target_wwn is not None and (not isinstance(target_wwn, str) or not target_wwn or len(target_wwn) > 128):
+            raise WebAPIError("target_wwn is invalid")
+        if target_serial is not None and (not isinstance(target_serial, str) or not target_serial or len(target_serial) > 128):
+            raise WebAPIError("target_serial is invalid")
+        if target_wwn is None and target_serial is None:
+            raise WebAPIError("recovery ISO requires a target WWN and/or serial selector")
+        repository_id = params.get("repository_id")
+        if repository_id is not None:
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
+                raise WebAPIError("recovery ISO output requires a writable filesystem repository; S3 object storage is not supported")
+        repository = _operation_repository(params, write=True, create_local=True)
+        manifest_path = _image_manifest(image_id, repository)
+        output_path = repository / f"{image_id}.recovery.iso"
+        if os.path.lexists(output_path):
+            raise WebAPIError("recovery ISO output already exists; choose another image identifier or move the existing file")
+        answer = {
+            "schema_version": 1, "operation": "restore", "image_id": image_id,
+            "target": {"wwn": target_wwn, "serial": target_serial},
+            "confirm_destructive": True, "start": True,
+        }
+        temporary_directory = tempfile.mkdtemp(prefix=".feclora-recovery-answer-", dir=repository)
+        os.chmod(temporary_directory, 0o700)
+        answer_path = Path(temporary_directory) / "answer.json"
+        try:
+            fd = os.open(answer_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                json.dump(answer, stream, sort_keys=True, separators=(",", ":"))
+                stream.write("\\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            result = build_recovery_iso(
+                base_iso, str(repository), str(manifest_path), str(answer_path),
+                str(output_path),
+            )
+        finally:
+            shutil.rmtree(temporary_directory, ignore_errors=True)
+        result["output_path"] = str(output_path)
+    elif action == "capture_disk":
         from feclora.storage.disk_capture import capture_disk
         source = _device(params["source"], "source")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
