@@ -16,6 +16,7 @@ import os
 import ipaddress
 import json
 import posixpath
+import re
 import socket
 import ssl
 import struct
@@ -752,6 +753,104 @@ class DeploymentControlServer:
                     if current is not None:
                         current.pop("monotonic", None)
         return self.collect_results(timeout=result_timeout)
+
+    def run_physical_multicast_clone_job(
+        self,
+        *,
+        udpcast_config: UDPcastConfig,
+        result_timeout: float = 86400,
+    ) -> dict[str, str]:
+        """Clone one read-only Server disk directly to all approved Client disks."""
+        from feclora.network.physical_multicast import (
+            PhysicalMulticastError, build_physical_device_record,
+            open_approved_block_device, validate_physical_multicast_cohort,
+        )
+        from feclora.network.udpcast import send_physical_multicast_stream
+        from feclora.storage.inventory import collect_inventory
+
+        job = self.coordinator.job
+        if job.operation != "clone" or job.transport != "multicast" or job.target_type != "disk":
+            raise DeploymentControlError("physical multicast requires a whole-disk multicast clone job")
+        if (udpcast_config.interface != job.network_interface
+                or udpcast_config.data_group != job.multicast_group
+                or udpcast_config.portbase != job.multicast_port
+                or udpcast_config.min_receivers != len(job.authorized_clients)):
+            raise DeploymentControlError("physical UDPcast configuration does not match the selected Client cohort")
+
+        def find_source() -> dict[str, Any]:
+            inventory = collect_inventory()
+            matches: list[dict[str, Any]] = []
+            def visit(items: list[dict[str, Any]]) -> None:
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    if item.get("path") == job.source_device and item.get("type") == "disk":
+                        matches.append(item)
+                    visit(item.get("children", []))
+            visit(inventory.get("devices", []))
+            if len(matches) != 1:
+                raise DeploymentControlError("Server source must resolve to exactly one whole disk")
+            return matches[0]
+
+        source_fd = None
+        try:
+            source_approved = build_physical_device_record(find_source())
+            source_current = build_physical_device_record(find_source())
+            with self._lock:
+                approved_destinations = {
+                    mac: dict(self._target_identities[mac])
+                    for mac in job.authorized_clients if mac in self._target_identities
+                }
+                sessions = {mac: self._sessions.get(mac) for mac in job.authorized_clients}
+            states = {item.mac_address: item.state.value for item in self.coordinator.clients()}
+            validate_physical_multicast_cohort(
+                source_approved, source_current, job.authorized_clients, states,
+                approved_destinations, dict(approved_destinations),
+            )
+            if any(sessions.get(mac) is None for mac in job.authorized_clients):
+                raise PhysicalMulticastError("a selected Client has no live control session")
+            source_fd = open_approved_block_device(
+                source_approved, source_current, role="Server source",
+            )
+            expected_bytes = source_approved["size_bytes"]
+            digest = hashlib.sha256()
+            offset = 0
+            while offset < expected_bytes:
+                chunk = os.pread(source_fd, min(1024 * 1024, expected_bytes - offset), offset)
+                if not chunk:
+                    raise PhysicalMulticastError("Server source ended during pre-transfer SHA-256 scan")
+                digest.update(chunk)
+                offset += len(chunk)
+            stream_metadata = {"expected_bytes": expected_bytes, "sha256": digest.hexdigest()}
+            started = self.arm_and_start(physical_stream=stream_metadata)
+            if set(started) != set(job.authorized_clients):
+                raise DeploymentControlError("not every selected Client accepted physical multicast START")
+            # Every Client must revalidate and exclusively open its disk before
+            # the first multicast byte is emitted.
+            for mac in sorted(job.authorized_clients):
+                response = receive_control_message(sessions[mac], expected_type="physical_ready")
+                if (set(response) != {"type", "job_id", "ready", "detail"}
+                        or response.get("job_id") != job.job_id
+                        or not isinstance(response.get("ready"), bool)
+                        or not isinstance(response.get("detail"), str)):
+                    raise DeploymentControlError(f"Client {mac} returned an invalid physical-ready acknowledgement")
+                if response["ready"] is not True:
+                    raise DeploymentControlError(
+                        f"Client {mac} could not prepare its destination; no data was sent: {response['detail'][:256]}"
+                    )
+            with os.fdopen(os.dup(source_fd), "rb", buffering=0) as source_stream:
+                sent = send_physical_multicast_stream(
+                    source_stream, expected_bytes=expected_bytes,
+                    config=udpcast_config, firewall=self.firewall,
+                )
+            if sent.get("sha256") != stream_metadata["sha256"]:
+                raise DeploymentControlError("Server source changed between hash scan and multicast send")
+            return self.collect_results(timeout=result_timeout)
+        except (PhysicalMulticastError, OSError, UDPcastError, DeploymentControlError) as exc:
+            raise DeploymentControlError(f"physical multicast clone failed: {exc}") from exc
+        finally:
+            if source_fd is not None:
+                os.close(source_fd)
 
     def run_multicast_restore_job(
         self,
