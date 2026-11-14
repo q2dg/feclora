@@ -8,6 +8,7 @@ import { SyncAltIcon, ServerIcon, DatabaseIcon, ExclamationTriangleIcon } from "
 import { Table, Thead, Tbody, Tr, Th, Td } from "@patternfly/react-table";
 import { callFeclora, waitForLocalOperation } from "./api.js";
 import KeyboardPreferences from "./KeyboardPreferences.jsx";
+import { LANGUAGES, useLanguagePreference } from "./i18n.js";
 
 const OPERATION_LABELS = {
   capture_disk: "Create a whole-disk image",
@@ -47,6 +48,7 @@ function Field({ label, children, help }) {
 }
 
 export default function App() {
+  const { language, setLanguage, t } = useLanguagePreference();
   const [tab, setTab] = useState("operations");
   const [status, setStatus] = useState(null);
   const [revokeIdentity, setRevokeIdentity] = useState("");
@@ -895,17 +897,18 @@ export default function App() {
       <PageSection variant="default">
         <Toolbar><ToolbarContent>
           <ToolbarItem><Title headingLevel="h1">Feclora</Title></ToolbarItem>
-          <ToolbarItem align={{ default: "alignEnd" }}><Button variant="secondary" icon={<SyncAltIcon />} onClick={refresh} isLoading={busy}>Refresh</Button></ToolbarItem>
+          <ToolbarItem><label htmlFor="feclora-ui-language" className="pf-v5-u-mr-sm">{t("language")}</label><select id="feclora-ui-language" className="pf-v5-c-form-control" value={language} onChange={(event) => setLanguage(event.target.value)} aria-label={t("language")}>{LANGUAGES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></ToolbarItem>
+          <ToolbarItem align={{ default: "alignEnd" }}><Button variant="secondary" icon={<SyncAltIcon />} onClick={refresh} isLoading={busy}>{t("refresh")}</Button></ToolbarItem>
         </ToolbarContent></Toolbar>
-        <p className="pf-v5-u-mt-sm">Rescue, disk imaging and network deployment appliance</p>
+        <p className="pf-v5-u-mt-sm">{t("tagline")}</p>
       </PageSection>
-      {(error || notice) && <PageSection>{error && <Alert variant="danger" title="Operation failed" isInline>{error}</Alert>}{notice && <Alert variant="success" title="Feclora" isInline>{notice}</Alert>}</PageSection>}
+      {(error || notice) && <PageSection>{error && <Alert variant="danger" title={t("failed")} isInline>{error}</Alert>}{notice && <Alert variant="success" title="Feclora" isInline>{notice}</Alert>}</PageSection>}
       <PageSection>
         {status ? <Flex flexWrap={{ default: "wrap" }} gap={{ default: "gapMd" }}>
-          <FlexItem flex={{ default: "1" }}><StatusCard title="Host" value={status.hostname} icon={<ServerIcon />} description={status.platform} /></FlexItem>
-          <FlexItem flex={{ default: "1" }}><StatusCard title="Images" value={String(images.length)} icon={<DatabaseIcon />} description="Manifest-backed local images" /></FlexItem>
-          <FlexItem flex={{ default: "1" }}><StatusCard title="Deployment jobs" value={String(journals.length)} icon={<ExclamationTriangleIcon />} description="Recorded jobs and recovery state" /></FlexItem>
-        </Flex> : <Spinner aria-label="Loading Feclora" />}
+          <FlexItem flex={{ default: "1" }}><StatusCard title={t("host")} value={status.hostname} icon={<ServerIcon />} description={status.platform} /></FlexItem>
+          <FlexItem flex={{ default: "1" }}><StatusCard title={t("images")} value={String(images.length)} icon={<DatabaseIcon />} description={t("manifests")} /></FlexItem>
+          <FlexItem flex={{ default: "1" }}><StatusCard title={t("jobs")} value={String(journals.length)} icon={<ExclamationTriangleIcon />} description={t("recordedJobs")} /></FlexItem>
+        </Flex> : <Spinner aria-label={t("loading")} />}
       </PageSection>
       {status?.certificate_status?.length > 0 && <PageSection>
         <Stack hasGutter>
@@ -919,13 +922,13 @@ export default function App() {
       </PageSection>}
       <PageSection>
         <Tabs activeKey={tab} onSelect={(_event, key) => setTab(key)}>
-          <Tab eventKey="operations" title="Imaging operations">
+          <Tab eventKey="operations" title={t("imaging")}>
             <Stack hasGutter className="pf-v5-u-pt-lg">
-              <StackItem><Title headingLevel="h2" size="xl">Operation wizard</Title><p>Choose an operation, review the selected devices, and explicitly confirm every destructive target.</p></StackItem>
+              <StackItem><Title headingLevel="h2" size="xl">{t("wizard")}</Title><p>{t("chooseOperation")}</p></StackItem>
               <StackItem>
                 <Card><CardBody>
                   <form onSubmit={runOperation}>
-                    <Field label="Operation">
+                    <Field label={t("operation")}>
                       <select className="pf-v5-c-form-control" value={operation} onChange={(e) => { setOperation(e.target.value); setSource(""); setTarget(""); setImageId(""); setPartitionId(""); setRestoreLayoutPreview(null); setConfirmation(""); setOperationResult(null); }}>
                         {Object.entries(OPERATION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                       </select>
@@ -1049,16 +1052,16 @@ export default function App() {
                         ? <Progress value={Math.min(100, progress.bytes_done / progress.bytes_total * 100)} title="Operation progress" measureLocation="outside" label={formatBytes(progress.bytes_done) + " / " + formatBytes(progress.bytes_total)} />
                         : <Alert variant="info" isInline title="Operation in progress">{formatBytes(progress.bytes_done)} processed</Alert>}
                     </div>}
-                    <Button type="submit" variant="primary" isDisabled={!operationReady || busy}>{busy ? <><Spinner size="sm" /> Working…</> : "Start operation"}</Button>
+                    <Button type="submit" variant="primary" isDisabled={!operationReady || busy}>{busy ? <><Spinner size="sm" /> {t("working")}</> : t("start")}</Button>
                   </form>
-                  {operationResult && <Alert variant="success" title="Operation completed" isInline className="pf-v5-u-mt-md"><pre>{JSON.stringify(operationResult, null, 2)}</pre></Alert>}
+                  {operationResult && <Alert variant="success" title={t("completed")} isInline className="pf-v5-u-mt-md"><pre>{JSON.stringify(operationResult, null, 2)}</pre></Alert>}
                 </CardBody></Card>
               </StackItem>
-              <StackItem><Alert variant="info" title="Safety model" isInline>Feclora rechecks block-device identity, mounted/system-source safety, geometry and image integrity in the storage engine immediately before writing. A browser selection is not treated as authorization by itself.</Alert></StackItem>
+              <StackItem><Alert variant="info" title={t("safety")} isInline>{t("storageSafety")}</Alert></StackItem>
             </Stack>
           </Tab>
-          <Tab eventKey="inventory" title="Storage inventory">
-            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Block devices and partitions</Title></StackItem>
+          <Tab eventKey="inventory" title={t("inventory")}>
+            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("storageDevices")}</Title></StackItem>
               <StackItem><Table aria-label="Feclora storage inventory" variant="compact"><Thead><Tr><Th>Device</Th><Th>Type</Th><Th>Size</Th><Th>Model</Th><Th>Filesystem</Th><Th>Mountpoints</Th></Tr></Thead><Tbody>
                 {devices.map((d) => <Tr key={d.path}><Td>{d.path}</Td><Td>{d.type}</Td><Td>{formatBytes(d.size_bytes)}</Td><Td>{d.model || "—"}</Td><Td>{d.filesystem || "—"}</Td><Td>{(d.mountpoints || []).join(", ") || "—"}</Td></Tr>)}
                 {!devices.length && <Tr><Td colSpan={6}>{inventory ? "No devices found." : "Loading inventory…"}</Td></Tr>}
@@ -1579,8 +1582,8 @@ export default function App() {
               </>}
             </Stack>
           </Tab>
-          <Tab eventKey="system" title="System">
-            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">System status</Title></StackItem>
+          <Tab eventKey="system" title={t("system")}>
+            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("systemStatus")}</Title></StackItem>
               <StackItem><KeyboardPreferences /></StackItem>
               <StackItem><Table aria-label="Feclora services" variant="compact"><Thead><Tr><Th>Component</Th><Th>Status</Th></Tr></Thead><Tbody>
                 {Object.entries(status?.services || {}).map(([name, value]) => <Tr key={name}><Td>{name}</Td><Td>{value}</Td></Tr>)}
@@ -1588,19 +1591,19 @@ export default function App() {
                 <Tr><Td>Client deployment configuration</Td><Td>{status?.client_configured ? "Configured" : "Not configured"}</Td></Tr>
               </Tbody></Table></StackItem>
               <StackItem>
-                <Title headingLevel="h2" size="lg">Local image security</Title>
+                <Title headingLevel="h2" size="lg">{t("security")}</Title>
                 <p>Generate a local Feclora CA and optional age identity. Private keys remain on this machine; captured images can then be encrypted when selected.</p>
                 <Table aria-label="Image security material" variant="compact"><Thead><Tr><Th>Capability</Th><Th>Status</Th></Tr></Thead><Tbody>
                   {Object.entries(security).map(([name, ready]) => <Tr key={name}><Td>{name.replaceAll("_", " ")}</Td><Td><Label color={ready ? "green" : "orange"}>{ready ? "Ready" : "Not initialized"}</Label></Td></Tr>)}
                 </Tbody></Table>
-                <Button variant="primary" onClick={initializeSecurity} isLoading={busy} isDisabled={busy}>Initialize local security keys</Button>
+                <Button variant="primary" onClick={initializeSecurity} isLoading={busy} isDisabled={busy}>{t("initializeKeys")}</Button>
               </StackItem>
-              <StackItem><Alert variant="info" title="Terminal access" isInline>For system setup, network diagnostics and advanced administration, use Cockpit's Terminal page. Do not use the terminal to bypass Feclora's storage safety checks.</Alert></StackItem>
+              <StackItem><Alert variant="info" title={t("terminal")} isInline>{t("terminalHelp")}</Alert></StackItem>
             </Stack>
           </Tab>
         </Tabs>
       </PageSection>
-      <PageSection variant="default"><p className="pf-v5-u-color-200">All storage operations use Feclora's shared Python engines. Cockpit is the primary operator interface.</p></PageSection>
+      <PageSection variant="default"><p className="pf-v5-u-color-200">{t("footer")}</p></PageSection>
     </Page>
   );
 }
