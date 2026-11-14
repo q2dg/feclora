@@ -21,12 +21,12 @@ The Live session is ephemeral. Credentials, certificates and temporary configura
 
 ## Current limitations
 
-- SSHFS, NFS and SMB/CIFS file repositories are implemented. S3 has a separate object API, encrypted credentials, local capture/restore staging, and distributed Client capture/restore through the Server's authenticated TLS transfer path. Live-provider acceptance against Garage, R2 and AWS S3 is optional and is not part of the software completion gate.
+- SSHFS, NFS and SMB/CIFS file repositories are implemented. S3 has a separate object API, encrypted credentials, local capture/restore staging, and distributed Client capture/restore through the Server's authenticated TLS transfer path. Live-provider acceptance against Garage, R2 and AWS S3 is a separate maintainer-run release-acceptance gate, not a substitute for software tests.
 - Unattended PXE selects a repository ID and resolves it through the Live client's normal SSHFS, NFS, SMB/CIFS or S3 manager; credentials remain in the normal protected Live configuration.
 - Multi-device Btrfs imaging, snapshot-assisted storage capture and several advanced LUKS/LVM workflows are not supported.
 - Automated tests and source validation do not prove ISO boot, firmware compatibility or physical-hardware acceptance.
 
-See the [operator guides](docs/GUIDES.md), [feature matrix](docs/FEATURE-MATRIX.md), [build instructions](docs/BUILD.md) and [remaining work](docs/ROADMAP.md).
+See the [operator guides](docs/GUIDES.md), [feature matrix](docs/FEATURE-MATRIX.md), [build instructions](docs/BUILD.md), [operational lifecycle runbook](docs/OPERATIONS.md), [maintainer acceptance checklist](docs/MAINTAINER-ACCEPTANCE.md) and [remaining work](docs/ROADMAP.md).
 
 ## Build and test
 
