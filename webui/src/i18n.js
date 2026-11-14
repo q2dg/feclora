@@ -517,6 +517,15 @@ export function translate(language, key) {
 export function useLanguagePreference() {
   const [language, setLanguageState] = useState(() => {
     try {
+      const params = new URLSearchParams(window.location.search);
+      const firstBootLanguage = params.get("feclora_language");
+      if (LANGUAGES.some(([id]) => id === firstBootLanguage)) {
+        window.localStorage.setItem("feclora.ui-language", firstBootLanguage);
+        params.delete("feclora_language");
+        const query = params.toString();
+        window.history.replaceState({}, "", window.location.pathname + (query ? "?" + query : "") + window.location.hash);
+        return firstBootLanguage;
+      }
       const saved = window.localStorage.getItem("feclora.ui-language");
       if (LANGUAGES.some(([id]) => id === saved)) return saved;
       const browser = (window.navigator.language || "en").slice(0, 2).toLowerCase();
