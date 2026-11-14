@@ -242,8 +242,10 @@ class PXEAnswerClientTests(unittest.TestCase):
                     return FakeObjectRepository()
             registry = Path(root) / "s3-repositories.json"
             registry.touch()
-            with patch("feclora.storage.s3_repository_manager.REGISTRY", registry), \\
-                 patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=FakeS3()):
+            with (
+                patch("feclora.storage.s3_repository_manager.REGISTRY", registry),
+                patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=FakeS3()),
+            ):
                 with _managed_repository("s3-images", "golden") as repository:
                     self.assertTrue((repository / "golden.manifest.json").is_file())
                     self.assertIn(("client-released",), events)
