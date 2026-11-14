@@ -8,7 +8,7 @@ correctness and storage safety take priority over feature count.
 
 - Read the relevant operator documentation and the current
   [roadmap](docs/ROADMAP.md) and [implementation plan](docs/IMPLEMENTATION-PLAN.md).
-- Check applicable architecture decisions in `docs/adr/`.
+- Check the relevant architecture and protocol documentation before changing persisted formats, trust boundaries or wire behavior.
 - Keep Cockpit as the primary operator interface. Privileged operations belong
   behind the allowlisted Python API; browser code must not execute privileged
   commands or construct arbitrary shell commands.
