@@ -1057,7 +1057,7 @@ export default function App() {
                               Source image: {formatBytes(restoreLayoutPreview.source_size_bytes)} · Destination: {formatBytes(restoreTargetDevice.size_bytes)} · {restoreLayoutPreview.partitions.length} partitions. The source partition layout is written as captured; extra destination capacity is left unused. No automatic partition/filesystem growth is performed.
                             </Alert>}
                         <Table aria-label="Restore source partition layout preview" variant="compact">
-                          <Thead><Tr><Th>{t("Partition")}</Th><Th>UUID / label</Th><Th>Start sector</Th><Th>Size</Th></Tr></Thead>
+                          <Thead><Tr><Th>{t("Partition")}</Th><Th>UUID / label</Th><Th>Start sector</Th><Th>{t("size")}</Th></Tr></Thead>
                           <Tbody>{restoreLayoutPreview.partitions.map((part) => <Tr key={part.node}>
                             <Td>{part.node}</Td><Td>{part.uuid || part.name || "—"}</Td><Td>{part.start_sector}</Td><Td>{formatBytes(part.size_bytes)}</Td>
                           </Tr>)}</Tbody>
@@ -1121,7 +1121,7 @@ export default function App() {
                   {extractLayout && <>
                     <Alert variant="info" title="Verified partition-table preview" isInline>{extractLayout.message} Source size: {formatBytes(extractLayout.source_size_bytes)} · Logical sector: {extractLayout.logical_sector_size} bytes · {extractLayout.partitions.length} partitions.</Alert>
                     <Table aria-label="Source image partition layout" variant="compact">
-                      <Thead><Tr><Th>{t("Partition")}</Th><Th>UUID / label</Th><Th>Start sector</Th><Th>Size</Th></Tr></Thead>
+                      <Thead><Tr><Th>{t("Partition")}</Th><Th>UUID / label</Th><Th>Start sector</Th><Th>{t("size")}</Th></Tr></Thead>
                       <Tbody>{extractLayout.partitions.map((part) => <Tr key={part.node}>
                         <Td>{part.node}</Td><Td>{part.uuid || part.name || "—"}</Td><Td>{part.start_sector}</Td><Td>{formatBytes(part.size_bytes)}</Td>
                       </Tr>)}</Tbody>
@@ -1140,7 +1140,7 @@ export default function App() {
                   </Alert>}
                 </CardBody></Card>
               </StackItem>
-              <StackItem><Table aria-label={t("imageRepository")} variant="compact"><Thead><Tr><Th>{t("Image")}</Th><Th>Type</Th><Th>{t("Source size")}</Th><Th>{t("Encryption")}</Th><Th>{t("Artifacts")}</Th><Th>{t("Verification")}</Th></Tr></Thead><Tbody>
+              <StackItem><Table aria-label={t("imageRepository")} variant="compact"><Thead><Tr><Th>{t("Image")}</Th><Th>{t("type")}</Th><Th>{t("Source size")}</Th><Th>{t("Encryption")}</Th><Th>{t("Artifacts")}</Th><Th>{t("Verification")}</Th></Tr></Thead><Tbody>
                 {images.map((item) => {
                   const verification = imageVerification[item.image_id];
                   return <Tr key={item.image_id}><Td>{item.image_id}</Td><Td>{item.image_type}</Td><Td>{formatBytes(item.source_size_bytes)}</Td><Td><Label color={item.encrypted ? "green" : "orange"}>{item.encrypted ? "age" : "Plain"}</Label></Td><Td>{item.artifact_count}</Td><Td>
@@ -1246,7 +1246,7 @@ export default function App() {
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Persisted remote jobs</Title>
                 <p>Interrupted jobs can only be closed for audit after you have inspected every Client and destination manually. This does not resume or retry disk operations.</p>
-                <Table aria-label={t("Persisted remote deployment jobs")} variant="compact"><Thead><Tr><Th>{t("Job ID")}</Th><Th>Operation</Th><Th>{t("Image")}</Th><Th>{t("Target")}</Th><Th>{t("Transport")}</Th><Th>{t("State")}</Th><Th>Client progress</Th><Th>{t("Recovery")}</Th><Th>{t("Events")}</Th><Th>{t("Service and execution")}</Th></Tr></Thead><Tbody>
+                <Table aria-label={t("Persisted remote deployment jobs")} variant="compact"><Thead><Tr><Th>{t("Job ID")}</Th><Th>{t("operation")}</Th><Th>{t("Image")}</Th><Th>{t("Target")}</Th><Th>{t("Transport")}</Th><Th>{t("State")}</Th><Th>Client progress</Th><Th>{t("Recovery")}</Th><Th>{t("Events")}</Th><Th>{t("Service and execution")}</Th></Tr></Thead><Tbody>
                   {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.operation === "clone" ? job.source_device : job.image_id}</Td><Td>{job.target_type}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{Object.entries(job.clients || {}).map(([mac, client]) => mac + ": " + client.state).join(", ") || "Not connected"}</Td><Td>{job.interrupted ? <Stack hasGutter><StackItem><Label color="orange">{t("Review required · no auto-resume")}</Label></StackItem><StackItem><input className="pf-v5-c-form-control" aria-label={`Reconciliation confirmation for ${job.job_id}`} placeholder={`RECONCILE ${job.job_id}`} value={reconcileConfirmations[job.job_id] || ""} onChange={(event) => setReconcileConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem><StackItem><Button variant="secondary" size="sm" isDisabled={busy || reconcileConfirmations[job.job_id] !== `RECONCILE ${job.job_id}`} onClick={() => reconcileDeploymentJob(job.job_id)}>{t("Close for audit")}</Button></StackItem></Stack> : "—"}</Td><Td>{job.event_count}</Td><Td>
                     <Stack hasGutter>
                       <StackItem>
@@ -1332,7 +1332,7 @@ export default function App() {
                   <label><input type="checkbox" checked={credentialReplace} onChange={(e) => setCredentialReplace(e.target.checked)} /> Replace an existing credential with this ID and type</label>
                   <Button type="submit" variant="primary" isDisabled={busy || !credentialId || !credentialSourceFile}>Import and encrypt credential</Button>
                 </form></CardBody></Card>
-                <Table aria-label={t("Encrypted repository credentials")} variant="compact"><Thead><Tr><Th>{t("ID")}</Th><Th>Type</Th><Th>Encrypted reference</Th><Th>Action</Th></Tr></Thead><Tbody>
+                <Table aria-label={t("Encrypted repository credentials")} variant="compact"><Thead><Tr><Th>{t("ID")}</Th><Th>{t("type")}</Th><Th>Encrypted reference</Th><Th>Action</Th></Tr></Thead><Tbody>
                   {systemdCredentials.map((credential) => <Tr key={credential.name}><Td>{credential.id}</Td><Td>{credential.kind}</Td><Td>{credential.path}</Td><Td><Button size="sm" variant="danger" isDisabled={busy || remoteRepositories.some((repo) => (repo.credential_refs || []).includes(credential.path)) || s3Repositories.some((repo) => (repo.credential_refs || []).includes(credential.path))} onClick={() => removeSystemdCredential(credential)}>{t("Remove")}</Button></Td></Tr>)}
                   {!systemdCredentials.length && <Tr><Td colSpan={4}>No encrypted credentials imported.</Td></Tr>}
                 </Tbody></Table>
@@ -1371,8 +1371,8 @@ export default function App() {
           </Tab>
           <Tab eventKey="operation-log" title={t("tabOperationLog")}>
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("localOperationHistory")}</Title><p>Durable local operation definitions and state history, including worker progress and terminal diagnostics. Interrupted writes are never resumed automatically. Cancelled or interrupted restores and clones may have partially modified their destination; inspect the target before reuse. Cancellation is orderly and may take time to stop child processes.</p></StackItem>
-              <StackItem><Button variant="secondary" isDisabled={!operations.length} onClick={exportLocalOperations}>Export latest 100 operations as JSON</Button><p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">The export contains the history currently loaded in Cockpit, including device paths and bounded diagnostic messages. Store it with the same care as operational logs.</p></StackItem>
-              <StackItem><Table aria-label={t("Local operation history")} variant="compact"><Thead><Tr><Th>{t("Timestamp")}</Th><Th>Operation</Th><Th>{t("Target")}</Th><Th>{t("Image")}</Th><Th>Status</Th><Th>{t("Progress")}</Th><Th>{t("Operation ID")}</Th><Th>{t("Details")}</Th><Th>{t("Control")}</Th></Tr></Thead><Tbody>
+              <StackItem><Button variant="secondary" isDisabled={!operations.length} onClick={exportLocalOperations}>{t("Export latest 100 operations as JSON")}</Button><p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">The export contains the history currently loaded in Cockpit, including device paths and bounded diagnostic messages. Store it with the same care as operational logs.</p></StackItem>
+              <StackItem><Table aria-label={t("Local operation history")} variant="compact"><Thead><Tr><Th>{t("Timestamp")}</Th><Th>{t("operation")}</Th><Th>{t("Target")}</Th><Th>{t("Image")}</Th><Th>{t("status")}</Th><Th>{t("Progress")}</Th><Th>{t("Operation ID")}</Th><Th>{t("Details")}</Th><Th>{t("Control")}</Th></Tr></Thead><Tbody>
                 {operations.map((item) => {
                   const events = item.events || [];
                   const latest = events[events.length - 1] || {};
@@ -1384,7 +1384,7 @@ export default function App() {
                     <Td>{details.target || details.source || "—"}</Td><Td>{details.image_id || "—"}</Td>
                     <Td><Label color={item.state === "completed" ? "green" : ["failed", "cancelled", "interrupted"].includes(item.state) ? "red" : "orange"}>{item.state || "unknown"}</Label></Td>
                     <Td>{progress ? <>{formatBytes(progressDetails.bytes_done || 0)}{progressDetails.bytes_total !== null && progressDetails.bytes_total !== undefined ? " / " + formatBytes(progressDetails.bytes_total) : " processed"}{Number.isFinite(progressDetails.elapsed_seconds) && <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{progressDetails.elapsed_seconds.toFixed(1)} s elapsed</div>}{Number.isFinite(progressDetails.bytes_per_second) && <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{formatBytes(progressDetails.bytes_per_second)}/s</div>}</> : "—"}</Td>
-                    <Td>{item.operation_id}</Td><Td>{details.destination_may_be_partial ? <><strong>Destination may be partially written.</strong> {details.reason || "Inspect it before reuse."}</> : details.error ? <><strong>{details.error_type || "Operation error"}:</strong> {details.error}</> : Array.isArray(details.manifests) ? (details.manifests.length ? "Found: " + details.manifests.join(", ") : "No manifest markers found.") : details.reason || "—"}</Td>
+                    <Td>{item.operation_id}</Td><Td>{details.destination_may_be_partial ? <><strong>{t("Destination may be partially written.")}</strong> {details.reason || "Inspect it before reuse."}</> : details.error ? <><strong>{details.error_type || "Operation error"}:</strong> {details.error}</> : Array.isArray(details.manifests) ? (details.manifests.length ? "Found: " + details.manifests.join(", ") : "No manifest markers found.") : details.reason || "—"}</Td>
                     <Td>{item.cancellable !== false && ["queued", "preflight", "running"].includes(item.state) ? <Button size="sm" variant="danger" isDisabled={cancellingOperationId === item.operation_id} onClick={() => cancelLocalOperation(item.operation_id)}>{cancellingOperationId === item.operation_id ? "Requesting…" : "Cancel"}</Button> : "—"}</Td>
                   </Tr>;
                 })}
@@ -1430,7 +1430,7 @@ export default function App() {
           <Tab eventKey="server" title="Server setup">
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem>
-                <Title headingLevel="h2" size="xl">Initialize deployment Server identity</Title>
+                <Title headingLevel="h2" size="xl">{t("Initialize deployment Server identity")}</Title>
                 <p>Select an IPv4 address currently assigned to the management interface. Feclora will initialize its managed CA and Server TLS certificate. If age-keygen is installed, it can also provision optional age encryption material.</p>
                 <Alert variant="info" title="This is the identity bootstrap step only" isInline>
                   It does not enable DHCP/ProxyDHCP, configure PXE boot services, open firewall ports or start a deployment. Client enrollment is a separate, explicit removable-media trust ceremony below.
@@ -1447,7 +1447,7 @@ export default function App() {
                 {networkInterfaces.find((item) => item.binding === serverBinding)?.dhcp_server && <Alert variant="warning" title="Existing DHCP server detected" isInline>
                   NetworkManager reports DHCP server {networkInterfaces.find((item) => item.binding === serverBinding).dhcp_server} on this interface. This identity-only step will not change DHCP settings; review the network topology before enabling PXE or DHCP services.
                 </Alert>}
-                <Button variant="primary" onClick={bootstrapServer} isLoading={busy} isDisabled={busy || !serverBinding || status?.server_configured}>Initialize Server identity</Button>
+                <Button variant="primary" onClick={bootstrapServer} isLoading={busy} isDisabled={busy || !serverBinding || status?.server_configured}>{t("Initialize Server identity")}</Button>
               </StackItem>
               {status?.server_configured && <StackItem><Alert variant="success" title="Server configuration exists" isInline>The existing configuration is not overwritten by this wizard. Continue with the remaining Server and PXE setup once those Cockpit workflows are available.</Alert></StackItem>}
               {status?.server_configured && <StackItem><Alert variant="info" title="Client authentication disabled" isInline>Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.</Alert></StackItem>}
@@ -1455,21 +1455,21 @@ export default function App() {
 
               </CardBody></Card></StackItem>}
               {status?.server_configured && <StackItem><Card><CardBody>
-                <Title headingLevel="h3" size="lg">Rotate Server TLS keypair</Title>
+                <Title headingLevel="h3" size="lg">{t("Rotate Server TLS keypair")}</Title>
                 <Alert variant="warning" title="New Server private key; existing CA retained" isInline>This is separate from certificate renewal. All deployment jobs must be stopped. The new key and certificate are validated before installation; configured Clients continue to trust the existing CA and Server identity. This does not rotate the CA.</Alert>
                 <Field t={t} label="Type exactly: ROTATE SERVER TLS KEYPAIR">
                   <input className="pf-v5-c-form-control" value={serverRotateConfirmation} onChange={(event) => setServerRotateConfirmation(event.target.value)} />
                 </Field>
-                <Button variant="danger" onClick={rotateServerKeypair} isLoading={busy} isDisabled={busy || serverRotateConfirmation !== "ROTATE SERVER TLS KEYPAIR"}>Rotate Server TLS keypair</Button>
+                <Button variant="danger" onClick={rotateServerKeypair} isLoading={busy} isDisabled={busy || serverRotateConfirmation !== "ROTATE SERVER TLS KEYPAIR"}>{t("Rotate Server TLS keypair")}</Button>
                 {serverRotateResult && <Alert variant="success" title="Server TLS keypair rotated" isInline>{serverRotateResult.message} · New certificate expires in {serverRotateResult.expiry_days} days; CA expires in {serverRotateResult.ca_expiry_days} days.</Alert>}
               </CardBody></Card></StackItem>}
               {status?.server_configured && <StackItem><Card><CardBody>
-                <Title headingLevel="h3" size="lg">Renew Server TLS certificate</Title>
+                <Title headingLevel="h3" size="lg">{t("Renew Server TLS certificate")}</Title>
                 <Alert variant="warning" title="Existing CA and private key will be retained" isInline>Renewal is blocked while any deployment job service is active. The Server certificate is replaced atomically; existing Clients continue trusting the same CA and Server identity. This does not rotate the CA or the Server private key.</Alert>
                 <Field t={t} label="Type exactly: RENEW SERVER CERTIFICATE">
                   <input className="pf-v5-c-form-control" value={serverRenewConfirmation} onChange={(event) => setServerRenewConfirmation(event.target.value)} />
                 </Field>
-                <Button variant="danger" onClick={renewServerCertificate} isLoading={busy} isDisabled={busy || serverRenewConfirmation !== "RENEW SERVER CERTIFICATE"}>Renew Server certificate</Button>
+                <Button variant="danger" onClick={renewServerCertificate} isLoading={busy} isDisabled={busy || serverRenewConfirmation !== "RENEW SERVER CERTIFICATE"}>{t("Renew Server certificate")}</Button>
                 {serverRenewResult && <Alert variant="success" title="Server certificate renewed" isInline>{serverRenewResult.message} · Server certificate expires in {serverRenewResult.expiry_days} days; CA expires in {serverRenewResult.ca_expiry_days} days.</Alert>}
               </CardBody></Card></StackItem>}
               <StackItem>
@@ -1493,32 +1493,32 @@ export default function App() {
                 <Field t={t} label="HTTP boot asset port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={pxePort} onChange={(e) => setPxePort(e.target.value)} /></Field>
                 <Field t={t} label="Maximum distinct PXE clients" help="Optional limit of unique MAC addresses. Leave empty for no client-count limit. Repeated requests from an already registered MAC do not consume another slot."><input className="pf-v5-c-form-control" type="number" min="1" max="4096" value={pxeMaxClients} onChange={(e) => setPxeMaxClients(e.target.value)} placeholder="No limit" /></Field>
                 <Field t={t} label="Maximum PXE serving time (seconds)" help="Optional deadline from service startup. Minimum 60 seconds. Leave empty for no time limit; if both fields are empty, PXE admission has no count or time limit."><input className="pf-v5-c-form-control" type="number" min="60" max="604800" value={pxeMaxDuration} onChange={(e) => setPxeMaxDuration(e.target.value)} placeholder="e.g. 3600" /></Field>
-                <Button variant="primary" onClick={validatePXEProfile} isLoading={busy} isDisabled={busy || !serverBinding || (pxeMode === "isolated" && (!pxePoolStart || !pxePoolEnd || !pxeAuthoritative))}>Run PXE preflight</Button>
+                <Button variant="primary" onClick={validatePXEProfile} isLoading={busy} isDisabled={busy || !serverBinding || (pxeMode === "isolated" && (!pxePoolStart || !pxePoolEnd || !pxeAuthoritative))}>{t("Run PXE preflight")}</Button>
               </StackItem>
-              {pxeStatus.configured && <StackItem><Alert variant="warning" title="PXE runtime is configured" isInline>Stop the PXE services when network boot is no longer required, or if the service state is incomplete. <Button variant="danger" onClick={stopPXE} isLoading={busy} isDisabled={busy}>Stop PXE services and restore firewall</Button></Alert></StackItem>}
+              {pxeStatus.configured && <StackItem><Alert variant="warning" title="PXE runtime is configured" isInline>Stop the PXE services when network boot is no longer required, or if the service state is incomplete. <Button variant="danger" onClick={stopPXE} isLoading={busy} isDisabled={busy}>{t("Stop PXE services and restore firewall")}</Button></Alert></StackItem>}
               <StackItem>
                 <Card><CardBody>
-                  <Title headingLevel="h3" size="lg">Publish unattended PXE answer</Title>
+                  <Title headingLevel="h3" size="lg">{t("Publish unattended PXE answer")}</Title>
                   <p>Upload the prewritten JSON answer. The repository is selected by its <code>repository_id</code> field and must already be configured in the Live client through Feclora's normal repository manager. The Server validates the JSON and publishes it through Caddy over HTTP. The answer contains no URLs, credential references or secrets.</p>
                   <Alert variant="warning" title="Destructive operation guard" isInline>The PXE Live client trusts the answer delivered by this HTTP server. When a client boots the unattended iPXE entry, a matching whole disk is restored automatically. The Live client resolves the selected repository through its normal Feclora managers: SSHFS, NFS, SMB/CIFS and S3, using credentials already protected in the Live configuration. No credential handoff or per-client identity is introduced. Images may be unencrypted or age-encrypted with a symmetric passphrase entered locally in Live Cockpit. Test only with disposable target disks.</Alert>
                   <Field t={t} label="Prewritten answer file (JSON)">
                     <input className="pf-v5-c-form-control" type="file" accept=".json,application/json" onChange={(event) => { setPxeAnswerFile(event.target.files?.[0] || null); setPxeAnswerPublished(null); }} />
                     {pxeAnswerFile && <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{pxeAnswerFile.name} · {pxeAnswerFile.size} bytes</div>}
                   </Field>
-                  <Button variant="primary" onClick={publishPXEAnswer} isLoading={busy} isDisabled={busy || !pxeStatus.active || !pxeAnswerFile}>Validate and publish answer</Button>
+                  <Button variant="primary" onClick={publishPXEAnswer} isLoading={busy} isDisabled={busy || !pxeStatus.active || !pxeAnswerFile}>{t("Validate and publish answer")}</Button>
                   {!pxeStatus.active && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Start PXE services first; publication is available only while the configured Caddy service is active.</p>}
                   {pxeAnswerPublished && <Alert variant="success" title="Answer published" isInline className="pf-v5-u-mt-md">
                     <p>Job: {pxeAnswerPublished.job_id}</p>
                     <p>Answer: <a href={pxeAnswerPublished.answer_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.answer_url}</a></p>
                     <p>iPXE handoff: <a href={pxeAnswerPublished.boot_script_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.boot_script_url}</a></p>
                     <p>{pxeAnswerPublished.message}</p>
-                    <Button variant="danger" size="sm" onClick={revokePXEAnswer} isLoading={busy} isDisabled={busy}>Revoke published answer</Button>
+                    <Button variant="danger" size="sm" onClick={revokePXEAnswer} isLoading={busy} isDisabled={busy}>{t("Revoke published answer")}</Button>
                   </Alert>}
                 </CardBody></Card>
               </StackItem>
               {pxeAgePassphraseStatus.available && (pxeAgePassphraseStatus.waiting || pxeAgePassphraseStatus.submitted) && <StackItem>
                 <Card><CardBody>
-                  <Title headingLevel="h3" size="lg">Unlock encrypted PXE restore</Title>
+                  <Title headingLevel="h3" size="lg">{t("Unlock encrypted PXE restore")}</Title>
                   {pxeAgePassphraseStatus.waiting
                     ? <>
                         <p>The PXE Live restore worker is waiting for the symmetric age passphrase. Enter it on this Live client. Cockpit submits it once through the local privileged API; it is not added to the answer JSON, URL or kernel command line.</p>
@@ -1537,25 +1537,25 @@ export default function App() {
                 <p>Unattended PXE admission: {pxePreflight.max_clients ? `${pxePreflight.max_clients} distinct MAC addresses` : "no client-count limit"}{pxePreflight.max_duration_seconds ? ` · ${pxePreflight.max_duration_seconds} seconds` : ""}. MAC addresses identify clients operationally; they are not authentication credentials.</p>
                 <p>iPXE URL: {pxePreflight.http_url}</p>
                 {pxePreflight.warnings.map((warning, index) => <Alert key={index} variant="warning" title="Network topology warning" isInline>{warning}</Alert>)}
-                {pxeStatus.active ? <Alert variant="success" title="PXE services active" isInline>Interface {pxeStatus.interface}; dnsmasq, Caddy and the loopback MAC-admission service are managed as temporary services.</Alert> : pxeStatus.configured ? <Alert variant="warning" title="PXE runtime needs inspection" isInline>The profile is recorded but one or more services are not active. Stop the profile to restore firewall state before trying again.</Alert> : <Alert variant="info" title="Preflight only" isInline>No services have been started yet. Activation opens a temporary firewalld zone bound only to the selected interface; it is not enabled at boot.</Alert>}{!pxeStatus.configured && <Button variant="primary" onClick={activatePXE} isLoading={busy} isDisabled={busy || !pxeProfile}>Activate PXE services</Button>}
+                {pxeStatus.active ? <Alert variant="success" title="PXE services active" isInline>Interface {pxeStatus.interface}; dnsmasq, Caddy and the loopback MAC-admission service are managed as temporary services.</Alert> : pxeStatus.configured ? <Alert variant="warning" title="PXE runtime needs inspection" isInline>The profile is recorded but one or more services are not active. Stop the profile to restore firewall state before trying again.</Alert> : <Alert variant="info" title="Preflight only" isInline>No services have been started yet. Activation opens a temporary firewalld zone bound only to the selected interface; it is not enabled at boot.</Alert>}{!pxeStatus.configured && <Button variant="primary" onClick={activatePXE} isLoading={busy} isDisabled={busy || !pxeProfile}>{t("Activate PXE services")}</Button>}
               </CardBody></Card></StackItem>}
             </Stack>
           </Tab>
-          <Tab eventKey="client-jobs" title="Client jobs">
+          <Tab eventKey="client-jobs" title={t("Client jobs")}>
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem><Title headingLevel="h2" size="xl">Remote job on this Client</Title>
                 <p>Inspect the Server job over TLS; the Client does not authenticate itself, choose this machine's local target, type the exact destructive/read confirmation, then connect. The Client reports READY after approval and waits for the Server operator to authorize and start the operation.</p>
               </StackItem>
-              {!status?.client_configured && <StackItem><Alert variant="warning" title="Client enrollment required" isInline>Configure Server trust on this Client before inspecting or joining a remote job.</Alert></StackItem>}
+              {!status?.client_configured && <StackItem><Alert variant="warning" title={t("Client enrollment required")} isInline>Configure Server trust on this Client before inspecting or joining a remote job.</Alert></StackItem>}
               {status?.client_configured && <>
                 <StackItem>
                   <Field t={t} label="Server host override" help="Leave blank to use the enrolled Server host. The configured Server certificate identity is still verified.">
                     <input className="pf-v5-c-form-control" value={clientRemoteHost} onChange={(event) => setClientRemoteHost(event.target.value)} placeholder="Use enrolled Server host" />
                   </Field>
-                  <Field t={t} label="Remote job UUID">
+                  <Field t={t} label={t("Remote job UUID")}>
                     <input className="pf-v5-c-form-control" value={clientRemoteJobId} onChange={(event) => { setClientRemoteJobId(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); }} placeholder="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" />
                   </Field>
-                  <Field t={t} label="Local multicast receive interface (also used for the Server connection)" help="Select the local IPv4 interface/address used for the Server connection and, for multicast jobs, the UDPcast receive interface. The address and interface are revalidated before connection or receive startup.">
+                  <Field t={t} label={t("Local multicast receive interface (also used for the Server connection)")} help="Select the local IPv4 interface/address used for the Server connection and, for multicast jobs, the UDPcast receive interface. The address and interface are revalidated before connection or receive startup.">
                     <select className="pf-v5-c-form-control" value={clientRemoteInterface} onChange={(event) => { setClientRemoteInterface(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); setClientRemoteIgmpConfirmed(false); }}>
                       <option value="">Select Client interface/address…</option>
                       {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
@@ -1573,7 +1573,7 @@ export default function App() {
                     <p>Server identity: {clientRemoteInspection.server_identity}</p>
                     <p>Client connection source: {clientRemoteInspection.client_network_interface} · {clientRemoteInspection.client_source_address}</p>
                     <p>Authorized Client MACs: {(clientRemoteJob.authorized_clients || []).join(", ")}</p>
-                    {clientRemoteJob.transport === "multicast" && <Alert variant="warning" title="Multicast network requirements" isInline>All selected Clients must be READY before the Server operator authorizes and starts the operation. Confirm UDP multicast reachability, switch IGMP snooping and an active querier on the same VLAN. UDPcast data packets are not encrypted or authenticated; TLS protects only the control channel.</Alert>}
+                    {clientRemoteJob.transport === "multicast" && <Alert variant="warning" title={t("Multicast network requirements")} isInline>All selected Clients must be READY before the Server operator authorizes and starts the operation. Confirm UDP multicast reachability, switch IGMP snooping and an active querier on the same VLAN. UDPcast data packets are not encrypted or authenticated; TLS protects only the control channel.</Alert>}
                     {clientRemoteJob.transport === "multicast" && <label><input type="checkbox" checked={clientRemoteIgmpConfirmed} onChange={(event) => setClientRemoteIgmpConfirmed(event.target.checked)} /> I verified IGMP snooping and an active querier on this VLAN, and confirmed all Clients are on the same multicast network.</label>}
                     {(clientRemoteJob.transport === "unicast" || clientRemoteJob.transport === "multicast") && <>
 
@@ -1584,22 +1584,22 @@ export default function App() {
                         </select>
                       </Field>
                       {clientRemoteJob.operation === "save" && <>
-                        <Field t={t} label="Capture compression">
+                        <Field t={t} label={t("Capture compression")}>
                           <select className="pf-v5-c-form-control" value={clientRemoteCompression} onChange={(event) => setClientRemoteCompression(event.target.value)}>
                             <option value="none">None</option><option value="gzip">gzip</option><option value="xz">xz</option>
                           </select>
                         </Field>
-                        <Field t={t} label="Protect this image (optional)">
+                        <Field t={t} label={t("Protect this image (optional)")}>
                           <label><input type="checkbox" checked={clientRemoteEncrypt} disabled={!clientRemoteInspection.image_security?.age_encryption_available} onChange={(event) => setClientRemoteEncrypt(event.target.checked)} /> Encrypt this image with age</label>
                           <br />
                           {(!clientRemoteInspection.image_security?.age_encryption_available ) && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Unavailable options are disabled because this Client has no usable key material or executable. Leaving encryption unchecked creates an unencrypted image with SHA-256 integrity checks.</p>}
                         </Field>
                       </>}
-                      {clientRemoteConfirmationPhrase && <Alert variant="warning" title="Type the exact local authorization phrase" isInline>{clientRemoteConfirmationPhrase}</Alert>}
-                      <Field t={t} label="Local target confirmation">
+                      {clientRemoteConfirmationPhrase && <Alert variant="warning" title={t("Type the exact local authorization phrase")} isInline>{clientRemoteConfirmationPhrase}</Alert>}
+                      <Field t={t} label={t("Local target confirmation")}>
                         <input className="pf-v5-c-form-control" value={clientRemoteConfirmation} onChange={(event) => setClientRemoteConfirmation(event.target.value)} placeholder="Type the phrase shown above exactly" />
                       </Field>
-                      <Button variant="primary" onClick={startClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteTarget || !clientRemoteConfirmationPhrase || clientRemoteConfirmation !== clientRemoteConfirmationPhrase || (!clientRemoteInterface || (clientRemoteJob.transport === "multicast" && !clientRemoteIgmpConfirmed))}>Connect and wait for Server authorization</Button>
+                      <Button variant="primary" onClick={startClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteTarget || !clientRemoteConfirmationPhrase || clientRemoteConfirmation !== clientRemoteConfirmationPhrase || (!clientRemoteInterface || (clientRemoteJob.transport === "multicast" && !clientRemoteIgmpConfirmed))}>{t("Connect and wait for Server authorization")}</Button>
                     </>}
                   </CardBody></Card>
                 </StackItem>}
@@ -1610,9 +1610,9 @@ export default function App() {
                     <p>{clientRemoteJobStatus.detail}</p>
                     {clientRemoteJobStatus.target_description && <p>Approved target: {clientRemoteJobStatus.target_description}</p>}
                     {clientRemoteJobStatus.progress && <p>{clientRemoteJobStatus.progress.phase || "Disk operation"}: {clientRemoteJobStatus.progress.completed_bytes} / {clientRemoteJobStatus.progress.total_bytes ?? "unknown"} bytes{clientRemoteJobStatus.progress.total_bytes > 0 ? " · " + Math.min(100, Math.round(clientRemoteJobStatus.progress.completed_bytes * 100 / clientRemoteJobStatus.progress.total_bytes)) + "%" : ""}</p>}
-                    {clientRemoteJobStatus.multicast_preflight?.warnings?.length > 0 && <Alert variant="warning" title="Multicast switch checks" isInline>{clientRemoteJobStatus.multicast_preflight.warnings.join(" ")}</Alert>}
-                    {clientRemoteJobStatus.multicast_warnings?.length > 0 && <Alert variant="warning" title="Multicast switch checks" isInline>{clientRemoteJobStatus.multicast_warnings.join(" ")}</Alert>}
-                    {clientRemoteJobStatus.interrupted && <Alert variant="danger" title="Client service interrupted" isInline>No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.</Alert>}
+                    {clientRemoteJobStatus.multicast_preflight?.warnings?.length > 0 && <Alert variant="warning" title={t("Multicast switch checks")} isInline>{clientRemoteJobStatus.multicast_preflight.warnings.join(" ")}</Alert>}
+                    {clientRemoteJobStatus.multicast_warnings?.length > 0 && <Alert variant="warning" title={t("Multicast switch checks")} isInline>{clientRemoteJobStatus.multicast_warnings.join(" ")}</Alert>}
+                    {clientRemoteJobStatus.interrupted && <Alert variant="danger" title={t("Client service interrupted")} isInline>No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.</Alert>}
                     <Button variant="secondary" onClick={refreshClientRemoteJobStatus} isLoading={busy} isDisabled={busy}>Refresh Client status</Button>
                   </CardBody></Card>
                 </StackItem>}
@@ -1622,7 +1622,7 @@ export default function App() {
           <Tab eventKey="system" title={t("system")}>
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("systemStatus")}</Title></StackItem>
               <StackItem><KeyboardPreferences language={language} /></StackItem>
-              <StackItem><Table aria-label="Feclora services" variant="compact"><Thead><Tr><Th>{t("Component")}</Th><Th>Status</Th></Tr></Thead><Tbody>
+              <StackItem><Table aria-label={t("Feclora services")} variant="compact"><Thead><Tr><Th>{t("Component")}</Th><Th>{t("status")}</Th></Tr></Thead><Tbody>
                 {Object.entries(status?.services || {}).map(([name, value]) => <Tr key={name}><Td>{name}</Td><Td>{value}</Td></Tr>)}
                 <Tr><Td>Server deployment configuration</Td><Td>{status?.server_configured ? "Configured" : "Not configured"}</Td></Tr>
                 <Tr><Td>Client deployment configuration</Td><Td>{status?.client_configured ? "Configured" : "Not configured"}</Td></Tr>
@@ -1630,7 +1630,7 @@ export default function App() {
               <StackItem>
                 <Title headingLevel="h2" size="lg">{t("security")}</Title>
                 <p>Generate a local Feclora CA and optional age identity. Private keys remain on this machine; captured images can then be encrypted when selected.</p>
-                <Table aria-label="Image security material" variant="compact"><Thead><Tr><Th>{t("Capability")}</Th><Th>Status</Th></Tr></Thead><Tbody>
+                <Table aria-label={t("Image security material")} variant="compact"><Thead><Tr><Th>{t("Capability")}</Th><Th>{t("status")}</Th></Tr></Thead><Tbody>
                   {Object.entries(security).map(([name, ready]) => <Tr key={name}><Td>{name.replaceAll("_", " ")}</Td><Td><Label color={ready ? "green" : "orange"}>{ready ? "Ready" : "Not initialized"}</Label></Td></Tr>)}
                 </Tbody></Table>
                 <Button variant="primary" onClick={initializeSecurity} isLoading={busy} isDisabled={busy}>{t("initializeKeys")}</Button>
