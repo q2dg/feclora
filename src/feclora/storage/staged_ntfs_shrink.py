@@ -214,8 +214,6 @@ def shrink_staged_ntfs_filesystem(
         current_bytes = _reported_bytes(before_output, "Current volume size")
         if minimum_bytes > current_bytes:
             raise StagedNTFSShrinkError("ntfsresize minimum exceeds the reported current volume size")
-        if minimum_bytes > current_bytes:
-            raise StagedNTFSShrinkError("ntfsresize minimum exceeds the reported current volume size")
         if target_filesystem_size_bytes < minimum_bytes:
             raise StagedNTFSShrinkError("NTFS target is below the staged filesystem minimum")
         resize_needed = target_filesystem_size_bytes < current_bytes
