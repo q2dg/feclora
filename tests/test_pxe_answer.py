@@ -52,7 +52,7 @@ class PXEAnswerTests(unittest.TestCase):
         with self.assertRaises(PXEAnswerError):
             validate_pxe_answer(answer)
 
-    def test_requires_stable_target_selector(self):(self):
+    def test_requires_stable_target_selector(self):
         answer = self.valid_answer()
         answer["target"] = {"wwn": None, "serial": None}
         with self.assertRaises(PXEAnswerError):
