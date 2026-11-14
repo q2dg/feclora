@@ -682,7 +682,9 @@ def _restore(inventory: dict[str, Any]) -> None:
             return
         try:
             selected_source_identity, selected_target_identity = require_distinct_block_devices(
-                source_for_proportional["path"], target["path"]
+                source_for_proportional["path"], target["path"],
+                source_major_minor=source_for_proportional.get("major_minor"),
+                target_major_minor=target.get("major_minor"),
             )
         except (ProportionalRestoreWorkflowError, KeyError) as exc:
             _message("Proportional restore blocked", f"Cannot establish distinct source and destination identities: {exc}")
