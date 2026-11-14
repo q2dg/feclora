@@ -24,7 +24,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
       - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - name: Build minimal project website and documentation
         uses: actions/jekyll-build-pages@v1
         with:
