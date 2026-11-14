@@ -135,6 +135,7 @@ def render_unattended_answer_ipxe_script(
         f"kernel {live_base}/vmlinuz root=live:{live_base}/squashfs.img ro rd.live.image "
         f"ip=dhcp rd.neednet=1 feclora.pxe_mode=unattended-answer "
         f"feclora.pxe_job_id={canonical_job_id} "
+        "feclora.pxe_client_mac=${net0/mac} "
         f"feclora.pxe_answer_url={answer_url}\\n"
         f"initrd {live_base}/initrd.img\\n"
         "boot\\n"
