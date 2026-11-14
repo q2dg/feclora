@@ -14,7 +14,7 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
         self.source = {
             "type": "disk",
             "path": "/dev/sda",
-            "size_bytes": 1024 * 1024,
+            "size_bytes": 4 * 1024 * 1024,
             "logical_sector_size": 512,
             "children": [{
                 "type": "part",
@@ -22,6 +22,8 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
                 "partuuid": "11111111-2222-3333-4444-555555555555",
                 "partition_type_guid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
                 "filesystem": "ext4",
+                "start_sector": 2048,
+                "size_bytes": 1024 * 1024,
             }],
         }
         self.gpt = {
@@ -48,9 +50,9 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
     ):
         inspect.return_value = self.gpt
         result = prepare_from_offline_source_disk(
-            self.staged, self.source, target_size_bytes=512 * 1024, sector_size=512
+            self.staged, self.source, target_size_bytes=2 * 1024 * 1024, sector_size=512
         )
-        self.assertEqual(result.size_bytes, 512 * 1024)
+        self.assertEqual(result.size_bytes, 2 * 1024 * 1024)
         planner.assert_called_once()
         planned_input = planner.call_args.args[0]
         self.assertEqual(planned_input[0]["node"], "/dev/sda1")
@@ -64,7 +66,7 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
         source = dict(self.source, size_bytes=2048 * 1024)
         with self.assertRaisesRegex(ProportionalRestoreWorkflowError, "capacity"):
             prepare_from_offline_source_disk(
-                self.staged, source, target_size_bytes=512 * 1024, sector_size=512
+                self.staged, source, target_size_bytes=2 * 1024 * 1024, sector_size=512
             )
         inspect.assert_not_called()
 
@@ -73,7 +75,7 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
     def test_rejects_missing_staged_gpt_partitions(self, _inspect):
         with self.assertRaisesRegex(ProportionalRestoreWorkflowError, "no GPT partitions"):
             prepare_from_offline_source_disk(
-                self.staged, self.source, target_size_bytes=512 * 1024, sector_size=512
+                self.staged, self.source, target_size_bytes=2 * 1024 * 1024, sector_size=512
             )
 
     @patch("feclora.storage.proportional_restore_workflow.inspect_gpt_binary")
@@ -83,7 +85,7 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
         inspect.return_value = gpt
         with self.assertRaisesRegex(ProportionalRestoreWorkflowError, "type GUID"):
             prepare_from_offline_source_disk(
-                self.staged, self.source, target_size_bytes=512 * 1024, sector_size=512
+                self.staged, self.source, target_size_bytes=2 * 1024 * 1024, sector_size=512
             )
 
 
