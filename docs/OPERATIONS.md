@@ -92,8 +92,9 @@ sharing an ISO:
 - do not claim a checksum proves publisher authenticity; use a trusted,
   authenticated distribution channel;
 
-The image-manifest integrity model is byte count plus SHA-256. Feclora does not
-currently sign image manifests or detached sidecars.
+The image-manifest integrity model is byte count plus SHA-256. A digest
+verifies artifact integrity against the manifest; it does not authenticate
+the publisher.
 
 ## Quality and localization status
 
