@@ -40,6 +40,7 @@ SAMPLE = {
                     "partuuid": "partuuid-1",
                     "parttype": "type-guid-1",
                     "partlabel": "root-partition",
+                    "start": 2048,
                     "mountpoints": ["/"],
                 }
             ],
@@ -61,6 +62,7 @@ class ParseInventoryTests(unittest.TestCase):
         self.assertEqual(disk["children"][0]["partuuid"], "partuuid-1")
         self.assertEqual(disk["children"][0]["partition_type_guid"], "type-guid-1")
         self.assertEqual(disk["children"][0]["partition_label"], "root-partition")
+        self.assertEqual(disk["children"][0]["start_sector"], 2048)
         self.assertEqual(disk["children"][0]["mountpoints"], ["/"])
 
     def test_missing_optional_fields_are_safe(self):
