@@ -230,8 +230,6 @@ class DeploymentService:
             raise DeploymentServiceError(f"cannot validate the job's Server interface: {exc}") from exc
         if self.config.bind_address not in {item.address for item in interface_addresses}:
             raise DeploymentServiceError("configured Server bind address is not assigned to the job interface")
-        if self.job.start_policy != "manual":
-            raise DeploymentServiceError("persistent Cockpit deployment service accepts manual start policy only")
         if (self.job.transport == "unicast" and len(self.job.authorized_clients) != 1
                 and self.job.operation != "clone"):
             raise DeploymentServiceError("persistent unicast save/restore service requires exactly one selected Client")
@@ -459,10 +457,19 @@ class DeploymentService:
                 if self._arm_requested or self.coordinator.state is not JobState.CREATED:
                     raise DeploymentServiceError("job is already armed, running or terminal")
                 clients = self.coordinator.clients()
-                if len(clients) != len(self.job.authorized_clients) or any(
-                    client.state is not ClientState.READY for client in clients
+                ready_count = sum(client.state is ClientState.READY for client in clients)
+                if not self.coordinator.can_start():
+                    raise DeploymentServiceError(
+                        f"start condition is not met: {ready_count} READY Client(s); "
+                        f"{self.job.minimum_ready_clients} required"
+                    )
+                if self.job.start_policy == "manual" and (
+                    len(clients) != len(self.job.authorized_clients)
+                    or ready_count != len(self.job.authorized_clients)
                 ):
-                    raise DeploymentServiceError("every selected Client must be connected and READY before arming")
+                    raise DeploymentServiceError(
+                        "manual start requires every selected Client to be connected and READY"
+                    )
                 self._arm_requested = True
                 self._worker = threading.Thread(
                     target=self._run_job, name="feclora-deployment-job", daemon=True,
@@ -492,7 +499,7 @@ class DeploymentService:
                 )
             elif self.job.transport == "multicast":
                 udpcast = udpcast_config_for_job(
-                    self.job, min_receivers=len(self.job.authorized_clients),
+                    self.job, min_receivers=self.job.minimum_ready_clients,
                 )
                 results = self.control.run_multicast_restore_job(
                     self.repository_path, self.manifest_path,
