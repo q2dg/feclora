@@ -158,7 +158,7 @@ repository and requires an additional 64 MiB safety reserve. A failed or
 unavailable capacity check prevents READY; the runtime repeats a capacity check
 before receiving artifacts. This is a point-in-time preflight, so operators must
 avoid concurrent use of the staging filesystem during deployment.
-The Server arms only when every selected Client is READY; each Client stages
+The Server can require every selected Client, a configured minimum READY count, or a UTC deadline with at least one READY Client. The deadline opens the start gate but never starts disk I/O automatically: the Server operator must still enter the exact job-specific authorization. Only Clients READY at arm time are dispatched. Each Client stages
 and verifies every artifact's manifest/digest and any configured encryption
 before writing its local disk.
 Confirm switch IGMP snooping and an active querier on the same VLAN before
