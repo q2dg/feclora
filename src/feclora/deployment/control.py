@@ -1006,12 +1006,29 @@ def join_deployment(
             if set(start) != {"type", "job_id"} or start.get("job_id") != job.job_id:
                 raise DeploymentControlError("server cancellation is not bound to this job")
             raise DeploymentControlError("server cancelled the deployment before start")
-        if set(start) != {"type", "job_id", "operation", "image_id"}:
+        expected_start_fields = {"type", "job_id", "operation", "image_id"}
+        if job.operation == "clone" and job.transport == "multicast":
+            expected_start_fields.add("physical_stream")
+        if set(start) != expected_start_fields:
             raise DeploymentControlError("server start command contains missing or unknown fields")
         if start.get("type") != "start" or start.get("job_id") != job.job_id:
             raise DeploymentControlError("server did not arm this deployment job")
         if start.get("operation") != job.operation or start.get("image_id") != job.image_id:
             raise DeploymentControlError("server start command does not match the active job")
+        if job.operation == "clone" and job.transport == "multicast":
+            physical_stream = start.get("physical_stream")
+            if (not isinstance(physical_stream, dict)
+                    or set(physical_stream) != {"expected_bytes", "sha256"}
+                    or isinstance(physical_stream.get("expected_bytes"), bool)
+                    or not isinstance(physical_stream.get("expected_bytes"), int)
+                    or physical_stream["expected_bytes"] <= 0
+                    or not isinstance(physical_stream.get("sha256"), str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", physical_stream["sha256"])):
+                raise DeploymentControlError("Server physical stream metadata is invalid")
+            approval = LocalTargetApproval(
+                approval.device_path, approval.description, approval.confirmation,
+                approval.physical_identity, physical_stream,
+            )
         try:
             success, detail = execute_job(job, tls_socket, approval)
         except Exception as exc:
