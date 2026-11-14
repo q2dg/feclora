@@ -1057,7 +1057,7 @@ def join_deployment(
     source_address: str | None = None,
     network_interface: str | None = None,
 ) -> tuple[DeploymentJob, bool, str]:
-    """Connect without client authentication, obtain local target approval, then execute on START."""
+    """Connect using Server-authenticated TLS, obtain local target approval, then execute on START."""
     if not isinstance(mac_address, str) or not mac_address or len(mac_address) > 32:
         raise DeploymentControlError("client MAC address is required")
     if not isinstance(job_id, str) or not job_id or len(job_id) > 64:
