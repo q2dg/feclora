@@ -1396,7 +1396,7 @@ export default function App() {
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem>
                 <Title headingLevel="h2" size="xl">{t("Host IPv4 configuration")}</Title>
-                <p>Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.</p>
+                <p>{t("Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.")}</p>
                 <Alert variant="warning" title={t("Management connectivity protection")} isInline>
                   Changes run under a 120-second NetworkManager checkpoint. If activation or verification fails, Feclora requests rollback; if Cockpit disconnects or the process is interrupted, NetworkManager automatically restores the previous network state when the checkpoint expires. Keep local console access available.
                 </Alert>
@@ -1450,7 +1450,7 @@ export default function App() {
                 <Button variant="primary" onClick={bootstrapServer} isLoading={busy} isDisabled={busy || !serverBinding || status?.server_configured}>{t("Initialize Server identity")}</Button>
               </StackItem>
               {status?.server_configured && <StackItem><Alert variant="success" title={t("Server configuration exists")} isInline>The existing configuration is not overwritten by this wizard. Continue with the remaining Server and PXE setup once those Cockpit workflows are available.</Alert></StackItem>}
-              {status?.server_configured && <StackItem><Alert variant="info" title={t("Client authentication disabled")} isInline>Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.</Alert></StackItem>}
+              {status?.server_configured && <StackItem><Alert variant="info" title={t("Client authentication disabled")} isInline>{t("Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.")}</Alert></StackItem>}
               {status?.server_configured && <StackItem><Card><CardBody>
 
               </CardBody></Card></StackItem>}
@@ -1612,7 +1612,7 @@ export default function App() {
                     {clientRemoteJobStatus.progress && <p>{clientRemoteJobStatus.progress.phase || "Disk operation"}: {clientRemoteJobStatus.progress.completed_bytes} / {clientRemoteJobStatus.progress.total_bytes ?? "unknown"} bytes{clientRemoteJobStatus.progress.total_bytes > 0 ? " · " + Math.min(100, Math.round(clientRemoteJobStatus.progress.completed_bytes * 100 / clientRemoteJobStatus.progress.total_bytes)) + "%" : ""}</p>}
                     {clientRemoteJobStatus.multicast_preflight?.warnings?.length > 0 && <Alert variant="warning" title={t("Multicast switch checks")} isInline>{clientRemoteJobStatus.multicast_preflight.warnings.join(" ")}</Alert>}
                     {clientRemoteJobStatus.multicast_warnings?.length > 0 && <Alert variant="warning" title={t("Multicast switch checks")} isInline>{clientRemoteJobStatus.multicast_warnings.join(" ")}</Alert>}
-                    {clientRemoteJobStatus.interrupted && <Alert variant="danger" title={t("Client service interrupted")} isInline>No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.</Alert>}
+                    {clientRemoteJobStatus.interrupted && <Alert variant="danger" title={t("Client service interrupted")} isInline>{t("No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.")}</Alert>}
                     <Button variant="secondary" onClick={refreshClientRemoteJobStatus} isLoading={busy} isDisabled={busy}>{t("Refresh Client status")}</Button>
                   </CardBody></Card>
                 </StackItem>}
