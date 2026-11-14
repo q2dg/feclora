@@ -891,7 +891,10 @@ export default function App() {
 
   const recoveryRepositoryIsS3 = s3Repositories.some((repo) => repo.id === selectedRepositoryId);
   const recoveryExpectedConfirmation = imageId ? `BUILD ${imageId}` : "";
-  const operationReady = operation === "build_recovery_iso"
+  const operationReady = operation === "export_p2v_s3"
+    ? Boolean(imageId && s3Repositories.some((repo) => repo.id === selectedRepositoryId)
+      && (!exportDestinationRepositoryId || remoteRepositories.some((repo) => repo.id === exportDestinationRepositoryId && repo.mounted && repo.verified && !repo.read_only)))
+    : operation === "build_recovery_iso"
     ? Boolean(recoveryBaseISO.trim() && imageId && (recoveryTargetWWN.trim() || recoveryTargetSerial.trim())
       && confirmation === recoveryExpectedConfirmation && !recoveryRepositoryIsS3 && !selectedRepository?.read_only)
     : isCapture
