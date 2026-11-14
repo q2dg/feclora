@@ -656,11 +656,16 @@ class DeploymentControlServer:
         job = self.coordinator.job
         if job.operation != "clone" or job.transport != "unicast":
             raise DeploymentControlError("remote clone requires a unicast clone job")
-        clients = self.coordinator.clients()
-        if (not clients or len(clients) != len(job.authorized_clients)
-                or {item.mac_address for item in clients} != set(job.authorized_clients)
-                or any(item.state is not ClientState.READY for item in clients)):
-            raise DeploymentControlError("every selected Client must be READY before remote clone arming")
+        clients = [
+            item for item in self.coordinator.clients()
+            if item.state is ClientState.READY
+        ]
+        if len(clients) < job.minimum_ready_clients:
+            raise DeploymentControlError(
+                f"remote clone requires at least {job.minimum_ready_clients} READY Client(s)"
+            )
+        if any(not job.authorizes_client(item.mac_address) for item in clients):
+            raise DeploymentControlError("remote clone includes a Client outside the job allowlist")
         if not job.source_device:
             raise DeploymentControlError("clone job has no approved Server source device")
 
@@ -740,13 +745,18 @@ class DeploymentControlServer:
                 or udpcast_config.data_group != job.multicast_group
                 or udpcast_config.portbase != job.multicast_port):
             raise DeploymentControlError("UDPcast configuration does not match the job")
-        clients = self.coordinator.clients()
-        if (len(clients) != len(job.authorized_clients)
-                or {item.mac_address for item in clients} != set(job.authorized_clients)
-                or any(item.state is not ClientState.READY for item in clients)):
-            raise DeploymentControlError("every selected Client must be READY before multicast arming")
-        if udpcast_config.min_receivers != len(clients):
-            raise DeploymentControlError("UDPcast receiver threshold must equal the selected READY Client count")
+        clients = [
+            item for item in self.coordinator.clients()
+            if item.state is ClientState.READY
+        ]
+        if len(clients) < job.minimum_ready_clients:
+            raise DeploymentControlError(
+                f"multicast restore requires at least {job.minimum_ready_clients} READY Client(s)"
+            )
+        if any(not job.authorizes_client(item.mac_address) for item in clients):
+            raise DeploymentControlError("multicast restore includes a Client outside the job allowlist")
+        if udpcast_config.min_receivers != job.minimum_ready_clients:
+            raise DeploymentControlError("UDPcast receiver threshold must match the deployment start policy")
         try:
             with open(manifest_path, "rb") as stream:
                 manifest_bytes = stream.read(8 * 1024 + 1)
