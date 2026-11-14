@@ -60,4 +60,4 @@ Still required:
 
 ## Optional cryptographic integrations
 
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
+Artifact byte counts and SHA-256 digests are checked against the manifest. Repository access controls and authenticated transport provide the trust boundary.
