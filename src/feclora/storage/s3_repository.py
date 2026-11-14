@@ -304,6 +304,100 @@ class S3ObjectRepository:
             raise S3RepositoryError(f"image payloads uploaded but manifest commit failed: {exc}") from exc
         return {"image_id": image_id, "artifact_count": len(manifest.artifacts), "committed": True}
 
+    def publish_p2v(self, image_id: str, qcow2_path: str | os.PathLike[str],
+                    metadata_path: str | os.PathLike[str]) -> dict[str, Any]:
+        """Publish a QCOW2 object and its metadata sidecar, with sidecar last."""
+        if self.config.read_only:
+            raise S3RepositoryError("S3 repository is configured read-only")
+        if not isinstance(image_id, str) or not _IMAGE_ID.fullmatch(image_id):
+            raise S3RepositoryError("P2V image identifier is invalid")
+        qcow2, metadata_file = Path(qcow2_path), Path(metadata_path)
+        self._require_regular_file(qcow2)
+        self._require_regular_file(metadata_file)
+        import json
+        try:
+            metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise S3RepositoryError("P2V metadata is invalid") from exc
+        required = {"schema_version", "image_id", "format", "source_device", "virtual_size_bytes",
+                    "file_size_bytes", "qcow2_sha256", "verified", "bootability_note"}
+        if (not isinstance(metadata, dict) or set(metadata) != required
+                or metadata.get("schema_version") != 1 or metadata.get("image_id") != image_id
+                or metadata.get("format") != "qcow2" or metadata.get("verified") is not True
+                or not isinstance(metadata.get("source_device"), str)
+                or not metadata["source_device"].startswith("/dev/")
+                or not isinstance(metadata.get("bootability_note"), str)
+                or isinstance(metadata.get("virtual_size_bytes"), bool)
+                or not isinstance(metadata.get("virtual_size_bytes"), int) or metadata["virtual_size_bytes"] <= 0):
+            raise S3RepositoryError("P2V metadata schema or identity is invalid")
+        size, digest = self._digest(qcow2)
+        if (size <= 0 or metadata.get("file_size_bytes") != size
+                or metadata.get("qcow2_sha256") != digest):
+            raise S3RepositoryError("QCOW2 file does not match its verified P2V metadata")
+        object_key = self._artifact_key(image_id, f"{image_id}.qcow2")
+        commit_key = self._key(f"{image_id}.p2v.json")
+        if self._exists(commit_key):
+            raise S3RepositoryError("refusing to overwrite an existing committed P2V image")
+        self._put_file(qcow2, object_key, digest, size)
+        uploaded = self._head(object_key)
+        if (uploaded is None or uploaded.get("ContentLength") != size
+                or uploaded.get("Metadata", {}).get("sha256") != digest):
+            raise S3RepositoryError("QCOW2 object failed post-upload verification")
+        metadata_bytes = metadata_file.read_bytes()
+        try:
+            self.client.put_object(
+                Bucket=self.config.bucket, Key=commit_key, Body=metadata_bytes,
+                ContentLength=len(metadata_bytes), ContentType="application/json",
+                Metadata={"sha256": hashlib.sha256(metadata_bytes).hexdigest()}, IfNoneMatch="*",
+            )
+        except Exception as exc:
+            raise S3RepositoryError(f"QCOW2 uploaded but P2V metadata commit failed: {exc}") from exc
+        return {"image_id": image_id, "format": "qcow2", "committed": True,
+                "file_size_bytes": size, "sha256": digest}
+
+    def list_p2v_images(self) -> list[dict[str, Any]]:
+        """List only P2V entries whose metadata and QCOW2 object agree."""
+        import json
+        prefix = f"{self.prefix}/" if self.prefix else ""
+        paginator = self.client.get_paginator("list_objects_v2")
+        result = []
+        try:
+            for page in paginator.paginate(Bucket=self.config.bucket, Prefix=prefix):
+                for item in page.get("Contents", []):
+                    key = item.get("Key", "")
+                    filename = key[len(prefix):] if key.startswith(prefix) else ""
+                    if not filename.endswith(".p2v.json") or "/" in filename:
+                        continue
+                    image_id = filename[:-len(".p2v.json")]
+                    if not _IMAGE_ID.fullmatch(image_id) or key != self._key(f"{image_id}.p2v.json"):
+                        continue
+                    try:
+                        response = self.client.get_object(Bucket=self.config.bucket, Key=key)
+                        body = response["Body"]
+                        try:
+                            metadata = json.loads(body.read().decode("utf-8"))
+                        finally:
+                            body.close()
+                    except Exception as exc:
+                        raise S3RepositoryError(f"cannot read P2V metadata {key}: {exc}") from exc
+                    if (not isinstance(metadata, dict) or metadata.get("schema_version") != 1
+                            or metadata.get("image_id") != image_id or metadata.get("format") != "qcow2"
+                            or metadata.get("verified") is not True):
+                        continue
+                    head = self._head(self._artifact_key(image_id, f"{image_id}.qcow2"))
+                    if (head is None or head.get("ContentLength") != metadata.get("file_size_bytes")
+                            or head.get("Metadata", {}).get("sha256") != metadata.get("qcow2_sha256")):
+                        continue
+                    result.append({"image_id": image_id, "image_type": "virtual_disk", "format": "qcow2",
+                                   "source_size_bytes": metadata.get("virtual_size_bytes"),
+                                   "artifact_bytes": metadata.get("file_size_bytes"), "artifact_count": 1,
+                                   "encrypted": False, "verified": True})
+        except Exception as exc:
+            if isinstance(exc, S3RepositoryError):
+                raise
+            raise S3RepositoryError(f"S3 P2V inventory failed: {exc}") from exc
+        return sorted(result, key=lambda item: item["image_id"])
+
     def list_images(self) -> list[dict[str, Any]]:
         """Return only images whose manifest object exists and validates."""
         prefix = f"{self.prefix}/" if self.prefix else ""
@@ -354,6 +448,7 @@ class S3ObjectRepository:
             if isinstance(exc, S3RepositoryError):
                 raise
             raise S3RepositoryError(f"S3 image inventory failed: {exc}") from exc
+        result.extend(self.list_p2v_images())
         return sorted(result, key=lambda item: item["image_id"])
 
     def download_image_set(
