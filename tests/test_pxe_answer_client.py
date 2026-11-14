@@ -32,7 +32,7 @@ class PXEAnswerClientTests(unittest.TestCase):
     def test_interactive_boot_does_not_download_or_publish(self):
         with tempfile.TemporaryDirectory() as root:
             destination = Path(root) / "answer.json"
-            result = self.fetch_answer(
+            result = fetch_live_pxe_answer(
                 "quiet feclora.pxe_mode=interactive", destination=destination,
                 downloader=lambda _url: self.fail("interactive boot must not download"),
                 dhcp_url_provider=lambda: (_ for _ in ()).throw(AssertionError("must not inspect DHCP")),
@@ -87,7 +87,7 @@ class PXEAnswerClientTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             destination = Path(root) / "pxe" / "answer.json"
             with self.assertRaises(PXEAnswerClientError):
-                self.fetch_answer(
+                fetch_live_pxe_answer(
                     f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB} feclora.pxe_answer_url={URL}",
                     destination=destination, downloader=lambda _url: b'{"schema_version":2}',
                 )
