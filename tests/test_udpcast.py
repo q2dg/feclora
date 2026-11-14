@@ -314,6 +314,8 @@ class PhysicalMulticastProcessTests(unittest.TestCase):
                 self.stdout = io.BytesIO(payload)
             def wait(self, **kwargs):
                 return self.returncode
+            def poll(self):
+                return self.returncode
         with self.assertRaisesRegex(UDPcastError, "SHA-256"):
             receive_physical_multicast_stream(
                 lambda view: len(view), lambda: None, lambda count: payload[:count],
