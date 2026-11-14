@@ -598,15 +598,20 @@ def _export_p2v_from_s3(params: dict[str, Any]) -> dict[str, Any]:
             staged_qcow2, copied_size, copied_digest = stage_in_destination(qcow2)
             staged_sidecar = None
             published_qcow2 = False
+            published_sidecar = False
             try:
                 if (copied_size != metadata.get("file_size_bytes")
                         or copied_digest != metadata.get("qcow2_sha256")):
                     raise WebAPIError("staged P2V QCOW2 failed size or SHA-256 verification")
-                staged_sidecar, _, _ = stage_in_destination(sidecar)
+                staged_sidecar, sidecar_size, sidecar_digest = stage_in_destination(sidecar)
+                original_sidecar_digest = hashlib.sha256(sidecar.read_bytes()).hexdigest()
+                if sidecar_size != sidecar.stat().st_size or sidecar_digest != original_sidecar_digest:
+                    raise WebAPIError("staged P2V metadata sidecar failed integrity verification")
                 os.link(staged_qcow2, target_qcow2, follow_symlinks=False)
                 published_qcow2 = True
                 # Metadata is the commit marker and is always published last.
                 os.link(staged_sidecar, target_sidecar, follow_symlinks=False)
+                published_sidecar = True
                 directory_fd = os.open(destination, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
                                        | getattr(os, "O_NOFOLLOW", 0))
                 try:
@@ -614,6 +619,11 @@ def _export_p2v_from_s3(params: dict[str, Any]) -> dict[str, Any]:
                 finally:
                     os.close(directory_fd)
             except Exception:
+                if published_sidecar:
+                    try:
+                        os.unlink(target_sidecar)
+                    except OSError:
+                        pass
                 if published_qcow2:
                     try:
                         os.unlink(target_qcow2)
