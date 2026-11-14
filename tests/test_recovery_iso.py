@@ -84,7 +84,7 @@ class RecoveryISOTests(unittest.TestCase):
         self.assertEqual(self.output.read_bytes(), b"assembled iso")
         build_command = next(command for command in commands if "-outdev" in command)
         self.assertIn(["-boot_image", "any", "replay"], [
-            build_command[index:index + 4] for index in range(len(build_command) - 3)
+            build_command[index:index + 3] for index in range(len(build_command) - 3)
         ])
         self.assertEqual(self.base.read_bytes(), b"base iso bytes")
 
