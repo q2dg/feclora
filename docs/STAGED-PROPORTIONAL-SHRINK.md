@@ -72,3 +72,35 @@ partition identities.
 This is still a staging-only operation. It does not discover or approve a
 destination device, request destructive confirmation, write a destination,
 or perform destination read-back. The ISO is not built by this workflow.
+
+
+## Destructive restore of prepared proportional staging
+
+The new `feclora.storage.staged_proportional_restore` entry point restores a
+prepared `StagedRawDiskImage` without fabricating or weakening an image
+manifest. Before any destination write it verifies the private staging
+directory and single-link file, opens the staging inode with no symlink
+following, takes an exclusive file lock, checks its exact size and SHA-256,
+and validates both GPT copies from the staged bytes.
+
+The destination must be an accessible whole-disk device. Its capacity must
+equal the staged image size exactly (larger disks are not silently accepted),
+and its logical sector size must match the GPT geometry. The restore checks
+that the target is not mounted, busy, held by device-mapper, active swap, or
+backing the live root. It records the block-device identity and repeats
+identity, geometry and safety checks immediately before writing. The operator
+must provide the exact confirmation phrase `ERASE /dev/...`.
+
+The writer streams from the already-open locked staging file to `dd` through
+standard input; it never reopens the original repository artifact. After
+writing, the same destination identity is checked again and the complete
+staged byte range is read back and SHA-256 compared. A write or read-back
+failure is reported as an unsuccessful restore; if writing began, the
+destination may contain partially written or unverified data.
+
+This API is deliberately separate from the existing manifest-based
+`restore_disk()`. It does not resize or migrate the original source, does not
+build an ISO, and does not introduce client authentication or a PXE proxy.
+Automated tests cover confirmation, staging digest, exact capacity,
+device-identity recheck, write/read-back flow and read-back mismatch. They
+have been added but have not been executed.
