@@ -73,7 +73,7 @@ restore engine performs its configured post-write verification.
 Because the answer authorizes destructive writes, only publish it after
 reviewing the target and image. The current answer transport is plain HTTP:
 the deployment explicitly trusts its configured Caddy network and does not
-provide cryptographic answer signatures or TLS for this endpoint. Do not
+provide cryptographic authentication or TLS for this endpoint. Do not
 expose the answer endpoint to untrusted networks.
 
 ## Repository access
