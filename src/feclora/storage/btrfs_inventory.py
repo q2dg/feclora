@@ -13,7 +13,7 @@ class BtrfsInventoryError(RuntimeError):
     """Btrfs returned invalid device topology."""
 
 
-_UUID = re.compile(r"^Label:\s*(.*?)\s+uuid:\s*([0-9a-fA-F-]{36})\s*$")
+_UUID = re.compile(r"^Label:\s*(.*?)\s+uuid:\s*([0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})\s*$")
 _TOTAL = re.compile(r"^\s*Total devices\s+(\d+)\b")
 _DEVICE = re.compile(r"^\s*devid\s+(\d+)\s+size\s+(\d+)\s+path\s+(.+?)\s*$")
 
@@ -47,13 +47,34 @@ def parse_filesystem_show(payload: str) -> list[dict[str, Any]]:
             })
     if current is not None:
         filesystems.append(current)
+    seen_uuids: set[str] = set()
     for filesystem in filesystems:
+        filesystem_uuid = filesystem["uuid"].lower()
+        if filesystem_uuid in seen_uuids:
+            raise BtrfsInventoryError("Btrfs reported a duplicate filesystem UUID")
+        seen_uuids.add(filesystem_uuid)
+        filesystem["uuid"] = filesystem_uuid
         expected = filesystem["total_devices"]
-        actual = len(filesystem["devices"])
-        if expected is None or actual == 0 or actual != expected:
+        devices = filesystem["devices"]
+        actual = len(devices)
+        if expected is None or expected < 1 or actual == 0 or actual != expected:
             raise BtrfsInventoryError(
                 f"Btrfs filesystem {filesystem['uuid']} reports {expected} devices but lists {actual}"
             )
+        seen_devids: set[int] = set()
+        seen_paths: set[str] = set()
+        for device in devices:
+            devid = device["devid"]
+            size_bytes = device["size_bytes"]
+            path = device["path"]
+            if devid < 1 or devid in seen_devids:
+                raise BtrfsInventoryError("Btrfs filesystem contains an invalid or duplicate device ID")
+            if size_bytes <= 0 or not path.startswith("/dev/"):
+                raise BtrfsInventoryError("Btrfs filesystem contains a missing or invalid member device")
+            if path in seen_paths:
+                raise BtrfsInventoryError("Btrfs filesystem lists a member device more than once")
+            seen_devids.add(devid)
+            seen_paths.add(path)
     return filesystems
 
 
