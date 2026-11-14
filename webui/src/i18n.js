@@ -169,6 +169,165 @@ const EXTRA_TRANSLATIONS = {
 };
 
 
+
+const CORE_TRANSLATION_COMPLETION = {
+  es: {
+    storageSafety:"Feclora vuelve a comprobar la identidad del dispositivo, los montajes, el uso del sistema, la geometría y la integridad de la imagen justo antes de escribir.",
+    terminalHelp:"Para configurar el sistema, diagnosticar la red y realizar tareas avanzadas, utiliza la página Terminal de Cockpit. No la uses para eludir las comprobaciones de seguridad de Feclora.",
+    footer:"Todas las operaciones de almacenamiento utilizan los motores Python compartidos de Feclora. Cockpit es la interfaz principal.",
+    chooseLayout:"Elige la distribución física del teclado independientemente del idioma de la interfaz. Esta opción actualiza el mapa persistente de la consola virtual Linux y la consola de texto activa.",
+    consoleOnly:"La implementación actual configura la consola virtual de Linux. La sesión gráfica Cage/Wayland todavía necesita una integración XKB independiente; este control aún no modifica esa sesión.",
+    operationLabels:"Etiquetas de las operaciones"
+  },
+  ca: { operationLabels:"Etiquetes de les operacions" },
+  gl: {
+    manifests:"Imaxes locais con manifesto",recordedJobs:"Tarefas rexistradas e estado de recuperación",loading:"Cargando Feclora",
+    chooseOperation:"Escolle unha operación, revisa os dispositivos e confirma expresamente cada destino destrutivo.",
+    safety:"Modelo de seguridade",storageSafety:"Feclora volve comprobar a identidade do dispositivo, as montaxes, o uso do sistema, a xeometría e a integridade da imaxe xusto antes de escribir.",
+    generateSecurity:"Xera unha CA local de Feclora e unha identidade age opcional. As claves privadas permanecen neste equipo.",
+    capability:"Capacidade",ready:"Preparado",notInitialized:"Non inicializado",
+    terminalHelp:"Para configurar o sistema, diagnosticar a rede e realizar tarefas avanzadas, utiliza a páxina Terminal de Cockpit. Non a empregues para evitar as comprobacións de seguridade de Feclora.",
+    footer:"Todas as operacións de almacenamento utilizan os motores Python compartidos de Feclora. Cockpit é a interface principal.",
+    chooseLayout:"Escolle a distribución física do teclado independentemente do idioma da interface. Esta opción actualiza o mapa persistente da consola virtual Linux e a consola de texto activa.",
+    currentKeymap:"Mapa de teclado Linux actual",scope:"Ámbito",
+    consoleOnly:"A implementación actual configura a consola virtual de Linux. A sesión gráfica Cage/Wayland aínda precisa unha integración XKB independente; este control non modifica esa sesión.",
+    operationLabels:"Etiquetas das operacións",storageDevices:"Dispositivos de bloque e particións",model:"Modelo",filesystem:"Sistema de ficheiros",mounts:"Puntos de montaxe"
+  },
+  eu: {
+    manifests:"Manifestua duten irudi lokalak",recordedJobs:"Erregistratutako lanak eta berreskuratze-egoera",loading:"Feclora kargatzen",
+    chooseOperation:"Aukeratu eragiketa bat, berrikusi hautatutako gailuak eta berretsi berariaz suntsitzailea den helburu bakoitza.",
+    safety:"Segurtasun-eredua",storageSafety:"Feclorak gailuaren identitatea, muntaketak, sistemaren erabilera, geometria eta irudiaren osotasuna berriro egiaztatzen ditu idatzi aurretik.",
+    generateSecurity:"Sortu Fecloraren CA lokala eta aukerako age identitatea. Gako pribatuak makina honetan geratzen dira.",
+    capability:"Gaitasuna",ready:"Prest",notInitialized:"Hasieratu gabe",
+    terminalHelp:"Sistema konfiguratzeko, sarea diagnostikatzeko eta administrazio aurreratua egiteko, erabili Cockpit-eko Terminal orria. Ez erabili Fecloraren biltegiratze-segurtasuneko egiaztapenak saihesteko.",
+    footer:"Biltegiratze-eragiketa guztiek Fecloraren Python motor partekatuak erabiltzen dituzte. Cockpit da operadorearen interfaze nagusia.",
+    chooseLayout:"Aukeratu teklatu fisikoaren diseinua interfazearen hizkuntzatik bereizita. Ezarpen honek Linux kontsola birtualaren mapa iraunkorra eta testu-kontsola aktiboa eguneratzen ditu.",
+    currentKeymap:"Uneko Linux teklatu-mapa",scope:"Esparrua",
+    consoleOnly:"Uneko inplementazioak Linux kontsola birtuala konfiguratzen du. Cage/Wayland saio grafikoak XKB integrazio bereizia behar du oraindik; kontrol honek ez du saio hori aldatzen.",
+    operationLabels:"Eragiketen etiketak",storageDevices:"Bloke-gailuak eta partizioak",model:"Modeloa",filesystem:"Fitxategi-sistema",mounts:"Muntatze-puntuak"
+  },
+  pt: {
+    manifests:"Imagens locais com manifesto",recordedJobs:"Tarefas registadas e estado de recuperação",loading:"A carregar o Feclora",
+    chooseOperation:"Escolha uma operação, reveja os dispositivos selecionados e confirme expressamente cada destino destrutivo.",
+    safety:"Modelo de segurança",storageSafety:"O Feclora volta a verificar a identidade do dispositivo, as montagens, a utilização pelo sistema, a geometria e a integridade da imagem imediatamente antes de escrever.",
+    generateSecurity:"Gere uma CA local do Feclora e uma identidade age opcional. As chaves privadas permanecem nesta máquina.",
+    capability:"Capacidade",ready:"Pronto",notInitialized:"Não inicializado",
+    terminalHelp:"Para configurar o sistema, diagnosticar a rede e administrar funcionalidades avançadas, utilize a página Terminal do Cockpit. Não a utilize para contornar as verificações de segurança do Feclora.",
+    footer:"Todas as operações de armazenamento utilizam os motores Python partilhados do Feclora. O Cockpit é a interface principal do operador.",
+    chooseLayout:"Escolha a disposição física do teclado independentemente do idioma da interface. Esta definição atualiza o mapa persistente da consola virtual Linux e a consola de texto ativa.",
+    currentKeymap:"Mapa de teclado Linux atual",scope:"Âmbito",
+    consoleOnly:"A implementação atual configura a consola virtual Linux. A sessão gráfica Cage/Wayland ainda necessita de integração XKB própria; este controlo ainda não altera essa sessão.",
+    operationLabels:"Etiquetas das operações",storageDevices:"Dispositivos de bloco e partições",model:"Modelo",filesystem:"Sistema de ficheiros",mounts:"Pontos de montagem"
+  },
+  fr: {
+    manifests:"Images locales avec manifeste",recordedJobs:"Tâches enregistrées et état de récupération",loading:"Chargement de Feclora",
+    chooseOperation:"Choisissez une opération, vérifiez les périphériques sélectionnés et confirmez explicitement chaque destination destructive.",
+    safety:"Modèle de sécurité",storageSafety:"Feclora revérifie l’identité du périphérique, les montages, l’utilisation par le système, la géométrie et l’intégrité de l’image juste avant toute écriture.",
+    generateSecurity:"Générez une autorité de certification locale Feclora et une identité age facultative. Les clés privées restent sur cette machine.",
+    capability:"Capacité",ready:"Prêt",notInitialized:"Non initialisé",
+    terminalHelp:"Pour configurer le système, diagnostiquer le réseau et effectuer l’administration avancée, utilisez la page Terminal de Cockpit. Ne l’utilisez pas pour contourner les contrôles de sécurité de Feclora.",
+    footer:"Toutes les opérations de stockage utilisent les moteurs Python partagés de Feclora. Cockpit est l’interface opérateur principale.",
+    chooseLayout:"Choisissez la disposition physique du clavier indépendamment de la langue de l’interface. Ce réglage met à jour la carte persistante de la console virtuelle Linux et la console texte active.",
+    currentKeymap:"Disposition Linux actuelle",scope:"Portée",
+    consoleOnly:"L’implémentation actuelle configure la console virtuelle Linux. La session graphique Cage/Wayland nécessite encore une intégration XKB distincte ; ce contrôle ne modifie pas cette session.",
+    operationLabels:"Libellés des opérations",storageDevices:"Périphériques bloc et partitions",model:"Modèle",filesystem:"Système de fichiers",mounts:"Points de montage"
+  },
+  de: {
+    manifests:"Lokale Images mit Manifest",recordedJobs:"Aufgezeichnete Aufträge und Wiederherstellungsstatus",loading:"Feclora wird geladen",
+    chooseOperation:"Wählen Sie einen Vorgang, prüfen Sie die ausgewählten Geräte und bestätigen Sie jedes destruktive Ziel ausdrücklich.",
+    safety:"Sicherheitsmodell",storageSafety:"Feclora prüft unmittelbar vor dem Schreiben erneut Geräteidentität, Einbindungen, Systemnutzung, Geometrie und Image-Integrität.",
+    generateSecurity:"Erstellen Sie eine lokale Feclora-CA und optional eine age-Identität. Private Schlüssel verbleiben auf diesem Rechner.",
+    capability:"Funktion",ready:"Bereit",notInitialized:"Nicht initialisiert",
+    terminalHelp:"Verwenden Sie für Systemeinrichtung, Netzwerkdiagnose und erweiterte Administration die Terminal-Seite von Cockpit. Umgehen Sie damit nicht die Speichersicherheitsprüfungen von Feclora.",
+    footer:"Alle Speicheroperationen verwenden die gemeinsamen Python-Engines von Feclora. Cockpit ist die primäre Bedienoberfläche.",
+    chooseLayout:"Wählen Sie das physische Tastaturlayout unabhängig von der Oberflächensprache. Diese Einstellung aktualisiert das persistente Layout der virtuellen Linux-Konsole und die aktive Textkonsole.",
+    currentKeymap:"Aktuelles Linux-Tastaturlayout",scope:"Geltungsbereich",
+    consoleOnly:"Die aktuelle Implementierung konfiguriert die virtuelle Linux-Konsole. Für die grafische Cage/Wayland-Sitzung ist weiterhin eine separate XKB-Integration erforderlich; diese Einstellung ändert jene Sitzung noch nicht.",
+    operationLabels:"Vorgangsbezeichnungen",storageDevices:"Blockgeräte und Partitionen",model:"Modell",filesystem:"Dateisystem",mounts:"Einhängepunkte"
+  },
+  it: {
+    manifests:"Immagini locali con manifest",recordedJobs:"Operazioni registrate e stato di ripristino",loading:"Caricamento di Feclora",
+    chooseOperation:"Scegli un'operazione, controlla i dispositivi selezionati e conferma esplicitamente ogni destinazione distruttiva.",
+    safety:"Modello di sicurezza",storageSafety:"Feclora ricontrolla identità del dispositivo, montaggi, utilizzo da parte del sistema, geometria e integrità dell'immagine subito prima della scrittura.",
+    generateSecurity:"Genera una CA locale Feclora e un'identità age facoltativa. Le chiavi private restano su questa macchina.",
+    capability:"Funzionalità",ready:"Pronto",notInitialized:"Non inizializzato",
+    terminalHelp:"Per configurazione del sistema, diagnostica di rete e amministrazione avanzata, usa la pagina Terminale di Cockpit. Non usarla per aggirare i controlli di sicurezza di Feclora.",
+    footer:"Tutte le operazioni di archiviazione usano i motori Python condivisi di Feclora. Cockpit è l'interfaccia principale per l'operatore.",
+    chooseLayout:"Scegli il layout fisico della tastiera indipendentemente dalla lingua dell'interfaccia. Questa impostazione aggiorna la mappa persistente della console virtuale Linux e la console testuale attiva.",
+    currentKeymap:"Mappa tastiera Linux corrente",scope:"Ambito",
+    consoleOnly:"L'implementazione attuale configura la console virtuale Linux. La sessione grafica Cage/Wayland richiede ancora un'integrazione XKB separata; questo controllo non modifica ancora quella sessione.",
+    operationLabels:"Etichette delle operazioni",storageDevices:"Dispositivi a blocchi e partizioni",model:"Modello",filesystem:"File system",mounts:"Punti di montaggio"
+  },
+  zh: {
+    manifests:"带清单的本地映像",recordedJobs:"已记录任务和恢复状态",loading:"正在加载 Feclora",
+    chooseOperation:"选择操作，检查所选设备，并明确确认每个具有破坏性的目标。",
+    safety:"安全模型",storageSafety:"Feclora 会在写入前立即重新检查设备身份、挂载状态、系统占用、几何参数和映像完整性。",
+    generateSecurity:"生成本地 Feclora CA 和可选的 age 身份。私钥保留在此计算机上。",
+    capability:"功能",ready:"就绪",notInitialized:"尚未初始化",
+    terminalHelp:"如需系统设置、网络诊断和高级管理，请使用 Cockpit 的终端页面。不要利用终端绕过 Feclora 的存储安全检查。",
+    footer:"所有存储操作均使用 Feclora 共享的 Python 引擎。Cockpit 是主要操作界面。",
+    chooseLayout:"独立于界面语言选择物理键盘布局。此设置会更新持久化的 Linux 虚拟控制台键盘映射和当前文本控制台。",
+    currentKeymap:"当前 Linux 键盘映射",scope:"范围",
+    consoleOnly:"当前实现配置 Linux 虚拟控制台。Cage/Wayland 图形会话仍需单独的 XKB 集成；此控件目前不会更改该会话。",
+    operationLabels:"操作标签",storageDevices:"块设备和分区",model:"型号",filesystem:"文件系统",mounts:"挂载点"
+  },
+  ja: {
+    manifests:"マニフェスト付きローカルイメージ",recordedJobs:"記録済みジョブと復旧状態",loading:"Feclora を読み込み中",
+    chooseOperation:"操作を選択し、選択したデバイスを確認して、破壊的な対象をそれぞれ明示的に承認してください。",
+    safety:"安全モデル",storageSafety:"Feclora は書き込み直前にデバイス識別情報、マウント状態、システム使用状況、ジオメトリ、イメージ整合性を再確認します。",
+    generateSecurity:"ローカル Feclora CA と任意の age ID を生成します。秘密鍵はこのマシン内に保持されます。",
+    capability:"機能",ready:"準備完了",notInitialized:"未初期化",
+    terminalHelp:"システム設定、ネットワーク診断、高度な管理には Cockpit の Terminal ページを使用してください。Feclora のストレージ安全確認を回避するために使用しないでください。",
+    footer:"すべてのストレージ操作は Feclora の共有 Python エンジンを使用します。Cockpit が主な操作画面です。",
+    chooseLayout:"インターフェース言語とは独立して物理キーボード配列を選択します。この設定は Linux 仮想コンソールの永続キーマップとアクティブなテキストコンソールを更新します。",
+    currentKeymap:"現在の Linux キーマップ",scope:"適用範囲",
+    consoleOnly:"現在の実装は Linux 仮想コンソールを設定します。Cage/Wayland グラフィカルセッションには別途 XKB 統合が必要であり、この設定はまだそのセッションを変更しません。",
+    operationLabels:"操作ラベル",storageDevices:"ブロックデバイスとパーティション",model:"モデル",filesystem:"ファイルシステム",mounts:"マウントポイント"
+  },
+  ru: {
+    manifests:"Локальные образы с манифестом",recordedJobs:"Записанные задания и состояние восстановления",loading:"Загрузка Feclora",
+    chooseOperation:"Выберите операцию, проверьте выбранные устройства и явно подтвердите каждую цель с разрушительными последствиями.",
+    safety:"Модель безопасности",storageSafety:"Непосредственно перед записью Feclora повторно проверяет идентификатор устройства, точки монтирования, использование системой, геометрию и целостность образа.",
+    generateSecurity:"Создайте локальный центр сертификации Feclora и необязательную идентичность age. Закрытые ключи остаются на этом компьютере.",
+    capability:"Возможность",ready:"Готово",notInitialized:"Не инициализировано",
+    terminalHelp:"Для настройки системы, диагностики сети и расширенного администрирования используйте страницу Terminal в Cockpit. Не обходите через неё проверки безопасности хранилища Feclora.",
+    footer:"Все операции хранения используют общие движки Python Feclora. Cockpit — основной интерфейс оператора.",
+    chooseLayout:"Выберите физическую раскладку клавиатуры независимо от языка интерфейса. Настройка обновляет постоянную раскладку виртуальной консоли Linux и активную текстовую консоль.",
+    currentKeymap:"Текущая раскладка Linux",scope:"Область действия",
+    consoleOnly:"Текущая реализация настраивает виртуальную консоль Linux. Для графического сеанса Cage/Wayland по-прежнему требуется отдельная интеграция XKB; этот параметр пока не меняет такой сеанс.",
+    operationLabels:"Названия операций",storageDevices:"Блочные устройства и разделы",model:"Модель",filesystem:"Файловая система",mounts:"Точки монтирования"
+  },
+  ar: {
+    manifests:"صور محلية مدعومة ببيان",recordedJobs:"المهام المسجلة وحالة الاسترداد",loading:"جارٍ تحميل Feclora",
+    chooseOperation:"اختر عملية، وراجع الأجهزة المحددة، وأكد صراحةً كل وجهة تتضمن إجراءً مدمراً.",
+    safety:"نموذج الأمان",storageSafety:"يعيد Feclora التحقق من هوية الجهاز وحالات التحميل واستخدام النظام والهندسة وسلامة الصورة مباشرةً قبل الكتابة.",
+    generateSecurity:"أنشئ سلطة شهادات محلية لـ Feclora وهوية age اختيارية. تبقى المفاتيح الخاصة على هذا الجهاز.",
+    capability:"الإمكانات",ready:"جاهز",notInitialized:"لم تتم التهيئة",
+    terminalHelp:"لإعداد النظام وتشخيص الشبكة والإدارة المتقدمة، استخدم صفحة Terminal في Cockpit. لا تستخدمها لتجاوز فحوصات أمان التخزين في Feclora.",
+    footer:"تستخدم جميع عمليات التخزين محركات Python المشتركة في Feclora. Cockpit هي واجهة التشغيل الأساسية.",
+    chooseLayout:"اختر تخطيط لوحة المفاتيح الفعلي بشكل مستقل عن لغة الواجهة. يحدّث هذا الإعداد خريطة مفاتيح وحدة تحكم Linux الافتراضية الدائمة ووحدة النص النشطة.",
+    currentKeymap:"تخطيط مفاتيح Linux الحالي",scope:"النطاق",
+    consoleOnly:"يضبط التنفيذ الحالي وحدة تحكم Linux الافتراضية. لا تزال جلسة Cage/Wayland الرسومية بحاجة إلى تكامل XKB منفصل؛ ولا يغيّر هذا الخيار تلك الجلسة حالياً.",
+    operationLabels:"تسميات العمليات",storageDevices:"أجهزة الكتل والأقسام",model:"الطراز",filesystem:"نظام الملفات",mounts:"نقاط التحميل"
+  },
+  tr: {
+    manifests:"Manifest destekli yerel görüntüler",recordedJobs:"Kaydedilen işler ve kurtarma durumu",loading:"Feclora yükleniyor",
+    chooseOperation:"Bir işlem seçin, seçili aygıtları gözden geçirin ve yıkıcı hedeflerin her birini açıkça onaylayın.",
+    safety:"Güvenlik modeli",storageSafety:"Feclora, yazmadan hemen önce aygıt kimliğini, bağlama durumlarını, sistem kullanımını, geometrisini ve görüntü bütünlüğünü yeniden denetler.",
+    generateSecurity:"Yerel bir Feclora CA'sı ve isteğe bağlı age kimliği oluşturun. Özel anahtarlar bu makinede kalır.",
+    capability:"Yetenek",ready:"Hazır",notInitialized:"Başlatılmadı",
+    terminalHelp:"Sistem kurulumu, ağ tanılama ve gelişmiş yönetim için Cockpit Terminal sayfasını kullanın. Feclora depolama güvenliği denetimlerini atlamak için terminali kullanmayın.",
+    footer:"Tüm depolama işlemleri Feclora'nın paylaşılan Python motorlarını kullanır. Cockpit birincil operatör arayüzüdür.",
+    chooseLayout:"Fiziksel klavye düzenini arayüz dilinden bağımsız seçin. Bu ayar kalıcı Linux sanal konsol tuş haritasını ve etkin metin konsolunu günceller.",
+    currentKeymap:"Geçerli Linux tuş haritası",scope:"Kapsam",
+    consoleOnly:"Geçerli uygulama Linux sanal konsolunu yapılandırır. Cage/Wayland grafik oturumu için ayrıca XKB tümleştirmesi gerekir; bu denetim henüz o oturumu değiştirmez.",
+    operationLabels:"İşlem etiketleri",storageDevices:"Blok aygıtları ve bölümler",model:"Model",filesystem:"Dosya sistemi",mounts:"Bağlama noktaları"
+  }
+};
+for (const [language, values] of Object.entries(CORE_TRANSLATION_COMPLETION)) {
+  Object.assign(DICTS[language], values);
+}
+
 export function translate(language, key) {
   return EXTRA_TRANSLATIONS[language]?.[key] || DICTS[language]?.[key] || EXTRA_TRANSLATIONS.en[key] || EN[key] || key;
 }
