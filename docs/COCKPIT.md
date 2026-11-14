@@ -79,6 +79,7 @@ LAN access is intentionally unavailable in this kiosk profile.
 
 The Operations wizard provides:
 - whole-disk, partition and active LVM logical-volume image capture;
+- physical-disk-to-QCOW2 (P2V) conversion through a durable local worker. It writes a verified `.qcow2` file and `.p2v.json` metadata sidecar to a local or mounted filesystem repository (SSHFS/NFS/SMB); S3 publication is not yet supported. The source is read-only and must pass source-safety checks. QCOW2 preserves disk sectors and partition metadata, but does not guarantee guest bootability; OS-specific drivers or initramfs changes may still be required.
 - whole-disk, partition and existing-LV image restoration;
 - whole-disk and partition-to-partition cloning;
 - device discovery, image selection, compression selection and typed
