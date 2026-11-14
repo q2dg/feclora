@@ -99,7 +99,7 @@ class ExtFilesystemProbeTests(unittest.TestCase):
                 {"node": "/dev/source2", "start": 2_100_000, "size": 6_000_000,
                  "type": "0fc63daf-8483-4772-8e79-3d69d8477de4"},
             ],
-            source_size_bytes=8_500_000_000,
+            source_size_bytes=8_499_999_744,
             target_size_bytes=5_000_000_000,
             sector_size=512,
             partition_table_type="gpt",
@@ -117,7 +117,7 @@ class ExtFilesystemProbeTests(unittest.TestCase):
             build_proportional_gpt_plan(
                 [{"node": "/dev/source1", "start": 2048, "size": 2_000_000,
                   "type": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"}],
-                source_size_bytes=8_500_000_000,
+                source_size_bytes=8_499_999_744,
                 target_size_bytes=5_000_000_000,
                 sector_size=512,
                 partition_table_type="gpt",
@@ -135,7 +135,7 @@ class ExtFilesystemProbeTests(unittest.TestCase):
             build_proportional_gpt_plan(
                 [{"node": "/dev/source1", "start": 2048, "size": 2_000_000,
                   "type": "0fc63daf-8483-4772-8e79-3d69d8477de4"}],
-                source_size_bytes=8_500_000_000,
+                source_size_bytes=8_499_999_744,
                 target_size_bytes=5_000_000_000,
                 sector_size=512,
                 partition_table_type="gpt",
@@ -165,9 +165,11 @@ class ExtFilesystemProbeTests(unittest.TestCase):
 
         discovered = {
             "disk_path": "/dev/sda",
-            "source_size_bytes": 8_500_000_000,
+            "source_size_bytes": 8_499_999_744,
             "sector_size": 512,
             "partition_table_type": "gpt",
+            "first_usable_lba": 34,
+            "last_usable_lba": 8_499_999_744 // 512 - 34,
             "partitions": [{
                 "node": "/dev/sda1", "start": 2048, "size": 8_000_000,
                 "type": "0fc63daf-8483-4772-8e79-3d69d8477de4",
@@ -269,7 +271,7 @@ class NTFSFilesystemProbeTests(unittest.TestCase):
              "type": "0fc63daf-8483-4772-8e79-3d69d8477de4"},
         ]
         plan = build_proportional_gpt_plan(
-            partitions, source_size_bytes=8_500_000_000,
+            partitions, source_size_bytes=8_499_999_744,
             target_size_bytes=4_000_000_000, sector_size=512,
             partition_table_type="gpt",
             filesystem_types={"/dev/source1": "vfat", "/dev/source2": "ntfs"},
