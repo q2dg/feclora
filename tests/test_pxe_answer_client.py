@@ -29,6 +29,11 @@ def answer() -> bytes:
 
 
 class PXEAnswerClientTests(unittest.TestCase):
+    def fetch_answer(self, *args, **kwargs):
+        kwargs.setdefault("signature_downloader", lambda _url: b"test-signature")
+        kwargs.setdefault("signature_verifier", lambda *_args, **_kwargs: None)
+        return fetch_live_pxe_answer(*args, **kwargs)
+
     def test_interactive_boot_does_not_download_or_publish(self):
         with tempfile.TemporaryDirectory() as root:
             destination = Path(root) / "answer.json"
