@@ -10,7 +10,7 @@ title: Operational lifecycle - backup, upgrade, rollback and distribution
 
 This runbook describes the current Live-appliance operating model. It does not
 claim that Feclora has an in-place updater, persistent system configuration
-backup, signed release artifacts or a published release pipeline.
+backup, artifact provenance or a published release pipeline.
 
 ## Persistence boundary
 
