@@ -15,8 +15,6 @@ feclora's whole-disk image format stores the raw disk payload and an associated 
 
 ## Disk-image extraction workflow now integrated
 
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
-
 The extracted raw artifact is retained in the image repository as a separately manifested image. It is not automatically deleted after restore, allowing audit/retry but consuming repository space.
 
 ## Remaining integration and validation
