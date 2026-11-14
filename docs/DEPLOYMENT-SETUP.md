@@ -1,3 +1,11 @@
+---
+layout: default
+title: Configuring Server and Client deployment modes
+---
+
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
 # Configuring Server and Client deployment modes
 
 The TLS deployment runtime is opt-in. PXE services and the control
