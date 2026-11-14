@@ -3,10 +3,10 @@
 The control channel uses TLS to authenticate the Server certificate to Clients.
 Clients do not present certificates or authenticate individually. The reported
 MAC is checked only for membership in the active job; it is not an authenticator.
-This module coordinates readiness and job arming,
-unicast TLS image transfer, and multicast UDPcast artifact delivery. It does not
-execute block-device writes; the Client runtime performs protected staging,
-verification and restore.
+This module coordinates readiness and job arming, unicast image/clone transfers,
+multicast image restore, and direct physical multicast clone orchestration. The
+Server opens physical sources read-only; Client runtimes own destination writes
+and read-back verification.
 """
 from __future__ import annotations
 
