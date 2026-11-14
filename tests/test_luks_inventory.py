@@ -26,7 +26,8 @@ class LuksInventoryTests(unittest.TestCase):
 
     def test_collects_nested_luks2_devices(self):
         calls = []
-        payload = json.dumps({"config": {}, "keyslots": {}, "tokens": {},
+        payload = json.dumps({"uuid": "11111111-2222-3333-4444-555555555555",
+                              "config": {}, "keyslots": {}, "tokens": {},
                               "segments": {"0": {"encryption": "aes-xts-plain64"}}})
         def runner(argv, **kwargs):
             calls.append(argv)
@@ -93,6 +94,36 @@ class LuksInventoryTests(unittest.TestCase):
     def test_rejects_non_json_metadata_instead_of_falling_back_to_luks1(self):
         with self.assertRaises(LuksInventoryError):
             parse_luks_metadata("LUKS header information\nVersion: 1")
+
+
+    def test_rejects_luks2_metadata_without_uuid(self):
+        payload = json.dumps({
+            "config": {}, "keyslots": {}, "tokens": {},
+            "segments": {"0": {"encryption": "aes-xts-plain64"}},
+        })
+        with self.assertRaisesRegex(LuksInventoryError, "canonical UUID"):
+            parse_luks_metadata(payload)
+
+    def test_rejects_invalid_luks2_sector_size(self):
+        payload = json.dumps({
+            "uuid": "11111111-2222-3333-4444-555555555555",
+            "config": {}, "keyslots": {}, "tokens": {},
+            "segments": {"0": {"encryption": "aes-xts-plain64", "sector_size": 1000}},
+        })
+        with self.assertRaisesRegex(LuksInventoryError, "sector size"):
+            parse_luks_metadata(payload)
+
+    def test_rejects_conflicting_luks2_segment_ciphers(self):
+        payload = json.dumps({
+            "uuid": "11111111-2222-3333-4444-555555555555",
+            "config": {}, "keyslots": {}, "tokens": {},
+            "segments": {
+                "0": {"encryption": "aes-xts-plain64"},
+                "1": {"encryption": "aes-cbc-essiv"},
+            },
+        })
+        with self.assertRaisesRegex(LuksInventoryError, "conflicting"):
+            parse_luks_metadata(payload)
 
 
 if __name__ == "__main__":
