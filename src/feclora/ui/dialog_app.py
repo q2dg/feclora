@@ -18,7 +18,7 @@ from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError,
 from feclora.storage.proportional_staging import ProportionalStagingError, stage_verified_raw_disk_image
 from feclora.storage.staged_proportional_restore import StagedProportionalRestoreError, restore_staged_proportional_image
 from feclora.storage.source_safety import check_capture_source_safe
-from feclora.storage.proportional_restore_workflow import ProportionalRestoreWorkflowError, prepare_from_offline_source_disk
+from feclora.storage.proportional_restore_workflow import (ProportionalRestoreWorkflowError, prepare_from_offline_source_disk, require_distinct_block_devices)
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import InventoryError, collect_inventory, assess_disk_compatibility
 from feclora.storage.partition_image_capture import PartitionImageCaptureError, capture_partition_image
@@ -681,17 +681,10 @@ def _restore(inventory: dict[str, Any]) -> None:
             _message("Proportional restore cancelled", "Source and destination must be different physical disks.")
             return
         try:
-            target_stat = os.stat(target["path"])
-            source_stat = os.stat(source_for_proportional["path"])
-            if not stat.S_ISBLK(target_stat.st_mode):
-                raise OSError("selected destination is not a block device")
-            if not stat.S_ISBLK(source_stat.st_mode):
-                raise OSError("selected source is not a block device")
-            selected_target_identity = target_stat.st_rdev
-            selected_source_identity = source_stat.st_rdev
-            if selected_target_identity == selected_source_identity:
-                raise OSError("source and destination resolve to the same physical block device")
-        except (OSError, KeyError) as exc:
+            selected_source_identity, selected_target_identity = require_distinct_block_devices(
+                source_for_proportional["path"], target["path"]
+            )
+        except (ProportionalRestoreWorkflowError, KeyError) as exc:
             _message("Proportional restore blocked", f"Cannot establish distinct source and destination identities: {exc}")
             return
 
