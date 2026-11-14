@@ -64,6 +64,46 @@ class PXEOperationHistoryTests(unittest.TestCase):
 
 
 class WebAPITests(unittest.TestCase):
+    def test_recovery_iso_action_is_submitted_to_durable_worker(self):
+        from feclora.webapi import dispatch
+        params = {
+            "base_iso_path": "/home/feclora/live.iso", "image_id": "golden",
+            "target_wwn": "naa.5000c50012345678", "target_serial": None,
+            "confirm_build": "BUILD golden",
+        }
+        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "job"}) as submit:
+            result = dispatch({"action": "build_recovery_iso", "params": params})
+        self.assertEqual(result["operation_id"], "job")
+        submit.assert_called_once_with({"operation": "build_recovery_iso", "operation_params": params})
+
+    def test_recovery_iso_worker_engine_publishes_only_to_selected_repository(self):
+        import tempfile
+        from pathlib import Path
+        from feclora.webapi import _execute_operation
+        with tempfile.TemporaryDirectory() as root:
+            repository = Path(root)
+            manifest = repository / "golden.manifest.json"
+            manifest.write_text("manifest", encoding="utf-8")
+            engine_result = {
+                "image_id": "golden", "output_path": str(repository / "golden.recovery.iso"),
+                "file_size_bytes": 4096, "payload_size_bytes": 2048,
+                "sha256": "a" * 64, "verified": True, "boot_catalog_preserved": True,
+            }
+            with patch("feclora.storage.recovery_iso.build_recovery_iso", return_value=engine_result) as builder, \
+                 patch("feclora.webapi._operation_repository", return_value=repository), \
+                 patch("feclora.webapi._image_manifest", return_value=manifest):
+                result = _execute_operation("build_recovery_iso", {
+                    "base_iso_path": "/home/feclora/live.iso", "image_id": "golden",
+                    "target_wwn": "naa.5000c50012345678", "target_serial": None,
+                    "confirm_build": "BUILD golden",
+                }, "operation-id")
+            self.assertTrue(result["verified"])
+            self.assertTrue(result["boot_catalog_preserved"])
+            self.assertEqual(builder.call_args.args[0], "/home/feclora/live.iso")
+            self.assertEqual(builder.call_args.args[1], str(repository))
+            self.assertEqual(builder.call_args.args[2], str(manifest))
+            self.assertEqual(builder.call_args.args[4], str(repository / "golden.recovery.iso"))
+
     def test_image_manifest_rejects_root_squash_anonymous_ownership(self):
         import stat
         from feclora.webapi import _image_manifest
