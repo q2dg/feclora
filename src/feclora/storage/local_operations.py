@@ -111,7 +111,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
     if action == "build_recovery_iso":
         path = params.get("base_iso_path")
         if (not isinstance(path, str) or not path.startswith("/") or len(path) > 4096
-                or "\\x00" in path or os.path.normpath(path) != path):
+                or "\x00" in path or os.path.normpath(path) != path):
             raise LocalOperationError("base_iso_path must be an absolute normalized file path")
         if params.get("confirm_build") != f"BUILD {params.get('image_id')}":
             raise LocalOperationError("recovery ISO build confirmation does not match the selected image")
