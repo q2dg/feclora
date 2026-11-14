@@ -7,7 +7,7 @@ import threading
 import unittest
 from unittest.mock import Mock, patch
 
-from feclora.network.remote_clone_protocol import RemoteCloneProtocolError, create_tls_context
+from feclora.network.remote_clone_protocol import create_tls_context
 from feclora.network.tls import accept_tls, connect_tls
 
 
