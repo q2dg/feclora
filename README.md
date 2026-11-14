@@ -1,34 +1,26 @@
-**Feclora** is a Fedora Server-based minimal Live appliance for disk imaging, cloning, recovery and network deployment. It boots into a locked-down Firefox kiosk that opens a Cockpit-based application, so it has no general-purpose desktop.
+**Feclora** is a Live ISO running on a Fedora Server 45 (x86_64) system which automatically launchs a Cockpit-based web interface inside a locked-down Firefox kiosk. The Live session is ephemeral, so credentials, certificates and temporary configuration are regenerated at boot; however, images and other durable artifacts should be stored in repositories selected by the operator.
 
-**New here?** Start with the [step-by-step operator guides](https://q2dg.github.io/feclora/GETTING-STARTED.html).
+Feclora can clone whole local disks (or partitions) inside a lone computer or through network nodes (in a point-to-point or multicast mode). 
 
-## Current implementation
+Feclora can also create images, which can be stored locally or in a remote SSHFS, NFS, SMB/CIFS or S3 server (and restored from them, in a point-to-point or multicast mode too). Notice these remote servers should be implemented by the operator independently 
 
-- Fedora Linux 45, x86_64, with a Fedora Live image build pipeline for BIOS and UEFI.
-- Cockpit web interface (React + PatternFly), launched in a Firefox kiosk.
-- Local whole-disk and partition capture, restore and cloning.
-- Capture and restore of eligible active LVM logical volumes.
-- Image manifests, compression, SHA-256 integrity verification and optional age encryption. Manifests are not digitally signed.
-- Storage and image inventories, safe-target checks, operation progress and local operation journals.
-- Persistent Server/Client services, managed Server identity, Client enrollment and Server-authenticated TLS control and unicast transfer.
-- UDPcast multicast restore and remote whole-disk / partition cloning.
-- Network configuration and PXE/iPXE interactive Live boot.
-- An unattended PXE workflow using the same managed repositories as the Live application for whole-disk restore.
+Feclora also has a PXE mode in order to boot network clients to be restored without having to boot them using any Feclora ISO. 
 
-The Live session is ephemeral. Credentials, certificates and temporary configuration are regenerated at boot. Images and other durable artifacts are stored in repositories selected by the operator.
+All restoration workflows (local, unicast or multicast) have the ability to be automated thanks to the addition of a answers file
 
-## Current limitations
+Ext4, XFS, Btrfs, F2FS, NTFS, ExFAT, FAT32, Stratis and LVM file systems are recognized natively to be cloned/imaged; other ones will be managed as "raw". However, note multi-device Btrfs imaging, snapshot-assisted storage capture and several advanced LUKS/LVM workflows are not supported.
 
-- SSHFS, NFS and SMB/CIFS file repositories are implemented. S3 has a separate object API, encrypted credentials, local capture/restore staging, and distributed Client capture/restore through the Server's authenticated TLS transfer path. Live-provider acceptance against Garage, R2 and AWS S3 is a separate maintainer-run release-acceptance gate, not a substitute for software tests.
-- Unattended PXE selects a repository ID and resolves it through the Live client's normal SSHFS, NFS, SMB/CIFS or S3 manager; credentials remain in the normal protected Live configuration.
-- Multi-device Btrfs imaging, snapshot-assisted storage capture and several advanced LUKS/LVM workflows are not supported.
-- Automated tests and source validation do not prove ISO boot, firmware compatibility or physical-hardware acceptance.
+Feclora offers  compression, SHA-256 integrity verification and optional age-based encryption for created images 
 
-See the [operator guides](docs/GUIDES.md), [feature matrix](docs/FEATURE-MATRIX.md), [build instructions](docs/BUILD.md), [operational lifecycle runbook](docs/OPERATIONS.md), [maintainer acceptance checklist](docs/MAINTAINER-ACCEPTANCE.md) and [remaining work](docs/ROADMAP.md).
+## Documentation
+
+Start with the [step-by-step operator guides](https://q2dg.github.io/feclora/GETTING-STARTED.html).
+
+See also the [operator guides](docs/GUIDES.md), [feature matrix](docs/FEATURE-MATRIX.md), [build instructions](docs/BUILD.md), [operational lifecycle runbook](docs/OPERATIONS.md), [maintainer acceptance checklist](docs/MAINTAINER-ACCEPTANCE.md) and [remaining work](docs/ROADMAP.md).
 
 ## Build and test
 
-Follow [docs/BUILD.md](docs/BUILD.md) for build-host prerequisites, image build commands and BIOS/UEFI QEMU checks. ISO generation and physical-hardware acceptance are operator-run.
+Follow [docs/BUILD.md](docs/BUILD.md) for build-host prerequisites, ISO generation commands and BIOS/UEFI QEMU checks.
 
 ## License
 
