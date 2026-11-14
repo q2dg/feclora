@@ -126,5 +126,28 @@ class LuksInventoryTests(unittest.TestCase):
             parse_luks_metadata(payload)
 
 
+    def test_collect_rejects_disagreeing_luks_uuid_sources(self):
+        payload = json.dumps({
+            "uuid": "22222222-3333-4444-5555-666666666666",
+            "config": {}, "keyslots": {}, "tokens": {},
+            "segments": {"0": {"encryption": "aes-xts-plain64"}},
+        })
+
+        def runner(argv, **kwargs):
+            if "luksUUID" in argv:
+                return subprocess.CompletedProcess(
+                    argv, 0, "11111111-2222-3333-4444-555555555555\n", ""
+                )
+            return subprocess.CompletedProcess(argv, 0, payload, "")
+
+        result = collect_luks_inventory(
+            [{"path": "/dev/sda1", "filesystem": "crypto_LUKS", "children": []}],
+            which=lambda name: "/usr/sbin/cryptsetup" if name == "cryptsetup" else None,
+            runner=runner, effective_uid=lambda: 0,
+        )
+        self.assertEqual(result["containers"], [])
+        self.assertEqual(result["errors"][0]["reason"], "LUKS UUID sources disagree")
+
+
 if __name__ == "__main__":
     unittest.main()
