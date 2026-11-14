@@ -2355,8 +2355,8 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         job = DeploymentJob.from_dict(params["job"])
     except JobValidationError as exc:
         raise WebAPIError(str(exc)) from exc
-    if job.transport == "unicast" and len(job.authorized_clients) != 1:
-        raise WebAPIError("persistent unicast deployment supports exactly one Client per job")
+    if job.transport == "unicast" and len(job.authorized_clients) != 1 and job.operation != "clone":
+        raise WebAPIError("persistent unicast save/restore supports exactly one Client per job; clone supports multi-Client fan-out")
     if job.transport == "multicast" and len(job.authorized_clients) < 2:
         raise WebAPIError("multicast restore requires at least two authorized Clients")
     config_path = "/etc/feclora/deployment-server.json"
