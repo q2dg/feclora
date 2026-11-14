@@ -95,10 +95,18 @@ class DeploymentJobTests(unittest.TestCase):
             DeploymentJob.from_dict(valid_job(
                 operation="clone", image_id="unexpected-image", source_device="/dev/sda",
             ))
-        with self.assertRaisesRegex(JobValidationError, "unicast"):
+        physical = DeploymentJob.from_dict(valid_job(
+            operation="clone", image_id=None, source_device="/dev/sda",
+            target_type="disk", transport="multicast",
+            multicast_group="239.10.10.10", multicast_port=5000,
+        ))
+        self.assertEqual(physical.transport, "multicast")
+        self.assertEqual(DeploymentJob.from_json(physical.to_json()), physical)
+        with self.assertRaisesRegex(JobValidationError, "whole disks only"):
             DeploymentJob.from_dict(valid_job(
                 operation="clone", image_id=None, source_device="/dev/sda",
-                transport="multicast", multicast_group="239.10.10.10", multicast_port=5000,
+                target_type="partition", transport="multicast",
+                multicast_group="239.10.10.10", multicast_port=5000,
             ))
 
     def test_restore_job_can_reference_a_simple_remote_repository_id(self):
