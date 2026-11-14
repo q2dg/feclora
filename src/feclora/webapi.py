@@ -2693,6 +2693,20 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
             check_capture_source_safe(source)
         except (SourceSafetyError, OSError) as exc:
             raise WebAPIError(f"clone source {job.target_type} is unsafe or in use: {exc}") from exc
+        if job.transport == "multicast":
+            try:
+                from feclora.network.physical_multicast import build_physical_device_record
+                source_identity = build_physical_device_record(matches[0])
+                job = replace(
+                    job,
+                    source_identity_json=json.dumps(
+                        source_identity, sort_keys=True, separators=(",", ":"), allow_nan=False,
+                    ),
+                )
+            except Exception as exc:
+                raise WebAPIError(
+                    f"physical multicast source lacks a complete stable kernel identity: {exc}"
+                ) from exc
     else:
         remote_image = None
         manifest = None
