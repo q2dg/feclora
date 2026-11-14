@@ -117,7 +117,7 @@ class LocalTargetApproval:
 
 
 class DeploymentControlServer:
-    """Single-job listener accepting Clients without client certificate authentication."""
+    """Single-job listener accepting Clients over Server-authenticated TLS."""
 
     def __init__(
         self,
