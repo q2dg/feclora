@@ -1324,7 +1324,7 @@ class MulticastControlTests(unittest.TestCase):
             "enp1s0", "239.10.10.1", "239.10.10.2",
             portbase=9000, min_receivers=2,
         )
-        with self.assertRaisesRegex(DeploymentControlError, "every selected Client"):
+        with self.assertRaisesRegex(DeploymentControlError, "at least 2 READY Client"):
             server.run_multicast_restore_job(
                 "/repo", "/repo/image.manifest.json",
                 udpcast_config=config,
