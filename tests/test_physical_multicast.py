@@ -1,10 +1,16 @@
 import hashlib
 import io
+import os
+import stat
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from feclora.network.physical_multicast import (
     PhysicalMulticastError,
     assert_device_identity_unchanged,
+    open_approved_block_device,
+    block_device_stream_callbacks,
     validate_physical_multicast_pair,
     write_and_verify_stream,
 )
@@ -26,6 +32,60 @@ class PhysicalMulticastPreflightTests(unittest.TestCase):
     def setUp(self):
         self.source = device("/dev/sda", "8:0", read_only=True, size=4096)
         self.target = device("/dev/sdb", "8:16", read_only=False, size=8192)
+
+    def test_source_descriptor_is_opened_read_only_and_verified_as_block_device(self):
+        info = SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=os.makedev(8, 0))
+        with patch("feclora.network.physical_multicast.os.open", return_value=41) as open_device, \
+             patch("feclora.network.physical_multicast.os.fstat", return_value=info):
+            descriptor = open_approved_block_device(
+                self.source, self.source, role="Server source",
+            )
+        self.assertEqual(descriptor, 41)
+        self.assertEqual(open_device.call_args.args[0], "/dev/sda")
+        flags = open_device.call_args.args[1]
+        self.assertTrue(flags & os.O_RDONLY)
+        self.assertFalse(flags & os.O_EXCL)
+
+    def test_destination_descriptor_uses_kernel_exclusive_open(self):
+        info = SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=os.makedev(8, 16))
+        with patch("feclora.network.physical_multicast.os.open", return_value=42) as open_device, \
+             patch("feclora.network.physical_multicast.os.fstat", return_value=info):
+            descriptor = open_approved_block_device(
+                self.target, self.target, role="Client destination",
+            )
+        self.assertEqual(descriptor, 42)
+        flags = open_device.call_args.args[1]
+        self.assertTrue(flags & os.O_RDWR)
+        self.assertTrue(flags & os.O_EXCL)
+
+    def test_descriptor_open_rejects_device_path_reuse_and_closes_fd(self):
+        info = SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=os.makedev(8, 32))
+        with patch("feclora.network.physical_multicast.os.open", return_value=43), \
+             patch("feclora.network.physical_multicast.os.fstat", return_value=info), \
+             patch("feclora.network.physical_multicast.os.close") as close_fd:
+            with self.assertRaisesRegex(PhysicalMulticastError, "identity changed"):
+                open_approved_block_device(self.source, self.source, role="Server source")
+        close_fd.assert_called_once_with(43)
+
+    def test_block_device_callbacks_use_positional_io_and_flush(self):
+        stored = bytearray()
+        def pwrite(fd, view, offset):
+            payload = bytes(view[:37])
+            stored[offset:offset + len(payload)] = payload
+            return len(payload)
+        def pread(fd, count, offset):
+            return bytes(stored[offset:offset + count])
+        with patch("feclora.network.physical_multicast.os.pwrite", side_effect=pwrite), \
+             patch("feclora.network.physical_multicast.os.pread", side_effect=pread), \
+             patch("feclora.network.physical_multicast.os.fsync") as fsync:
+            write, flush, readback = block_device_stream_callbacks(9)
+            payload = memoryview(b"positional block stream")
+            offset = 0
+            while offset < len(payload):
+                offset += write(payload[offset:])
+            flush()
+            self.assertEqual(readback(len(payload)), bytes(payload))
+        fsync.assert_called_once_with(9)
 
     def test_accepts_distinct_read_only_source_and_safe_larger_target(self):
         source, target = validate_physical_multicast_pair(self.source, self.target)
