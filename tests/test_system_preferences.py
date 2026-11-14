@@ -1,3 +1,5 @@
+import os
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -42,6 +44,24 @@ class KeyboardLayoutTests(unittest.TestCase):
         self.assertEqual(run.call_args_list[1].args[0], ["/usr/bin/loadkeys", "es"])
         self.assertEqual(run.call_args_list[2].args[0], ["/usr/bin/systemd-run", "--unit=feclora-keyboard-restart", "--on-active=2s", "--collect", "/usr/bin/systemctl", "restart", "feclora-kiosk.service"])
         self.assertIs(run.call_args_list[0].kwargs["check"], False)
+
+    def test_reads_the_exact_saved_layout_alias(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory) / "kiosk-keyboard.conf"
+            config.write_text("FECLORA_KEYBOARD_LAYOUT=ca\\nXKB_DEFAULT_LAYOUT=es\\n")
+            original_lstat = os.lstat
+            def trusted_lstat(path):
+                info = original_lstat(path)
+                if Path(path) == config:
+                    return type("TrustedStat", (), {
+                        "st_mode": stat.S_IFREG | 0o644,
+                        "st_uid": 0,
+                        "st_size": info.st_size,
+                    })()
+                return info
+            with patch("feclora.system_preferences.KIOSK_KEYBOARD_CONFIG", config), \\
+                 patch("feclora.system_preferences.os.lstat", side_effect=trusted_lstat):
+                self.assertEqual(get_keyboard_layout()["layout"], "ca")
 
     def test_reports_command_failure(self):
         result = Mock(returncode=1, stdout="", stderr="missing keymap")
