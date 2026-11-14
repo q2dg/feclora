@@ -29,16 +29,42 @@ The endpoint, bucket and prefix are configured per repository.
 - Repository operations must preserve cancellation, progress reporting and
   failure visibility.
 
-## Existing system tools and upstream projects
+## Upstream projects and tools
 
-| Function | Existing tool |
-|---|---|
-| SSH file access | `sshfs`, OpenSSH |
-| NFS access | `mount.nfs` |
-| SMB access | `mount.cifs` |
-| Encrypted service credentials | `systemd-creds`, `systemd-run` |
-| S3 object API | AWS SDK for Python (SigV4) |
-| TLS reverse proxy for self-hosted endpoints | Caddy |
+Feclora integrates the following projects and system utilities. Links point to
+their upstream documentation or project home pages.
 
-The Cockpit interface manages Feclora's client-side repository configuration;
-it does not deploy or administer the remote storage service.
+| Component | Role in Feclora | Upstream |
+|---|---|---|
+| Fedora Server | Base Live userspace and package environment | [fedoraproject.org/server](https://fedoraproject.org/server/) |
+| Cockpit | Primary browser-based administration interface | [cockpit-project.org](https://cockpit-project.org/) |
+| Firefox | Restricted kiosk browser | [mozilla.org/firefox](https://www.mozilla.org/firefox/) |
+| Cage | Wayland kiosk compositor | [github.com/cage-kiosk/cage](https://github.com/cage-kiosk/cage) |
+| React | Cockpit application UI | [react.dev](https://react.dev/) |
+| PatternFly | UI component system | [patternfly.org](https://www.patternfly.org/) |
+| Vite | Frontend build tooling | [vite.dev](https://vite.dev/) |
+| Partclone | Filesystem-aware image capture and restore | [partclone.org](https://partclone.org/) |
+| util-linux (lsblk, findmnt, losetup) | Block-device inventory and safe storage inspection | [github.com/util-linux](https://github.com/util-linux/util-linux) |
+| LVM2 | Logical-volume inventory and supported LV operations | [sourceware.org/lvm2](https://sourceware.org/lvm2/) |
+| cryptsetup | LUKS2 metadata inspection and container validation | [gitlab.com/cryptsetup](https://gitlab.com/cryptsetup/cryptsetup) |
+| Btrfs-progs | Btrfs filesystem and metadata inspection | [github.com/kdave/btrfs-progs](https://github.com/kdave/btrfs-progs) |
+| Stratis | Stratis storage inventory | [stratis-storage.github.io](https://stratis-storage.github.io/) |
+| OpenSSH / SSHFS | Secure shell transport and mounted SSH repositories | [openssh.com](https://www.openssh.com/) · [github.com/libfuse/sshfs](https://github.com/libfuse/sshfs) |
+| NFS utilities | NFS client mounts | [linux-nfs.org](https://linux-nfs.org/) |
+| CIFS utilities | SMB/CIFS client mounts | [wiki.samba.org](https://wiki.samba.org/index.php/LinuxCIFS_utils) |
+| AWS SDK for Python (boto3) | S3-compatible object API and SigV4 | [boto3.amazonaws.com](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html) |
+| dnsmasq | DHCP/ProxyDHCP and PXE network boot services | [thekelleys.org.uk/dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) |
+| iPXE | Network bootloader and PXE handoff | [ipxe.org](https://ipxe.org/) |
+| Caddy | HTTP delivery of Live boot assets and PXE answer files | [caddyserver.com](https://caddyserver.com/) |
+| UDPcast | Multicast artifact and disk-data transport | [udpcast.linux.lu](https://www.udpcast.linux.lu/) |
+| firewalld | Temporary interface-scoped network rules | [firewalld.org](https://firewalld.org/) |
+| NetworkManager | Network profiles, DHCP/static configuration and link state | [networkmanager.dev](https://networkmanager.dev/) |
+| systemd / systemd-creds | Service lifecycle, durable workers and protected credentials | [systemd.io](https://systemd.io/) |
+| age | Optional image-artifact encryption | [age-encryption.org](https://age-encryption.org/) |
+| QEMU (qemu-img) | Physical-to-virtual QCOW2 conversion and ISO build virtualization | [qemu.org](https://www.qemu.org/) |
+| xorriso | Recovery ISO assembly and inspection | [gnu.org/software/xorriso](https://www.gnu.org/software/xorriso/) |
+| Lorax (livemedia-creator) | Fedora Live ISO construction | [weldr.io/lorax](https://weldr.io/lorax/) |
+
+The presence of a tool in this list does not imply that every capability it
+provides is exposed by Feclora. Consult the [feature matrix](FEATURE-MATRIX.md)
+for the exact integration scope and current limitations.
