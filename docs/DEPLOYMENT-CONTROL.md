@@ -29,8 +29,8 @@ artifact confidentiality is required.
 
 Remote clone reuses the same Server-authenticated TLS control session. The
 Server is the source; the Client is the receiver. Both operators make local
-device choices and confirmations. There is no Client certificate identity
-binding or mutual TLS. The receiver revalidates its block device, streams
+device choices and confirmations. The receiver is associated with its reported MAC address for job selection
+and status tracking. The receiver revalidates its block device, streams
 bounded chunks, checks SHA-256 and reads back the written range before
 reporting success. See [Remote disk clone](REMOTE-DISK-CLONE.md).
 
