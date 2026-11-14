@@ -1,3 +1,11 @@
+---
+layout: default
+title: Remote image repositories
+---
+
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
 # Remote image repositories
 
 Feclora stores image artifacts and manifests in an explicitly selected
