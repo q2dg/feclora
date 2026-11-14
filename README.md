@@ -1,8 +1,12 @@
-# feclora
+<p align="center">
+  <img src="docs/assets/feclora-logo.svg" alt="Feclora" width="360">
+</p>
 
-**Feclora** is a Fedora Server-based minimal Live appliance for disk imaging, cloning and recovery. It boots into a locked-down Firefox kiosk that opens the Feclora Cockpit application; it has no general-purpose desktop.
+**Feclora** is a Fedora Server-based minimal Live appliance for disk imaging, cloning, recovery and network deployment. It boots into a locked-down Firefox kiosk that opens the Feclora Cockpit application; it has no general-purpose desktop.
 
 Project website: https://q2dg.github.io/feclora/
+
+**New here?** Start with the [step-by-step operator guides](https://q2dg.github.io/feclora/GETTING-STARTED.html).
 
 ## Current implementation
 
