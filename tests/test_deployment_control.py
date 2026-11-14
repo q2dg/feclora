@@ -366,7 +366,7 @@ class TransferFailureTests(unittest.TestCase):
                    "serial": "target-serial-2", "read_only": False, "size_bytes": 8192},
         }
         server.firewall = Mock()
-        config = UDPcastConfig("enp1s0", "239.10.10.10", "239.10.10.11", min_receivers=2)
+        config = UDPcastConfig("enp1s0", "239.10.10.10", "239.10.10.11", portbase=5000, min_receivers=2)
         payload = b"x" * 4096
         events = []
         def ready_ack(sock, *, expected_type):
