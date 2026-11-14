@@ -44,8 +44,8 @@ function StatusCard({ title, value, icon, description }) {
   return <Card isFullHeight><CardTitle><Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}><FlexItem>{icon}</FlexItem><FlexItem>{title}</FlexItem></Flex></CardTitle><CardBody><Title headingLevel="h2" size="2xl">{value}</Title><p>{description}</p></CardBody></Card>;
 }
 
-function Field({ label, children, help }) {
-  return <div className="pf-v5-u-mb-md"><label className="pf-v5-c-form__label pf-v5-u-mb-xs"><span className="pf-v5-c-form__label-text">{label}</span></label>{children}{help && <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{help}</div>}</div>;
+function Field({ label, children, help, t = (value) => value }) {
+  return <div className="pf-v5-u-mb-md"><label className="pf-v5-c-form__label pf-v5-u-mb-xs"><span className="pf-v5-c-form__label-text">{t(label)}</span></label>{children}{help && <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{t(help)}</div>}</div>;
 }
 
 export default function App() {
@@ -942,7 +942,7 @@ export default function App() {
               <StackItem>
                 <Card><CardBody>
                   <form onSubmit={runOperation}>
-                    <Field label={t("operation")}>
+                    <Field t={t} label={t("operation")}>
                       <select className="pf-v5-c-form-control" value={operation} onChange={(e) => { setOperation(e.target.value); setSource(""); setTarget(""); setImageId(""); setPartitionId(""); setRestoreLayoutPreview(null); setConfirmation(""); setOperationResult(null); }}>
                         {Object.entries(OPERATION_LABELS).map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
                       </select>
@@ -951,19 +951,19 @@ export default function App() {
                       <Alert variant="info" title={t("Verified S3 P2V export")} isInline>
                         Select an S3 source repository and a committed QCOW2. Feclora downloads the object to private staging, verifies its size and SHA-256 against the committed metadata, then publishes the QCOW2 and metadata sidecar to a filesystem repository. The sidecar is linked last; existing files are never overwritten.
                       </Alert>
-                      <Field label={t("S3 source repository")}>
+                      <Field t={t} label={t("S3 source repository")}>
                         <select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => { setImageId(""); selectImageRepository(e.target.value); }} required>
                           <option value="">Select an S3 repository…</option>
                           {s3Repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · S3{repo.read_only ? " · read-only" : ""}</option>)}
                         </select>
                       </Field>
-                      <Field label={t("Committed P2V image")}>
+                      <Field t={t} label={t("Committed P2V image")}>
                         <select className="pf-v5-c-form-control" value={imageId} disabled={busy || !selectedRepositoryId} onChange={(e) => setImageId(e.target.value)} required>
                           <option value="">Select a QCOW2 image…</option>
                           {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                         </select>
                       </Field>
-                      <Field label={t("Filesystem destination repository")} help="Local is the default. Remote destinations must already be mounted, verified and writable. S3 cannot be selected as the destination for this export operation.">
+                      <Field t={t} label={t("Filesystem destination repository")} help="Local is the default. Remote destinations must already be mounted, verified and writable. S3 cannot be selected as the destination for this export operation.">
                         <select className="pf-v5-c-form-control" value={exportDestinationRepositoryId} disabled={busy} onChange={(e) => setExportDestinationRepositoryId(e.target.value)}>
                           <option value="">Local repository</option>
                           {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
@@ -974,57 +974,57 @@ export default function App() {
                       <Alert variant="info" title={t("Self-contained recovery media")} isInline>
                         Select the Feclora Live base ISO and an existing disk image. Feclora creates a separate bootable ISO containing the verified image, its manifest and a narrowly scoped unattended restore answer. The base ISO and source image remain unchanged. Output is written to the selected filesystem repository; S3 is not supported for ISO output. If the image is age-encrypted, the matching decryption identity must be provisioned separately on the recovery Live system; no keys or passphrases are embedded.
                       </Alert>
-                      <Field label={t("Base Feclora Live ISO path")} help="Absolute path to a local .iso file accessible to the Feclora service, for example /home/feclora/Downloads/feclora-live.iso.">
+                      <Field t={t} label={t("Base Feclora Live ISO path")} help="Absolute path to a local .iso file accessible to the Feclora service, for example /home/feclora/Downloads/feclora-live.iso.">
                         <input className="pf-v5-c-form-control" value={recoveryBaseISO} onChange={(e) => setRecoveryBaseISO(e.target.value)} placeholder="/path/to/feclora-live.iso" required />
                       </Field>
-                      <Field label={t("imageRepository")}>
+                      <Field t={t} label={t("imageRepository")}>
                         <select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => selectImageRepository(e.target.value)}>
                           <option value="">Local repository</option>
                           {remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? "read-only" : "read/write"}</option>)}
                           {s3Repositories.map((repo) => <option key={repo.id} value={repo.id} disabled>{repo.id} · S3 (unsupported output)</option>)}
                         </select>
                       </Field>
-                      <Field label={t("Whole-disk image to embed")}>
+                      <Field t={t} label={t("Whole-disk image to embed")}>
                         <select className="pf-v5-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)} required>
                           <option value="">Select a disk image…</option>
                           {availableImages.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                         </select>
                       </Field>
-                      <Field label={t("Target disk WWN (recommended)")} help="The recovery answer will only authorize a disk whose identity matches this WWN and/or serial. Use at least one selector.">
+                      <Field t={t} label={t("Target disk WWN (recommended)")} help="The recovery answer will only authorize a disk whose identity matches this WWN and/or serial. Use at least one selector.">
                         <input className="pf-v5-c-form-control" value={recoveryTargetWWN} onChange={(e) => setRecoveryTargetWWN(e.target.value)} maxLength={128} />
                       </Field>
-                      <Field label={t("Target disk serial (alternative or additional selector)")}>
+                      <Field t={t} label={t("Target disk serial (alternative or additional selector)")}>
                         <input className="pf-v5-c-form-control" value={recoveryTargetSerial} onChange={(e) => setRecoveryTargetSerial(e.target.value)} maxLength={128} />
                       </Field>
                       {recoveryExpectedConfirmation && <Alert variant="warning" title={t("Confirm ISO creation")} isInline>
                         Type exactly <strong>{recoveryExpectedConfirmation}</strong>. This creates a separate ISO file; it does not restore or write to any disk now. The embedded answer will request a destructive restore only when booted and its target identity matches.
                       </Alert>}
-                      {recoveryExpectedConfirmation && <Field label={t("Typed build confirmation")}>
+                      {recoveryExpectedConfirmation && <Field t={t} label={t("Typed build confirmation")}>
                         <input className="pf-v5-c-form-control" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} autoComplete="off" />
                       </Field>}
                     </>}
                     {isCapture && <>
-                      <Field label={isDisk ? "Source disk" : isLogicalVolume ? "Source logical volume" : "Source partition"}>
+                      <Field t={t} label={isDisk ? "Source disk" : isLogicalVolume ? "Source logical volume" : "Source partition"}>
                         <select className="pf-v5-c-form-control" value={source} onChange={(e) => setSource(e.target.value)}>
                           <option value="">{t("Select a source device…")}</option>
                           {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path}{d.lvm_name ? ` · ${d.lvm_name} (${d.lvm_path})` : ""} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
                         </select>
                       </Field>
-                      <Field label={t("Image identifier")} help="Use letters, numbers, dots, underscores or hyphens.">
+                      <Field t={t} label={t("Image identifier")} help="Use letters, numbers, dots, underscores or hyphens.">
                         <input className="pf-v5-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)} maxLength={128} required />
                       </Field>
-                      {operation === "capture_partition" && <Field label={t("Partition identifier")}><input className="pf-v5-c-form-control" value={partitionId} onChange={(e) => setPartitionId(e.target.value)} maxLength={128} placeholder={imageId || "e.g. rootfs"} /></Field>}
-                      {operation !== "capture_p2v" && <Field label={t("Compression")}>
+                      {operation === "capture_partition" && <Field t={t} label={t("Partition identifier")}><input className="pf-v5-c-form-control" value={partitionId} onChange={(e) => setPartitionId(e.target.value)} maxLength={128} placeholder={imageId || "e.g. rootfs"} /></Field>}
+                      {operation !== "capture_p2v" && <Field t={t} label={t("Compression")}>
                         <select className="pf-v5-c-form-control" value={compression} onChange={(e) => setCompression(e.target.value)}>
                           <option value="zstd">Zstandard (recommended)</option><option value="lz4">LZ4 (fast)</option><option value="gzip">Gzip</option><option value="xz">XZ</option><option value="none">None</option>
                         </select>
                       </Field>}
-                      {operation !== "capture_p2v" && <Field label={t("Image security")}>
+                      {operation !== "capture_p2v" && <Field t={t} label={t("Image security")}>
                         <label><input type="checkbox" checked={encrypt} disabled={!security.age_encryption_available && !security.age_executable_available} onChange={(e) => { setEncrypt(e.target.checked); if (!e.target.checked) { setEncryptPassphraseMode(false); setCapturePassphrase(""); } }} /> Encrypt artifacts with age</label>
                         {operation === "capture_disk" && encrypt && security.age_executable_available && <>
                           <br />
                           <label><input type="checkbox" checked={encryptPassphraseMode} onChange={(e) => { setEncryptPassphraseMode(e.target.checked); setCapturePassphrase(""); }} /> Use a symmetric passphrase instead of recipient keys</label>
-                          {encryptPassphraseMode && <Field label={t("Image encryption passphrase")} help="Sent once to the worker through /run and consumed immediately. It is not saved in the operation journal or image manifest.">
+                          {encryptPassphraseMode && <Field t={t} label={t("Image encryption passphrase")} help="Sent once to the worker through /run and consumed immediately. It is not saved in the operation journal or image manifest.">
                             <input className="pf-v5-c-form-control" type="password" autoComplete="new-password" value={capturePassphrase} onChange={(e) => setCapturePassphrase(e.target.value)} maxLength={1024} />
                           </Field>}
                         </>}
@@ -1034,7 +1034,7 @@ export default function App() {
                       {operation === "capture_p2v" && <Alert variant="info" title={t("P2V output")} isInline>Creates a verified QCOW2 disk file and a .p2v.json metadata sidecar in the selected filesystem repository, or publishes both to S3 with the metadata sidecar as the commit marker. Direct VM boot remediation is not included. The source disk is read-only; the guest may still need drivers or initramfs changes to boot.</Alert>}
                     </>}
                     {isRestore && <>
-                      <Field label={isDisk ? "Disk image" : isLogicalVolume ? "Logical-volume image" : "Partition image"}>
+                      <Field t={t} label={isDisk ? "Disk image" : isLogicalVolume ? "Logical-volume image" : "Partition image"}>
                         <select className="pf-v5-c-form-control" value={imageId} disabled={busy} onChange={(e) => {
                           const value = e.target.value;
                           setImageId(value);
@@ -1044,7 +1044,7 @@ export default function App() {
                           {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                         </select>
                       </Field>
-                      <Field label={isDisk ? "Destination disk" : isLogicalVolume ? "Destination logical volume" : "Destination partition"} help={isLogicalVolume ? "Must be an existing active, unmounted linear or thin LV in a healthy VG. Thin-pool free space is estimated, not reserved. Feclora overwrites LV data but does not create or resize LVM metadata." : undefined}>
+                      <Field t={t} label={isDisk ? "Destination disk" : isLogicalVolume ? "Destination logical volume" : "Destination partition"} help={isLogicalVolume ? "Must be an existing active, unmounted linear or thin LV in a healthy VG. Thin-pool free space is estimated, not reserved. Feclora overwrites LV data but does not create or resize LVM metadata." : undefined}>
                         <select className="pf-v5-c-form-control" value={target} onChange={(e) => setTarget(e.target.value)}>
                           <option value="">{t("Select a destination…")}</option>
                           {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
@@ -1065,13 +1065,13 @@ export default function App() {
                       </>}
                     </>}
                     {operation.startsWith("clone_") && <>
-                      <Field label={isDisk ? "Source disk" : "Source partition"}>
+                      <Field t={t} label={isDisk ? "Source disk" : "Source partition"}>
                         <select className="pf-v5-c-form-control" value={source} onChange={(e) => setSource(e.target.value)}>
                           <option value="">{t("Select source…")}</option>
                           {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
                         </select>
                       </Field>
-                      <Field label={isDisk ? "Destination disk" : "Destination partition"}>
+                      <Field t={t} label={isDisk ? "Destination disk" : "Destination partition"}>
                         <select className="pf-v5-c-form-control" value={target} onChange={(e) => setTarget(e.target.value)}>
                           <option value="">{t("Select destination…")}</option>
                           {deviceOptions.filter((d) => d.path !== source).map((d) => <option key={d.path} value={d.path}>{d.path} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
@@ -1081,7 +1081,7 @@ export default function App() {
                     {expectedConfirmation && <Alert variant="warning" title={t("Destructive operation")} isInline className="pf-v5-u-mb-md">
                       The destination will be overwritten. Type exactly <strong>{expectedConfirmation}</strong> to authorize this operation.
                     </Alert>}
-                    {expectedConfirmation && <Field label={t("Typed confirmation")}>
+                    {expectedConfirmation && <Field t={t} label={t("Typed confirmation")}>
                       <input className="pf-v5-c-form-control" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} autoComplete="off" />
                     </Field>}
                     {busy && progress && <div className="pf-v5-u-mb-md">
@@ -1106,13 +1106,13 @@ export default function App() {
             </Stack>
           </Tab>
           <Tab eventKey="images" title={t("tabImages")}>
-            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("availableImages")}</Title><Field label="Image repository" help="Local is the default; filesystem shares must be mounted and verified. S3 repositories use object transfers."><select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(event) => selectImageRepository(event.target.value)}><option value="">Local repository</option>{remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? "read-only" : "read/write"}</option>)}
+            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("availableImages")}</Title><Field t={t} label="Image repository" help="Local is the default; filesystem shares must be mounted and verified. S3 repositories use object transfers."><select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(event) => selectImageRepository(event.target.value)}><option value="">Local repository</option>{remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? "read-only" : "read/write"}</option>)}
                     {s3Repositories.filter((repo) => !remoteRepositories.some((remoteRepo) => remoteRepo.id === repo.id)).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · S3 object storage · {repo.read_only ? "read-only" : "read/write"}</option>)}</select></Field></StackItem>
               <StackItem>
                 <Card><CardBody>
                   <Title headingLevel="h3" size="lg">{t("extractPartition")}</Title>
                   <p>Select a verified whole-disk image and identify one partition by PARTUUID, PARTLABEL or partition node recorded in its partition table. Feclora verifies the source image and publishes a separate partition image; age-encrypted sources are re-encrypted to the current recipient inventory. The source image is not modified.</p>
-                  <Field label="Whole-disk source image">
+                  <Field t={t} label="Whole-disk source image">
                     <select className="pf-v5-c-form-control" value={extractImageId} disabled={busy} onChange={(event) => { setExtractImageId(event.target.value); inspectImageLayout(event.target.value); }}>
                       <option value="">Select whole-disk image…</option>
                       {availableImages.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}{""}</option>)}
@@ -1127,7 +1127,7 @@ export default function App() {
                       </Tr>)}</Tbody>
                     </Table>
                   </>}
-                  <Field label="Partition to extract" help="Choose a partition from the verified table preview. The selector is cleared whenever the source image changes.">
+                  <Field t={t} label="Partition to extract" help="Choose a partition from the verified table preview. The selector is cleared whenever the source image changes.">
                     <select className="pf-v5-c-form-control" value={extractPartitionSelector} onChange={(event) => { setExtractPartitionSelector(event.target.value); setExtractPartitionResult(null); }} disabled={!extractLayout || !extractLayout.partitions.length}>
                       <option value="">Select partition…</option>
                       {(extractLayout?.partitions || []).map((part) => <option key={part.node} value={part.selector}>{part.node} · {part.uuid || part.name || part.selector} · {formatBytes(part.size_bytes)}</option>)}
@@ -1165,73 +1165,73 @@ export default function App() {
               </StackItem>
               <StackItem>
                 <Card><CardBody><form onSubmit={createRemoteJob}>
-                  <Field label="Operation">
+                  <Field t={t} label="Operation">
                     <select className="pf-v5-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); if (e.target.value === "save" || e.target.value === "clone") { setRemoteTransport("unicast"); setRemoteTargetType("disk"); } }}>
                       <option value="restore">Restore a Server image to Clients</option>
                       <option value="save">Capture whole disks from Clients to Server</option>
                       <option value="clone">Clone a Server disk or partition directly to multiple Clients</option>
                     </select>
                   </Field>
-                  {(remoteOperation === "restore" || remoteOperation === "save") && <Field label="Image repository" help={remoteOperation === "save" ? "Client captures are staged on the Server and published to S3 only after a successful TLS transfer." : "The Server fetches and verifies the image from this repository before transmitting it to Clients over authenticated TLS."}>
+                  {(remoteOperation === "restore" || remoteOperation === "save") && <Field t={t} label="Image repository" help={remoteOperation === "save" ? "Client captures are staged on the Server and published to S3 only after a successful TLS transfer." : "The Server fetches and verifies the image from this repository before transmitting it to Clients over authenticated TLS."}>
                     <select className="pf-v5-c-form-control" value={remoteSelectedRepository?.id || ""} disabled={busy} onChange={(e) => { selectImageRepository(e.target.value); setRemoteImageId(""); }}>
                       <option value="">Local Server repository</option>
                       {remoteRepositories.filter((repo) => remoteOperation === "restore" && repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
                       {s3Repositories.filter((repo) => remoteOperation === "restore" || !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · S3 object storage</option>)}
                     </select>
                   </Field>}
-                  {remoteOperation === "clone" ? <Field label={remoteTargetType === "disk" ? "Server source disk" : "Server source partition"} help="Select a source already marked read-only. Feclora independently validates its type, geometry and in-use state before streaming.">
+                  {remoteOperation === "clone" ? <Field t={t} label={remoteTargetType === "disk" ? "Server source disk" : "Server source partition"} help="Select a source already marked read-only. Feclora independently validates its type, geometry and in-use state before streaming.">
                     <select className="pf-v5-c-form-control" value={remoteSourceDevice} onChange={(e) => setRemoteSourceDevice(e.target.value)} required>
                       <option value="">Select read-only source…</option>
                       {inventoryDevices.filter((item) => item.type === (remoteTargetType === "disk" ? "disk" : "part") && item.read_only === true).map((item) => <option key={item.path} value={item.path}>{item.path} · {item.model || (remoteTargetType === "disk" ? "Disk" : "Partition")} · {formatBytes(item.size_bytes)}</option>)}
                     </select>
-                  </Field> : <Field label={t("Image identifier")} help={remoteOperation === "restore" ? "Choose an existing disk, partition or logical-volume image matching the selected target type. Images are validated against their manifests and SHA-256 digests." : "New identifier for the image captured from Clients."}>
+                  </Field> : <Field t={t} label={t("Image identifier")} help={remoteOperation === "restore" ? "Choose an existing disk, partition or logical-volume image matching the selected target type. Images are validated against their manifests and SHA-256 digests." : "New identifier for the image captured from Clients."}>
                     {remoteOperation === "restore" ? <select className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)}>
                       <option value="">Select image…</option>
                       {remoteAvailableImages.filter((item) => item.image_type === remoteTargetType).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}</option>)}
                     </select> : <input className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)} maxLength={128} required />}
                   </Field>}
-                  {(remoteOperation === "save" || remoteOperation === "restore" || remoteOperation === "clone") && <Field label={remoteOperation === "clone" ? "Clone device type" : remoteOperation === "save" ? "Capture source type" : "Restore target type"}>
+                  {(remoteOperation === "save" || remoteOperation === "restore" || remoteOperation === "clone") && <Field t={t} label={remoteOperation === "clone" ? "Clone device type" : remoteOperation === "save" ? "Capture source type" : "Restore target type"}>
                     <select className="pf-v5-c-form-control" value={remoteTargetType} onChange={(e) => { setRemoteTargetType(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); }}>
                       <option value="disk">{t("Whole disk")}</option>
                       {remoteOperation !== "clone" && <option value="logical_volume">{t("Logical volume")}</option>}
                       {remoteOperation !== "save" && <option value="partition">{t("Partition")}</option>}
                     </select>
                   </Field>}
-                  <Field label="Selected Client MAC addresses" help={remoteOperation === "clone" ? "Enter one or more selected Client MAC addresses. Each Client independently selects and confirms its own destination of the selected device type. Transfers are serialized from the Server source; each Client verifies its own write." : "Enter one or more MAC addresses for unicast clone, exactly one for unicast save/restore, or at least two for multicast restore. Server checks that each MAC is selected for this job; MAC is not authentication."}>
+                  <Field t={t} label="Selected Client MAC addresses" help={remoteOperation === "clone" ? "Enter one or more selected Client MAC addresses. Each Client independently selects and confirms its own destination of the selected device type. Transfers are serialized from the Server source; each Client verifies its own write." : "Enter one or more MAC addresses for unicast clone, exactly one for unicast save/restore, or at least two for multicast restore. Server checks that each MAC is selected for this job; MAC is not authentication."}>
                     <textarea className="pf-v5-c-form-control" rows={3} value={remoteClients} onChange={(e) => setRemoteClients(e.target.value)} required placeholder="52:54:00:12:34:56" />
                   </Field>
-                  <Field label="Server network interface">
+                  <Field t={t} label="Server network interface">
                     <select className="pf-v5-c-form-control" value={remoteInterface} onChange={(e) => setRemoteInterface(e.target.value)} required>
                       <option value="">Select active Server interface/address…</option>
                       {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
                     </select>
                     <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">The job binds to the selected Server interface. Configure the Client independently from its local Cockpit Network tab; this does not test end-to-end reachability to an offline Client.</div>
                   </Field>
-                  <Field label={t("Transport")}>
+                  <Field t={t} label={t("Transport")}>
                     <select className="pf-v5-c-form-control" value={remoteTransport} onChange={(e) => setRemoteTransport(e.target.value)}>
                       <option value="unicast">{t("Authenticated unicast")}</option>
                       <option value="multicast" disabled={remoteOperation === "save"}>{remoteOperation === "clone" ? "UDPcast physical disk multicast clone" : "UDPcast multicast image restore"}</option>
                     </select>
                   </Field>
                   {remoteTransport === "multicast" && <>
-                    <Field label="Administratively scoped multicast group"><input className="pf-v5-c-form-control" value={remoteMulticastGroup} onChange={(e) => setRemoteMulticastGroup(e.target.value)} /></Field>
-                    <Field label="UDPcast even portbase"><input className="pf-v5-c-form-control" type="number" min="1024" max="65534" step="2" value={remoteMulticastPort} onChange={(e) => setRemoteMulticastPort(e.target.value)} /></Field>
+                    <Field t={t} label="Administratively scoped multicast group"><input className="pf-v5-c-form-control" value={remoteMulticastGroup} onChange={(e) => setRemoteMulticastGroup(e.target.value)} /></Field>
+                    <Field t={t} label="UDPcast even portbase"><input className="pf-v5-c-form-control" type="number" min="1024" max="65534" step="2" value={remoteMulticastPort} onChange={(e) => setRemoteMulticastPort(e.target.value)} /></Field>
                     <Alert variant="warning" title="Multicast transport limitation" isInline>UDPcast data packets are not encrypted or authenticated. TLS protects the control plane, not the multicast data stream. Physical clone also requires every selected Client READY and a separate exclusive destination-open acknowledgement before transmission. Use only on a trusted, isolated deployment network.</Alert>
                   </>}
-                  <Field label="Start policy">
+                  <Field t={t} label="Start policy">
                     <select className="pf-v5-c-form-control" value={remoteOperation === "clone" ? "manual" : remoteStartPolicy} disabled={remoteOperation === "clone"} onChange={(e) => setRemoteStartPolicy(e.target.value)}>
                       <option value="manual">Manual — every selected Client must be READY</option>
                       <option value="expected_clients">Start gate — minimum READY Client count</option>
                       <option value="deadline">Start gate — wait until UTC deadline</option>
                     </select>
                   </Field>
-                  {remoteStartPolicy === "expected_clients" && <Field label="Minimum READY Clients" help={`Must be between 1 and the ${remoteClients.split(/[\s,;]+/).filter(Boolean).length} selected Client(s). The Server still requires explicit job-specific authorization.`}>
+                  {remoteStartPolicy === "expected_clients" && <Field t={t} label="Minimum READY Clients" help={`Must be between 1 and the ${remoteClients.split(/[\s,;]+/).filter(Boolean).length} selected Client(s). The Server still requires explicit job-specific authorization.`}>
                     <input className="pf-v5-c-form-control" type="number" min="1" max={Math.max(1, remoteClients.split(/[\s,;]+/).filter(Boolean).length)} value={remoteExpectedClients} onChange={(e) => setRemoteExpectedClients(e.target.value)} required />
                   </Field>}
-                  {remoteStartPolicy === "deadline" && <Field label="Start deadline (local time)" help="The deadline opens the start gate; it does not start disk I/O automatically. The Server operator must still enter the exact authorization phrase after the deadline.">
+                  {remoteStartPolicy === "deadline" && <Field t={t} label="Start deadline (local time)" help="The deadline opens the start gate; it does not start disk I/O automatically. The Server operator must still enter the exact authorization phrase after the deadline.">
                     <input className="pf-v5-c-form-control" type="datetime-local" value={remoteStartDeadline} onChange={(e) => setRemoteStartDeadline(e.target.value)} required />
                   </Field>}
-                  {remoteOperation !== "save" && <Field label="Final action on each successful Client">
+                  {remoteOperation !== "save" && <Field t={t} label="Final action on each successful Client">
                     <select className="pf-v5-c-form-control" value={remotePostAction} onChange={(e) => setRemotePostAction(e.target.value)}>
                       <option value="none">{t("Do nothing — leave Client running")}</option>
                       <option value="reboot">{t("Reboot Client after verified write")}</option>
@@ -1305,20 +1305,20 @@ export default function App() {
                 <p>Manage remote image repositories. SSHFS, NFS and SMB/CIFS use mounted filesystems; S3 uses an object-storage API.</p>
               </StackItem>
               <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
-                <Field label="Repository ID"><input className="pf-v5-c-form-control" value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} readOnly={repositoryEditing} required /></Field>
-                <Field label={t("Provider")}><select className="pf-v5-c-form-control" value={repositoryProvider} onChange={(e) => { setRepositoryProvider(e.target.value); setRepositoryPort(e.target.value === "sshfs" ? "22" : ""); }}>
+                <Field t={t} label="Repository ID"><input className="pf-v5-c-form-control" value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} readOnly={repositoryEditing} required /></Field>
+                <Field t={t} label={t("Provider")}><select className="pf-v5-c-form-control" value={repositoryProvider} onChange={(e) => { setRepositoryProvider(e.target.value); setRepositoryPort(e.target.value === "sshfs" ? "22" : ""); }}>
                   <option value="sshfs">SSHFS (remote filesystem over SSH)</option><option value="nfs">NFS</option><option value="smb">SMB/CIFS</option>
                 </select></Field>
-                <Field label="Server hostname or IPv4 address"><input className="pf-v5-c-form-control" value={repositoryHost} onChange={(e) => setRepositoryHost(e.target.value)} maxLength={253} required /></Field>
-                <Field label={repositoryProvider === "smb" ? "Share and optional subdirectory" : "Remote absolute path"}><input className="pf-v5-c-form-control" value={repositoryPath} onChange={(e) => setRepositoryPath(e.target.value)} maxLength={512} required /></Field>
-                {(repositoryProvider === "sshfs" || repositoryProvider === "smb") && <Field label="Username"><input className="pf-v5-c-form-control" value={repositoryUsername} onChange={(e) => setRepositoryUsername(e.target.value)} maxLength={64} required /></Field>}
+                <Field t={t} label="Server hostname or IPv4 address"><input className="pf-v5-c-form-control" value={repositoryHost} onChange={(e) => setRepositoryHost(e.target.value)} maxLength={253} required /></Field>
+                <Field t={t} label={repositoryProvider === "smb" ? "Share and optional subdirectory" : "Remote absolute path"}><input className="pf-v5-c-form-control" value={repositoryPath} onChange={(e) => setRepositoryPath(e.target.value)} maxLength={512} required /></Field>
+                {(repositoryProvider === "sshfs" || repositoryProvider === "smb") && <Field t={t} label="Username"><input className="pf-v5-c-form-control" value={repositoryUsername} onChange={(e) => setRepositoryUsername(e.target.value)} maxLength={64} required /></Field>}
                 {repositoryProvider === "sshfs" && <>
-                  <Field label="Encrypted SSH private-key credential"><select className="pf-v5-c-form-control" value={repositoryIdentity} onChange={(e) => setRepositoryIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
-                  <Field label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={repositoryKnownHosts} onChange={(e) => setRepositoryKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
+                  <Field t={t} label="Encrypted SSH private-key credential"><select className="pf-v5-c-form-control" value={repositoryIdentity} onChange={(e) => setRepositoryIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
+                  <Field t={t} label="Encrypted pinned SSH known_hosts credential"><select className="pf-v5-c-form-control" value={repositoryKnownHosts} onChange={(e) => setRepositoryKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
                 </>}
-                {repositoryProvider === "smb" && <Field label="Encrypted SMB credentials"><select className="pf-v5-c-form-control" value={repositoryCredentials} onChange={(e) => setRepositoryCredentials(e.target.value)} required><option value="">Select imported SMB credential</option>{systemdCredentials.filter((item) => item.kind === "smb").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>}
-                <Field label="Port (optional)"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={repositoryPort} onChange={(e) => setRepositoryPort(e.target.value)} /></Field>
-                <Field label="Mount access"><select className="pf-v5-c-form-control" value={repositoryReadOnly ? "ro" : "rw"} onChange={(e) => setRepositoryReadOnly(e.target.value === "ro")}>
+                {repositoryProvider === "smb" && <Field t={t} label="Encrypted SMB credentials"><select className="pf-v5-c-form-control" value={repositoryCredentials} onChange={(e) => setRepositoryCredentials(e.target.value)} required><option value="">Select imported SMB credential</option>{systemdCredentials.filter((item) => item.kind === "smb").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>}
+                <Field t={t} label="Port (optional)"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={repositoryPort} onChange={(e) => setRepositoryPort(e.target.value)} /></Field>
+                <Field t={t} label="Mount access"><select className="pf-v5-c-form-control" value={repositoryReadOnly ? "ro" : "rw"} onChange={(e) => setRepositoryReadOnly(e.target.value === "ro")}>
                   <option value="ro">{t("Read-only")}</option><option value="rw">Read/write (image capture)</option>
                 </select></Field>
                 <Button type="submit" variant="primary" isDisabled={busy || !repositoryId || !repositoryHost || !repositoryPath}>{repositoryEditing ? "Update repository definition" : "Save repository definition"}</Button>{" "}{repositoryEditing && <Button type="button" variant="link" onClick={resetRemoteRepositoryForm} isDisabled={busy}>Cancel edit</Button>}
@@ -1326,9 +1326,9 @@ export default function App() {
                             <StackItem><Title headingLevel="h2" size="lg">Encrypted repository credentials</Title>
                 <p>Import a root-owned private source file (mode 0600, no symlinks or hard links). For S3, provide a JSON file with exactly access_key_id and secret_access_key. Cockpit submits only its path; the API encrypts its contents with systemd-creds and never returns secret material. The source file remains in place and must be protected or securely removed by the operator.</p>
                 <Card><CardBody><form onSubmit={importSystemdCredential}>
-                  <Field label="Credential ID"><input className="pf-v5-c-form-control" value={credentialId} onChange={(e) => setCredentialId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
-                  <Field label="Credential type"><select className="pf-v5-c-form-control" value={credentialKind} onChange={(e) => setCredentialKind(e.target.value)}><option value="ssh-key">SSH private key</option><option value="known-hosts">SSH known_hosts</option><option value="smb">SMB credentials</option><option value="s3">S3 access key pair (JSON)</option></select></Field>
-                  <Field label="Protected source file path"><input className="pf-v5-c-form-control" value={credentialSourceFile} onChange={(e) => setCredentialSourceFile(e.target.value)} maxLength={512} required /></Field>
+                  <Field t={t} label="Credential ID"><input className="pf-v5-c-form-control" value={credentialId} onChange={(e) => setCredentialId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
+                  <Field t={t} label="Credential type"><select className="pf-v5-c-form-control" value={credentialKind} onChange={(e) => setCredentialKind(e.target.value)}><option value="ssh-key">SSH private key</option><option value="known-hosts">SSH known_hosts</option><option value="smb">SMB credentials</option><option value="s3">S3 access key pair (JSON)</option></select></Field>
+                  <Field t={t} label="Protected source file path"><input className="pf-v5-c-form-control" value={credentialSourceFile} onChange={(e) => setCredentialSourceFile(e.target.value)} maxLength={512} required /></Field>
                   <label><input type="checkbox" checked={credentialReplace} onChange={(e) => setCredentialReplace(e.target.checked)} /> Replace an existing credential with this ID and type</label>
                   <Button type="submit" variant="primary" isDisabled={busy || !credentialId || !credentialSourceFile}>Import and encrypt credential</Button>
                 </form></CardBody></Card>
@@ -1340,13 +1340,13 @@ export default function App() {
               <StackItem><Title headingLevel="h2" size="lg">S3 object repositories</Title>
                 <p>S3 is object storage, not a filesystem mount. Local operations use private staging and verified object transfers. Distributed jobs fetch and verify S3 images on the Server before authenticated TLS delivery to Clients; Client captures are published to S3 only after the TLS transfer has been verified. Clients never receive S3 credentials.</p>
                 <Card><CardBody><form onSubmit={saveS3Repository}>
-                  <Field label="Repository ID"><input className="pf-v5-c-form-control" value={s3RepositoryId} onChange={(e) => setS3RepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
-                  <Field label="S3 endpoint URL (optional; empty for AWS S3)"><input className="pf-v5-c-form-control" value={s3Endpoint} onChange={(e) => setS3Endpoint(e.target.value)} placeholder="https://s3.example.net" /></Field>
-                  <Field label="Region"><input className="pf-v5-c-form-control" value={s3Region} onChange={(e) => setS3Region(e.target.value)} maxLength={64} required /></Field>
-                  <Field label="Bucket"><input className="pf-v5-c-form-control" value={s3Bucket} onChange={(e) => setS3Bucket(e.target.value)} maxLength={63} required /></Field>
-                  <Field label="Object prefix"><input className="pf-v5-c-form-control" value={s3Prefix} onChange={(e) => setS3Prefix(e.target.value)} maxLength={512} /></Field>
-                  <Field label="Encrypted S3 credential"><select className="pf-v5-c-form-control" value={s3CredentialId} onChange={(e) => setS3CredentialId(e.target.value)} required><option value="">Select imported S3 key pair</option>{systemdCredentials.filter((item) => item.kind === "s3").map((item) => <option key={item.id} value={item.id}>{item.id}</option>)}</select></Field>
-                  <Field label={t("Access")}><select className="pf-v5-c-form-control" value={s3ReadOnly ? "ro" : "rw"} onChange={(e) => setS3ReadOnly(e.target.value === "ro")}><option value="ro">{t("Read-only")}</option><option value="rw">{t("Read/write")}</option></select></Field>
+                  <Field t={t} label="Repository ID"><input className="pf-v5-c-form-control" value={s3RepositoryId} onChange={(e) => setS3RepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
+                  <Field t={t} label="S3 endpoint URL (optional; empty for AWS S3)"><input className="pf-v5-c-form-control" value={s3Endpoint} onChange={(e) => setS3Endpoint(e.target.value)} placeholder="https://s3.example.net" /></Field>
+                  <Field t={t} label="Region"><input className="pf-v5-c-form-control" value={s3Region} onChange={(e) => setS3Region(e.target.value)} maxLength={64} required /></Field>
+                  <Field t={t} label="Bucket"><input className="pf-v5-c-form-control" value={s3Bucket} onChange={(e) => setS3Bucket(e.target.value)} maxLength={63} required /></Field>
+                  <Field t={t} label="Object prefix"><input className="pf-v5-c-form-control" value={s3Prefix} onChange={(e) => setS3Prefix(e.target.value)} maxLength={512} /></Field>
+                  <Field t={t} label="Encrypted S3 credential"><select className="pf-v5-c-form-control" value={s3CredentialId} onChange={(e) => setS3CredentialId(e.target.value)} required><option value="">Select imported S3 key pair</option>{systemdCredentials.filter((item) => item.kind === "s3").map((item) => <option key={item.id} value={item.id}>{item.id}</option>)}</select></Field>
+                  <Field t={t} label={t("Access")}><select className="pf-v5-c-form-control" value={s3ReadOnly ? "ro" : "rw"} onChange={(e) => setS3ReadOnly(e.target.value === "ro")}><option value="ro">{t("Read-only")}</option><option value="rw">{t("Read/write")}</option></select></Field>
                   <Button type="submit" variant="primary" isDisabled={busy || !s3RepositoryId || !s3Bucket || !s3CredentialId}>Save S3 repository</Button>
                 </form></CardBody></Card>
                 <Table aria-label="S3 object repositories" variant="compact"><Thead><Tr><Th>{t("ID")}</Th><Th>{t("Endpoint")}</Th><Th>{t("Bucket / prefix")}</Th><Th>{t("Access")}</Th><Th>{t("Actions")}</Th></Tr></Thead><Tbody>
@@ -1403,23 +1403,23 @@ export default function App() {
               </StackItem>
               <StackItem>
                 <form onSubmit={applyNetworkProfile}>
-                  <Field label="NetworkManager connection profile">
+                  <Field t={t} label="NetworkManager connection profile">
                     <select className="pf-v5-c-form-control" value={networkProfileUuid} onChange={(event) => setNetworkProfileUuid(event.target.value)} required>
                       <option value="">{t("Select profile…")}</option>
                       {networkProfiles.map((profile) => <option key={profile.uuid} value={profile.uuid} disabled={!profile.device}>{profile.name} · {profile.type} · {profile.device || "not active"}{profile.active ? " · active" : ""}</option>)}
                     </select>
                   </Field>
-                  <Field label="IPv4 configuration">
+                  <Field t={t} label="IPv4 configuration">
                     <select className="pf-v5-c-form-control" value={networkMethod} onChange={(event) => setNetworkMethod(event.target.value)}>
                       <option value="auto">DHCP (automatic)</option>
                       <option value="manual">{t("Static IPv4")}</option>
                     </select>
                   </Field>
                   {networkMethod === "manual" && <>
-                    <Field label="IPv4 address"><input className="pf-v5-c-form-control" value={networkAddress} onChange={(event) => setNetworkAddress(event.target.value)} required placeholder="192.0.2.10" /></Field>
-                    <Field label="Prefix length"><input className="pf-v5-c-form-control" type="number" min="1" max="30" value={networkPrefix} onChange={(event) => setNetworkPrefix(event.target.value)} required /></Field>
-                    <Field label="Gateway (optional)"><input className="pf-v5-c-form-control" value={networkGateway} onChange={(event) => setNetworkGateway(event.target.value)} placeholder="192.0.2.1" /></Field>
-                    <Field label="DNS servers (comma-separated, optional)"><input className="pf-v5-c-form-control" value={networkDns} onChange={(event) => setNetworkDns(event.target.value)} placeholder="192.0.2.53, 192.0.2.54" /></Field>
+                    <Field t={t} label="IPv4 address"><input className="pf-v5-c-form-control" value={networkAddress} onChange={(event) => setNetworkAddress(event.target.value)} required placeholder="192.0.2.10" /></Field>
+                    <Field t={t} label="Prefix length"><input className="pf-v5-c-form-control" type="number" min="1" max="30" value={networkPrefix} onChange={(event) => setNetworkPrefix(event.target.value)} required /></Field>
+                    <Field t={t} label="Gateway (optional)"><input className="pf-v5-c-form-control" value={networkGateway} onChange={(event) => setNetworkGateway(event.target.value)} placeholder="192.0.2.1" /></Field>
+                    <Field t={t} label="DNS servers (comma-separated, optional)"><input className="pf-v5-c-form-control" value={networkDns} onChange={(event) => setNetworkDns(event.target.value)} placeholder="192.0.2.53, 192.0.2.54" /></Field>
                   </>}
                   <Button type="submit" variant="primary" isLoading={busy} isDisabled={busy || !networkProfileUuid}>Apply and verify network configuration</Button>
                 </form>
@@ -1437,7 +1437,7 @@ export default function App() {
                 </Alert>
               </StackItem>
               <StackItem>
-                <Field label="Server network interface and address" help="Only active non-loopback IPv4 addresses assigned to this host are offered.">
+                <Field t={t} label="Server network interface and address" help="Only active non-loopback IPv4 addresses assigned to this host are offered.">
                   <select className="pf-v5-c-form-control" value={serverBinding} onChange={(e) => { setServerBinding(e.target.value); setPxePreflight(null); setPxeProfile(null); }}>
                     <option value="">Select an interface/address…</option>
                     {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
@@ -1457,7 +1457,7 @@ export default function App() {
               {status?.server_configured && <StackItem><Card><CardBody>
                 <Title headingLevel="h3" size="lg">Rotate Server TLS keypair</Title>
                 <Alert variant="warning" title="New Server private key; existing CA retained" isInline>This is separate from certificate renewal. All deployment jobs must be stopped. The new key and certificate are validated before installation; configured Clients continue to trust the existing CA and Server identity. This does not rotate the CA.</Alert>
-                <Field label="Type exactly: ROTATE SERVER TLS KEYPAIR">
+                <Field t={t} label="Type exactly: ROTATE SERVER TLS KEYPAIR">
                   <input className="pf-v5-c-form-control" value={serverRotateConfirmation} onChange={(event) => setServerRotateConfirmation(event.target.value)} />
                 </Field>
                 <Button variant="danger" onClick={rotateServerKeypair} isLoading={busy} isDisabled={busy || serverRotateConfirmation !== "ROTATE SERVER TLS KEYPAIR"}>Rotate Server TLS keypair</Button>
@@ -1466,7 +1466,7 @@ export default function App() {
               {status?.server_configured && <StackItem><Card><CardBody>
                 <Title headingLevel="h3" size="lg">Renew Server TLS certificate</Title>
                 <Alert variant="warning" title="Existing CA and private key will be retained" isInline>Renewal is blocked while any deployment job service is active. The Server certificate is replaced atomically; existing Clients continue trusting the same CA and Server identity. This does not rotate the CA or the Server private key.</Alert>
-                <Field label="Type exactly: RENEW SERVER CERTIFICATE">
+                <Field t={t} label="Type exactly: RENEW SERVER CERTIFICATE">
                   <input className="pf-v5-c-form-control" value={serverRenewConfirmation} onChange={(event) => setServerRenewConfirmation(event.target.value)} />
                 </Field>
                 <Button variant="danger" onClick={renewServerCertificate} isLoading={busy} isDisabled={busy || serverRenewConfirmation !== "RENEW SERVER CERTIFICATE"}>Renew Server certificate</Button>
@@ -1475,7 +1475,7 @@ export default function App() {
               <StackItem>
                 <Title headingLevel="h2" size="xl">PXE network profile preflight</Title>
                 <p>Validate a proposed PXE network configuration before any service is started. Select the same management interface above.</p>
-                <Field label="DHCP mode">
+                <Field t={t} label="DHCP mode">
                   <select className="pf-v5-c-form-control" value={pxeMode} onChange={(e) => { setPxeMode(e.target.value); setPxePreflight(null); }}>
                     <option value="proxy">ProxyDHCP (existing DHCP server assigns addresses)</option>
                     <option value="isolated">Isolated authoritative DHCP (dedicated VLAN only)</option>
@@ -1483,16 +1483,16 @@ export default function App() {
                 </Field>
                 {pxeMode === "isolated" && <>
                   <Alert variant="warning" title="Authoritative DHCP can disrupt an existing network" isInline>Only use isolated mode on a dedicated, verified network segment where Feclora is the sole DHCP authority. Never enable it on a shared LAN.</Alert>
-                  <Field label="DHCP pool start"><input className="pf-v5-c-form-control" value={pxePoolStart} onChange={(e) => setPxePoolStart(e.target.value)} placeholder="192.0.2.100" /></Field>
-                  <Field label="DHCP pool end"><input className="pf-v5-c-form-control" value={pxePoolEnd} onChange={(e) => setPxePoolEnd(e.target.value)} placeholder="192.0.2.180" /></Field>
-                  <Field label="Lease duration"><input className="pf-v5-c-form-control" value={pxeLease} onChange={(e) => setPxeLease(e.target.value)} placeholder="1h" /></Field>
-                  <Field label="Gateway (optional)"><input className="pf-v5-c-form-control" value={pxeGateway} onChange={(e) => setPxeGateway(e.target.value)} placeholder="192.0.2.254" /></Field>
-                  <Field label="DNS server (optional)"><input className="pf-v5-c-form-control" value={pxeDns} onChange={(e) => setPxeDns(e.target.value)} placeholder="192.0.2.254" /></Field>
+                  <Field t={t} label="DHCP pool start"><input className="pf-v5-c-form-control" value={pxePoolStart} onChange={(e) => setPxePoolStart(e.target.value)} placeholder="192.0.2.100" /></Field>
+                  <Field t={t} label="DHCP pool end"><input className="pf-v5-c-form-control" value={pxePoolEnd} onChange={(e) => setPxePoolEnd(e.target.value)} placeholder="192.0.2.180" /></Field>
+                  <Field t={t} label="Lease duration"><input className="pf-v5-c-form-control" value={pxeLease} onChange={(e) => setPxeLease(e.target.value)} placeholder="1h" /></Field>
+                  <Field t={t} label="Gateway (optional)"><input className="pf-v5-c-form-control" value={pxeGateway} onChange={(e) => setPxeGateway(e.target.value)} placeholder="192.0.2.254" /></Field>
+                  <Field t={t} label="DNS server (optional)"><input className="pf-v5-c-form-control" value={pxeDns} onChange={(e) => setPxeDns(e.target.value)} placeholder="192.0.2.254" /></Field>
                   <label><input type="checkbox" checked={pxeAuthoritative} onChange={(e) => setPxeAuthoritative(e.target.checked)} /> I confirm this is an isolated VLAN and Feclora is its only DHCP server.</label>
                 </>}
-                <Field label="HTTP boot asset port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={pxePort} onChange={(e) => setPxePort(e.target.value)} /></Field>
-                <Field label="Maximum distinct PXE clients" help="Optional limit of unique MAC addresses. Leave empty for no client-count limit. Repeated requests from an already registered MAC do not consume another slot."><input className="pf-v5-c-form-control" type="number" min="1" max="4096" value={pxeMaxClients} onChange={(e) => setPxeMaxClients(e.target.value)} placeholder="No limit" /></Field>
-                <Field label="Maximum PXE serving time (seconds)" help="Optional deadline from service startup. Minimum 60 seconds. Leave empty for no time limit; if both fields are empty, PXE admission has no count or time limit."><input className="pf-v5-c-form-control" type="number" min="60" max="604800" value={pxeMaxDuration} onChange={(e) => setPxeMaxDuration(e.target.value)} placeholder="e.g. 3600" /></Field>
+                <Field t={t} label="HTTP boot asset port"><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={pxePort} onChange={(e) => setPxePort(e.target.value)} /></Field>
+                <Field t={t} label="Maximum distinct PXE clients" help="Optional limit of unique MAC addresses. Leave empty for no client-count limit. Repeated requests from an already registered MAC do not consume another slot."><input className="pf-v5-c-form-control" type="number" min="1" max="4096" value={pxeMaxClients} onChange={(e) => setPxeMaxClients(e.target.value)} placeholder="No limit" /></Field>
+                <Field t={t} label="Maximum PXE serving time (seconds)" help="Optional deadline from service startup. Minimum 60 seconds. Leave empty for no time limit; if both fields are empty, PXE admission has no count or time limit."><input className="pf-v5-c-form-control" type="number" min="60" max="604800" value={pxeMaxDuration} onChange={(e) => setPxeMaxDuration(e.target.value)} placeholder="e.g. 3600" /></Field>
                 <Button variant="primary" onClick={validatePXEProfile} isLoading={busy} isDisabled={busy || !serverBinding || (pxeMode === "isolated" && (!pxePoolStart || !pxePoolEnd || !pxeAuthoritative))}>Run PXE preflight</Button>
               </StackItem>
               {pxeStatus.configured && <StackItem><Alert variant="warning" title="PXE runtime is configured" isInline>Stop the PXE services when network boot is no longer required, or if the service state is incomplete. <Button variant="danger" onClick={stopPXE} isLoading={busy} isDisabled={busy}>Stop PXE services and restore firewall</Button></Alert></StackItem>}
@@ -1501,7 +1501,7 @@ export default function App() {
                   <Title headingLevel="h3" size="lg">Publish unattended PXE answer</Title>
                   <p>Upload the prewritten JSON answer. The repository is selected by its <code>repository_id</code> field and must already be configured in the Live client through Feclora's normal repository manager. The Server validates the JSON and publishes it through Caddy over HTTP. The answer contains no URLs, credential references or secrets.</p>
                   <Alert variant="warning" title="Destructive operation guard" isInline>The PXE Live client trusts the answer delivered by this HTTP server. When a client boots the unattended iPXE entry, a matching whole disk is restored automatically. The Live client resolves the selected repository through its normal Feclora managers: SSHFS, NFS, SMB/CIFS and S3, using credentials already protected in the Live configuration. No credential handoff or per-client identity is introduced. Images may be unencrypted or age-encrypted with a symmetric passphrase entered locally in Live Cockpit. Test only with disposable target disks.</Alert>
-                  <Field label="Prewritten answer file (JSON)">
+                  <Field t={t} label="Prewritten answer file (JSON)">
                     <input className="pf-v5-c-form-control" type="file" accept=".json,application/json" onChange={(event) => { setPxeAnswerFile(event.target.files?.[0] || null); setPxeAnswerPublished(null); }} />
                     {pxeAnswerFile && <div className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{pxeAnswerFile.name} · {pxeAnswerFile.size} bytes</div>}
                   </Field>
@@ -1522,7 +1522,7 @@ export default function App() {
                   {pxeAgePassphraseStatus.waiting
                     ? <>
                         <p>The PXE Live restore worker is waiting for the symmetric age passphrase. Enter it on this Live client. Cockpit submits it once through the local privileged API; it is not added to the answer JSON, URL or kernel command line.</p>
-                        <Field label="age symmetric passphrase">
+                        <Field t={t} label="age symmetric passphrase">
                           <input className="pf-v5-c-form-control" type="password" autoComplete="off" value={pxeAgePassphrase} onChange={(event) => setPxeAgePassphrase(event.target.value)} />
                         </Field>
                         <Button variant="primary" onClick={submitPXEAgePassphrase} isLoading={busy} isDisabled={busy || !pxeAgePassphrase}>Submit passphrase to this Live client</Button>
@@ -1549,13 +1549,13 @@ export default function App() {
               {!status?.client_configured && <StackItem><Alert variant="warning" title="Client enrollment required" isInline>Configure Server trust on this Client before inspecting or joining a remote job.</Alert></StackItem>}
               {status?.client_configured && <>
                 <StackItem>
-                  <Field label="Server host override" help="Leave blank to use the enrolled Server host. The configured Server certificate identity is still verified.">
+                  <Field t={t} label="Server host override" help="Leave blank to use the enrolled Server host. The configured Server certificate identity is still verified.">
                     <input className="pf-v5-c-form-control" value={clientRemoteHost} onChange={(event) => setClientRemoteHost(event.target.value)} placeholder="Use enrolled Server host" />
                   </Field>
-                  <Field label="Remote job UUID">
+                  <Field t={t} label="Remote job UUID">
                     <input className="pf-v5-c-form-control" value={clientRemoteJobId} onChange={(event) => { setClientRemoteJobId(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); }} placeholder="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" />
                   </Field>
-                  <Field label="Local multicast receive interface (also used for the Server connection)" help="Select the local IPv4 interface/address used for the Server connection and, for multicast jobs, the UDPcast receive interface. The address and interface are revalidated before connection or receive startup.">
+                  <Field t={t} label="Local multicast receive interface (also used for the Server connection)" help="Select the local IPv4 interface/address used for the Server connection and, for multicast jobs, the UDPcast receive interface. The address and interface are revalidated before connection or receive startup.">
                     <select className="pf-v5-c-form-control" value={clientRemoteInterface} onChange={(event) => { setClientRemoteInterface(event.target.value); setClientRemoteInspection(null); setClientRemoteJobStatus(null); setClientRemoteIgmpConfirmed(false); }}>
                       <option value="">Select Client interface/address…</option>
                       {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
@@ -1577,26 +1577,26 @@ export default function App() {
                     {clientRemoteJob.transport === "multicast" && <label><input type="checkbox" checked={clientRemoteIgmpConfirmed} onChange={(event) => setClientRemoteIgmpConfirmed(event.target.checked)} /> I verified IGMP snooping and an active querier on this VLAN, and confirmed all Clients are on the same multicast network.</label>}
                     {(clientRemoteJob.transport === "unicast" || clientRemoteJob.transport === "multicast") && <>
 
-                      <Field label={clientRemoteJob.target_type === "logical_volume" ? "Local destination logical volume" : clientRemoteJob.target_type === "partition" ? "Local destination partition" : "Local destination disk"} help={clientRemoteJob.target_type === "logical_volume" ? "Choose an existing healthy linear or thin LV. It must be active, unmounted and large enough; Feclora will not create or resize LVM metadata. The Client rechecks the LVM topology before READY and immediately before writing." : "The selected block device is rechecked against live inventory immediately before READY. Root, mounted or busy destinations are rejected by the storage engine."}>
+                      <Field t={t} label={clientRemoteJob.target_type === "logical_volume" ? "Local destination logical volume" : clientRemoteJob.target_type === "partition" ? "Local destination partition" : "Local destination disk"} help={clientRemoteJob.target_type === "logical_volume" ? "Choose an existing healthy linear or thin LV. It must be active, unmounted and large enough; Feclora will not create or resize LVM metadata. The Client rechecks the LVM topology before READY and immediately before writing." : "The selected block device is rechecked against live inventory immediately before READY. Root, mounted or busy destinations are rejected by the storage engine."}>
                         <select className="pf-v5-c-form-control" value={clientRemoteTarget} onChange={(event) => { setClientRemoteTarget(event.target.value); setClientRemoteConfirmation(""); }}>
                           <option value="">Select local target…</option>
                           {clientRemoteDeviceOptions.map((device) => <option key={device.path} value={device.path}>{device.path} · {device.model || device.name || device.type} · {device.size_bytes || ""}</option>)}
                         </select>
                       </Field>
                       {clientRemoteJob.operation === "save" && <>
-                        <Field label="Capture compression">
+                        <Field t={t} label="Capture compression">
                           <select className="pf-v5-c-form-control" value={clientRemoteCompression} onChange={(event) => setClientRemoteCompression(event.target.value)}>
                             <option value="none">None</option><option value="gzip">gzip</option><option value="xz">xz</option>
                           </select>
                         </Field>
-                        <Field label="Protect this image (optional)">
+                        <Field t={t} label="Protect this image (optional)">
                           <label><input type="checkbox" checked={clientRemoteEncrypt} disabled={!clientRemoteInspection.image_security?.age_encryption_available} onChange={(event) => setClientRemoteEncrypt(event.target.checked)} /> Encrypt this image with age</label>
                           <br />
                           {(!clientRemoteInspection.image_security?.age_encryption_available ) && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Unavailable options are disabled because this Client has no usable key material or executable. Leaving encryption unchecked creates an unencrypted image with SHA-256 integrity checks.</p>}
                         </Field>
                       </>}
                       {clientRemoteConfirmationPhrase && <Alert variant="warning" title="Type the exact local authorization phrase" isInline>{clientRemoteConfirmationPhrase}</Alert>}
-                      <Field label="Local target confirmation">
+                      <Field t={t} label="Local target confirmation">
                         <input className="pf-v5-c-form-control" value={clientRemoteConfirmation} onChange={(event) => setClientRemoteConfirmation(event.target.value)} placeholder="Type the phrase shown above exactly" />
                       </Field>
                       <Button variant="primary" onClick={startClientRemoteJob} isLoading={busy} isDisabled={busy || !clientRemoteTarget || !clientRemoteConfirmationPhrase || clientRemoteConfirmation !== clientRemoteConfirmationPhrase || (!clientRemoteInterface || (clientRemoteJob.transport === "multicast" && !clientRemoteIgmpConfirmed))}>Connect and wait for Server authorization</Button>
