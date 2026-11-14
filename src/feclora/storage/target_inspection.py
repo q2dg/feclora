@@ -55,10 +55,8 @@ def inspect_restore_target(
             )
         else:
             safety_check(disk_path)
-    except SourceSafetyError as exc:
-        raise TargetInspectionError(f"target must be offline and unused: {exc}") from exc
     except Exception as exc:
-        raise TargetInspectionError(f"target safety check failed: {exc}") from exc
+        raise TargetInspectionError(f"target must be offline and unused; safety check failed: {exc}") from exc
 
     uid = effective_uid or os.geteuid
 
