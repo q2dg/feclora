@@ -83,8 +83,6 @@ by a hard-coded device path. The Live client resolves exactly one matching whole
 inventory and rechecks that identity immediately before writing. Missing or
 ambiguous matches fail closed.
 
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
-
 ## Security boundary
 
 An answer file can authorize a destructive operation, so it must not be
@@ -97,9 +95,7 @@ be reused until revoked or cleared by a new PXE session. Clients validate the
 schema and repository integrity metadata before any write. For this deployment, the operator explicitly chooses to trust the answer
 served by the configured HTTP server. This is an operational trust assumption,
 not cryptographic authenticity: an attacker able to modify HTTP traffic or the
-server's published file can alter the instructions. Feclora does not add a
-signature or transport-encryption layer to this HTTP answer workflow, nor does
-it add per-client identity. Optional age encryption protects image artifacts,
+server's published file can alter the instructions. The answer is served over HTTP without cryptographic authenticity or transport-confidentiality protection. The workflow also does not provide per-client identity. Optional age encryption protects image artifacts,
 not the answer JSON or HTTP transport.
 
 The PXE Server can register the MAC address supplied by iPXE on the first
@@ -117,8 +113,6 @@ retrieved by a client, or revoke the JSON answer file itself. The JSON answer
 URL remains a public job-scoped locator until explicit revocation or stale
 session cleanup; the MAC limit is an operational admission control, not a
 security boundary.
-
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 ## Repository and client model
 
