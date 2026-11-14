@@ -94,8 +94,83 @@ for (const [language, entries] of Object.entries(COMPLETION_TRANSLATIONS)) {
   Object.assign(DICTS[language], entries);
 }
 
+
+const EXTRA_TRANSLATIONS = {
+  en: {
+    tabImages:"Image repository", tabRemoteJobs:"Remote jobs", tabHistory:"Deployment history", tabRepositories:"Remote repositories", tabOperationLog:"Operation log", tabNetwork:"Network (Server / Client)",
+    opCaptureDisk:"Create a whole-disk image", opCaptureP2v:"Convert physical disk to QCOW2 (P2V)", opExportP2v:"Export P2V QCOW2 from S3", opRecoveryIso:"Build a self-contained recovery ISO", opCapturePartition:"Create a partition image", opCaptureVolume:"Create a logical-volume image", opRestoreDisk:"Restore a whole-disk image", opRestorePartition:"Restore a partition image", opRestoreVolume:"Restore a logical-volume image", opCloneDisk:"Clone disk to disk", opClonePartition:"Clone partition to partition",
+    availableImages:"Available images", imageRepository:"Image repository", extractPartition:"Extract a partition from a whole-disk image", createRemoteJob:"Create a remote deployment job", deploymentJournals:"Deployment journals", remoteImageRepositories:"Remote image repositories", localOperationHistory:"Local operation history"
+  },
+  es: {
+    tabImages:"Repositorio de imágenes",tabRemoteJobs:"Trabajos remotos",tabHistory:"Historial de despliegues",tabRepositories:"Repositorios remotos",tabOperationLog:"Registro de operaciones",tabNetwork:"Red (Servidor / Cliente)",
+    opCaptureDisk:"Crear imagen de disco completo",opCaptureP2v:"Convertir disco físico a QCOW2 (P2V)",opExportP2v:"Exportar QCOW2 P2V desde S3",opRecoveryIso:"Crear ISO de recuperación autónoma",opCapturePartition:"Crear imagen de partición",opCaptureVolume:"Crear imagen de volumen lógico",opRestoreDisk:"Restaurar disco completo",opRestorePartition:"Restaurar partición",opRestoreVolume:"Restaurar volumen lógico",opCloneDisk:"Clonar disco a disco",opClonePartition:"Clonar partición a partición",
+    availableImages:"Imágenes disponibles",imageRepository:"Repositorio de imágenes",extractPartition:"Extraer una partición de una imagen de disco completo",createRemoteJob:"Crear un trabajo de despliegue remoto",deploymentJournals:"Registros de despliegue",remoteImageRepositories:"Repositorios remotos de imágenes",localOperationHistory:"Historial local de operaciones"
+  },
+  ca: {
+    tabImages:"Repositori d'imatges",tabRemoteJobs:"Treballs remots",tabHistory:"Historial de desplegaments",tabRepositories:"Repositoris remots",tabOperationLog:"Registre d'operacions",tabNetwork:"Xarxa (Servidor / Client)",
+    opCaptureDisk:"Crea una imatge de disc sencer",opCaptureP2v:"Converteix un disc físic a QCOW2 (P2V)",opExportP2v:"Exporta QCOW2 P2V des de S3",opRecoveryIso:"Crea una ISO de recuperació autònoma",opCapturePartition:"Crea una imatge de partició",opCaptureVolume:"Crea una imatge de volum lògic",opRestoreDisk:"Restaura un disc sencer",opRestorePartition:"Restaura una partició",opRestoreVolume:"Restaura un volum lògic",opCloneDisk:"Clona un disc a un altre disc",opClonePartition:"Clona una partició a una altra",
+    availableImages:"Imatges disponibles",imageRepository:"Repositori d'imatges",extractPartition:"Extreu una partició d'una imatge de disc sencer",createRemoteJob:"Crea un treball de desplegament remot",deploymentJournals:"Registres de desplegament",remoteImageRepositories:"Repositoris remots d'imatges",localOperationHistory:"Historial local d'operacions"
+  },
+  gl: {
+    tabImages:"Repositorio de imaxes",tabRemoteJobs:"Traballos remotos",tabHistory:"Historial de despregamentos",tabRepositories:"Repositorios remotos",tabOperationLog:"Rexistro de operacións",tabNetwork:"Rede (Servidor / Cliente)",
+    opCaptureDisk:"Crear imaxe de disco completo",opCaptureP2v:"Converter disco físico a QCOW2 (P2V)",opExportP2v:"Exportar QCOW2 P2V desde S3",opRecoveryIso:"Crear ISO de recuperación autónoma",opCapturePartition:"Crear imaxe de partición",opCaptureVolume:"Crear imaxe de volume lóxico",opRestoreDisk:"Restaurar disco completo",opRestorePartition:"Restaurar partición",opRestoreVolume:"Restaurar volume lóxico",opCloneDisk:"Clonar disco a disco",opClonePartition:"Clonar partición a partición",
+    availableImages:"Imaxes dispoñibles",imageRepository:"Repositorio de imaxes",extractPartition:"Extraer unha partición dunha imaxe de disco completo",createRemoteJob:"Crear un traballo de despregamento remoto",deploymentJournals:"Rexistros de despregamento",remoteImageRepositories:"Repositorios remotos de imaxes",localOperationHistory:"Historial local de operacións"
+  },
+  eu: {
+    tabImages:"Irudi-biltegia",tabRemoteJobs:"Urruneko lanak",tabHistory:"Hedapen-historia",tabRepositories:"Urruneko biltegiak",tabOperationLog:"Eragiketen erregistroa",tabNetwork:"Sarea (zerbitzaria / bezeroa)",
+    opCaptureDisk:"Sortu disko osoko irudia",opCaptureP2v:"Bihurtu disko fisikoa QCOW2ra (P2V)",opExportP2v:"Esportatu P2V QCOW2 S3tik",opRecoveryIso:"Sortu berreskuratze-ISO autonomoa",opCapturePartition:"Sortu partizio-irudia",opCaptureVolume:"Sortu bolumen logikoaren irudia",opRestoreDisk:"Berrezarri disko osoa",opRestorePartition:"Berrezarri partizioa",opRestoreVolume:"Berrezarri bolumen logikoa",opCloneDisk:"Klonatu diskoa diskora",opClonePartition:"Klonatu partizioa partiziora",
+    availableImages:"Eskuragarri dauden irudiak",imageRepository:"Irudi-biltegia",extractPartition:"Atera partizio bat disko osoko iruditik",createRemoteJob:"Sortu urruneko hedapen-lana",deploymentJournals:"Hedapen-egunkariak",remoteImageRepositories:"Urruneko irudi-biltegiak",localOperationHistory:"Eragiketen historia lokala"
+  },
+  pt: {
+    tabImages:"Repositório de imagens",tabRemoteJobs:"Tarefas remotas",tabHistory:"Histórico de implementações",tabRepositories:"Repositórios remotos",tabOperationLog:"Registo de operações",tabNetwork:"Rede (Servidor / Cliente)",
+    opCaptureDisk:"Criar imagem de disco completo",opCaptureP2v:"Converter disco físico para QCOW2 (P2V)",opExportP2v:"Exportar QCOW2 P2V do S3",opRecoveryIso:"Criar ISO de recuperação autónoma",opCapturePartition:"Criar imagem de partição",opCaptureVolume:"Criar imagem de volume lógico",opRestoreDisk:"Restaurar disco completo",opRestorePartition:"Restaurar partição",opRestoreVolume:"Restaurar volume lógico",opCloneDisk:"Clonar disco para disco",opClonePartition:"Clonar partição para partição",
+    availableImages:"Imagens disponíveis",imageRepository:"Repositório de imagens",extractPartition:"Extrair uma partição de uma imagem de disco completo",createRemoteJob:"Criar uma tarefa de implementação remota",deploymentJournals:"Registos de implementação",remoteImageRepositories:"Repositórios remotos de imagens",localOperationHistory:"Histórico local de operações"
+  },
+  fr: {
+    tabImages:"Dépôt d’images",tabRemoteJobs:"Tâches distantes",tabHistory:"Historique des déploiements",tabRepositories:"Dépôts distants",tabOperationLog:"Journal des opérations",tabNetwork:"Réseau (Serveur / Client)",
+    opCaptureDisk:"Créer une image de disque entier",opCaptureP2v:"Convertir un disque physique en QCOW2 (P2V)",opExportP2v:"Exporter le QCOW2 P2V depuis S3",opRecoveryIso:"Créer un ISO de récupération autonome",opCapturePartition:"Créer une image de partition",opCaptureVolume:"Créer une image de volume logique",opRestoreDisk:"Restaurer un disque entier",opRestorePartition:"Restaurer une partition",opRestoreVolume:"Restaurer un volume logique",opCloneDisk:"Cloner un disque vers un disque",opClonePartition:"Cloner une partition vers une partition",
+    availableImages:"Images disponibles",imageRepository:"Dépôt d’images",extractPartition:"Extraire une partition d’une image de disque entier",createRemoteJob:"Créer une tâche de déploiement distante",deploymentJournals:"Journaux de déploiement",remoteImageRepositories:"Dépôts d’images distants",localOperationHistory:"Historique local des opérations"
+  },
+  de: {
+    tabImages:"Image-Repository",tabRemoteJobs:"Remote-Aufträge",tabHistory:"Deployment-Verlauf",tabRepositories:"Remote-Repositories",tabOperationLog:"Betriebsprotokoll",tabNetwork:"Netzwerk (Server / Client)",
+    opCaptureDisk:"Gesamtes Laufwerk als Image sichern",opCaptureP2v:"Physisches Laufwerk in QCOW2 konvertieren (P2V)",opExportP2v:"P2V-QCOW2 aus S3 exportieren",opRecoveryIso:"Eigenständige Recovery-ISO erstellen",opCapturePartition:"Partitionsimage erstellen",opCaptureVolume:"Image eines logischen Volumes erstellen",opRestoreDisk:"Gesamtes Laufwerk wiederherstellen",opRestorePartition:"Partition wiederherstellen",opRestoreVolume:"Logisches Volume wiederherstellen",opCloneDisk:"Laufwerk auf Laufwerk klonen",opClonePartition:"Partition auf Partition klonen",
+    availableImages:"Verfügbare Images",imageRepository:"Image-Repository",extractPartition:"Partition aus einem Laufwerksimage extrahieren",createRemoteJob:"Remote-Deployment-Auftrag erstellen",deploymentJournals:"Deployment-Protokolle",remoteImageRepositories:"Remote-Image-Repositories",localOperationHistory:"Lokaler Betriebsverlauf"
+  },
+  it: {
+    tabImages:"Archivio immagini",tabRemoteJobs:"Operazioni remote",tabHistory:"Cronologia distribuzioni",tabRepositories:"Archivi remoti",tabOperationLog:"Registro operazioni",tabNetwork:"Rete (Server / Client)",
+    opCaptureDisk:"Crea un'immagine dell'intero disco",opCaptureP2v:"Converti disco fisico in QCOW2 (P2V)",opExportP2v:"Esporta QCOW2 P2V da S3",opRecoveryIso:"Crea ISO di ripristino autonoma",opCapturePartition:"Crea immagine di partizione",opCaptureVolume:"Crea immagine di volume logico",opRestoreDisk:"Ripristina l'intero disco",opRestorePartition:"Ripristina partizione",opRestoreVolume:"Ripristina volume logico",opCloneDisk:"Clona disco su disco",opClonePartition:"Clona partizione su partizione",
+    availableImages:"Immagini disponibili",imageRepository:"Archivio immagini",extractPartition:"Estrai una partizione da un'immagine dell'intero disco",createRemoteJob:"Crea un'operazione di distribuzione remota",deploymentJournals:"Registri di distribuzione",remoteImageRepositories:"Archivi remoti di immagini",localOperationHistory:"Cronologia locale delle operazioni"
+  },
+  zh: {
+    tabImages:"映像仓库",tabRemoteJobs:"远程任务",tabHistory:"部署历史",tabRepositories:"远程仓库",tabOperationLog:"操作日志",tabNetwork:"网络（服务器 / 客户端）",
+    opCaptureDisk:"创建整盘映像",opCaptureP2v:"将物理磁盘转换为 QCOW2（P2V）",opExportP2v:"从 S3 导出 P2V QCOW2",opRecoveryIso:"创建独立恢复 ISO",opCapturePartition:"创建分区映像",opCaptureVolume:"创建逻辑卷映像",opRestoreDisk:"恢复整盘",opRestorePartition:"恢复分区",opRestoreVolume:"恢复逻辑卷",opCloneDisk:"磁盘克隆到磁盘",opClonePartition:"分区克隆到分区",
+    availableImages:"可用映像",imageRepository:"映像仓库",extractPartition:"从整盘映像中提取分区",createRemoteJob:"创建远程部署任务",deploymentJournals:"部署日志",remoteImageRepositories:"远程映像仓库",localOperationHistory:"本地操作历史"
+  },
+  ja: {
+    tabImages:"イメージリポジトリ",tabRemoteJobs:"リモートジョブ",tabHistory:"展開履歴",tabRepositories:"リモートリポジトリ",tabOperationLog:"操作ログ",tabNetwork:"ネットワーク（サーバー / クライアント）",
+    opCaptureDisk:"ディスク全体のイメージを作成",opCaptureP2v:"物理ディスクを QCOW2 に変換（P2V）",opExportP2v:"S3 から P2V QCOW2 をエクスポート",opRecoveryIso:"スタンドアロン復旧 ISO を作成",opCapturePartition:"パーティションイメージを作成",opCaptureVolume:"論理ボリュームイメージを作成",opRestoreDisk:"ディスク全体を復元",opRestorePartition:"パーティションを復元",opRestoreVolume:"論理ボリュームを復元",opCloneDisk:"ディスクを別ディスクに複製",opClonePartition:"パーティションを複製",
+    availableImages:"利用可能なイメージ",imageRepository:"イメージリポジトリ",extractPartition:"ディスク全体のイメージからパーティションを抽出",createRemoteJob:"リモート展開ジョブを作成",deploymentJournals:"展開ジャーナル",remoteImageRepositories:"リモートイメージリポジトリ",localOperationHistory:"ローカル操作履歴"
+  },
+  ru: {
+    tabImages:"Хранилище образов",tabRemoteJobs:"Удалённые задания",tabHistory:"История развёртываний",tabRepositories:"Удалённые хранилища",tabOperationLog:"Журнал операций",tabNetwork:"Сеть (сервер / клиент)",
+    opCaptureDisk:"Создать образ всего диска",opCaptureP2v:"Преобразовать физический диск в QCOW2 (P2V)",opExportP2v:"Экспортировать P2V QCOW2 из S3",opRecoveryIso:"Создать автономный ISO восстановления",opCapturePartition:"Создать образ раздела",opCaptureVolume:"Создать образ логического тома",opRestoreDisk:"Восстановить весь диск",opRestorePartition:"Восстановить раздел",opRestoreVolume:"Восстановить логический том",opCloneDisk:"Клонировать диск на диск",opClonePartition:"Клонировать раздел на раздел",
+    availableImages:"Доступные образы",imageRepository:"Хранилище образов",extractPartition:"Извлечь раздел из образа всего диска",createRemoteJob:"Создать удалённое задание развёртывания",deploymentJournals:"Журналы развёртывания",remoteImageRepositories:"Удалённые хранилища образов",localOperationHistory:"Локальная история операций"
+  },
+  ar: {
+    tabImages:"مستودع الصور",tabRemoteJobs:"المهام البعيدة",tabHistory:"سجل النشر",tabRepositories:"المستودعات البعيدة",tabOperationLog:"سجل العمليات",tabNetwork:"الشبكة (الخادم / العميل)",
+    opCaptureDisk:"إنشاء صورة للقرص بالكامل",opCaptureP2v:"تحويل قرص فعلي إلى QCOW2 (P2V)",opExportP2v:"تصدير P2V QCOW2 من S3",opRecoveryIso:"إنشاء ISO استرداد مستقل",opCapturePartition:"إنشاء صورة قسم",opCaptureVolume:"إنشاء صورة وحدة تخزين منطقية",opRestoreDisk:"استعادة القرص بالكامل",opRestorePartition:"استعادة قسم",opRestoreVolume:"استعادة وحدة تخزين منطقية",opCloneDisk:"استنساخ قرص إلى قرص",opClonePartition:"استنساخ قسم إلى قسم",
+    availableImages:"الصور المتاحة",imageRepository:"مستودع الصور",extractPartition:"استخراج قسم من صورة قرص كامل",createRemoteJob:"إنشاء مهمة نشر بعيدة",deploymentJournals:"سجلات النشر",remoteImageRepositories:"مستودعات الصور البعيدة",localOperationHistory:"سجل العمليات المحلي"
+  },
+  tr: {
+    tabImages:"Görüntü deposu",tabRemoteJobs:"Uzak işler",tabHistory:"Dağıtım geçmişi",tabRepositories:"Uzak depolar",tabOperationLog:"İşlem günlüğü",tabNetwork:"Ağ (Sunucu / İstemci)",
+    opCaptureDisk:"Tam disk görüntüsü oluştur",opCaptureP2v:"Fiziksel diski QCOW2'ye dönüştür (P2V)",opExportP2v:"S3'ten P2V QCOW2 dışa aktar",opRecoveryIso:"Bağımsız kurtarma ISO'su oluştur",opCapturePartition:"Bölüm görüntüsü oluştur",opCaptureVolume:"Mantıksal birim görüntüsü oluştur",opRestoreDisk:"Tam diski geri yükle",opRestorePartition:"Bölümü geri yükle",opRestoreVolume:"Mantıksal birimi geri yükle",opCloneDisk:"Diski diske klonla",opClonePartition:"Bölümü bölüme klonla",
+    availableImages:"Kullanılabilir görüntüler",imageRepository:"Görüntü deposu",extractPartition:"Tam disk görüntüsünden bölüm çıkar",createRemoteJob:"Uzak dağıtım işi oluştur",deploymentJournals:"Dağıtım günlükleri",remoteImageRepositories:"Uzak görüntü depoları",localOperationHistory:"Yerel işlem geçmişi"
+  }
+};
+
+
 export function translate(language, key) {
-  return DICTS[language]?.[key] || EN[key] || key;
+  return EXTRA_TRANSLATIONS[language]?.[key] || DICTS[language]?.[key] || EXTRA_TRANSLATIONS.en[key] || EN[key] || key;
 }
 
 export function useLanguagePreference() {
