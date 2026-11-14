@@ -728,10 +728,19 @@ def _restore(inventory: dict[str, Any]) -> None:
             with stage_verified_raw_disk_image(
                 manifest, _repository(), age_identity_file=age_identity,
             ) as staged:
+                partition_plan = []
+                def collect_partition_plan(plans):
+                    for plan in plans:
+                        partition_plan.append(
+                            f"{plan.node} | PARTUUID {plan.partuuid} | "
+                            f"start {plan.start_sector} | sectors {plan.size_sectors} | "
+                            f"minimum FS {plan.minimum_size_bytes:,} bytes"
+                        )
                 prepared = prepare_from_offline_source_disk(
                     staged, source_for_proportional,
                     target_size_bytes=target_size,
                     sector_size=manifest.logical_sector_size,
+                    plan_callback=collect_partition_plan,
                 )
                 summary = (
                     f"Image: {manifest.image_id}\n"
@@ -741,7 +750,8 @@ def _restore(inventory: dict[str, Any]) -> None:
                     f"Prepared image: {prepared.size_bytes:,} bytes\n"
                     f"Destination capacity: {target_size:,} bytes\n"
                     "Filesystem shrink and GPT rewrite were performed only on a private staging copy.\n"
-                    "The original source disk and repository artifact have not been modified."
+                    "The original source disk and repository artifact have not been modified.\\n"
+                    "Planned partitions:\\n" + "\\n".join(partition_plan)
                 )
                 _message("Proportional restore review", summary)
                 typed_proportional = _input(
