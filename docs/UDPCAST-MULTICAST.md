@@ -1,9 +1,11 @@
 # UDPcast multicast transport
 
-Feclora uses UDPcast only as a **data-plane file transport**. Client identity,
-job authorization, readiness, target selection and result reporting belong to
-the authenticated control plane; a UDPcast rendezvous packet, multicast
-membership, source IP or MAC address is never proof of identity.
+Feclora uses UDPcast only as a **data-plane file transport**. TLS authenticates
+the Server to each Client, but the current protocol does not cryptographically
+authenticate Clients. The control plane enforces job scoping, readiness, local
+target authorization and result reporting; MAC addresses are operational
+selectors only. A UDPcast rendezvous packet, multicast membership or source IP
+is never proof of identity.
 
 ## Implemented adapter boundary
 
