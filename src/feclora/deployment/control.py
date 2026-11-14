@@ -794,7 +794,9 @@ class DeploymentControlServer:
 
         source_fd = None
         try:
-            source_approved = build_physical_device_record(find_source())
+            if not job.source_identity_json:
+                raise PhysicalMulticastError("Server source identity was not bound when the job was created")
+            source_approved = json.loads(job.source_identity_json)
             source_current = build_physical_device_record(find_source())
             with self._lock:
                 approved_destinations = {
