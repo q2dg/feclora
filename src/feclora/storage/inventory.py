@@ -18,7 +18,7 @@ from feclora.storage.topology_graph import build_storage_graph
 
 LSBLK_COLUMNS = (
     "NAME,PATH,TYPE,SIZE,RO,TRAN,MODEL,VENDOR,SERIAL,WWN,"
-    "FSTYPE,LABEL,UUID,MAJ:MIN,LOG-SEC,MOUNTPOINTS"
+    "FSTYPE,LABEL,UUID,PARTUUID,PARTTYPE,PARTLABEL,MAJ:MIN,LOG-SEC,MOUNTPOINTS"
 )
 
 
@@ -50,6 +50,9 @@ def _normalize_device(device: dict[str, Any]) -> dict[str, Any]:
         "filesystem": device.get("fstype"),
         "label": device.get("label"),
         "uuid": device.get("uuid"),
+        "partuuid": device.get("partuuid"),
+        "partition_type_guid": device.get("parttype"),
+        "partition_label": device.get("partlabel"),
         "major_minor": device.get("maj:min"),
         "logical_sector_size": device.get("log-sec"),
         "mountpoints": _clean_mountpoints(
