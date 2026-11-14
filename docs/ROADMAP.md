@@ -3,7 +3,6 @@
 This page distinguishes **engineering work** from **maintainer-run release acceptance**.
 The [feature matrix](FEATURE-MATRIX.md) is the capability-level source-status reference;
 the [implementation plan](IMPLEMENTATION-PLAN.md) is the detailed engineering backlog;
-[requirements and acceptance](USER-REQUIREMENTS-ACCEPTANCE.md) defines the end-user release gates;
 and [the maintainer checklist](MAINTAINER-ACCEPTANCE.md) records the hands-on work reserved for the repository owner.
 
 ## Product model
