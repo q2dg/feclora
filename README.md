@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/feclora-github-banner.svg" alt="Feclora" width="720">
+  <img src="docs/assets/feclora-social-preview.svg" alt="Feclora" width="720">
 </p>
 
 **Feclora** is a Fedora Server-based minimal Live appliance for disk imaging, cloning, recovery and network deployment. It boots into a locked-down Firefox kiosk that opens the Feclora Cockpit application; it has no general-purpose desktop.
