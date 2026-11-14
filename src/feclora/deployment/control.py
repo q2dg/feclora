@@ -101,6 +101,7 @@ class ReadyClient:
     mac_address: str
     target_description: str
     target_device: str | None = None
+    physical_identity: Mapping[str, Any] | None = None
 
 @dataclass(frozen=True)
 class LocalTargetApproval:
@@ -108,6 +109,7 @@ class LocalTargetApproval:
     device_path: str
     description: str
     confirmation: str
+    physical_identity: Mapping[str, Any] | None = None
 
 
 class DeploymentControlServer:
@@ -137,6 +139,7 @@ class DeploymentControlServer:
         self._firewall_state_callback: Callable[[dict[str, Any] | None], None] | None = None
         self._sessions: dict[str, Any] = {}
         self._target_devices: dict[str, str] = {}
+        self._target_identities: dict[str, dict[str, Any]] = {}
         self._progress: dict[str, dict[str, Any]] = {}
         self._progress_event_sink = progress_event_sink
         self._last_persisted_progress: dict[str, dict[str, Any]] = {}
@@ -345,6 +348,8 @@ class DeploymentControlServer:
             expected_fields = {"type", "job_id", "target_description", "locally_authorized"}
             if self.coordinator.job.operation == "clone":
                 expected_fields.add("target_device")
+                if self.coordinator.job.transport == "multicast":
+                    expected_fields.add("target_identity")
             if set(ready) != expected_fields:
                 raise DeploymentControlError("client readiness contains missing or unknown fields")
             description = ready["target_description"]
@@ -354,6 +359,15 @@ class DeploymentControlServer:
                     or not isinstance(description, str) or not description
                     or len(description) > 256 or "/dev/" in description or any(ord(c) < 32 for c in description)):
                 raise DeploymentControlError("client has not supplied valid local target authorization")
+            target_identity = ready.get("target_identity")
+            if self.coordinator.job.operation == "clone" and self.coordinator.job.transport == "multicast" and (
+                not isinstance(target_identity, dict) or set(target_identity) != {
+                    "path", "major_minor", "sysfs_path", "wwn", "serial", "size_bytes",
+                    "logical_sector_size", "physical_sector_size", "read_only", "mountpoints",
+                    "holders", "backs_system", "busy",
+                }
+            ):
+                raise DeploymentControlError("Client physical destination identity is incomplete")
             if self.coordinator.job.operation == "clone" and (
                 not isinstance(target_device, str) or not target_device.startswith("/dev/")
                 or len(target_device) > 256 or posixpath.normpath(target_device) != target_device
@@ -368,7 +382,9 @@ class DeploymentControlServer:
                 self._sessions[mac] = tls_socket
                 if target_device is not None:
                     self._target_devices[mac] = target_device
-            return ReadyClient(mac, description, target_device)
+                if target_identity is not None:
+                    self._target_identities[mac] = dict(target_identity)
+            return ReadyClient(mac, description, target_device, target_identity)
         except Exception as exc:
             if registered_mac is not None:
                 try:
@@ -974,6 +990,12 @@ def join_deployment(
         }
         if job.operation == "clone":
             ready_message["target_device"] = device_path
+            if job.transport == "multicast":
+                if not isinstance(approval.physical_identity, Mapping):
+                    raise DeploymentControlError("physical multicast requires an independently inventoried local destination identity")
+                if approval.physical_identity.get("path") != device_path:
+                    raise DeploymentControlError("physical destination identity does not match the approved target path")
+                ready_message["target_identity"] = dict(approval.physical_identity)
         send_control_message(tls_socket, ready_message)
         start = receive_control_message(tls_socket)
         if start.get("type") == "cancel":
