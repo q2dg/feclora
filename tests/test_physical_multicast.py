@@ -219,6 +219,27 @@ class PhysicalMulticastStreamTests(unittest.TestCase):
         )
         return result, stored, flushed
 
+    def test_reports_write_and_readback_progress_separately(self):
+        payload = b"progress-bytes" * 400
+        stored = bytearray()
+        read_offset = 0
+        progress = []
+        def readback(count):
+            nonlocal read_offset
+            chunk = bytes(stored[read_offset:read_offset + count])
+            read_offset += len(chunk)
+            return chunk
+        result = write_and_verify_stream(
+            io.BytesIO(payload),
+            lambda view: stored.extend(view) or len(view),
+            lambda: None, readback,
+            expected_bytes=len(payload), chunk_size=4096,
+            progress_callback=lambda phase, done, total: progress.append((phase, done, total)),
+        )
+        self.assertTrue(result["verified"])
+        self.assertEqual({item[0] for item in progress}, {"write", "verify"})
+        self.assertEqual(progress[-1][1:], (len(payload), len(payload)))
+
     def test_handles_short_writes_flushes_and_verifies_readback(self):
         payload = b"feclora-physical-multicast" * 300
         result, stored, flushed = self.run_stream(payload, max_write=113)
