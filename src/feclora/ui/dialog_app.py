@@ -711,7 +711,54 @@ def _restore(inventory: dict[str, Any]) -> None:
         return
 
     try:
-        if action == "whole-disk":
+        if action == "proportional":
+            target_size = target.get("size_bytes")
+            source_size = source_for_proportional.get("size_bytes")
+            if (not isinstance(target_size, int) or not isinstance(source_size, int)
+                    or target_size >= manifest.source_size_bytes
+                    or source_size != manifest.source_size_bytes
+                    or target.get("logical_sector_size") != manifest.logical_sector_size
+                    or source_for_proportional.get("logical_sector_size") != manifest.logical_sector_size):
+                raise ProportionalRestoreWorkflowError(
+                    "source and destination capacities/sector sizes do not match the image geometry; "
+                    "destination must be smaller and source must match the captured disk"
+                )
+            with stage_verified_raw_disk_image(
+                manifest, _repository(), age_identity_file=age_identity,
+            ) as staged:
+                prepared = prepare_from_offline_source_disk(
+                    staged, source_for_proportional,
+                    target_size_bytes=target_size,
+                    sector_size=manifest.logical_sector_size,
+                )
+                summary = (
+                    f"Image: {manifest.image_id}\\n"
+                    f"Offline source (read-only probes): {source_for_proportional['path']}\\n"
+                    f"Destination: {target['path']}\\n"
+                    f"Original image: {staged.size_bytes:,} bytes\\n"
+                    f"Prepared image: {prepared.size_bytes:,} bytes\\n"
+                    f"Destination capacity: {target_size:,} bytes\\n"
+                    "Filesystem shrink and GPT rewrite were performed only on a private staging copy.\\n"
+                    "The original source disk and repository artifact have not been modified."
+                )
+                _message("Proportional restore review", summary)
+                typed_proportional = _input(
+                    "Destructive confirmation",
+                    summary + f"\\n\\nType exactly:\\nERASE {target['path']}",
+                )
+                if typed_proportional != f"ERASE {target['path']}":
+                    _message("Restore cancelled", "Confirmation did not match. No destination write was started.")
+                    return
+                _run_logged(
+                    "restore_proportional_disk", target["path"], manifest.image_id,
+                    lambda: restore_staged_proportional_image(
+                        prepared, target["path"],
+                        sector_size=manifest.logical_sector_size,
+                        expected_device_identity=selected_target_identity,
+                        confirmation=typed_proportional,
+                    ),
+                )
+        elif action == "whole-disk":
             _run_logged("restore_disk", target["path"], manifest.image_id, lambda: _run_restore_gauge(
                 "Restoring whole disk",
                 f"Writing image to {target['path']}. ALL EXISTING DATA WILL BE OVERWRITTEN.",
@@ -765,7 +812,9 @@ def _restore(inventory: dict[str, Any]) -> None:
         )
     except (DiskRestoreCancelled, PartitionRestoreCancelled) as exc:
         _message("Restore cancelled", str(exc) + "\nThe target may contain a partial restore and must not be used.")
-    except (DiskRestoreError, PartitionRestoreError, DiskImagePartitionError, OperationLogError, OSError) as exc:
+    except (DiskRestoreError, PartitionRestoreError, DiskImagePartitionError,
+            StagedProportionalRestoreError, ProportionalRestoreWorkflowError,
+            OperationLogError, OSError) as exc:
         _message("Restore failed", str(exc))
 
 
