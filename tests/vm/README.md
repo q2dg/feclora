@@ -34,11 +34,11 @@ In the Server guest:
 - [ ] UEFI iPXE chainloads and boots Feclora Live.
 - [ ] HTTP boot assets are served from the selected Server interface only.
 - [ ] Stop restores the original firewalld interface zone and stops transient units.
-- [ ] Authenticated control-plane mTLS test passes in CI.
+- [ ] Server-authenticated TLS control-plane test passes in CI.
 - [ ] A disposable client target is selected and authorized locally before any write.
 - [ ] End-to-end image transfer, restore, read-back and per-client result are verified.
 
-Do not mark the mTLS/artifact-transfer, disposable-disk restore or read-back items complete until those operations have actually run and the results have been recorded. VM PXE boot success alone does not prove a deployment or restore succeeded.
+Do not mark the TLS/artifact-transfer, disposable-disk restore or read-back items complete until those operations have actually run and the results have been recorded. VM PXE boot success alone does not prove a deployment or restore succeeded.
 
 ## Multi-client multicast restore acceptance
 
@@ -51,7 +51,7 @@ The same isolated lab has one Server and two independently bootable Clients (BIO
 4. Place one whole-disk image set in the Server repository. Use disposable qcow2 target disks on both Clients; never attach host block devices.
 5. In Server mode choose **Multicast**, **Restore**, select both enrolled Clients, select the image, and use a group in 239.0.0.0/8 with an even UDPcast port base such as 9000. Confirm the displayed network preflight using the exact job-specific phrase.
 6. On each Client select **Client**, enter the same job UUID, select its own local multicast receive interface, select its disposable target disk and type the exact confirmation phrase for that disk and Server identity. The Server must show both MACs READY before it will arm.
-7. Arm once on Server. Each Client receives the manifest over mTLS, receives every artifact over UDPcast into private staging, verifies size and SHA-256, restores its selected disk and performs destination read-back verification.
+7. Arm once on Server. Each Client receives the manifest over Server-authenticated TLS, receives every artifact over UDPcast into private staging, verifies size and SHA-256, restores its selected disk and performs destination read-back verification.
 8. Record the Server per-client result, job journal, both destination read-back results and the interface/firewall state. Confirm UDPcast's temporary UDP rules are removed on both Clients and Server.
 9. Repeat negative tests: leave one Client unready (arming must be refused); use a untrusted Server certificate (no disk write); interrupt one receiver (the job must fail rather than report success); and verify no automatic restart after powering a VM off mid-transfer.
 
@@ -89,7 +89,7 @@ confirms an incorrect key is rejected, opens the restored container using
 the original key, and compares the decrypted payload byte-for-byte. Temporary
 mappings, loop devices, key and files are removed by the exit trap. This
 validates unicast Client-to-storage integration and framed artifact transfer,
-not live mTLS/network behavior or multicast transport.
+not live TLS/network behavior or multicast transport.
 
 This is an opt-in destructive test. It refuses to run without root and its
 restore target is constrained to the exact loop partition created by the
