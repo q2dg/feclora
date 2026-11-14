@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from feclora.storage.proportional_staging import StagedRawDiskImage
+from feclora.storage.source_safety import SourceSafetyError
 from feclora.storage.staged_proportional_restore import (
     StagedProportionalRestoreError,
     restore_staged_proportional_image,
@@ -88,6 +89,41 @@ class StagedProportionalRestoreTests(unittest.TestCase):
 
     @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
            return_value={"primary_backup_consistent": True})
+    def test_captured_wrong_device_identity_prevents_write(self, _gpt):
+        with self.assertRaisesRegex(StagedProportionalRestoreError, "captured during target selection"):
+            self._restore(expected_device_identity=(8, 2))
+        self.assertEqual(self.processes, [])
+
+    @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
+           return_value={"primary_backup_consistent": True})
+    def test_logical_sector_size_mismatch_prevents_write(self, _gpt):
+        runner = lambda *_args, **_kwargs: SimpleNamespace(
+            stdout=f"{len(self.payload)} disk 4096 0\\n"
+        )
+        with self.assertRaisesRegex(StagedProportionalRestoreError, "logical sector size"):
+            self._restore(runner=runner)
+        self.assertEqual(self.processes, [])
+
+    @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
+           return_value={"primary_backup_consistent": True})
+    def test_unsafe_destination_prevents_write(self, _gpt):
+        def reject(_path):
+            raise SourceSafetyError("target is mounted")
+        with self.assertRaisesRegex(StagedProportionalRestoreError, "unsafe destination"):
+            self._restore(target_safety_check=reject)
+        self.assertEqual(self.processes, [])
+
+    @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
+           return_value={"primary_backup_consistent": True})
+    def test_source_revalidation_failure_prevents_write(self, _gpt):
+        def reject_source():
+            raise StagedProportionalRestoreError("source identity changed")
+        with self.assertRaisesRegex(StagedProportionalRestoreError, "source identity changed"):
+            self._restore(pre_write_callback=reject_source)
+        self.assertEqual(self.processes, [])
+
+    @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
+           return_value={"primary_backup_consistent": True})
     def test_wrong_capacity_prevents_write(self, _gpt):
         runner = lambda *_args, **_kwargs: SimpleNamespace(stdout="999 disk 512 0\n")
         with self.assertRaisesRegex(StagedProportionalRestoreError, "exactly"):
@@ -110,6 +146,32 @@ class StagedProportionalRestoreTests(unittest.TestCase):
         with self.assertRaisesRegex(StagedProportionalRestoreError, "identity changed"):
             self._restore(device_identity=lambda _path: next(identities))
         self.assertEqual(self.processes, [])
+
+    @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
+           return_value={"primary_backup_consistent": True})
+    def test_short_readback_fails_closed(self, _gpt):
+        calls = []
+        def factory(command, **kwargs):
+            calls.append(command)
+            output = self.payload if len(calls) == 1 else self.payload[:-1]
+            return _Process(output if kwargs.get("stdout") is not None else b"")
+        with self.assertRaisesRegex(StagedProportionalRestoreError, "read-back verification failed"):
+            self._restore(popen_factory=factory)
+        self.assertEqual(len(calls), 2)
+
+    @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
+           return_value={"primary_backup_consistent": True})
+    def test_readback_nonzero_exit_fails_closed(self, _gpt):
+        calls = []
+        def factory(command, **kwargs):
+            calls.append(command)
+            process = _Process(self.payload if kwargs.get("stdout") is not None else b"")
+            if len(calls) == 2:
+                process.returncode = 1
+            return process
+        with self.assertRaisesRegex(StagedProportionalRestoreError, "read-back verification failed"):
+            self._restore(popen_factory=factory)
+        self.assertEqual(len(calls), 2)
 
     @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
            return_value={"primary_backup_consistent": True})
