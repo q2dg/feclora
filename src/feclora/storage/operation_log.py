@@ -136,6 +136,15 @@ _PROGRESS_INTERVAL_SECONDS = 30.0
 _PROGRESS_INTERVAL_BYTES = 1024 * 1024 * 1024
 
 
+def _notify_event(callback: object, event: dict) -> None:
+    if callable(callback):
+        try:
+            callback(dict(event))
+        except Exception:
+            # Reporting is best-effort and must never interrupt a disk restore.
+            pass
+
+
 def record_progress(bytes_done: int, bytes_total: int | None) -> None:
     """Persist throttled progress for the operation active in this context."""
     active = _ACTIVE_OPERATION.get()
@@ -150,13 +159,15 @@ def record_progress(bytes_done: int, bytes_total: int | None) -> None:
     if not (is_first or is_final or done - last_done >= _PROGRESS_INTERVAL_BYTES
             or now - active["last_at"] >= _PROGRESS_INTERVAL_SECONDS):
         return
-    append_event(active["log_path"], {
+    event = {
         **active["common"],
         "timestamp": _timestamp(),
         "status": "progress",
         "bytes_done": done,
         "bytes_total": total,
-    })
+    }
+    append_event(active["log_path"], event)
+    _notify_event(active.get("event_callback"), event)
     active["last_bytes"] = done
     active["last_at"] = now
 
@@ -169,6 +180,7 @@ def operation_record(
     *,
     image_id: str | None = None,
     log_path: str | os.PathLike[str] = DEFAULT_LOG_PATH,
+    event_callback: object | None = None,
 ) -> Iterator[str]:
     """Record started and terminal events; refuse to start if journaling fails."""
     operation_id = str(uuid.uuid4())
@@ -181,11 +193,14 @@ def operation_record(
         "boot_id": Path("/proc/sys/kernel/random/boot_id").read_text(encoding="ascii").strip(),
         "process_start_ticks": _process_start_ticks("/proc/self/stat"),
     }
-    append_event(log_path, {**common, "timestamp": _timestamp(), "status": "started"})
+    started_event = {**common, "timestamp": _timestamp(), "status": "started"}
+    append_event(log_path, started_event)
+    _notify_event(event_callback, started_event)
     import time
     token = _ACTIVE_OPERATION.set({
         "common": common,
         "log_path": log_path,
+        "event_callback": event_callback,
         "last_bytes": None,
         "last_at": time.monotonic(),
     })
@@ -195,13 +210,15 @@ def operation_record(
         except BaseException as exc:
             status = "cancelled" if "cancel" in type(exc).__name__.lower() else "failed"
             try:
-                append_event(log_path, {
+                terminal_event = {
                     **common,
                     "timestamp": _timestamp(),
                     "status": status,
                     "error_type": type(exc).__name__,
                     "error": str(exc)[:1000],
-                })
+                }
+                append_event(log_path, terminal_event)
+                _notify_event(event_callback, terminal_event)
             except OperationLogError as log_exc:
                 raise OperationLogError(
                     f"{status} operation and its terminal event could not be logged: {log_exc}"
@@ -209,11 +226,13 @@ def operation_record(
             raise
         else:
             try:
-                append_event(log_path, {
+                terminal_event = {
                     **common,
                     "timestamp": _timestamp(),
                     "status": "completed",
-                })
+                }
+                append_event(log_path, terminal_event)
+                _notify_event(event_callback, terminal_event)
             except OperationLogError as exc:
                 raise OperationLogError(
                     f"operation completed but its terminal journal event could not be persisted: {exc}"
