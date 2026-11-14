@@ -44,6 +44,7 @@ _OPERATION_DEFAULT_PHASE = {
     "clone_partition": "cloning",
     "extract_partition_image": "reading",
     "capture_p2v": "capturing",
+    "export_p2v_s3": "transferring",
     "build_recovery_iso": "working",
 }
 
