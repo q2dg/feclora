@@ -1879,9 +1879,14 @@ class P2VS3ExportWebAPITests(unittest.TestCase):
         from feclora.webapi import _export_p2v_from_s3
         class FakeS3Repository:
             def download_p2v(self, image_id, destination):
-                (Path(destination) / f"{image_id}.qcow2").write_bytes(b"verified qcow2")
+                payload = b"verified qcow2"
+                (Path(destination) / f"{image_id}.qcow2").write_bytes(payload)
                 (Path(destination) / f"{image_id}.p2v.json").write_text(
-                    json.dumps({"image_id": image_id, "verified": True}), encoding="utf-8",
+                    json.dumps({
+                        "schema_version": 1, "image_id": image_id, "format": "qcow2",
+                        "verified": True, "file_size_bytes": len(payload),
+                        "qcow2_sha256": hashlib.sha256(payload).hexdigest(),
+                    }), encoding="utf-8",
                 )
                 return Path(destination) / f"{image_id}.p2v.json"
         manager = Mock()
@@ -1904,8 +1909,13 @@ class P2VS3ExportWebAPITests(unittest.TestCase):
         from feclora.webapi import _export_p2v_from_s3
         class FakeS3Repository:
             def download_p2v(self, image_id, destination):
-                (Path(destination) / f"{image_id}.qcow2").write_bytes(b"verified qcow2")
-                (Path(destination) / f"{image_id}.p2v.json").write_text("{}", encoding="utf-8")
+                payload = b"verified qcow2"
+                (Path(destination) / f"{image_id}.qcow2").write_bytes(payload)
+                (Path(destination) / f"{image_id}.p2v.json").write_text(json.dumps({
+                    "schema_version": 1, "image_id": image_id, "format": "qcow2",
+                    "verified": True, "file_size_bytes": len(payload),
+                    "qcow2_sha256": hashlib.sha256(payload).hexdigest(),
+                }), encoding="utf-8")
         manager = Mock()
         manager.list.return_value = [{"id": "s3-archive"}]
         manager.repository.return_value = FakeS3Repository()
