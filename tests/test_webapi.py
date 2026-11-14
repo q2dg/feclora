@@ -1779,3 +1779,27 @@ class WebAPITests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
+
+class P2VWebAPITests(unittest.TestCase):
+    def test_p2v_operation_publishes_qcow2_and_metadata_to_filesystem_repository(self):
+        from feclora.webapi import _execute_operation
+        with tempfile.TemporaryDirectory() as root:
+            repository = Path(root)
+            def fake_convert(source, output):
+                Path(output).write_bytes(b"verified-qcow2")
+                return {
+                    "source": source, "output": str(output), "format": "qcow2",
+                    "virtual_size_bytes": 8192, "file_size_bytes": 13, "verified": True,
+                }
+            with patch("feclora.webapi._operation_repository", return_value=repository), patch(
+                "feclora.storage.p2v.convert_block_device_to_qcow2", side_effect=fake_convert
+            ):
+                result = _execute_operation(
+                    "capture_p2v", {"source": "/dev/sda", "image_id": "vm-disk"}, "p2v-test"
+                )
+            self.assertTrue(result["verified"])
+            self.assertEqual(Path(result["output_path"]).read_bytes(), b"verified-qcow2")
+            metadata = json.loads((repository / "vm-disk.p2v.json").read_text())
+            self.assertEqual(metadata["format"], "qcow2")
+            self.assertEqual(metadata["virtual_size_bytes"], 8192)
+
