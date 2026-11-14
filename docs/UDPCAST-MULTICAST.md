@@ -3,8 +3,8 @@
 Feclora uses UDPcast only as a **data-plane file transport**. TLS authenticates
 the Server to each Client, but the current protocol does not cryptographically
 authenticate Clients. The control plane enforces job scoping, readiness, local
-target authorization and result reporting; MAC addresses are operational
-selectors only. A UDPcast rendezvous packet, multicast membership or source IP
+target authorization and result reporting; the reported MAC address is the
+operational Client identifier. A UDPcast rendezvous packet, multicast membership or source IP
 is never proof of identity.
 
 ## Implemented adapter boundary
@@ -28,7 +28,7 @@ both use the same firewall-manager instance.
 The caller must complete the TLS 1.3 Server-authenticated control handshake,
 associate the Client's reported MAC with the selected job entry for operational
 scoping, collect local target authorization/readiness, and call the coordinator
-before the sender function. MAC addresses are not cryptographic identities. On the receiver, the authenticated control service must deliver the
+before the sender function. The reported MAC address is not cryptographic proof of machine identity. On the receiver, the Server-authenticated TLS control service must deliver the
 expected manifest metadata and target authorization over the authenticated
 TLS channel independently of UDPcast. Only after `verify_staged_multicast_artifact` succeeds may the
 existing protected restore workflow be called. Keep the staged file until the
