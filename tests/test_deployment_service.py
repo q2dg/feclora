@@ -17,6 +17,11 @@ class FakeCoordinator:
     def clients(self):
         return self._clients
 
+    def can_start(self):
+        return self.state is JobState.CREATED and any(
+            client.state is ClientState.READY for client in self._clients
+        )
+
 
 class FakeControl:
     bound_address = ("192.0.2.10", 9443)
