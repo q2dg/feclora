@@ -150,6 +150,25 @@ class S3ObjectRepository:
         if not stat.S_ISREG(info.st_mode):
             raise S3RepositoryError(f"local image component is not a regular file: {path.name}")
 
+    def download_small_object(self, name: str, *, max_bytes: int) -> bytes:
+        """Download one bounded object, intended for small control documents."""
+        if (isinstance(max_bytes, bool) or not isinstance(max_bytes, int)
+                or not 1 <= max_bytes <= 64 * 1024):
+            raise S3RepositoryError("small-object limit must be between 1 byte and 64 KiB")
+        key = self._key(name)
+        try:
+            response = self.client.get_object(Bucket=self.config.bucket, Key=key)
+            body = response["Body"]
+            try:
+                data = body.read(max_bytes + 1)
+            finally:
+                body.close()
+        except Exception as exc:
+            raise S3RepositoryError(f"cannot download S3 object {key}: {exc}") from exc
+        if not isinstance(data, bytes) or not 1 <= len(data) <= max_bytes:
+            raise S3RepositoryError(f"S3 object {key} must contain between 1 byte and {max_bytes} bytes")
+        return data
+
     def check_connection(self) -> dict[str, Any]:
         """Verify bucket access without changing remote state."""
         try:
