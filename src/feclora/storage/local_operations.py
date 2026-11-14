@@ -94,6 +94,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
+        "capture_p2v": {"source", "image_id", "repository_id"},
     }
     if not isinstance(action, str) or action not in fields or not isinstance(params, dict):
         raise LocalOperationError("unsupported local storage operation")
