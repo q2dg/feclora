@@ -1,3 +1,11 @@
+---
+layout: default
+title: Operational lifecycle - backup, upgrade, rollback and distribution
+---
+
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
 # Operational lifecycle: backup, upgrade, rollback and distribution
 
 This runbook describes the current Live-appliance operating model. It does not
