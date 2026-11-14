@@ -6,8 +6,6 @@ title: Operator guides
 <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 {% include brand-header.html %}
 
-<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
-
 <main class="guide-page">
   <header class="guide-intro">
     <p class="eyebrow">OPERATOR DOCUMENTATION</p>
