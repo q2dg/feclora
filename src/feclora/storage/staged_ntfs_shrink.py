@@ -29,7 +29,7 @@ def _digest_file(path: str) -> str:
 
 def _reported_bytes(output: str, label: str) -> int:
     matches = re.findall(
-        rf"^{re.escape(label)}:\s*([\d,]+)\s+bytes\s*$",
+        rf"^{re.escape(label)}:?\s*([\d,]+)\s+bytes",
         output,
         re.IGNORECASE | re.MULTILINE,
     )
