@@ -37,6 +37,12 @@ class PhysicalMulticastPreflightTests(unittest.TestCase):
         with self.assertRaisesRegex(PhysicalMulticastError, "major/minor"):
             validate_physical_multicast_pair(self.source, alias)
 
+    def test_rejects_multipath_aliases_with_same_wwn_or_serial(self):
+        with self.assertRaisesRegex(PhysicalMulticastError, "WWN"):
+            validate_physical_multicast_pair(self.source, {**self.target, "wwn": self.source["wwn"]})
+        with self.assertRaisesRegex(PhysicalMulticastError, "serial"):
+            validate_physical_multicast_pair(self.source, {**self.target, "serial": self.source["serial"]})
+
     def test_rejects_source_not_read_only_and_target_read_only(self):
         with self.assertRaisesRegex(PhysicalMulticastError, "read-only"):
             validate_physical_multicast_pair({**self.source, "read_only": False}, self.target)
