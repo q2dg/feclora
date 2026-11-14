@@ -37,6 +37,8 @@ class PXEAdmission:
         max_clients: int | None,
         max_duration_seconds: int | None,
         clock: Callable[[], float] = time.monotonic,
+        http_root: str = "/srv/feclora/http",
+        report_log_path: str = "/var/lib/feclora/pxe/remote-reports.jsonl",
     ) -> None:
         self.state_path = Path(state_path)
         self.lock_path = self.state_path.with_suffix(".lock")
@@ -45,6 +47,8 @@ class PXEAdmission:
         self.max_clients = self._positive(max_clients, "max_clients")
         self.max_duration_seconds = self._positive(max_duration_seconds, "max_duration_seconds")
         self.clock = clock
+        self.http_root = Path(http_root)
+        self.report_log_path = Path(report_log_path)
         self.state_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.state_path.parent.is_symlink() or not self.state_path.parent.is_dir():
             raise PXEAdmissionError("PXE admission state directory must be a real directory")
@@ -191,7 +195,7 @@ class PXEAdmission:
             raise PXEAdmissionError("report job ID must be a UUID") from exc
         if canonical != job_id or not self.is_admitted(mac):
             raise PXEAdmissionError("PXE client is not admitted for this report")
-        answer = Path("/srv/feclora/http") / "answers" / canonical / "answer.json"
+        answer = self.http_root / "answers" / canonical / "answer.json"
         try:
             info = answer.lstat()
         except OSError as exc:
@@ -229,14 +233,14 @@ class PXEAdmission:
             value = event.get(key)
             if value is not None and (not isinstance(value, str) or len(value) > 512):
                 raise PXEAdmissionError(key + " must be text under 513 characters")
-        directory = Path("/var/lib/feclora/pxe")
+        path = self.report_log_path
+        directory = path.parent
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         directory_info = directory.lstat()
         if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
                 or directory_info.st_uid != os.geteuid() or directory_info.st_mode & 0o077):
             raise PXEAdmissionError("PXE report journal directory is unsafe")
-        path = directory / "remote-reports.jsonl"
-        lock_path = directory / "remote-reports.lock"
+        lock_path = path.with_suffix(".lock")
         lock_fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
         try:
             fcntl.flock(lock_fd, fcntl.LOCK_EX)
