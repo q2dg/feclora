@@ -242,6 +242,7 @@ def verify_received_physical_stream(
     expected_sha256: str,
     chunk_size: int = 1024 * 1024,
     cancel_check: Callable[[], bool] | None = None,
+    progress_callback: Callable[[str, int, int], None] | None = None,
 ) -> dict[str, Any]:
     """Write UDPcast stdout directly through an approved writer and verify source/read-back digests."""
     if not isinstance(expected_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
@@ -254,6 +255,7 @@ def verify_received_physical_stream(
             receiver_stdout, write, flush, readback,
             expected_bytes=expected_bytes, chunk_size=chunk_size,
             cancel_check=cancel_check,
+            progress_callback=progress_callback,
         )
     except PhysicalMulticastError as exc:
         raise UDPcastError(f"physical multicast destination verification failed: {exc}") from exc
@@ -540,6 +542,7 @@ def receive_physical_multicast_stream(
     runner_popen: Callable[..., Any] = subprocess.Popen,
     cancel_check: Callable[[], bool] | None = None,
     ready_callback: Callable[[], None] | None = None,
+    progress_callback: Callable[[str, int, int], None] | None = None,
     firewall: Any,
 ) -> dict[str, Any]:
     """Receive UDPcast bytes directly into an approved block-device writer and verify read-back."""
@@ -569,6 +572,7 @@ def receive_physical_multicast_stream(
                     expected_bytes=expected_bytes,
                     expected_sha256=expected_sha256,
                     cancel_check=cancel_check,
+                    progress_callback=progress_callback,
                 )
                 # Wait for the receiver to exit before probing for overflow. Reading
                 # one more byte while the process is still alive can block forever
