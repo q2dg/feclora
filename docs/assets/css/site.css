@@ -77,3 +77,9 @@ body { background: var(--page); color: var(--ink); }
   .status .text-link { display: inline-block; margin-top: 20px; }
   .landing-footer { flex-direction: column; }
 }
+/* Shared brand/navigation for operator and reference documentation. */
+.feclora-docbar{max-width:1080px;margin:0 auto;padding:18px 28px 14px;display:flex;align-items:center;justify-content:space-between;gap:22px;border-bottom:1px solid var(--line)}
+.feclora-docbrand{display:inline-flex;align-items:center;flex:0 0 auto}.feclora-docbrand img{display:block;width:min(176px,34vw);height:auto}
+.feclora-doclinks{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px 20px;font-size:.9rem;font-weight:650}.feclora-doclinks a{color:var(--ink);text-decoration:none}.feclora-doclinks a:hover{color:var(--accent);text-decoration:underline}
+.feature-visual{display:block;width:100%;height:auto;margin:-24px -24px 22px;width:calc(100% + 48px);max-width:calc(100% + 48px);border-bottom:1px solid var(--line)}
+@media(max-width:640px){.feclora-docbar{align-items:flex-start;flex-direction:column;padding:14px 20px}.feclora-doclinks{justify-content:flex-start;gap:8px 14px}.feature-visual{margin:-20px -20px 18px;width:calc(100% + 40px);max-width:calc(100% + 40px)}}
