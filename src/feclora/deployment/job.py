@@ -42,6 +42,7 @@ _ALLOWED_FIELDS = {
     "source_device",
     "repository_id",
     "target_bindings",
+    "post_action",
 }
 
 
@@ -66,6 +67,7 @@ class DeploymentJob:
     source_device: str | None = None
     repository_id: str | None = None
     target_bindings: tuple[tuple[str, str | None, str | None], ...] = ()
+    post_action: str = "none"
 
     @property
     def minimum_ready_clients(self) -> int:
@@ -126,6 +128,12 @@ class DeploymentJob:
                 raise JobValidationError("clone source_device must be a normalized absolute /dev path")
         elif source_device is not None:
             raise JobValidationError("source_device is only valid for clone jobs")
+        post_action = payload.get("post_action", "none")
+        if not isinstance(post_action, str) or post_action not in {"none", "reboot", "poweroff"}:
+            raise JobValidationError("post_action must be none, reboot, or poweroff")
+        if operation == "save" and post_action != "none":
+            raise JobValidationError("post_action is supported only for restore and clone jobs")
+
         target_type = payload.get("target_type", "disk")
         if not isinstance(target_type, str) or target_type not in {"disk", "partition", "logical_volume"}:
             raise JobValidationError("target_type must be disk, partition or logical_volume")
@@ -263,6 +271,7 @@ class DeploymentJob:
             source_device=source_device,
             repository_id=repository_id,
             target_bindings=tuple(sorted(bindings)),
+            post_action=post_action,
         )
 
     @classmethod
@@ -297,6 +306,8 @@ class DeploymentJob:
             document["source_device"] = self.source_device
         if self.repository_id is not None:
             document["repository_id"] = self.repository_id
+        if self.post_action != "none":
+            document["post_action"] = self.post_action
         if self.target_bindings:
             document["target_bindings"] = {
                 mac: {"wwn": wwn, "serial": serial}
