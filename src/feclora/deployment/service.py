@@ -288,8 +288,8 @@ class DeploymentService:
             self._base_firewall_protocols = set()
         context = create_tls_context(
             "server", ca_file=self.config.ca_file,
-            certificate_file=self.config.certificate_file,
-            private_key_file=self.config.private_key_file,
+            server_certificate_file=self.config.certificate_file,
+            server_private_key_file=self.config.private_key_file,
         )
         self.control = DeploymentControlServer(
             self.coordinator, context,
