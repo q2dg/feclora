@@ -87,6 +87,11 @@ device checks, and the Server operator explicitly ARMs the complete READY set.
   job-specific authorization. Clients not READY when the job is armed are excluded.
 - `staging_required_bytes`: optional non-negative capacity requirement used
   only for multicast restore jobs.
+- `post_action`: optional `none`, `reboot` or `poweroff` (default `none`);
+  only valid for restore and clone. The Client requests the selected fixed
+  `systemctl` action only after its own successful write/read-back verification
+  and after sending its terminal result to the Server. A failed or interrupted
+  Client never reboots or powers off.
 - `source_device`: normalized Server-local /dev path, required only for
   direct clone jobs. It identifies the source, never a Client destination.
 - `repository_id`: optional managed repository identifier for restore jobs;
