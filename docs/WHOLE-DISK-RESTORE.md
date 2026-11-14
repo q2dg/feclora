@@ -4,6 +4,9 @@ title: Whole-disk restore
 ---
 
 <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 
 # Whole-disk restore
 
