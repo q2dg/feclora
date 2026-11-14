@@ -71,7 +71,7 @@ creation and laboratory validation are operator-owned steps.
 |---|---|---|---|---|
 | Repositories | S3 object storage | Implemented as a separate object API, never a filesystem mount; distributed restore fetches and verifies objects on the Server before TLS delivery, and distributed Client capture publishes to S3 only after a verified TLS receive. | Cockpit local and distributed image workflows | Automated failure-injection coverage is a software gate; live S3-compatible provider acceptance is optional operator validation |
 
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
+Artifact byte counts and SHA-256 digests are recorded in the manifest and verified before restore/publication. Repository access controls and authenticated transport provide the trust boundary.
 
 
 ## Clonezilla-inspired follow-up status
