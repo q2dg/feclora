@@ -1331,5 +1331,74 @@ class MulticastControlTests(unittest.TestCase):
             )
 
 
+class MultiClientRemoteCloneTests(unittest.TestCase):
+    def test_remote_clone_streams_to_each_ready_client_with_independent_target(self):
+        mac2 = "52:54:00:12:34:57"
+        job = make_job(
+            operation="clone", image_id=None, source_device="/dev/sdz",
+            target_type="disk", authorized_clients=[MAC, mac2],
+        )
+        clients = [
+            SimpleNamespace(mac_address=MAC, state=ClientState.READY),
+            SimpleNamespace(mac_address=mac2, state=ClientState.READY),
+        ]
+        coordinator = Mock()
+        coordinator.job = job
+        coordinator.clients.return_value = clients
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server._lock = threading.RLock()
+        socket_a, socket_b = Mock(), Mock()
+        server._sessions = {MAC: socket_a, mac2: socket_b}
+        server._target_devices = {MAC: "/dev/vda", mac2: "/dev/vdb"}
+        server._progress = {}
+        server._record_transfer_failure = Mock()
+
+        with (
+            patch("feclora.deployment.control.build_remote_clone_header",
+                  side_effect=lambda source, target, device_type: (source, target, device_type)) as build_header,
+            patch("feclora.deployment.control.send_remote_disk") as send_disk,
+            patch.object(server, "arm_and_start", return_value=(MAC, mac2)) as arm,
+            patch.object(server, "collect_results", return_value={MAC: "succeeded", mac2: "succeeded"}) as collect,
+        ):
+            result = server.run_remote_clone_job(operation_log_path="/tmp/operations.jsonl")
+
+        self.assertEqual(result, {MAC: "succeeded", mac2: "succeeded"})
+        arm.assert_called_once_with()
+        self.assertEqual(build_header.call_count, 2)
+        self.assertEqual(send_disk.call_count, 2)
+        calls = {call.args[0]: call for call in send_disk.call_args_list}
+        self.assertEqual(set(calls), {socket_a, socket_b})
+        self.assertEqual(calls[socket_a].args[1], ("/dev/sdz", "/dev/vda", "disk"))
+        self.assertEqual(calls[socket_b].args[1], ("/dev/sdz", "/dev/vdb", "disk"))
+        for call in calls.values():
+            self.assertEqual(call.kwargs["source_path"], "/dev/sdz")
+            self.assertEqual(call.kwargs["confirmation"], "READ /dev/sdz")
+            self.assertEqual(call.kwargs["operation_log_path"], "/tmp/operations.jsonl")
+        collect.assert_called_once_with(timeout=86400)
+        server._record_transfer_failure.assert_not_called()
+
+    def test_remote_clone_rejects_below_threshold_before_arming(self):
+        mac2 = "52:54:00:12:34:57"
+        job = make_job(
+            operation="clone", image_id=None, source_device="/dev/sdz",
+            target_type="disk", authorized_clients=[MAC, mac2],
+        )
+        coordinator = Mock()
+        coordinator.job = job
+        coordinator.clients.return_value = [
+            SimpleNamespace(mac_address=MAC, state=ClientState.READY),
+        ]
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server._lock = threading.RLock()
+        server._sessions = {MAC: Mock()}
+        server._target_devices = {MAC: "/dev/vda"}
+        with patch.object(server, "arm_and_start") as arm:
+            with self.assertRaisesRegex(DeploymentControlError, "at least 2 READY Client"):
+                server.run_remote_clone_job()
+        arm.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
