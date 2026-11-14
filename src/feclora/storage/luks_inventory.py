@@ -48,15 +48,38 @@ def parse_luks_metadata(payload: str) -> dict[str, Any]:
         raise LuksInventoryError("LUKS2 metadata has no valid encryption segments")
     if not isinstance(keyslots, dict) or not isinstance(tokens, dict) or not isinstance(config, dict):
         raise LuksInventoryError("LUKS2 metadata has an invalid keyslot, token or config section")
+    ciphers = []
+    sector_sizes = []
+    for segment in segments.values():
+        if not isinstance(segment, dict) or not isinstance(segment.get("encryption"), str) or not segment["encryption"]:
+            raise LuksInventoryError("LUKS2 metadata contains an invalid encryption segment")
+        ciphers.append(segment["encryption"])
+        sector_size = segment.get("sector_size")
+        if sector_size is not None:
+            if (isinstance(sector_size, bool) or not isinstance(sector_size, int)
+                    or sector_size < 512 or sector_size > 4096
+                    or sector_size & (sector_size - 1)):
+                raise LuksInventoryError("LUKS2 metadata contains an invalid sector size")
+            sector_sizes.append(sector_size)
+    if len(set(ciphers)) != 1 or len(set(sector_sizes)) > 1:
+        raise LuksInventoryError("LUKS2 metadata contains conflicting encryption segment settings")
+    metadata_size = config.get("json_size")
+    if metadata_size is not None:
+        try:
+            metadata_size = int(metadata_size)
+        except (TypeError, ValueError) as exc:
+            raise LuksInventoryError("LUKS2 metadata contains an invalid JSON metadata size") from exc
+        if metadata_size < 1:
+            raise LuksInventoryError("LUKS2 metadata contains an invalid JSON metadata size")
     return {
         "version": 2,
-        "uuid": metadata.get("uuid"),
-        "cipher": next((v.get("encryption") for v in segments.values() if isinstance(v, dict) and v.get("encryption")), None),
-        "sector_size": next((v.get("sector_size") for v in segments.values() if isinstance(v, dict) and v.get("sector_size")), None),
+        "uuid": luks_uuid.lower(),
+        "cipher": ciphers[0],
+        "sector_size": sector_sizes[0] if sector_sizes else None,
         "keyslot_count": len(keyslots),
         "token_count": len(tokens),
         "segment_count": len(segments),
-        "metadata_size": config.get("json_size"),
+        "metadata_size": metadata_size,
     }
 
 
