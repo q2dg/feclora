@@ -85,14 +85,12 @@ class PXEAnswerClientTests(unittest.TestCase):
 
     def test_report_callback_posts_job_scoped_client_events_best_effort(self):
         import uuid
-        from unittest.mock import Mock
+        from unittest.mock import MagicMock, Mock
         command_line = (
             f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB} "
             f"feclora.pxe_answer_url={URL} feclora.pxe_client_mac=aa:bb:cc:dd:ee:01"
         )
-        response = Mock()
-        response.__enter__ = Mock(return_value=response)
-        response.__exit__ = Mock(return_value=False)
+        response = MagicMock()
         opener = Mock()
         opener.open.return_value = response
         with patch("feclora.network.pxe_answer_client.Path.read_text",
