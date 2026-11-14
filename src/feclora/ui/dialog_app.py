@@ -18,7 +18,11 @@ from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError,
 from feclora.storage.proportional_staging import ProportionalStagingError, stage_verified_raw_disk_image
 from feclora.storage.staged_proportional_restore import StagedProportionalRestoreError, restore_staged_proportional_image
 from feclora.storage.source_safety import check_capture_source_safe
-from feclora.storage.proportional_restore_workflow import (ProportionalRestoreWorkflowError, prepare_from_offline_source_disk, require_distinct_block_devices)
+from feclora.storage.proportional_restore_workflow import (
+    ProportionalRestoreWorkflowError,
+    prepare_from_offline_source_disk,
+    require_distinct_block_devices,
+)
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import InventoryError, collect_inventory, assess_disk_compatibility
 from feclora.storage.partition_image_capture import PartitionImageCaptureError, capture_partition_image
