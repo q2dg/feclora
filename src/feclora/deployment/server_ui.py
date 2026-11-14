@@ -411,8 +411,8 @@ def run_deployment_server_ui(
                 raise DeploymentControlError("multicast network preflight was not confirmed")
         context = create_tls_context(
             "server", ca_file=config.ca_file,
-            certificate_file=config.certificate_file,
-            private_key_file=config.private_key_file,
+            server_certificate_file=config.certificate_file,
+            server_private_key_file=config.private_key_file,
         )
         journal_path = os.path.join(journal_dir, job.job_id + ".jsonl")
         journal = DeploymentJournal(journal_path, job.job_id)
