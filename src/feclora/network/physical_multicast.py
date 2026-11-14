@@ -86,10 +86,34 @@ def build_physical_device_record(
     try:
         with open(os.path.join(queue, "physical_block_size"), encoding="ascii") as stream:
             physical_sector = int(stream.read().strip())
-        holders_path = os.path.join(sysfs_path, "holders")
-        holders = sorted(os.listdir(holders_path))
     except (OSError, ValueError) as exc:
         raise PhysicalMulticastError(f"cannot read selected block-device sysfs metadata: {exc}") from exc
+
+    holders: list[str] = []
+    def collect_holders(item: Mapping[str, Any], *, root: bool = False) -> None:
+        item_major_minor = item.get("major_minor")
+        if not isinstance(item_major_minor, str) or not re.fullmatch(r"[0-9]+:[0-9]+", item_major_minor):
+            raise PhysicalMulticastError("selected disk descendant has no kernel major/minor identity")
+        item_sysfs_link = os.path.join(sysfs_root, "dev", "block", item_major_minor)
+        if not os.path.exists(item_sysfs_link):
+            raise PhysicalMulticastError("selected disk descendant has no sysfs identity")
+        item_sysfs_path = os.path.realpath(item_sysfs_link)
+        holder_directory = os.path.join(item_sysfs_path, "holders")
+        try:
+            holders.extend(
+                f"{item_major_minor}:{holder}" for holder in sorted(os.listdir(holder_directory))
+            )
+        except OSError as exc:
+            raise PhysicalMulticastError(f"cannot inspect block-device holders: {exc}") from exc
+        children = item.get("children", [])
+        if not isinstance(children, (list, tuple)):
+            raise PhysicalMulticastError("selected disk descendant inventory is incomplete")
+        for child in children:
+            if not isinstance(child, Mapping):
+                raise PhysicalMulticastError("selected disk descendant inventory is invalid")
+            collect_holders(child)
+
+    collect_holders(device, root=True)
     mountpoints = device.get("mountpoints")
     if not isinstance(mountpoints, (list, tuple)) or any(
         not isinstance(item, str) or not item for item in mountpoints
