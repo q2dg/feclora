@@ -1061,7 +1061,7 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
                 directory, "server", "URI:feclora-server", ca_key, ca_cert,
             )
             server_context = create_tls_context(
-                "server", certificate_file=server_cert, private_key_file=server_key,
+                "server", server_certificate_file=server_cert, server_private_key_file=server_key,
             )
             client_context = create_tls_context(
                 "client", ca_file=ca_cert,
@@ -1165,7 +1165,7 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
                 directory, "server", "URI:feclora-server", ca_key, ca_cert,
             )
             server_context = create_tls_context(
-                "server", certificate_file=server_cert, private_key_file=server_key,
+                "server", server_certificate_file=server_cert, server_private_key_file=server_key,
             )
             client_context = create_tls_context(
                 "client", ca_file=ca_cert,
@@ -1231,7 +1231,7 @@ class ServerAuthenticatedTLSControlIntegrationTests(unittest.TestCase):
                 directory, "server", "URI:feclora-server", ca_key, ca_cert,
             )
             server_context = create_tls_context(
-                "server", certificate_file=server_cert, private_key_file=server_key,
+                "server", server_certificate_file=server_cert, server_private_key_file=server_key,
             )
             client_context = create_tls_context(
                 "client", ca_file=ca_cert,
