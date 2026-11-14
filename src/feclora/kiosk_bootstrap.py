@@ -55,6 +55,24 @@ FIRST_BOOT_TEXT = {
 }
 
 
+FIRST_BOOT_ERROR_TEXT = {
+    "en": {"Enter the password twice.": "Enter the password twice.", "Could not set the administrator password.": "Could not set the administrator password.", "Could not finalize first-boot setup.": "Could not finalize first-boot setup."},
+    "es": {"Enter the password twice.": "Introduce la contraseña dos veces.", "Could not set the administrator password.": "No se pudo establecer la contraseña del administrador.", "Could not finalize first-boot setup.": "No se pudo completar la configuración inicial."},
+    "ca": {"Enter the password twice.": "Introdueix la contrasenya dues vegades.", "Could not set the administrator password.": "No s'ha pogut establir la contrasenya de l'administrador.", "Could not finalize first-boot setup.": "No s'ha pogut completar la configuració inicial."},
+    "gl": {"Enter the password twice.": "Introduce o contrasinal dúas veces.", "Could not set the administrator password.": "Non se puido establecer o contrasinal do administrador.", "Could not finalize first-boot setup.": "Non se puido completar a configuración inicial."},
+    "eu": {"Enter the password twice.": "Idatzi pasahitza bi aldiz.", "Could not set the administrator password.": "Ezin izan da administratzailearen pasahitza ezarri.", "Could not finalize first-boot setup.": "Ezin izan da hasierako konfigurazioa amaitu."},
+    "pt": {"Enter the password twice.": "Introduza a palavra-passe duas vezes.", "Could not set the administrator password.": "Não foi possível definir a palavra-passe do administrador.", "Could not finalize first-boot setup.": "Não foi possível concluir a configuração inicial."},
+    "fr": {"Enter the password twice.": "Saisissez le mot de passe deux fois.", "Could not set the administrator password.": "Impossible de définir le mot de passe administrateur.", "Could not finalize first-boot setup.": "Impossible de terminer la configuration initiale."},
+    "de": {"Enter the password twice.": "Geben Sie das Passwort zweimal ein.", "Could not set the administrator password.": "Das Administratorpasswort konnte nicht festgelegt werden.", "Could not finalize first-boot setup.": "Die Ersteinrichtung konnte nicht abgeschlossen werden."},
+    "it": {"Enter the password twice.": "Inserisci la password due volte.", "Could not set the administrator password.": "Impossibile impostare la password dell'amministratore.", "Could not finalize first-boot setup.": "Impossibile completare la configurazione iniziale."},
+    "zh": {"Enter the password twice.": "请输入两次密码。", "Could not set the administrator password.": "无法设置管理员密码。", "Could not finalize first-boot setup.": "无法完成首次启动设置。"},
+    "ja": {"Enter the password twice.": "パスワードを 2 回入力してください。", "Could not set the administrator password.": "管理者パスワードを設定できませんでした。", "Could not finalize first-boot setup.": "初回セットアップを完了できませんでした。"},
+    "ru": {"Enter the password twice.": "Введите пароль дважды.", "Could not set the administrator password.": "Не удалось задать пароль администратора.", "Could not finalize first-boot setup.": "Не удалось завершить первоначальную настройку."},
+    "ar": {"Enter the password twice.": "أدخل كلمة المرور مرتين.", "Could not set the administrator password.": "تعذر تعيين كلمة مرور المسؤول.", "Could not finalize first-boot setup.": "تعذر إكمال إعداد بدء التشغيل الأول."},
+    "tr": {"Enter the password twice.": "Parolayı iki kez girin.", "Could not set the administrator password.": "Yönetici parolası ayarlanamadı.", "Could not finalize first-boot setup.": "İlk açılış kurulumu tamamlanamadı."},
+}
+
+
 class BootstrapError(RuntimeError):
     """Safe first-boot setup failure."""
 
@@ -250,16 +268,19 @@ def build_handler(complete_path: Path = COMPLETE, password_runner=subprocess.run
             except BootstrapError as exc:
                 message = str(exc)
                 translations = {
+                    "Enter the password twice.": FIRST_BOOT_ERROR_TEXT[language]["Enter the password twice."],
                     "The passwords do not match.": FIRST_BOOT_TEXT[language][8],
                     "Use a password between 14 and 128 characters.": FIRST_BOOT_TEXT[language][7],
                     "The password contains unsupported characters.": FIRST_BOOT_TEXT[language][9],
+                    "Could not set the administrator password.": FIRST_BOOT_ERROR_TEXT[language]["Could not set the administrator password."],
                 }
                 self._headers(400)
                 self.wfile.write(html.escape(translations.get(message, message)).encode("utf-8"))
                 return
             except OSError:
                 self._headers(500)
-                self.wfile.write(b"Could not finalize first-boot setup.")
+                message = FIRST_BOOT_ERROR_TEXT[language]["Could not finalize first-boot setup."]
+                self.wfile.write(message.encode("utf-8"))
                 return
             self.send_response(303)
             self.send_header("Location", COCKPIT_APP + "?" + urlencode({"feclora_language": language}))
