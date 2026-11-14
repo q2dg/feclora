@@ -36,9 +36,9 @@ validator and restore client. The Live service checks the NetworkManager
 DHCPv4 lease for option 224 on ISO boots and otherwise leaves interactive
 boots unchanged.
 
-There is no per-client USB, identity medium, certificate, private key,
-enrollment bundle or manual identity provisioning in this model. Do not
-require client authentication or use MAC addresses as authenticated identity.
+No per-Client identity medium or credential provisioning is required. The
+PXE admission ledger records reported MAC addresses for operational selection
+and limits only.
 
 ## Deployment preparation
 
@@ -55,7 +55,7 @@ serves the Live boot assets and the answer JSON only. The Live client is
 responsible for connecting directly to external SSHFS, NFS, SMB/CIFS and S3
 repositories using Feclora's normal client-side repository configuration and
 protected credential handling. Do not send repository credentials in the
-answer file or introduce per-client authentication.
+answer file. PXE job participation is associated with the reported MAC address.
 
 ## Answer document, version 2
 
