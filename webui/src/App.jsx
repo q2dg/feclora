@@ -892,7 +892,8 @@ export default function App() {
   const recoveryRepositoryIsS3 = s3Repositories.some((repo) => repo.id === selectedRepositoryId);
   const recoveryExpectedConfirmation = imageId ? `BUILD ${imageId}` : "";
   const operationReady = operation === "export_p2v_s3"
-    ? Boolean(imageId && s3Repositories.some((repo) => repo.id === selectedRepositoryId)
+    ? Boolean(imageId && repositoryImages.some((item) => item.image_id === imageId && item.image_type === "virtual_disk")
+      && s3Repositories.some((repo) => repo.id === selectedRepositoryId)
       && (!exportDestinationRepositoryId || remoteRepositories.some((repo) => repo.id === exportDestinationRepositoryId && repo.mounted && repo.verified && !repo.read_only)))
     : operation === "build_recovery_iso"
     ? Boolean(recoveryBaseISO.trim() && imageId && (recoveryTargetWWN.trim() || recoveryTargetSerial.trim())
@@ -948,7 +949,7 @@ export default function App() {
                         Select an S3 source repository and a committed QCOW2. Feclora downloads the object to private staging, verifies its size and SHA-256 against the committed metadata, then publishes the QCOW2 and metadata sidecar to a filesystem repository. The sidecar is linked last; existing files are never overwritten.
                       </Alert>
                       <Field label="S3 source repository">
-                        <select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => selectImageRepository(e.target.value)} required>
+                        <select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => { setImageId(""); selectImageRepository(e.target.value); }} required>
                           <option value="">Select an S3 repository…</option>
                           {s3Repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · S3{repo.read_only ? " · read-only" : ""}</option>)}
                         </select>
