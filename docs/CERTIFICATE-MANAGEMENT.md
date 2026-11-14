@@ -50,7 +50,6 @@ Server under the same trust anchor and identity.
 
 ## Explicit boundaries
 
-- No individual Client authentication is performed or required.
 - MAC addresses are operational identifiers and can be spoofed.
 - No trust-on-first-network-contact.
 - No export or transfer of the CA or Server private key.
