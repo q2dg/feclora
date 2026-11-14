@@ -38,6 +38,41 @@ class RemoteCloneProtocolTests(unittest.TestCase):
             chunk_size_bytes=64 * 1024,
         )
 
+    def test_receive_timeout_is_reported_as_protocol_failure(self):
+        class TimedOutSocket:
+            def recv(self, _count):
+                raise socket.timeout("idle timeout")
+
+        from feclora.network.remote_clone_protocol import receive_session_header
+        with self.assertRaisesRegex(RemoteCloneProtocolError, "receive failed or timed out"):
+            receive_session_header(TimedOutSocket())
+
+    def test_send_timeout_is_reported_as_protocol_failure(self):
+        class TimedOutSocket:
+            def sendall(self, _payload):
+                raise socket.timeout("write timeout")
+
+        from feclora.network.remote_clone_protocol import send_session_header
+        with self.assertRaisesRegex(RemoteCloneProtocolError, "send failed or timed out"):
+            send_session_header(TimedOutSocket(), self.header)
+
+    def test_disk_stream_timeout_reports_partial_progress(self):
+        class TimedOutSocket:
+            def __init__(self):
+                self.calls = 0
+
+            def sendall(self, _payload):
+                self.calls += 1
+                if self.calls > 1:
+                    raise socket.timeout("write timeout")
+
+        payload = b"x" * (128 * 1024)
+        with self.assertRaisesRegex(RemoteCloneProtocolError, "disk stream send failed or timed out after 65536 bytes"):
+            send_disk_stream(
+                TimedOutSocket(), io.BytesIO(payload), len(payload),
+                session_id=self.header.session_id, chunk_size=64 * 1024,
+            )
+
     def test_session_header_round_trip(self):
         left, right = socket.socketpair()
         self.addCleanup(left.close)
