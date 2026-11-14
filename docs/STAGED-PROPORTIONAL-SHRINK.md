@@ -135,3 +135,13 @@ This interactive path is for proportional GPT restore only. It does not add
 client authentication, a PXE proxy or an artifact relay. It does not modify
 the original source disk or repository artifact. No ISO build is part of this
 workflow. Tests have been added but have not been executed.
+
+
+The proportional UI also compares the kernel block-device identities
+(`st_rdev`) of the selected source and destination, not just their path
+strings. This rejects aliases such as a `/dev/disk/by-id/...` path and
+`/dev/sdX` that resolve to the same physical device. Immediately before the
+destination write, it rechecks that the original source still has the same
+identity and remains offline/unused; the destination writer independently
+rechecks its captured identity, exact capacity, logical sector size and
+source-safety state.
