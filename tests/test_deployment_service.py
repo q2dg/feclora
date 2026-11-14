@@ -10,17 +10,23 @@ from feclora.deployment.service import DeploymentService, DeploymentServiceError
 
 
 class FakeCoordinator:
-    def __init__(self, state=JobState.CREATED, clients=()):
+    def __init__(self, state=JobState.CREATED, clients=(), job=None):
         self.state = state
         self._clients = tuple(clients)
+        self.job = job
 
     def clients(self):
         return self._clients
 
     def can_start(self):
-        return self.state is JobState.CREATED and any(
-            client.state is ClientState.READY for client in self._clients
-        )
+        ready = sum(client.state is ClientState.READY for client in self._clients)
+        if self.state is not JobState.CREATED or ready == 0:
+            return False
+        if self.job is None or self.job.start_policy == "manual":
+            return True
+        if self.job.start_policy == "expected_clients":
+            return ready >= self.job.minimum_ready_clients
+        return True
 
 
 class FakeControl:
@@ -61,11 +67,12 @@ def make_service(transport="unicast", clients=()):
     service.job = SimpleNamespace(
         job_id="12345678-1234-4234-8234-123456789abc",
         operation="restore", image_id="image-1", transport=transport,
+        start_policy="manual", minimum_ready_clients=1, expected_clients=None, start_deadline=None,
         authorized_clients=tuple(item.mac_address for item in clients),
         network_interface="enp1s0",
         multicast_group="239.10.10.10",
     )
-    service.coordinator = FakeCoordinator(clients=clients)
+    service.coordinator = FakeCoordinator(clients=clients, job=service.job)
     service.control = FakeControl(service.coordinator)
     service._worker = None
     service._worker_lock = threading.RLock()
