@@ -7,6 +7,7 @@ import {
 import { SyncAltIcon, ServerIcon, DatabaseIcon, ExclamationTriangleIcon } from "@patternfly/react-icons";
 import { Table, Thead, Tbody, Tr, Th, Td } from "@patternfly/react-table";
 import { callFeclora, waitForLocalOperation } from "./api.js";
+import KeyboardPreferences from "./KeyboardPreferences.jsx";
 
 const OPERATION_LABELS = {
   capture_disk: "Create a whole-disk image",
@@ -1580,6 +1581,7 @@ export default function App() {
           </Tab>
           <Tab eventKey="system" title="System">
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">System status</Title></StackItem>
+              <StackItem><KeyboardPreferences /></StackItem>
               <StackItem><Table aria-label="Feclora services" variant="compact"><Thead><Tr><Th>Component</Th><Th>Status</Th></Tr></Thead><Tbody>
                 {Object.entries(status?.services || {}).map(([name, value]) => <Tr key={name}><Td>{name}</Td><Td>{value}</Td></Tr>)}
                 <Tr><Td>Server deployment configuration</Td><Td>{status?.server_configured ? "Configured" : "Not configured"}</Td></Tr>
