@@ -144,7 +144,7 @@ def set_keyboard_layout(params: dict[str, Any], *, runner=None, config_path: Pat
         return {
             match.group(1)
             for line in (result.stdout or "").splitlines()
-            if (match := re.match(r"^\\s*([A-Za-z0-9_-]+)(?:\\s|$)", line))
+            if (match := re.match(r"^\s*([A-Za-z0-9_-]+)(?:\s|$)", line))
         }
 
     layouts = available_values(
