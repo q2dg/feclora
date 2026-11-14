@@ -643,7 +643,7 @@ export default function App() {
       } else if (pxeAnswerSource === "url") {
         if (!pxeAnswerURL.trim()) throw new Error("Enter an HTTP or HTTPS URL.");
         request.url = pxeAnswerURL.trim();
-      } else if (pxeAnswerSource === "repository") {
+      } else if (pxeAnswerSource === "repository" || pxeAnswerSource === "scp") {
         if (!pxeAnswerRepositoryId) throw new Error("Select a configured image repository.");
         if (!pxeAnswerRepositoryPath.trim()) throw new Error("Enter the relative path to the JSON answer file.");
         request.repository_id = pxeAnswerRepositoryId;
@@ -1504,6 +1504,7 @@ export default function App() {
                       <option value="upload">{t("Local file upload")}</option>
                       <option value="url">{t("HTTP or HTTPS URL")}</option>
                       <option value="repository">{t("Configured image repository")}</option>
+                      <option value="scp">{t("SCP over SSH (saved credentials)")}</option>
                     </select>
                   </Field>
                   {pxeAnswerSource === "upload" && <Field t={t} label={t("Prewritten answer file (JSON)")}>
@@ -1514,21 +1515,23 @@ export default function App() {
                     <input className="pf-v6-c-form-control" type="url" value={pxeAnswerURL} placeholder="https://server.example/answers/restore.json" onChange={(event) => { setPxeAnswerURL(event.target.value); setPxeAnswerPublished(null); }} />
                     <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{t("The Feclora Server downloads the file directly. Redirects and embedded URL credentials are not accepted; HTTPS certificates are verified.")}</p>
                   </Field>}
-                  {pxeAnswerSource === "repository" && <>
+                  {(pxeAnswerSource === "repository" || pxeAnswerSource === "scp") && <>
                     <Field t={t} label={t("Image repository")}>
                       <select className="pf-v6-c-form-control" value={pxeAnswerRepositoryId} onChange={(event) => { setPxeAnswerRepositoryId(event.target.value); setPxeAnswerPublished(null); }}>
                         <option value="">{t("Select a configured repository")}</option>
-                        {remoteRepositories.filter((item) => item.mounted && item.verified).map((item) => <option key={item.id} value={item.id}>{item.id} · {item.provider} · {item.host}</option>)}
-                        {s3Repositories.map((item) => <option key={item.id} value={item.id}>{item.id} · S3 · {item.bucket}</option>)}
+                        {remoteRepositories.filter((item) => pxeAnswerSource === "scp" ? item.provider === "sshfs" : item.mounted && item.verified).map((item) => <option key={item.id} value={item.id}>{item.id} · {item.provider} · {item.host}</option>)}
+                        {pxeAnswerSource === "repository" && s3Repositories.map((item) => <option key={item.id} value={item.id}>{item.id} · S3 · {item.bucket}</option>)}
                       </select>
                     </Field>
                     <Field t={t} label={t("Relative path or S3 object key")}>
                       <input className="pf-v6-c-form-control" value={pxeAnswerRepositoryPath} placeholder="deployment/answer.json" onChange={(event) => { setPxeAnswerRepositoryPath(event.target.value); setPxeAnswerPublished(null); }} />
-                      <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{t("For SSHFS/SFTP, NFS and SMB/CIFS, use a path relative to the mounted repository root. For S3, use an object key relative to the configured bucket prefix. SSH/SFTP access uses the repository's existing protected credentials.")}</p>
+                      <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{pxeAnswerSource === "scp"
+                        ? t("Select an SSHFS repository definition. Feclora uses its saved SSH key and known_hosts credentials to fetch the file with OpenSSH SCP; host keys are verified.")
+                        : t("For SSHFS/SFTP, NFS and SMB/CIFS, use a path relative to the mounted repository root. For S3, use an object key relative to the configured bucket prefix. SSH/SFTP access uses the repository's existing protected credentials.")}</p>
                     </Field>
                     {remoteRepositories.length === 0 && s3Repositories.length === 0 && <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{t("Configure an image repository first. Remote filesystem repositories must be mounted and verified.")}</p>}
                   </>}
-                  <Button variant="primary" onClick={publishPXEAnswer} isLoading={busy} isDisabled={busy || !pxeStatus.active || (pxeAnswerSource === "upload" && !pxeAnswerFile) || (pxeAnswerSource === "url" && !pxeAnswerURL.trim()) || (pxeAnswerSource === "repository" && (!pxeAnswerRepositoryId || !pxeAnswerRepositoryPath.trim()))}>{t("Validate and publish answer")}</Button>
+                  <Button variant="primary" onClick={publishPXEAnswer} isLoading={busy} isDisabled={busy || !pxeStatus.active || (pxeAnswerSource === "upload" && !pxeAnswerFile) || (pxeAnswerSource === "url" && !pxeAnswerURL.trim()) || ((pxeAnswerSource === "repository" || pxeAnswerSource === "scp") && (!pxeAnswerRepositoryId || !pxeAnswerRepositoryPath.trim()))}>{t("Validate and publish answer")}</Button>
                   {!pxeStatus.active && <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">Start PXE services first; publication is available only while the configured Caddy service is active.</p>}
                   {pxeAnswerPublished && <Alert variant="success" title={t("Answer published")} isInline className="pf-v6-u-mt-md">
                     <p>Job: {pxeAnswerPublished.job_id}</p>
