@@ -33,8 +33,7 @@ VCONSOLE_CONFIG = Path("/etc/vconsole.conf")
 KIOSK_KEYBOARD_CONFIG = Path("/etc/feclora/kiosk-keyboard.conf")
 XKB_LAYOUTS = {
     "us": ("us", ""), "us-intl": ("us", "intl"),
-    "es": ("es", ""), "ca": ("es", "cat"), "gl": ("es", "gal"),
-    "eu": ("es", "eus"), "fr": ("fr", ""), "de": ("de", ""),
+    "es": ("es", ""), "ca": ("es", "cat"), "gl": ("es", ""), "eu": ("es", ""), "fr": ("fr", ""), "de": ("de", ""),
     "it": ("it", ""), "pt": ("pt", ""), "br": ("br", ""),
     "ru": ("ru", ""), "tr": ("tr", ""), "ar": ("ara", ""),
     "ja": ("jp", ""), "zh": ("cn", ""),
@@ -130,6 +129,38 @@ def set_keyboard_layout(params: dict[str, Any], *, runner=None, config_path: Pat
     keymap = KEYMAPS[layout]
     xkb_layout, xkb_variant = XKB_LAYOUTS[layout]
     run = runner or subprocess.run
+
+    def available_values(command: list[str], label: str) -> set[str]:
+        try:
+            result = run(
+                command, stdin=subprocess.DEVNULL, capture_output=True,
+                text=True, check=False, timeout=15,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise KeyboardLayoutError(f"could not validate XKB {label}: {exc}") from exc
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "command failed").strip()[:256]
+            raise KeyboardLayoutError(f"could not validate XKB {label}: {detail}")
+        return {
+            match.group(1)
+            for line in (result.stdout or "").splitlines()
+            if (match := re.match(r"^\\s*([A-Za-z0-9_-]+)(?:\\s|$)", line))
+        }
+
+    layouts = available_values(
+        ["/usr/bin/localectl", "list-x11-keymap-layouts"], "layout availability",
+    )
+    if xkb_layout not in layouts:
+        raise KeyboardLayoutError(f"XKB layout {xkb_layout} is not installed on this Live image")
+    if xkb_variant:
+        variants = available_values(
+            ["/usr/bin/localectl", "list-x11-keymap-variants", xkb_layout],
+            f"variant availability for {xkb_layout}",
+        )
+        if xkb_variant not in variants:
+            raise KeyboardLayoutError(
+                f"XKB variant {xkb_layout}({xkb_variant}) is not installed on this Live image"
+            )
     commands = (
         ["/usr/bin/localectl", "set-keymap", keymap],
         ["/usr/bin/loadkeys", keymap],
