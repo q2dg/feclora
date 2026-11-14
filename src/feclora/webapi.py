@@ -1327,7 +1327,6 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
-        "export_p2v_s3": {"image_id", "source_repository_id", "destination_repository_id"},
         "capture_p2v": {"source", "image_id", "repository_id"},
         "export_p2v_s3": {"image_id", "source_repository_id", "destination_repository_id"},
         "build_recovery_iso": {"base_iso_path", "image_id", "target_wwn", "target_serial", "confirm_build", "repository_id"},
@@ -1335,8 +1334,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
     if action not in allowed:
         raise WebAPIError("operation parameters do not match the selected operation")
     allowed_params = allowed[action]
-    if action.startswith("restore_"):
-        accepted_params = (allowed_params, allowed_params - {"repository_id"})
+    if action == "export_p2v_s3":
+        accepted_params = (allowed_params, allowed_params - {"destination_repository_id"})
     else:
         accepted_params = (allowed_params, allowed_params - {"repository_id"})
     if action == "capture_disk":
@@ -1972,12 +1971,13 @@ def _run_operation(action: str, params: dict[str, Any]) -> dict[str, Any]:
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
+        "export_p2v_s3": {"image_id", "source_repository_id", "destination_repository_id"},
     }
     if action not in operation_fields:
         raise WebAPIError("operation parameters do not match the selected operation")
     allowed_params = operation_fields[action]
-    if action.startswith("restore_"):
-        accepted_params = (allowed_params, allowed_params - {"repository_id"})
+    if action == "export_p2v_s3":
+        accepted_params = (allowed_params, allowed_params - {"destination_repository_id"})
     else:
         accepted_params = (allowed_params, allowed_params - {"repository_id"})
     if set(params) not in accepted_params:
@@ -1996,12 +1996,13 @@ def _run_operation_locked(action: str, params: dict[str, Any]) -> dict[str, Any]
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
+        "export_p2v_s3": {"image_id", "source_repository_id", "destination_repository_id"},
     }
     if action not in operation_fields:
         raise WebAPIError("operation parameters do not match the selected operation")
     allowed_params = operation_fields[action]
-    if action.startswith("restore_"):
-        accepted_params = (allowed_params, allowed_params - {"repository_id"})
+    if action == "export_p2v_s3":
+        accepted_params = (allowed_params, allowed_params - {"destination_repository_id"})
     else:
         accepted_params = (allowed_params, allowed_params - {"repository_id"})
     if set(params) not in accepted_params:
