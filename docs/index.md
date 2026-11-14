@@ -1,70 +1,74 @@
 ---
 layout: default
 title: Feclora
-description: Fedora-based disk imaging, cloning and recovery.
+description: Fedora-based disk imaging, cloning, recovery and network deployment.
 ---
 
+<link rel="icon" type="image/svg+xml" href="{{ '/assets/feclora-mark.svg' | relative_url }}">
 <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 
 <main class="landing">
   <header class="hero">
-    <p class="eyebrow">FEDORA-BASED RESCUE & DEPLOYMENT</p>
-    <h1>Feclora</h1>
-    <p class="lead">Disk imaging, cloning and recovery — built around Fedora and guided by Cockpit.</p>
+    <a class="brand" href="{{ '/' | relative_url }}" aria-label="Feclora home">
+      <img src="{{ '/assets/feclora-logo.svg' | relative_url }}" alt="Feclora">
+    </a>
+    <p class="eyebrow">FEDORA LIVE · DISK IMAGING · DEPLOYMENT</p>
+    <h1>Disk imaging and recovery, with a clear path from one machine to many.</h1>
+    <p class="lead">Feclora is a minimal Fedora Live appliance for capturing, restoring and cloning disks, with a Cockpit interface and network deployment workflows.</p>
     <div class="hero-actions">
-      <a class="button button-primary" href="https://github.com/q2dg/feclora">View source on GitHub</a>
-      <a class="button button-secondary" href="./COCKPIT.html">Explore the interface</a>
+      <a class="button button-primary" href="./GETTING-STARTED.html">Start with the guides</a>
+      <a class="button button-secondary" href="https://github.com/q2dg/feclora">View source on GitHub</a>
     </div>
   </header>
 
   <section class="section" aria-labelledby="what-title">
-    <p class="eyebrow">WHAT IT DOES</p>
-    <h2 id="what-title">One toolkit for local and network workflows.</h2>
+    <p class="eyebrow">CORE WORKFLOWS</p>
+    <h2 id="what-title">A focused toolset for imaging and deployment.</h2>
     <div class="feature-grid">
       <article class="feature">
-        <span class="feature-number">01</span>
-        <h3>Capture & restore</h3>
-        <p>Capture and restore whole disks, partitions and eligible active LVM logical volumes. Image sets include manifests, byte counts and SHA-256 verification; optional age encryption is supported.</p>
+        <span class="feature-number">01 · IMAGE</span>
+        <h3>Capture and restore</h3>
+        <p>Create manifest-backed disk and partition images, verify byte counts and SHA-256 digests, and restore to compatible targets with explicit safety checks.</p>
       </article>
       <article class="feature">
-        <span class="feature-number">02</span>
-        <h3>Clone & convert</h3>
-        <p>Clone whole disks and partitions locally or through authenticated Server/Client jobs. Convert offline physical disks to QCOW2 with P2V metadata.</p>
+        <span class="feature-number">02 · CLONE</span>
+        <h3>Clone locally or remotely</h3>
+        <p>Copy disks or partitions directly, or stream a clone from a Feclora Server to an approved Client over authenticated TLS.</p>
       </article>
       <article class="feature">
-        <span class="feature-number">03</span>
-        <h3>Deploy over a network</h3>
-        <p>Manage Clients, transfer images over authenticated TLS, restore to multiple Clients with UDPcast multicast, and boot the Live environment interactively or through an unattended PXE answer workflow.</p>
+        <span class="feature-number">03 · DEPLOY</span>
+        <h3>Deploy across a network</h3>
+        <p>Coordinate Client jobs, multicast restore and interactive or unattended PXE boot, while keeping destructive authorization explicit.</p>
       </article>
     </div>
   </section>
 
   <section class="status" aria-labelledby="status-title">
     <div>
-      <p class="eyebrow">PROJECT STATUS</p>
-      <h2 id="status-title">Broad implementation; release acceptance remains.</h2>
-      <p>The source and Cockpit application include local imaging, storage and image inventories, durable operation history, SSHFS/NFS/SMB filesystem repositories, S3 object storage, authenticated Server/Client deployment, unicast transfer, multicast restore, remote disk/partition cloning, P2V conversion/export, interactive PXE and unattended whole-disk restore. These are implementation claims, not proof of end-to-end release acceptance.</p>
-      <p>Remaining software work includes completing and validating selected storage-layer workflows (notably Btrfs multi-device/snapshot-aware imaging and opened-LUKS-mapping workflows), closing repository-provider I/O and recovery gaps, expanding unattended-PXE failure-path and result handling, and finishing localization coverage. ISO generation, BIOS/UEFI boot, destructive restore, multi-host networking, UDPcast/IGMP and representative hardware still require operator-run acceptance on disposable equipment. See the <a href="./FEATURE-MATRIX.html">feature matrix</a> and <a href="./ROADMAP.html">roadmap</a> for the authoritative status and limitations.</p>
+      <p class="eyebrow">IMPLEMENTATION STATUS</p>
+      <h2 id="status-title">Implemented capabilities, stated with their limits.</h2>
+      <p>The source includes local disk/partition imaging and cloning, eligible LVM workflows, SSHFS/NFS/SMB and S3 repositories, Server/Client deployment, UDPcast multicast restore, P2V export and PXE workflows. Some advanced storage paths remain incomplete: multi-device and snapshot-aware Btrfs imaging, opened-LUKS-mapping workflows and selected recovery paths. Provider and physical-network acceptance are recorded separately from automated software tests.</p>
     </div>
-    <a class="text-link" href="./ROADMAP.html">See what is next →</a>
+    <a class="text-link" href="./FEATURE-MATRIX.html">Read the feature matrix →</a>
   </section>
 
   <section class="section links" aria-labelledby="learn-title">
-    <p class="eyebrow">LEARN MORE</p>
-    <h2 id="learn-title">Project resources</h2>
+    <p class="eyebrow">DOCUMENTATION</p>
+    <h2 id="learn-title">Choose what you need to do.</h2>
     <ul>
-      <li><a href="./GUIDES.html">Step-by-step operator guides</a></li>
-      <li><a href="./BUILD.html">Build and installation</a></li>
+      <li><a href="./GETTING-STARTED.html">Step-by-step operator guides</a></li>
+      <li><a href="./GUIDES.html">All operator workflows</a></li>
+      <li><a href="./BUILD.html">Build the Live image</a></li>
       <li><a href="./FEATURE-MATRIX.html">Features and compatibility</a></li>
-      <li><a href="./CERTIFICATE-MANAGEMENT.html">Security and certificates</a></li>
-      <li><a href="./OPERATIONS.html">Backup, upgrade, rollback and distribution</a></li>
-      <li><a href="./MAINTAINER-ACCEPTANCE.html">Maintainer acceptance checklist</a></li>
-      <li><a href="./DEPLOYMENT-SETUP.html">Network deployment setup</a></li>
+      <li><a href="./REMOTE-REPOSITORIES.html">Configure image repositories</a></li>
+      <li><a href="./DEPLOYMENT-SETUP.html">Set up Server and Clients</a></li>
+      <li><a href="./PXE-UNATTENDED.html">Interactive and unattended PXE</a></li>
+      <li><a href="./OPERATIONS.html">Backup, upgrade and rollback</a></li>
     </ul>
   </section>
 
   <footer class="landing-footer">
-    <span>Feclora · Project source</span>
-    <a href="https://github.com/q2dg/feclora">GitHub repository ↗</a>
+    <span>Feclora · Fedora-based imaging and deployment</span>
+    <a href="https://github.com/q2dg/feclora">Source code ↗</a>
   </footer>
 </main>
