@@ -71,8 +71,10 @@ project work here is to keep that procedure accurate and reproducible; this
 assistant does not build or boot the ISO. The owner must then record BIOS and
 UEFI boots, Cockpit/kiosk behavior on VMs and hardware, restores on disposable
 real disks, live remote-provider behavior, multi-Client deployment, and
-interactive/unattended PXE on an isolated network. Real screenshots or
-explicitly labeled mockups should be added to the guides.
+interactive/unattended PXE on an isolated network. The public guides now
+include three explicitly labeled SVG mockups for capture, restore and
+Server/Client deployment. Version-matched real screenshots may replace or
+supplement them after maintainer acceptance; mockups are not test evidence.
 
 These tasks are listed individually in
 [MAINTAINER-ACCEPTANCE.md](MAINTAINER-ACCEPTANCE.md). Unit tests, static
