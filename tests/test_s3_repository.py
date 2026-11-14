@@ -261,7 +261,7 @@ class S3RepositoryTests(unittest.TestCase):
             repository = S3ObjectRepository(_config(), client=client)
             repository.publish_p2v("server", qcow2, sidecar)
             client.objects["server-a/images/server/server.qcow2"] = (b"corrupt", {"sha256": metadata["qcow2_sha256"]})
-            with self.assertRaisesRegex(S3RepositoryError, "size or SHA-256"):
+            with self.assertRaisesRegex(S3RepositoryError, "committed QCOW2 object"):
                 repository.download_p2v("server", root / "export")
 
     def test_p2v_publication_rejects_changed_qcow2(self):
