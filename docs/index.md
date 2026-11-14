@@ -57,6 +57,8 @@ description: Fedora-based disk imaging, cloning and recovery.
       <li><a href="./BUILD.html">Build and installation</a></li>
       <li><a href="./FEATURE-MATRIX.html">Features and compatibility</a></li>
       <li><a href="./CERTIFICATE-MANAGEMENT.html">Security and certificates</a></li>
+      <li><a href="./OPERATIONS.html">Backup, upgrade, rollback and distribution</a></li>
+      <li><a href="./MAINTAINER-ACCEPTANCE.html">Maintainer acceptance checklist</a></li>
       <li><a href="./DEPLOYMENT-SETUP.html">Network deployment setup</a></li>
     </ul>
   </section>
