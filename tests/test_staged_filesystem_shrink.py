@@ -61,6 +61,7 @@ class StagedExtFilesystemShrinkTests(unittest.TestCase):
 
     def shrink(self, **kwargs):
         staged = StagedRawDiskImage(self.path, os.path.getsize(self.path), self.initial_digest)
+        runner_impl = kwargs.pop("runner", self.runner)
         return shrink_staged_ext_filesystem(
             staged,
             partition_start_sector=2048,
@@ -70,7 +71,7 @@ class StagedExtFilesystemShrinkTests(unittest.TestCase):
             sector_size=512,
             executables={name: "/sbin/" + name for name in
                          ("losetup", "blkid", "e2fsck", "dumpe2fs", "resize2fs")},
-            runner=self.runner,
+            runner=runner_impl,
             which=lambda _name: None,
             block_device_validator=lambda _path: True,
             safety_check=lambda _path: None,
