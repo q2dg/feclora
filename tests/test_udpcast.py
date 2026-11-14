@@ -329,6 +329,12 @@ class PhysicalMulticastProcessTests(unittest.TestCase):
             def wait(self, **kwargs):
                 state["exited"] = True
                 return self.returncode
+            def poll(self):
+                return self.returncode if state["exited"] else None
+            def terminate(self):
+                state["exited"] = True
+            def kill(self):
+                state["exited"] = True
         stored = bytearray()
         def readback(count):
             offset = len(readback.data)
