@@ -931,7 +931,7 @@ export default function App() {
                     </Field>
                     {operation === "build_recovery_iso" && <>
                       <Alert variant="info" title="Self-contained recovery media" isInline>
-                        Select the Feclora Live base ISO and an existing disk image. Feclora creates a separate bootable ISO containing the verified image, its manifest and a narrowly scoped unattended restore answer. The base ISO and source image remain unchanged. Output is written to the selected filesystem repository; S3 is not supported for ISO output.
+                        Select the Feclora Live base ISO and an existing disk image. Feclora creates a separate bootable ISO containing the verified image, its manifest and a narrowly scoped unattended restore answer. The base ISO and source image remain unchanged. Output is written to the selected filesystem repository; S3 is not supported for ISO output. If the image is age-encrypted, the matching decryption identity must be provisioned separately on the recovery Live system; no keys or passphrases are embedded.
                       </Alert>
                       <Field label="Base Feclora Live ISO path" help="Absolute path to a local .iso file accessible to the Feclora service, for example /home/feclora/Downloads/feclora-live.iso.">
                         <input className="pf-v5-c-form-control" value={recoveryBaseISO} onChange={(e) => setRecoveryBaseISO(e.target.value)} placeholder="/path/to/feclora-live.iso" required />
