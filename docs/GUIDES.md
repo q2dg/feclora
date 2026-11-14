@@ -52,8 +52,7 @@ See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
 - **Remote partition-to-partition cloning** — **Implemented in source/Cockpit**; two-host acceptance remains outstanding.
 - [Deployment control (Server-authenticated TLS)](DEPLOYMENT-CONTROL.html) — protocol,
   job authorization and lifecycle details.
-- [Remote repositories](REMOTE-REPOSITORIES.html) — **Partial**. SSHFS, NFS
-  and SMB/CIFS mounted-provider integration exists. S3 object-repository integration, including local and distributed workflows, is implemented.
+- [Remote repositories](REMOTE-REPOSITORIES.html) — **Implemented, with provider-hardening work remaining**. SSHFS, NFS and SMB/CIFS mounted repositories and S3 object repositories are integrated with local imaging; S3 also supports distributed Client capture/restore. Provider-specific failure, interruption and live-endpoint acceptance are tracked separately in the roadmap and acceptance guide.
 - [Acceptance procedures](ACCEPTANCE-TESTS.html) — operator-run tests for
   remote services, multiple Clients, interruption and physical networks.
 
