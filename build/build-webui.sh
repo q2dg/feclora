@@ -10,6 +10,7 @@ cd "${WEB_DIR}"
 if [[ -f package-lock.json ]]; then
   npm ci --no-audit --no-fund
 else
+  echo "WARNING: webui/package-lock.json is missing; transitive npm dependencies are not reproducibly pinned." >&2
   npm install --no-audit --no-fund
 fi
 npm run build
