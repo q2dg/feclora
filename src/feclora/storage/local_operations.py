@@ -116,10 +116,12 @@ def validate_definition(value: Any) -> dict[str, Any]:
         if params.get("confirm_build") != f"BUILD {params.get('image_id')}":
             raise LocalOperationError("recovery ISO build confirmation does not match the selected image")
         for key in ("target_wwn", "target_serial"):
-            value = params.get(key)
-            if value is not None and (not isinstance(value, str) or not value or len(value) > 128
-                    or (key == "target_wwn" and not re.fullmatch(r"[A-Za-z0-9_.:-]{4,128}", value))
-                    or (key == "target_serial" and not re.fullmatch(r"[A-Za-z0-9_.:+/-]{1,128}", value))):
+            selector_value = params.get(key)
+            if selector_value is not None and (
+                not isinstance(selector_value, str) or not selector_value or len(selector_value) > 128
+                or (key == "target_wwn" and not re.fullmatch(r"[A-Za-z0-9_.:-]{4,128}", selector_value))
+                or (key == "target_serial" and not re.fullmatch(r"[A-Za-z0-9_.:+/-]{1,128}", selector_value))
+            ):
                 raise LocalOperationError(f"{key} is invalid")
         if params.get("target_wwn") is None and params.get("target_serial") is None:
             raise LocalOperationError("recovery ISO requires a target WWN and/or serial selector")
