@@ -85,6 +85,28 @@ class ImageTransferTests(unittest.TestCase):
             self.assertFalse(any(name.startswith(".feclora-transfer-") for name in os.listdir(target)))
 
 
+    def test_receiver_timeout_cleans_staging_directory(self):
+        with tempfile.TemporaryDirectory() as target:
+            class TimedOutSocket:
+                def recv(self, _count):
+                    raise socket.timeout("idle transfer timeout")
+
+            with self.assertRaisesRegex(ImageTransferError, "could not publish received image set"):
+                receive_image_set(TimedOutSocket(), target, expected_image_id="golden")
+            self.assertEqual(os.listdir(target), [])
+
+    def test_sender_timeout_is_reported_as_transfer_failure(self):
+        with tempfile.TemporaryDirectory() as source:
+            manifest_path = make_image_set(source)
+            class TimedOutSocket:
+                def sendall(self, _payload):
+                    raise socket.timeout("write timeout")
+
+            with self.assertRaisesRegex(ImageTransferError, "image-set transfer failed"):
+                send_image_set(
+                    TimedOutSocket(), source, manifest_path, expected_image_id="golden",
+                )
+
     def test_sender_rejects_artifact_digest_mismatch_before_network_write(self):
         with tempfile.TemporaryDirectory() as source:
             manifest_path = make_image_set(source)
