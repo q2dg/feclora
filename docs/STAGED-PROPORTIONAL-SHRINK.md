@@ -11,8 +11,8 @@ the loop partition is not mounted or busy. It then verifies the filesystem
 signature, runs a no-write `e2fsck`, reads the ext block geometry, invokes
 `resize2fs` with the requested block count, runs the no-write checker again,
 and verifies the resulting block count. The loop device is detached in a
-`finally` path. The returned staging descriptor contains a fresh SHA-256
-digest.
+`finally` path. The returned staging descriptor contains the verified current
+SHA-256 digest (unchanged if the filesystem already fits and no resize occurs).
 
 The function is deliberately limited:
 
@@ -43,7 +43,7 @@ geometry, and requires an NTFS signature. It reads both the current volume
 size and the live minimum reported by `ntfsresize --info`, rejects a target
 outside those bounds, then runs `ntfsresize --size` without `--force`.
 Finally it re-runs the information probe and checks the resulting volume
-size before detaching the loop and returning a refreshed digest.
+size before detaching the loop and returning the verified current digest (unchanged on a no-op).
 
 The executor intentionally does not force a dirty or hibernated NTFS volume
 through resize. Such a volume fails closed and must be made clean by an
