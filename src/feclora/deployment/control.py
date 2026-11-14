@@ -376,6 +376,10 @@ class DeploymentControlServer:
                 or "//" in target_device or any(ord(c) < 32 for c in target_device)
             ):
                 raise DeploymentControlError("Client clone target device path is invalid")
+            if (self.coordinator.job.operation == "clone"
+                    and self.coordinator.job.transport == "multicast"
+                    and target_identity.get("path") != target_device):
+                raise DeploymentControlError("Client physical destination identity path differs from its approved target")
             self.coordinator.mark_ready(mac)
             with self._lock:
                 if self._stop_event.is_set():
