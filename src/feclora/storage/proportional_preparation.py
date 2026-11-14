@@ -50,6 +50,8 @@ def prepare_proportional_staged_image(
     """
     if not isinstance(staged, StagedRawDiskImage):
         raise ProportionalStagedPreparationError("a verified private staged RAW image is required")
+    if not isinstance(staged.path, str) or not os.path.isabs(staged.path) or "\x00" in staged.path:
+        raise ProportionalStagedPreparationError("staged RAW path is invalid")
     if (isinstance(target_size_bytes, bool) or not isinstance(target_size_bytes, int)
             or target_size_bytes <= 0 or target_size_bytes >= staged.size_bytes):
         raise ProportionalStagedPreparationError("target size must be smaller than the staged source")
@@ -62,6 +64,8 @@ def prepare_proportional_staged_image(
         raise ProportionalStagedPreparationError("filesystem type mapping is required")
 
     plans = tuple(planned_partitions)
+    if not plans:
+        raise ProportionalStagedPreparationError("at least one planned partition is required")
     try:
         with open(staged.path, "rb") as stream:
             source_gpt = inspect_gpt_binary(
