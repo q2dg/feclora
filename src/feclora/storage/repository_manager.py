@@ -594,8 +594,17 @@ class RemoteRepositoryManager:
             # the caller holds a shared lease before any competing EX lock wins.
             fcntl.flock(lock_fd, fcntl.LOCK_SH)
             return lock_fd, mounted_by_us
-        except Exception:
+        except Exception as exc:
             os.close(lock_fd)
+            if mounted_by_us:
+                # The mount was created under our exclusive lease, but the
+                # shared-lease downgrade failed. Release that mount as part of
+                # this transaction; never leave an unleased mount behind.
+                try:
+                    self.unmount(identifier)
+                except Exception as cleanup_exc:
+                    if hasattr(exc, "add_note"):
+                        exc.add_note(f"repository rollback unmount also failed: {cleanup_exc}")
             raise
 
     def acquire_usage_lock(self, identifier: str) -> int:
