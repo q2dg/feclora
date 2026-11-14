@@ -631,7 +631,8 @@ class ClientDeploymentService:
                             config=udpcast, firewall=PXEFirewall(),
                             ready_callback=acknowledge_receiver_ready,
                             progress_callback=lambda phase, done, total: report_progress(
-                                "clone-" + phase, done, total, report_remote=True,
+                                "clone", done if phase == "write" else total + done,
+                                total * 2, report_remote=True,
                             ),
                         )
                         return True, (
