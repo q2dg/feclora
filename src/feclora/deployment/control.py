@@ -26,7 +26,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 
-from feclora.deployment.artifact_transfer import ImageTransferError, receive_image_set, send_image_set
+from feclora.deployment.artifact_transfer import (
+    ImageTransferError, TRANSFER_IDLE_TIMEOUT_SECONDS, receive_image_set, send_image_set,
+ )
 from feclora.deployment.coordinator import (
     ClientState, CoordinatorError, DeploymentCoordinator, JobState,
 )
@@ -553,7 +555,7 @@ class DeploymentControlServer:
         """Send an image set to one running restore Client."""
         tls_socket = self._running_session(mac_address, "restore")
         try:
-            tls_socket.settimeout(86400)
+            tls_socket.settimeout(TRANSFER_IDLE_TIMEOUT_SECONDS)
             send_control_message(tls_socket, {
                 "type": "transfer_offer", "job_id": self.coordinator.job.job_id,
                 "image_id": self.coordinator.job.image_id,
@@ -591,7 +593,7 @@ class DeploymentControlServer:
         """Receive an image set from one running save Client."""
         tls_socket = self._running_session(mac_address, "save")
         try:
-            tls_socket.settimeout(86400)
+            tls_socket.settimeout(TRANSFER_IDLE_TIMEOUT_SECONDS)
             transfer = receive_control_message(tls_socket)
             while transfer.get("type") == "progress":
                 self._record_client_progress(mac_address, transfer)
