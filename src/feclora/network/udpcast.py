@@ -560,7 +560,10 @@ def receive_physical_multicast_stream(
                 if process.stdout is None:
                     raise UDPcastError("udp-receiver did not expose its physical stream output pipe")
                 if ready_callback is not None:
-                    ready_callback()
+                    try:
+                        ready_callback()
+                    except Exception as exc:
+                        raise UDPcastError(f"physical receiver readiness acknowledgement failed: {exc}") from exc
                 result = verify_received_physical_stream(
                     process.stdout, write, flush, readback,
                     expected_bytes=expected_bytes,
