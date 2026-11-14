@@ -311,7 +311,7 @@ def _renew_server_certificate(params: dict[str, Any]) -> dict[str, Any]:
         "certificate_file": renewed["certificate_file"],
         "ca_fingerprint": renewed["ca_fingerprint"], "expiry_days": days,
         "ca_expiry_days": renewed["ca_expiry_days"],
-        "message": "Server TLS certificate renewed with the existing CA and private key. The CA, Server identity and Client trust were not changed.",
+        "message": "Server TLS certificate renewed with the existing CA and private key. The CA and Server identity were not changed.",
     }
 
 
@@ -354,7 +354,7 @@ def _rotate_server_keypair(params: dict[str, Any]) -> dict[str, Any]:
         "private_key_file": rotated["private_key_file"],
         "ca_fingerprint": rotated["ca_fingerprint"], "key_rotated": rotated["key_rotated"],
         "expiry_days": days, "ca_expiry_days": rotated["ca_expiry_days"],
-        "message": "Server TLS keypair rotated under the existing CA. Enrolled Clients retain CA trust and Server identity; the Server certificate and private key have both changed.",
+        "message": "Server TLS keypair rotated under the existing CA. Clients continue to verify the Server using the configured CA and Server identity; the Server certificate and private key have both changed.",
     }
 
 
