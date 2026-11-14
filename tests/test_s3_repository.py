@@ -100,6 +100,19 @@ def _config(**changes):
 
 
 class S3RepositoryTests(unittest.TestCase):
+    def test_download_small_object_enforces_size_and_closes_body(self):
+        client = _S3()
+        client.objects["server-a/images/answers/restore.json"] = (
+            b'{"schema_version":2}', {},
+        )
+        repository = S3ObjectRepository(_config(), client=client)
+        result = repository.download_small_object("answers/restore.json", max_bytes=64)
+        self.assertEqual(result, b'{"schema_version":2}')
+        with self.assertRaisesRegex(S3RepositoryError, "between 1 byte"):
+            repository.download_small_object("answers/restore.json", max_bytes=4)
+        with self.assertRaises(S3RepositoryError):
+            repository.download_small_object("../secret.json", max_bytes=64)
+
     def test_config_requires_https_endpoint_and_safe_prefix(self):
         with self.assertRaises(S3RepositoryError):
             _config(endpoint_url="http://objects.example.test")
