@@ -3,6 +3,9 @@ layout: default
 title: Whole-disk capture
 ---
 
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
 # Whole-disk capture
 
 **Status: implemented in Cockpit.**
