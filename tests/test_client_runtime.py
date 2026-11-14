@@ -73,6 +73,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
                 pre_write_callback=pre_write_check,
             )
         self.assertTrue(result[0])
+        self.assertEqual(tls.timeout, 300)
         receive.assert_called_once()
         self.assertIsNotNone(receive.call_args.kwargs["progress_callback"])
         restore.assert_called_once()
