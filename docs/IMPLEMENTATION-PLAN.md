@@ -118,16 +118,15 @@ Existing foundation: remote_clone runtime, protocol/TLS modules, tests, and the 
 - [x] Update feature matrix and operational guide.
 Acceptance: the Server binds the selected source and READY Client target into the session; the receiver independently verifies its local selection; both peers authorize independently; receiver read-back verifies; partial writes are marked untrusted; the persistent service survives browser disconnect.
 
-## P0 — PKI, trust and identity lifecycle
-Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS keypair rotation under the existing CA. Client CSR/issuance and certificate-inspection helpers exist, but they are not integrated into the active Server/Client control protocol or an end-to-end Client enrollment workflow. Broader CA rotation/migration is deferred.
+## P0 — Server TLS lifecycle
+Existing foundation: managed CA bootstrap, Server leaf renewal and Server TLS keypair rotation under the existing CA. Broader CA rotation/migration is deferred. Deployment Clients validate the Server certificate; Client certificates and per-Client authentication are outside Feclora's design.
 - [x] Add a root-owned, atomic CA trust-bundle builder that validates CA constraints, certificate-signing usage, unique SHA-256 fingerprints and bounded PEM inputs. (Local building block only; authenticated package distribution remains pending.)
-- [x] Validate Client leaf certificates against any explicitly fingerprinted CA anchor in an imported PEM bundle and retain the complete bundle as the Client trust file.
 - [x] Implement Server TLS keypair rotation under the existing CA, distinct from leaf certificate renewal; expose an exact-confirmation Cockpit action that blocks while deployment services are active.
 - [x] Make age identity/recipient provisioning optional for baseline enrollment, renewal and deployment. TLS-only enrollment/renewal accepts no age material; renewal does not create an age identity when none is configured. 
 - [x] Use root-owned mode-0600 standalone restore profiles in a root-owned, non-group/other-writable directory, with expiry, single-use consumption and target identity checks. This local profile mechanism is separate from PXE answer admission.
-- [ ] Expose preflight, per-client status, expiry, progress and rollback in Cockpit.
+- [ ] Expose Server certificate preflight, expiry, rotation status and recovery guidance in Cockpit.
 - [ ] Test mixed-version clients, interrupted rotation, expiry, wrong SAN/fingerprint and lost Server state.
-Acceptance: Server certificate renewal and key rotation remain auditable; private material never enters logs/browser state. Any future Client certificate enrollment must be designed and integrated end to end before being advertised as authentication.
+Acceptance: Server certificate renewal and key rotation remain auditable; private material never enters logs/browser state.
 
 ## P0 — Remote repositories and credentials
 Repository-related abstractions/tests already exist; inspect and extend them rather than creating a second implementation. Architectural boundary: every SSH/ NFS, SMB/CIFS and S3 service, and every  subsystem/namespace, is external and independently administered. Feclora implements client-side connection, credential handling, mount/transfer, integrity, lifecycle of its own client processes, and failure reporting only; it does not deploy or configure remote servers, exports, shares, buckets or  subsystems.
