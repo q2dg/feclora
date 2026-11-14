@@ -101,8 +101,8 @@ def validate_definition(value: Any) -> dict[str, Any]:
     if not isinstance(action, str) or action not in fields or not isinstance(params, dict):
         raise LocalOperationError("unsupported local storage operation")
     allowed = fields[action]
-    if action.startswith("restore_"):
-        accepted = (allowed, allowed - {"repository_id"})
+    if action == "export_p2v_s3":
+        accepted = (allowed, allowed - {"destination_repository_id"})
     else:
         accepted = (allowed, allowed - {"repository_id"})
     if action == "capture_disk":
