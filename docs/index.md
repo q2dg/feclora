@@ -63,6 +63,7 @@ description: Fedora-based disk imaging, cloning, recovery and network deployment
       <li><a href="./GUIDES.html">All operator workflows</a></li>
       <li><a href="./BUILD.html">Build the Live image</a></li>
       <li><a href="./FEATURE-MATRIX.html">Features and compatibility</a></li>
+      <li><a href="./TOOLING-AND-TRANSPORTS.html">Tools and upstream projects</a></li>
       <li><a href="./REMOTE-REPOSITORIES.html">Configure image repositories</a></li>
       <li><a href="./DEPLOYMENT-SETUP.html">Set up Server and Clients</a></li>
       <li><a href="./PXE-UNATTENDED.html">Interactive and unattended PXE</a></li>
