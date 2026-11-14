@@ -54,3 +54,21 @@ the RAW image, or write a destination disk.
 NTFS unit tests use an injected command runner and cover the loop mapping,
 filesystem signature, live minimum-size guard, source digest and detach path.
 They have been added but not executed.
+
+
+## Coordinated staging preparation
+
+The coordinator in `feclora.storage.proportional_preparation` now joins these
+primitives. It inspects the GPT inside the staged RAW file, matches every
+planned partition by PARTUUID, verifies unchanged starts and partition types,
+and permits at most one shortened partition (the final source partition).
+For that partition it dispatches to the ext or NTFS executor; if the
+filesystem already fits the planned partition, the executor performs its
+read-only checks and leaves its bytes unchanged. The coordinator then calls
+the private GPT rewrite routine, which relocates backup GPT metadata, truncates
+the staged RAW to the requested size, and validates the rewritten GPT and
+partition identities.
+
+This is still a staging-only operation. It does not discover or approve a
+destination device, request destructive confirmation, write a destination,
+or perform destination read-back. The ISO is not built by this workflow.
