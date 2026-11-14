@@ -333,6 +333,60 @@ class TransferFailureTests(unittest.TestCase):
         self.assertTrue(all(item["physical_stream"] == metadata for item in starts))
 
 
+    def test_physical_multicast_server_waits_for_every_receiver_before_sending(self):
+        mac2 = "52:54:00:12:34:57"
+        identity = {
+            "path": "/dev/sda", "major_minor": "8:0", "sysfs_path": "/sys/devices/sda",
+            "wwn": "wwn-source", "serial": "source-serial", "size_bytes": 4096,
+            "logical_sector_size": 512, "physical_sector_size": 4096,
+            "read_only": True, "mountpoints": [], "holders": [],
+            "backs_system": False, "busy": False,
+        }
+        job = make_job(
+            operation="clone", image_id=None, source_device="/dev/sda",
+            transport="multicast", multicast_group="239.10.10.10",
+            multicast_port=5000, authorized_clients=[MAC, mac2],
+            source_identity=identity,
+        )
+        coordinator = DeploymentCoordinator(job)
+        for mac in (MAC, mac2):
+            coordinator.register_client(mac)
+            coordinator.mark_ready(mac)
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server._lock = threading.RLock()
+        server._sessions = {MAC: FakeSocket(), mac2: FakeSocket()}
+        server._target_identities = {
+            MAC: {**identity, "path": "/dev/sdb", "major_minor": "8:16",
+                  "sysfs_path": "/sys/devices/sdb", "wwn": "wwn-target-1",
+                  "serial": "target-serial-1", "read_only": False, "size_bytes": 8192},
+            mac2: {**identity, "path": "/dev/sdc", "major_minor": "8:32",
+                   "sysfs_path": "/sys/devices/sdc", "wwn": "wwn-target-2",
+                   "serial": "target-serial-2", "read_only": False, "size_bytes": 8192},
+        }
+        server.firewall = Mock()
+        config = UDPcastConfig("enp1s0", "239.10.10.10", "239.10.10.11", min_receivers=2)
+        payload = b"x" * 4096
+        events = []
+        def ready_ack(sock, *, expected_type):
+            events.append("all-client-ready")
+            return {"type": "physical_ready", "job_id": JOB_ID, "ready": True, "detail": "ready"}
+        with patch("feclora.storage.inventory.collect_inventory", return_value={"devices": []}), \
+             patch("feclora.network.physical_multicast.build_physical_device_record", return_value=identity), \
+             patch("feclora.network.physical_multicast.validate_physical_multicast_cohort"), \
+             patch("feclora.network.physical_multicast.open_approved_block_device", return_value=44), \
+             patch("feclora.deployment.control.os.pread", return_value=payload), \
+             patch("feclora.deployment.control.os.fdopen", return_value=io.BytesIO(payload)), \
+             patch.object(server, "arm_and_start", return_value=(MAC, mac2)), \
+             patch("feclora.deployment.control.receive_control_message", side_effect=ready_ack), \
+             patch("feclora.network.udpcast.send_physical_multicast_stream",
+                   side_effect=lambda *args, **kwargs: events.append("stream-sent") or {"sha256": hashlib.sha256(payload).hexdigest()}), \
+             patch.object(server, "collect_results", return_value={MAC: "verified", mac2: "verified"}), \
+             patch("feclora.deployment.control.os.close"):
+            result = server.run_physical_multicast_clone_job(udpcast_config=config)
+        self.assertEqual(result, {MAC: "verified", mac2: "verified"})
+        self.assertEqual(events, ["all-client-ready", "all-client-ready", "stream-sent"])
+
     def test_restore_transfer_timeout_is_reported_failed_and_closes_session(self):
         coordinator = DeploymentCoordinator(make_job())
         coordinator.register_client(MAC)
