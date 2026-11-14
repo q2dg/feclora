@@ -37,6 +37,35 @@ class OperationLogTests(unittest.TestCase):
             self.assertEqual(events[2]["bytes_total"], 100)
             self.assertEqual(events[0]["operation_id"], events[2]["operation_id"])
 
+    def test_operation_events_are_forwarded_to_best_effort_observer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "operations.jsonl")
+            received = []
+            with operation_record(
+                "restore_disk", "/dev/sda", image_id="image-1",
+                log_path=path, event_callback=received.append,
+            ):
+                from feclora.storage.operation_log import record_progress
+                record_progress(10, 100)
+            self.assertEqual(
+                [event["status"] for event in received],
+                ["started", "progress", "completed"],
+            )
+            self.assertEqual(len({event["operation_id"] for event in received}), 1)
+
+    def test_observer_failure_does_not_break_storage_operation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "operations.jsonl")
+            def broken(_event):
+                raise RuntimeError("report transport unavailable")
+            with operation_record("restore_disk", "/dev/sda", log_path=path,
+                                  event_callback=broken):
+                pass
+            with open(path, encoding="utf-8") as stream:
+                events = [json.loads(line) for line in stream]
+            self.assertEqual([event["status"] for event in events],
+                             ["started", "completed"])
+
     def test_progress_outside_an_operation_is_ignored(self):
         from feclora.storage.operation_log import record_progress
         record_progress(10, 100)
