@@ -1,3 +1,11 @@
+---
+layout: default
+title: Feature and compatibility matrix
+---
+
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
 # Feature and compatibility matrix
 
 Remote-service boundary: SSH, NFS, SMB/CIFS and S3-compatible storage are external services operated by their owners.
