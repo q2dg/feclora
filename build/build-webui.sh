@@ -13,6 +13,7 @@ else
   echo "WARNING: webui/package-lock.json is missing; transitive npm dependencies are not reproducibly pinned." >&2
   npm install --no-audit --no-fund
 fi
+npm run test:dependency-pins
 npm run build
 test -s dist/index.html
 test -s dist/manifest.json
