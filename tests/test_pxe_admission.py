@@ -34,6 +34,41 @@ class PXEAdmissionTests(unittest.TestCase):
             self.assertFalse(admission.admit("aa:bb:cc:dd:ee:01")[0])
             self.assertFalse(admission.status()["accepting"])
 
+    def test_unlimited_admission_registers_macs_and_report_is_idempotent(self):
+        import uuid
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            http_root = root / "http"
+            job_id = "123e4567-e89b-12d3-a456-426614174000"
+            answer = http_root / "answers" / job_id / "answer.json"
+            answer.parent.mkdir(parents=True)
+            answer.write_text("{}", encoding="utf-8")
+            report_path = root / "state" / "remote-reports.jsonl"
+            admission = PXEAdmission(
+                str(root / "state" / "admission.json"),
+                boot_url_prefix="http://192.0.2.1:8080/pxe/boot/",
+                boot_script_path=str(root / "boot.ipxe"),
+                max_clients=None, max_duration_seconds=None,
+                http_root=str(http_root), report_log_path=str(report_path),
+            )
+            mac = "aa:bb:cc:dd:ee:01"
+            self.assertTrue(admission.admit(mac)[0])
+            event = {
+                "event_id": str(uuid.uuid4()),
+                "operation_id": str(uuid.uuid4()),
+                "operation": "restore_disk",
+                "timestamp": "2026-11-15T12:00:00Z",
+                "status": "started",
+                "target": "/dev/sda",
+                "image_id": "fedora-workstation",
+            }
+            self.assertTrue(admission.record_report(job_id, mac, event))
+            self.assertFalse(admission.record_report(job_id, mac, event))
+            rows = [__import__("json").loads(line) for line in report_path.read_text().splitlines()]
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["client_mac"], mac)
+            self.assertEqual(rows[0]["job_id"], job_id)
+
     def test_state_survives_admission_process_restart(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = str(Path(tmp) / "state.json")
@@ -57,7 +92,7 @@ class PXEAdmissionTests(unittest.TestCase):
             )
             self.assertTrue(admission.admit("aa:bb:cc:dd:ee:01")[0])
             self.assertTrue(admission.admit("aa:bb:cc:dd:ee:02")[0])
-            self.assertTrue(admission.is_admitted("aa:bb:cc:dd:ee:ff"))
+            self.assertFalse(admission.is_admitted("aa:bb:cc:dd:ee:ff"))
             self.assertIsNone(admission.status()["clients_served"])
             self.assertFalse(admission.admit("not-a-mac")[0])
 
