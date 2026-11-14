@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build"
+    "build": "vite build",
+    "test:i18n": "node scripts/test-i18n.mjs"
   },
   "dependencies": {
     "@patternfly/patternfly": "5.4.2",
