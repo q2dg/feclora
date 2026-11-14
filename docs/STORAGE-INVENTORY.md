@@ -38,11 +38,30 @@ PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 Tests use mocked `lsblk` output; they do not access or modify real block devices.
 
+## LUKS2 metadata discovery
+
+LUKS inventory uses `cryptsetup luksUUID` and
+`cryptsetup luksDump --dump-json-metadata` in read-only mode. A container is
+reported as verified LUKS2 only when the JSON has a canonical UUID, valid
+encryption segments, consistent cipher and sector-size settings, and
+well-formed keyslot/token/config sections. The UUID returned by the separate
+`luksUUID` query must match the JSON UUID. Malformed or disagreeing metadata
+is reported as an inspection error and is not passed to the layer-aware
+capture planner.
+
+Only a summary is retained: UUID, cipher, sector size, counts and metadata
+size. Keyslot and token payloads, passphrases and recovery material are never
+copied into the inventory. LUKS1 is identified separately and is not accepted
+by the LUKS2 layer-aware workflow.
+
 ## Btrfs metadata discovery
 
 Btrfs discovery first uses `btrfs filesystem show --raw --all-devices` to
-identify filesystem UUIDs and every detected member device. For each complete
-device set, Feclora runs the read-only
+identify filesystem UUIDs and every detected member device. The inventory
+rejects non-canonical or duplicate filesystem UUIDs, incomplete member counts,
+duplicate/non-positive device IDs, duplicate paths, zero-sized devices and
+missing/non-`/dev` member paths instead of silently accepting a partial set.
+For each complete device set, Feclora runs the read-only
 `btrfs inspect-internal dump-tree --noscan -t root` against the supplied
 members. This reads the on-disk root tree without mounting the filesystem and
 records current subvolume IDs, generations, used bytes, read-only flags,
