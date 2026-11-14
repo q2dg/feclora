@@ -1644,7 +1644,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             if client_config and client_config.age_identity_file:
                 identity_paths.append(Path(client_config.age_identity_file))
             if encrypted and not identity_paths:
-                raise WebAPIError("age-encrypted disk image requires an enrolled Client or local Feclora age identity")
+                raise WebAPIError("age-encrypted disk image requires a configured Client age recipient or local Feclora age identity")
             recipients_file = _capture_material()
             if encrypted and not security["age_encryption_available"]:
                 raise WebAPIError("extracting an age-encrypted disk image requires an available age recipient inventory for the new partition image")
@@ -1697,7 +1697,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             if client_config and client_config.age_identity_file:
                 identity_paths.append(Path(client_config.age_identity_file))
             if encrypted and not identity_paths:
-                raise WebAPIError("age-encrypted image requires an enrolled Client or local Feclora age identity")
+                raise WebAPIError("age-encrypted image requires a configured Client age recipient or local Feclora age identity")
             identity_context = tempfile.TemporaryDirectory(prefix="feclora-age-identities-") if encrypted and len(identity_paths) > 1 else None
             try:
                 if identity_context:
