@@ -533,7 +533,7 @@ class RemoteRepositoryManagerTests(unittest.TestCase):
             calls.append(argv)
             return SimpleNamespace(
                 returncode=0,
-                stdout=f"{self.mount_root / 'images'} fuse.sshfs backup@nas.example.net:/images ro,relatime,nosuid,nodev,noexec\\n",
+                stdout=f"{self.mount_root / 'images'} fuse.sshfs backup@nas.example.net:/images ro,relatime,nosuid,nodev,noexec\n",
                 stderr="",
             )
 
