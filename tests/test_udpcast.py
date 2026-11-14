@@ -11,6 +11,7 @@ from feclora.network.udpcast import (
     UDPcastConfig, UDPcastError, build_receiver_argv, build_sender_argv,
     build_physical_stream_sender_argv, build_physical_stream_receiver_argv,
     feed_physical_stream_to_sender, verify_received_physical_stream,
+    send_physical_multicast_stream, receive_physical_multicast_stream,
     discard_staged_multicast_artifact, multicast_firewall_scope,
     receive_multicast_artifact_to_staging, send_multicast_artifact, verify_artifact_file,
 )
