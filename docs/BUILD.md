@@ -209,8 +209,7 @@ port forwarding or the LAN. Complete password setup in the VM's local display.
 Cockpit is bound to guest loopback only; QEMU host port forwarding for 9090 is
 not part of the supported kiosk test path.
 
-The Cockpit Terminal page is available for diagnostics. The old `dialog`
-menu is not part of the supported startup flow. Remote Server/Client deployment is integrated for the documented manual workflows. The unattended PXE answer path validates and publishes one JSON answer through Caddy over HTTP. Live downloads it and connects NFS- or credential-free HTTPS-backed whole-disk restore to the existing engine with stable-target revalidation and read-back verification. Private S3/SSHFS/SMB adapters require secure Live credential provisioning. BIOS/UEFI and physical restore acceptance are optional. No per-Client identity medium or enrollment is part of this design. BIOS/UEFI and physical restore acceptance remain pending. Consult the [feature matrix](FEATURE-MATRIX.md) before claiming release readiness.
+The Cockpit Terminal page is available for diagnostics; the old `dialog` menu is not part of the supported startup flow. Remote Server/Client deployment is integrated through the persistent service and authenticated TLS control path. The unattended PXE answer workflow publishes a validated JSON answer and answer-specific script through Caddy; the Live client resolves the repository ID through its normal SSHFS, NFS, SMB/CIFS or S3 repository manager and invokes the guarded whole-disk restore engine. Repository credentials are not placed in the answer file. This workflow is distinct from Server-authenticated Remote jobs and does not provide Server-side operation-result reconciliation. Consult the [feature matrix](FEATURE-MATRIX.md) for exact scope and limitations.
 
 ### Kiosk operator acceptance (pending)
 
