@@ -502,7 +502,7 @@ def _filesystem_images(
         metadata_path = path / name
         try:
             info = os.lstat(metadata_path)
-            if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid():
                 continue
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
             image_id = name[:-len(".p2v.json")]
