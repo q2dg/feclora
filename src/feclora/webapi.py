@@ -1313,7 +1313,6 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             raise WebAPIError("encrypt_passphrase must be boolean and requires encrypt=true")
         security = _security_material()
         if encrypt and symmetric:
-            import shutil
             if not shutil.which("age"):
                 raise WebAPIError("age executable is required for passphrase encryption")
         elif encrypt and not security["age_encryption_available"]:
