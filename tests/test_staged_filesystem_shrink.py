@@ -51,6 +51,10 @@ class StagedExtFilesystemShrinkTests(unittest.TestCase):
             return SimpleNamespace(stdout="clean\n", stderr="")
         if args[0].endswith("dumpe2fs"):
             return SimpleNamespace(stdout=f"Block size: 4096\nBlock count: {self.block_count}\n", stderr="")
+        if args[0].endswith("resize2fs") and "-P" in args:
+            return SimpleNamespace(
+                stdout="Estimated minimum size of the filesystem: 900\n", stderr=""
+            )
         if args[0].endswith("resize2fs"):
             self.block_count = int(args[-1])
             with open(self.path, "r+b") as stream:
