@@ -1190,19 +1190,129 @@ def _stop_pxe_services() -> dict[str, Any]:
 
 
 
+def _read_pxe_answer_source(params: dict[str, Any]) -> bytes:
+    """Read a bounded answer document from upload, HTTP(S), or a managed repository."""
+    from urllib.parse import urlsplit
+    from urllib.request import HTTPRedirectHandler, Request, build_opener
+    from feclora.network.pxe_answer import MAX_ANSWER_BYTES
+
+    source = params.get("source")
+    if source == "upload":
+        if set(params) != {"job_id", "source", "answer_base64"}:
+            raise WebAPIError("upload source requires job_id, source and answer_base64")
+        encoded = _text(params, "answer_base64", maximum=90_000)
+        try:
+            raw = base64.b64decode(encoded, validate=True)
+        except (ValueError, base64.binascii.Error) as exc:
+            raise WebAPIError("answer must be valid base64 data") from exc
+    elif source == "url":
+        if set(params) != {"job_id", "source", "url"}:
+            raise WebAPIError("URL source requires job_id, source and url")
+        url = _text(params, "url", maximum=4096)
+        parsed = urlsplit(url)
+        if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+                or parsed.username is not None or parsed.password is not None
+                or parsed.fragment or any(ord(char) < 32 for char in url)):
+            raise WebAPIError("answer URL must be an HTTP or HTTPS URL without embedded credentials or a fragment")
+        class _NoRedirect(HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                return None
+        request = Request(url, headers={
+            "Accept": "application/json",
+            "User-Agent": "Feclora-PXE-Answer/1",
+        })
+        try:
+            opener = build_opener(_NoRedirect)
+            with opener.open(request, timeout=10.0) as response:
+                if response.status != 200:
+                    raise WebAPIError(f"answer server returned HTTP {response.status}")
+                length = response.headers.get("Content-Length")
+                if length is not None and (not length.isdigit() or int(length) > MAX_ANSWER_BYTES):
+                    raise WebAPIError("remote answer exceeds the 64 KiB size limit")
+                raw = response.read(MAX_ANSWER_BYTES + 1)
+        except WebAPIError:
+            raise
+        except Exception as exc:
+            raise WebAPIError(f"cannot download answer from the supplied HTTP(S) URL: {exc}") from exc
+    elif source == "repository":
+        if set(params) != {"job_id", "source", "repository_id", "source_path"}:
+            raise WebAPIError("repository source requires job_id, source, repository_id and source_path")
+        repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
+        source_path = _text(params, "source_path", maximum=1024)
+        parts = source_path.split("/")
+        if (source_path.startswith("/") or "\\" in source_path or "\x00" in source_path
+                or any(part in {"", ".", ".."} or not re.fullmatch(r"[A-Za-z0-9_.@+= -]{1,128}", part)
+                       for part in parts)):
+            raise WebAPIError("repository answer path must be a safe relative path")
+        try:
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            s3_manager = S3RepositoryManager()
+            s3_entries = {item["id"] for item in s3_manager.list()}
+            if repository_id in s3_entries:
+                lease_fd = s3_manager.acquire_usage_lock(repository_id)
+                try:
+                    raw = s3_manager.repository(repository_id).download_small_object(
+                        source_path, max_bytes=MAX_ANSWER_BYTES,
+                    )
+                finally:
+                    os.close(lease_fd)
+            else:
+                manager = _remote_repository_manager()
+                lease_fd = manager.acquire_usage_lock(repository_id)
+                try:
+                    root = Path(manager.resolve(repository_id))
+                    directory_fd = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+                                           | getattr(os, "O_NOFOLLOW", 0))
+                    try:
+                        for component in parts[:-1]:
+                            next_fd = os.open(
+                                component, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+                                | getattr(os, "O_NOFOLLOW", 0), dir_fd=directory_fd,
+                            )
+                            os.close(directory_fd)
+                            directory_fd = next_fd
+                        file_fd = os.open(
+                            parts[-1], os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+                            dir_fd=directory_fd,
+                        )
+                        try:
+                            info = os.fstat(file_fd)
+                            if not stat.S_ISREG(info.st_mode) or not 1 <= info.st_size <= MAX_ANSWER_BYTES:
+                                raise WebAPIError("repository answer must be a regular file between 1 byte and 64 KiB")
+                            chunks = []
+                            remaining = MAX_ANSWER_BYTES + 1
+                            while remaining:
+                                chunk = os.read(file_fd, min(remaining, 8192))
+                                if not chunk:
+                                    break
+                                chunks.append(chunk)
+                                remaining -= len(chunk)
+                            raw = b"".join(chunks)
+                        finally:
+                            os.close(file_fd)
+                    finally:
+                        os.close(directory_fd)
+                finally:
+                    os.close(lease_fd)
+        except WebAPIError:
+            raise
+        except Exception as exc:
+            raise WebAPIError(f"cannot read answer from the selected managed repository: {exc}") from exc
+    else:
+        raise WebAPIError("source must be upload, url or repository")
+    if not 1 <= len(raw) <= MAX_ANSWER_BYTES:
+        raise WebAPIError("answer file must be between 1 byte and 64 KiB")
+    return raw
+
+
 def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
-    required = {"job_id", "answer_base64"}
-    if set(params) != required:
-        raise WebAPIError("publish_pxe_answer requires job_id and answer_base64")
+    if not isinstance(params, dict) or "job_id" not in params or "source" not in params:
+        raise WebAPIError("publish_pxe_answer requires job_id and source")
     job_id = _text(params, "job_id", maximum=36)
-    answer_text = _text(params, "answer_base64", maximum=90_000)
-    try:
-        raw_answer = base64.b64decode(answer_text, validate=True)
-    except (ValueError, base64.binascii.Error) as exc:
-        raise WebAPIError("answer must be valid base64 data") from exc
+    raw_answer = _read_pxe_answer_source(params)
     from feclora.network.pxe_answer import parse_pxe_answer, PXEAnswerError
     try:
-        answer = parse_pxe_answer(raw_answer)
+        parse_pxe_answer(raw_answer)
     except PXEAnswerError as exc:
         raise WebAPIError(f"PXE answer validation failed: {exc}") from exc
     manager = _pxe_service_manager()
@@ -1261,7 +1371,7 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         "job_id": job_id,
         "answer_url": published["answer_url"],
         "boot_script_url": f"http://{address}:{port}/unattended-answer.ipxe",
-        "message": "Answer validated and published over HTTP with an identity-free iPXE handoff. Live downloads and validates the JSON; NFS-backed whole-disk restore is connected, while other providers and physical acceptance remain pending.",
+        "message": "Answer validated and published over HTTP with an identity-free iPXE handoff. The answer was imported from the selected source and validated before publication.",
     }
 
 
