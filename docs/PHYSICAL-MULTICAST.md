@@ -2,7 +2,7 @@
 
 ## Status
 
-Not implemented. The existing UDPcast multicast restore transports manifest-backed image artifacts into private Client staging directories. It does not stream a Server block device directly into Client block devices. Do not describe the existing image multicast path as physical-disk multicast.
+Not integrated. The existing UDPcast multicast restore still transports manifest-backed image artifacts into private Client staging directories; it does not stream a Server block device directly into Client block devices. A new isolated safety module now provides fail-closed source/destination identity and geometry checks, identity revalidation, and exact-length stream write/read-back SHA-256 primitives with short-write handling. These primitives are not yet connected to UDPcast, the deployment job schema, Server/Client services, Cockpit, or durable per-client results. Do not describe physical multicast as implemented.
 
 ## Intended operation
 
@@ -35,13 +35,13 @@ Do not route this operation through image manifests, repository managers, S3, or
 
 ## Required automated coverage
 
-- source is opened read-only and source identity changes are rejected;
-- destination alias detection across device nodes and major/minor identities;
-- mounted, system-backed, undersized and incompatible-sector destinations rejected;
+- source is opened read-only and source identity changes are rejected (identity validation primitives added; actual source opening/revalidation integration remains outstanding);
+- destination alias detection across device nodes and major/minor identities (major/minor and sysfs alias checks covered by the new safety primitive);
+- mounted, system-backed, undersized and incompatible-sector destinations rejected (preflight primitive implemented; runtime inventory binding remains outstanding);
 - no data-plane start before all READY and explicit arm;
 - source read errors and short reads fail closed;
-- receiver short writes, flush errors and disconnects are recorded as incomplete;
-- successful stream requires byte-count and readback digest agreement per Client;
+- receiver short writes are handled and flush/read-back verification is required by the new stream primitive; flush errors, disconnects and durable incomplete-state reporting still need runtime integration;
+- successful stream requires byte-count and readback digest agreement per Client (in-memory stream primitive added; not yet connected to UDPcast);
 - one failed Client does not cause successful post-actions on that Client;
 - no retry/resume after uncertain partial writes;
 - fake I/O only; no physical block devices in CI.
