@@ -47,6 +47,41 @@ class LocalOperationStoreTests(unittest.TestCase):
         self.assertEqual(validated["action"], "restore_logical_volume")
         self.assertEqual(validated["params"]["target"], "/dev/mapper/vg-root")
 
+    def test_recovery_iso_build_is_a_valid_durable_operation(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000003",
+            "action": "build_recovery_iso",
+            "params": {
+                "base_iso_path": "/home/feclora/live.iso",
+                "image_id": "golden",
+                "target_wwn": "naa.5000c50012345678",
+                "target_serial": None,
+                "confirm_build": "BUILD golden",
+            },
+        }
+        validated = validate_definition(definition)
+        self.assertEqual(validated["action"], "build_recovery_iso")
+        self.assertEqual(validated["params"]["image_id"], "golden")
+
+    def test_recovery_iso_build_rejects_unmatched_confirmation_and_unsafe_path(self):
+        params = {
+            "base_iso_path": "/home/feclora/live.iso", "image_id": "golden",
+            "target_wwn": "naa.5000c50012345678", "target_serial": None,
+            "confirm_build": "BUILD other",
+        }
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000004",
+            "action": "build_recovery_iso", "params": params,
+        }
+        with self.assertRaisesRegex(LocalOperationError, "confirmation"):
+            validate_definition(definition)
+        params["confirm_build"] = "BUILD golden"
+        params["base_iso_path"] = "/tmp/../etc/passwd"
+        with self.assertRaisesRegex(LocalOperationError, "normalized"):
+            validate_definition(definition)
+
     def test_enforces_state_machine_and_hash_chain(self):
         with tempfile.TemporaryDirectory() as root:
             store = LocalOperationStore(os.path.join(root, "jobs"))
