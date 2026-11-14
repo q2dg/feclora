@@ -192,7 +192,8 @@ starting disk I/O. Cockpit can inspect the Client's phase, target description,
 byte progress and terminal result after the browser disconnects.
 
 The Cockpit Client service supports unicast whole-disk capture, whole-disk
-and partition restore, plus multicast restore of images using the configured artifact-security policy. A host
+and partition restore, multicast image restore, and direct whole-disk physical
+multicast clone using the Client's independently approved destination. A host
 runs only one storage/deployment job at a time across Server, Client and local
 Cockpit operations.
 Interrupted Client services are marked for inspection and are never
@@ -252,10 +253,10 @@ or resumes storage work after a service/process restart.
 The **Remote jobs** tab creates and lists validated Server-side job definitions.
 For restore, select an existing disk or partition image; signed and unsigned
 images are both available. Select Client MAC addresses for this job, the
-Server interface and unicast or multicast restore transport. The backend
-revalidates job MAC selection and image type, verifies a detached signature when one
-is present, and checks registered age recipients only when the image is
-age-encrypted. Manifests are transferred over the Server-authenticated TLS control session; Clients are not individually authenticated. If a Client
+Server interface and unicast or multicast transport. Multicast is available
+for image restore and whole-disk physical clone. The backend revalidates job
+MAC selection and image type, and checks registered age recipients only when
+the image is age-encrypted. Manifests are transferred over the Server-authenticated TLS control session; Clients are not individually authenticated. If a Client
 chooses to sign, its public key must be enrolled so the Server can verify it.
 
 The persisted-job table also shows each Client's last journaled state,
@@ -268,9 +269,11 @@ any storage device. The action is rejected for non-interrupted jobs.
 Unicast save/restore jobs are limited to one Client. Direct disk/partition
 clone jobs can target multiple selected Clients over independent TLS sessions;
 the Server serializes reads from its single source, while each Client retains
-its own local target approval and read-back verification. UDPcast multicast
-restore requires at least two selected Clients. Physical-device multicast
-clone is a separate feature and is not implemented yet.
+its own local target approval and read-back verification. UDPcast multicast restore and physical-disk multicast clone require at least
+two selected Clients. Physical clone binds the Server source identity when the
+job is created and requires every selected Client to report READY, revalidate
+its own destination, open it exclusively and start its UDPcast receiver before
+the Server emits the first data byte. No image staging artifact is created.
 
 For each fresh job, use **Start / connect service** to start its
 non-boot-enabled `feclora-deployment@<UUID>.service` instance. The service
@@ -284,8 +287,10 @@ minimum READY count, or a UTC deadline (at least one Client READY). The deadline
 opens the start gate but never starts storage I/O automatically. Only READY
 Clients at arm time are dispatched. The Server operator must still enter the
 exact job-specific phrase: `ARM <UUID>` for unicast save/restore,
-`ARM <UUID> AND READ /dev/<source>` for direct clone, or
-`ARM MULTICAST <UUID> IGMP-VERIFIED` for multicast restore, then select
+`ARM <UUID> AND READ /dev/<source>` for unicast direct clone,
+`ARM PHYSICAL MULTICAST <UUID> FROM /dev/<source> IGMP-VERIFIED` for
+physical multicast clone, or `ARM MULTICAST <UUID> IGMP-VERIFIED` for
+multicast image restore, then select
 **Arm and execute**. Each successful remote restore/clone Client can be
 configured independently to do nothing, reboot or power off after its own
 write/read-back verification and after reporting its terminal result. Failed
