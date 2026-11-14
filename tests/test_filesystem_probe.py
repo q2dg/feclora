@@ -183,10 +183,6 @@ class ExtFilesystemProbeTests(unittest.TestCase):
         self.assertEqual(result["target_size_bytes"], 5_000_000_000)
         self.assertEqual(len(result["partitions"]), 1)
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class NTFSFilesystemProbeTests(unittest.TestCase):
     def setUp(self):
         self.commands = []
@@ -280,3 +276,7 @@ class NTFSFilesystemProbeTests(unittest.TestCase):
         self.assertEqual(calls, [("/dev/source2", "ntfs")])
         self.assertLess(plan[-1].size_sectors, partitions[-1]["size"])
         self.assertGreaterEqual(plan[-1].size_sectors * 512, 1024 * 1024 * 1024)
+
+
+if __name__ == "__main__":
+    unittest.main()
