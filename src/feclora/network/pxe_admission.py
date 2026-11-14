@@ -271,7 +271,7 @@ class PXEAdmission:
                 "job_id": canonical, "client_mac": mac.lower(),
                 "received_at": time.time(),
             }
-            payload = (json.dumps(record, sort_keys=True, ensure_ascii=False) + "\\n").encode("utf-8")
+            payload = (json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
             current_size = existing.st_size if existing is not None else 0
             if current_size + len(payload) > 8 * 1024 * 1024:
                 raise PXEAdmissionError("PXE report journal has reached its 8 MiB retention limit")
@@ -282,7 +282,6 @@ class PXEAdmission:
                 if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid():
                     raise PXEAdmissionError("PXE report journal file is unsafe")
                 os.fchmod(fd, 0o600)
-                payload = (json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
                 view = memoryview(payload)
                 while view:
                     count = os.write(fd, view)
