@@ -1069,7 +1069,7 @@ export default function App() {
                     <select className="pf-v5-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); if (e.target.value === "save" || e.target.value === "clone") { setRemoteTransport("unicast"); setRemoteTargetType("disk"); } }}>
                       <option value="restore">Restore a Server image to Clients</option>
                       <option value="save">Capture whole disks from Clients to Server</option>
-                      <option value="clone">Clone a Server disk or partition directly to one Client</option>
+                      <option value="clone">Clone a Server disk or partition directly to multiple Clients</option>
                     </select>
                   </Field>
                   {(remoteOperation === "restore" || remoteOperation === "save") && <Field label="Image repository" help={remoteOperation === "save" ? "Client captures are staged on the Server and published to S3 only after a successful TLS transfer." : "The Server fetches and verifies the image from this repository before transmitting it to Clients over authenticated TLS."}>
@@ -1097,7 +1097,7 @@ export default function App() {
                       {remoteOperation !== "save" && <option value="partition">Partition</option>}
                     </select>
                   </Field>}
-                  <Field label="Selected Client MAC addresses" help={remoteOperation === "clone" ? "Enter exactly one selected Client MAC. That Client independently selects and confirms a destination of the selected device type." : "Enter exactly one MAC for unicast, or at least two for multicast restore. Server checks that each MAC is selected for this job; MAC is not authentication."}>
+                  <Field label="Selected Client MAC addresses" help={remoteOperation === "clone" ? "Enter one or more selected Client MAC addresses. Each Client independently selects and confirms its own destination of the selected device type. Transfers are serialized from the Server source; each Client verifies its own write." : "Enter one or more MAC addresses for unicast clone, exactly one for unicast save/restore, or at least two for multicast restore. Server checks that each MAC is selected for this job; MAC is not authentication."}>
                     <textarea className="pf-v5-c-form-control" rows={3} value={remoteClients} onChange={(e) => setRemoteClients(e.target.value)} required placeholder="52:54:00:12:34:56" />
                   </Field>
                   <Field label="Server network interface">
