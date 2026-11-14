@@ -686,6 +686,10 @@ class DeploymentControlServer:
 
         started = self.arm_and_start()
         if set(started) != set(transfers):
+            for mac in started:
+                self._record_transfer_failure(
+                    mac, "remote clone start fan-out was incomplete; no Client received a data stream",
+                )
             return self.collect_results(timeout=result_timeout)
 
         for mac in sorted(started):
