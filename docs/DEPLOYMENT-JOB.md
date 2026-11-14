@@ -132,7 +132,7 @@ The existing Remote jobs workflow uses Server-authenticated TLS, job-scoped
 MAC selection and its READY/ARM lifecycle. That workflow is separate from the new shared
 PXE answer-file design. The answer-file publication path validates a declarative
 restore answer on the Server and serves it through Caddy over HTTP without
-per-Client identity or enrollment. The Live answer downloader, NFS read-only mount, unique WWN/serial target
+per-Client credential or enrollment. The Live answer downloader, NFS read-only mount, unique WWN/serial target
 resolution, pre-write revalidation and whole-disk restore engine are connected.
 Other repository providers, replay/expiry controls and Cockpit result reconciliation
 remain software backlog; physical/network acceptance is optional. Do not infer authorization from PXE boot,
