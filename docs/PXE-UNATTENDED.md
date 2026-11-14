@@ -50,10 +50,11 @@ directly, verifies TLS certificates, rejects redirects and embedded URL
 credentials, and enforces the 64 KiB limit. For SSHFS/SFTP, NFS and SMB/CIFS,
 the selected repository must already be mounted and identity-verified; the
 answer path is relative to its mount root. For S3, the path is an object key
-relative to the configured bucket prefix. Repository credentials are reused
-from Feclora's protected configuration and are never entered into the answer
-form. SCP is not a separate configured repository backend; use a configured
-SSHFS/SFTP repository for SSH-hosted files.
+relative to the configured bucket prefix. SCP can also fetch directly from a
+configured SSHFS repository definition, reusing its protected SSH private key
+and known_hosts data with strict host-key verification; the SSHFS mount need
+not be active for this SCP mode. Repository credentials are never entered
+into the answer form.
 
 All sources pass the same strict JSON schema validation before the Server
 publishes the document through Caddy over HTTP under a generated job UUID. It
