@@ -1,4 +1,5 @@
 import hashlib
+import io
 import os
 import tempfile
 import unittest
@@ -8,6 +9,8 @@ from unittest.mock import Mock, patch
 
 from feclora.network.udpcast import (
     UDPcastConfig, UDPcastError, build_receiver_argv, build_sender_argv,
+    build_physical_stream_sender_argv, build_physical_stream_receiver_argv,
+    feed_physical_stream_to_sender, verify_received_physical_stream,
     discard_staged_multicast_artifact, multicast_firewall_scope,
     receive_multicast_artifact_to_staging, send_multicast_artifact, verify_artifact_file,
 )
@@ -31,6 +34,67 @@ class UDPcastConfigTests(unittest.TestCase):
         self.assertNotIn("--autostart", sender)
         self.assertIn("/tmp/staged", receiver)
         self.assertNotIn("/dev/sda", receiver)
+
+    def test_physical_stream_commands_use_pipes_without_file_or_device_paths(self):
+        sender = build_physical_stream_sender_argv("/usr/bin/udp-sender", self.config)
+        receiver = build_physical_stream_receiver_argv("/usr/bin/udp-receiver", self.config)
+        self.assertNotIn("--file", sender)
+        self.assertNotIn("--file", receiver)
+        self.assertNotIn("/dev/", " ".join(sender + receiver))
+        self.assertIn("--min-receivers", sender)
+        self.assertIn("239.10.10.1", sender)
+        self.assertIn("239.10.10.2", receiver)
+
+    def test_physical_stream_sender_handles_short_writes_and_hashes_exact_bytes(self):
+        payload = b"direct-block-stream" * 500
+        class ShortWriter:
+            def __init__(self):
+                self.data = bytearray()
+                self.closed = False
+            def write(self, view):
+                count = min(71, len(view))
+                self.data.extend(view[:count])
+                return count
+            def close(self):
+                self.closed = True
+        writer = ShortWriter()
+        result = feed_physical_stream_to_sender(
+            io.BytesIO(payload), writer, len(payload), chunk_size=4096,
+        )
+        self.assertEqual(bytes(writer.data), payload)
+        self.assertTrue(writer.closed)
+        self.assertEqual(result["bytes_sent"], len(payload))
+        self.assertEqual(result["sha256"], hashlib.sha256(payload).hexdigest())
+
+    def test_physical_stream_receiver_writes_and_verifies_server_digest(self):
+        payload = b"direct-block-stream" * 100
+        stored = bytearray()
+        offset = 0
+        def write(view):
+            count = min(97, len(view))
+            stored.extend(view[:count])
+            return count
+        def readback(count):
+            nonlocal offset
+            data = bytes(stored[offset:offset + count])
+            offset += len(data)
+            return data
+        result = verify_received_physical_stream(
+            io.BytesIO(payload), write, lambda: None, readback,
+            expected_bytes=len(payload), expected_sha256=hashlib.sha256(payload).hexdigest(),
+            chunk_size=4096,
+        )
+        self.assertTrue(result["verified"])
+        self.assertEqual(result["bytes_written"], len(payload))
+
+    def test_physical_stream_receiver_rejects_server_digest_mismatch(self):
+        payload = b"source-digest"
+        with self.assertRaisesRegex(UDPcastError, "Server source digest"):
+            verify_received_physical_stream(
+                io.BytesIO(payload), lambda view: len(view), lambda: None,
+                lambda count: payload[:count], expected_bytes=len(payload),
+                expected_sha256="0" * 64, chunk_size=4096,
+            )
 
     def test_rejects_non_multicast_group_and_invalid_port(self):
         with self.assertRaises(UDPcastError):
