@@ -3,9 +3,9 @@
 Server and Client modes share a validated JSON deployment-job document. The
 job is a declarative description sent over a TLS control session in which the
 Client verifies the Server certificate. It is not a credential, Client
-identity, target-device path or authorization to write. The Server does not
-authenticate individual Clients; it checks each reported MAC against the active
-job as operational scoping, not identity proof. Each Client performs local
+identity, target-device path or authorization to write. The Server associates
+each session with the MAC address reported by the Client and checks it against
+the active job's selected MAC list. Each Client performs local
 device checks, and the Server operator explicitly ARMs the complete READY set.
 
 ## Example: multi-Client restore with stable target bindings
@@ -64,7 +64,7 @@ device checks, and the Server operator explicitly ARMs the complete READY set.
   and Cockpit API independently validate the selected LV against healthy local
   LVM topology before reporting READY.
 - `authorized_clients`: non-empty allowlist of unique unicast MAC addresses.
-  MAC is an inventory mapping key, not cryptographic authentication.
+  MAC is the operational identifier used to select and track each Client in the job.
 - `target_bindings`: optional object for whole-disk restore jobs, keyed by an
   selected Client MAC. If present, it must bind every selected Client.
   Each value contains exactly `wwn` and `serial`; at least one must be supplied.
