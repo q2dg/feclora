@@ -1234,26 +1234,95 @@ def _read_pxe_answer_source(params: dict[str, Any]) -> bytes:
             raise
         except Exception as exc:
             raise WebAPIError(f"cannot download answer from the supplied HTTP(S) URL: {exc}") from exc
-    elif source == "repository":
+    elif source in {"repository", "scp"}:
         if set(params) != {"job_id", "source", "repository_id", "source_path"}:
-            raise WebAPIError("repository source requires job_id, source, repository_id and source_path")
+            raise WebAPIError("repository/SCP source requires job_id, source, repository_id and source_path")
         repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}", maximum=48)
         source_path = _text(params, "source_path", maximum=1024)
         parts = source_path.split("/")
         if (source_path.startswith("/") or "\\" in source_path or "\x00" in source_path
-                or any(part in {"", ".", ".."} or not re.fullmatch(r"[A-Za-z0-9_.@+= -]{1,128}", part)
+                or any(part in {"", ".", ".."} or not re.fullmatch(r"[A-Za-z0-9_.@+=-]{1,128}", part)
                        for part in parts)):
             raise WebAPIError("repository answer path must be a safe relative path")
         try:
             from feclora.storage.s3_repository_manager import S3RepositoryManager
             s3_manager = S3RepositoryManager()
             s3_entries = {item["id"] for item in s3_manager.list()}
-            if repository_id in s3_entries:
+            if source == "repository" and repository_id in s3_entries:
                 lease_fd = s3_manager.acquire_usage_lock(repository_id)
                 try:
                     raw = s3_manager.repository(repository_id).download_small_object(
                         source_path, max_bytes=MAX_ANSWER_BYTES,
                     )
+                finally:
+                    os.close(lease_fd)
+            elif source == "scp":
+                manager = _remote_repository_manager()
+                lease_fd = manager.acquire_usage_lock(repository_id)
+                try:
+                    definition = manager._load().get(repository_id)
+                    if not isinstance(definition, dict) or definition.get("provider") != "sshfs":
+                        raise WebAPIError("SCP source requires an existing SSHFS repository definition")
+                    from feclora.storage.repository_manager import _repository
+                    repo = _repository(repository_id, definition)
+                    from feclora.storage.systemd_credential_store import SystemdCredentialStore
+                    credential_store = SystemdCredentialStore()
+
+                    def read_ssh_material(path_value: str, kind: str, *, private: bool) -> bytes:
+                        credential_path = Path(path_value)
+                        prefix = "feclora-"
+                        suffix = f"-{kind}.cred"
+                        if (credential_path.parent == credential_store.root
+                                and credential_path.name.startswith(prefix)
+                                and credential_path.name.endswith(suffix)):
+                            identifier = credential_path.name[len(prefix):-len(suffix)]
+                            return credential_store.read(identifier, kind)
+                        fd = os.open(credential_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+                        try:
+                            info = os.fstat(fd)
+                            if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
+                                    or info.st_mode & (0o077 if private else 0o022)
+                                    or info.st_size > 1024 * 1024):
+                                raise WebAPIError("SSH credential file is unsafe")
+                            return os.read(fd, 1024 * 1024 + 1)
+                        finally:
+                            os.close(fd)
+
+                    scp = shutil.which("scp")
+                    if not scp:
+                        raise WebAPIError("OpenSSH scp is required for this source")
+                    key_bytes = read_ssh_material(repo.identity_file, "ssh-key", private=True)
+                    known_hosts_bytes = read_ssh_material(repo.known_hosts_file, "known-hosts", private=False)
+                    with tempfile.TemporaryDirectory(prefix="feclora-pxe-scp-") as temporary:
+                        temporary_root = Path(temporary)
+                        key_path = temporary_root / "identity"
+                        known_hosts_path = temporary_root / "known_hosts"
+                        output_path = temporary_root / "answer.json"
+                        key_path.write_bytes(key_bytes)
+                        known_hosts_path.write_bytes(known_hosts_bytes)
+                        os.chmod(key_path, 0o600)
+                        os.chmod(known_hosts_path, 0o600)
+                        remote_file = f"{repo.remote_path.rstrip('/')}/{source_path}"
+                        command = [
+                            scp, "-q", "-B", "-oBatchMode=yes",
+                            "-oStrictHostKeyChecking=yes",
+                            f"-oUserKnownHostsFile={known_hosts_path}",
+                            "-oIdentitiesOnly=yes", "-oConnectTimeout=10",
+                            "-i", str(key_path), "-P", str(repo.port or 22),
+                            f"{repo.username}@{repo.host}:{remote_file}",
+                            str(output_path),
+                        ]
+                        result = subprocess.run(
+                            command, stdin=subprocess.DEVNULL, capture_output=True,
+                            check=False, timeout=20,
+                        )
+                        if result.returncode != 0:
+                            detail = result.stderr.decode("utf-8", errors="replace")[:512]
+                            raise WebAPIError(f"SCP answer download failed: {detail or 'remote copy failed'}")
+                        info = output_path.lstat()
+                        if not stat.S_ISREG(info.st_mode) or not 1 <= info.st_size <= MAX_ANSWER_BYTES:
+                            raise WebAPIError("SCP answer must be a regular file between 1 byte and 64 KiB")
+                        raw = output_path.read_bytes()
                 finally:
                     os.close(lease_fd)
             else:
