@@ -109,6 +109,26 @@ class DeploymentJobTests(unittest.TestCase):
                 multicast_group="239.10.10.10", multicast_port=5000,
             ))
 
+    def test_physical_clone_source_identity_is_round_tripped_and_scoped(self):
+        identity = {
+            "path": "/dev/sda", "major_minor": "8:0", "sysfs_path": "/sys/devices/pci/sda",
+            "wwn": "wwn-1", "serial": "serial-1", "size_bytes": 8192,
+            "logical_sector_size": 512, "physical_sector_size": 4096,
+            "read_only": True, "mountpoints": [], "holders": [],
+            "backs_system": False, "busy": False,
+        }
+        job = DeploymentJob.from_dict(valid_job(
+            operation="clone", image_id=None, source_device="/dev/sda",
+            transport="multicast", multicast_group="239.10.10.10",
+            multicast_port=5000, source_identity=identity,
+        ))
+        self.assertEqual(DeploymentJob.from_json(job.to_json()), job)
+        self.assertEqual(job.to_dict()["source_identity"], identity)
+        with self.assertRaisesRegex(JobValidationError, "physical multicast clone"):
+            DeploymentJob.from_dict(valid_job(
+                source_identity=identity,
+            ))
+
     def test_restore_job_can_reference_a_simple_remote_repository_id(self):
         job = DeploymentJob.from_dict(valid_job(repository_id="nas-images"))
         self.assertEqual(job.repository_id, "nas-images")
