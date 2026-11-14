@@ -1,14 +1,48 @@
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
+import stat
 
 from feclora.storage.proportional_staging import StagedRawDiskImage
 from feclora.storage.proportional_restore_workflow import (
     ProportionalRestoreWorkflowError,
     prepare_from_offline_source_disk,
+    require_distinct_block_devices,
 )
 
 
 class ProportionalRestoreWorkflowTests(unittest.TestCase):
+    def test_rejects_source_and_destination_aliasing_same_block_device(self):
+        devices = {
+            "/dev/disk/by-id/source": SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=2049),
+            "/dev/sda": SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=2049),
+        }
+        with self.assertRaisesRegex(ProportionalRestoreWorkflowError, "same physical"):
+            require_distinct_block_devices(
+                "/dev/disk/by-id/source", "/dev/sda",
+                stat_device=devices.__getitem__,
+            )
+
+    def test_accepts_distinct_block_device_identities(self):
+        devices = {
+            "/dev/sda": SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=2048),
+            "/dev/sdb": SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=2064),
+        }
+        self.assertEqual(
+            require_distinct_block_devices("/dev/sda", "/dev/sdb", stat_device=devices.__getitem__),
+            (2048, 2064),
+        )
+
+    def test_rejects_regular_file_as_destination(self):
+        devices = {
+            "/dev/sda": SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=2048),
+            "/dev/not-a-device": SimpleNamespace(st_mode=stat.S_IFREG, st_rdev=0),
+        }
+        with self.assertRaisesRegex(ProportionalRestoreWorkflowError, "block devices"):
+            require_distinct_block_devices(
+                "/dev/sda", "/dev/not-a-device", stat_device=devices.__getitem__
+            )
+
     def setUp(self):
         self.staged = StagedRawDiskImage("/private/stage/disk.raw", 4 * 1024 * 1024, "a" * 64)
         self.source = {
