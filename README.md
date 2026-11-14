@@ -1,22 +1,6 @@
-<p align="center">
-  <img src="docs/assets/feclora-social-preview.svg" alt="Feclora" width="720">
-</p>
-
-**Feclora** is a Fedora Server-based minimal Live appliance for disk imaging, cloning, recovery and network deployment. It boots into a locked-down Firefox kiosk that opens the Feclora Cockpit application; it has no general-purpose desktop.
-
-Project website: https://q2dg.github.io/feclora/
+**Feclora** is a Fedora Server-based minimal Live appliance for disk imaging, cloning, recovery and network deployment. It boots into a locked-down Firefox kiosk that opens a Cockpit-based application, so it has no general-purpose desktop.
 
 **New here?** Start with the [step-by-step operator guides](https://q2dg.github.io/feclora/GETTING-STARTED.html).
-
-## Workflow previews
-
-These are illustrative UI mockups, not screenshots from a running system.
-
-| Capture | Restore | Network deployment |
-|---|---|---|
-| ![Illustrative capture wizard mockup](docs/assets/mockups/capture-wizard.svg) | ![Illustrative restore wizard mockup](docs/assets/mockups/restore-wizard.svg) | ![Illustrative Server and Client deployment mockup](docs/assets/mockups/network-deployment.svg) |
-| [Capture guide](https://q2dg.github.io/feclora/WHOLE-DISK-CAPTURE.html) | [Restore guide](https://q2dg.github.io/feclora/WHOLE-DISK-RESTORE.html) | [Deployment guide](https://q2dg.github.io/feclora/DEPLOYMENT-SETUP.html) |
-
 
 ## Current implementation
 
@@ -45,22 +29,6 @@ See the [operator guides](docs/GUIDES.md), [feature matrix](docs/FEATURE-MATRIX.
 ## Build and test
 
 Follow [docs/BUILD.md](docs/BUILD.md) for build-host prerequisites, image build commands and BIOS/UEFI QEMU checks. ISO generation and physical-hardware acceptance are operator-run.
-
-## Repository layout
-
-```text
-feclora/
-├── .github/workflows/   # CI, tests and documentation deployment
-├── build/               # Live image and frontend build scripts
-├── docs/                # Operator, build and implementation documentation
-├── kickstart/           # Fedora Live image configuration
-├── packages/            # Runtime and build-host package manifests
-├── src/feclora/         # Python backend and privileged operations
-├── tests/               # Automated tests and acceptance procedures
-├── webui/               # Cockpit React/PatternFly application
-├── Makefile
-└── README.md
-```
 
 ## License
 
