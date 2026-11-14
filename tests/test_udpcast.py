@@ -259,7 +259,7 @@ class PhysicalMulticastProcessTests(unittest.TestCase):
         class Process:
             returncode = 0
             def __init__(self, **kwargs):
-                self.stdin = kwargs["stdin"]
+                self.stdin = io.BytesIO()
             def wait(self, **kwargs):
                 return self.returncode
         calls = []
