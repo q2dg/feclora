@@ -2841,6 +2841,20 @@ def dispatch(request: Any) -> dict[str, Any]:
     params = request.get("params", {})
     if not isinstance(params, dict):
         raise WebAPIError("params must be a JSON object")
+    if action == "get_keyboard_layout":
+        if params:
+            raise WebAPIError("get_keyboard_layout does not accept parameters")
+        from feclora.system_preferences import get_keyboard_layout, KeyboardLayoutError
+        try:
+            return get_keyboard_layout()
+        except KeyboardLayoutError as exc:
+            raise WebAPIError(str(exc)) from exc
+    if action == "set_keyboard_layout":
+        from feclora.system_preferences import set_keyboard_layout, KeyboardLayoutError
+        try:
+            return set_keyboard_layout(params)
+        except KeyboardLayoutError as exc:
+            raise WebAPIError(str(exc)) from exc
     if action == "status":
         if params:
             raise WebAPIError("status does not accept parameters")
