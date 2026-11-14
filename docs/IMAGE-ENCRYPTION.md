@@ -16,7 +16,7 @@ Artifact encryption is optional and uses the upstream `age` tools. Feclora does 
 
 For each artifact, the manifest records its stored byte count and SHA-256 digest. Feclora verifies these values during local image verification, TLS image-set transfer, multicast staging and restore preflight. Compressed and age-encrypted artifacts are also decoded/authenticated as applicable before a destructive restore is allowed to proceed.
 
-The manifest itself is not cryptographically signed. A digest stored in the same manifest as the artifact is an integrity check, not an independent authenticity proof. The trust boundary therefore comes from the authenticated transport or the operator-controlled local repository:
+A digest stored in the same manifest as the artifact is an integrity check, not an independent authenticity proof. The trust boundary therefore comes from the authenticated transport or the operator-controlled local repository:
 
 - Unicast deployment uses the Server-authenticated TLS control session.
 - Multicast distributes the manifest over that TLS control session; UDPcast carries the artifact bytes and does not provide datagram confidentiality or peer authentication.
@@ -26,9 +26,9 @@ An attacker able to replace both a manifest and its artifacts in a trusted repos
 
 ## Unattended restore profiles
 
-Unattended profiles are authorized by local filesystem policy rather than detached signatures. The profile and its containing directory must be root-owned; the profile must have mode 0600 and the directory must not be writable by group or other users. Profiles remain single-use, expire, bind to stable target identity and require post-write verification. The replay ledger must be on persistent storage.
+Unattended profiles are authorized by local filesystem policy. The profile and its containing directory must be root-owned; the profile must have mode 0600 and the directory must not be writable by group or other users. Profiles remain single-use, expire, bind to stable target identity and require post-write verification. The replay ledger must be on persistent storage.
 
-This policy assumes the local root account and boot environment are trusted. It is not a substitute for a cryptographic signature when profiles must be distributed across mutually untrusted systems.
+This policy assumes the local root account and boot environment are trusted. Profiles are intended for local use, not distribution across mutually untrusted systems.
 
 ## Operational acceptance
 
