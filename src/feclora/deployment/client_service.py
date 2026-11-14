@@ -597,6 +597,7 @@ class ClientDeploymentService:
                     from feclora.deployment.multicast_runtime import udpcast_config_for_job
 
                     descriptor = None
+                    ready_sent = False
                     try:
                         if not isinstance(approval.physical_identity, dict) or not isinstance(approval.physical_stream, dict):
                             raise DeploymentControlError("physical clone approval or stream metadata is missing")
@@ -611,39 +612,42 @@ class ClientDeploymentService:
                             role="Client destination",
                         )
                         write, flush, readback = block_device_stream_callbacks(descriptor)
-                        send_control_message(tls_socket, {
-                            "type": "physical_ready", "job_id": job.job_id,
-                            "ready": True, "detail": "Destination identity revalidated and exclusively opened.",
-                        })
-                    except Exception as exc:
-                        try:
-                            send_control_message(tls_socket, {
-                                "type": "physical_ready", "job_id": job.job_id,
-                                "ready": False, "detail": str(exc)[:256],
-                            })
-                        except Exception:
-                            pass
-                        if descriptor is not None:
-                            os.close(descriptor)
-                        raise DeploymentControlError(f"physical destination preparation failed: {exc}") from exc
-                    try:
                         udpcast = udpcast_config_for_job(
                             job, min_receivers=len(job.authorized_clients),
                             network_interface=network_interface,
                         )
+                        def acknowledge_receiver_ready():
+                            nonlocal ready_sent
+                            send_control_message(tls_socket, {
+                                "type": "physical_ready", "job_id": job.job_id,
+                                "ready": True, "detail": "UDPcast receiver started and destination opened exclusively.",
+                            })
+                            ready_sent = True
                         result = receive_physical_multicast_stream(
                             write, flush, readback,
                             expected_bytes=approval.physical_stream["expected_bytes"],
                             expected_sha256=approval.physical_stream["sha256"],
                             config=udpcast, firewall=PXEFirewall(),
+                            ready_callback=acknowledge_receiver_ready,
                         )
                         report_progress("clone", result["bytes_verified"], result["bytes_verified"])
                         return True, (
                             f"Physical multicast clone verified: {result['bytes_verified']} bytes; "
                             f"SHA-256 {result['readback_sha256']}."
                         )
+                    except Exception as exc:
+                        if not ready_sent:
+                            try:
+                                send_control_message(tls_socket, {
+                                    "type": "physical_ready", "job_id": job.job_id,
+                                    "ready": False, "detail": str(exc)[:256],
+                                })
+                            except Exception:
+                                pass
+                        raise DeploymentControlError(f"physical multicast receive failed: {exc}") from exc
                     finally:
-                        os.close(descriptor)
+                        if descriptor is not None:
+                            os.close(descriptor)
                 if job.transport == "multicast":
                     return execute_multicast_restore(
                         job, tls_socket, approval,
