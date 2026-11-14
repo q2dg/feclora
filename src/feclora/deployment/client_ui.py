@@ -261,7 +261,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
         identity_choices.append(("cancel", "Cancel"))
         identity_action = dialog_app._menu(
             "Client",
-            "Server certificate verification is enabled; no Client certificate or individual authentication is used.",
+            "This Client verifies the Server certificate; the Server identifies job participants by their reported MAC address.",
             identity_choices,
         )
         if identity_action in (None, "cancel"):
