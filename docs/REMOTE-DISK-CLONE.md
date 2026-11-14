@@ -8,6 +8,10 @@ title: One-to-one remote disk and partition cloning
 
 # One-to-one remote disk and partition cloning
 
+![Illustrative mockup of the Feclora Server and Client deployment workflow]({{ '/assets/mockups/network-deployment.svg' | relative_url }})
+
+*Illustrative mockup — not a screenshot. The topology, addresses and readiness states are fictional; the actual workflow and its limits are described below.*
+
 Feclora implements direct whole-disk and partition-to-partition cloning as distinct
 clone-operation target types inside the persistent Server/Client deployment lifecycle. The Server is the
 source and the Client is the receiver. No second daemon, listener, IPC
