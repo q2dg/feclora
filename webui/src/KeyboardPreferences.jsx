@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Alert, Button, Card, CardBody, CardTitle, Form, FormGroup } from "@patternfly/react-core";
 import { callFeclora } from "./api.js";
+import { useLanguagePreference } from "./i18n.js";
 
 const LAYOUTS = [
   ["us", "English (US)"], ["us-intl", "English (US, international dead keys)"],
@@ -12,6 +13,7 @@ const LAYOUTS = [
 ];
 
 export default function KeyboardPreferences() {
+  const { t } = useLanguagePreference();
   const [layout, setLayout] = useState("us");
   const [current, setCurrent] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -46,20 +48,20 @@ export default function KeyboardPreferences() {
   };
 
   return <Card>
-    <CardTitle>Keyboard layout</CardTitle>
+    <CardTitle>{t("keyboard")}</CardTitle>
     <CardBody>
-      <p>Choose the physical keyboard mapping independently of the interface language. This setting updates the persistent Linux virtual-console keymap and the active text console.</p>
+      <p>{t("chooseLayout")}</p>
       <Form>
-        <FormGroup label="Keyboard layout" fieldId="feclora-keyboard-layout">
+        <FormGroup label={t("keyboard")} fieldId="feclora-keyboard-layout">
           <select id="feclora-keyboard-layout" className="pf-v5-c-form-control" value={layout} onChange={(event) => setLayout(event.target.value)} disabled={busy}>
             {LAYOUTS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </select>
         </FormGroup>
-        <Button variant="primary" onClick={apply} isLoading={busy} isDisabled={busy}>Apply keyboard layout</Button>
+        <Button variant="primary" onClick={apply} isLoading={busy} isDisabled={busy}>{t("applyLayout")}</Button>
       </Form>
-      {current && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">Current Linux keymap: {current.keymap || "unknown"}</p>}
-      {notice && <Alert variant="success" title="Keyboard layout applied" isInline className="pf-v5-u-mt-md">{notice}</Alert>}
-      {error && <Alert variant="danger" title="Keyboard layout could not be applied" isInline className="pf-v5-u-mt-md">{error}</Alert>}
+      {current && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{t("currentKeymap")}: {current.keymap || "unknown"}</p>}
+      {notice && <Alert variant="success" title={t("layoutApplied")} isInline className="pf-v5-u-mt-md">{notice}</Alert>}
+      {error && <Alert variant="danger" title={t("layoutFailed")} isInline className="pf-v5-u-mt-md">{error}</Alert>}
       <Alert variant="info" title="Scope" isInline className="pf-v5-u-mt-md">The current implementation configures the Linux virtual console. The Cage/Wayland graphical session still needs a separate XKB runtime integration; this control does not claim to change that session yet.</Alert>
     </CardBody>
   </Card>;
