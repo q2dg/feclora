@@ -518,9 +518,12 @@ def verify_peer_identity(tls_socket: Any, expected_identity: str) -> None:
 
 def create_tls_context(
     role: str, *, ca_file: str | None = None,
+    server_certificate_file: str | None = None, server_private_key_file: str | None = None,
 ) -> ssl.SSLContext:
-    """Create TLS contexts for Client-side Server verification or the Server listener."""
+    """Create a Client trust context or a Server TLS listener context."""
     if role == "client":
+        if server_certificate_file is not None or server_private_key_file is not None:
+            raise RemoteCloneProtocolError("Client TLS context accepts only the Server CA trust anchor")
         if not ca_file:
             raise RemoteCloneProtocolError("client TLS requires the Server CA certificate")
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -528,7 +531,7 @@ def create_tls_context(
         context.verify_mode = ssl.CERT_REQUIRED
         context.check_hostname = False
     elif role == "server":
-        if not certificate_file or not private_key_file:
+        if not server_certificate_file or not server_private_key_file:
             raise RemoteCloneProtocolError("server TLS requires its certificate and private key")
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.verify_mode = ssl.CERT_NONE
@@ -536,5 +539,5 @@ def create_tls_context(
         raise RemoteCloneProtocolError("TLS role must be 'client' or 'server'")
     context.minimum_version = ssl.TLSVersion.TLSv1_2
     if role == "server":
-        context.load_cert_chain(certfile=certificate_file, keyfile=private_key_file)
+        context.load_cert_chain(certfile=server_certificate_file, keyfile=server_private_key_file)
     return context
