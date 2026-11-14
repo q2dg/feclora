@@ -244,6 +244,10 @@ class PXEAdmission:
         lock_path = path.with_suffix(".lock")
         lock_fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
         try:
+            lock_info = os.fstat(lock_fd)
+            if (not stat.S_ISREG(lock_info.st_mode) or lock_info.st_uid != os.geteuid()
+                    or lock_info.st_mode & 0o077):
+                raise PXEAdmissionError("PXE report lock file is unsafe")
             fcntl.flock(lock_fd, fcntl.LOCK_EX)
             try:
                 existing = path.lstat()
@@ -267,6 +271,10 @@ class PXEAdmission:
                 "job_id": canonical, "client_mac": mac.lower(),
                 "received_at": time.time(),
             }
+            payload = (json.dumps(record, sort_keys=True, ensure_ascii=False) + "\\n").encode("utf-8")
+            current_size = existing.st_size if existing is not None else 0
+            if current_size + len(payload) > 8 * 1024 * 1024:
+                raise PXEAdmissionError("PXE report journal has reached its 8 MiB retention limit")
             fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT
                          | getattr(os, "O_NOFOLLOW", 0), 0o600)
             try:
