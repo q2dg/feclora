@@ -41,6 +41,7 @@ def restore_staged_proportional_image(
     target_path: str,
     *,
     sector_size: int,
+    expected_device_identity: Any,
     confirmation: str,
     executables: dict[str, str | None] | None = None,
     device_validator: Callable[[str], bool] | None = None,
@@ -61,6 +62,8 @@ def restore_staged_proportional_image(
         raise StagedProportionalRestoreError("a staged RAW image descriptor is required")
     if not isinstance(target_path, str) or not target_path.startswith("/dev/") or "\x00" in target_path:
         raise StagedProportionalRestoreError("target must be an absolute /dev/ path")
+    if expected_device_identity is None:
+        raise StagedProportionalRestoreError("the destination identity captured during target selection is required")
     if confirmation != f"ERASE {target_path}":
         raise StagedProportionalRestoreError(f"explicit confirmation required: ERASE {target_path}")
     if isinstance(sector_size, bool) or sector_size not in {512, 4096}:
@@ -146,6 +149,10 @@ def restore_staged_proportional_image(
                 raise StagedProportionalRestoreError(f"cannot establish destination identity: {exc}") from exc
 
         initial_identity = check_target()
+        if initial_identity != expected_device_identity:
+            raise StagedProportionalRestoreError(
+                "destination no longer matches the block-device identity captured during target selection"
+            )
         if pre_write_callback is not None:
             pre_write_callback()
         if check_target() != initial_identity:
