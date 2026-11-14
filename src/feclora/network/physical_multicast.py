@@ -266,30 +266,36 @@ def validate_physical_multicast_cohort(
             raise PhysicalMulticastError("physical multicast selected Client set is not unique unicast MACs")
         normalized.append(value)
     selected = set(normalized)
-    if not isinstance(client_states, Mapping):
-        raise PhysicalMulticastError("physical multicast Client readiness inventory is invalid")
-    states = {str(mac).lower(): state for mac, state in client_states.items()}
+    def normalize_client_map(value: Mapping[str, Any], label: str) -> dict[str, Any]:
+        if not isinstance(value, Mapping):
+            raise PhysicalMulticastError(f"physical multicast {label} inventory is invalid")
+        result: dict[str, Any] = {}
+        for raw_mac, item in value.items():
+            if (not isinstance(raw_mac, str)
+                    or not re.fullmatch(r"(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}", raw_mac)):
+                raise PhysicalMulticastError(f"physical multicast {label} contains an invalid Client MAC")
+            mac = raw_mac.lower()
+            if mac in result:
+                raise PhysicalMulticastError(f"physical multicast {label} contains duplicate Client MACs")
+            result[mac] = item
+        return result
+
+    states = normalize_client_map(client_states, "readiness")
+    approved_by_mac = normalize_client_map(approved_destinations, "destination approval")
+    current_by_mac = normalize_client_map(current_destinations, "destination revalidation")
     if set(states) != selected:
         raise PhysicalMulticastError("every selected Client must be present before physical multicast")
     if any(state != "ready" for state in states.values()):
         raise PhysicalMulticastError("every selected Client must be READY before physical multicast")
-    if (not isinstance(approved_destinations, Mapping)
-            or not isinstance(current_destinations, Mapping)
-            or {str(mac).lower() for mac in approved_destinations} != selected
-            or {str(mac).lower() for mac in current_destinations} != selected):
+    if set(approved_by_mac) != selected or set(current_by_mac) != selected:
         raise PhysicalMulticastError("every selected Client must independently approve and revalidate one destination")
-
     assert_device_identity_unchanged(
         source_approved, source_current, role="Server source",
     )
     validated: list[tuple[str, dict[str, Any]]] = []
     for mac in sorted(selected):
-        approved = approved_destinations.get(mac, approved_destinations.get(
-            next((key for key in approved_destinations if str(key).lower() == mac), mac)
-        ))
-        current = current_destinations.get(mac, current_destinations.get(
-            next((key for key in current_destinations if str(key).lower() == mac), mac)
-        ))
+        approved = approved_by_mac[mac]
+        current = current_by_mac[mac]
         if not isinstance(approved, Mapping) or not isinstance(current, Mapping):
             raise PhysicalMulticastError(f"Client {mac} destination approval is incomplete")
         assert_device_identity_unchanged(
