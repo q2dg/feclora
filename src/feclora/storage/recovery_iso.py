@@ -192,47 +192,62 @@ def build_recovery_iso(
     base_report = _run([xorriso_path, "-indev", str(base), "-report_el_torito", "plain"], runner)
     _require_el_torito(base_report, "base Live ISO")
 
-    temp_path: str | None = None
     try:
-        fd, temp_path = tempfile.mkstemp(prefix=".feclora-recovery-", suffix=".iso", dir=output.parent)
-        os.close(fd)
-        os.chmod(temp_path, 0o600)
-        command = [
-            xorriso_path, "-indev", str(base), "-outdev", temp_path,
-            "-mkdir", "/FECLORA", "-mkdir", "/FECLORA/RECOVERY",
-        ]
-        for source, filename in artifacts:
-            command.extend(["-map", str(source), f"/FECLORA/RECOVERY/{filename}"])
-        command.extend([
-            "-map", str(manifest_file), "/FECLORA/RECOVERY/manifest.json",
-            "-map", str(answer_file), "/FECLORA/RECOVERY/answer.json",
-            "-boot_image", "any", "replay", "-commit",
-        ])
-        _run(command, runner)
-        output_report = _run([
-            xorriso_path, "-indev", temp_path, "-report_el_torito", "plain",
-            "-find", "/FECLORA/RECOVERY", "-type", "f", "-exec", "lsdl",
-        ], runner)
-        _require_el_torito(output_report, "assembled recovery ISO")
-        for filename in [item[1] for item in artifacts] + ["manifest.json", "answer.json"]:
-            if filename not in output_report:
-                raise RecoveryISOError(f"assembled ISO is missing embedded file {filename}")
-        output_fd = os.open(temp_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-        try:
-            os.fsync(output_fd)
-        finally:
-            os.close(output_fd)
-        os.link(temp_path, output)
-        output_info = os.stat(output, follow_symlinks=False)
-        return {
-            "image_id": manifest.image_id,
-            "output_path": str(output),
-            "file_size_bytes": output_info.st_size,
-            "payload_size_bytes": payload_bytes,
-            "sha256": _sha256(output),
-            "verified": True,
-            "boot_catalog_preserved": True,
-        }
+        with tempfile.TemporaryDirectory(prefix=".feclora-recovery-", dir=output.parent) as temporary:
+            temporary_dir = Path(temporary)
+            temp_path = temporary_dir / "recovery.iso"
+            staged_answer = temporary_dir / "answer.json"
+            answer_fd = os.open(
+                staged_answer, os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                | getattr(os, "O_NOFOLLOW", 0), 0o600,
+            )
+            try:
+                with os.fdopen(answer_fd, "wb") as stream:
+                    stream.write(answer)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            except Exception:
+                try:
+                    os.close(answer_fd)
+                except OSError:
+                    pass
+                raise
+            command = [
+                xorriso_path, "-indev", str(base), "-outdev", str(temp_path),
+                "-mkdir", "/FECLORA", "-mkdir", "/FECLORA/RECOVERY",
+            ]
+            for source, filename in artifacts:
+                command.extend(["-map", str(source), f"/FECLORA/RECOVERY/{filename}"])
+            command.extend([
+                "-map", str(manifest_file), "/FECLORA/RECOVERY/manifest.json",
+                "-map", str(staged_answer), "/FECLORA/RECOVERY/answer.json",
+                "-boot_image", "any", "replay", "-commit",
+            ])
+            _run(command, runner)
+            output_report = _run([
+                xorriso_path, "-indev", str(temp_path), "-report_el_torito", "plain",
+                "-find", "/FECLORA/RECOVERY", "-type", "f", "-exec", "lsdl",
+            ], runner)
+            _require_el_torito(output_report, "assembled recovery ISO")
+            for filename in [item[1] for item in artifacts] + ["manifest.json", "answer.json"]:
+                if filename not in output_report:
+                    raise RecoveryISOError(f"assembled ISO is missing embedded file {filename}")
+            output_fd = os.open(temp_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            try:
+                os.fsync(output_fd)
+            finally:
+                os.close(output_fd)
+            os.link(temp_path, output)
+            output_info = os.stat(output, follow_symlinks=False)
+            return {
+                "image_id": manifest.image_id,
+                "output_path": str(output),
+                "file_size_bytes": output_info.st_size,
+                "payload_size_bytes": payload_bytes,
+                "sha256": _sha256(output),
+                "verified": True,
+                "boot_catalog_preserved": True,
+            }
     except FileExistsError as exc:
         raise RecoveryISOError("refusing to overwrite an existing recovery ISO") from exc
     finally:
