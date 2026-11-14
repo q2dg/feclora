@@ -295,6 +295,7 @@ def write_and_verify_stream(
     expected_bytes: int,
     chunk_size: int = 1024 * 1024,
     cancel_check: Callable[[], bool] | None = None,
+    progress_callback: Callable[[str, int, int], None] | None = None,
 ) -> dict[str, Any]:
     """Write an exact stream with short-write handling, flush, and full read-back SHA-256.
 
@@ -324,6 +325,8 @@ def write_and_verify_stream(
                 raise PhysicalMulticastError("destination returned an invalid or zero-length write")
             offset += written
         total += len(view)
+        if progress_callback is not None:
+            progress_callback("write", total, expected_bytes)
     flush()
     expected_digest = source_digest.hexdigest()
     readback_digest = hashlib.sha256()
@@ -338,6 +341,8 @@ def write_and_verify_stream(
             raise PhysicalMulticastError("destination read-back returned more bytes than authorized")
         readback_digest.update(chunk)
         verified += len(chunk)
+        if progress_callback is not None:
+            progress_callback("verify", verified, expected_bytes)
     actual_digest = readback_digest.hexdigest()
     if actual_digest != expected_digest:
         raise PhysicalMulticastError("destination read-back SHA-256 does not match the received source stream")
