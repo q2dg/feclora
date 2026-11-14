@@ -1,20 +1,23 @@
 # Server certificate and trust setup
 
-Feclora uses TLS to let each Client verify the Server. The current control protocol does not request or validate Client certificates,
-and mutual TLS is not used. Client CSR/issuance and certificate-inspection
-helpers are not integrated into this protocol. The Server does not authenticate individual Clients;
-deployment jobs select Clients by MAC address.
+Feclora uses TLS to authenticate the Server to each Client and protect the
+deployment control channel. The Server presents its certificate; Clients
+validate it against the configured CA and expected Server identity. Clients
+identify themselves to deployment jobs by reporting their MAC address. The
+Server uses that value for job selection and status association only; it is
+not cryptographic proof of a machine's identity.
 
 ## Security model
 
-The manifest stores artifact byte counts and SHA-256 digests. Repository access
-controls and authenticated transport provide the trust boundary; a digest
-alone does not authenticate the publisher.
+The TLS trust relationship is one-way: Clients verify the Server. The Server
+does not authenticate individual Clients. There is no Client certificate,
+mutual TLS, per-Client token or credential-enrollment workflow.
 
-Feclora does not sign image manifests or use detached signature sidecars.
-Artifact integrity is checked with the byte count and SHA-256 digest recorded
-in the manifest; authenticity relies on the protected local repository and
-authenticated transport. Age encryption remains optional.
+Image manifests record artifact byte counts and SHA-256 digests. Those checks
+detect artifact changes relative to the manifest, but do not authenticate the
+publisher. Repository access controls and the Server-authenticated TLS channel
+provide the applicable trust boundaries for their respective workflows. Age
+encryption is optional and protects image confidentiality, not Client identity.
 
 ## Initial Server setup
 
@@ -26,29 +29,29 @@ Server.
 For each Client, provision only:
 - the CA certificate used to validate the Server certificate;
 - the Server address and expected Server certificate SAN identity (normally
-  URI:feclora-server);
-- the deployment job's operational details, including the Client's MAC
-  address and job UUID when joining a job.
+  `URI:feclora-server`);
+- the operational deployment details, including the selected Client MAC
+  address and job UUID.
 
 Never copy the CA private key or Server private key to a Client. Never put
 private keys in TFTP/HTTP boot assets.
 
 External organizational PKI is also supported. In that case, provision the
-Server certificate/key and the corresponding CA certificate using the
+Server certificate/key and corresponding CA certificate using the
 organization's normal secure process. Each Client must trust that CA and
 validate the configured Server identity.
 
-## Key expiry
+## Key expiry and rotation
 
 The Server certificate and CA have finite validity. Monitor their expiry and
-renew or replace them through the Server's managed PKI workflow. Client
-certificate expiry and fleet-wide Client revocation do not apply because
-Clients have no certificates.
+renew or rotate the Server keypair through the managed Server PKI workflow.
+Rotation retains the configured CA, so Clients continue to validate the
+Server under the same trust anchor and identity.
 
-## Explicit non-goals
+## Explicit boundaries
 
-- No integrated Client certificate enrollment, renewal or revocation workflow in the active deployment protocol.
-- No mutual TLS, per-Client token or individual Client authentication.
+- No individual Client authentication is performed or required.
+- MAC addresses are operational identifiers and can be spoofed.
 - No trust-on-first-network-contact.
 - No export or transfer of the CA or Server private key.
 - No OCSP/CRL requirement or public Internet dependency.
