@@ -57,9 +57,12 @@ repository and authenticated transport. Age encryption is optional.
   Server-side result reconciliation only if the product contract requires it.
   The current answer workflow keeps operation history on the Live Client and
   the PXE Server serves boot assets and answer JSON only.
-- **Release engineering:** finish reproducible frontend dependency locking,
-  security/dependency checks, localization coverage and consistent release
-  documentation.
+- **Quality and distribution:** frontend direct dependencies are pinned;
+  CI runs npm audit; Dependabot and CodeQL are configured. A committed npm
+  lockfile is still missing, so transitive frontend resolution is not yet
+  reproducible. Complete clean-checkout `npm ci`, resolve scanner findings,
+  finish locale coverage, and maintain the backup/upgrade/rollback and release
+  evidence runbook.
 
 ## Maintainer-run release acceptance
 
