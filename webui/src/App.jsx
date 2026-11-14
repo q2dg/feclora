@@ -1140,13 +1140,13 @@ export default function App() {
                   </Alert>}
                 </CardBody></Card>
               </StackItem>
-              <StackItem><Table aria-label={t("imageRepository")} variant="compact"><Thead><Tr><Th>Image</Th><Th>Type</Th><Th>Source size</Th><Th>Encryption</Th><Th>Artifacts</Th><Th>Verification</Th></Tr></Thead><Tbody>
+              <StackItem><Table aria-label={t("imageRepository")} variant="compact"><Thead><Tr><Th>{t("Image")}</Th><Th>Type</Th><Th>{t("Source size")}</Th><Th>{t("Encryption")}</Th><Th>{t("Artifacts")}</Th><Th>{t("Verification")}</Th></Tr></Thead><Tbody>
                 {images.map((item) => {
                   const verification = imageVerification[item.image_id];
                   return <Tr key={item.image_id}><Td>{item.image_id}</Td><Td>{item.image_type}</Td><Td>{formatBytes(item.source_size_bytes)}</Td><Td><Label color={item.encrypted ? "green" : "orange"}>{item.encrypted ? "age" : "Plain"}</Label></Td><Td>{item.artifact_count}</Td><Td>
-                    <Button size="sm" variant="secondary" isDisabled={busy || verification?.loading} isLoading={verification?.loading} onClick={() => verifyImage(item.image_id)}>Verify</Button>
+                    <Button size="sm" variant="secondary" isDisabled={busy || verification?.loading} isLoading={verification?.loading} onClick={() => verifyImage(item.image_id)}>{t("Verify")}</Button>
                     {verification?.report && <div className="pf-v5-u-mt-sm">
-                      <Label color="green">Verified</Label> Manifest: {verification.report.manifest} · {verification.report.artifact_count} artifacts · {formatBytes(verification.report.total_decoded_bytes)}
+                      <Label color="green">{t("Verified")}</Label> Manifest: {verification.report.manifest} · {verification.report.artifact_count} artifacts · {formatBytes(verification.report.total_decoded_bytes)}
                       {verification.report.artifacts.map((artifact) => <p key={artifact.filename}>{artifact.filename}: stored SHA-256 {artifact.stored_digest}; age {artifact.age_authentication}; compression {artifact.decompression}; decoded {formatBytes(artifact.decoded_bytes)}</p>)}
                     </div>}
                     {verification?.error && <Alert variant="danger" title="Verification failed" isInline>{verification.error}</Alert>}
@@ -1246,7 +1246,7 @@ export default function App() {
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">Persisted remote jobs</Title>
                 <p>Interrupted jobs can only be closed for audit after you have inspected every Client and destination manually. This does not resume or retry disk operations.</p>
-                <Table aria-label="Persisted remote deployment jobs" variant="compact"><Thead><Tr><Th>{t("Job ID")}</Th><Th>Operation</Th><Th>Image</Th><Th>{t("Target")}</Th><Th>{t("Transport")}</Th><Th>{t("State")}</Th><Th>Client progress</Th><Th>{t("Recovery")}</Th><Th>{t("Events")}</Th><Th>{t("Service and execution")}</Th></Tr></Thead><Tbody>
+                <Table aria-label="Persisted remote deployment jobs" variant="compact"><Thead><Tr><Th>{t("Job ID")}</Th><Th>Operation</Th><Th>{t("Image")}</Th><Th>{t("Target")}</Th><Th>{t("Transport")}</Th><Th>{t("State")}</Th><Th>Client progress</Th><Th>{t("Recovery")}</Th><Th>{t("Events")}</Th><Th>{t("Service and execution")}</Th></Tr></Thead><Tbody>
                   {deploymentJobs.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.operation}</Td><Td>{job.operation === "clone" ? job.source_device : job.image_id}</Td><Td>{job.target_type}</Td><Td>{job.transport}</Td><Td>{job.job_state}</Td><Td>{Object.entries(job.clients || {}).map(([mac, client]) => mac + ": " + client.state).join(", ") || "Not connected"}</Td><Td>{job.interrupted ? <Stack hasGutter><StackItem><Label color="orange">{t("Review required · no auto-resume")}</Label></StackItem><StackItem><input className="pf-v5-c-form-control" aria-label={`Reconciliation confirmation for ${job.job_id}`} placeholder={`RECONCILE ${job.job_id}`} value={reconcileConfirmations[job.job_id] || ""} onChange={(event) => setReconcileConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem><StackItem><Button variant="secondary" size="sm" isDisabled={busy || reconcileConfirmations[job.job_id] !== `RECONCILE ${job.job_id}`} onClick={() => reconcileDeploymentJob(job.job_id)}>{t("Close for audit")}</Button></StackItem></Stack> : "—"}</Td><Td>{job.event_count}</Td><Td>
                     <Stack hasGutter>
                       <StackItem>
@@ -1292,7 +1292,7 @@ export default function App() {
           </Tab>
           <Tab eventKey="deployments" title={t("tabHistory")}>
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("deploymentJournals")}</Title></StackItem>
-              <StackItem><Table aria-label="Feclora deployment history" variant="compact"><Thead><Tr><Th>{t("Job ID")}</Th><Th>{t("State")}</Th><Th>Interrupted</Th><Th>Clients</Th><Th>Last durable progress</Th><Th>{t("Events")}</Th></Tr></Thead><Tbody>
+              <StackItem><Table aria-label="Feclora deployment history" variant="compact"><Thead><Tr><Th>{t("Job ID")}</Th><Th>{t("State")}</Th><Th>{t("Interrupted")}</Th><Th>{t("Clients")}</Th><Th>Last durable progress</Th><Th>{t("Events")}</Th></Tr></Thead><Tbody>
                 {journals.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.job_state}</Td><Td>{job.interrupted ? <Label color="orange">Review required</Label> : "No"}</Td><Td>{Object.entries(job.clients || {}).map(([mac, state]) => mac + ": " + state).join(", ") || "—"}</Td><Td>{Object.entries(job.progress || {}).map(([mac, progress]) => mac + ": " + progress.phase + " " + (progress.completed_bytes / (1024 * 1024)).toFixed(1) + " MiB" + (progress.total_bytes === null ? "" : " / " + (progress.total_bytes / (1024 * 1024)).toFixed(1) + " MiB")).join("; ") || "No durable checkpoint"}</Td><Td>{job.event_count}</Td></Tr>)}
                 {!journals.length && <Tr><Td colSpan={6}>{t("No deployment jobs recorded.")}</Td></Tr>}
               </Tbody></Table></StackItem>
@@ -1306,7 +1306,7 @@ export default function App() {
               </StackItem>
               <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
                 <Field label="Repository ID"><input className="pf-v5-c-form-control" value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} readOnly={repositoryEditing} required /></Field>
-                <Field label="Provider"><select className="pf-v5-c-form-control" value={repositoryProvider} onChange={(e) => { setRepositoryProvider(e.target.value); setRepositoryPort(e.target.value === "sshfs" ? "22" : ""); }}>
+                <Field label={t("Provider")}><select className="pf-v5-c-form-control" value={repositoryProvider} onChange={(e) => { setRepositoryProvider(e.target.value); setRepositoryPort(e.target.value === "sshfs" ? "22" : ""); }}>
                   <option value="sshfs">SSHFS (remote filesystem over SSH)</option><option value="nfs">NFS</option><option value="smb">SMB/CIFS</option>
                 </select></Field>
                 <Field label="Server hostname or IPv4 address"><input className="pf-v5-c-form-control" value={repositoryHost} onChange={(e) => setRepositoryHost(e.target.value)} maxLength={253} required /></Field>
@@ -1332,7 +1332,7 @@ export default function App() {
                   <label><input type="checkbox" checked={credentialReplace} onChange={(e) => setCredentialReplace(e.target.checked)} /> Replace an existing credential with this ID and type</label>
                   <Button type="submit" variant="primary" isDisabled={busy || !credentialId || !credentialSourceFile}>Import and encrypt credential</Button>
                 </form></CardBody></Card>
-                <Table aria-label="Encrypted repository credentials" variant="compact"><Thead><Tr><Th>ID</Th><Th>Type</Th><Th>Encrypted reference</Th><Th>Action</Th></Tr></Thead><Tbody>
+                <Table aria-label="Encrypted repository credentials" variant="compact"><Thead><Tr><Th>{t("ID")}</Th><Th>Type</Th><Th>Encrypted reference</Th><Th>Action</Th></Tr></Thead><Tbody>
                   {systemdCredentials.map((credential) => <Tr key={credential.name}><Td>{credential.id}</Td><Td>{credential.kind}</Td><Td>{credential.path}</Td><Td><Button size="sm" variant="danger" isDisabled={busy || remoteRepositories.some((repo) => (repo.credential_refs || []).includes(credential.path)) || s3Repositories.some((repo) => (repo.credential_refs || []).includes(credential.path))} onClick={() => removeSystemdCredential(credential)}>{t("Remove")}</Button></Td></Tr>)}
                   {!systemdCredentials.length && <Tr><Td colSpan={4}>No encrypted credentials imported.</Td></Tr>}
                 </Tbody></Table>
@@ -1346,18 +1346,18 @@ export default function App() {
                   <Field label="Bucket"><input className="pf-v5-c-form-control" value={s3Bucket} onChange={(e) => setS3Bucket(e.target.value)} maxLength={63} required /></Field>
                   <Field label="Object prefix"><input className="pf-v5-c-form-control" value={s3Prefix} onChange={(e) => setS3Prefix(e.target.value)} maxLength={512} /></Field>
                   <Field label="Encrypted S3 credential"><select className="pf-v5-c-form-control" value={s3CredentialId} onChange={(e) => setS3CredentialId(e.target.value)} required><option value="">Select imported S3 key pair</option>{systemdCredentials.filter((item) => item.kind === "s3").map((item) => <option key={item.id} value={item.id}>{item.id}</option>)}</select></Field>
-                  <Field label="Access"><select className="pf-v5-c-form-control" value={s3ReadOnly ? "ro" : "rw"} onChange={(e) => setS3ReadOnly(e.target.value === "ro")}><option value="ro">{t("Read-only")}</option><option value="rw">{t("Read/write")}</option></select></Field>
+                  <Field label={t("Access")}><select className="pf-v5-c-form-control" value={s3ReadOnly ? "ro" : "rw"} onChange={(e) => setS3ReadOnly(e.target.value === "ro")}><option value="ro">{t("Read-only")}</option><option value="rw">{t("Read/write")}</option></select></Field>
                   <Button type="submit" variant="primary" isDisabled={busy || !s3RepositoryId || !s3Bucket || !s3CredentialId}>Save S3 repository</Button>
                 </form></CardBody></Card>
-                <Table aria-label="S3 object repositories" variant="compact"><Thead><Tr><Th>ID</Th><Th>Endpoint</Th><Th>Bucket / prefix</Th><Th>Access</Th><Th>Actions</Th></Tr></Thead><Tbody>
+                <Table aria-label="S3 object repositories" variant="compact"><Thead><Tr><Th>{t("ID")}</Th><Th>{t("Endpoint")}</Th><Th>{t("Bucket / prefix")}</Th><Th>{t("Access")}</Th><Th>{t("Actions")}</Th></Tr></Thead><Tbody>
                   {s3Repositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.endpoint_url || "AWS S3"} · {repo.region}</Td><Td>{repo.bucket}/{repo.prefix}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td><Button size="sm" variant="secondary" isDisabled={busy} onClick={() => runS3RepositoryAction("check_s3_repository", repo.id)}>{t("Test connection")}</Button>{" "}<Button size="sm" variant="danger" isDisabled={busy} onClick={() => runS3RepositoryAction("remove_s3_repository", repo.id)}>{t("Remove")}</Button></Td></Tr>)}
                   {!s3Repositories.length && <Tr><Td colSpan={5}>{t("No S3 object repositories configured.")}</Td></Tr>}
                 </Tbody></Table>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">{t("Configured repositories")}</Title>
                 <p>“Identity verified” confirms only that findmnt reports the expected source, filesystem type and access mode. Remote health is always unknown: this inspection does not test network connectivity or perform remote filesystem I/O. An unknown mount state is not treated as unmounted; do not mount, edit or remove the repository until its state is resolved.</p>
-                <Table aria-label="Remote image repositories" variant="compact"><Thead><Tr><Th>ID</Th><Th>Provider</Th><Th>Remote location</Th><Th>Access</Th><Th>Mount identity</Th><Th>Actions</Th></Tr></Thead><Tbody>
-                  {remoteRepositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.provider}</Td><Td>{repo.host}:{repo.remote_path}<br />{repo.mountpoint}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td>{repo.mount_state === "unknown" ? <><Label color="grey">State unknown</Label>{repo.mount_error && <div className="pf-v5-u-color-danger pf-v5-u-font-size-sm">{repo.mount_error}</div>}</> : repo.mount_state === "unmounted" ? <Label color="grey">Unmounted</Label> : repo.verified ? <Label color="green">Mounted · identity verified</Label> : <><Label color="red">Mounted · unverified</Label>{repo.mount_error && <div className="pf-v5-u-color-danger pf-v5-u-font-size-sm">{repo.mount_error}</div>}</>}{repo.health_state === "unknown" && <div className="pf-v5-u-color-secondary pf-v5-u-font-size-sm">{t("Remote health unknown")}</div>}</Td><Td>
+                <Table aria-label="Remote image repositories" variant="compact"><Thead><Tr><Th>{t("ID")}</Th><Th>{t("Provider")}</Th><Th>{t("Remote location")}</Th><Th>{t("Access")}</Th><Th>{t("Mount identity")}</Th><Th>{t("Actions")}</Th></Tr></Thead><Tbody>
+                  {remoteRepositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.provider}</Td><Td>{repo.host}:{repo.remote_path}<br />{repo.mountpoint}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td>{repo.mount_state === "unknown" ? <><Label color="grey">{t("State unknown")}</Label>{repo.mount_error && <div className="pf-v5-u-color-danger pf-v5-u-font-size-sm">{repo.mount_error}</div>}</> : repo.mount_state === "unmounted" ? <Label color="grey">{t("Unmounted")}</Label> : repo.verified ? <Label color="green">{t("Mounted · identity verified")}</Label> : <><Label color="red">{t("Mounted · unverified")}</Label>{repo.mount_error && <div className="pf-v5-u-color-danger pf-v5-u-font-size-sm">{repo.mount_error}</div>}</>}{repo.health_state === "unknown" && <div className="pf-v5-u-color-secondary pf-v5-u-font-size-sm">{t("Remote health unknown")}</div>}</Td><Td>
                     <Button size="sm" variant="secondary" isDisabled={busy || repo.mount_state !== "unmounted"} onClick={() => editRemoteRepository(repo)}>{t("Edit")}</Button>{" "}
                     <Button size="sm" variant="secondary" isDisabled={busy} onClick={() => runRemoteRepositoryAction("check_remote_repository", repo.id)}>Check mount identity</Button>{" "}
                     <Button size="sm" variant="secondary" isDisabled={busy || repo.mount_state !== "unmounted"} onClick={() => runRemoteRepositoryAction("mount_remote_repository", repo.id)}>{t("Mount")}</Button>{" "}
@@ -1372,7 +1372,7 @@ export default function App() {
           <Tab eventKey="operation-log" title={t("tabOperationLog")}>
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("localOperationHistory")}</Title><p>Durable local operation definitions and state history, including worker progress and terminal diagnostics. Interrupted writes are never resumed automatically. Cancelled or interrupted restores and clones may have partially modified their destination; inspect the target before reuse. Cancellation is orderly and may take time to stop child processes.</p></StackItem>
               <StackItem><Button variant="secondary" isDisabled={!operations.length} onClick={exportLocalOperations}>Export latest 100 operations as JSON</Button><p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">The export contains the history currently loaded in Cockpit, including device paths and bounded diagnostic messages. Store it with the same care as operational logs.</p></StackItem>
-              <StackItem><Table aria-label="Local operation history" variant="compact"><Thead><Tr><Th>Timestamp</Th><Th>Operation</Th><Th>{t("Target")}</Th><Th>Image</Th><Th>Status</Th><Th>Progress</Th><Th>Operation ID</Th><Th>Details</Th><Th>Control</Th></Tr></Thead><Tbody>
+              <StackItem><Table aria-label="Local operation history" variant="compact"><Thead><Tr><Th>{t("Timestamp")}</Th><Th>Operation</Th><Th>{t("Target")}</Th><Th>{t("Image")}</Th><Th>Status</Th><Th>{t("Progress")}</Th><Th>{t("Operation ID")}</Th><Th>{t("Details")}</Th><Th>{t("Control")}</Th></Tr></Thead><Tbody>
                 {operations.map((item) => {
                   const events = item.events || [];
                   const latest = events[events.length - 1] || {};
@@ -1395,7 +1395,7 @@ export default function App() {
           <Tab eventKey="network" title={t("tabNetwork")}>
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem>
-                <Title headingLevel="h2" size="xl">Host IPv4 configuration</Title>
+                <Title headingLevel="h2" size="xl">{t("Host IPv4 configuration")}</Title>
                 <p>Configure the NetworkManager profile on this machine. Use this page on the Server or on each Client independently.</p>
                 <Alert variant="warning" title="Management connectivity protection" isInline>
                   Changes run under a 120-second NetworkManager checkpoint. If activation or verification fails, Feclora requests rollback; if Cockpit disconnects or the process is interrupted, NetworkManager automatically restores the previous network state when the checkpoint expires. Keep local console access available.
@@ -1405,14 +1405,14 @@ export default function App() {
                 <form onSubmit={applyNetworkProfile}>
                   <Field label="NetworkManager connection profile">
                     <select className="pf-v5-c-form-control" value={networkProfileUuid} onChange={(event) => setNetworkProfileUuid(event.target.value)} required>
-                      <option value="">Select profile…</option>
+                      <option value="">{t("Select profile…")}</option>
                       {networkProfiles.map((profile) => <option key={profile.uuid} value={profile.uuid} disabled={!profile.device}>{profile.name} · {profile.type} · {profile.device || "not active"}{profile.active ? " · active" : ""}</option>)}
                     </select>
                   </Field>
                   <Field label="IPv4 configuration">
                     <select className="pf-v5-c-form-control" value={networkMethod} onChange={(event) => setNetworkMethod(event.target.value)}>
                       <option value="auto">DHCP (automatic)</option>
-                      <option value="manual">Static IPv4</option>
+                      <option value="manual">{t("Static IPv4")}</option>
                     </select>
                   </Field>
                   {networkMethod === "manual" && <>
@@ -1622,7 +1622,7 @@ export default function App() {
           <Tab eventKey="system" title={t("system")}>
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("systemStatus")}</Title></StackItem>
               <StackItem><KeyboardPreferences language={language} /></StackItem>
-              <StackItem><Table aria-label="Feclora services" variant="compact"><Thead><Tr><Th>Component</Th><Th>Status</Th></Tr></Thead><Tbody>
+              <StackItem><Table aria-label="Feclora services" variant="compact"><Thead><Tr><Th>{t("Component")}</Th><Th>Status</Th></Tr></Thead><Tbody>
                 {Object.entries(status?.services || {}).map(([name, value]) => <Tr key={name}><Td>{name}</Td><Td>{value}</Td></Tr>)}
                 <Tr><Td>Server deployment configuration</Td><Td>{status?.server_configured ? "Configured" : "Not configured"}</Td></Tr>
                 <Tr><Td>Client deployment configuration</Td><Td>{status?.client_configured ? "Configured" : "Not configured"}</Td></Tr>
@@ -1630,7 +1630,7 @@ export default function App() {
               <StackItem>
                 <Title headingLevel="h2" size="lg">{t("security")}</Title>
                 <p>Generate a local Feclora CA and optional age identity. Private keys remain on this machine; captured images can then be encrypted when selected.</p>
-                <Table aria-label="Image security material" variant="compact"><Thead><Tr><Th>Capability</Th><Th>Status</Th></Tr></Thead><Tbody>
+                <Table aria-label="Image security material" variant="compact"><Thead><Tr><Th>{t("Capability")}</Th><Th>Status</Th></Tr></Thead><Tbody>
                   {Object.entries(security).map(([name, ready]) => <Tr key={name}><Td>{name.replaceAll("_", " ")}</Td><Td><Label color={ready ? "green" : "orange"}>{ready ? "Ready" : "Not initialized"}</Label></Td></Tr>)}
                 </Tbody></Table>
                 <Button variant="primary" onClick={initializeSecurity} isLoading={busy} isDisabled={busy}>{t("initializeKeys")}</Button>
