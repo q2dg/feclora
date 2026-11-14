@@ -79,6 +79,18 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
             )
 
     @patch("feclora.storage.proportional_restore_workflow.inspect_gpt_binary")
+    def test_rejects_partition_start_or_capacity_mismatch(self, inspect):
+        source = {
+            **self.source,
+            "children": [dict(self.source["children"][0], start_sector=2049)],
+        }
+        inspect.return_value = self.gpt
+        with self.assertRaisesRegex(ProportionalRestoreWorkflowError, "geometry differs"):
+            prepare_from_offline_source_disk(
+                self.staged, source, target_size_bytes=2 * 1024 * 1024, sector_size=512
+            )
+
+    @patch("feclora.storage.proportional_restore_workflow.inspect_gpt_binary")
     def test_rejects_mismatched_partition_type_guid(self, inspect):
         gpt = dict(self.gpt)
         gpt["partitions"] = [dict(self.gpt["partitions"][0], type_guid="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")]
