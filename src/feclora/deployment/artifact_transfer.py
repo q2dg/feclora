@@ -23,6 +23,9 @@ _MAX_MANIFEST_BYTES = 1024 * 1024
 _MAX_ARTIFACTS = 64
 _MAX_ARTIFACT_BYTES = 16 * 1024 * 1024 * 1024 * 1024
 _CHUNK_BYTES = 1024 * 1024
+# Per-I/O idle timeout; this is not a total transfer deadline. Large image
+# transfers may run for hours as long as each network operation makes progress.
+TRANSFER_IDLE_TIMEOUT_SECONDS = 300
 
 
 class ImageTransferError(RuntimeError):
