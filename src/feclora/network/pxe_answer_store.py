@@ -234,7 +234,7 @@ def revoke_pxe_answer(http_root: str | os.PathLike[str], job_id: str) -> bool:
     if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
             or directory_info.st_uid != os.geteuid()):
         raise PXEAnswerStoreError("PXE answer job path is not a safe directory")
-    for name in ("answer.json",):
+    for name in ("answer.json", "answer.json.minisig"):
         item = destination / name
         try:
             item_info = item.lstat()
@@ -242,7 +242,7 @@ def revoke_pxe_answer(http_root: str | os.PathLike[str], job_id: str) -> bool:
             raise PXEAnswerStoreError("PXE answer publication is incomplete; refusing recursive removal")
         if not stat.S_ISREG(item_info.st_mode) or stat.S_ISLNK(item_info.st_mode) or item_info.st_uid != os.geteuid():
             raise PXEAnswerStoreError("PXE answer publication contains an unsafe file")
-    if {item.name for item in destination.iterdir()} != {"answer.json"}:
+    if {item.name for item in destination.iterdir()} != {"answer.json", "answer.json.minisig"}:
         raise PXEAnswerStoreError("PXE answer publication contains unexpected files")
     _remove_current_answer_alias(root, destination / "answer.json")
     os.chmod(destination, 0o700)
