@@ -6,8 +6,6 @@ title: Getting started
 <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 {% include brand-header.html %}
 
-<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
-
 <main class="guide-page">
   <header class="guide-intro">
     <p class="eyebrow">FIRST STEPS</p>
@@ -33,7 +31,7 @@ title: Getting started
       <li>Open the repository configuration in Cockpit.</li>
       <li>Select a supported provider: local filesystem, SSHFS, NFS, SMB/CIFS or S3-compatible object storage.</li>
       <li>Enter the endpoint and access details in the protected UI. Never put credentials in documentation, screenshots or PXE answer files.</li>
-      <li>Test the connection and confirm that the expected repository is visible before capturing data.</li>
+      <li>Mount the repository, verify its configured identity and access, and confirm that the expected images are visible before capturing data.</li>
     </ol>
     <p><a href="./REMOTE-REPOSITORIES.html">Repository setup and provider limits →</a></p>
   </section>
