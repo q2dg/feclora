@@ -37,6 +37,9 @@ SAMPLE = {
                     "fstype": "ext4",
                     "label": "root",
                     "uuid": "uuid-1",
+                    "partuuid": "partuuid-1",
+                    "parttype": "type-guid-1",
+                    "partlabel": "root-partition",
                     "mountpoints": ["/"],
                 }
             ],
@@ -55,6 +58,9 @@ class ParseInventoryTests(unittest.TestCase):
         self.assertEqual(disk["major_minor"], "8:0")
         self.assertEqual(disk["logical_sector_size"], 512)
         self.assertEqual(disk["children"][0]["filesystem"], "ext4")
+        self.assertEqual(disk["children"][0]["partuuid"], "partuuid-1")
+        self.assertEqual(disk["children"][0]["partition_type_guid"], "type-guid-1")
+        self.assertEqual(disk["children"][0]["partition_label"], "root-partition")
         self.assertEqual(disk["children"][0]["mountpoints"], ["/"])
 
     def test_missing_optional_fields_are_safe(self):
@@ -87,6 +93,8 @@ class ParseInventoryTests(unittest.TestCase):
         self.assertIn("--output", command)
         self.assertIn("MAJ:MIN", command[command.index("--output") + 1])
         self.assertIn("LOG-SEC", command[command.index("--output") + 1])
+        self.assertIn("PARTUUID", command[command.index("--output") + 1])
+        self.assertIn("PARTTYPE", command[command.index("--output") + 1])
         self.assertNotIn("wipefs", command)
         self.assertEqual(len(inventory["devices"]), 1)
         self.assertIn(inventory["volume_topology"]["status"], {"incomplete", "permission_required"})
