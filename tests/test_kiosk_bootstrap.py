@@ -3,11 +3,31 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from feclora.kiosk_bootstrap import (
-    BootstrapError, set_admin_password, validate_password,
+    BootstrapError, normalize_language, preferred_language, render_setup_page,
+    set_admin_password, validate_password,
 )
 
 
 class KioskBootstrapTests(unittest.TestCase):
+    def test_first_boot_language_negotiation_and_validation(self):
+        self.assertEqual(normalize_language("ca-ES"), "ca")
+        self.assertEqual(normalize_language("pt_BR"), "pt")
+        self.assertEqual(normalize_language("not-a-language"), "en")
+        self.assertEqual(preferred_language("fr-CA,fr;q=0.9,en;q=0.8"), "fr")
+        self.assertEqual(preferred_language("ar"), "ar")
+        self.assertEqual(preferred_language(""), "en")
+
+    def test_first_boot_page_is_localized_and_rtl_for_arabic(self):
+        catalan = render_setup_page("safe-token", "ca").decode("utf-8")
+        self.assertIn('<html lang="ca" dir="ltr">', catalan)
+        self.assertIn("Benvingut", catalan) if "Benvingut" in catalan else self.assertIn("Us donem la benvinguda", catalan)
+        self.assertIn('name="language" value="ca"', catalan)
+        self.assertIn('name="lang"', catalan)
+        arabic = render_setup_page("safe-token", "ar").decode("utf-8")
+        self.assertIn('<html lang="ar" dir="rtl">', arabic)
+        self.assertIn("كلمة مرور المسؤول", arabic)
+        self.assertNotIn("<script", arabic.lower())
+
     def test_password_requires_confirmation_and_minimum_length(self):
         with self.assertRaises(BootstrapError):
             validate_password("short", "short")
