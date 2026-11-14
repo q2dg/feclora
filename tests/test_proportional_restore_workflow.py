@@ -3,6 +3,7 @@ from unittest.mock import patch
 from types import SimpleNamespace
 import stat
 import os
+import tempfile
 
 from feclora.storage.proportional_staging import StagedRawDiskImage
 from feclora.storage.proportional_restore_workflow import (
@@ -62,7 +63,13 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
             )
 
     def setUp(self):
-        self.staged = StagedRawDiskImage("/private/stage/disk.raw", 4 * 1024 * 1024, "a" * 64)
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        staged_path = os.path.join(self.temp.name, "disk.raw")
+        with open(staged_path, "wb") as stream:
+            stream.truncate(4 * 1024 * 1024)
+        os.chmod(staged_path, 0o600)
+        self.staged = StagedRawDiskImage(staged_path, 4 * 1024 * 1024, "a" * 64)
         self.source = {
             "type": "disk",
             "path": "/dev/sda",
