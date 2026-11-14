@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "test:i18n": "node scripts/test-i18n.mjs"
+    "test:i18n": "node scripts/test-i18n.mjs",
+    "test:dependency-pins": "node scripts/check-dependency-pins.mjs"
   },
   "dependencies": {
     "@patternfly/patternfly": "5.4.2",
