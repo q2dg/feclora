@@ -231,8 +231,7 @@ network isolation.
 When age encryption is enabled, the Server setup tab can export the current
 public recipient inventory. Each Client can refresh its local recipient list
 from that public inventory after verifying that it includes the Client's own
-age identity. Private age identities remain local. This manages image
-confidentiality recipients only; it is not Client authentication or revocation.
+age identity. Private age identities remain local. This manages image confidentiality recipients only.
 
 ## Cockpit deployment-job API
 
