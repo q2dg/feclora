@@ -948,22 +948,22 @@ export default function App() {
                       </select>
                     </Field>
                     {isExportP2V && <>
-                      <Alert variant="info" title="Verified S3 P2V export" isInline>
+                      <Alert variant="info" title={t("Verified S3 P2V export")} isInline>
                         Select an S3 source repository and a committed QCOW2. Feclora downloads the object to private staging, verifies its size and SHA-256 against the committed metadata, then publishes the QCOW2 and metadata sidecar to a filesystem repository. The sidecar is linked last; existing files are never overwritten.
                       </Alert>
-                      <Field label="S3 source repository">
+                      <Field label={t("S3 source repository")}>
                         <select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => { setImageId(""); selectImageRepository(e.target.value); }} required>
                           <option value="">Select an S3 repository…</option>
                           {s3Repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · S3{repo.read_only ? " · read-only" : ""}</option>)}
                         </select>
                       </Field>
-                      <Field label="Committed P2V image">
+                      <Field label={t("Committed P2V image")}>
                         <select className="pf-v5-c-form-control" value={imageId} disabled={busy || !selectedRepositoryId} onChange={(e) => setImageId(e.target.value)} required>
                           <option value="">Select a QCOW2 image…</option>
                           {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                         </select>
                       </Field>
-                      <Field label="Filesystem destination repository" help="Local is the default. Remote destinations must already be mounted, verified and writable. S3 cannot be selected as the destination for this export operation.">
+                      <Field label={t("Filesystem destination repository")} help="Local is the default. Remote destinations must already be mounted, verified and writable. S3 cannot be selected as the destination for this export operation.">
                         <select className="pf-v5-c-form-control" value={exportDestinationRepositoryId} disabled={busy} onChange={(e) => setExportDestinationRepositoryId(e.target.value)}>
                           <option value="">Local repository</option>
                           {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
@@ -971,10 +971,10 @@ export default function App() {
                       </Field>
                     </>}
                     {operation === "build_recovery_iso" && <>
-                      <Alert variant="info" title="Self-contained recovery media" isInline>
+                      <Alert variant="info" title={t("Self-contained recovery media")} isInline>
                         Select the Feclora Live base ISO and an existing disk image. Feclora creates a separate bootable ISO containing the verified image, its manifest and a narrowly scoped unattended restore answer. The base ISO and source image remain unchanged. Output is written to the selected filesystem repository; S3 is not supported for ISO output. If the image is age-encrypted, the matching decryption identity must be provisioned separately on the recovery Live system; no keys or passphrases are embedded.
                       </Alert>
-                      <Field label="Base Feclora Live ISO path" help="Absolute path to a local .iso file accessible to the Feclora service, for example /home/feclora/Downloads/feclora-live.iso.">
+                      <Field label={t("Base Feclora Live ISO path")} help="Absolute path to a local .iso file accessible to the Feclora service, for example /home/feclora/Downloads/feclora-live.iso.">
                         <input className="pf-v5-c-form-control" value={recoveryBaseISO} onChange={(e) => setRecoveryBaseISO(e.target.value)} placeholder="/path/to/feclora-live.iso" required />
                       </Field>
                       <Field label={t("imageRepository")}>
@@ -984,22 +984,22 @@ export default function App() {
                           {s3Repositories.map((repo) => <option key={repo.id} value={repo.id} disabled>{repo.id} · S3 (unsupported output)</option>)}
                         </select>
                       </Field>
-                      <Field label="Whole-disk image to embed">
+                      <Field label={t("Whole-disk image to embed")}>
                         <select className="pf-v5-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)} required>
                           <option value="">Select a disk image…</option>
                           {availableImages.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                         </select>
                       </Field>
-                      <Field label="Target disk WWN (recommended)" help="The recovery answer will only authorize a disk whose identity matches this WWN and/or serial. Use at least one selector.">
+                      <Field label={t("Target disk WWN (recommended)")} help="The recovery answer will only authorize a disk whose identity matches this WWN and/or serial. Use at least one selector.">
                         <input className="pf-v5-c-form-control" value={recoveryTargetWWN} onChange={(e) => setRecoveryTargetWWN(e.target.value)} maxLength={128} />
                       </Field>
-                      <Field label="Target disk serial (alternative or additional selector)">
+                      <Field label={t("Target disk serial (alternative or additional selector)")}>
                         <input className="pf-v5-c-form-control" value={recoveryTargetSerial} onChange={(e) => setRecoveryTargetSerial(e.target.value)} maxLength={128} />
                       </Field>
-                      {recoveryExpectedConfirmation && <Alert variant="warning" title="Confirm ISO creation" isInline>
+                      {recoveryExpectedConfirmation && <Alert variant="warning" title={t("Confirm ISO creation")} isInline>
                         Type exactly <strong>{recoveryExpectedConfirmation}</strong>. This creates a separate ISO file; it does not restore or write to any disk now. The embedded answer will request a destructive restore only when booted and its target identity matches.
                       </Alert>}
-                      {recoveryExpectedConfirmation && <Field label="Typed build confirmation">
+                      {recoveryExpectedConfirmation && <Field label={t("Typed build confirmation")}>
                         <input className="pf-v5-c-form-control" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} autoComplete="off" />
                       </Field>}
                     </>}
@@ -1010,10 +1010,10 @@ export default function App() {
                           {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path}{d.lvm_name ? ` · ${d.lvm_name} (${d.lvm_path})` : ""} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
                         </select>
                       </Field>
-                      <Field label="Image identifier" help="Use letters, numbers, dots, underscores or hyphens.">
+                      <Field label={t("Image identifier")} help="Use letters, numbers, dots, underscores or hyphens.">
                         <input className="pf-v5-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)} maxLength={128} required />
                       </Field>
-                      {operation === "capture_partition" && <Field label="Partition identifier"><input className="pf-v5-c-form-control" value={partitionId} onChange={(e) => setPartitionId(e.target.value)} maxLength={128} placeholder={imageId || "e.g. rootfs"} /></Field>}
+                      {operation === "capture_partition" && <Field label={t("Partition identifier")}><input className="pf-v5-c-form-control" value={partitionId} onChange={(e) => setPartitionId(e.target.value)} maxLength={128} placeholder={imageId || "e.g. rootfs"} /></Field>}
                       {operation !== "capture_p2v" && <Field label={t("Compression")}>
                         <select className="pf-v5-c-form-control" value={compression} onChange={(e) => setCompression(e.target.value)}>
                           <option value="zstd">Zstandard (recommended)</option><option value="lz4">LZ4 (fast)</option><option value="gzip">Gzip</option><option value="xz">XZ</option><option value="none">None</option>
@@ -1031,7 +1031,7 @@ export default function App() {
                         <br />
                         {!security.age_encryption_available && !security.age_executable_available ? <p className="pf-v5-u-color-200">Optional image protection is provisioned during Server setup when the relevant tools are installed. Without them, ordinary capture and restore remain available.</p> : null}
                       </Field>}
-                      {operation === "capture_p2v" && <Alert variant="info" title="P2V output" isInline>Creates a verified QCOW2 disk file and a .p2v.json metadata sidecar in the selected filesystem repository, or publishes both to S3 with the metadata sidecar as the commit marker. Direct VM boot remediation is not included. The source disk is read-only; the guest may still need drivers or initramfs changes to boot.</Alert>}
+                      {operation === "capture_p2v" && <Alert variant="info" title={t("P2V output")} isInline>Creates a verified QCOW2 disk file and a .p2v.json metadata sidecar in the selected filesystem repository, or publishes both to S3 with the metadata sidecar as the commit marker. Direct VM boot remediation is not included. The source disk is read-only; the guest may still need drivers or initramfs changes to boot.</Alert>}
                     </>}
                     {isRestore && <>
                       <Field label={isDisk ? "Disk image" : isLogicalVolume ? "Logical-volume image" : "Partition image"}>
@@ -1052,8 +1052,8 @@ export default function App() {
                       </Field>
                       {isDisk && restoreLayoutPreview && restoreTargetDevice && <>
                         {restoreTargetDevice.size_bytes < restoreLayoutPreview.source_size_bytes
-                          ? <Alert variant="danger" title="Destination disk is too small" isInline>Source layout requires {formatBytes(restoreLayoutPreview.source_size_bytes)}; selected disk has {formatBytes(restoreTargetDevice.size_bytes)}. The restore engine will reject this target.</Alert>
-                          : <Alert variant="info" title="Read-only restore layout preview" isInline>
+                          ? <Alert variant="danger" title={t("Destination disk is too small")} isInline>Source layout requires {formatBytes(restoreLayoutPreview.source_size_bytes)}; selected disk has {formatBytes(restoreTargetDevice.size_bytes)}. The restore engine will reject this target.</Alert>
+                          : <Alert variant="info" title={t("Read-only restore layout preview")} isInline>
                               Source image: {formatBytes(restoreLayoutPreview.source_size_bytes)} · Destination: {formatBytes(restoreTargetDevice.size_bytes)} · {restoreLayoutPreview.partitions.length} partitions. The source partition layout is written as captured; extra destination capacity is left unused. No automatic partition/filesystem growth is performed.
                             </Alert>}
                         <Table aria-label="Restore source partition layout preview" variant="compact">
@@ -1078,16 +1078,16 @@ export default function App() {
                         </select>
                       </Field>
                     </>}
-                    {expectedConfirmation && <Alert variant="warning" title="Destructive operation" isInline className="pf-v5-u-mb-md">
+                    {expectedConfirmation && <Alert variant="warning" title={t("Destructive operation")} isInline className="pf-v5-u-mb-md">
                       The destination will be overwritten. Type exactly <strong>{expectedConfirmation}</strong> to authorize this operation.
                     </Alert>}
-                    {expectedConfirmation && <Field label="Typed confirmation">
+                    {expectedConfirmation && <Field label={t("Typed confirmation")}>
                       <input className="pf-v5-c-form-control" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} autoComplete="off" />
                     </Field>}
                     {busy && progress && <div className="pf-v5-u-mb-md">
                       {progress.bytes_total
-                        ? <Progress value={Math.min(100, progress.bytes_done / progress.bytes_total * 100)} title="Operation progress" measureLocation="outside" label={formatBytes(progress.bytes_done) + " / " + formatBytes(progress.bytes_total)} />
-                        : <Alert variant="info" isInline title="Operation in progress">{formatBytes(progress.bytes_done)} processed</Alert>}
+                        ? <Progress value={Math.min(100, progress.bytes_done / progress.bytes_total * 100)} title={t("Operation progress")} measureLocation="outside" label={formatBytes(progress.bytes_done) + " / " + formatBytes(progress.bytes_total)} />
+                        : <Alert variant="info" isInline title={t("Operation in progress")}>{formatBytes(progress.bytes_done)} processed</Alert>}
                     </div>}
                     <Button type="submit" variant="primary" isDisabled={!operationReady || busy}>{busy ? <><Spinner size="sm" /> {t("working")}</> : t("start")}</Button>
                   </form>
@@ -1184,7 +1184,7 @@ export default function App() {
                       <option value="">Select read-only source…</option>
                       {inventoryDevices.filter((item) => item.type === (remoteTargetType === "disk" ? "disk" : "part") && item.read_only === true).map((item) => <option key={item.path} value={item.path}>{item.path} · {item.model || (remoteTargetType === "disk" ? "Disk" : "Partition")} · {formatBytes(item.size_bytes)}</option>)}
                     </select>
-                  </Field> : <Field label="Image identifier" help={remoteOperation === "restore" ? "Choose an existing disk, partition or logical-volume image matching the selected target type. Images are validated against their manifests and SHA-256 digests." : "New identifier for the image captured from Clients."}>
+                  </Field> : <Field label={t("Image identifier")} help={remoteOperation === "restore" ? "Choose an existing disk, partition or logical-volume image matching the selected target type. Images are validated against their manifests and SHA-256 digests." : "New identifier for the image captured from Clients."}>
                     {remoteOperation === "restore" ? <select className="pf-v5-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)}>
                       <option value="">Select image…</option>
                       {remoteAvailableImages.filter((item) => item.image_type === remoteTargetType).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}</option>)}
