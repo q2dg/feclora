@@ -16,7 +16,7 @@ from feclora.storage.disk_clone import DiskCloneCancelled, DiskCloneError, clone
 from feclora.storage.disk_image_partition import DiskImagePartitionError, extract_partition_image
 from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError, restore_disk
 from feclora.storage.proportional_staging import ProportionalStagingError, stage_verified_raw_disk_image
-from feclora.storage.proportional_restore import StagedProportionalRestoreError, restore_staged_proportional_image
+from feclora.storage.staged_proportional_restore import StagedProportionalRestoreError, restore_staged_proportional_image
 from feclora.storage.proportional_restore_workflow import ProportionalRestoreWorkflowError, prepare_from_offline_source_disk
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import InventoryError, collect_inventory, assess_disk_compatibility
