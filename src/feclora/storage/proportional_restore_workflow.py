@@ -23,14 +23,17 @@ def require_distinct_block_devices(
     source_path: str,
     target_path: str,
     *,
-    source_major_minor: str | None = None,
-    target_major_minor: str | None = None,
+    source_major_minor: str,
+    target_major_minor: str,
     stat_device: Callable[[str], Any] = os.stat,
 ) -> tuple[Any, Any]:
     """Return stable rdev identities and reject aliases of the same physical disk."""
     if (not isinstance(source_path, str) or not source_path.startswith("/dev/")
             or not isinstance(target_path, str) or not target_path.startswith("/dev/")):
         raise ProportionalRestoreWorkflowError("source and destination must be /dev block-device paths")
+    if (not isinstance(source_major_minor, str) or not source_major_minor
+            or not isinstance(target_major_minor, str) or not target_major_minor):
+        raise ProportionalRestoreWorkflowError("storage inventory lacks source or destination major:minor identity")
     try:
         source = stat_device(source_path)
         target = stat_device(target_path)
@@ -42,9 +45,9 @@ def require_distinct_block_devices(
         raise ProportionalRestoreWorkflowError("source and destination resolve to the same physical block device")
     actual_source = f"{os.major(source.st_rdev)}:{os.minor(source.st_rdev)}"
     actual_target = f"{os.major(target.st_rdev)}:{os.minor(target.st_rdev)}"
-    if source_major_minor is not None and source_major_minor != actual_source:
+    if source_major_minor != actual_source:
         raise ProportionalRestoreWorkflowError("selected source no longer matches the storage inventory identity")
-    if target_major_minor is not None and target_major_minor != actual_target:
+    if target_major_minor != actual_target:
         raise ProportionalRestoreWorkflowError("selected destination no longer matches the storage inventory identity")
     return source.st_rdev, target.st_rdev
 
