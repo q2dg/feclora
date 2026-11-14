@@ -131,8 +131,7 @@ a URL, credential reference or secret.
 PXE is only a boot transport. After Live starts, storage access and
 restoration are performed by the Client itself. The PXE Server does not
 receive operation logs, progress reports or restore results. Local operation
-history remains on the Live Client; no client authentication or reporting
-channel is required.
+history remains on the Live Client; the PXE Server does not receive result reporting.
 
 ## Provider support status
 
