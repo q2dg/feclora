@@ -8,6 +8,10 @@ title: Configuring Server and Client deployment modes
 
 # Configuring Server and Client deployment modes
 
+![Illustrative mockup of the Feclora Server and Client deployment workflow]({{ '/assets/mockups/network-deployment.svg' | relative_url }})
+
+*Illustrative mockup — not a screenshot. The topology, addresses and readiness states are fictional; the actual workflow and its limits are described below.*
+
 The TLS deployment runtime is opt-in. PXE services and the control
 listener do not start automatically at boot.
 
