@@ -188,6 +188,7 @@ def write_and_verify_stream(
     *,
     expected_bytes: int,
     chunk_size: int = 1024 * 1024,
+    cancel_check: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
     """Write an exact stream with short-write handling, flush, and full read-back SHA-256.
 
@@ -201,6 +202,8 @@ def write_and_verify_stream(
     source_digest = hashlib.sha256()
     total = 0
     while total < expected_bytes:
+        if cancel_check is not None and cancel_check():
+            raise PhysicalMulticastError("physical multicast stream cancelled before destination write completed")
         chunk = source_stream.read(min(chunk_size, expected_bytes - total))
         if not isinstance(chunk, (bytes, bytearray, memoryview)) or not chunk:
             raise PhysicalMulticastError(f"physical multicast stream ended early ({total}/{expected_bytes} bytes)")
@@ -220,6 +223,8 @@ def write_and_verify_stream(
     readback_digest = hashlib.sha256()
     verified = 0
     while verified < expected_bytes:
+        if cancel_check is not None and cancel_check():
+            raise PhysicalMulticastError("physical multicast stream cancelled during destination read-back")
         chunk = readback(min(chunk_size, expected_bytes - verified))
         if not isinstance(chunk, (bytes, bytearray, memoryview)) or not chunk:
             raise PhysicalMulticastError(f"destination read-back ended early ({verified}/{expected_bytes} bytes)")
