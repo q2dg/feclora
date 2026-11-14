@@ -230,3 +230,35 @@ class P2VLocalOperationSchemaTests(unittest.TestCase):
         with self.assertRaises(LocalOperationError):
             validate_definition(invalid)
 
+
+
+class P2VS3ExportOperationSchemaTests(unittest.TestCase):
+    def test_s3_export_definition_accepts_local_or_named_filesystem_destination(self):
+        import uuid
+        base = {
+            "schema_version": 1, "operation_id": str(uuid.uuid4()),
+            "action": "export_p2v_s3",
+            "params": {"image_id": "vm-disk", "source_repository_id": "s3-archive"},
+        }
+        self.assertEqual(validate_definition(base)["action"], "export_p2v_s3")
+        with_destination = {
+            **base, "operation_id": str(uuid.uuid4()),
+            "params": {**base["params"], "destination_repository_id": "nfs-images"},
+        }
+        self.assertEqual(validate_definition(with_destination)["params"]["destination_repository_id"], "nfs-images")
+
+    def test_s3_export_definition_rejects_invalid_repository_ids_and_extra_fields(self):
+        import uuid
+        base = {
+            "schema_version": 1, "operation_id": str(uuid.uuid4()),
+            "action": "export_p2v_s3",
+            "params": {"image_id": "vm-disk", "source_repository_id": "../escape"},
+        }
+        with self.assertRaisesRegex(LocalOperationError, "source_repository_id"):
+            validate_definition(base)
+        base["params"] = {
+            "image_id": "vm-disk", "source_repository_id": "s3-archive",
+            "output_path": "/tmp/unsafe.qcow2",
+        }
+        with self.assertRaises(LocalOperationError):
+            validate_definition(base)
