@@ -140,7 +140,7 @@ def execute_multicast_restore(
         if shutil.disk_usage(workdir).free < required_bytes:
             raise MulticastDeploymentError("insufficient Client staging space for the complete image set")
         config = udpcast_config_for_job(
-            job, min_receivers=len(job.authorized_clients),
+            job, min_receivers=job.minimum_ready_clients,
             network_interface=network_interface,
         )
         for artifact in manifest.artifacts:
