@@ -133,8 +133,9 @@ class StagedProportionalRestoreTests(unittest.TestCase):
     @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
            return_value={"primary_backup_consistent": True})
     def test_staged_digest_is_checked_before_target_inspection(self, _gpt):
-        with open(self.path, "ab") as stream:
-            stream.write(b"tamper")
+        with open(self.path, "r+b") as stream:
+            stream.seek(0)
+            stream.write(b"T" * len(self.payload))
         with self.assertRaisesRegex(StagedProportionalRestoreError, "SHA-256"):
             self._restore()
         self.assertEqual(self.processes, [])
