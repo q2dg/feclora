@@ -56,6 +56,7 @@ class StagedProportionalRestoreTests(unittest.TestCase):
             "executables": {"dd": "/usr/bin/dd", "lsblk": "/usr/bin/lsblk"},
             "device_validator": lambda _path: True,
             "device_identity": lambda _path: (8, 1),
+            "expected_device_identity": (8, 1),
             "runner": self.runner,
             "popen_factory": self.factory,
             "target_safety_check": lambda _path: None,
@@ -80,7 +81,8 @@ class StagedProportionalRestoreTests(unittest.TestCase):
     def test_wrong_confirmation_never_opens_or_writes_target(self, _gpt):
         with self.assertRaisesRegex(StagedProportionalRestoreError, "confirmation"):
             restore_staged_proportional_image(
-                self.staged, "/dev/fake", sector_size=512, confirmation="yes"
+                self.staged, "/dev/fake", sector_size=512,
+                expected_device_identity=(8, 1), confirmation="yes"
             )
         self.assertEqual(self.commands, [])
 
