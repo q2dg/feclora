@@ -1815,6 +1815,24 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(result[0]["status"], "expiring")
         self.assertEqual(result[0]["ca_status"], "valid")
 
+    def test_filesystem_inventory_lists_only_digest_verified_p2v_images(self):
+        from feclora.webapi import _filesystem_images
+        with tempfile.TemporaryDirectory() as root:
+            repository = Path(root)
+            payload = b"verified-qcow2"
+            (repository / "vm.qcow2").write_bytes(payload)
+            metadata = {
+                "schema_version": 1, "image_id": "vm", "format": "qcow2",
+                "source_device": "/dev/sda", "virtual_size_bytes": 8192,
+                "file_size_bytes": len(payload), "qcow2_sha256": hashlib.sha256(payload).hexdigest(),
+                "verified": True, "bootability_note": "Guest boot may require driver changes.",
+            }
+            (repository / "vm.p2v.json").write_text(json.dumps(metadata), encoding="utf-8")
+            images = _filesystem_images(repository)
+            self.assertEqual(images[0]["image_type"], "virtual_disk")
+            (repository / "vm.qcow2").write_bytes(b"tampered")
+            self.assertEqual(_filesystem_images(repository), [])
+
 
 if __name__ == "__main__":
     unittest.main()
