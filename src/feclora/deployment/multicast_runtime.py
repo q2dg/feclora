@@ -1,6 +1,6 @@
 """Authenticated UDPcast restore runtime for multiple Clients.
 
-The mTLS channel distributes the manifest and coordinates the job. UDPcast
+The Server-authenticated TLS control channel distributes the manifest and coordinates the job. UDPcast
 carries artifact bytes to private
 Client staging files. Every artifact is verified against the manifest before
 the existing restore path may write to the locally selected disk.
