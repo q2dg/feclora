@@ -1020,10 +1020,10 @@ export default function App() {
                         </select>
                       </Field>}
                       {operation !== "capture_p2v" && <Field t={t} label={t("Image security")}>
-                        <label><input type="checkbox" checked={encrypt} disabled={!security.age_encryption_available && !security.age_executable_available} onChange={(e) => { setEncrypt(e.target.checked); if (!e.target.checked) { setEncryptPassphraseMode(false); setCapturePassphrase(""); } }} /> Encrypt artifacts with age</label>
+                        <label><input type="checkbox" checked={encrypt} disabled={!security.age_encryption_available && !security.age_executable_available} onChange={(e) => { setEncrypt(e.target.checked); if (!e.target.checked) { setEncryptPassphraseMode(false); setCapturePassphrase(""); } }} /> {t("Encrypt artifacts with age")}</label>
                         {operation === "capture_disk" && encrypt && security.age_executable_available && <>
                           <br />
-                          <label><input type="checkbox" checked={encryptPassphraseMode} onChange={(e) => { setEncryptPassphraseMode(e.target.checked); setCapturePassphrase(""); }} /> Use a symmetric passphrase instead of recipient keys</label>
+                          <label><input type="checkbox" checked={encryptPassphraseMode} onChange={(e) => { setEncryptPassphraseMode(e.target.checked); setCapturePassphrase(""); }} /> {t("Use a symmetric passphrase instead of recipient keys")}</label>
                           {encryptPassphraseMode && <Field t={t} label={t("Image encryption passphrase")} help="Sent once to the worker through /run and consumed immediately. It is not saved in the operation journal or image manifest.">
                             <input className="pf-v5-c-form-control" type="password" autoComplete="new-password" value={capturePassphrase} onChange={(e) => setCapturePassphrase(e.target.value)} maxLength={1024} />
                           </Field>}
@@ -1168,7 +1168,7 @@ export default function App() {
                   <Field t={t} label={t("Operation")}>
                     <select className="pf-v5-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); if (e.target.value === "save" || e.target.value === "clone") { setRemoteTransport("unicast"); setRemoteTargetType("disk"); } }}>
                       <option value="restore">Restore a Server image to Clients</option>
-                      <option value="save">Capture whole disks from Clients to Server</option>
+                      <option value="save">{t("Capture whole disks from Clients to Server")}</option>
                       <option value="clone">Clone a Server disk or partition directly to multiple Clients</option>
                     </select>
                   </Field>
@@ -1293,7 +1293,7 @@ export default function App() {
           <Tab eventKey="deployments" title={t("tabHistory")}>
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("deploymentJournals")}</Title></StackItem>
               <StackItem><Table aria-label={t("Feclora deployment history")} variant="compact"><Thead><Tr><Th>{t("Job ID")}</Th><Th>{t("State")}</Th><Th>{t("Interrupted")}</Th><Th>{t("Clients")}</Th><Th>Last durable progress</Th><Th>{t("Events")}</Th></Tr></Thead><Tbody>
-                {journals.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.job_state}</Td><Td>{job.interrupted ? <Label color="orange">Review required</Label> : "No"}</Td><Td>{Object.entries(job.clients || {}).map(([mac, state]) => mac + ": " + state).join(", ") || "—"}</Td><Td>{Object.entries(job.progress || {}).map(([mac, progress]) => mac + ": " + progress.phase + " " + (progress.completed_bytes / (1024 * 1024)).toFixed(1) + " MiB" + (progress.total_bytes === null ? "" : " / " + (progress.total_bytes / (1024 * 1024)).toFixed(1) + " MiB")).join("; ") || "No durable checkpoint"}</Td><Td>{job.event_count}</Td></Tr>)}
+                {journals.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.job_state}</Td><Td>{job.interrupted ? <Label color="orange">{t("Review required")}</Label> : "No"}</Td><Td>{Object.entries(job.clients || {}).map(([mac, state]) => mac + ": " + state).join(", ") || "—"}</Td><Td>{Object.entries(job.progress || {}).map(([mac, progress]) => mac + ": " + progress.phase + " " + (progress.completed_bytes / (1024 * 1024)).toFixed(1) + " MiB" + (progress.total_bytes === null ? "" : " / " + (progress.total_bytes / (1024 * 1024)).toFixed(1) + " MiB")).join("; ") || "No durable checkpoint"}</Td><Td>{job.event_count}</Td></Tr>)}
                 {!journals.length && <Tr><Td colSpan={6}>{t("No deployment jobs recorded.")}</Td></Tr>}
               </Tbody></Table></StackItem>
             </Stack>
@@ -1314,27 +1314,27 @@ export default function App() {
                 {(repositoryProvider === "sshfs" || repositoryProvider === "smb") && <Field t={t} label={t("Username")}><input className="pf-v5-c-form-control" value={repositoryUsername} onChange={(e) => setRepositoryUsername(e.target.value)} maxLength={64} required /></Field>}
                 {repositoryProvider === "sshfs" && <>
                   <Field t={t} label={t("Encrypted SSH private-key credential")}><select className="pf-v5-c-form-control" value={repositoryIdentity} onChange={(e) => setRepositoryIdentity(e.target.value)} required><option value="">Select imported SSH key</option>{systemdCredentials.filter((item) => item.kind === "ssh-key").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
-                  <Field t={t} label={t("Encrypted pinned SSH known_hosts credential")}><select className="pf-v5-c-form-control" value={repositoryKnownHosts} onChange={(e) => setRepositoryKnownHosts(e.target.value)} required><option value="">Select imported known_hosts</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
+                  <Field t={t} label={t("Encrypted pinned SSH known_hosts credential")}><select className="pf-v5-c-form-control" value={repositoryKnownHosts} onChange={(e) => setRepositoryKnownHosts(e.target.value)} required><option value="">{t("Select imported known_hosts")}</option>{systemdCredentials.filter((item) => item.kind === "known-hosts").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>
                 </>}
-                {repositoryProvider === "smb" && <Field t={t} label={t("Encrypted SMB credentials")}><select className="pf-v5-c-form-control" value={repositoryCredentials} onChange={(e) => setRepositoryCredentials(e.target.value)} required><option value="">Select imported SMB credential</option>{systemdCredentials.filter((item) => item.kind === "smb").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>}
+                {repositoryProvider === "smb" && <Field t={t} label={t("Encrypted SMB credentials")}><select className="pf-v5-c-form-control" value={repositoryCredentials} onChange={(e) => setRepositoryCredentials(e.target.value)} required><option value="">{t("Select imported SMB credential")}</option>{systemdCredentials.filter((item) => item.kind === "smb").map((item) => <option key={item.path} value={item.path}>{item.id}</option>)}</select></Field>}
                 <Field t={t} label={t("Port (optional)")}><input className="pf-v5-c-form-control" type="number" min="1" max="65535" value={repositoryPort} onChange={(e) => setRepositoryPort(e.target.value)} /></Field>
                 <Field t={t} label={t("Mount access")}><select className="pf-v5-c-form-control" value={repositoryReadOnly ? "ro" : "rw"} onChange={(e) => setRepositoryReadOnly(e.target.value === "ro")}>
                   <option value="ro">{t("Read-only")}</option><option value="rw">Read/write (image capture)</option>
                 </select></Field>
-                <Button type="submit" variant="primary" isDisabled={busy || !repositoryId || !repositoryHost || !repositoryPath}>{repositoryEditing ? "Update repository definition" : "Save repository definition"}</Button>{" "}{repositoryEditing && <Button type="button" variant="link" onClick={resetRemoteRepositoryForm} isDisabled={busy}>Cancel edit</Button>}
+                <Button type="submit" variant="primary" isDisabled={busy || !repositoryId || !repositoryHost || !repositoryPath}>{repositoryEditing ? "Update repository definition" : "Save repository definition"}</Button>{" "}{repositoryEditing && <Button type="button" variant="link" onClick={resetRemoteRepositoryForm} isDisabled={busy}>{t("Cancel edit")}</Button>}
               </form></CardBody></Card></StackItem>
                             <StackItem><Title headingLevel="h2" size="lg">{t("Encrypted repository credentials")}</Title>
                 <p>Import a root-owned private source file (mode 0600, no symlinks or hard links). For S3, provide a JSON file with exactly access_key_id and secret_access_key. Cockpit submits only its path; the API encrypts its contents with systemd-creds and never returns secret material. The source file remains in place and must be protected or securely removed by the operator.</p>
                 <Card><CardBody><form onSubmit={importSystemdCredential}>
                   <Field t={t} label={t("Credential ID")}><input className="pf-v5-c-form-control" value={credentialId} onChange={(e) => setCredentialId(e.target.value)} pattern="[a-z0-9][a-z0-9-]{0,47}" maxLength={48} required /></Field>
-                  <Field t={t} label={t("Credential type")}><select className="pf-v5-c-form-control" value={credentialKind} onChange={(e) => setCredentialKind(e.target.value)}><option value="ssh-key">SSH private key</option><option value="known-hosts">SSH known_hosts</option><option value="smb">SMB credentials</option><option value="s3">S3 access key pair (JSON)</option></select></Field>
+                  <Field t={t} label={t("Credential type")}><select className="pf-v5-c-form-control" value={credentialKind} onChange={(e) => setCredentialKind(e.target.value)}><option value="ssh-key">SSH private key</option><option value="known-hosts">{t("SSH known_hosts")}</option><option value="smb">{t("SMB credentials")}</option><option value="s3">S3 access key pair (JSON)</option></select></Field>
                   <Field t={t} label={t("Protected source file path")}><input className="pf-v5-c-form-control" value={credentialSourceFile} onChange={(e) => setCredentialSourceFile(e.target.value)} maxLength={512} required /></Field>
                   <label><input type="checkbox" checked={credentialReplace} onChange={(e) => setCredentialReplace(e.target.checked)} /> Replace an existing credential with this ID and type</label>
-                  <Button type="submit" variant="primary" isDisabled={busy || !credentialId || !credentialSourceFile}>Import and encrypt credential</Button>
+                  <Button type="submit" variant="primary" isDisabled={busy || !credentialId || !credentialSourceFile}>{t("Import and encrypt credential")}</Button>
                 </form></CardBody></Card>
-                <Table aria-label={t("Encrypted repository credentials")} variant="compact"><Thead><Tr><Th>{t("ID")}</Th><Th>{t("type")}</Th><Th>Encrypted reference</Th><Th>Action</Th></Tr></Thead><Tbody>
+                <Table aria-label={t("Encrypted repository credentials")} variant="compact"><Thead><Tr><Th>{t("ID")}</Th><Th>{t("type")}</Th><Th>{t("Encrypted reference")}</Th><Th>{t("Action")}</Th></Tr></Thead><Tbody>
                   {systemdCredentials.map((credential) => <Tr key={credential.name}><Td>{credential.id}</Td><Td>{credential.kind}</Td><Td>{credential.path}</Td><Td><Button size="sm" variant="danger" isDisabled={busy || remoteRepositories.some((repo) => (repo.credential_refs || []).includes(credential.path)) || s3Repositories.some((repo) => (repo.credential_refs || []).includes(credential.path))} onClick={() => removeSystemdCredential(credential)}>{t("Remove")}</Button></Td></Tr>)}
-                  {!systemdCredentials.length && <Tr><Td colSpan={4}>No encrypted credentials imported.</Td></Tr>}
+                  {!systemdCredentials.length && <Tr><Td colSpan={4}>{t("No encrypted credentials imported.")}</Td></Tr>}
                 </Tbody></Table>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">{t("S3 object repositories")}</Title>
@@ -1359,7 +1359,7 @@ export default function App() {
                 <Table aria-label={t("Remote image repositories")} variant="compact"><Thead><Tr><Th>{t("ID")}</Th><Th>{t("Provider")}</Th><Th>{t("Remote location")}</Th><Th>{t("Access")}</Th><Th>{t("Mount identity")}</Th><Th>{t("Actions")}</Th></Tr></Thead><Tbody>
                   {remoteRepositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.provider}</Td><Td>{repo.host}:{repo.remote_path}<br />{repo.mountpoint}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td>{repo.mount_state === "unknown" ? <><Label color="grey">{t("State unknown")}</Label>{repo.mount_error && <div className="pf-v5-u-color-danger pf-v5-u-font-size-sm">{repo.mount_error}</div>}</> : repo.mount_state === "unmounted" ? <Label color="grey">{t("Unmounted")}</Label> : repo.verified ? <Label color="green">{t("Mounted · identity verified")}</Label> : <><Label color="red">{t("Mounted · unverified")}</Label>{repo.mount_error && <div className="pf-v5-u-color-danger pf-v5-u-font-size-sm">{repo.mount_error}</div>}</>}{repo.health_state === "unknown" && <div className="pf-v5-u-color-secondary pf-v5-u-font-size-sm">{t("Remote health unknown")}</div>}</Td><Td>
                     <Button size="sm" variant="secondary" isDisabled={busy || repo.mount_state !== "unmounted"} onClick={() => editRemoteRepository(repo)}>{t("Edit")}</Button>{" "}
-                    <Button size="sm" variant="secondary" isDisabled={busy} onClick={() => runRemoteRepositoryAction("check_remote_repository", repo.id)}>Check mount identity</Button>{" "}
+                    <Button size="sm" variant="secondary" isDisabled={busy} onClick={() => runRemoteRepositoryAction("check_remote_repository", repo.id)}>{t("Check mount identity")}</Button>{" "}
                     <Button size="sm" variant="secondary" isDisabled={busy || repo.mount_state !== "unmounted"} onClick={() => runRemoteRepositoryAction("mount_remote_repository", repo.id)}>{t("Mount")}</Button>{" "}
                     <Button size="sm" variant="secondary" isDisabled={busy || repo.mount_state !== "identity_verified"} onClick={() => runRemoteRepositoryAction("unmount_remote_repository", repo.id)}>{t("Unmount")}</Button>{" "}
                     <Button size="sm" variant="danger" isDisabled={busy || repo.mount_state !== "unmounted"} onClick={() => runRemoteRepositoryAction("remove_remote_repository", repo.id)}>{t("Remove")}</Button>
@@ -1421,7 +1421,7 @@ export default function App() {
                     <Field t={t} label={t("Gateway (optional)")}><input className="pf-v5-c-form-control" value={networkGateway} onChange={(event) => setNetworkGateway(event.target.value)} placeholder={t("192.0.2.1")} /></Field>
                     <Field t={t} label={t("DNS servers (comma-separated, optional)")}><input className="pf-v5-c-form-control" value={networkDns} onChange={(event) => setNetworkDns(event.target.value)} placeholder={t("192.0.2.53, 192.0.2.54")} /></Field>
                   </>}
-                  <Button type="submit" variant="primary" isLoading={busy} isDisabled={busy || !networkProfileUuid}>Apply and verify network configuration</Button>
+                  <Button type="submit" variant="primary" isLoading={busy} isDisabled={busy || !networkProfileUuid}>{t("Apply and verify network configuration")}</Button>
                 </form>
                 {networkApplyResult && <Alert variant="success" title={t("Network configuration verified")} isInline className="pf-v5-u-mt-md">Interface {networkApplyResult.interface}, mode {networkApplyResult.method}, address {networkApplyResult.address || "assigned by DHCP"}.</Alert>}
               </StackItem>
@@ -1439,7 +1439,7 @@ export default function App() {
               <StackItem>
                 <Field t={t} label={t("Server network interface and address")} help="Only active non-loopback IPv4 addresses assigned to this host are offered.">
                   <select className="pf-v5-c-form-control" value={serverBinding} onChange={(e) => { setServerBinding(e.target.value); setPxePreflight(null); setPxeProfile(null); }}>
-                    <option value="">Select an interface/address…</option>
+                    <option value="">{t("Select an interface/address…")}</option>
                     {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}/{item.prefix_length}</option>)}
                   </select>
                 </Field>
@@ -1525,7 +1525,7 @@ export default function App() {
                         <Field t={t} label={t("age symmetric passphrase")}>
                           <input className="pf-v5-c-form-control" type="password" autoComplete="off" value={pxeAgePassphrase} onChange={(event) => setPxeAgePassphrase(event.target.value)} />
                         </Field>
-                        <Button variant="primary" onClick={submitPXEAgePassphrase} isLoading={busy} isDisabled={busy || !pxeAgePassphrase}>Submit passphrase to this Live client</Button>
+                        <Button variant="primary" onClick={submitPXEAgePassphrase} isLoading={busy} isDisabled={busy || !pxeAgePassphrase}>{t("Submit passphrase to this Live client")}</Button>
                       </>
                     : <Alert variant="info" title={t("Passphrase submitted")} isInline>The Live restore worker has received the one-time passphrase and is continuing the authenticated restore preflight.</Alert>}
                 </CardBody></Card>
@@ -1613,7 +1613,7 @@ export default function App() {
                     {clientRemoteJobStatus.multicast_preflight?.warnings?.length > 0 && <Alert variant="warning" title={t("Multicast switch checks")} isInline>{clientRemoteJobStatus.multicast_preflight.warnings.join(" ")}</Alert>}
                     {clientRemoteJobStatus.multicast_warnings?.length > 0 && <Alert variant="warning" title={t("Multicast switch checks")} isInline>{clientRemoteJobStatus.multicast_warnings.join(" ")}</Alert>}
                     {clientRemoteJobStatus.interrupted && <Alert variant="danger" title={t("Client service interrupted")} isInline>No automatic reconnect or disk-operation resume is available. Inspect the local destination and Server journal before creating another job.</Alert>}
-                    <Button variant="secondary" onClick={refreshClientRemoteJobStatus} isLoading={busy} isDisabled={busy}>Refresh Client status</Button>
+                    <Button variant="secondary" onClick={refreshClientRemoteJobStatus} isLoading={busy} isDisabled={busy}>{t("Refresh Client status")}</Button>
                   </CardBody></Card>
                 </StackItem>}
               </>}
@@ -1624,8 +1624,8 @@ export default function App() {
               <StackItem><KeyboardPreferences language={language} /></StackItem>
               <StackItem><Table aria-label={t("Feclora services")} variant="compact"><Thead><Tr><Th>{t("Component")}</Th><Th>{t("status")}</Th></Tr></Thead><Tbody>
                 {Object.entries(status?.services || {}).map(([name, value]) => <Tr key={name}><Td>{name}</Td><Td>{value}</Td></Tr>)}
-                <Tr><Td>Server deployment configuration</Td><Td>{status?.server_configured ? "Configured" : "Not configured"}</Td></Tr>
-                <Tr><Td>Client deployment configuration</Td><Td>{status?.client_configured ? "Configured" : "Not configured"}</Td></Tr>
+                <Tr><Td>{t("Server deployment configuration")}</Td><Td>{status?.server_configured ? "Configured" : "Not configured"}</Td></Tr>
+                <Tr><Td>{t("Client deployment configuration")}</Td><Td>{status?.client_configured ? "Configured" : "Not configured"}</Td></Tr>
               </Tbody></Table></StackItem>
               <StackItem>
                 <Title headingLevel="h2" size="lg">{t("security")}</Title>
