@@ -15,8 +15,6 @@ title: Configuring Server and Client deployment modes
 The TLS deployment runtime is opt-in. PXE services and the control
 listener do not start automatically at boot.
 
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
-
 See [Certificate management](CERTIFICATE-MANAGEMENT.md) for the Server CA/certificate and Client trust model.
 
 ## Filesystem preparation
@@ -27,9 +25,8 @@ must remain root-owned and mode 0700. The Server creates
 configuration. Do not copy its CA private key to a Client.
 
 The JSON configuration files must be root-owned regular files with mode 0600.
-The CA certificate, Server certificate and Server private key must be root-owned regular files. The Server private key must have no group/other permissions. If optional image
-signing/encryption is enabled, its public/private key material must be
-protected with equivalent least-privilege permissions. Symlink paths are rejected.
+The CA certificate, Server certificate and Server private key must be root-owned regular files. The Server private key must have no group/other permissions. If optional age encryption is enabled, its identity and recipient material
+must be protected with equivalent least-privilege permissions. Symlink paths are rejected.
 
 For each Client, provision the CA certificate and configure the Server address
 and expected Server certificate identity. Clients do not create, import or
@@ -40,10 +37,6 @@ Do not put private keys or CA signing material in TFTP/HTTP boot assets.
 
 Install /etc/feclora/deployment-server.json with this schema (replace every
 example path and identity):
-
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
-
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 The Server writes a private hash-chained job journal under /var/lib/feclora/deployments; the directory is created root-owned with mode 0700. On startup, verified journals reconstruct the last job/client states for operator review. This is audit-only recovery: live sessions are not recreated and destructive jobs are never resumed automatically.
 
@@ -56,27 +49,15 @@ is operational job selection, not an authentication credential.
 The bind address must exactly match the IPv4 address selected in Server mode.
 The Server UI creates either a one-client unicast save/restore job or a multi-client multicast restore job and displays the job UUID. For restore jobs, it can also collect an optional stable target binding for each selected Client (WWN, serial number, or both). When configured, the Client checks those identifiers against its current device inventory before READY; the operator still selects the local device and types the destructive confirmation. Jobs without a binding retain the ordinary interactive selection. Each selected Client operator enters that UUID. The Server listener opens TCP/9443 only on the selected interface in Feclora's temporary firewalld zone. During multicast transfers it temporarily adds the UDPcast port pair and IGMP on that same interface. The listener and temporary firewall rules are removed when the job UI exits.
 
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
-
 ## Client configuration
 
 Install /etc/feclora/deployment-client.json on each Client:
 
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
-
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
-
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
-
 ## Cockpit walkthrough and screenshots
-
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 Illustrations may be real screenshots from a version-matched build or clearly labeled mockups. Mockups must not be presented as runtime evidence; follow the [screenshot and mockup policy](assets/screenshots/README.md).
 
 ## Scope and safety limits
-
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 For a multi-Client restore, the Cockpit job form can select either the local
 Server image repository or a mounted, verified SSHFS/NFS/SMB repository. The
@@ -96,8 +77,6 @@ image-manifest checks; NFS root-squash may prevent this.
 The embedded PXE stack boots the same Fedora Live kernel, initramfs and
 squashfs used by the Feclora ISO. The interactive PXE entry opens the normal
 Live Cockpit interface; operators do not need to boot the ISO manually.
-
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 ### Destructive-operation security boundary
 
