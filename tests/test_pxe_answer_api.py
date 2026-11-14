@@ -95,6 +95,56 @@ class PXEAnswerAPITests(unittest.TestCase):
                 })
             self.assertEqual(result, raw)
 
+    def test_scp_source_uses_saved_ssh_credentials_and_checks_host_keys(self):
+        import os
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+
+        class FakeS3Manager:
+            def list(self):
+                return []
+        class FakeRemoteManager:
+            def acquire_usage_lock(self, _identifier):
+                return os.open(os.devnull, os.O_RDONLY)
+            def _load(self):
+                return {"ssh-backup": {"provider": "sshfs"}}
+        class FakeCredentialStore:
+            root = Path("/fake/credentials")
+            def read(self, identifier, kind):
+                return f"{identifier}:{kind}".encode("ascii")
+
+        repo = SimpleNamespace(
+            provider="sshfs", identity_file="/fake/credentials/feclora-ssh-backup-ssh-key.cred",
+            known_hosts_file="/fake/credentials/feclora-ssh-backup-known-hosts.cred",
+            remote_path="/srv/answer-files", username="deploy",
+            host="ssh.example.test", port=2222,
+        )
+        completed = Mock(returncode=0, stderr=b"")
+        def run(command, **_kwargs):
+            Path(command[-1]).write_bytes(self.answer())
+            return completed
+
+        with patch("feclora.storage.s3_repository_manager.S3RepositoryManager",
+                   return_value=FakeS3Manager()), \
+             patch("feclora.webapi._remote_repository_manager",
+                   return_value=FakeRemoteManager()), \
+             patch("feclora.storage.repository_manager._repository", return_value=repo), \
+             patch("feclora.storage.systemd_credential_store.SystemdCredentialStore",
+                   return_value=FakeCredentialStore()), \
+             patch("feclora.webapi.shutil.which", return_value="/usr/bin/scp"), \
+             patch("feclora.webapi.subprocess.run", side_effect=run) as scp_run:
+            result = _read_pxe_answer_source({
+                "job_id": self.JOB_ID, "source": "scp",
+                "repository_id": "ssh-backup", "source_path": "production/answer.json",
+            })
+        self.assertEqual(result, self.answer())
+        command = scp_run.call_args.args[0]
+        self.assertIn("-oStrictHostKeyChecking=yes", command)
+        self.assertIn("-P", command)
+        self.assertIn("2222", command)
+        self.assertIn("deploy@ssh.example.test:/srv/answer-files/production/answer.json", command)
+
     def test_repository_source_rejects_parent_path_components(self):
         with self.assertRaisesRegex(WebAPIError, "safe relative path"):
             _read_pxe_answer_source({
