@@ -21,6 +21,7 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
         with self.assertRaisesRegex(ProportionalRestoreWorkflowError, "same physical"):
             require_distinct_block_devices(
                 "/dev/disk/by-id/source", "/dev/sda",
+                source_major_minor="8:1", target_major_minor="8:1",
                 stat_device=devices.__getitem__,
             )
 
@@ -30,7 +31,10 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
             "/dev/sdb": SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=2064),
         }
         self.assertEqual(
-            require_distinct_block_devices("/dev/sda", "/dev/sdb", stat_device=devices.__getitem__),
+            require_distinct_block_devices(
+                "/dev/sda", "/dev/sdb", source_major_minor="8:0",
+                target_major_minor="8:16", stat_device=devices.__getitem__,
+            ),
             (2048, 2064),
         )
 
@@ -53,7 +57,8 @@ class ProportionalRestoreWorkflowTests(unittest.TestCase):
         }
         with self.assertRaisesRegex(ProportionalRestoreWorkflowError, "block devices"):
             require_distinct_block_devices(
-                "/dev/sda", "/dev/not-a-device", stat_device=devices.__getitem__
+                "/dev/sda", "/dev/not-a-device", source_major_minor="8:0",
+                target_major_minor="8:1", stat_device=devices.__getitem__
             )
 
     def setUp(self):
