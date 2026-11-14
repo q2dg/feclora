@@ -25,6 +25,8 @@ class StagedNTFSShrinkTests(unittest.TestCase):
         self.current_bytes = 8 * 1024 * 1024
         self.minimum_bytes = 4 * 1024 * 1024
         self.mapping_valid = True
+        self.info_calls = 0
+        self.post_reported_current_bytes = None
 
     def tearDown(self):
         self.temp.cleanup()
@@ -51,9 +53,15 @@ class StagedNTFSShrinkTests(unittest.TestCase):
         if args[0].endswith("blockdev"):
             return SimpleNamespace(stdout=str(10 * 1024 * 1024) + "\n", stderr="")
         if args[0].endswith("ntfsresize") and "--info" in args:
+            self.info_calls += 1
+            reported_current = (
+                self.post_reported_current_bytes
+                if self.info_calls > 1 and self.post_reported_current_bytes is not None
+                else self.current_bytes
+            )
             return SimpleNamespace(
                 stdout=(
-                    f"Current volume size: {self.current_bytes:,} bytes\n"
+                    f"Current volume size: {reported_current:,} bytes\n"
                     f"You might resize at {self.minimum_bytes:,} bytes or less\n"
                 ),
                 stderr="",
@@ -89,10 +97,9 @@ class StagedNTFSShrinkTests(unittest.TestCase):
         result = self.shrink()
         self.assertEqual(result.size_bytes, 20 * 1024 * 1024)
         self.assertNotEqual(result.sha256, self.initial_digest)
-        self.assertIn(
-            ["/sbin/ntfsresize", "--size", str(5 * 1024 * 1024), "/dev/loop8"],
-            self.commands,
-        )
+        resize_command = ["/sbin/ntfsresize", "--size", str(5 * 1024 * 1024), "/dev/loop8"]
+        self.assertIn(resize_command, self.commands)
+        self.assertNotIn("--force", resize_command)
         self.assertIn(["/sbin/losetup", "--detach", "/dev/loop8"], self.commands)
         self.assertEqual(
             self.commands[0],
@@ -131,6 +138,15 @@ class StagedNTFSShrinkTests(unittest.TestCase):
         with self.assertRaisesRegex(StagedNTFSShrinkError, "digest mismatch"):
             self.shrink()
         self.assertEqual(self.commands, [])
+
+    def test_rejects_post_shrink_size_readback_larger_than_target(self):
+        self.post_reported_current_bytes = 6 * 1024 * 1024
+        with self.assertRaisesRegex(StagedNTFSShrinkError, "failed post-shrink read-back"):
+            self.shrink()
+        self.assertIn(["/sbin/losetup", "--detach", "/dev/loop8"], self.commands)
+        resize_command = next(command for command in self.commands if "--size" in command)
+        self.assertNotIn("--force", resize_command)
+
 
     def test_rejects_target_larger_than_planned_partition(self):
         staged = StagedRawDiskImage(self.path, os.path.getsize(self.path), self.initial_digest)
