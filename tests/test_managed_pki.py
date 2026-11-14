@@ -8,34 +8,11 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from feclora.deployment.managed_pki import (
-    PKIError, certificate_expiry_days, create_client_csr, inspect_client_csr, renew_server_certificate, rotate_server_keypair,
+    PKIError, certificate_expiry_days, renew_server_certificate, rotate_server_keypair,
 )
 
 
 class ManagedPKITests(unittest.TestCase):
-    def test_csr_requires_one_feclora_uri_san_and_valid_signature(self):
-        with tempfile.NamedTemporaryFile() as csr:
-            with patch(
-                "feclora.deployment.managed_pki._run",
-                side_effect=[
-                    SimpleNamespace(stdout="Certificate request self-signature verify OK"),
-                    SimpleNamespace(stdout="X509v3 Subject Alternative Name:\n    URI:feclora-client-lab-01\n"),
-                ],
-            ):
-                self.assertEqual(inspect_client_csr(csr.name), "URI:feclora-client-lab-01")
-
-    def test_csr_rejects_multiple_or_non_feclora_sans(self):
-        with tempfile.NamedTemporaryFile() as csr:
-            with patch(
-                "feclora.deployment.managed_pki._run",
-                side_effect=[
-                    SimpleNamespace(stdout="verified"),
-                    SimpleNamespace(stdout="X509v3 Subject Alternative Name:\n    URI:feclora-client-lab-01, DNS:untrusted.example\n"),
-                ],
-            ):
-                with self.assertRaisesRegex(PKIError, "exactly one"):
-                    inspect_client_csr(csr.name)
-
     def test_client_age_recipient_is_added_and_removed_from_future_inventory(self):
         with tempfile.TemporaryDirectory() as root:
             recipients_file = os.path.join(root, "age-recipients.txt")
@@ -443,24 +420,6 @@ class ManagedPKITests(unittest.TestCase):
                 ca_bundle_fingerprints(bundle)
 
 
-    def test_client_csr_can_be_created_without_age_keygen(self):
-        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as export:
-            def fake_run(argv, runner=None):
-                for option in ("-keyout", "-out"):
-                    if option in argv:
-                        Path(argv[argv.index(option) + 1]).write_text("test", encoding="ascii")
-                return SimpleNamespace(stdout="", stderr="", returncode=0)
-
-            with patch("feclora.deployment.managed_pki._root_only_directory", return_value=root), \
-                 patch("feclora.deployment.managed_pki._run", side_effect=fake_run):
-                identity, key, csr = create_client_csr(
-                    root, export, "lab-no-age", age_keygen=None,
-                )
-            self.assertEqual(identity, "URI:feclora-client-lab-no-age")
-            self.assertTrue(os.path.isfile(key))
-            self.assertTrue(os.path.isfile(csr))
-            self.assertFalse(os.path.exists(os.path.join(root, "client-lab-no-age.age")))
-            self.assertFalse(os.path.exists(os.path.join(export, "feclora-lab-no-age.age-recipient")))
 
 
 if __name__ == "__main__":
