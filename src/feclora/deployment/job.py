@@ -67,6 +67,15 @@ class DeploymentJob:
     repository_id: str | None = None
     target_bindings: tuple[tuple[str, str | None, str | None], ...] = ()
 
+    @property
+    def minimum_ready_clients(self) -> int:
+        """Minimum READY peers required before the explicit Server arm action."""
+        if self.start_policy == "expected_clients":
+            return int(self.expected_clients or 0)
+        if self.start_policy == "deadline":
+            return 1
+        return len(self.authorized_clients)
+
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "DeploymentJob":
         if not isinstance(payload, dict):
