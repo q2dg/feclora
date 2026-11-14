@@ -43,13 +43,23 @@ and limits only.
 
 ## Deployment preparation
 
-The Cockpit Server setup provides a single file input for the prewritten JSON
-answer. The `repository_id` field inside that JSON selects a repository already
-configured in the Live client's normal Feclora repository manager; there is no second repository-URL field in Cockpit. The Server
-validates the document and publishes it through its Caddy service over HTTP
-under a generated job UUID. It also publishes an iPXE admission wrapper and a
-separate job-specific boot script. The boot script is available only through
-the admission endpoint, not through Caddy's static file server.
+The Cockpit Server setup accepts a prewritten JSON answer from three
+sources: a local file upload, an HTTP/HTTPS URL, or a path inside an already
+configured image repository. For HTTP/HTTPS, the Server downloads the document
+directly, verifies TLS certificates, rejects redirects and embedded URL
+credentials, and enforces the 64 KiB limit. For SSHFS/SFTP, NFS and SMB/CIFS,
+the selected repository must already be mounted and identity-verified; the
+answer path is relative to its mount root. For S3, the path is an object key
+relative to the configured bucket prefix. Repository credentials are reused
+from Feclora's protected configuration and are never entered into the answer
+form. SCP is not a separate configured repository backend; use a configured
+SSHFS/SFTP repository for SSH-hosted files.
+
+All sources pass the same strict JSON schema validation before the Server
+publishes the document through Caddy over HTTP under a generated job UUID. It
+also publishes an iPXE admission wrapper and a separate job-specific boot
+script. The boot script is available only through the admission endpoint, not
+through Caddy's static file server.
 
 The PXE Server does not host, copy, mount or proxy the image repository. It
 serves the Live boot assets and the answer JSON only. The Live client is
