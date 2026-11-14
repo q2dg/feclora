@@ -8,6 +8,16 @@ Project website: https://q2dg.github.io/feclora/
 
 **New here?** Start with the [step-by-step operator guides](https://q2dg.github.io/feclora/GETTING-STARTED.html).
 
+## Workflow previews
+
+These are illustrative UI mockups, not screenshots from a running system.
+
+| Capture | Restore | Network deployment |
+|---|---|---|
+| ![Illustrative capture wizard mockup](docs/assets/mockups/capture-wizard.svg) | ![Illustrative restore wizard mockup](docs/assets/mockups/restore-wizard.svg) | ![Illustrative Server and Client deployment mockup](docs/assets/mockups/network-deployment.svg) |
+| [Capture guide](https://q2dg.github.io/feclora/WHOLE-DISK-CAPTURE.html) | [Restore guide](https://q2dg.github.io/feclora/WHOLE-DISK-RESTORE.html) | [Deployment guide](https://q2dg.github.io/feclora/DEPLOYMENT-SETUP.html) |
+
+
 ## Current implementation
 
 - Fedora Linux 45, x86_64, with a Fedora Live image build pipeline for BIOS and UEFI.
