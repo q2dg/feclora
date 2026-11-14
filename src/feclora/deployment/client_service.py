@@ -588,6 +588,63 @@ class ClientDeploymentService:
                     # the framed artifact payload in that same byte stream.
                     report_progress("transfer", current, total, report_remote=False)
 
+                if job.transport == "multicast" and job.operation == "clone":
+                    from feclora.network.physical_multicast import (
+                        assert_device_identity_unchanged, build_physical_device_record,
+                        block_device_stream_callbacks, open_approved_block_device,
+                    )
+                    from feclora.network.udpcast import receive_physical_multicast_stream
+                    from feclora.deployment.multicast_runtime import udpcast_config_for_job
+
+                    descriptor = None
+                    try:
+                        if not isinstance(approval.physical_identity, dict) or not isinstance(approval.physical_stream, dict):
+                            raise DeploymentControlError("physical clone approval or stream metadata is missing")
+                        current_device = self._find_device(approval.device_path, "disk")
+                        current_identity = build_physical_device_record(current_device)
+                        assert_device_identity_unchanged(
+                            approval.physical_identity, current_identity,
+                            role="Client destination",
+                        )
+                        descriptor = open_approved_block_device(
+                            approval.physical_identity, current_identity,
+                            role="Client destination",
+                        )
+                        write, flush, readback = block_device_stream_callbacks(descriptor)
+                        send_control_message(tls_socket, {
+                            "type": "physical_ready", "job_id": job.job_id,
+                            "ready": True, "detail": "Destination identity revalidated and exclusively opened.",
+                        })
+                    except Exception as exc:
+                        try:
+                            send_control_message(tls_socket, {
+                                "type": "physical_ready", "job_id": job.job_id,
+                                "ready": False, "detail": str(exc)[:256],
+                            })
+                        except Exception:
+                            pass
+                        if descriptor is not None:
+                            os.close(descriptor)
+                        raise DeploymentControlError(f"physical destination preparation failed: {exc}") from exc
+                    try:
+                        udpcast = udpcast_config_for_job(
+                            job, min_receivers=len(job.authorized_clients),
+                            network_interface=network_interface,
+                        )
+                        result = receive_physical_multicast_stream(
+                            write, flush, readback,
+                            expected_bytes=approval.physical_stream["expected_bytes"],
+                            expected_sha256=approval.physical_stream["sha256"],
+                            config=udpcast, firewall=PXEFirewall(),
+                            cancel_check=self._stop_event.is_set,
+                        )
+                        report_progress("clone", result["bytes_verified"], result["bytes_verified"])
+                        return True, (
+                            f"Physical multicast clone verified: {result['bytes_verified']} bytes; "
+                            f"SHA-256 {result['readback_sha256']}."
+                        )
+                    finally:
+                        os.close(descriptor)
                 if job.transport == "multicast":
                     return execute_multicast_restore(
                         job, tls_socket, approval,
