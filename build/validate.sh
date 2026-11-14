@@ -68,6 +68,9 @@ fi
 if ! grep -q 'submit_local_operation|local_operation_status|local_operations' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Cockpit API wrapper does not allow durable local operation actions."
 fi
+if ! grep -q '"capture_p2v"' "$ROOT_DIR/webui/src/api.js" || ! grep -q 'capture_p2v' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "P2V operation is not exposed through the Cockpit API wrapper."
+fi
 if ! grep -q 'def _submit_local_operation' "$ROOT_DIR/src/feclora/webapi.py"; then
   fail "Cockpit API is missing durable local operation submission."
 fi
