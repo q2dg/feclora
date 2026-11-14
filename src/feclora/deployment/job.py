@@ -145,8 +145,10 @@ class DeploymentJob:
             raise JobValidationError("save jobs require unicast transport")
         if operation == "clone" and target_type not in {"disk", "partition"}:
             raise JobValidationError("remote clone supports whole disks or partitions only")
-        if operation == "clone" and payload.get("transport") != "unicast":
-            raise JobValidationError("clone jobs require unicast transport")
+        if operation == "clone" and payload.get("transport") not in {"unicast", "multicast"}:
+            raise JobValidationError("clone jobs require unicast or multicast transport")
+        if operation == "clone" and payload.get("transport") == "multicast" and target_type != "disk":
+            raise JobValidationError("physical multicast clone currently supports whole disks only")
 
         clients = payload.get("authorized_clients")
         if not isinstance(clients, list) or not clients:
@@ -225,7 +227,7 @@ class DeploymentJob:
             or not 0 <= staging_required_bytes <= (1 << 63) - 1
         ):
             raise JobValidationError("staging_required_bytes must be a non-negative 63-bit integer")
-        if transport != "multicast" and staging_required_bytes is not None:
+        if (transport != "multicast" or operation != "restore") and staging_required_bytes is not None:
             raise JobValidationError("staging_required_bytes is only valid for multicast restore jobs")
 
         policy = payload.get("start_policy")
