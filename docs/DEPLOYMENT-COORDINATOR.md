@@ -23,9 +23,10 @@ Server-authenticated control protocol.
 ## Security and scope
 
 The `authenticated=True` argument is an integration boundary, not an
-authentication mechanism. It must only be supplied by a future transport
-adapter after verifying a cryptographic peer identity and job authorization.
-MAC addresses are not credentials.
+authentication mechanism. In the current deployment it represents the
+Server-authenticated TLS control session; it does not mean the Server has
+cryptographically authenticated the Client. MAC addresses are operational
+job selectors, not credentials.
 
 The coordinator is thread-safe and keeps the active state in memory. When
 configured with the deployment journal as its event sink, transitions are
