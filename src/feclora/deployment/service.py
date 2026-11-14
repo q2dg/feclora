@@ -433,7 +433,13 @@ class DeploymentService:
             if self.job.operation == "clone":
                 if not self.job.source_device:
                     raise DeploymentServiceError("clone source device is unavailable")
-                required = f"ARM {self.job.job_id} AND READ {self.job.source_device}"
+                if self.job.transport == "multicast":
+                    required = (
+                        f"ARM PHYSICAL MULTICAST {self.job.job_id} "
+                        f"FROM {self.job.source_device} IGMP-VERIFIED"
+                    )
+                else:
+                    required = f"ARM {self.job.job_id} AND READ {self.job.source_device}"
             else:
                 required = (
                     "ARM MULTICAST " + self.job.job_id + " IGMP-VERIFIED"
