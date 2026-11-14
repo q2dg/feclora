@@ -180,3 +180,18 @@ class LocalOperationStoreTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
+
+class P2VLocalOperationSchemaTests(unittest.TestCase):
+    def test_p2v_capture_definition_accepts_only_source_image_and_optional_repository(self):
+        import uuid
+        base = {
+            "schema_version": 1, "operation_id": str(uuid.uuid4()),
+            "action": "capture_p2v",
+            "params": {"source": "/dev/sda", "image_id": "vm-disk", "repository_id": "archive"},
+        }
+        self.assertEqual(validate_definition(base)["action"], "capture_p2v")
+        invalid = dict(base)
+        invalid["params"] = {**base["params"], "output_path": "/tmp/unsafe.qcow2"}
+        with self.assertRaises(LocalOperationError):
+            validate_definition(invalid)
+
