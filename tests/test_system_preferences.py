@@ -32,8 +32,10 @@ class KeyboardLayoutTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as directory:
                 config = Path(directory) / "kiosk-keyboard.conf"
                 applied = set_keyboard_layout({"layout": "ca"}, config_path=config)
+                self.assertIn("FECLORA_KEYBOARD_LAYOUT=ca", config.read_text())
                 self.assertIn("XKB_DEFAULT_LAYOUT=es", config.read_text())
                 self.assertIn("XKB_DEFAULT_VARIANT=cat", config.read_text())
+                self.assertTrue(config.read_text().endswith("XKB_DEFAULT_OPTIONS=\n"))
         self.assertTrue(applied["applied"])
         self.assertEqual(applied["keymap"], "es")
         self.assertEqual(run.call_args_list[0].args[0], ["/usr/bin/localectl", "set-keymap", "es"])
