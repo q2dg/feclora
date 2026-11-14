@@ -32,3 +32,25 @@ Automated test cases have been added with an injected command runner. They
 exercise loop mapping validation, filesystem-type rejection, digest mismatch,
 shrink command construction and detach behavior. These tests have not been
 run as part of this change.
+
+
+## NTFS staged shrink
+
+NTFS has a separate executor in `feclora.storage.staged_ntfs_shrink`.
+`shrink_staged_ntfs_filesystem()` applies the same private-RAW and exact-loop
+mapping checks, verifies that the loop capacity matches the source partition
+geometry, and requires an NTFS signature. It reads both the current volume
+size and the live minimum reported by `ntfsresize --info`, rejects a target
+outside those bounds, then runs `ntfsresize --size` without `--force`.
+Finally it re-runs the information probe and checks the resulting volume
+size before detaching the loop and returning a refreshed digest.
+
+The executor intentionally does not force a dirty or hibernated NTFS volume
+through resize. Such a volume fails closed and must be made clean by an
+operator using the appropriate Windows recovery/shutdown procedure before
+capture is staged again. The executor still does not rewrite GPT, truncate
+the RAW image, or write a destination disk.
+
+NTFS unit tests use an injected command runner and cover the loop mapping,
+filesystem signature, live minimum-size guard, source digest and detach path.
+They have been added but not executed.
