@@ -1500,7 +1500,7 @@ export default function App() {
                   <p>Upload the prewritten JSON answer. The repository is selected by its <code>repository_id</code> field and must already be configured in the Live client through Feclora's normal repository manager. The Server validates the JSON and publishes it through Caddy over HTTP. The answer contains no URLs, credential references or secrets.</p>
                   <Alert variant="warning" title={t("Destructive operation guard")} isInline>The PXE Live client trusts the answer delivered by this HTTP server. When a client boots the unattended iPXE entry, a matching whole disk is restored automatically. The Live client resolves the selected repository through its normal Feclora managers: SSHFS, NFS, SMB/CIFS and S3, using credentials already protected in the Live configuration. No credential handoff or per-client identity is introduced. Images may be unencrypted or age-encrypted with a symmetric passphrase entered locally in Live Cockpit. Test only with disposable target disks.</Alert>
                   <Field t={t} label={t("Answer file source")}>
-                    <select className="pf-v6-c-form-control" value={pxeAnswerSource} onChange={(event) => { setPxeAnswerSource(event.target.value); setPxeAnswerPublished(null); }}>
+                    <select className="pf-v6-c-form-control" value={pxeAnswerSource} onChange={(event) => { setPxeAnswerSource(event.target.value); setPxeAnswerRepositoryId(""); setPxeAnswerPublished(null); }}>
                       <option value="upload">{t("Local file upload")}</option>
                       <option value="url">{t("HTTP or HTTPS URL")}</option>
                       <option value="repository">{t("Configured image repository")}</option>
@@ -1529,7 +1529,11 @@ export default function App() {
                         ? t("Select an SSHFS repository definition. Feclora uses its saved SSH key and known_hosts credentials to fetch the file with OpenSSH SCP; host keys are verified.")
                         : t("For SSHFS/SFTP, NFS and SMB/CIFS, use a path relative to the mounted repository root. For S3, use an object key relative to the configured bucket prefix. SSH/SFTP access uses the repository's existing protected credentials.")}</p>
                     </Field>
-                    {remoteRepositories.length === 0 && s3Repositories.length === 0 && <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{t("Configure an image repository first. Remote filesystem repositories must be mounted and verified.")}</p>}
+                    {(pxeAnswerSource === "scp"
+                      ? !remoteRepositories.some((item) => item.provider === "sshfs")
+                      : !remoteRepositories.some((item) => item.mounted && item.verified) && s3Repositories.length === 0) && <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{pxeAnswerSource === "scp"
+                        ? t("Configure an SSHFS repository first to reuse its saved SSH credentials.")
+                        : t("Configure an image repository first. Remote filesystem repositories must be mounted and verified.")}</p>}
                   </>}
                   <Button variant="primary" onClick={publishPXEAnswer} isLoading={busy} isDisabled={busy || !pxeStatus.active || (pxeAnswerSource === "upload" && !pxeAnswerFile) || (pxeAnswerSource === "url" && !pxeAnswerURL.trim()) || ((pxeAnswerSource === "repository" || pxeAnswerSource === "scp") && (!pxeAnswerRepositoryId || !pxeAnswerRepositoryPath.trim()))}>{t("Validate and publish answer")}</Button>
                   {!pxeStatus.active && <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">Start PXE services first; publication is available only while the configured Caddy service is active.</p>}
