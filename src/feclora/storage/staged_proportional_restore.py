@@ -115,6 +115,9 @@ def restore_staged_proportional_image(
                 )
             if not parsed.get("primary_backup_consistent"):
                 raise StagedProportionalRestoreError("staged GPT copies are inconsistent")
+            # dup() shares the open-file description and therefore its offset.
+            # Reset it so dd receives the image from byte zero.
+            os.lseek(image_fd, 0, os.SEEK_SET)
         except GPTBinaryError as exc:
             raise StagedProportionalRestoreError(f"staged GPT validation failed: {exc}") from exc
 
