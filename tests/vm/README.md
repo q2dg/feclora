@@ -89,7 +89,7 @@ confirms an incorrect key is rejected, opens the restored container using
 the original key, and compares the decrypted payload byte-for-byte. Temporary
 mappings, loop devices, key and files are removed by the exit trap. This
 validates unicast Client-to-storage integration and framed artifact transfer,
-not live TLS/network behavior or multicast transport.
+not live network behavior or multicast transport.
 
 This is an opt-in destructive test. It refuses to run without root and its
 restore target is constrained to the exact loop partition created by the
