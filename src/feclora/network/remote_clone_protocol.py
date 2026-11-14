@@ -519,7 +519,7 @@ def verify_peer_identity(tls_socket: Any, expected_identity: str) -> None:
 def create_tls_context(
     role: str, *, ca_file: str | None = None,
 ) -> ssl.SSLContext:
-    """Create TLS with server-certificate validation and no client authentication."""
+    """Create TLS contexts for Client-side Server verification or the Server listener."""
     if role == "client":
         if not ca_file:
             raise RemoteCloneProtocolError("client TLS requires the Server CA certificate")
