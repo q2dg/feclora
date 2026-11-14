@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from feclora.network.pxe_answer_client import (
     PXEAnswerClientError, _discover_dhcp_answer_url, _managed_repository,
-    _wait_for_age_passphrase, execute_live_pxe_restore, fetch_live_pxe_answer,
+    _wait_for_age_passphrase, _pxe_report_callback, execute_live_pxe_restore, fetch_live_pxe_answer,
 )
 
 
@@ -82,6 +82,52 @@ class PXEAnswerClientTests(unittest.TestCase):
             self.assertEqual(destination.read_bytes(), answer())
             self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
             self.assertEqual(destination.parent.stat().st_mode & 0o777, 0o700)
+
+    def test_report_callback_posts_job_scoped_client_events_best_effort(self):
+        import uuid
+        from unittest.mock import Mock
+        command_line = (
+            f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB} "
+            f"feclora.pxe_answer_url={URL} feclora.pxe_client_mac=aa:bb:cc:dd:ee:01"
+        )
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        opener = Mock()
+        opener.open.return_value = response
+        with patch("feclora.network.pxe_answer_client.Path.read_text",
+                   return_value=command_line), \
+             patch("feclora.network.pxe_answer_client.urllib.request.build_opener",
+                   return_value=opener):
+            callback = _pxe_report_callback()
+            callback({
+                "operation_id": str(uuid.uuid4()), "operation": "restore_disk",
+                "timestamp": "2026-11-15T12:00:00Z", "status": "started",
+                "target": "/dev/sda", "image_id": "golden",
+            })
+        request = opener.open.call_args.args[0]
+        self.assertEqual(request.full_url, f"http://192.0.2.10:8080/pxe/report/{JOB}")
+        payload = json.loads(request.data)
+        self.assertEqual(payload["client_mac"], "aa:bb:cc:dd:ee:01")
+        self.assertEqual(payload["event"]["status"], "started")
+        self.assertTrue(payload["event"]["event_id"])
+
+    def test_report_callback_ignores_transport_errors(self):
+        command_line = (
+            f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB} "
+            f"feclora.pxe_answer_url={URL} feclora.pxe_client_mac=aa:bb:cc:dd:ee:01"
+        )
+        with patch("feclora.network.pxe_answer_client.Path.read_text",
+                   return_value=command_line), \
+             patch("feclora.network.pxe_answer_client.urllib.request.build_opener",
+                   side_effect=OSError("offline")):
+            callback = _pxe_report_callback()
+            self.assertIsNotNone(callback)
+            callback({
+                "operation_id": JOB, "operation": "restore_disk",
+                "timestamp": "2026-11-15T12:00:00Z", "status": "completed",
+                "target": "/dev/sda", "image_id": "golden",
+            })
 
     def test_invalid_download_is_not_published(self):
         with tempfile.TemporaryDirectory() as root:
