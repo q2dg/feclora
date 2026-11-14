@@ -68,7 +68,6 @@ fuse-sshfs
 nfs-utils
 cifs-utils
 age
-minisign
 partclone
 zstd
 lz4
@@ -129,7 +128,6 @@ install -d "$TARGET_ROOT/usr/share/feclora/python/feclora"
 cp -a "$APP_SOURCE/." "$TARGET_ROOT/usr/share/feclora/python/feclora/"
 install -d "$TARGET_ROOT/usr/local/bin" "$TARGET_ROOT/usr/libexec/feclora" "$TARGET_ROOT/usr/share/cockpit/feclora"
 cp -a "$WEB_SOURCE/." "$TARGET_ROOT/usr/share/cockpit/feclora/"
-
 cat > "$TARGET_ROOT/usr/libexec/feclora/cockpit-api" <<'EOF'
 #!/bin/sh
 set -eu
