@@ -26,6 +26,7 @@ class PXEAnswerAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "valid base64"):
             _publish_pxe_answer({
                 "job_id": self.JOB_ID,
+                "source": "upload",
                 "answer_base64": "%%%not-base64%%%",
             })
 
@@ -111,6 +112,7 @@ class PXEAnswerAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "requires job_id"):
             _publish_pxe_answer({
                 "job_id": self.JOB_ID,
+                "source": "upload",
                 "answer_base64": base64.b64encode(self.answer()).decode("ascii"),
                 "signature_base64": "unused",
             })
