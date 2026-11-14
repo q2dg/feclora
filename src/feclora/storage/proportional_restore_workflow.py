@@ -113,6 +113,13 @@ def prepare_from_offline_source_disk(
             raise ProportionalRestoreWorkflowError(f"GPT type GUID differs for source partition {node}")
         start = int(partition["first_lba"])
         size = int(partition["last_lba"]) - start + 1
+        source_start = source_part.get("start_sector")
+        source_size = source_part.get("size_bytes")
+        if (isinstance(source_start, bool) or not isinstance(source_start, int)
+                or source_start != start or source_size != size * sector_size):
+            raise ProportionalRestoreWorkflowError(
+                f"source partition geometry differs from staged GPT for {node}"
+            )
         plan_input.append({
             "node": node,
             "type": partition["type_guid"],
