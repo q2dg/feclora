@@ -333,9 +333,11 @@ class CaptureTests(unittest.TestCase):
     def test_failed_repository_directory_sync_rolls_back_own_published_inode(self):
         with tempfile.TemporaryDirectory() as directory:
             real_fsync = os.fsync
+            repository_info = os.stat(directory)
 
             def fail_directory_sync(fd):
-                if os.path.isdir(f"/proc/self/fd/{fd}"):
+                info = os.fstat(fd)
+                if (info.st_dev, info.st_ino) == (repository_info.st_dev, repository_info.st_ino):
                     raise OSError("simulated repository directory sync failure")
                 return real_fsync(fd)
 
@@ -354,11 +356,14 @@ class CaptureTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             final_path = os.path.join(directory, "part.raw")
             real_fsync = os.fsync
+            repository_info = os.stat(directory)
             replaced = False
 
             def replace_then_fail_directory_sync(fd):
                 nonlocal replaced
-                if os.path.isdir(f"/proc/self/fd/{fd}") and not replaced:
+                info = os.fstat(fd)
+                if ((info.st_dev, info.st_ino) == (repository_info.st_dev, repository_info.st_ino)
+                        and not replaced):
                     replaced = True
                     os.unlink(final_path)
                     with open(final_path, "wb") as stream:
