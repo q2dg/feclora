@@ -54,6 +54,7 @@ directory before treating the build as successful.
 
 ## Important limitations
 
+- The recovery-media engine uses the Live runtime's `xorriso` package to replay El Torito boot metadata while adding a validated image set and strict restore answer under `/FECLORA/RECOVERY`. It is an engine primitive only: Cockpit orchestration and boot-time embedded-image discovery/restore are not yet integrated.
 - The Kickstart and ISO pipeline are source-level build inputs, not a
   validated Live image. ISO generation and boot acceptance remain operator
   tasks.
