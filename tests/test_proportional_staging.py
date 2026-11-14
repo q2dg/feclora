@@ -117,7 +117,7 @@ class VerifiedProportionalStagingTests(unittest.TestCase):
         array_crc = binascii.crc32(array) & 0xffffffff
         disk_guid = uuid.UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
         image = bytearray(sector_size * disk_sectors)
-        image[510:512] = b"\\x55\\xaa"
+        image[510:512] = b"\x55\xaa"
         image[450] = 0xee
         struct.pack_into("<II", image, 454, 1, disk_sectors - 1)
         array_sectors = len(array) // sector_size
