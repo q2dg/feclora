@@ -8,11 +8,11 @@ More details:
 
 * Feclora can also create images, which can be stored locally or in a remote SSHFS, NFS, SMB/CIFS or S3 server (and restored from them, in a point-to-point or multicast mode too). Notice these remote servers should be implemented by the operator independently 
 
-* Feclora also has a PXE mode in order to boot network clients to be restored without having to boot them using any Feclora ISO. 
+* Feclora also has a PXE mode in order to boot network clients to be restored without having to boot them using any locally-inserted Feclora ISO. 
 
-* All restoration workflows (local, unicast or multicast) have the ability to be automated thanks to the addition of an answer file
+* Unattended whole-disk restoration is supported for multicast network clients through a declarative answer file. Local and network unicast unattended jobs use automated restore profiles
 
-* Ext4, XFS, Btrfs, F2FS, NTFS, ExFAT, FAT32, Stratis and LVM file systems are recognized natively to be cloned/imaged; other ones will be managed as "raw". However, note multi-device Btrfs imaging, snapshot-assisted storage capture and several advanced LUKS/LVM workflows are not supported.
+* Filesystem-aware imaging supports ext2/3/4, XFS, NTFS, FAT variants, exFAT and F2FS, plus supported single-device Btrfs partition images, when the required utilities are available. Unknown or unsupported content is handled as raw where safe. LVM logical volumes and raw LUKS2 containers are supported image sources under documented restrictions; Stratis is inventoried but is not a fully supported imaging target. Coordinated multi-device Btrfs imaging and snapshot-assisted capture are not supported
 
 * Feclora offers compression, SHA-256 integrity verification and optional age-based encryption for created images
 
