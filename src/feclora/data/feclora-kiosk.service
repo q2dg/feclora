@@ -12,6 +12,7 @@ Group=feclora-kiosk
 SupplementaryGroups=video render
 Environment=HOME=/var/lib/feclora-kiosk
 Environment=MOZ_ENABLE_WAYLAND=1
+EnvironmentFile=-/etc/feclora/kiosk-keyboard.conf
 PAMName=login
 TTYPath=/dev/tty1
 StandardInput=tty
