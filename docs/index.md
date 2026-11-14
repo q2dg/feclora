@@ -24,17 +24,17 @@ description: Fedora-based disk imaging, cloning and recovery.
       <article class="feature">
         <span class="feature-number">01</span>
         <h3>Capture & restore</h3>
-        <p>Create and restore whole-disk, partition and eligible logical-volume images with manifests, integrity verification and optional encryption.</p>
+        <p>Capture and restore whole disks, partitions and eligible active LVM logical volumes. Image sets include manifests, byte counts and SHA-256 verification; optional age encryption is supported.</p>
       </article>
       <article class="feature">
         <span class="feature-number">02</span>
-        <h3>Clone</h3>
-        <p>Clone whole disks and partitions locally; authenticated remote whole-disk and partition cloning are implemented in source/Cockpit, pending two-host acceptance.</p>
+        <h3>Clone & convert</h3>
+        <p>Clone whole disks and partitions locally or through authenticated Server/Client jobs. Convert offline physical disks to QCOW2 with P2V metadata.</p>
       </article>
       <article class="feature">
         <span class="feature-number">03</span>
         <h3>Deploy over a network</h3>
-        <p>Authenticated Server/Client deployment, unicast transfer, UDPcast multicast restore and PXE/iPXE Live boot and an initial NFS-backed unattended answer workflow.</p>
+        <p>Manage Clients, transfer images over authenticated TLS, restore to multiple Clients with UDPcast multicast, and boot the Live environment interactively or through an unattended PXE answer workflow.</p>
       </article>
     </div>
   </section>
@@ -42,8 +42,9 @@ description: Fedora-based disk imaging, cloning and recovery.
   <section class="status" aria-labelledby="status-title">
     <div>
       <p class="eyebrow">PROJECT STATUS</p>
-      <h2 id="status-title">Implemented in stages. Not yet lab-certified.</h2>
-      <p>The Cockpit application exposes local whole-disk, partition and eligible LVM capture/restore, disk and partition cloning, storage and image inventories, and durable local-operation status. Authenticated Server/Client workflows include enrollment, deployment jobs, unicast image transfer, multicast restore and direct remote whole-disk and partition cloning. PXE/iPXE supports interactive Live boot and an initial unattended answer-file path: the Server publishes a validated answer, Live downloads and validates it, and NFS-backed whole-disk restore uses the existing guarded restore engine. This unattended path is not yet a complete fleet solution. S3 object-repository integration, including local and distributed capture/restore, is implemented. Remaining software work includes Btrfs snapshot-consistent and multi-device imaging, richer transfer telemetry and additional automated PXE provider/result handling. Physical and live-provider acceptance are optional and are not part of the software completion gate. Source implementation and automated tests do not establish ISO boot, firmware, hardware, provider or network-lab acceptance; those checks are optional operator activities.</p>
+      <h2 id="status-title">Broad implementation; release acceptance remains.</h2>
+      <p>The source and Cockpit application include local imaging, storage and image inventories, durable operation history, SSHFS/NFS/SMB filesystem repositories, S3 object storage, authenticated Server/Client deployment, unicast transfer, multicast restore, remote disk/partition cloning, P2V conversion/export, interactive PXE and unattended whole-disk restore. These are implementation claims, not proof of end-to-end release acceptance.</p>
+      <p>Remaining software work includes completing and validating selected storage-layer workflows (notably Btrfs multi-device/snapshot-aware imaging and opened-LUKS-mapping workflows), closing repository-provider I/O and recovery gaps, expanding unattended-PXE failure-path and result handling, and finishing localization coverage. ISO generation, BIOS/UEFI boot, destructive restore, multi-host networking, UDPcast/IGMP and representative hardware still require operator-run acceptance on disposable equipment. See the <a href="./FEATURE-MATRIX.html">feature matrix</a> and <a href="./ROADMAP.html">roadmap</a> for the authoritative status and limitations.</p>
     </div>
     <a class="text-link" href="./ROADMAP.html">See what is next →</a>
   </section>
