@@ -3,6 +3,9 @@ layout: default
 title: Local disk-to-disk cloning
 ---
 
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
 # Local disk-to-disk cloning
 
 **Status: available in Cockpit**
