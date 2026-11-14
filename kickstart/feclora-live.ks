@@ -129,6 +129,13 @@ install -d "$TARGET_ROOT/usr/share/feclora/python/feclora"
 cp -a "$APP_SOURCE/." "$TARGET_ROOT/usr/share/feclora/python/feclora/"
 install -d "$TARGET_ROOT/usr/local/bin" "$TARGET_ROOT/usr/libexec/feclora" "$TARGET_ROOT/usr/share/cockpit/feclora"
 cp -a "$WEB_SOURCE/." "$TARGET_ROOT/usr/share/cockpit/feclora/"
+
+# A site-specific public key is a trust anchor for detached PXE answer signatures.
+PXE_ANSWER_PUBLIC_KEY=/run/install/repo/feclora-app/config/pxe-answer.pub
+if [ -f "$PXE_ANSWER_PUBLIC_KEY" ]; then
+  install -d -m 0755 "$TARGET_ROOT/etc/feclora"
+  install -o root -g root -m 0644 "$PXE_ANSWER_PUBLIC_KEY" "$TARGET_ROOT/etc/feclora/pxe-answer.pub"
+fi
 cat > "$TARGET_ROOT/usr/libexec/feclora/cockpit-api" <<'EOF'
 #!/bin/sh
 set -eu
