@@ -16,6 +16,26 @@ More details:
 
 * Feclora offers compression, SHA-256 integrity verification and optional age-based encryption for created images
 
+## Built on
+
+Feclora brings together the following projects and tools:
+
+* [Fedora Server](https://fedoraproject.org/server/) — Live operating-system base.
+* [Cockpit](https://cockpit-project.org/) — web-based system administration interface.
+* [Firefox](https://www.mozilla.org/firefox/) and [Cage](https://github.com/cage-kiosk/cage) — locked-down graphical kiosk.
+* [Partclone](https://partclone.org/) — filesystem-aware partition imaging.
+* [Lorax](https://weldr.io/lorax/) — Live ISO construction.
+* [QEMU/KVM](https://www.qemu.org/) — virtualized ISO build and validation.
+* [dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) and [iPXE](https://ipxe.org/) — network boot and DHCP/PXE services.
+* [Caddy](https://caddyserver.com/) — HTTP delivery of PXE boot assets and answer files.
+* [UDPcast](https://www.udpcast.linux.lu/) — multicast image distribution.
+* [NetworkManager](https://networkmanager.dev/) — network configuration and DHCP lease discovery.
+* [age](https://age-encryption.org/) — optional image encryption.
+* [zstd](https://facebook.github.io/zstd/) and [LZ4](https://lz4.github.io/lz4/) — image compression.
+* [LVM2](https://sourceware.org/lvm2/) and [Stratis](https://stratis-storage.github.io/) — storage discovery and logical-volume support.
+* [cryptsetup](https://gitlab.com/cryptsetup/cryptsetup) — LUKS container handling.
+
+
 ## Documentation
 
 Start with these [step-by-step operator guides](https://q2dg.github.io/feclora/GETTING-STARTED.html).
