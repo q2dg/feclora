@@ -1,11 +1,11 @@
-"""Safe UDPcast multicast file transport for Server-authenticated deployment jobs.
+"""Safe UDPcast data planes for authenticated deployment jobs.
 
-This module is deliberately limited to moving one manifested artifact into a
-private staging file. It never writes a block device and never treats UDPcast
-rendezvous, a MAC address, or multicast reception as client authentication.
-The caller must establish the Server-authenticated TLS control plane and
-validate job-scoped Client MAC selection before invoking this transport. This
-selection does not authenticate individual Clients.
+Manifest-backed image restore writes artifacts only into private Client staging
+files. Physical clone uses separate stdin/stdout pipe adapters and caller-owned
+approved block descriptors; it never creates an image artifact. Neither UDPcast
+rendezvous nor a reported Client MAC authenticates a Client. Callers establish
+the Server-authenticated TLS control plane and enforce job-scoped readiness and
+local target approval before starting either multicast data plane.
 """
 from __future__ import annotations
 
