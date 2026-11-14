@@ -3,97 +3,50 @@ layout: default
 title: Operator guides
 ---
 
-# Operator guides
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 
-This index reports what the current source exposes through Cockpit. An
-implemented code path is not the same as a runtime-accepted workflow. ISO,
-hardware, remote-provider and physical-network acceptance remain separate
-operator tasks; see [the feature matrix](FEATURE-MATRIX.html).
+<main class="guide-page">
+  <header class="guide-intro">
+    <p class="eyebrow">OPERATOR DOCUMENTATION</p>
+    <h1>Step-by-step guides</h1>
+    <p>Choose a task, follow the sequence and review the safety checks before starting. These guides describe the current Cockpit workflows; availability and limitations are called out explicitly.</p>
+    <div class="guide-note"><strong>Before any destructive operation:</strong> identify disks by model, capacity and stable identifiers where available. A restore or clone can overwrite the selected destination and cannot be rolled back automatically.</div>
+  </header>
 
-## Local imaging and recovery
+  <section class="guide-grid" aria-label="Operator workflow guides">
+    <article class="guide-card">
+      <img src="{{ '/assets/mockups/capture-wizard.svg' | relative_url }}" alt="Illustrative mockup of the disk capture wizard">
+      <div class="guide-card-body"><h2>Capture a disk or partition</h2><p>Create a manifest-backed image in a configured repository. Review source safety, compression and optional image encryption.</p><a href="./WHOLE-DISK-CAPTURE.html">Whole-disk capture →</a> · <a href="./PARTITION-CAPTURE.html">Partition capture →</a></div>
+    </article>
+    <article class="guide-card">
+      <img src="{{ '/assets/mockups/restore-wizard.svg' | relative_url }}" alt="Illustrative mockup of the restore destination review">
+      <div class="guide-card-body"><h2>Restore an image</h2><p>Select a verified image, inspect the destination and confirm the exact target before writing.</p><a href="./WHOLE-DISK-RESTORE.html">Whole-disk restore →</a> · <a href="./PARTITION-RESTORE.html">Partition restore →</a></div>
+    </article>
+    <article class="guide-card">
+      <img src="{{ '/assets/mockups/network-deployment.svg' | relative_url }}" alt="Illustrative mockup of Server and Client deployment status">
+      <div class="guide-card-body"><h2>Deploy to other machines</h2><p>Prepare the Server, trust it from each Client, approve local destinations and explicitly arm the job.</p><a href="./DEPLOYMENT-SETUP.html">Server and Client setup →</a> · <a href="./REMOTE-DISK-CLONE.html">Remote cloning →</a></div>
+    </article>
+    <article class="guide-card">
+      <div class="guide-card-body"><h2>Clone a local disk</h2><p>Copy one local block device to another without creating an intermediate image file.</p><a href="./GUIDE-LOCAL-DISK-CLONE.html">Local disk clone procedure →</a></div>
+    </article>
+    <article class="guide-card">
+      <div class="guide-card-body"><h2>Connect image repositories</h2><p>Configure mounted filesystem repositories or S3-compatible object storage and understand credential handling.</p><a href="./REMOTE-REPOSITORIES.html">Repository setup and behavior →</a></div>
+    </article>
+    <article class="guide-card">
+      <div class="guide-card-body"><h2>Boot over the network</h2><p>Understand interactive PXE and the unattended answer-file workflow, including its security boundary.</p><a href="./PXE-UNATTENDED.html">PXE workflow and setup →</a></div>
+    </article>
+  </section>
 
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
+  <p class="guide-note">The illustrations on this page are <strong>illustrative mockups, not screenshots from a running Feclora system</strong>. They explain the intended operator flow and do not prove runtime acceptance. See the <a href="./assets/screenshots/README.html">image policy</a> for real screenshots and mockups.</p>
 
-## Storage-layer images
-
-- **LVM logical-volume capture and restore** — **Implemented in local Cockpit**.
-  Restore writes into an existing active, uniquely identified, unmounted
-  linear or thin LV in a healthy VG. The target must have enough capacity and
-  matching logical sector size. Raw images receive exact read-back byte
-  verification; Partclone images receive a filesystem-specific read-only
-  consistency check. Feclora does not create, resize or repair PVs, VGs or
-  LVs. A logical-volume image contains LV bytes, not a backup of its VG/PV
-  metadata or other dependent storage layers.
-- **LUKS2 container capture** — **Partial**. A partition can be captured as
-  raw encrypted bytes after its LUKS2 header and UUID are verified.
-  LUKS1/unknown headers fail closed for this layer-aware path. The ordinary
-  partition restore writes those bytes to an existing compatible partition;
-  Feclora does not unlock or provision encryption.
-- **Opened LUKS mapping capture** — **Not available as a dedicated workflow**.
-  Inventory and planning can describe mappings, but no mapping-image
-  operation is exposed.
-- **Btrfs** — **Single-device partition capture and restore only**. The
-  manifest records the filesystem UUID and device count; restore refuses
-  images without a matching complete single-device dependency. Read-only
-  inventory reports Data/Metadata/System allocation profiles on already
-  mounted filesystems. Multi-device restore, profile conversion, coordinated
-  snapshots and separate subvolume images are not supported. Subvolume
-  identifiers are provenance, not image units.
-- **Stratis** — inventory only; no Stratis-specific image workflow.
-
-See [the image manifest and storage-layer scope](IMAGE-MANIFEST.html).
-
-## Remote deployment
-
-- [Server trust and Client setup](DEPLOYMENT-SETUP.html) — Cockpit
-  workflows for Server certificate trust, deployment jobs and Client-local target approval.
-- [Remote whole-disk and partition cloning](REMOTE-DISK-CLONE.html) — **Implemented in
-  source/Cockpit**; real two-machine acceptance remains outstanding.
-- **Remote partition-to-partition cloning** — **Implemented in source/Cockpit**; two-host acceptance remains outstanding.
-- [Deployment control (Server-authenticated TLS)](DEPLOYMENT-CONTROL.html) — protocol,
-  job authorization and lifecycle details.
-- [Remote repositories](REMOTE-REPOSITORIES.html) — **Implemented, with provider-hardening work remaining**. SSHFS, NFS and SMB/CIFS mounted repositories and S3 object repositories are integrated with local imaging; S3 also supports distributed Client capture/restore. Provider-specific failure, interruption and live-endpoint acceptance are tracked separately in the roadmap and acceptance guide.
-- [Acceptance procedures](ACCEPTANCE-TESTS.html) — operator-run tests for
-  remote services, multiple Clients, interruption and physical networks.
-
-## PXE and unattended deployment
-
-- **Interactive PXE boot** — boot-tree staging and service activation exist;
-  BIOS/UEFI network-boot acceptance remains pending. It is intended to boot
-  the same Live environment as ISO, then use Cockpit interactively.
-- **Unattended PXE answer workflow** — shared ISO/PXE answer contract and whole-disk
-  restore path implemented through Feclora's normal SSHFS, NFS, SMB/CIFS and S3
-  repository managers. The iPXE menu offers an answer-file entry. Cockpit
-  publishes one validated JSON answer and an answer-specific script through
-  Caddy over HTTP. Live downloads and validates the answer, then invokes the
-  existing whole-disk restore engine with stable-target revalidation and
-  read-back verification. The answer contains only a repository ID; credentials
-  remain in the Live client's normal protected configuration. The PXE Server
-  does not proxy repositories or receive operation results. Before unattended boot, iPXE submits its MAC to a
-  loopback admission service behind Caddy. The Server counts distinct MACs,
-  permits retries from an already registered MAC, and can stop admitting
-  clients at an administrator-configured client cap and/or serving-time
-  deadline. Neither limit is enabled by default. The boot script
-  is served only through that gate. MAC is spoofable and is not authentication.
-  Automated provider failure-path coverage and physical acceptance remain pending.
-
-PXE boot or possession of an answer URL alone never authorizes a destructive
-write. The Server-authenticated TLS Remote-jobs workflow remains separate and uses
-local Client approval and the Server's explicit ARM step.
-
-## Build, security and acceptance
-
-- [Build and BIOS/UEFI VM procedure](BUILD.html)
-- [Cockpit interface and runtime boundaries](COCKPIT.html)
-- [Certificate and enrollment policy](CERTIFICATE-MANAGEMENT.html)
-- [Six end-user workflows and release acceptance contract](USER-REQUIREMENTS-ACCEPTANCE.html)
-- [Operational lifecycle: backup, upgrade, rollback and distribution](OPERATIONS.html)
-- [Maintainer-owned release acceptance checklist](MAINTAINER-ACCEPTANCE.html)
-- [Implementation backlog](IMPLEMENTATION-PLAN.html)
-- [Feature and compatibility matrix](FEATURE-MATRIX.html)
-
-## Illustrations
-
-Guides may use real screenshots or clearly labeled mockups. Mockups are
-illustrative only and must not be presented as proof that a feature works.
-See the [screenshot and mockup policy](assets/screenshots/README.md).
+  <section class="section">
+    <h2>Reference and operations</h2>
+    <ul>
+      <li><a href="./FEATURE-MATRIX.html">Feature and compatibility matrix</a></li>
+      <li><a href="./CERTIFICATE-MANAGEMENT.html">Certificate and enrollment policy</a></li>
+      <li><a href="./OPERATIONS.html">Backup, upgrade, rollback and distribution</a></li>
+      <li><a href="./BUILD.html">Build instructions</a></li>
+      <li><a href="./MAINTAINER-ACCEPTANCE.html">Maintainer-owned release acceptance</a></li>
+    </ul>
+  </section>
+</main>
