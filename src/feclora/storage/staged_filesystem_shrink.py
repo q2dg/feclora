@@ -196,9 +196,9 @@ def shrink_staged_ext_filesystem(
         if target_blocks <= 0 or target_blocks >= old_blocks:
             raise StagedFilesystemShrinkError("filesystem target must be smaller than the current filesystem")
         minimum_result = invoke("resize2fs", ["-P", loop_device], command_timeout=timeout)
-        minimum_output = (minimum_result.stdout or "") + "\\n" + (minimum_result.stderr or "")
+        minimum_output = (minimum_result.stdout or "") + "\n" + (minimum_result.stderr or "")
         minimum_match = re.search(
-            r"Estimated minimum size of the filesystem:\\s*(\\d+)", minimum_output
+            r"Estimated minimum size of the filesystem:\s*(\d+)", minimum_output
         )
         if not minimum_match:
             raise StagedFilesystemShrinkError("resize2fs did not report a minimum block count for the staged filesystem")
