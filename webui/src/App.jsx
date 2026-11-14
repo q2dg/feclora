@@ -1096,7 +1096,7 @@ export default function App() {
           </Tab>
           <Tab eventKey="inventory" title={t("inventory")}>
             <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("storageDevices")}</Title></StackItem>
-              <StackItem><Table aria-label="Feclora storage inventory" variant="compact"><Thead><Tr><Th>Device</Th><Th>Type</Th><Th>Size</Th><Th>Model</Th><Th>Filesystem</Th><Th>Mountpoints</Th></Tr></Thead><Tbody>
+              <StackItem><Table aria-label={t("storageDevices")} variant="compact"><Thead><Tr><Th>{t("device")}</Th><Th>{t("type")}</Th><Th>{t("size")}</Th><Th>{t("model")}</Th><Th>{t("filesystem")}</Th><Th>{t("mounts")}</Th></Tr></Thead><Tbody>
                 {devices.map((d) => <Tr key={d.path}><Td>{d.path}</Td><Td>{d.type}</Td><Td>{formatBytes(d.size_bytes)}</Td><Td>{d.model || "—"}</Td><Td>{d.filesystem || "—"}</Td><Td>{(d.mountpoints || []).join(", ") || "—"}</Td></Tr>)}
                 {!devices.length && <Tr><Td colSpan={6}>{inventory ? "No devices found." : "Loading inventory…"}</Td></Tr>}
               </Tbody></Table></StackItem>
@@ -1137,7 +1137,7 @@ export default function App() {
                   </Alert>}
                 </CardBody></Card>
               </StackItem>
-              <StackItem><Table aria-label="Feclora image repository" variant="compact"><Thead><Tr><Th>Image</Th><Th>Type</Th><Th>Source size</Th><Th>Encryption</Th><Th>Artifacts</Th><Th>Verification</Th></Tr></Thead><Tbody>
+              <StackItem><Table aria-label={t("imageRepository")} variant="compact"><Thead><Tr><Th>Image</Th><Th>Type</Th><Th>Source size</Th><Th>Encryption</Th><Th>Artifacts</Th><Th>Verification</Th></Tr></Thead><Tbody>
                 {images.map((item) => {
                   const verification = imageVerification[item.image_id];
                   return <Tr key={item.image_id}><Td>{item.image_id}</Td><Td>{item.image_type}</Td><Td>{formatBytes(item.source_size_bytes)}</Td><Td><Label color={item.encrypted ? "green" : "orange"}>{item.encrypted ? "age" : "Plain"}</Label></Td><Td>{item.artifact_count}</Td><Td>
