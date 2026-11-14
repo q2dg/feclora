@@ -2,13 +2,16 @@ import hashlib
 import io
 import os
 import stat
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from feclora.network.physical_multicast import (
     PhysicalMulticastError,
     assert_device_identity_unchanged,
+    build_physical_device_record,
     open_approved_block_device,
     block_device_stream_callbacks,
     validate_physical_multicast_pair,
@@ -33,6 +36,60 @@ class PhysicalMulticastPreflightTests(unittest.TestCase):
     def setUp(self):
         self.source = device("/dev/sda", "8:0", read_only=True, size=4096)
         self.target = device("/dev/sdb", "8:16", read_only=False, size=8192)
+
+    def test_builds_kernel_identity_and_safe_use_record_from_sysfs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target = root / "devices" / "pci" / "block" / "sda"
+            (target / "queue").mkdir(parents=True)
+            (target / "holders").mkdir()
+            (target / "queue" / "physical_block_size").write_text("4096", encoding="ascii")
+            dev = root / "dev" / "block"
+            dev.mkdir(parents=True)
+            (dev / "8:0").symlink_to(target)
+            item = {
+                "path": "/dev/sda", "major_minor": "8:0", "wwn": "wwn-1",
+                "serial": "serial-1", "size_bytes": 8192,
+                "logical_sector_size": 512, "read_only": True,
+                "mountpoints": [], "children": [],
+            }
+            record = build_physical_device_record(item, sysfs_root=temporary)
+            self.assertEqual(record["physical_sector_size"], 4096)
+            self.assertEqual(record["major_minor"], "8:0")
+            self.assertEqual(record["holders"], [])
+            self.assertFalse(record["busy"])
+            self.assertFalse(record["backs_system"])
+
+    def test_physical_identity_builder_marks_mounted_descendant_busy(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target = root / "devices" / "pci" / "block" / "sda"
+            (target / "queue").mkdir(parents=True)
+            (target / "holders").mkdir()
+            (target / "queue" / "physical_block_size").write_text("4096", encoding="ascii")
+            dev = root / "dev" / "block"
+            dev.mkdir(parents=True)
+            (dev / "8:0").symlink_to(target)
+            item = {
+                "path": "/dev/sda", "major_minor": "8:0", "wwn": "wwn-1",
+                "serial": "serial-1", "size_bytes": 8192,
+                "logical_sector_size": 512, "read_only": True,
+                "mountpoints": [], "children": [{"mountpoints": ["/"], "children": []}],
+            }
+            record = build_physical_device_record(item, sysfs_root=temporary)
+            self.assertTrue(record["busy"])
+            self.assertTrue(record["backs_system"])
+
+    def test_physical_identity_builder_fails_closed_when_sysfs_is_missing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            item = {
+                "path": "/dev/sda", "major_minor": "8:0", "wwn": "wwn-1",
+                "serial": "serial-1", "size_bytes": 8192,
+                "logical_sector_size": 512, "read_only": True,
+                "mountpoints": [], "children": [],
+            }
+            with self.assertRaisesRegex(PhysicalMulticastError, "sysfs identity"):
+                build_physical_device_record(item, sysfs_root=temporary)
 
     def test_source_descriptor_is_opened_read_only_and_verified_as_block_device(self):
         info = SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=os.makedev(8, 0))
