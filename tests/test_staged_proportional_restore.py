@@ -30,7 +30,7 @@ class StagedProportionalRestoreTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         os.chmod(self.temp.name, 0o700)
-        self.payload = b"prepared staged disk image"
+        self.payload = b"P" * 512
         self.path = os.path.join(self.temp.name, "disk.raw")
         with open(self.path, "wb") as stream:
             stream.write(self.payload)
