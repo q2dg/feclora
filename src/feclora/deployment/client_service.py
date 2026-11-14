@@ -636,7 +636,6 @@ class ClientDeploymentService:
                             expected_bytes=approval.physical_stream["expected_bytes"],
                             expected_sha256=approval.physical_stream["sha256"],
                             config=udpcast, firewall=PXEFirewall(),
-                            cancel_check=self._stop_event.is_set,
                         )
                         report_progress("clone", result["bytes_verified"], result["bytes_verified"])
                         return True, (
