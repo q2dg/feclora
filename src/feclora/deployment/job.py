@@ -281,6 +281,8 @@ class DeploymentJob:
             deadline = parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
         elif expected is not None or deadline is not None:
             raise JobValidationError("expected_clients/deadline conflict with manual start policy")
+        if operation == "clone" and transport == "multicast" and policy != "manual":
+            raise JobValidationError("physical multicast clone requires manual start with every selected Client READY")
 
         return cls(
             job_id=job_id,
