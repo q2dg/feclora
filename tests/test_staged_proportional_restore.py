@@ -149,6 +149,14 @@ class StagedProportionalRestoreTests(unittest.TestCase):
 
     @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
            return_value={"primary_backup_consistent": True})
+    def test_identity_change_after_write_blocks_readback(self, _gpt):
+        identities = iter([(8, 1), (8, 1), (8, 2)])
+        with self.assertRaisesRegex(StagedProportionalRestoreError, "identity changed after writing"):
+            self._restore(device_identity=lambda _path: next(identities))
+        self.assertEqual(len(self.processes), 1)
+
+    @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
+           return_value={"primary_backup_consistent": True})
     def test_short_readback_fails_closed(self, _gpt):
         calls = []
         def factory(command, **kwargs):
