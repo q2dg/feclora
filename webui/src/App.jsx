@@ -10,6 +10,7 @@ import { callFeclora, waitForLocalOperation } from "./api.js";
 
 const OPERATION_LABELS = {
   capture_disk: "Create a whole-disk image",
+  capture_p2v: "Convert physical disk to QCOW2 (P2V)",
   capture_partition: "Create a partition image",
   capture_logical_volume: "Create a logical-volume image",
   restore_disk: "Restore a whole-disk image",
@@ -319,7 +320,7 @@ export default function App() {
     : "";
   const isCapture = operation.startsWith("capture_");
   const isRestore = operation.startsWith("restore_");
-  const isDisk = operation.endsWith("_disk");
+  const isDisk = operation.endsWith("_disk") || operation === "capture_p2v";
   const isLogicalVolume = operation === "capture_logical_volume" || operation === "restore_logical_volume";
   const deviceOptions = isDisk ? disks : isLogicalVolume ? logicalVolumes : partitions;
   const selectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId) || s3Repositories.find((repo) => repo.id === selectedRepositoryId);
@@ -342,6 +343,7 @@ export default function App() {
       if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt: encrypt || encryptPassphraseMode, ...(encryptPassphraseMode ? { encrypt_passphrase: true } : {}), ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else if (operation === "capture_logical_volume") params = { source, image_id: imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
+      else if (operation === "capture_p2v") params = { source, image_id: imageId, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else if (isRestore) {
         params = {
           image_id: imageId, target, confirmation,
@@ -922,12 +924,12 @@ export default function App() {
                         <input className="pf-v5-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)} maxLength={128} required />
                       </Field>
                       {operation === "capture_partition" && <Field label="Partition identifier"><input className="pf-v5-c-form-control" value={partitionId} onChange={(e) => setPartitionId(e.target.value)} maxLength={128} placeholder={imageId || "e.g. rootfs"} /></Field>}
-                      <Field label="Compression">
+                      {operation !== "capture_p2v" && <Field label="Compression">
                         <select className="pf-v5-c-form-control" value={compression} onChange={(e) => setCompression(e.target.value)}>
                           <option value="zstd">Zstandard (recommended)</option><option value="lz4">LZ4 (fast)</option><option value="gzip">Gzip</option><option value="xz">XZ</option><option value="none">None</option>
                         </select>
-                      </Field>
-                      <Field label="Image security">
+                      </Field>}
+                      {operation !== "capture_p2v" && <Field label="Image security">
                         <label><input type="checkbox" checked={encrypt} disabled={!security.age_encryption_available && !security.age_executable_available} onChange={(e) => { setEncrypt(e.target.checked); if (!e.target.checked) { setEncryptPassphraseMode(false); setCapturePassphrase(""); } }} /> Encrypt artifacts with age</label>
                         {operation === "capture_disk" && encrypt && security.age_executable_available && <>
                           <br />
@@ -938,7 +940,8 @@ export default function App() {
                         </>}
                         <br />
                         {!security.age_encryption_available && !security.age_executable_available ? <p className="pf-v5-u-color-200">Optional image protection is provisioned during Server setup when the relevant tools are installed. Without them, ordinary capture and restore remain available.</p> : null}
-                      </Field>
+                      </Field>}
+                      {operation === "capture_p2v" && <Alert variant="info" title="P2V output" isInline>Creates a verified QCOW2 disk file and a .p2v.json metadata sidecar in the selected filesystem repository. S3 publication and direct VM boot remediation are not included. The source disk is read-only; the guest may still need drivers or initramfs changes to boot.</Alert>}
                     </>}
                     {isRestore && <>
                       <Field label={isDisk ? "Disk image" : isLogicalVolume ? "Logical-volume image" : "Partition image"}>
