@@ -73,7 +73,7 @@ class StagedProportionalRestoreTests(unittest.TestCase):
         digest = self._restore()
         self.assertEqual(digest, self.staged.sha256)
         self.assertEqual(len(self.processes), 2)
-        self.assertIn(f"if=/proc/self/fd/", self.commands[0][1])
+        self.assertTrue(any(arg.startswith("of=/dev/fake") for arg in self.commands[0]))
         self.assertIn("iflag=count_bytes", self.commands[1])
 
     @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary")
