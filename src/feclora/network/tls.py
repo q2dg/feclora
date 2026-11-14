@@ -98,7 +98,7 @@ def accept_tls(
     context: ssl.SSLContext, accepted_socket: socket.socket, *,
     io_timeout: float = 120.0,
 ) -> ssl.SSLSocket:
-    """Accept server-authenticated TLS without requesting a client certificate."""
+    """Accept a TLS connection after the Client validates the Server certificate."""
     try:
         accepted_socket.settimeout(io_timeout)
         wrapped = context.wrap_socket(accepted_socket, server_side=True)
