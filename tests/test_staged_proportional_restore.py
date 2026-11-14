@@ -52,15 +52,19 @@ class StagedProportionalRestoreTests(unittest.TestCase):
         return process
 
     def _restore(self, **kwargs):
+        options = {
+            "executables": {"dd": "/usr/bin/dd", "lsblk": "/usr/bin/lsblk"},
+            "device_validator": lambda _path: True,
+            "device_identity": lambda _path: (8, 1),
+            "runner": self.runner,
+            "popen_factory": self.factory,
+            "target_safety_check": lambda _path: None,
+            "effective_uid": lambda: 0,
+        }
+        options.update(kwargs)
         return restore_staged_proportional_image(
             self.staged, "/dev/fake", sector_size=512,
-            confirmation="ERASE /dev/fake",
-            executables={"dd": "/usr/bin/dd", "lsblk": "/usr/bin/lsblk"},
-            device_validator=lambda _path: True,
-            device_identity=lambda _path: (8, 1),
-            runner=self.runner, popen_factory=self.factory,
-            target_safety_check=lambda _path: None, effective_uid=lambda: 0,
-            **kwargs,
+            confirmation="ERASE /dev/fake", **options,
         )
 
     @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
