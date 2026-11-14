@@ -136,6 +136,7 @@ class StagedExtFilesystemShrinkTests(unittest.TestCase):
 
     def test_skips_resize_when_existing_filesystem_already_fits(self):
         self.block_count = 800
+        self.minimum_blocks = 500
         result = self.shrink()
         self.assertEqual(result.sha256, self.initial_digest)
         self.assertFalse(any(
