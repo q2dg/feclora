@@ -1,6 +1,6 @@
 ## Feclora is...
 
-...a Live ISO running on a Fedora Server 45 (x86_64) system which automatically launchs a Cockpit-based web interface inside a locked-down Firefox kiosk. The Live session is ephemeral, so credentials, certificates and temporary configuration are regenerated at boot; however, images and other durable artifacts can be stored in repositories selected by the operator.
+...a Live ISO running on a Fedora Server 45 (x86_64) system which automatically launches a Cockpit-based web interface inside a locked-down Firefox kiosk. The Live session is ephemeral, so credentials, certificates and temporary configuration are regenerated at boot; however, images and other durable artifacts can be stored in repositories selected by the operator.
 
 More details:
 
@@ -10,15 +10,15 @@ More details:
 
 * Feclora also has a PXE mode in order to boot network clients to be restored without having to boot them using any Feclora ISO. 
 
-* All restoration workflows (local, unicast or multicast) have the ability to be automated thanks to the addition of a answers file
+* All restoration workflows (local, unicast or multicast) have the ability to be automated thanks to the addition of an answer file
 
 * Ext4, XFS, Btrfs, F2FS, NTFS, ExFAT, FAT32, Stratis and LVM file systems are recognized natively to be cloned/imaged; other ones will be managed as "raw". However, note multi-device Btrfs imaging, snapshot-assisted storage capture and several advanced LUKS/LVM workflows are not supported.
 
-* Feclora offers  compression, SHA-256 integrity verification and optional age-based encryption for created images 
+* Feclora offers compression, SHA-256 integrity verification and optional age-based encryption for created images
 
 ## Documentation
 
-Start reading this [step-by-step operator guides](https://q2dg.github.io/feclora/GETTING-STARTED.html).
+Start with these [step-by-step operator guides](https://q2dg.github.io/feclora/GETTING-STARTED.html).
 
 You can also read these other documents:
 
