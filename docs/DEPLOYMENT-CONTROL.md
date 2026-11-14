@@ -7,8 +7,6 @@ authenticate individual Clients.
 
 ## Trust and job selection
 
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
-
 The managed CA/Server certificate setup is described in
 [Certificate management](CERTIFICATE-MANAGEMENT.md). Never place the CA
 private key or Server private key in PXE/TFTP/HTTP boot assets.
@@ -17,8 +15,6 @@ private key or Server private key in PXE/TFTP/HTTP boot assets.
 
 Control messages are length-prefixed JSON with a 16 KiB maximum frame, strict
 message types, duplicate-key rejection and exact field-set validation.
-
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 For multicast restore, each selected Client completes the same
 Server-authenticated TLS HELLO/JOB/READY exchange and independently approves
@@ -52,8 +48,6 @@ Automated tests do not establish real-network or destructive-storage
 acceptance.
 
 ## Implemented and remaining
-
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 Still required:
 - physical multi-host acceptance for save, restore, multicast and remote clone;
