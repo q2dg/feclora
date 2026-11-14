@@ -1,6 +1,6 @@
 # Image encryption and integrity
 
-Feclora does not sign image manifests. Image integrity is checked with the SHA-256 digest and byte count recorded for every artifact in the manifest. There is no detached-signature sidecar and no signing-key setup step.
+Image integrity is checked with the SHA-256 digest and byte count recorded for every artifact in the manifest. Repository access controls and authenticated transport provide the trust boundary.
 
 ## Optional age encryption
 
