@@ -561,9 +561,9 @@ def receive_physical_multicast_stream(
                     expected_bytes=expected_bytes,
                     expected_sha256=expected_sha256,
                 )
-                extra = process.stdout.read(1)
-                if extra:
-                    raise UDPcastError("physical multicast receiver supplied bytes beyond the approved device capacity")
+                # Wait for the receiver to exit before probing for overflow. Reading
+                # one more byte while the process is still alive can block forever
+                # if a sender stalls exactly at the approved device boundary.
                 try:
                     return_code = process.wait(timeout=config.max_wait_seconds + 86400)
                 except subprocess.TimeoutExpired as exc:
@@ -574,6 +574,9 @@ def receive_physical_multicast_stream(
                         process.kill()
                         process.wait()
                     raise UDPcastError("physical multicast receiver timed out") from exc
+                extra = process.stdout.read(1)
+                if extra:
+                    raise UDPcastError("physical multicast receiver supplied bytes beyond the approved device capacity")
                 if return_code != 0:
                     log.seek(0)
                     detail = log.read(4096).decode("utf-8", errors="replace").strip()
