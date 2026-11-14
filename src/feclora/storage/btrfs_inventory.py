@@ -35,6 +35,8 @@ def parse_filesystem_show(payload: str) -> list[dict[str, Any]]:
                 "devices": [],
             }
             continue
+        if line.lstrip().startswith("Label:"):
+            raise BtrfsInventoryError("Btrfs returned an invalid filesystem UUID or label row")
         total_match = _TOTAL.match(line)
         if total_match and current is not None:
             current["total_devices"] = int(total_match.group(1))
