@@ -31,6 +31,13 @@ const localizedKeys = [
   "Remote job on this Client",
   "Authenticated Server job",
   "Client service status",
+  "Local repository",
+  "Select a disk image…",
+  "Select local target…",
+  "Select Client interface/address…",
+  "Select partition…",
+  "Select an S3 repository…",
+  "Select a QCOW2 image…",
 ];
 
 for (const [language] of LANGUAGES) {
