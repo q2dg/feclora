@@ -13,6 +13,7 @@ from feclora.network.physical_multicast import (
     block_device_stream_callbacks,
     validate_physical_multicast_pair,
     write_and_verify_stream,
+    validate_physical_multicast_cohort,
 )
 
 
@@ -185,6 +186,75 @@ class PhysicalMulticastStreamTests(unittest.TestCase):
             write_and_verify_stream(io.BytesIO(payload), lambda view: len(view),
                                      lambda: None, readback,
                                      expected_bytes=len(payload), chunk_size=4096)
+
+
+class PhysicalMulticastCohortTests(unittest.TestCase):
+    def setUp(self):
+        self.source = device("/dev/sda", "8:0", read_only=True, size=4096)
+        self.first = device("/dev/sdb", "8:16", read_only=False, size=8192)
+        self.second = device("/dev/sdc", "8:32", read_only=False, size=8192)
+        self.macs = ("52:54:00:12:34:56", "52:54:00:12:34:57")
+
+    def validate(self, **changes):
+        values = {
+            "source_approved": self.source,
+            "source_current": self.source,
+            "expected_clients": self.macs,
+            "client_states": {mac: "ready" for mac in self.macs},
+            "approved_destinations": {
+                self.macs[0]: self.first, self.macs[1]: self.second,
+            },
+            "current_destinations": {
+                self.macs[0]: self.first, self.macs[1]: self.second,
+            },
+        }
+        values.update(changes)
+        return validate_physical_multicast_cohort(**values)
+
+    def test_complete_ready_cohort_returns_each_independently_approved_destination(self):
+        result = self.validate()
+        self.assertEqual(tuple(mac for mac, _target in result), tuple(sorted(self.macs)))
+        self.assertEqual(
+            {target["path"] for _mac, target in result},
+            {"/dev/sdb", "/dev/sdc"},
+        )
+
+    def test_no_client_may_be_missing_or_not_ready(self):
+        with self.assertRaisesRegex(PhysicalMulticastError, "present"):
+            self.validate(client_states={self.macs[0]: "ready"})
+        with self.assertRaisesRegex(PhysicalMulticastError, "READY"):
+            self.validate(client_states={
+                self.macs[0]: "ready", self.macs[1]: "running",
+            })
+
+    def test_every_selected_client_must_have_its_own_approved_destination(self):
+        with self.assertRaisesRegex(PhysicalMulticastError, "independently approve"):
+            self.validate(approved_destinations={self.macs[0]: self.first})
+        with self.assertRaisesRegex(PhysicalMulticastError, "duplicate Client MACs"):
+            self.validate(client_states={
+                self.macs[0].upper(): "ready", self.macs[0]: "ready",
+            })
+
+    def test_rejects_destination_alias_and_identity_drift_before_returning_cohort(self):
+        with self.assertRaisesRegex(PhysicalMulticastError, "major/minor"):
+            self.validate(approved_destinations={
+                self.macs[0]: self.first,
+                self.macs[1]: {**self.second, "major_minor": self.source["major_minor"]},
+            }, current_destinations={
+                self.macs[0]: self.first,
+                self.macs[1]: {**self.second, "major_minor": self.source["major_minor"]},
+            })
+        with self.assertRaisesRegex(PhysicalMulticastError, "changed after approval"):
+            self.validate(current_destinations={
+                self.macs[0]: self.first,
+                self.macs[1]: {**self.second, "serial": "replacement"},
+            })
+
+    def test_rejects_source_identity_drift_before_returning_cohort(self):
+        with self.assertRaisesRegex(PhysicalMulticastError, "Server source identity"):
+            self.validate(source_current={**self.source, "serial": "replacement"})
+
+
 
 
 if __name__ == "__main__":
