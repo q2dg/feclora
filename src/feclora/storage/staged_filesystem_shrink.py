@@ -132,6 +132,7 @@ def shrink_staged_ext_filesystem(
 
     loop_device: str | None = None
     primary_error: BaseException | None = None
+    resize_needed = False
     try:
         attached = invoke("losetup", [
             "--find", "--show", "--offset", str(offset),
@@ -193,8 +194,8 @@ def shrink_staged_ext_filesystem(
         if target_filesystem_size_bytes % block_size:
             raise StagedFilesystemShrinkError("filesystem target is not aligned to the ext block size")
         target_blocks = target_filesystem_size_bytes // block_size
-        if target_blocks <= 0 or target_blocks >= old_blocks:
-            raise StagedFilesystemShrinkError("filesystem target must be smaller than the current filesystem")
+        if target_blocks <= 0:
+            raise StagedFilesystemShrinkError("filesystem target block count is invalid")
         minimum_result = invoke("resize2fs", ["-P", loop_device], command_timeout=timeout)
         minimum_output = (minimum_result.stdout or "") + "\n" + (minimum_result.stderr or "")
         minimum_match = re.search(
@@ -205,12 +206,16 @@ def shrink_staged_ext_filesystem(
         minimum_blocks = int(minimum_match.group(1))
         if minimum_blocks <= 0 or target_blocks < minimum_blocks:
             raise StagedFilesystemShrinkError("filesystem target is below the staged filesystem minimum")
-        invoke("resize2fs", [loop_device, str(target_blocks)])
-        invoke("e2fsck", ["-f", "-n", loop_device])
-        verified_header = invoke("dumpe2fs", ["-h", loop_device], command_timeout=60).stdout
-        verified_match = re.search(r"^Block count:\s*(\d+)\s*$", verified_header, re.MULTILINE)
-        if not verified_match or int(verified_match.group(1)) != target_blocks:
-            raise StagedFilesystemShrinkError("filesystem block count failed post-shrink read-back")
+        resize_needed = target_blocks < old_blocks
+        if not resize_needed and old_blocks * block_size > target_partition_size_bytes:
+            raise StagedFilesystemShrinkError("existing ext filesystem exceeds the planned partition capacity")
+        if resize_needed:
+            invoke("resize2fs", [loop_device, str(target_blocks)])
+            invoke("e2fsck", ["-f", "-n", loop_device])
+            verified_header = invoke("dumpe2fs", ["-h", loop_device], command_timeout=60).stdout
+            verified_match = re.search(r"^Block count:\s*(\d+)\s*$", verified_header, re.MULTILINE)
+            if not verified_match or int(verified_match.group(1)) != target_blocks:
+                raise StagedFilesystemShrinkError("filesystem block count failed post-shrink read-back")
     except BaseException as exc:
         primary_error = exc
         raise
@@ -232,6 +237,6 @@ def shrink_staged_ext_filesystem(
         output_digest = _digest_file(staged.path)
     except OSError as exc:
         raise StagedFilesystemShrinkError(f"cannot hash staged RAW after filesystem shrink: {exc}") from exc
-    if output_digest == staged.sha256:
+    if resize_needed and output_digest == staged.sha256:
         raise StagedFilesystemShrinkError("filesystem shrink reported success but staged RAW bytes did not change")
     return StagedRawDiskImage(staged.path, staged.size_bytes, output_digest)
