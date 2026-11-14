@@ -166,7 +166,7 @@ Repository-related abstractions/tests already exist; inspect and extend them rat
 Acceptance: engines use repository IDs/handles, secrets are redacted, failures cannot leave falsely complete images.
 
 ## P0 — Durable operations and progress
-Existing foundation: deployment journals, persistent Server service lifecycle, root-only Unix-socket control, Client progress and local operation log. Architecture decision: [ADR 0010](adr/0010-durable-local-operations.md).
+Existing foundation: deployment journals, persistent Server service lifecycle, root-only Unix-socket control, Client progress and local operation log. Architecture and worker lifecycle: [durable local operations](DURABLE-LOCAL-OPERATIONS.md).
 - [x] Define a versioned local-operation state machine and hash-chained event schema without changing existing deployment journals.
 - [x] Move local long-running capture/restore/clone work out of the Cockpit/API request process into a root-owned systemd worker independent of UI sessions.
 - [x] Make Cockpit submit validated jobs and consume durable operation IDs, status and progress; browser disconnection does not own worker execution.
