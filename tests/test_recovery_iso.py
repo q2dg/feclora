@@ -89,7 +89,7 @@ class RecoveryISOTests(unittest.TestCase):
         self.assertEqual(self.base.read_bytes(), b"base iso bytes")
 
     def test_rejects_modified_artifact_before_running_xorriso(self):
-        self.artifact.write_bytes(b"tampered")
+        self.artifact.write_bytes(b"X" * self.artifact.stat().st_size)
         commands = []
         with self.assertRaisesRegex(RecoveryISOError, "SHA-256"):
             self.build(runner=self.runner(commands))
