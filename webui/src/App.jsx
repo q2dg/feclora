@@ -130,21 +130,6 @@ export default function App() {
   const [serverRenewResult, setServerRenewResult] = useState(null);
   const [serverRotateConfirmation, setServerRotateConfirmation] = useState("");
   const [serverRotateResult, setServerRotateResult] = useState(null);
-  const [clientId, setClientId] = useState("");
-  const [clientExportDirectory, setClientExportDirectory] = useState("");
-  const [clientImageSigning, setClientImageSigning] = useState(false);
-  const [clientAgeEncryption, setClientAgeEncryption] = useState(false);
-  const [clientPrepared, setClientPrepared] = useState(null);
-  const [clientHost, setClientHost] = useState("");
-  const [clientMacInput, setClientMacInput] = useState("");
-  const [clientBundleDirectory, setClientBundleDirectory] = useState("");
-  const [clientCaFingerprint, setClientCaFingerprint] = useState("");
-  const [clientServerFingerprint, setClientServerFingerprint] = useState("");
-  const [clientCompleted, setClientCompleted] = useState(null);
-  const [clientRenewalPrepared, setClientRenewalPrepared] = useState(null);
-  const [clientRenewalCompleted, setClientRenewalCompleted] = useState(null);
-  const [clientRenewalExportDirectory, setClientRenewalExportDirectory] = useState("");
-  const [clientRenewalBundleDirectory, setClientRenewalBundleDirectory] = useState("");
   const [clientRemoteHost, setClientRemoteHost] = useState("");
   const [clientRemoteJobId, setClientRemoteJobId] = useState("");
   const [clientRemoteInspection, setClientRemoteInspection] = useState(null);
@@ -1275,7 +1260,7 @@ export default function App() {
                         {serviceStatuses[job.job_id].multicast_preflight?.warnings?.length > 0 && <StackItem><Alert variant="warning" isInline title={t("Multicast network warnings")}>{serviceStatuses[job.job_id].multicast_preflight.warnings.join(" ")}</Alert></StackItem>}
                         {serviceStatuses[job.job_id].multicast_preflight?.error && <StackItem><Alert variant="danger" isInline title={t("Multicast preflight failed")}>{serviceStatuses[job.job_id].multicast_preflight.error}</Alert></StackItem>}
                         {serviceStatuses[job.job_id].job_state === "created" && <>
-                          <StackItem><input className="pf-v5-c-form-control" aria-label={"Start authorization confirmation for " + job.job_id} placeholder={deploymentArmPhrase(job) || "Enrolled Client identity unavailable"} value={serviceConfirmations[job.job_id] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem>
+                          <StackItem><input className="pf-v5-c-form-control" aria-label={"Start authorization confirmation for " + job.job_id} placeholder={deploymentArmPhrase(job) || "Selected Client identity unavailable"} value={serviceConfirmations[job.job_id] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id]: event.target.value }))} /></StackItem>
                           <StackItem><Button size="sm" variant="primary" isDisabled={busy || !deploymentArmPhrase(job) || serviceConfirmations[job.job_id] !== deploymentArmPhrase(job)} onClick={() => sendDeploymentServiceCommand(job.job_id, "arm_deployment_job", serviceConfirmations[job.job_id])}>{t("Authorize and execute")}</Button></StackItem>
                           <StackItem><input className="pf-v5-c-form-control" aria-label={"Cancel confirmation for " + job.job_id} placeholder={"CANCEL " + job.job_id} value={serviceConfirmations[job.job_id + "-cancel"] || ""} onChange={(event) => setServiceConfirmations((current) => ({ ...current, [job.job_id + "-cancel"]: event.target.value }))} /></StackItem>
                           <StackItem><Button size="sm" variant="secondary" isDisabled={busy || serviceConfirmations[job.job_id + "-cancel"] !== "CANCEL " + job.job_id} onClick={() => sendDeploymentServiceCommand(job.job_id, "cancel_deployment_job", serviceConfirmations[job.job_id + "-cancel"])}>{t("Cancel before arm")}</Button></StackItem>
@@ -1450,7 +1435,7 @@ export default function App() {
                 <Button variant="primary" onClick={bootstrapServer} isLoading={busy} isDisabled={busy || !serverBinding || status?.server_configured}>{t("Initialize Server identity")}</Button>
               </StackItem>
               {status?.server_configured && <StackItem><Alert variant="success" title={t("Server configuration exists")} isInline>The existing configuration is not overwritten by this wizard. Continue with the remaining Server and PXE setup once those Cockpit workflows are available.</Alert></StackItem>}
-              {status?.server_configured && <StackItem><Alert variant="info" title={t("Client authentication disabled")} isInline>{t("Clients do not have certificates or individual credentials. Deployment jobs select Clients by MAC address; HTTPS/TLS Clients verify the Server certificate.")}</Alert></StackItem>}
+              {status?.server_configured && <StackItem><Alert variant="info" title={t("Client identification")} isInline>{t("Deployment jobs select participants by their reported MAC addresses. Clients verify the Server TLS certificate; the Server does not authenticate individual Clients.")}</Alert></StackItem>}
               {status?.server_configured && <StackItem><Card><CardBody>
 
               </CardBody></Card></StackItem>}
