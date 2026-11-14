@@ -109,7 +109,7 @@ class PXEAnswerAPITests(unittest.TestCase):
             _provide_pxe_age_passphrase({"passphrase": "secret", "job_id": self.JOB_ID})
 
     def test_rejects_unknown_or_missing_request_fields(self):
-        with self.assertRaisesRegex(WebAPIError, "requires job_id"):
+        with self.assertRaisesRegex(WebAPIError, "requires job_id, source and answer_base64"):
             _publish_pxe_answer({
                 "job_id": self.JOB_ID,
                 "source": "upload",
