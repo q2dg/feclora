@@ -39,7 +39,7 @@ export default function KeyboardPreferences({ language = "en" }) {
     try {
       const result = await callFeclora("set_keyboard_layout", { layout });
       setCurrent(result);
-      setNotice(`Keyboard layout ${result.layout} applied to the Linux virtual console and saved for subsequent boots.`);
+      setNotice(`Keyboard layout ${result.layout} applied to Linux and Cage/Wayland. The kiosk session will restart shortly.`);
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
