@@ -1454,6 +1454,26 @@ const APP_UI_TEXT_LAYOUT = {
     "Verification failed": "Doğrulama başarısız"
   }
 };
+
+const APP_UI_TEXT_CLONE = {
+  es: {"Definition only — service not started; no Client contact or disk I/O":"Solo definición: servicio sin iniciar; sin contacto con Clientes ni E/S de disco","Capture whole disks from Clients to Server":"Capturar discos completos de Clientes al Servidor","No limit":"Sin límite","Compression":"Compresión"},
+  ca: {"Definition only — service not started; no Client contact or disk I/O":"Només definició: servei no iniciat; sense contacte amb Clients ni E/S de disc","Capture whole disks from Clients to Server":"Captura discos sencers dels Clients al servidor","No limit":"Sense límit","Compression":"Compressió"},
+  gl: {"Definition only — service not started; no Client contact or disk I/O":"Só definición: servizo sen iniciar; sen contacto cos clientes nin E/S de disco","Capture whole disks from Clients to Server":"Capturar discos completos dos clientes ao servidor","No limit":"Sen límite","Compression":"Compresión"},
+  eu: {"Definition only — service not started; no Client contact or disk I/O":"Definizioa soilik: zerbitzua ez da hasi; ez dago Bezeroekin kontakturik edo diskoaren E/Srik","Capture whole disks from Clients to Server":"Kopiatu Bezeroen disko osoak Zerbitzarira","No limit":"Mugarik ez","Compression":"Konpresioa"},
+  pt: {"Definition only — service not started; no Client contact or disk I/O":"Apenas definição: serviço não iniciado; sem contacto com Clientes nem E/S de disco","Capture whole disks from Clients to Server":"Capturar discos completos dos Clientes para o Servidor","No limit":"Sem limite","Compression":"Compressão"},
+  fr: {"Definition only — service not started; no Client contact or disk I/O":"Définition uniquement : service non démarré ; aucun contact Client ni E/S disque","Capture whole disks from Clients to Server":"Capturer les disques entiers des Clients vers le Server","No limit":"Aucune limite","Compression":"Compression"},
+  de: {"Definition only — service not started; no Client contact or disk I/O":"Nur Definition: Dienst nicht gestartet; kein Client-Kontakt und keine Festplatten-E/A","Capture whole disks from Clients to Server":"Vollständige Festplatten von Clients auf den Server erfassen","No limit":"Keine Begrenzung","Compression":"Komprimierung"},
+  it: {"Definition only — service not started; no Client contact or disk I/O":"Solo definizione: servizio non avviato; nessun contatto con i Client né I/O su disco","Capture whole disks from Clients to Server":"Acquisisci dischi interi dai Client al Server","No limit":"Nessun limite","Compression":"Compressione"},
+  zh: {"Definition only — service not started; no Client contact or disk I/O":"仅定义任务：服务未启动；不会联系客户端，也不会进行磁盘 I/O","Capture whole disks from Clients to Server":"从客户端捕获整块磁盘到服务器","No limit":"无限制","Compression":"压缩"},
+  ja: {"Definition only — service not started; no Client contact or disk I/O":"定義のみ：サービス未起動。Client への接続やディスク I/O は行いません","Capture whole disks from Clients to Server":"Client から Server にディスク全体を取り込む","No limit":"制限なし","Compression":"圧縮"},
+  ru: {"Definition only — service not started; no Client contact or disk I/O":"Только определение: служба не запущена; связи с клиентами и дискового ввода-вывода нет","Capture whole disks from Clients to Server":"Считать целые диски с клиентов на сервер","No limit":"Без ограничений","Compression":"Сжатие"},
+  ar: {"Definition only — service not started; no Client contact or disk I/O":"تعريف فقط: الخدمة لم تبدأ؛ لا يوجد اتصال بالعملاء ولا إدخال/إخراج للقرص","Capture whole disks from Clients to Server":"التقاط الأقراص بالكامل من العملاء إلى الخادم","No limit":"بلا حدود","Compression":"الضغط"},
+  tr: {"Definition only — service not started; no Client contact or disk I/O":"Yalnızca tanım: hizmet başlatılmadı; İstemci bağlantısı veya disk G/Ç yok","Capture whole disks from Clients to Server":"İstemcilerden Sunucuya tam diskleri yakala","No limit":"Sınır yok","Compression":"Sıkıştırma"}
+};
+for (const [language, values] of Object.entries(APP_UI_TEXT_CLONE)) {
+  Object.assign(DICTS[language], values);
+}
+
 for (const [language, values] of Object.entries(APP_UI_TEXT_LAYOUT)) Object.assign(DICTS[language], values);
 for (const [language, values] of Object.entries(CORE_TRANSLATION_COMPLETION)) {
   Object.assign(DICTS[language], values);
