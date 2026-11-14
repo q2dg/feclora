@@ -101,7 +101,7 @@ destination may contain partially written or unverified data.
 
 This API is deliberately separate from the existing manifest-based
 `restore_disk()`. It does not resize or migrate the original source, does not
-build an ISO, and does not introduce client authentication or a PXE proxy.
+build an ISO, or act as a PXE proxy.
 Automated tests cover confirmation, staging digest, exact capacity,
 device-identity recheck, write/read-back flow and read-back mismatch. They
 have been added but have not been executed.
@@ -132,7 +132,7 @@ identity captured at selection time and rechecks it, capacity, sector size
 and safety immediately before writing.
 
 This interactive path is for proportional GPT restore only. It does not add
-client authentication, a PXE proxy or an artifact relay. It does not modify
+a PXE proxy or an artifact relay. It does not modify
 the original source disk or repository artifact. No ISO build is part of this
 workflow. Tests have been added but have not been executed.
 
