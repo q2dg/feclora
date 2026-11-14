@@ -565,7 +565,6 @@ class WebAPITests(unittest.TestCase):
     def test_bootstrap_server_initializes_only_an_assigned_address(self):
         config = SimpleNamespace(
             bind_address="192.0.2.10", port=9443, local_identity="URI:feclora-server",
-            client_identity_to_mac={}
         )
         with patch("feclora.network.interface_discovery.discover_interface_addresses", return_value=["address"]) as discover, \
              patch("feclora.network.interface_discovery.validate_selected_address") as validate, \
@@ -754,7 +753,6 @@ class WebAPITests(unittest.TestCase):
         import tempfile
         from pathlib import Path
         server_config = SimpleNamespace(
-            client_identity_to_mac={"URI:feclora-client-lab": "52:54:00:12:34:56"},
         )
         payload = {
             "schema_version": 1, "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
@@ -980,7 +978,7 @@ class WebAPITests(unittest.TestCase):
                 dispatch({"action": "stop_pxe_services"})
         manager.stop.assert_not_called()
 
-    def test_inspect_remote_job_uses_enrolled_mtls_client_identity(self):
+    def test_inspect_remote_job_uses_server_authenticated_tls(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
         job = DeploymentJob.from_dict({
             "schema_version": 1, "job_id": job_id, "operation": "restore",
@@ -991,10 +989,9 @@ class WebAPITests(unittest.TestCase):
             "start_policy": "manual", "expected_clients": None, "start_deadline": None,
         })
         config = SimpleNamespace(
-            host="192.0.2.10", port=9443, local_identity="URI:feclora-client-1",
+            host="192.0.2.10", port=9443,
             server_identity="URI:feclora-server", mac_address="52:54:00:12:34:56",
-            ca_file="/etc/feclora/pki/ca.crt", certificate_file="/etc/feclora/pki/client.crt",
-            private_key_file="/etc/feclora/pki/client.key", age_identity_file=None,
+            ca_file="/etc/feclora/pki/ca.crt", age_identity_file=None,
             age_recipients_file=None,
         )
         with patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config), \
@@ -1568,10 +1565,6 @@ class WebAPITests(unittest.TestCase):
             artifacts=[SimpleNamespace(encryption="none", size_bytes=4096)],
         )
         config = SimpleNamespace(
-            client_identity_to_mac={
-                "URI:feclora-client-01": "52:54:00:12:34:56",
-                "URI:feclora-client-02": "52:54:00:12:34:57",
-            },
             repository="/repo",
         )
         with tempfile.TemporaryDirectory() as directory, patch(
@@ -1675,9 +1668,7 @@ class WebAPITests(unittest.TestCase):
         from feclora.deployment.job import DeploymentJob
         config = SimpleNamespace(
             host="192.0.2.2", port=9443,
-            ca_file="/pki/ca.crt", certificate_file="/pki/client.crt",
-            private_key_file="/pki/client.key",
-            local_identity="URI:feclora-client-01",
+            ca_file="/pki/ca.crt",
             server_identity="URI:feclora-server",
             mac_address="52:54:00:12:34:56",
             age_identity_file=None, age_recipients_file=None,
@@ -1725,10 +1716,6 @@ class WebAPITests(unittest.TestCase):
             artifacts=[SimpleNamespace(encryption="none", size_bytes=4096)],
         )
         config = SimpleNamespace(
-            client_identity_to_mac={
-                "URI:feclora-client-01": "52:54:00:12:34:56",
-                "URI:feclora-client-02": "52:54:00:12:34:57",
-            },
             repository="/repo",
         )
         with tempfile.TemporaryDirectory() as directory, patch(
@@ -1775,9 +1762,7 @@ class WebAPITests(unittest.TestCase):
         from feclora.deployment.job import DeploymentJob
         config = SimpleNamespace(
             host="192.0.2.2", port=9443,
-            ca_file="/pki/ca.crt", certificate_file="/pki/client.crt",
-            private_key_file="/pki/client.key",
-            local_identity="URI:feclora-client-01",
+            ca_file="/pki/ca.crt",
             server_identity="URI:feclora-server",
             mac_address="52:54:00:12:34:56",
             
