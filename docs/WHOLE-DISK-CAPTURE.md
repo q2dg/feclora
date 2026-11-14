@@ -1,4 +1,16 @@
+---
+layout: default
+title: Whole-disk capture
+---
+
 # Whole-disk capture
+
+**Status: implemented in Cockpit.**
+
+![Illustrative mockup of the capture source-selection wizard]({{ '/assets/mockups/capture-wizard.svg' | relative_url }})
+
+*Illustrative mockup — not a screenshot. Sample devices and capacities are fictional.*
+
 
 `feclora.storage.disk_capture.capture_disk` creates a raw whole-disk image,
 an `sfdisk --dump` partition-table artifact, and a validated v1 manifest.
