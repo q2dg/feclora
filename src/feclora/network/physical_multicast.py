@@ -65,13 +65,15 @@ def validate_physical_multicast_pair(
     """Validate independently inventoried Server source and Client destination."""
     src = _device_record(source, "Server source")
     dst = _device_record(destination, "Client destination")
+    if src["path"] == dst["path"]:
+        raise PhysicalMulticastError("source and destination use the same device path")
     if src["major_minor"] == dst["major_minor"]:
         raise PhysicalMulticastError("source and destination resolve to the same major/minor device")
     if src["sysfs_path"] == dst["sysfs_path"]:
         raise PhysicalMulticastError("source and destination resolve to the same sysfs device")
-    if src.get("wwn") and dst.get("wwn") and src["wwn"] == dst["wwn"]:
+    if src.get("wwn") and dst.get("wwn") and src["wwn"].casefold() == dst["wwn"].casefold():
         raise PhysicalMulticastError("source and destination share the same WWN hardware identity")
-    if src.get("serial") and dst.get("serial") and src["serial"] == dst["serial"]:
+    if src.get("serial") and dst.get("serial") and src["serial"].casefold() == dst["serial"].casefold():
         raise PhysicalMulticastError("source and destination share the same hardware serial identity")
     if src["read_only"] is not True:
         raise PhysicalMulticastError("Server source must be hardware/kernel read-only")
