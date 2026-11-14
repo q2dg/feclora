@@ -45,7 +45,7 @@ Do not mark the TLS/artifact-transfer, disposable-disk restore or read-back item
 The same isolated lab has one Server and two independently bootable Clients (BIOS and UEFI), which is the minimum useful multi-receiver test. This is an operator acceptance procedure; creating the VMs does not execute it.
 
 1. Boot the Server ISO and both Client ISOs on the isolated libvirt network. Give the Server a static address and start Feclora PXE. Confirm both clients can reach the control listener over the isolated network.
-2. Provision the Server CA certificate and configured Server identity on both Clients. Deployment jobs select each Client by its reported MAC address; no per-Client certificate or credential is provisioned.
+2. Provision the Server CA certificate and configured Server identity on both Clients. Deployment jobs select each Client by its reported MAC address.
 3. Ensure the switch/bridge path forwards IPv4 multicast on this isolated segment. Configure IGMP snooping with a working querier. The current profile uses TTL 1 and cannot route between VLANs.
    On a Linux test host, inspect the libvirt bridge with `ip -d link show dev virbr-feclora` and `bridge mdb show dev virbr-feclora`. If multicast snooping is enabled but no querier is present, record the current value and enable a temporary querier for the lab: `cat /sys/class/net/virbr-feclora/bridge/multicast_querier`, then `sudo ip link set dev virbr-feclora type bridge mcast_querier 1`. Restore the recorded value after the test with the same command and the original value. The bridge name can differ; use the actual bridge created by the script.
 4. Place one whole-disk image set in the Server repository. Use disposable qcow2 target disks on both Clients; never attach host block devices.
