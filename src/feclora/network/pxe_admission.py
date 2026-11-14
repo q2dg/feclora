@@ -1,6 +1,6 @@
 """Loopback HTTP admission gate for unattended PXE boots.
 
-MAC addresses are operational identifiers only; they are not authentication.
+The admission ledger counts reported MAC addresses for operational selection and limits.
 """
 from __future__ import annotations
 
