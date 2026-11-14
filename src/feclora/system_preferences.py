@@ -99,7 +99,7 @@ def _write_kiosk_keyboard_config(path: Path, layout: str, variant: str) -> None:
     if info is not None and (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
                              or info.st_size > 4096):
         raise KeyboardLayoutError("kiosk keyboard configuration is not a safe regular file")
-    content = f"FECLORA_KEYBOARD_LAYOUT={layout}\\nXKB_DEFAULT_LAYOUT={layout}\\nXKB_DEFAULT_VARIANT={variant}\\nXKB_DEFAULT_OPTIONS=\\n"
+    content = f"FECLORA_KEYBOARD_LAYOUT={layout}\nXKB_DEFAULT_LAYOUT={layout}\nXKB_DEFAULT_VARIANT={variant}\nXKB_DEFAULT_OPTIONS=\n"
     fd, temporary = tempfile.mkstemp(prefix=".kiosk-keyboard-", dir=parent)
     try:
         with os.fdopen(fd, "w", encoding="ascii") as stream:
