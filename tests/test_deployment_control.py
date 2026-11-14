@@ -411,6 +411,7 @@ class TransferFailureTests(unittest.TestCase):
                     MAC, "/repository", "/repository/golden-image.manifest.json",
                 )
 
+        self.assertEqual(tls_socket.timeout, 300)
         self.assertTrue(tls_socket.closed)
         self.assertEqual(server.collect_results(), {MAC: "failed"})
         self.assertEqual(coordinator.state, JobState.FAILED)
