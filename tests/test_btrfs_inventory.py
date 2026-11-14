@@ -94,6 +94,33 @@ class BtrfsInventoryTests(unittest.TestCase):
         self.assertEqual(result["filesystems"][0]["allocation_profiles"][0]["profile"], "raid1")
 
 
+    def test_rejects_noncanonical_filesystem_uuid(self):
+        payload = SAMPLE.replace(
+            "01234567-89ab-cdef-0123-456789abcdef",
+            "0123456789ab-cdef-0123-456789abcdef",
+            1,
+        )
+        with self.assertRaises(BtrfsInventoryError):
+            parse_filesystem_show(payload)
+
+    def test_rejects_duplicate_member_device_ids(self):
+        payload = """Label: array uuid: 01234567-89ab-cdef-0123-456789abcdef
+        Total devices 2 FS bytes used 123456
+        devid 1 size 1000000 path /dev/sda1
+        devid 1 size 2000000 path /dev/sdb1
+"""
+        with self.assertRaisesRegex(BtrfsInventoryError, "duplicate device ID"):
+            parse_filesystem_show(payload)
+
+    def test_rejects_missing_member_device_path(self):
+        payload = """Label: array uuid: 01234567-89ab-cdef-0123-456789abcdef
+        Total devices 1 FS bytes used 123456
+        devid 1 size 1000000 path missing
+"""
+        with self.assertRaisesRegex(BtrfsInventoryError, "missing or invalid"):
+            parse_filesystem_show(payload)
+
+
 SUBVOLUMES = """ID 256 gen 100 parent 5 top level 5 parent_uuid - received_uuid - uuid 11111111-1111-1111-1111-111111111111 path @
 ID 257 gen 120 parent 256 top level 5 parent_uuid 11111111-1111-1111-1111-111111111111 received_uuid - uuid 22222222-2222-2222-2222-222222222222 path @snapshots/pre-upgrade
 """
@@ -146,33 +173,6 @@ item 1 key (FIRST_CHUNK_TREE CHUNK_ITEM 2097152) itemoff 200 itemsize 80
                 stripe 1 devid 1 offset 1310720
                 dev_uuid 11111111-1111-1111-1111-111111111111
 """
-
-
-    def test_rejects_noncanonical_filesystem_uuid(self):
-        payload = SAMPLE.replace(
-            "01234567-89ab-cdef-0123-456789abcdef",
-            "0123456789ab-cdef-0123-456789abcdef",
-            1,
-        )
-        with self.assertRaises(BtrfsInventoryError):
-            parse_filesystem_show(payload)
-
-    def test_rejects_duplicate_member_device_ids(self):
-        payload = """Label: array uuid: 01234567-89ab-cdef-0123-456789abcdef
-        Total devices 2 FS bytes used 123456
-        devid 1 size 1000000 path /dev/sda1
-        devid 1 size 2000000 path /dev/sdb1
-"""
-        with self.assertRaisesRegex(BtrfsInventoryError, "duplicate device ID"):
-            parse_filesystem_show(payload)
-
-    def test_rejects_missing_member_device_path(self):
-        payload = """Label: array uuid: 01234567-89ab-cdef-0123-456789abcdef
-        Total devices 1 FS bytes used 123456
-        devid 1 size 1000000 path missing
-"""
-        with self.assertRaisesRegex(BtrfsInventoryError, "missing or invalid"):
-            parse_filesystem_show(payload)
 
 
 class BtrfsSubvolumeTests(unittest.TestCase):
