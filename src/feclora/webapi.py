@@ -482,7 +482,7 @@ def _filesystem_images(
             continue
         manifest_path = path / name
         info = os.lstat(manifest_path)
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid():
             continue
         try:
             manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
@@ -510,7 +510,7 @@ def _filesystem_images(
             qcow2_info = os.lstat(qcow2_path)
             if (metadata.get("schema_version") != 1 or metadata.get("image_id") != image_id
                     or metadata.get("format") != "qcow2" or metadata.get("verified") is not True
-                    or not stat.S_ISREG(qcow2_info.st_mode) or qcow2_info.st_uid != 0
+                    or not stat.S_ISREG(qcow2_info.st_mode) or qcow2_info.st_uid != os.geteuid()
                     or qcow2_info.st_size != metadata.get("file_size_bytes")):
                 continue
             digest = hashlib.sha256()
@@ -1462,7 +1462,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             metadata_tmp = Path(temporary_directory) / f"{image_id}.p2v.json"
             with metadata_tmp.open("x", encoding="utf-8") as stream:
                 json.dump(metadata, stream, sort_keys=True, separators=(",", ":"))
-                stream.write("\\n")
+                stream.write("\n")
                 stream.flush()
                 os.fsync(stream.fileno())
             if is_s3:
