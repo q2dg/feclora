@@ -377,6 +377,7 @@ class TransferFailureTests(unittest.TestCase):
              patch("feclora.network.physical_multicast.validate_physical_multicast_cohort"), \
              patch("feclora.network.physical_multicast.open_approved_block_device", return_value=44), \
              patch("feclora.deployment.control.os.pread", return_value=payload), \
+             patch("feclora.deployment.control.os.dup", return_value=45), \
              patch("feclora.deployment.control.os.fdopen", return_value=io.BytesIO(payload)), \
              patch.object(server, "arm_and_start", return_value=(MAC, mac2)), \
              patch("feclora.deployment.control.receive_control_message", side_effect=ready_ack), \
