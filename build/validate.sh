@@ -163,10 +163,8 @@ for package in lvm2 stratisd stratis-cli btrfs-progs exfatprogs f2fs-tools partc
   grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."
 done
 
-for package in qemu-img; do
-  grep -qx "$package" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $package."
-  grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."
-done
+grep -qx "qemu-img" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include qemu-img."
+grep -qx "qemu-img" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include qemu-img."
 
 for codec in zstd lz4; do
   grep -qx "$codec" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include $codec."
