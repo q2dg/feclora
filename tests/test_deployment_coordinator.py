@@ -72,6 +72,33 @@ class DeploymentCoordinatorTests(unittest.TestCase):
         coordinator.arm()
         self.assertEqual(coordinator.state, JobState.ARMED)
 
+    def test_clone_requires_every_selected_client_ready_even_with_threshold(self):
+        coordinator = DeploymentCoordinator(make_job(
+            operation="clone", image_id=None, source_device="/dev/sda",
+            start_policy="expected_clients", expected_clients=1,
+        ))
+        first, second = "52:54:00:12:34:56", "52:54:00:12:34:57"
+        coordinator.register_client(first)
+        coordinator.mark_ready(first)
+        self.assertFalse(coordinator.can_start())
+        with self.assertRaisesRegex(CoordinatorError, "condition"):
+            coordinator.arm()
+        coordinator.register_client(second)
+        coordinator.mark_ready(second)
+        self.assertTrue(coordinator.can_start())
+        coordinator.arm()
+        self.assertEqual(coordinator.state, JobState.ARMED)
+
+    def test_clone_manual_start_waits_for_all_selected_clients(self):
+        coordinator = DeploymentCoordinator(make_job(
+            operation="clone", image_id=None, source_device="/dev/sda",
+        ))
+        self.connect_with(coordinator)
+        self.assertFalse(coordinator.can_start())
+        coordinator.register_client("52:54:00:12:34:57")
+        coordinator.mark_ready("52:54:00:12:34:57")
+        self.assertTrue(coordinator.can_start())
+
     def test_deadline_policy_uses_injected_clock(self):
         coordinator = DeploymentCoordinator(
             make_job(
