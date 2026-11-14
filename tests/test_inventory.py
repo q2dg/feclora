@@ -97,6 +97,7 @@ class ParseInventoryTests(unittest.TestCase):
         self.assertIn("LOG-SEC", command[command.index("--output") + 1])
         self.assertIn("PARTUUID", command[command.index("--output") + 1])
         self.assertIn("PARTTYPE", command[command.index("--output") + 1])
+        self.assertIn("START", command[command.index("--output") + 1])
         self.assertNotIn("wipefs", command)
         self.assertEqual(len(inventory["devices"]), 1)
         self.assertIn(inventory["volume_topology"]["status"], {"incomplete", "permission_required"})
