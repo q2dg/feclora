@@ -1418,7 +1418,7 @@ export default function App() {
                 <Title headingLevel="h2" size="xl">{t("Initialize deployment Server identity")}</Title>
                 <p>Select an IPv4 address currently assigned to the management interface. Feclora will initialize its managed CA and Server TLS certificate. If age-keygen is installed, it can also provision optional age encryption material.</p>
                 <Alert variant="info" title={t("This is the identity bootstrap step only")} isInline>
-                  It does not enable DHCP/ProxyDHCP, configure PXE boot services, open firewall ports or start a deployment. Client enrollment is a separate, explicit removable-media trust ceremony below.
+                  It does not enable DHCP/ProxyDHCP, configure PXE boot services, open firewall ports or start a deployment. Configuring Server trust on each Client is a separate, explicit removable-media setup step below.
                 </Alert>
               </StackItem>
               <StackItem>
@@ -1531,7 +1531,7 @@ export default function App() {
               <StackItem><Title headingLevel="h2" size="xl">{t("Remote job on this Client")}</Title>
                 <p>Inspect the Server job over TLS; the Client does not authenticate itself, choose this machine's local target, type the exact destructive/read confirmation, then connect. The Client reports READY after approval and waits for the Server operator to authorize and start the operation.</p>
               </StackItem>
-              {!status?.client_configured && <StackItem><Alert variant="warning" title={t("Client enrollment required")} isInline>Configure Server trust on this Client before inspecting or joining a remote job.</Alert></StackItem>}
+              {!status?.client_configured && <StackItem><Alert variant="warning" title={t("Server trust setup required")} isInline>Configure Server trust on this Client before inspecting or joining a remote job.</Alert></StackItem>}
               {status?.client_configured && <>
                 <StackItem>
                   <Field t={t} label={t("Server host override")} help="Leave blank to use the enrolled Server host. The configured Server certificate identity is still verified.">
