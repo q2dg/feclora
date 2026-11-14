@@ -1,8 +1,7 @@
-"""Authenticated Server/Client deployment control plane.
+"""Server-authenticated TLS deployment control plane.
 
-The control channel uses TLS to authenticate the Server certificate to Clients.
-Clients do not present certificates or authenticate individually. The reported
-MAC is checked only for membership in the active job; it is not an authenticator.
+Clients validate the Server certificate. The Server associates each session
+with the MAC address reported by the Client and checks it against the active job.
 This module coordinates readiness and job arming, unicast image/clone transfers,
 multicast image restore, and direct physical multicast clone orchestration. The
 Server opens physical sources read-only; Client runtimes own destination writes
