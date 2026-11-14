@@ -95,7 +95,7 @@ be reused until revoked or cleared by a new PXE session. Clients validate the
 schema and repository integrity metadata before any write. For this deployment, the operator explicitly chooses to trust the answer
 served by the configured HTTP server. This is an operational trust assumption,
 not cryptographic authenticity: an attacker able to modify HTTP traffic or the
-server's published file can alter the instructions. The answer is served over HTTP without cryptographic authenticity or transport-confidentiality protection. The workflow also does not provide per-client identity. Optional age encryption protects image artifacts,
+server's published file can alter the instructions. The answer is served over HTTP without cryptographic authenticity or transport-confidentiality protection. The workflow does not identify individual Clients; its admission ledger records reported MAC addresses for operational limits only. Optional age encryption protects image artifacts,
 not the answer JSON or HTTP transport.
 
 The PXE Server can register the MAC address supplied by iPXE on the first
@@ -107,7 +107,7 @@ registered do not consume another client slot. When a configured client cap
 is reached, new MAC addresses are refused; after a configured time deadline,
 all admission and boot-script requests are refused. The ledger is root-owned
 and persists for the lifetime of the PXE session. This is an operational
-admission limit, not authentication: a client can spoof a MAC address. The admission gate does
+admission limit, not a security boundary: a Client can spoof a MAC address. The admission gate does
 not stop an already-running restore, invalidate a boot script already
 retrieved by a client, or revoke the JSON answer file itself. The JSON answer
 URL remains a public job-scoped locator until explicit revocation or stale
@@ -119,8 +119,8 @@ security boundary.
 ISO and PXE Live clients run the same Feclora application and access
 repositories directly, using the normal client-side repository manager and
 its protected credential storage. The PXE Server is not a storage gateway.
-Do not add per-client certificates, private keys, enrollment, bearer tokens
-or client-specific credentials. The answer file contains repository selection
+Clients are selected operationally by the reported MAC address; no per-Client
+credentials are part of this workflow. The answer file contains repository selection
 and restore parameters only, never passwords, keys or credential-bearing URLs.
 The unattended PXE adapter resolves the selected ID through the existing
 client-side repository managers. SSHFS, NFS and SMB/CIFS use the normal managed
