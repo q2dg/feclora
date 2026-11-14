@@ -70,11 +70,16 @@ class PhysicalMulticastPreflightTests(unittest.TestCase):
             dev = root / "dev" / "block"
             dev.mkdir(parents=True)
             (dev / "8:0").symlink_to(target)
+            partition = root / "devices" / "pci" / "block" / "sda" / "sda1"
+            (partition / "holders").mkdir(parents=True)
+            (dev / "8:1").symlink_to(partition)
             item = {
                 "path": "/dev/sda", "major_minor": "8:0", "wwn": "wwn-1",
                 "serial": "serial-1", "size_bytes": 8192,
                 "logical_sector_size": 512, "read_only": True,
-                "mountpoints": [], "children": [{"mountpoints": ["/"], "children": []}],
+                "mountpoints": [], "children": [{
+                    "major_minor": "8:1", "mountpoints": ["/"], "children": [],
+                }],
             }
             record = build_physical_device_record(item, sysfs_root=temporary)
             self.assertTrue(record["busy"])
