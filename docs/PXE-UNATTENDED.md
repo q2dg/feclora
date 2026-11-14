@@ -1,3 +1,11 @@
+---
+layout: default
+title: PXE Live and unattended answer files
+---
+
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
 # PXE Live and unattended answer files
 
 ## Intended operating model
