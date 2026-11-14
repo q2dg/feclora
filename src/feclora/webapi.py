@@ -1290,7 +1290,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             fd = os.open(answer_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as stream:
                 json.dump(answer, stream, sort_keys=True, separators=(",", ":"))
-                stream.write("\\n")
+                stream.write("\n")
                 stream.flush()
                 os.fsync(stream.fileno())
             result = build_recovery_iso(
