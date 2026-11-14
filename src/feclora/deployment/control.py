@@ -767,7 +767,7 @@ class DeploymentControlServer:
         )
         from feclora.network.udpcast import send_physical_multicast_stream
         from feclora.storage.inventory import collect_inventory
-        from feclora.storage.source_safety import check_capture_source_safe
+        from feclora.storage.source_safety import SourceSafetyError, check_capture_source_safe
 
         job = self.coordinator.job
         if job.operation != "clone" or job.transport != "multicast" or job.target_type != "disk":
