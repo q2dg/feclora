@@ -7,7 +7,7 @@ title: Whole-disk restore
 
 # Whole-disk restore
 
-<badge>Implemented in Cockpit</badge>
+**Status: implemented in Cockpit.**
 
 Feclora restores one verified raw whole-disk image to a whole-disk block
 device. The destination is overwritten. A restore is not reversible and an
