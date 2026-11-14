@@ -116,7 +116,7 @@ class PXEAnswerClientTests(unittest.TestCase):
                 ("mount", "nas-images"), ("restore", "golden"), ("unmount", "nas-images"),
             ])
 
-    def test_remote_repository_unmounts_if_lease_acquisition_fails(self):
+    def test_remote_repository_propagates_lease_setup_failure(self):
         with tempfile.TemporaryDirectory() as root:
             events = []
             def fail_lease(_identifier):
@@ -125,7 +125,7 @@ class PXEAnswerClientTests(unittest.TestCase):
             fake_manager = SimpleNamespace(
                 list=lambda: [{"id": "nas-images", "mounted": False}],
                 ensure_mounted_and_acquire_usage_lock=lambda identifier: (events.append(("mount", identifier)), fail_lease(identifier))[1],
-                unmount=lambda identifier: events.append(("unmount", identifier)),
+                unmount=lambda identifier: events.append(("unexpected-client-unmount", identifier)),
             )
             fake_s3 = SimpleNamespace(list=lambda: [])
             registry = Path(root) / "repositories.json"
@@ -138,7 +138,6 @@ class PXEAnswerClientTests(unittest.TestCase):
                         self.fail("repository must not be yielded without a usage lease")
             self.assertEqual(events, [
                 ("mount", "nas-images"), ("lease-failed", "nas-images"),
-                ("unmount", "nas-images"),
             ])
 
     def test_remote_repository_closes_lease_and_unmounts_if_resolution_fails(self):
