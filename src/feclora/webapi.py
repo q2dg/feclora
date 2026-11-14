@@ -530,6 +530,72 @@ def _filesystem_images(
     return items
 
 
+def _export_p2v_from_s3(params: dict[str, Any]) -> dict[str, Any]:
+    """Export one committed S3 QCOW2 to a filesystem repository, sidecar last."""
+    image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+    source_id = _text(params, "source_repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}")
+    destination_id = params.get("destination_repository_id")
+    if destination_id is not None and (
+        not isinstance(destination_id, str)
+        or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", destination_id)
+    ):
+        raise WebAPIError("destination_repository_id is invalid")
+    from feclora.storage.s3_repository_manager import S3RepositoryManager
+    s3_manager = S3RepositoryManager()
+    if not any(item["id"] == source_id for item in s3_manager.list()):
+        raise WebAPIError("source_repository_id must identify a configured S3 object repository")
+    source_lease = destination_lease = None
+    try:
+        source_lease = s3_manager.acquire_usage_lock(source_id)
+        source = s3_manager.repository(source_id, progress=_progress)
+        with tempfile.TemporaryDirectory(prefix="feclora-p2v-export-") as temporary:
+            staging = Path(temporary)
+            os.chmod(staging, 0o700)
+            source.download_p2v(image_id, staging)
+            qcow2 = staging / f"{image_id}.qcow2"
+            sidecar = staging / f"{image_id}.p2v.json"
+            if destination_id is None:
+                destination = _repository(create=True)
+            else:
+                manager = _remote_repository_manager()
+                destination_lease = manager.acquire_usage_lock(destination_id)
+                destination = Path(manager.resolve(destination_id, write=True))
+            directory_info = os.lstat(destination)
+            if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
+                    or directory_info.st_uid != os.geteuid()):
+                raise WebAPIError("P2V export destination must be a real directory owned by Feclora")
+            target_qcow2 = destination / f"{image_id}.qcow2"
+            target_sidecar = destination / f"{image_id}.p2v.json"
+            if os.path.lexists(target_qcow2) or os.path.lexists(target_sidecar):
+                raise WebAPIError("P2V export refuses to overwrite an existing destination object")
+            os.link(qcow2, target_qcow2, follow_symlinks=False)
+            try:
+                os.link(sidecar, target_sidecar, follow_symlinks=False)
+            except Exception:
+                os.unlink(target_qcow2)
+                raise
+            directory_fd = os.open(destination, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+                                   | getattr(os, "O_NOFOLLOW", 0))
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+            return {
+                "image_id": image_id, "source_repository_id": source_id,
+                "destination_repository_id": destination_id, "output_path": str(target_qcow2),
+                "format": "qcow2", "verified": True, "metadata_committed": True,
+            }
+    except WebAPIError:
+        raise
+    except Exception as exc:
+        raise WebAPIError(f"P2V S3 export failed safely: {exc}") from exc
+    finally:
+        if destination_lease is not None:
+            os.close(destination_lease)
+        if source_lease is not None:
+            os.close(source_lease)
+
+
 def _images(repository_id: str | None = None) -> list[dict[str, Any]]:
     if repository_id is None:
         return _filesystem_images(_repository(), missing_ok=True)
@@ -1261,7 +1327,9 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "clone_disk": {"source", "target", "confirmation"},
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
+        "export_p2v_s3": {"image_id", "source_repository_id", "destination_repository_id"},
         "capture_p2v": {"source", "image_id", "repository_id"},
+        "export_p2v_s3": {"image_id", "source_repository_id", "destination_repository_id"},
         "build_recovery_iso": {"base_iso_path", "image_id", "target_wwn", "target_serial", "confirm_build", "repository_id"},
     }
     if action not in allowed:
@@ -1410,6 +1478,8 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 age_recipients_file=recipients_file if encrypt else None,
             )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
+    elif action == "export_p2v_s3":
+        result = _export_p2v_from_s3(params)
     elif action == "capture_p2v":
         from feclora.storage.p2v import convert_block_device_to_qcow2
         source = _device(params["source"], "source")
@@ -2980,7 +3050,7 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _cancel_local_operation(params)
     if action == "local_operations":
         return _local_operations(params)
-    if action in {"capture_disk", "capture_partition", "capture_p2v", "restore_disk", "restore_partition", "restore_logical_volume",
+    if action in {"capture_disk", "capture_partition", "capture_p2v", "export_p2v_s3", "restore_disk", "restore_partition", "restore_logical_volume",
                   "clone_disk", "clone_partition", "extract_partition_image", "build_recovery_iso"}:
         return _submit_local_operation({"operation": action, "operation_params": params})
     raise WebAPIError("unsupported Cockpit API action")
