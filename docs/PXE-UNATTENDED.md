@@ -30,8 +30,9 @@ job-specific answer URL directly to the same Live client.
 
 The PXE Server publishes the Live kernel, initramfs and squashfs and the
 answer JSON through Caddy. It does not proxy storage access, mount remote
-repositories, execute restoration, or receive operation logs, progress or
-restore results. Both ISO and PXE enter the same Live answer-fetch service,
+repositories or execute restoration. Admitted Live clients can send bounded
+start, progress and terminal restore events back to the Server over the same
+plain-HTTP service. Both ISO and PXE enter the same Live answer-fetch service,
 validator and restore client. The Live service checks the NetworkManager
 DHCPv4 lease for option 224 on ISO boots and otherwise leaves interactive
 boots unchanged.
@@ -129,9 +130,13 @@ credential store and object repository adapter. The PXE answer never contains
 a URL, credential reference or secret.
 
 PXE is only a boot transport. After Live starts, storage access and
-restoration are performed by the Client itself. The PXE Server does not
-receive operation logs, progress reports or restore results. Local operation
-history remains on the Live Client; the PXE Server does not receive result reporting.
+restoration are performed by the Client itself. The Client sends best-effort
+start, progress and terminal events to the Server's /pxe/report/<job-uuid>
+endpoint. The Server stores these in the private
+/var/lib/feclora/pxe/remote-reports.jsonl journal and includes them in
+Cockpit's Operation history. A failed or unavailable report transport never
+interrupts the disk restore. The Client also retains its local operation
+journal.
 
 ## Provider support status
 
