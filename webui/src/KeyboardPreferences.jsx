@@ -39,7 +39,7 @@ export default function KeyboardPreferences({ language = "en" }) {
     try {
       const result = await callFeclora("set_keyboard_layout", { layout });
       setCurrent(result);
-      setNotice(`Keyboard layout ${result.layout} applied to Linux and Cage/Wayland. The kiosk session will restart shortly.`);
+      setNotice(t("keyboardAppliedNotice"));
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -62,7 +62,7 @@ export default function KeyboardPreferences({ language = "en" }) {
       {current && <p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">{t("currentKeymap")}: {current.keymap || "unknown"}</p>}
       {notice && <Alert variant="success" title={t("layoutApplied")} isInline className="pf-v5-u-mt-md">{notice}</Alert>}
       {error && <Alert variant="danger" title={t("layoutFailed")} isInline className="pf-v5-u-mt-md">{error}</Alert>}
-      <Alert variant="info" title="Scope" isInline className="pf-v5-u-mt-md">The current implementation configures the Linux virtual console. The Cage/Wayland graphical session still needs a separate XKB runtime integration; this control does not claim to change that session yet.</Alert>
+      <Alert variant="info" title={t("keyboardScope")} isInline className="pf-v5-u-mt-md">{t("keyboardScopeText")}</Alert>
     </CardBody>
   </Card>;
 }
