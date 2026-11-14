@@ -159,6 +159,107 @@ def build_receiver_argv(
     ]
 
 
+def build_physical_stream_sender_argv(
+    executable: str,
+    config: UDPcastConfig,
+) -> list[str]:
+    """Build a UDPcast stdin sender; no image or staging-file path is accepted."""
+    return [
+        executable, "--interface", config.interface,
+        "--mcast-data-address", config.data_group,
+        "--mcast-rdv-address", config.rendezvous_group,
+        "--portbase", str(config.portbase), "--ttl", str(config.ttl),
+        "--max-bitrate", config.max_bitrate,
+        "--min-receivers", str(config.min_receivers),
+        "--max-wait", str(config.max_wait_seconds), "--nokbd",
+        *(["--fec", config.fec] if config.fec else []),
+    ]
+
+
+def build_physical_stream_receiver_argv(
+    executable: str,
+    config: UDPcastConfig,
+) -> list[str]:
+    """Build a UDPcast stdout receiver; no file or block-device path is accepted."""
+    return [
+        executable, "--interface", config.interface,
+        "--mcast-rdv-address", config.rendezvous_group,
+        "--portbase", str(config.portbase), "--ttl", str(config.ttl), "--nokbd",
+    ]
+
+
+def feed_physical_stream_to_sender(
+    source_stream: Any,
+    sender_stdin: Any,
+    expected_bytes: int,
+    *,
+    chunk_size: int = 1024 * 1024,
+    cancel_check: Callable[[], bool] | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
+) -> dict[str, Any]:
+    """Feed exactly the approved source byte range to udp-sender stdin and hash it."""
+    if isinstance(expected_bytes, bool) or not isinstance(expected_bytes, int) or expected_bytes <= 0:
+        raise UDPcastError("physical multicast source size must be a positive integer")
+    if isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or not 4096 <= chunk_size <= 16 * 1024 * 1024:
+        raise UDPcastError("physical multicast chunk size is outside the supported bounds")
+    digest = hashlib.sha256()
+    total = 0
+    try:
+        while total < expected_bytes:
+            if cancel_check is not None and cancel_check():
+                raise UDPcastError("physical multicast source stream cancelled")
+            chunk = source_stream.read(min(chunk_size, expected_bytes - total))
+            if not isinstance(chunk, (bytes, bytearray, memoryview)) or not chunk:
+                raise UDPcastError(f"physical multicast source ended early ({total}/{expected_bytes} bytes)")
+            view = memoryview(chunk)
+            if len(view) > expected_bytes - total:
+                view = view[:expected_bytes - total]
+            digest.update(view)
+            offset = 0
+            while offset < len(view):
+                written = sender_stdin.write(view[offset:])
+                if isinstance(written, bool) or not isinstance(written, int) or written <= 0 or written > len(view) - offset:
+                    raise UDPcastError("udp-sender stdin returned an invalid or zero-length write")
+                offset += written
+            total += len(view)
+            if progress_callback is not None:
+                progress_callback(total, expected_bytes)
+        sender_stdin.close()
+    except UDPcastError:
+        raise
+    except (OSError, BrokenPipeError) as exc:
+        raise UDPcastError(f"physical multicast sender pipe failed: {exc}") from exc
+    return {"bytes_sent": total, "sha256": digest.hexdigest()}
+
+
+def verify_received_physical_stream(
+    receiver_stdout: Any,
+    write: Callable[[memoryview], int],
+    flush: Callable[[], None],
+    readback: Callable[[int], bytes],
+    *,
+    expected_bytes: int,
+    expected_sha256: str,
+    chunk_size: int = 1024 * 1024,
+) -> dict[str, Any]:
+    """Write UDPcast stdout directly through an approved writer and verify source/read-back digests."""
+    if not isinstance(expected_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
+        raise UDPcastError("physical multicast source SHA-256 is invalid")
+    from feclora.network.physical_multicast import (
+        PhysicalMulticastError, write_and_verify_stream,
+    )
+    try:
+        result = write_and_verify_stream(
+            receiver_stdout, write, flush, readback,
+            expected_bytes=expected_bytes, chunk_size=chunk_size,
+        )
+    except PhysicalMulticastError as exc:
+        raise UDPcastError(f"physical multicast destination verification failed: {exc}") from exc
+    if result["sha256"] != expected_sha256:
+        raise UDPcastError("Client received stream SHA-256 does not match the Server source digest")
+    return result
+
+
 def _run_process(
     argv: list[str],
     *,
