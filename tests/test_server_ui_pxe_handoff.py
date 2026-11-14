@@ -7,7 +7,7 @@ from feclora.deployment.server_ui import run_deployment_server_ui
 
 
 class PXEJobHandoffIntegrationTests(unittest.TestCase):
-    def test_legacy_mtls_job_ui_does_not_publish_per_client_pxe_handoff(self):
+    def test_job_ui_does_not_publish_per_client_pxe_handoff(self):
         with tempfile.TemporaryDirectory() as journal_dir:
             config = SimpleNamespace(
                 bind_address="192.0.2.10", port=9443,
@@ -15,7 +15,6 @@ class PXEJobHandoffIntegrationTests(unittest.TestCase):
                 ca_file="/etc/feclora/pki/ca.crt",
                 certificate_file="/etc/feclora/pki/server.crt",
                 private_key_file="/etc/feclora/pki/server.key",
-                client_identity_to_mac={"URI:client-1": "02:00:00:00:00:01"},
                 repository="/var/lib/feclora/images",
             )
             pxe_config = SimpleNamespace(
