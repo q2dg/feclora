@@ -12,7 +12,7 @@ from typing import Any, Callable
 
 from .privilege import PrivilegeError, privileged_argv
 from .source_safety import SourceSafetyError, check_capture_source_safe
-from .proportional_staging import StagedRawDiskImage, ProportionalStagingError
+from .proportional_staging import StagedRawDiskImage
 
 
 class StagedFilesystemShrinkError(RuntimeError):
@@ -213,9 +213,10 @@ def shrink_staged_ext_filesystem(
                     raise StagedFilesystemShrinkError(
                         f"filesystem operation ended but loop device could not be detached: {detach_exc}"
                     ) from detach_exc
-                # Preserve the original failure; the detach failure is still
-                # surfaced in its message so operators know the loop may remain.
-                primary_error.add_note(f"IMPORTANT: loop device {loop_device} could not be detached: {detach_exc}")
+                raise StagedFilesystemShrinkError(
+                    f"{primary_error}; additionally, loop device {loop_device} "
+                    f"could not be detached and may remain attached: {detach_exc}"
+                ) from primary_error
 
     try:
         output_digest = _digest_file(staged.path)
