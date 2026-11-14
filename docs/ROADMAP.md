@@ -1,10 +1,10 @@
 # Roadmap
 
-This page summarizes the current implementation and the remaining release work.
-The [feature matrix](FEATURE-MATRIX.md) is the capability-level status reference;
-the [implementation plan](IMPLEMENTATION-PLAN.md) is the engineering backlog;
-and [user requirements and acceptance](USER-REQUIREMENTS-ACCEPTANCE.md) defines
-the end-user workflows and their release gates.
+This page distinguishes **engineering work** from **maintainer-run release acceptance**.
+The [feature matrix](FEATURE-MATRIX.md) is the capability-level source-status reference;
+the [implementation plan](IMPLEMENTATION-PLAN.md) is the detailed engineering backlog;
+[requirements and acceptance](USER-REQUIREMENTS-ACCEPTANCE.md) defines the end-user release gates;
+and [the maintainer checklist](MAINTAINER-ACCEPTANCE.md) records the hands-on work reserved for the repository owner.
 
 ## Product model
 
@@ -15,39 +15,63 @@ boot creates fresh local credentials, certificates and temporary configuration.
 Durable images and manifests belong in repositories explicitly selected by the
 operator. Persistent Live-session storage is not a product requirement.
 
-Storage layers and repositories are different concepts. LVM logical volumes, raw LUKS2 containers and Btrfs filesystems are possible image sources. SSHFS, NFS and SMB/CIFS are implemented mounted-repository providers. S3 is implemented as a separate object-storage provider, including local and distributed capture/restore workflows. Feclora is a client of external storage services and does not provision or administer them.
+Storage layers and repositories are different concepts. LVM logical volumes,
+raw LUKS2 containers, opened crypt mappings and Btrfs filesystems are potential
+image sources/layers. SSHFS, NFS and SMB/CIFS are mounted-repository providers;
+S3 is a separate object-storage provider. Feclora consumes external storage
+services and does not provision or administer them.
 
 ## Implemented in source
 
-The Cockpit application exposes local whole-disk and partition capture,
-restore and cloning; eligible logical-volume capture/restore; image and storage
-inventory; operation history; and optional age encryption. The remote stack
-includes persistent Server/Client services, managed Server identity and Client
-enrollment, Server-authenticated TLS control/unicast transfer, UDPcast
-multicast restore, and remote whole-disk and partition cloning. Cockpit also
-provides DHCP/static IPv4 profile workflows, PXE preflight and activation,
-interactive iPXE boot, and an initial unattended PXE answer workflow.
+The current source and Cockpit application include local whole-disk and
+partition capture, restore and cloning; eligible logical-volume capture and
+restore; storage inventory and operation history; optional age encryption;
+SSHFS/NFS/SMB and S3 repositories; persistent Server/Client jobs over
+authenticated TLS; UDPcast multicast restore; remote disk/partition cloning;
+P2V conversion/export; interactive PXE; and an unattended PXE whole-disk
+answer workflow.
 
-These statements describe source and Cockpit integration, not release
-acceptance. Feclora does not sign image manifests or use detached signature
-sidecars. Artifact integrity uses the byte count and SHA-256 digest recorded in
-the manifest; authenticity relies on the protected repository and authenticated
-transport. Age encryption is optional.
+These are source/integration statements, not a claim of production acceptance.
+Image artifacts record byte count and SHA-256. Feclora does not sign image
+manifests or detached sidecars; authenticity depends on the protected
+repository and authenticated transport. Age encryption is optional.
 
 ## Remaining engineering work
 
-- **Unattended PXE:** whole-disk restore now resolves repository IDs through the Live client's normal SSHFS, NFS, SMB/CIFS and S3 managers. Credentials remain in the protected Live configuration; the PXE Server serves boot assets and answer JSON only. Automated provider failure-path coverage and physical acceptance remain open; operation history stays local to the Live client. BIOS/UEFI/physical validation is optional. Unattended PXE can count distinct iPXE MAC addresses and enforce optional
-  administrator-configured client-count and/or elapsed-time limits; neither
-  limit is enabled by default. MAC is an operational identifier, not authentication. This answer workflow is separate
-  from authenticated Server/Client Remote jobs.
-- **Remote repositories:** SSHFS, NFS and SMB/CIFS mount lifecycle and image-engine integration exist; automated hardening and software integration coverage remain. S3 object transfer, encrypted credentials, manifest-last publication and distributed TLS staging are implemented. The remaining S3 live-provider checks are optional operator acceptance, not a software-backlog gate.
+- **Btrfs:** implement coordinated snapshot-assisted capture, multi-device
+  image-set capture/publication, and layer-aware restore for supported
+  allocation profiles. Current inventory discovers device membership,
+  subvolume/snapshot provenance and chunk/stripe layout; capture preflight
+  fails closed for unsupported or incomplete selections. It does not yet
+  image multi-device Btrfs sets or create coordinated snapshots.
+- **LUKS:** implement a separately designed opened-mapping workflow only if
+  its plaintext byte-scope, key handling and restore semantics are approved.
+  Current raw LUKS2 container partition imaging/restore preserves the closed
+  encrypted container and verifies its header; opened-mapping restore,
+  LUKS2-on-LV restore, provisioning and rekeying are not implemented.
+- **Repository resilience:** close automated failure-path and recovery
+  coverage for SSHFS/NFS/SMB and S3, including stale mounts, provider outages,
+  interrupted publication, cleanup and service restart. Do not conflate
+  provider integration with acceptance against live services.
+- **PXE:** improve unattended answer failure-path coverage and any remaining
+  Server-side result reconciliation only if the product contract requires it.
+  The current answer workflow keeps operation history on the Live Client and
+  the PXE Server serves boot assets and answer JSON only.
+- **Release engineering:** finish reproducible frontend dependency locking,
+  security/dependency checks, localization coverage and consistent release
+  documentation.
 
-## Optional operator acceptance
+## Maintainer-run release acceptance
 
-The maintainer builds the ISO. This project documentation describes the
-process; ISO generation and publication are not part of the source-validation
-work. BIOS/UEFI boot, physical disk writes, remote service behavior, PXE network
-boot, multicast switch/IGMP behavior and representative hardware acceptance
-must be performed and recorded by an operator. Unit tests and static
-validation do not establish those results.
+The repository owner builds the ISO using the documented procedure. The
+project work here is to keep that procedure accurate and reproducible; this
+assistant does not build or boot the ISO. The owner must then record BIOS and
+UEFI boots, Cockpit/kiosk behavior on VMs and hardware, restores on disposable
+real disks, live remote-provider behavior, multi-Client deployment, and
+interactive/unattended PXE on an isolated network. Real screenshots or
+explicitly labeled mockups should be added to the guides.
 
+These tasks are listed individually in
+[MAINTAINER-ACCEPTANCE.md](MAINTAINER-ACCEPTANCE.md). Unit tests, static
+validation and CI do not establish these physical/network results. A release
+must not be described as accepted until the owner records them.
