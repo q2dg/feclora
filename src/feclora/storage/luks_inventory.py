@@ -18,6 +18,7 @@ _UUID = re.compile(r"^UUID:\s*([0-9a-fA-F-]{36})\s*$", re.MULTILINE)
 _CIPHER = re.compile(r"^Cipher name:\s*(\S+)\s*$", re.MULTILINE)
 _MODE = re.compile(r"^Cipher mode:\s*(\S+)\s*$", re.MULTILINE)
 _KEY_SLOT = re.compile(r"^Key Slot\s+\d+:\s+(ENABLED|DISABLED)\s*$", re.MULTILINE)
+_LUKS_UUID = re.compile(r"^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
 
 
 def _luks_devices(devices: list[dict[str, Any]]):
