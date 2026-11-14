@@ -1646,7 +1646,6 @@ class WebAPITests(unittest.TestCase):
     def test_create_unicast_save_without_optional_encryption(self):
         payload = self._valid_deployment_payload(operation="save")
         config = SimpleNamespace(
-            client_identity_to_mac={"URI:feclora-client-01": "52:54:00:12:34:56"},
             repository="/repo",
         )
         with tempfile.TemporaryDirectory() as directory, patch(
@@ -1739,7 +1738,6 @@ class WebAPITests(unittest.TestCase):
 
     def test_create_unicast_save_without_optional_encryption(self):
         config = SimpleNamespace(
-            client_identity_to_mac={"URI:feclora-client-01": "52:54:00:12:34:56"},
             repository="/repo",
         )
         with tempfile.TemporaryDirectory() as directory, patch(
