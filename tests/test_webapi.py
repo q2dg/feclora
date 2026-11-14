@@ -1862,3 +1862,68 @@ class P2VWebAPITests(unittest.TestCase):
             self.assertEqual(metadata["format"], "qcow2")
             self.assertEqual(metadata["virtual_size_bytes"], 8192)
 
+
+
+class P2VS3ExportWebAPITests(unittest.TestCase):
+    def test_s3_export_action_is_submitted_to_durable_worker(self):
+        params = {
+            "image_id": "vm-disk", "source_repository_id": "s3-archive",
+            "destination_repository_id": "nfs-images",
+        }
+        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "job"}) as submit:
+            result = dispatch({"action": "export_p2v_s3", "params": params})
+        self.assertEqual(result["operation_id"], "job")
+        submit.assert_called_once_with({"operation": "export_p2v_s3", "operation_params": params})
+
+    def test_s3_p2v_export_verifies_then_publishes_metadata_sidecar_last(self):
+        from feclora.webapi import _export_p2v_from_s3
+        class FakeS3Repository:
+            def download_p2v(self, image_id, destination):
+                (Path(destination) / f"{image_id}.qcow2").write_bytes(b"verified qcow2")
+                (Path(destination) / f"{image_id}.p2v.json").write_text(
+                    json.dumps({"image_id": image_id, "verified": True}), encoding="utf-8",
+                )
+                return Path(destination) / f"{image_id}.p2v.json"
+        manager = Mock()
+        manager.list.return_value = [{"id": "s3-archive"}]
+        manager.repository.return_value = FakeS3Repository()
+        with tempfile.TemporaryDirectory() as root:
+            with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager), \
+                 patch("feclora.webapi._repository", return_value=Path(root)), \
+                 patch("feclora.webapi.os.close"):
+                result = _export_p2v_from_s3({
+                    "image_id": "vm-disk", "source_repository_id": "s3-archive",
+                })
+            output = Path(root)
+            self.assertTrue(result["verified"])
+            self.assertTrue(result["metadata_committed"])
+            self.assertEqual((output / "vm-disk.qcow2").read_bytes(), b"verified qcow2")
+            self.assertEqual(json.loads((output / "vm-disk.p2v.json").read_text())["image_id"], "vm-disk")
+
+    def test_s3_p2v_export_never_overwrites_existing_destination(self):
+        from feclora.webapi import _export_p2v_from_s3
+        class FakeS3Repository:
+            def download_p2v(self, image_id, destination):
+                (Path(destination) / f"{image_id}.qcow2").write_bytes(b"verified qcow2")
+                (Path(destination) / f"{image_id}.p2v.json").write_text("{}", encoding="utf-8")
+        manager = Mock()
+        manager.list.return_value = [{"id": "s3-archive"}]
+        manager.repository.return_value = FakeS3Repository()
+        with tempfile.TemporaryDirectory() as root:
+            (Path(root) / "vm-disk.qcow2").write_bytes(b"existing")
+            with patch("feclora.storage.s3_repository_manager.S3RepositoryManager", return_value=manager), \
+                 patch("feclora.webapi._repository", return_value=Path(root)), \
+                 patch("feclora.webapi.os.close"):
+                with self.assertRaisesRegex(WebAPIError, "refuses to overwrite"):
+                    _export_p2v_from_s3({
+                        "image_id": "vm-disk", "source_repository_id": "s3-archive",
+                    })
+            self.assertEqual((Path(root) / "vm-disk.qcow2").read_bytes(), b"existing")
+
+    def test_export_p2v_s3_worker_dispatches_to_verified_export_engine(self):
+        from feclora.webapi import _execute_operation
+        params = {"image_id": "vm-disk", "source_repository_id": "s3-archive"}
+        with patch("feclora.webapi._export_p2v_from_s3", return_value={"verified": True}) as export:
+            result = _execute_operation("export_p2v_s3", params, "operation-1")
+        self.assertTrue(result["verified"])
+        export.assert_called_once_with(params)
