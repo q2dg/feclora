@@ -427,8 +427,8 @@ class ClientDeploymentService:
                     raise DeploymentControlError("Server job does not match this Client service request or supported transport")
                 staging_detail = ""
                 if job.transport == "multicast":
-                    if job.operation != "restore" or not network_interface or igmp_confirmed is not True:
-                        raise DeploymentControlError("multicast Client jobs require restore, a receive interface and explicit IGMP acknowledgement")
+                    if job.operation not in {"restore", "clone"} or not network_interface or igmp_confirmed is not True:
+                        raise DeploymentControlError("multicast Client jobs require restore or physical clone, a receive interface and explicit IGMP acknowledgement")
                     try:
                         preflight = inspect_multicast_interface(
                             network_interface, job.multicast_group, role="receiver",
@@ -439,29 +439,30 @@ class ClientDeploymentService:
                         "connecting", network_interface=network_interface,
                         multicast_warnings=list(preflight.warnings),
                     )
-                    required_bytes = job.staging_required_bytes
-                    if (isinstance(required_bytes, bool) or not isinstance(required_bytes, int)
-                            or required_bytes < 0):
-                        raise DeploymentControlError(
-                            "Server did not provide a validated multicast staging requirement"
+                    if job.operation == "restore":
+                        required_bytes = job.staging_required_bytes
+                        if (isinstance(required_bytes, bool) or not isinstance(required_bytes, int)
+                                or required_bytes < 0):
+                            raise DeploymentControlError(
+                                "Server did not provide a validated multicast staging requirement"
+                            )
+                        try:
+                            free_bytes = shutil.disk_usage(config.repository).free
+                        except OSError as exc:
+                            raise DeploymentControlError(
+                                f"cannot inspect Client staging repository capacity: {exc}"
+                            ) from exc
+                        reserve_bytes = 64 * 1024 * 1024
+                        if free_bytes < required_bytes + reserve_bytes:
+                            raise DeploymentControlError(
+                                "insufficient Client staging capacity before READY: "
+                                f"{free_bytes} bytes free, {required_bytes} bytes required "
+                                f"plus {reserve_bytes} bytes safety reserve"
+                            )
+                        staging_detail = (
+                            f" Multicast staging preflight passed: {required_bytes} bytes required, "
+                            f"{free_bytes} bytes free, {reserve_bytes} bytes reserved."
                         )
-                    try:
-                        free_bytes = shutil.disk_usage(config.repository).free
-                    except OSError as exc:
-                        raise DeploymentControlError(
-                            f"cannot inspect Client staging repository capacity: {exc}"
-                        ) from exc
-                    reserve_bytes = 64 * 1024 * 1024
-                    if free_bytes < required_bytes + reserve_bytes:
-                        raise DeploymentControlError(
-                            "insufficient Client staging capacity before READY: "
-                            f"{free_bytes} bytes free, {required_bytes} bytes required "
-                            f"plus {reserve_bytes} bytes safety reserve"
-                        )
-                    staging_detail = (
-                        f" Multicast staging preflight passed: {required_bytes} bytes required, "
-                        f"{free_bytes} bytes free, {reserve_bytes} bytes reserved."
-                    )
                 elif igmp_confirmed is not False:
                     raise DeploymentControlError("unicast Client job must not specify an IGMP acknowledgement")
                 selected = self._find_device(device_path, job.target_type)
