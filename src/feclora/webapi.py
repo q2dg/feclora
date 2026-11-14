@@ -562,24 +562,68 @@ def _export_p2v_from_s3(params: dict[str, Any]) -> dict[str, Any]:
                 destination = Path(manager.resolve(destination_id, write=True))
             directory_info = os.lstat(destination)
             if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
-                    or directory_info.st_uid != os.geteuid()):
-                raise WebAPIError("P2V export destination must be a real directory owned by Feclora")
+                    or (destination_id is None and directory_info.st_uid != os.geteuid())):
+                raise WebAPIError("P2V export destination must be a real, safely resolved directory")
             target_qcow2 = destination / f"{image_id}.qcow2"
             target_sidecar = destination / f"{image_id}.p2v.json"
             if os.path.lexists(target_qcow2) or os.path.lexists(target_sidecar):
                 raise WebAPIError("P2V export refuses to overwrite an existing destination object")
-            os.link(qcow2, target_qcow2, follow_symlinks=False)
+            metadata = json.loads(sidecar.read_text(encoding="utf-8"))
+            if (metadata.get("schema_version") != 1 or metadata.get("image_id") != image_id
+                    or metadata.get("format") != "qcow2" or metadata.get("verified") is not True):
+                raise WebAPIError("verified S3 P2V metadata failed local export validation")
+
+            def stage_in_destination(source_path: Path) -> tuple[Path, int, str]:
+                fd, temporary_name = tempfile.mkstemp(prefix=".feclora-p2v-export-", dir=destination)
+                temporary_path = Path(temporary_name)
+                digest = hashlib.sha256()
+                total = 0
+                try:
+                    os.fchmod(fd, 0o600)
+                    with source_path.open("rb") as source_stream, os.fdopen(fd, "wb") as output:
+                        fd = -1
+                        for chunk in iter(lambda: source_stream.read(1024 * 1024), b""):
+                            output.write(chunk)
+                            digest.update(chunk)
+                            total += len(chunk)
+                        output.flush()
+                        os.fsync(output.fileno())
+                    return temporary_path, total, digest.hexdigest()
+                except Exception:
+                    if fd >= 0:
+                        os.close(fd)
+                    temporary_path.unlink(missing_ok=True)
+                    raise
+
+            staged_qcow2, copied_size, copied_digest = stage_in_destination(qcow2)
+            staged_sidecar = None
+            published_qcow2 = False
             try:
-                os.link(sidecar, target_sidecar, follow_symlinks=False)
+                if (copied_size != metadata.get("file_size_bytes")
+                        or copied_digest != metadata.get("qcow2_sha256")):
+                    raise WebAPIError("staged P2V QCOW2 failed size or SHA-256 verification")
+                staged_sidecar, _, _ = stage_in_destination(sidecar)
+                os.link(staged_qcow2, target_qcow2, follow_symlinks=False)
+                published_qcow2 = True
+                # Metadata is the commit marker and is always published last.
+                os.link(staged_sidecar, target_sidecar, follow_symlinks=False)
+                directory_fd = os.open(destination, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+                                       | getattr(os, "O_NOFOLLOW", 0))
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
             except Exception:
-                os.unlink(target_qcow2)
+                if published_qcow2:
+                    try:
+                        os.unlink(target_qcow2)
+                    except OSError:
+                        pass
                 raise
-            directory_fd = os.open(destination, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-                                   | getattr(os, "O_NOFOLLOW", 0))
-            try:
-                os.fsync(directory_fd)
             finally:
-                os.close(directory_fd)
+                staged_qcow2.unlink(missing_ok=True)
+                if staged_sidecar is not None:
+                    staged_sidecar.unlink(missing_ok=True)
             return {
                 "image_id": image_id, "source_repository_id": source_id,
                 "destination_repository_id": destination_id, "output_path": str(target_qcow2),
