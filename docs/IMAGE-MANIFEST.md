@@ -96,7 +96,7 @@ optional age encryption. For an age-encrypted artifact, restore verifies the
 ciphertext size/digest first, then authenticates/decrypts into private staging
 before decompression or target writes.
 
-SHA-256 digests in the manifest detect corruption and artifact substitution. The manifest is repository metadata protected by transport authentication and repository access controls. Feclora does not use detached signatures or signing keys.
+SHA-256 digests in the manifest detect artifact corruption relative to the recorded metadata. They do not authenticate the publisher. The manifest is repository metadata protected by transport authentication and repository access controls.
 
 Repository publication uses the manifest as its visibility marker. This is
 not a general crash-recovery transaction across arbitrary filesystems. Do not
