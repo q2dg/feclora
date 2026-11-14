@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-labelledby="title">
+  <title id="title">Feclora storage and deployment mark</title>
+  <path d="M95 18a69 69 0 0 1 66 49" fill="none" stroke="#24b7d4" stroke-width="12" stroke-linecap="round"/>
+  <path d="m151 54 13 16-21 3" fill="none" stroke="#24b7d4" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M162 112a69 69 0 0 1-119 27" fill="none" stroke="#1d6eb0" stroke-width="12" stroke-linecap="round"/>
+  <path d="m55 148-16-12 20-8" fill="none" stroke="#1d6eb0" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <ellipse cx="96" cy="54" rx="48" ry="15" fill="#0c2b50"/>
+  <path d="M48 54v24c0 9 22 16 48 16s48-7 48-16V54c0 9-22 16-48 16S48 63 48 54Z" fill="#28a9d0"/>
+  <path d="M48 78v23c0 9 22 16 48 16s48-7 48-16V78c0 9-22 16-48 16S48 87 48 78Z" fill="#155a92"/>
+  <path d="M48 101v20c0 9 22 16 48 16s48-7 48-16v-20c0 9-22 16-48 16S48 110 48 101Z" fill="#0c2b50"/>
+  <path d="m137 42 19-19 2 26" fill="none" stroke="#9bdc3b" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="39" cy="137" r="6" fill="#9bdc3b"/>
+  <circle cx="154" cy="117" r="6" fill="#24b7d4"/>
+</svg>
