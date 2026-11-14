@@ -92,7 +92,7 @@ class ServerAuthenticatedTlsTests(unittest.TestCase):
         with patch("feclora.network.remote_clone_protocol.ssl.SSLContext") as factory:
             context = factory.return_value
             result = create_tls_context(
-                "server", certificate_file="/server.pem", private_key_file="/server.key",
+                "server", server_certificate_file="/server.pem", server_private_key_file="/server.key",
             )
         self.assertIs(result, context)
         self.assertEqual(context.verify_mode, __import__("ssl").CERT_NONE)
@@ -129,7 +129,7 @@ class ServerAuthenticatedTlsTests(unittest.TestCase):
                 "-days", "2", "-extfile", ext,
             )
             server_context = create_tls_context(
-                "server", certificate_file=server_cert, private_key_file=server_key,
+                "server", server_certificate_file=server_cert, server_private_key_file=server_key,
             )
             client_context = create_tls_context("client", ca_file=ca_cert)
             listener = socket.socket()
