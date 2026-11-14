@@ -486,6 +486,19 @@ class ClientDeploymentService:
                 )
                 if confirmation != required:
                     raise DeploymentControlError("local typed target confirmation does not match the selected device and Server")
+                physical_identity = None
+                if job.operation == "clone" and job.transport == "multicast":
+                    if job.target_type != "disk":
+                        raise DeploymentControlError("physical multicast currently supports whole-disk targets only")
+                    try:
+                        from feclora.network.physical_multicast import build_physical_device_record
+                        physical_identity = build_physical_device_record(
+                            selected, sysfs_root="/sys",
+                        )
+                    except Exception as exc:
+                        raise DeploymentControlError(
+                            f"cannot establish a complete physical destination identity before READY: {exc}"
+                        ) from exc
                 description = " ".join(
                     str(value).replace("/dev/", "device ").replace("\n", " ")
                     for value in (
@@ -501,7 +514,7 @@ class ClientDeploymentService:
                     target_description=description,
                     network_interface=network_interface if job.transport == "multicast" else None,
                 )
-                return LocalTargetApproval(device_path, description, confirmation)
+                return LocalTargetApproval(device_path, description, confirmation, physical_identity)
 
             def execute_job(job, tls_socket, approval):
                 self._set_status("running", detail="Server armed the job. Client storage operation is in progress.")
