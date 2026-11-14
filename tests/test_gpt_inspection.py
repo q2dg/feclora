@@ -46,6 +46,9 @@ class SfdiskGPTParserTests(unittest.TestCase):
 
     def test_accepts_four_k_sector_gpt_usable_bounds(self):
         output = self.payload(sectorsize=4096, firstlba=6, lastlba=131067)
+        table = json.loads(output)
+        table["partitiontable"]["partitions"][1]["size"] = 20000
+        output = json.dumps(table)
         metadata = parse_sfdisk_gpt_disk_metadata(
             output, expected_sector_size=4096, disk_size_bytes=536870912
         )
