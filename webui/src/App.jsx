@@ -160,6 +160,10 @@ export default function App() {
   const [pxePreflight, setPxePreflight] = useState(null);
   const [pxeProfile, setPxeProfile] = useState(null);
   const [pxeAnswerFile, setPxeAnswerFile] = useState(null);
+  const [pxeAnswerSource, setPxeAnswerSource] = useState("upload");
+  const [pxeAnswerURL, setPxeAnswerURL] = useState("");
+  const [pxeAnswerRepositoryId, setPxeAnswerRepositoryId] = useState("");
+  const [pxeAnswerRepositoryPath, setPxeAnswerRepositoryPath] = useState("answer.json");
   const [pxeAnswerPublished, setPxeAnswerPublished] = useState(null);
   const [pxeAgePassphrase, setPxeAgePassphrase] = useState("");
   const [pxeAgePassphraseStatus, setPxeAgePassphraseStatus] = useState({ available: false, waiting: false, submitted: false });
@@ -620,23 +624,32 @@ export default function App() {
   };
 
   const publishPXEAnswer = async () => {
-    if (!pxeAnswerFile) return;
     setBusy(true); setError(""); setNotice(""); setPxeAnswerPublished(null);
     try {
-      if (pxeAnswerFile.size < 1 || pxeAnswerFile.size > 64 * 1024) throw new Error("The answer file must be between 1 byte and 64 KiB.");
-      const answerBuffer = await pxeAnswerFile.arrayBuffer();
-      const encode = (buffer) => {
-        const bytes = new Uint8Array(buffer);
-        let binary = "";
-        for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-          binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-        }
-        return window.btoa(binary);
-      };
-      const result = await callFeclora("publish_pxe_answer", {
-        job_id: crypto.randomUUID(),
-        answer_base64: encode(answerBuffer)
-      });
+      const request = { job_id: crypto.randomUUID(), source: pxeAnswerSource };
+      if (pxeAnswerSource === "upload") {
+        if (!pxeAnswerFile) throw new Error("Select a local JSON answer file.");
+        if (pxeAnswerFile.size < 1 || pxeAnswerFile.size > 64 * 1024) throw new Error("The answer file must be between 1 byte and 64 KiB.");
+        const answerBuffer = await pxeAnswerFile.arrayBuffer();
+        const encode = (buffer) => {
+          const bytes = new Uint8Array(buffer);
+          let binary = "";
+          for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+            binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+          }
+          return window.btoa(binary);
+        };
+        request.answer_base64 = encode(answerBuffer);
+      } else if (pxeAnswerSource === "url") {
+        if (!pxeAnswerURL.trim()) throw new Error("Enter an HTTP or HTTPS URL.");
+        request.url = pxeAnswerURL.trim();
+      } else if (pxeAnswerSource === "repository") {
+        if (!pxeAnswerRepositoryId) throw new Error("Select a configured image repository.");
+        if (!pxeAnswerRepositoryPath.trim()) throw new Error("Enter the relative path to the JSON answer file.");
+        request.repository_id = pxeAnswerRepositoryId;
+        request.source_path = pxeAnswerRepositoryPath.trim();
+      }
+      const result = await callFeclora("publish_pxe_answer", request);
       setPxeAnswerPublished(result);
       setNotice(result.message);
     } catch (err) { setError(err?.message || String(err)); }
@@ -1486,11 +1499,36 @@ export default function App() {
                   <Title headingLevel="h3" size="lg">{t("Publish unattended PXE answer")}</Title>
                   <p>Upload the prewritten JSON answer. The repository is selected by its <code>repository_id</code> field and must already be configured in the Live client through Feclora's normal repository manager. The Server validates the JSON and publishes it through Caddy over HTTP. The answer contains no URLs, credential references or secrets.</p>
                   <Alert variant="warning" title={t("Destructive operation guard")} isInline>The PXE Live client trusts the answer delivered by this HTTP server. When a client boots the unattended iPXE entry, a matching whole disk is restored automatically. The Live client resolves the selected repository through its normal Feclora managers: SSHFS, NFS, SMB/CIFS and S3, using credentials already protected in the Live configuration. No credential handoff or per-client identity is introduced. Images may be unencrypted or age-encrypted with a symmetric passphrase entered locally in Live Cockpit. Test only with disposable target disks.</Alert>
-                  <Field t={t} label={t("Prewritten answer file (JSON)")}>
+                  <Field t={t} label={t("Answer file source")}>
+                    <select className="pf-v6-c-form-control" value={pxeAnswerSource} onChange={(event) => { setPxeAnswerSource(event.target.value); setPxeAnswerPublished(null); }}>
+                      <option value="upload">{t("Local file upload")}</option>
+                      <option value="url">{t("HTTP or HTTPS URL")}</option>
+                      <option value="repository">{t("Configured image repository")}</option>
+                    </select>
+                  </Field>
+                  {pxeAnswerSource === "upload" && <Field t={t} label={t("Prewritten answer file (JSON)")}>
                     <input className="pf-v6-c-form-control" type="file" accept=".json,application/json" onChange={(event) => { setPxeAnswerFile(event.target.files?.[0] || null); setPxeAnswerPublished(null); }} />
                     {pxeAnswerFile && <div className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{pxeAnswerFile.name} · {pxeAnswerFile.size} bytes</div>}
-                  </Field>
-                  <Button variant="primary" onClick={publishPXEAnswer} isLoading={busy} isDisabled={busy || !pxeStatus.active || !pxeAnswerFile}>{t("Validate and publish answer")}</Button>
+                  </Field>}
+                  {pxeAnswerSource === "url" && <Field t={t} label={t("HTTP(S) answer URL")}>
+                    <input className="pf-v6-c-form-control" type="url" value={pxeAnswerURL} placeholder="https://server.example/answers/restore.json" onChange={(event) => { setPxeAnswerURL(event.target.value); setPxeAnswerPublished(null); }} />
+                    <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{t("The Feclora Server downloads the file directly. Redirects and embedded URL credentials are not accepted; HTTPS certificates are verified.")}</p>
+                  </Field>}
+                  {pxeAnswerSource === "repository" && <>
+                    <Field t={t} label={t("Image repository")}>
+                      <select className="pf-v6-c-form-control" value={pxeAnswerRepositoryId} onChange={(event) => { setPxeAnswerRepositoryId(event.target.value); setPxeAnswerPublished(null); }}>
+                        <option value="">{t("Select a configured repository")}</option>
+                        {remoteRepositories.filter((item) => item.mounted && item.verified).map((item) => <option key={item.id} value={item.id}>{item.id} · {item.provider} · {item.host}</option>)}
+                        {s3Repositories.map((item) => <option key={item.id} value={item.id}>{item.id} · S3 · {item.bucket}</option>)}
+                      </select>
+                    </Field>
+                    <Field t={t} label={t("Relative path or S3 object key")}>
+                      <input className="pf-v6-c-form-control" value={pxeAnswerRepositoryPath} placeholder="deployment/answer.json" onChange={(event) => { setPxeAnswerRepositoryPath(event.target.value); setPxeAnswerPublished(null); }} />
+                      <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{t("For SSHFS/SFTP, NFS and SMB/CIFS, use a path relative to the mounted repository root. For S3, use an object key relative to the configured bucket prefix. SSH/SFTP access uses the repository's existing protected credentials.")}</p>
+                    </Field>
+                    {remoteRepositories.length === 0 && s3Repositories.length === 0 && <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{t("Configure an image repository first. Remote filesystem repositories must be mounted and verified.")}</p>}
+                  </>}
+                  <Button variant="primary" onClick={publishPXEAnswer} isLoading={busy} isDisabled={busy || !pxeStatus.active || (pxeAnswerSource === "upload" && !pxeAnswerFile) || (pxeAnswerSource === "url" && !pxeAnswerURL.trim()) || (pxeAnswerSource === "repository" && (!pxeAnswerRepositoryId || !pxeAnswerRepositoryPath.trim()))}>{t("Validate and publish answer")}</Button>
                   {!pxeStatus.active && <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">Start PXE services first; publication is available only while the configured Caddy service is active.</p>}
                   {pxeAnswerPublished && <Alert variant="success" title={t("Answer published")} isInline className="pf-v6-u-mt-md">
                     <p>Job: {pxeAnswerPublished.job_id}</p>
