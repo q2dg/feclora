@@ -132,7 +132,7 @@ def plan_proportional_gpt_layout(
         if not isinstance(filesystem, str) or not filesystem:
             raise PartitionLayoutError(f"{node} filesystem type is unknown")
         normalized_filesystem = filesystem.lower()
-        if normalized_filesystem not in {"ext2", "ext3", "ext4"} | _FIXED_SIZE_FILESYSTEMS:
+        if normalized_filesystem not in {"ext2", "ext3", "ext4", "ntfs", "ntfs3"} | _FIXED_SIZE_FILESYSTEMS:
             raise PartitionLayoutError(
                 f"{node} uses unsupported filesystem or storage layer {filesystem}"
             )
