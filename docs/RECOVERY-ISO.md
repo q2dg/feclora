@@ -165,7 +165,7 @@ validate the media in disposable virtual machines before any production use:
 1. Use a disposable VM with BIOS firmware and a disposable destination disk.
 2. Boot the recovery ISO and confirm that the Feclora Live environment starts.
 3. Repeat with UEFI firmware, including Secure Boot only if the product
-   explicitly supports the selected signing configuration.
+   explicitly supports the selected boot configuration.
 4. Confirm that the embedded manifest and every artifact are discovered
    read-only and pass integrity verification.
 5. Confirm that the unattended answer is accepted only when the selected
