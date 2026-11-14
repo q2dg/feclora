@@ -11,17 +11,17 @@ import KeyboardPreferences from "./KeyboardPreferences.jsx";
 import { LANGUAGES, useLanguagePreference } from "./i18n.js";
 
 const OPERATION_LABELS = {
-  capture_disk: "Create a whole-disk image",
-  capture_p2v: "Convert physical disk to QCOW2 (P2V)",
-  export_p2v_s3: "Export P2V QCOW2 from S3",
-  build_recovery_iso: "Build a self-contained recovery ISO",
-  capture_partition: "Create a partition image",
-  capture_logical_volume: "Create a logical-volume image",
-  restore_disk: "Restore a whole-disk image",
-  restore_partition: "Restore a partition image",
-  restore_logical_volume: "Restore a logical-volume image",
-  clone_disk: "Clone disk to disk",
-  clone_partition: "Clone partition to partition"
+  capture_disk: "opCaptureDisk",
+  capture_p2v: "opCaptureP2v",
+  export_p2v_s3: "opExportP2v",
+  build_recovery_iso: "opRecoveryIso",
+  capture_partition: "opCapturePartition",
+  capture_logical_volume: "opCaptureVolume",
+  restore_disk: "opRestoreDisk",
+  restore_partition: "opRestorePartition",
+  restore_logical_volume: "opRestoreVolume",
+  clone_disk: "opCloneDisk",
+  clone_partition: "opClonePartition"
 };
 
 function flattenDevices(devices) {
@@ -941,7 +941,7 @@ export default function App() {
                   <form onSubmit={runOperation}>
                     <Field label={t("operation")}>
                       <select className="pf-v5-c-form-control" value={operation} onChange={(e) => { setOperation(e.target.value); setSource(""); setTarget(""); setImageId(""); setPartitionId(""); setRestoreLayoutPreview(null); setConfirmation(""); setOperationResult(null); }}>
-                        {Object.entries(OPERATION_LABELS).map(([value, label]) => <option key={value} value={value}>{value === "export_p2v_s3" ? t("exportP2v") : label}</option>)}
+                        {Object.entries(OPERATION_LABELS).map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
                       </select>
                     </Field>
                     {isExportP2V && <>
@@ -974,7 +974,7 @@ export default function App() {
                       <Field label="Base Feclora Live ISO path" help="Absolute path to a local .iso file accessible to the Feclora service, for example /home/feclora/Downloads/feclora-live.iso.">
                         <input className="pf-v5-c-form-control" value={recoveryBaseISO} onChange={(e) => setRecoveryBaseISO(e.target.value)} placeholder="/path/to/feclora-live.iso" required />
                       </Field>
-                      <Field label="Image repository">
+                      <Field label={t("imageRepository")}>
                         <select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => selectImageRepository(e.target.value)}>
                           <option value="">Local repository</option>
                           {remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? "read-only" : "read/write"}</option>)}
@@ -1102,12 +1102,12 @@ export default function App() {
               </Tbody></Table></StackItem>
             </Stack>
           </Tab>
-          <Tab eventKey="images" title="Image repository">
-            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Available images</Title><Field label="Image repository" help="Local is the default; filesystem shares must be mounted and verified. S3 repositories use object transfers."><select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(event) => selectImageRepository(event.target.value)}><option value="">Local repository</option>{remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? "read-only" : "read/write"}</option>)}
+          <Tab eventKey="images" title={t("tabImages")}>
+            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("availableImages")}</Title><Field label="Image repository" help="Local is the default; filesystem shares must be mounted and verified. S3 repositories use object transfers."><select className="pf-v5-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(event) => selectImageRepository(event.target.value)}><option value="">Local repository</option>{remoteRepositories.filter((repo) => repo.mounted && repo.verified).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider} · {repo.read_only ? "read-only" : "read/write"}</option>)}
                     {s3Repositories.filter((repo) => !remoteRepositories.some((remoteRepo) => remoteRepo.id === repo.id)).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · S3 object storage · {repo.read_only ? "read-only" : "read/write"}</option>)}</select></Field></StackItem>
               <StackItem>
                 <Card><CardBody>
-                  <Title headingLevel="h3" size="lg">Extract a partition from a whole-disk image</Title>
+                  <Title headingLevel="h3" size="lg">{t("extractPartition")}</Title>
                   <p>Select a verified whole-disk image and identify one partition by PARTUUID, PARTLABEL or partition node recorded in its partition table. Feclora verifies the source image and publishes a separate partition image; age-encrypted sources are re-encrypted to the current recipient inventory. The source image is not modified.</p>
                   <Field label="Whole-disk source image">
                     <select className="pf-v5-c-form-control" value={extractImageId} disabled={busy} onChange={(event) => { setExtractImageId(event.target.value); inspectImageLayout(event.target.value); }}>
@@ -1153,9 +1153,9 @@ export default function App() {
               </Tbody></Table></StackItem>
             </Stack>
           </Tab>
-          <Tab eventKey="remote-jobs" title="Remote jobs">
+          <Tab eventKey="remote-jobs" title={t("tabRemoteJobs")}>
             <Stack hasGutter className="pf-v5-u-pt-lg">
-              <StackItem><Title headingLevel="h2" size="xl">Create a remote deployment job</Title>
+              <StackItem><Title headingLevel="h2" size="xl">{t("createRemoteJob")}</Title>
                 <Alert variant="warning" title="Definition only — service not started; no Client contact or disk I/O" isInline>
                   This step validates and journals a job definition. Start its persistent service separately; Clients then connect over Server-authenticated TLS and approve their own local target through the Client-local runtime. Each Client selects and approves its own local destination in the Client jobs tab. No storage operation starts until you explicitly authorize and start it here after all selected Clients report READY.
                 </Alert>
@@ -1287,8 +1287,8 @@ export default function App() {
               </StackItem>
             </Stack>
           </Tab>
-          <Tab eventKey="deployments" title="Deployment history">
-            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Deployment journals</Title></StackItem>
+          <Tab eventKey="deployments" title={t("tabHistory")}>
+            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("deploymentJournals")}</Title></StackItem>
               <StackItem><Table aria-label="Feclora deployment history" variant="compact"><Thead><Tr><Th>Job ID</Th><Th>State</Th><Th>Interrupted</Th><Th>Clients</Th><Th>Last durable progress</Th><Th>Events</Th></Tr></Thead><Tbody>
                 {journals.map((job) => <Tr key={job.job_id}><Td>{job.job_id}</Td><Td>{job.job_state}</Td><Td>{job.interrupted ? <Label color="orange">Review required</Label> : "No"}</Td><Td>{Object.entries(job.clients || {}).map(([mac, state]) => mac + ": " + state).join(", ") || "—"}</Td><Td>{Object.entries(job.progress || {}).map(([mac, progress]) => mac + ": " + progress.phase + " " + (progress.completed_bytes / (1024 * 1024)).toFixed(1) + " MiB" + (progress.total_bytes === null ? "" : " / " + (progress.total_bytes / (1024 * 1024)).toFixed(1) + " MiB")).join("; ") || "No durable checkpoint"}</Td><Td>{job.event_count}</Td></Tr>)}
                 {!journals.length && <Tr><Td colSpan={6}>No deployment jobs recorded.</Td></Tr>}
@@ -1296,9 +1296,9 @@ export default function App() {
             </Stack>
           </Tab>
 
-          <Tab eventKey="repositories" title="Remote repositories">
+          <Tab eventKey="repositories" title={t("tabRepositories")}>
             <Stack hasGutter className="pf-v5-u-pt-lg">
-              <StackItem><Title headingLevel="h2" size="xl">Remote image repositories</Title>
+              <StackItem><Title headingLevel="h2" size="xl">{t("remoteImageRepositories")}</Title>
                 <p>Manage remote image repositories. SSHFS, NFS and SMB/CIFS use mounted filesystems; S3 uses an object-storage API.</p>
               </StackItem>
               <StackItem><Card><CardBody><form onSubmit={saveRemoteRepository}>
@@ -1366,8 +1366,8 @@ export default function App() {
               </StackItem>
             </Stack>
           </Tab>
-          <Tab eventKey="operation-log" title="Operation log">
-            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">Local operation history</Title><p>Durable local operation definitions and state history, including worker progress and terminal diagnostics. Interrupted writes are never resumed automatically. Cancelled or interrupted restores and clones may have partially modified their destination; inspect the target before reuse. Cancellation is orderly and may take time to stop child processes.</p></StackItem>
+          <Tab eventKey="operation-log" title={t("tabOperationLog")}>
+            <Stack hasGutter className="pf-v5-u-pt-lg"><StackItem><Title headingLevel="h2" size="xl">{t("localOperationHistory")}</Title><p>Durable local operation definitions and state history, including worker progress and terminal diagnostics. Interrupted writes are never resumed automatically. Cancelled or interrupted restores and clones may have partially modified their destination; inspect the target before reuse. Cancellation is orderly and may take time to stop child processes.</p></StackItem>
               <StackItem><Button variant="secondary" isDisabled={!operations.length} onClick={exportLocalOperations}>Export latest 100 operations as JSON</Button><p className="pf-v5-u-color-200 pf-v5-u-font-size-sm">The export contains the history currently loaded in Cockpit, including device paths and bounded diagnostic messages. Store it with the same care as operational logs.</p></StackItem>
               <StackItem><Table aria-label="Local operation history" variant="compact"><Thead><Tr><Th>Timestamp</Th><Th>Operation</Th><Th>Target</Th><Th>Image</Th><Th>Status</Th><Th>Progress</Th><Th>Operation ID</Th><Th>Details</Th><Th>Control</Th></Tr></Thead><Tbody>
                 {operations.map((item) => {
@@ -1389,7 +1389,7 @@ export default function App() {
               </Tbody></Table></StackItem>
             </Stack>
           </Tab>
-          <Tab eventKey="network" title="Network (Server / Client)">
+          <Tab eventKey="network" title={t("tabNetwork")}>
             <Stack hasGutter className="pf-v5-u-pt-lg">
               <StackItem>
                 <Title headingLevel="h2" size="xl">Host IPv4 configuration</Title>
