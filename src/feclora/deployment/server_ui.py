@@ -153,7 +153,7 @@ def _choose_job(
 
     mac_text = dialog_app._input(
         "Client MAC addresses",
-        "Enter one unicast MAC address per line. No Client certificate enrollment or authentication is used:",
+        "Enter one unicast MAC address per line. MAC addresses identify job participants but are not credentials:",
     )
     if mac_text is None:
         raise DeploymentControlError("Client selection cancelled")
