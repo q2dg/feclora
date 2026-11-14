@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Any
 
 from feclora.network.pxe_answer import MAX_ANSWER_BYTES, PXEAnswerError, parse_pxe_answer
-from feclora.network.pxe_answer_signing import PUBLIC_KEY, PXEAnswerSignatureError, verify_answer_file
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.restore_profile import RestoreTargetSelector
 from feclora.storage.inventory import collect_inventory
@@ -75,25 +74,6 @@ def _download_answer(url: str, *, timeout: float = 15.0) -> bytes:
     except (OSError, urllib.error.URLError, TimeoutError) as exc:
         raise PXEAnswerClientError(f"cannot download PXE answer over HTTP: {exc}") from exc
 
-
-def _download_signature(url: str, *, timeout: float = 15.0) -> bytes:
-    """Download a bounded detached minisign signature."""
-    opener = urllib.request.build_opener(_NoRedirect)
-    request = urllib.request.Request(url, headers={"Accept": "application/octet-stream, text/plain", "User-Agent": "Feclora-PXE/1"}, method="GET")
-    try:
-        with opener.open(request, timeout=timeout) as response:
-            if response.status != 200:
-                raise PXEAnswerClientError(f"PXE signature server returned HTTP {response.status}")
-            if response.headers.get_content_type() not in {"text/plain", "application/octet-stream"}:
-                raise PXEAnswerClientError("PXE signature server returned an unexpected content type")
-            content = response.read(4097)
-            if not content or len(content) > 4096:
-                raise PXEAnswerClientError("PXE answer signature must be non-empty and at most 4 KiB")
-            return content
-    except PXEAnswerClientError:
-        raise
-    except (OSError, urllib.error.URLError, TimeoutError) as exc:
-        raise PXEAnswerClientError(f"cannot download PXE answer signature over HTTP: {exc}") from exc
 
 def _publish_runtime_answer(raw: bytes, destination: str | os.PathLike[str]) -> Path:
     target = Path(destination)
@@ -164,9 +144,6 @@ def fetch_live_pxe_answer(
     destination: str | os.PathLike[str] = "/run/feclora/pxe/answer.json",
     downloader: Any = _download_answer,
     dhcp_url_provider: Any = _discover_dhcp_answer_url,
-    signature_downloader: Any = _download_signature,
-    signature_verifier: Any = verify_answer_file,
-    public_key: str | os.PathLike[str] = PUBLIC_KEY,
 ) -> dict[str, Any] | None:
     """Fetch/validate the unattended answer; interactive PXE boots are a no-op."""
     if command_line is None:
@@ -194,20 +171,6 @@ def fetch_live_pxe_answer(
     if not request.answer_url:
         raise PXEAnswerClientError("unattended PXE boot has no answer URL")
     raw = downloader(request.answer_url)
-    signature = signature_downloader(request.answer_url + ".minisig")
-    try:
-        with tempfile.TemporaryDirectory(prefix="feclora-pxe-verify-") as temporary:
-            answer_path = Path(temporary) / "answer.json"
-            signature_path = Path(temporary) / "answer.json.minisig"
-            answer_path.write_bytes(raw)
-            signature_path.write_bytes(signature)
-            os.chmod(answer_path, 0o600)
-            os.chmod(signature_path, 0o600)
-            signature_verifier(answer_path, signature_path, public_key=public_key)
-    except PXEAnswerSignatureError as exc:
-        raise PXEAnswerClientError(f"PXE answer authenticity check failed: {exc}") from exc
-    except OSError as exc:
-        raise PXEAnswerClientError(f"cannot prepare PXE answer signature verification: {exc}") from exc
     try:
         answer = parse_pxe_answer(raw)
     except PXEAnswerError as exc:
