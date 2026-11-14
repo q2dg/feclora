@@ -15,6 +15,9 @@ from feclora.storage.disk_capture import DiskCaptureError, capture_disk
 from feclora.storage.disk_clone import DiskCloneCancelled, DiskCloneError, clone_disk
 from feclora.storage.disk_image_partition import DiskImagePartitionError, extract_partition_image
 from feclora.storage.disk_restore import DiskRestoreCancelled, DiskRestoreError, restore_disk
+from feclora.storage.proportional_staging import stage_verified_raw_disk_image
+from feclora.storage.proportional_restore import StagedProportionalRestoreError, restore_staged_proportional_image
+from feclora.storage.proportional_restore_workflow import ProportionalRestoreWorkflowError, prepare_from_offline_source_disk
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import InventoryError, collect_inventory, assess_disk_compatibility
 from feclora.storage.partition_image_capture import PartitionImageCaptureError, capture_partition_image
@@ -637,6 +640,7 @@ def _restore(inventory: dict[str, Any]) -> None:
     if manifest.image_type == "disk":
         action = _menu("Disk image restore", "Choose the scope of the restore.", [
             ("whole-disk", "Restore the complete disk image"),
+            ("proportional", "Shrink a verified staging copy and restore to a smaller disk (GPT/ext/NTFS)"),
             ("single-partition", "Extract and restore one selected partition only"),
             ("cancel", "Cancel"),
         ])
@@ -645,7 +649,7 @@ def _restore(inventory: dict[str, Any]) -> None:
     else:
         action = "partition-image"
 
-    target_kind = "disk" if action == "whole-disk" else "part"
+    target_kind = "disk" if action in {"whole-disk", "proportional"} else "part"
     target = _select_device(
         inventory, target_kind, "Restore target",
         "Select the destination. ALL DATA ON IT WILL BE OVERWRITTEN.",
@@ -663,6 +667,25 @@ def _restore(inventory: dict[str, Any]) -> None:
             _save_unattended_profile(filename, manifest, target)
             return
         if profile_action != "execute":
+            return
+
+    source_for_proportional = None
+    selected_target_identity = None
+    if action == "proportional":
+        source_for_proportional = _select_device(
+            inventory, "disk", "Proportional restore - source",
+            "Select the original offline source disk represented by this image. It is probed read-only.",
+        )
+        if source_for_proportional is None or source_for_proportional.get("path") == target.get("path"):
+            _message("Proportional restore cancelled", "Source and destination must be different physical disks.")
+            return
+        try:
+            target_stat = os.stat(target["path"])
+            if not stat.S_ISBLK(target_stat.st_mode):
+                raise OSError("selected destination is not a block device")
+            selected_target_identity = target_stat.st_rdev
+        except OSError as exc:
+            _message("Proportional restore blocked", f"Cannot capture destination identity: {exc}")
             return
 
     partition_selector = None
