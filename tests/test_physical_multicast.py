@@ -156,14 +156,21 @@ class PhysicalMulticastPreflightTests(unittest.TestCase):
         self.assertEqual(source["path"], "/dev/sda")
         self.assertEqual(target["path"], "/dev/sdb")
 
-    def test_rejects_identical_device_path(self):
-        with self.assertRaisesRegex(PhysicalMulticastError, "same device path"):
-            validate_physical_multicast_pair(self.source, {**self.target, "path": self.source["path"]})
+    def test_host_local_paths_and_dev_numbers_are_not_cross_host_alias_evidence(self):
+        destination = {
+            **self.target, "path": self.source["path"],
+            "major_minor": self.source["major_minor"],
+            "sysfs_path": self.source["sysfs_path"],
+        }
+        _source, validated = validate_physical_multicast_pair(self.source, destination)
+        self.assertEqual(validated["major_minor"], self.source["major_minor"])
 
-    def test_rejects_major_minor_alias_even_when_paths_differ(self):
-        alias = {**self.target, "major_minor": self.source["major_minor"]}
-        with self.assertRaisesRegex(PhysicalMulticastError, "major/minor"):
-            validate_physical_multicast_pair(self.source, alias)
+    def test_requires_a_common_global_hardware_identifier(self):
+        destination = {**self.target, "wwn": None}
+        with self.assertRaisesRegex(PhysicalMulticastError, "no common WWN or serial"):
+            validate_physical_multicast_pair(
+                {**self.source, "serial": None}, destination,
+            )
 
     def test_rejects_multipath_aliases_with_same_wwn_or_serial(self):
         with self.assertRaisesRegex(PhysicalMulticastError, "WWN"):
@@ -341,14 +348,22 @@ class PhysicalMulticastCohortTests(unittest.TestCase):
                 self.macs[0].upper(): "ready", self.macs[0]: "ready",
             })
 
-    def test_rejects_destination_alias_and_identity_drift_before_returning_cohort(self):
-        with self.assertRaisesRegex(PhysicalMulticastError, "major/minor"):
+    def test_rejects_hardware_aliases_and_identity_drift_before_returning_cohort(self):
+        with self.assertRaisesRegex(PhysicalMulticastError, "WWN hardware identity"):
             self.validate(approved_destinations={
                 self.macs[0]: self.first,
-                self.macs[1]: {**self.second, "major_minor": self.source["major_minor"]},
+                self.macs[1]: {**self.second, "wwn": self.source["wwn"]},
             }, current_destinations={
                 self.macs[0]: self.first,
-                self.macs[1]: {**self.second, "major_minor": self.source["major_minor"]},
+                self.macs[1]: {**self.second, "wwn": self.source["wwn"]},
+            })
+        with self.assertRaisesRegex(PhysicalMulticastError, "share the same serial"):
+            self.validate(approved_destinations={
+                self.macs[0]: self.first,
+                self.macs[1]: {**self.second, "serial": self.first["serial"]},
+            }, current_destinations={
+                self.macs[0]: self.first,
+                self.macs[1]: {**self.second, "serial": self.first["serial"]},
             })
         with self.assertRaisesRegex(PhysicalMulticastError, "changed after approval"):
             self.validate(current_destinations={
