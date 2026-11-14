@@ -188,8 +188,8 @@ class WebAPITests(unittest.TestCase):
 
     def test_server_certificate_renewal_refuses_active_deployment_service(self):
         config = SimpleNamespace(
-            server_certificate_file="/etc/feclora/pki/server.crt",
-            server_private_key_file="/etc/feclora/pki/server.key",
+            certificate_file="/etc/feclora/pki/server.crt",
+            private_key_file="/etc/feclora/pki/server.key",
             ca_file="/etc/feclora/pki/ca.crt",
             local_identity="URI:feclora-server",
         )
@@ -204,8 +204,8 @@ class WebAPITests(unittest.TestCase):
 
     def test_server_certificate_renewal_calls_managed_key_preserving_rotation(self):
         config = SimpleNamespace(
-            server_certificate_file="/etc/feclora/pki/server.crt",
-            server_private_key_file="/etc/feclora/pki/server.key",
+            certificate_file="/etc/feclora/pki/server.crt",
+            private_key_file="/etc/feclora/pki/server.key",
             ca_file="/etc/feclora/pki/ca.crt",
             local_identity="URI:feclora-server",
         )
@@ -226,8 +226,8 @@ class WebAPITests(unittest.TestCase):
         with self.assertRaisesRegex(WebAPIError, "ROTATE SERVER TLS KEYPAIR"):
             dispatch({"action": "rotate_server_keypair", "params": {"confirmation": "rotate"}})
         config = SimpleNamespace(
-            server_certificate_file="/etc/feclora/pki/server.crt",
-            server_private_key_file="/etc/feclora/pki/server.key",
+            certificate_file="/etc/feclora/pki/server.crt",
+            private_key_file="/etc/feclora/pki/server.key",
             ca_file="/etc/feclora/pki/ca.crt",
             local_identity="URI:feclora-server",
         )
@@ -253,8 +253,8 @@ class WebAPITests(unittest.TestCase):
 
     def test_server_keypair_rotation_refuses_active_deployment_service(self):
         config = SimpleNamespace(
-            server_certificate_file="/etc/feclora/pki/server.crt",
-            server_private_key_file="/etc/feclora/pki/server.key",
+            certificate_file="/etc/feclora/pki/server.crt",
+            private_key_file="/etc/feclora/pki/server.key",
             ca_file="/etc/feclora/pki/ca.crt",
             local_identity="URI:feclora-server",
         )
@@ -271,7 +271,7 @@ class WebAPITests(unittest.TestCase):
 
     def test_certificate_status_warns_before_managed_identity_expiry(self):
         config = SimpleNamespace(
-            server_certificate_file="/etc/feclora/pki/server.crt",
+            certificate_file="/etc/feclora/pki/server.crt",
             ca_file="/etc/feclora/pki/ca.crt",
             local_identity="URI:feclora-server",
         )
@@ -1785,7 +1785,7 @@ class WebAPITests(unittest.TestCase):
 
     def test_certificate_status_reports_only_server_and_ca_expiry(self):
         server = SimpleNamespace(
-            server_certificate_file="/pki/server.crt", ca_file="/pki/ca.crt",
+            certificate_file="/pki/server.crt", ca_file="/pki/ca.crt",
             local_identity="URI:feclora-server",
         )
         with patch("feclora.webapi.os.path.isfile", return_value=True), patch(
