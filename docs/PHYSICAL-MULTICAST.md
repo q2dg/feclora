@@ -21,7 +21,7 @@ Automated coverage uses fake/in-memory I/O only. Real multi-host UDPcast/IGMP ac
 
 ## Trust and network boundaries
 
-- TLS authenticates the Server to Clients and protects the control channel. Clients do not present certificates; a reported MAC is an operational allowlist identifier, not cryptographic Client authentication.
+- TLS authenticates the Server to Clients and protects the control channel. Each Client reports its MAC address for job selection and status association; this is not cryptographic proof of machine identity.
 - UDPcast multicast payloads are not encrypted or authenticated. Use only on a trusted, isolated deployment network with suitable IGMP snooping/querier configuration.
 - The Server source is never opened writable. Client destinations are never selected by the Server.
 - Each host's path, major/minor and sysfs identity are revalidated locally; the opened descriptor's block major/minor is checked to close path-reuse races. Cross-host alias detection uses comparable WWN/serial values because `/dev` paths, dev_t values and sysfs paths are host-local. Client destinations must also be mutually distinct.
