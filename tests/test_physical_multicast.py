@@ -193,7 +193,7 @@ class PhysicalMulticastCohortTests(unittest.TestCase):
         self.source = device("/dev/sda", "8:0", read_only=True, size=4096)
         self.first = device("/dev/sdb", "8:16", read_only=False, size=8192)
         self.second = device("/dev/sdc", "8:32", read_only=False, size=8192)
-        self.macs = ("52:54:00:12:34:56", "52:54:00:12:34:57")
+        self.macs = ("52:54:00:12:34:5a", "52:54:00:12:34:5b")
 
     def validate(self, **changes):
         values = {
