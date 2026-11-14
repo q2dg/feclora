@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from feclora.kiosk_bootstrap import (
-    BootstrapError, normalize_language, preferred_language, render_setup_page,
+    APPLY_LABELS, LANGUAGES, BootstrapError, normalize_language, preferred_language, render_setup_page,
     set_admin_password, validate_password,
 )
 
@@ -20,13 +20,21 @@ class KioskBootstrapTests(unittest.TestCase):
     def test_first_boot_page_is_localized_and_rtl_for_arabic(self):
         catalan = render_setup_page("safe-token", "ca").decode("utf-8")
         self.assertIn('<html lang="ca" dir="ltr">', catalan)
-        self.assertIn("Benvingut", catalan) if "Benvingut" in catalan else self.assertIn("Us donem la benvinguda", catalan)
+        self.assertIn("Us donem la benvinguda", catalan)
         self.assertIn('name="language" value="ca"', catalan)
         self.assertIn('name="lang"', catalan)
         arabic = render_setup_page("safe-token", "ar").decode("utf-8")
         self.assertIn('<html lang="ar" dir="rtl">', arabic)
         self.assertIn("كلمة مرور المسؤول", arabic)
         self.assertNotIn("<script", arabic.lower())
+
+    def test_first_boot_renders_each_supported_language(self):
+        for language, _label in LANGUAGES:
+            with self.subTest(language=language):
+                page = render_setup_page("test-token", language).decode("utf-8")
+                self.assertIn(f'<html lang="{language}"', page)
+                self.assertIn(APPLY_LABELS[language], page)
+        self.assertIn('dir="rtl"', render_setup_page("test-token", "ar").decode("utf-8"))
 
     def test_password_requires_confirmation_and_minimum_length(self):
         with self.assertRaises(BootstrapError):
