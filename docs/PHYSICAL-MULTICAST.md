@@ -13,7 +13,7 @@ Automated coverage uses fake/in-memory I/O only. Real multi-host UDPcast/IGMP ac
 1. The Server operator selects a whole physical disk that is already marked read-only. At job creation, the privileged API captures its major/minor, sysfs path, WWN/serial, capacity and sector geometry as the immutable source binding.
 2. The job must use multicast transport, at least two selected Clients, and the manual start policy. The operator configures the Server multicast interface, group and even UDPcast port base.
 3. Each Client independently selects and types confirmation for a local whole-disk destination. Before READY, the Client inventories its identity, geometry, mountpoints, holders and system-use state.
-4. The Server requires every explicitly selected Client to be READY, not merely a threshold. It rejects source/destination path, major/minor, sysfs, WWN or serial aliases; mounted, held, system-backed or busy devices; undersized targets; and logical/physical sector mismatches.
+4. The Server requires every explicitly selected Client to be READY, not merely a threshold. It revalidates each host's local path, major/minor and sysfs identity, and rejects cross-host hardware aliases by WWN/serial, including a destination shared by two Clients. It also rejects mounted, held, system-backed or busy devices, undersized targets, and logical/physical sector mismatches.
 5. The Server opens the bound source read-only and computes the expected SHA-256. It sends the exact byte count and digest with START. Each Client then re-inventories its destination, compares it with its READY identity, opens it read/write with Linux `O_EXCL`, starts `udp-receiver`, and sends a separate physical-ready acknowledgement.
 6. The Server waits for every selected Client's physical-ready acknowledgement before starting `udp-sender`. It streams exactly the source disk capacity from the read-only descriptor. No intermediate image artifact is created.
 7. Each Client writes directly to its approved block descriptor with positional I/O, handles short writes, fsyncs, reads back the exact range and compares SHA-256 with the Server digest. It sends a terminal result only after verification.
@@ -24,7 +24,7 @@ Automated coverage uses fake/in-memory I/O only. Real multi-host UDPcast/IGMP ac
 - TLS authenticates the Server to Clients and protects the control channel. Clients do not present certificates; a reported MAC is an operational allowlist identifier, not cryptographic Client authentication.
 - UDPcast multicast payloads are not encrypted or authenticated. Use only on a trusted, isolated deployment network with suitable IGMP snooping/querier configuration.
 - The Server source is never opened writable. Client destinations are never selected by the Server.
-- Source and destination identities are revalidated at the write boundary; the opened descriptor's block major/minor is checked to close path-reuse races.
+- Each host's path, major/minor and sysfs identity are revalidated locally; the opened descriptor's block major/minor is checked to close path-reuse races. Cross-host alias detection uses comparable WWN/serial values because `/dev` paths, dev_t values and sysfs paths are host-local. Client destinations must also be mutually distinct.
 - Any incomplete or failed physical write requires operator inspection. The operation does not automatically retry or resume.
 - Tests use fake descriptors, temporary sysfs fixtures and in-memory streams only. No physical block-device writes are performed by CI.
 
