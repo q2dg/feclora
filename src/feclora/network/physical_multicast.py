@@ -45,6 +45,8 @@ def _device_record(value: Mapping[str, Any], role: str) -> dict[str, Any]:
                 raise PhysicalMulticastError(f"{role} device has invalid sector geometry")
         elif not isinstance(item, str) or not item:
             raise PhysicalMulticastError(f"{role} device is missing stable identity field {field}")
+    if not record.get("wwn") and not record.get("serial"):
+        raise PhysicalMulticastError(f"{role} device requires a WWN or serial number")
     if not isinstance(record.get("read_only"), bool):
         raise PhysicalMulticastError(f"{role} device read-only state is unknown")
     for field in ("mountpoints", "holders"):
