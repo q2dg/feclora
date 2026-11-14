@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 from feclora.network.pxe_answer_store import (
     PXEAnswerStoreError, clear_stale_pxe_answers, publish_pxe_answer, revoke_pxe_answer,
@@ -13,6 +14,17 @@ from feclora.network.pxe_answer_store import (
 
 
 class PXEAnswerStoreTests(unittest.TestCase):
+    def setUp(self):
+        signer = patch(
+            "feclora.network.pxe_answer_store.sign_answer_file",
+            side_effect=lambda _message, signature, **_kwargs: Path(signature).write_bytes(b"test-signature"),
+        )
+        verifier = patch("feclora.network.pxe_answer_store.verify_answer_file")
+        signer.start()
+        verifier.start()
+        self.addCleanup(signer.stop)
+        self.addCleanup(verifier.stop)
+
     JOB_ID = "3b241101-e2bb-4255-8caf-4136c566a962"
 
     def answer(self):
@@ -30,6 +42,7 @@ class PXEAnswerStoreTests(unittest.TestCase):
                 tmp, self.JOB_ID, self.answer(), address="192.0.2.10",
             )
             self.assertTrue(Path(result["directory"], "answer.json").is_file())
+            self.assertTrue(Path(result["directory"], "answer.json.minisig").is_file())
             self.assertEqual(Path(result["directory"], "answer.json").stat().st_mode & 0o777, 0o444)
             current = Path(tmp) / "unattended-answer.json"
             self.assertTrue(current.is_file())
