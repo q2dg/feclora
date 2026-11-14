@@ -12,7 +12,7 @@ from typing import Any
 # IDs are stable UI values; values are kbd(1) keymap names shipped by Fedora.
 KEYMAPS = {
     "us": "us",
-    "us-intl": "us",
+    "us-intl": "us-acentos",
     "es": "es",
     "ca": "es",
     "gl": "es",
