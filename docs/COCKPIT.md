@@ -79,7 +79,7 @@ LAN access is intentionally unavailable in this kiosk profile.
 
 The Operations wizard provides:
 - whole-disk, partition and active LVM logical-volume image capture;
-- physical-disk-to-QCOW2 (P2V) conversion through a durable local worker. It writes a verified `.qcow2` file and `.p2v.json` metadata sidecar to a local or mounted filesystem repository (SSHFS/NFS/SMB); S3 publication is not yet supported. The source is read-only and must pass source-safety checks. QCOW2 preserves disk sectors and partition metadata, but does not guarantee guest bootability; OS-specific drivers or initramfs changes may still be required.
+- physical-disk-to-QCOW2 (P2V) conversion through a durable local worker. It writes a verified `.qcow2` file and `.p2v.json` metadata sidecar to a local or mounted filesystem repository (SSHFS/NFS/SMB) or an S3 object repository. S3 publishes the QCOW2 payload first, verifies its size and SHA-256 metadata, then publishes the sidecar as the commit marker. The source is read-only and must pass source-safety checks. QCOW2 preserves disk sectors and partition metadata, but does not guarantee guest bootability; OS-specific drivers or initramfs changes may still be required.
 - whole-disk, partition and existing-LV image restoration;
 - whole-disk and partition-to-partition cloning;
 - device discovery, image selection, compression selection and typed
@@ -120,7 +120,7 @@ Cockpit now includes an initial Server identity bootstrap step. It discovers
 active IPv4 interface addresses, warns when NetworkManager reports an existing
 DHCP server, verifies the selected address is still assigned to the interface,
 and initializes or validates the managed CA and Server TLS identity, plus any
-optional age recipient/signing material configured by the operator, without
+optional age recipient material configured by the operator, without
 enabling DHCP/PXE services.
 
 The Server setup tab also provides a PXE network-profile preflight. It
@@ -251,13 +251,11 @@ or resumes storage work after a service/process restart.
 ## Remote deployment job definitions
 
 The **Remote jobs** tab creates and lists validated Server-side job definitions.
-For restore, select an existing disk or partition image; signed and unsigned
-images are both available. Select Client MAC addresses for this job, the
+For restore, select an existing disk or partition image. Select Client MAC addresses for this job, the
 Server interface and unicast or multicast transport. Multicast is available
 for image restore and whole-disk physical clone. The backend revalidates job
 MAC selection and image type, and checks registered age recipients only when
-the image is age-encrypted. Manifests are transferred over the Server-authenticated TLS control session; Clients are not individually authenticated. If a Client
-chooses to sign, its public key must be enrolled so the Server can verify it.
+the image is age-encrypted. Manifests are transferred over the Server-authenticated TLS control session; Clients are not individually authenticated.
 
 The persisted-job table also shows each Client's last journaled state,
 the event count and whether a job was interrupted. After inspecting every
