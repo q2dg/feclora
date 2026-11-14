@@ -316,7 +316,7 @@ When age encryption is enabled, the Server trust panel can export the current pu
 
 The image repository panel also exposes extraction of a selected partition from a whole-disk image. The operator selects a disk image, reviews a verified read-only partition-table preview (including start sectors and sizes), and selects the unambiguous partition node from the preview (the underlying engine also accepts PARTUUID and PARTLABEL selectors). Feclora verifies the source manifest and any configured authenticity evidence, decrypts and decompresses the disk artifact as needed, extracts the exact byte range, and publishes a separate partition manifest/artifact transactionally. If the source artifact was age-encrypted, the extracted partition artifact is re-encrypted only when the optional age feature is enabled and recipients are configured. The source image is never modified.
 
-Disk restore also presents a read-only layout preview after selecting a signed/unsigned whole-disk image and destination disk. It verifies the manifest and partition-table artifact, displays the source partitions and compares the source image size with the selected target capacity. The current restore preserves the captured partition layout; larger target disks retain unused trailing capacity. No automatic partition or filesystem growth is performed.
+Disk restore also presents a read-only layout preview after selecting a whole-disk image and destination disk. It verifies the manifest and partition-table artifact, displays the source partitions and compares the source image size with the selected target capacity. The current restore preserves the captured partition layout; larger target disks retain unused trailing capacity. No automatic partition or filesystem growth is performed.
 
 Cockpit image inventory provides an on-demand read-only verification report for every artifact. It verifies stored artifact SHA-256 and size, age authentication when the artifact is age-encrypted, compression integrity and decoded whole-disk size. Images are reported as verified only when every stored digest and decoded artifact check succeeds.
 
@@ -362,8 +362,6 @@ policy are not configured here.
 See [Remote image repositories](REMOTE-REPOSITORIES.md) for the Cockpit encrypted-credential import, selection, rotation and removal workflow.
 
 ## Optional image security and repository transports
-
-Feclora does not sign image manifests or use detached signature sidecars. Artifact integrity is checked with the byte count and SHA-256 digest recorded in the manifest; authenticity relies on the protected local repository and authenticated transport. Age encryption remains optional.
 
 Remote repository types are SSHFS, NFS and SMB/CIFS mounted filesystems, plus S3 object storage through its HTTPS API. Cockpit exposes the mounted-provider and S3 object-repository workflows separately; S3 is not mounted as a filesystem.
 
