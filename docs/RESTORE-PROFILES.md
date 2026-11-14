@@ -53,7 +53,7 @@ The profile model and unattended whole-disk executor are implemented in `src/fec
 ## Running an unattended disk restore
 
 The Live image installs the `feclora-restore-profile` command. For standalone CLI use, store the profile, image repository and audit files on explicitly selected storage available during the Live session. The Live home directory and logs are ephemeral by design. The CLI's local consumption ledger protects that standalone profile invocation. The separate PXE answer-file workflow does not use a consumption ledger.
-The image manifest is not signed. Artifact SHA-256 digests provide integrity checks; authenticity relies on the protected local repository and authenticated transport. Unattended profile authorization relies on root ownership and restrictive filesystem permissions.
+Artifact SHA-256 digests provide integrity checks; authenticity relies on the protected local repository and authenticated transport. Unattended profile authorization relies on root ownership and restrictive filesystem permissions.
 
 A profile JSON document has this shape (replace all example identities and
 timestamps with values collected from the actual target):
@@ -84,7 +84,7 @@ profile, image and audit files there:
 mkdir -p /mnt/restore-media/{profiles,trust,images,audit}
 ```
 
-Create the profile as root in a root-owned directory that is not writable by group or other users. The profile is stored with mode 0600; no cryptographic signing keys or signature files are involved.
+Create the profile as root in a root-owned directory that is not writable by group or other users. The profile is stored with mode 0600.
 
 For images encrypted with the optional age integration, additionally pass `--age-identity` with a protected
 identity file supplied outside the profile. Use a Linux filesystem with POSIX ownership, permissions, locking and hard-link support (for example ext4, XFS or Btrfs); FAT/exFAT volumes may not provide the required semantics. The standalone CLI currently verifies that its consumption ledger and operation journal reside on a dedicated persistent mounted filesystem (not the Live overlay, tmpfs or root filesystem). This CLI constraint does not define the PXE architecture: PXE jobs use the Server's session-scoped journal and never require a persistent Client Live filesystem. It rechecks the WWN and serial immediately
