@@ -44,7 +44,7 @@ title: Operator guides
     <h2>Reference and operations</h2>
     <ul>
       <li><a href="./FEATURE-MATRIX.html">Feature and compatibility matrix</a></li>
-      <li><a href="./CERTIFICATE-MANAGEMENT.html">Certificate and enrollment policy</a></li>
+      <li><a href="./CERTIFICATE-MANAGEMENT.html">Server certificate and trust</a></li>
       <li><a href="./OPERATIONS.html">Backup, upgrade, rollback and distribution</a></li>
       <li><a href="./BUILD.html">Build instructions</a></li>
       <li><a href="./MAINTAINER-ACCEPTANCE.html">Maintainer-owned release acceptance</a></li>
