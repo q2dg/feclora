@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -358,6 +359,57 @@ def _managed_repository(repository_id: str, image_id: str):
             manager.unmount(repository_id)
 
 
+def _pxe_report_callback() -> Any:
+    """Build a best-effort HTTP reporter from the per-job Live kernel handoff."""
+    import json
+    import shlex
+    import uuid
+    from urllib.parse import urlsplit
+
+    try:
+        tokens = shlex.split(Path("/proc/cmdline").read_text(encoding="ascii"))
+        values = {}
+        for token in tokens:
+            key, separator, value = token.partition("=")
+            if separator and key in {"feclora.pxe_job_id", "feclora.pxe_answer_url", "feclora.pxe_client_mac"}:
+                values[key] = value
+        job_id = values.get("feclora.pxe_job_id", "")
+        answer_url = values.get("feclora.pxe_answer_url", "")
+        mac = values.get("feclora.pxe_client_mac", "").lower()
+        parsed = urlsplit(answer_url)
+        if (not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", job_id)
+                or parsed.scheme != "http" or not parsed.hostname
+                or parsed.path != f"/answers/{job_id}/answer.json"
+                or not re.fullmatch(r"(?:[0-9a-f]{2}:){5}[0-9a-f]{2}", mac)):
+            return None
+        endpoint = f"http://{parsed.hostname}:{parsed.port or 80}/pxe/report/{job_id}"
+    except (OSError, UnicodeError, ValueError):
+        return None
+
+    def report(event: dict[str, Any]) -> None:
+        allowed = ("operation_id", "operation", "timestamp", "status", "target",
+                   "image_id", "bytes_done", "bytes_total", "error_type", "error")
+        payload_event = {key: event[key] for key in allowed if key in event}
+        payload_event["event_id"] = str(uuid.uuid4())
+        body = json.dumps({"client_mac": mac, "event": payload_event}).encode("utf-8")
+        request = urllib.request.Request(
+            endpoint, data=body,
+            headers={"Content-Type": "application/json", "Accept": "text/plain",
+                     "User-Agent": "Feclora-PXE-Reporter/1"},
+            method="POST",
+        )
+        try:
+            opener = urllib.request.build_opener(_NoRedirect)
+            with opener.open(request, timeout=3.0) as response:
+                # A report is advisory; the restore must continue if the Server
+                # is offline, the job was revoked, or HTTP delivery fails.
+                response.read(128)
+        except (OSError, urllib.error.URLError, TimeoutError):
+            return
+
+    return report
+
+
 def execute_live_pxe_restore(
     answer: dict[str, Any],
     *,
@@ -395,6 +447,7 @@ def execute_live_pxe_restore(
         try:
             with operation_record(
                 "restore_disk", target_path, image_id=answer["image_id"], log_path=operation_log,
+                event_callback=_pxe_report_callback(),
             ):
                 def before_write() -> None:
                     _revalidate_target(selector, target_path)
