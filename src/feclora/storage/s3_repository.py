@@ -398,6 +398,119 @@ class S3ObjectRepository:
             raise S3RepositoryError(f"S3 P2V inventory failed: {exc}") from exc
         return sorted(result, key=lambda item: item["image_id"])
 
+
+    def download_p2v(self, image_id: str, destination: str | os.PathLike[str]) -> Path:
+        """Download a committed QCOW2 and its sidecar, verifying both before publication."""
+        import json
+        if not isinstance(image_id, str) or not _IMAGE_ID.fullmatch(image_id):
+            raise S3RepositoryError("P2V image identifier is invalid")
+        root = Path(destination)
+        try:
+            root.mkdir(mode=0o700, parents=True, exist_ok=True)
+            self._require_directory(root)
+            os.chmod(root, 0o700)
+        except OSError as exc:
+            raise S3RepositoryError(f"cannot prepare private P2V download directory: {exc}") from exc
+
+        metadata_key = self._key(f"{image_id}.p2v.json")
+        object_key = self._artifact_key(image_id, f"{image_id}.qcow2")
+        try:
+            metadata_response = self.client.get_object(Bucket=self.config.bucket, Key=metadata_key)
+            metadata_body = metadata_response["Body"]
+            try:
+                metadata_bytes = metadata_body.read(64 * 1024 + 1)
+            finally:
+                metadata_body.close()
+            if len(metadata_bytes) > 64 * 1024:
+                raise S3RepositoryError("P2V metadata exceeds the supported size limit")
+            metadata = json.loads(metadata_bytes.decode("utf-8"))
+        except S3RepositoryError:
+            raise
+        except Exception as exc:
+            raise S3RepositoryError(f"committed P2V metadata is unavailable or invalid: {exc}") from exc
+
+        required = {"schema_version", "image_id", "format", "source_device", "virtual_size_bytes",
+                    "file_size_bytes", "qcow2_sha256", "verified", "bootability_note"}
+        if (not isinstance(metadata, dict) or set(metadata) != required
+                or metadata.get("schema_version") != 1 or metadata.get("image_id") != image_id
+                or metadata.get("format") != "qcow2" or metadata.get("verified") is not True
+                or not isinstance(metadata.get("source_device"), str)
+                or not metadata["source_device"].startswith("/dev/")
+                or not isinstance(metadata.get("bootability_note"), str)
+                or isinstance(metadata.get("virtual_size_bytes"), bool)
+                or not isinstance(metadata.get("virtual_size_bytes"), int) or metadata["virtual_size_bytes"] <= 0
+                or isinstance(metadata.get("file_size_bytes"), bool)
+                or not isinstance(metadata.get("file_size_bytes"), int) or metadata["file_size_bytes"] <= 0
+                or not isinstance(metadata.get("qcow2_sha256"), str)
+                or not re.fullmatch(r"[0-9a-f]{64}", metadata["qcow2_sha256"])):
+            raise S3RepositoryError("P2V metadata schema or identity is invalid")
+
+        head = self._head(object_key)
+        if (head is None or head.get("ContentLength") != metadata["file_size_bytes"]
+                or head.get("Metadata", {}).get("sha256") != metadata["qcow2_sha256"]):
+            raise S3RepositoryError("committed QCOW2 object does not match its P2V metadata")
+
+        qcow2_path = root / f"{image_id}.qcow2"
+        sidecar_path = root / f"{image_id}.p2v.json"
+        if os.path.lexists(qcow2_path):
+            self._require_regular_file(qcow2_path)
+            size, digest = self._digest(qcow2_path)
+            if size != metadata["file_size_bytes"] or digest != metadata["qcow2_sha256"]:
+                raise S3RepositoryError("local P2V destination already contains a different QCOW2")
+        else:
+            temporary = root / f".{image_id}.qcow2.{secrets.token_hex(8)}.part"
+            digest = hashlib.sha256()
+            size = 0
+            try:
+                response = self.client.get_object(Bucket=self.config.bucket, Key=object_key)
+                body = response["Body"]
+                try:
+                    with temporary.open("xb") as output:
+                        while True:
+                            chunk = body.read(_CHUNK)
+                            if not chunk:
+                                break
+                            output.write(chunk)
+                            digest.update(chunk)
+                            size += len(chunk)
+                        output.flush()
+                        os.fsync(output.fileno())
+                finally:
+                    body.close()
+                if size != metadata["file_size_bytes"] or digest.hexdigest() != metadata["qcow2_sha256"]:
+                    raise S3RepositoryError("downloaded QCOW2 failed size or SHA-256 verification")
+                os.link(temporary, qcow2_path, follow_symlinks=False)
+            except S3RepositoryError:
+                raise
+            except Exception as exc:
+                raise S3RepositoryError(f"cannot download committed QCOW2 object: {exc}") from exc
+            finally:
+                try:
+                    temporary.unlink()
+                except FileNotFoundError:
+                    pass
+
+        if os.path.lexists(sidecar_path):
+            self._require_regular_file(sidecar_path)
+            if sidecar_path.read_bytes() != metadata_bytes:
+                raise S3RepositoryError("local P2V sidecar destination contains different metadata")
+        else:
+            temporary_sidecar = root / f".{image_id}.p2v.{secrets.token_hex(8)}.part"
+            try:
+                with temporary_sidecar.open("xb") as output:
+                    output.write(metadata_bytes)
+                    output.flush()
+                    os.fsync(output.fileno())
+                os.link(temporary_sidecar, sidecar_path, follow_symlinks=False)
+            except Exception as exc:
+                raise S3RepositoryError(f"QCOW2 downloaded but local P2V sidecar commit failed: {exc}") from exc
+            finally:
+                try:
+                    temporary_sidecar.unlink()
+                except FileNotFoundError:
+                    pass
+        return sidecar_path
+
     def list_images(self) -> list[dict[str, Any]]:
         """Return only images whose manifest object exists and validates."""
         prefix = f"{self.prefix}/" if self.prefix else ""
