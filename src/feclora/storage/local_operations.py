@@ -95,6 +95,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
         "capture_p2v": {"source", "image_id", "repository_id"},
+        "export_p2v_s3": {"image_id", "source_repository_id", "destination_repository_id"},
         "build_recovery_iso": {"base_iso_path", "image_id", "target_wwn", "target_serial", "confirm_build", "repository_id"},
     }
     if not isinstance(action, str) or action not in fields or not isinstance(params, dict):
@@ -134,6 +135,10 @@ def validate_definition(value: Any) -> dict[str, Any]:
     for key in ("image_id", "partition_id"):
         if key in params and (not isinstance(params[key], str)
                 or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", params[key])):
+            raise LocalOperationError(f"{key} is invalid")
+    for key in ("source_repository_id", "destination_repository_id"):
+        if key in params and (not isinstance(params[key], str)
+                or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", params[key])):
             raise LocalOperationError(f"{key} is invalid")
     if "repository_id" in params and (not isinstance(params["repository_id"], str)
             or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", params["repository_id"])):
