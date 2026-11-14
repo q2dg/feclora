@@ -59,7 +59,7 @@ class KeyboardLayoutTests(unittest.TestCase):
                         "st_size": info.st_size,
                     })()
                 return info
-            with patch("feclora.system_preferences.KIOSK_KEYBOARD_CONFIG", config), \\
+            with patch("feclora.system_preferences.KIOSK_KEYBOARD_CONFIG", config), \
                  patch("feclora.system_preferences.os.lstat", side_effect=trusted_lstat):
                 self.assertEqual(get_keyboard_layout()["layout"], "ca")
 
