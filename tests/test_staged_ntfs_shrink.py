@@ -148,6 +148,15 @@ class StagedNTFSShrinkTests(unittest.TestCase):
         self.assertNotIn("--force", resize_command)
 
 
+    def test_skips_resize_when_existing_ntfs_volume_already_fits(self):
+        self.current_bytes = 4 * 1024 * 1024
+        self.minimum_bytes = 2 * 1024 * 1024
+        result = self.shrink()
+        self.assertEqual(result.sha256, self.initial_digest)
+        self.assertFalse(any("--size" in command for command in self.commands))
+        self.assertIn(["/sbin/losetup", "--detach", "/dev/loop8"], self.commands)
+
+
     def test_rejects_target_larger_than_planned_partition(self):
         staged = StagedRawDiskImage(self.path, os.path.getsize(self.path), self.initial_digest)
         with self.assertRaisesRegex(StagedNTFSShrinkError, "exceeds"):
