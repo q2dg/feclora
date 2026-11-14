@@ -189,7 +189,7 @@ The Client repeats the Server-authenticated TLS job handshake, rechecks the sele
 block device against live inventory and mounted/root-device safety, and only
 then reports READY. It waits for the Server's explicit ARM command before
 starting disk I/O. Cockpit can inspect the Client's phase, target description,
-byte progress and terminal result after the browser disconnects.
+byte progress (including physical-clone write and read-back phases) and terminal result after the browser disconnects.
 
 The Cockpit Client service supports unicast whole-disk capture, whole-disk
 and partition restore, multicast image restore, and direct whole-disk physical
@@ -282,10 +282,11 @@ verify the Server certificate, then select a local target and type
 its destructive/read confirmation through the Cockpit **Client jobs** tab
 before reporting READY. For multicast, each Client also selects its receive
 interface and confirms the VLAN's IGMP snooping/querier configuration.
-Cockpit exposes three start policies: manual (all selected Clients READY),
-minimum READY count, or a UTC deadline (at least one Client READY). The deadline
-opens the start gate but never starts storage I/O automatically. Only READY
-Clients at arm time are dispatched. The Server operator must still enter the
+Cockpit exposes three start policies for image restore and unicast jobs: manual (all selected Clients READY),
+minimum READY count, or a UTC deadline (at least one Client READY). Physical
+multicast clone is restricted to manual start and requires every selected Client
+plus every receiver-open acknowledgement. The deadline opens the start gate but
+never starts storage I/O automatically. Only READY Clients at arm time are dispatched. The Server operator must still enter the
 exact job-specific phrase: `ARM <UUID>` for unicast save/restore,
 `ARM <UUID> AND READ /dev/<source>` for unicast direct clone,
 `ARM PHYSICAL MULTICAST <UUID> FROM /dev/<source> IGMP-VERIFIED` for
