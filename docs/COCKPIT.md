@@ -264,9 +264,12 @@ for audit by entering the exact `RECONCILE <job-UUID>` phrase. This records
 that manual inspection occurred; it does not resume, retry, roll back or touch
 any storage device. The action is rejected for non-interrupted jobs.
 
-A persistent unicast job is limited to one Client; UDPcast multicast
-restore requires at least two selected Clients. Concurrent unicast fan-out
-and multicast capture remain out of scope.
+Unicast save/restore jobs are limited to one Client. Direct disk/partition
+clone jobs can target multiple selected Clients over independent TLS sessions;
+the Server serializes reads from its single source, while each Client retains
+its own local target approval and read-back verification. UDPcast multicast
+restore requires at least two selected Clients. Physical-device multicast
+clone is a separate feature and is not implemented yet.
 
 For each fresh job, use **Start / connect service** to start its
 non-boot-enabled `feclora-deployment@<UUID>.service` instance. The service
@@ -275,12 +278,17 @@ verify the Server certificate, then select a local target and type
 its destructive/read confirmation through the Cockpit **Client jobs** tab
 before reporting READY. For multicast, each Client also selects its receive
 interface and confirms the VLAN's IGMP snooping/querier configuration.
-Cockpit shows live Client states and the service listener. Only after every
-selected Client is READY can the operator enter the exact job-specific
-phrase `ARM <UUID>` (unicast) or
-`ARM MULTICAST <UUID> IGMP-VERIFIED` (multicast) and select
-**Arm and execute**. The existing unicast save/restore or multicast restore
-engine then runs in the service process.
+Cockpit exposes three start policies: manual (all selected Clients READY),
+minimum READY count, or a UTC deadline (at least one Client READY). The deadline
+opens the start gate but never starts storage I/O automatically. Only READY
+Clients at arm time are dispatched. The Server operator must still enter the
+exact job-specific phrase: `ARM <UUID>` for unicast save/restore,
+`ARM <UUID> AND READ /dev/<source>` for direct clone, or
+`ARM MULTICAST <UUID> IGMP-VERIFIED` for multicast restore, then select
+**Arm and execute**. Each successful remote restore/clone Client can be
+configured independently to do nothing, reboot or power off after its own
+write/read-back verification and after reporting its terminal result. Failed
+Clients are never rebooted or powered off.
 
 Cancellation is intentionally limited to the unarmed state. Feclora does not
 offer a button that pretends to interrupt a disk write already in progress.
