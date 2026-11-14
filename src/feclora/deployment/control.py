@@ -767,6 +767,7 @@ class DeploymentControlServer:
         )
         from feclora.network.udpcast import send_physical_multicast_stream
         from feclora.storage.inventory import collect_inventory
+        from feclora.storage.source_safety import check_capture_source_safe
 
         job = self.coordinator.job
         if job.operation != "clone" or job.transport != "multicast" or job.target_type != "disk":
@@ -811,6 +812,7 @@ class DeploymentControlServer:
             )
             if any(sessions.get(mac) is None for mac in job.authorized_clients):
                 raise PhysicalMulticastError("a selected Client has no live control session")
+            check_capture_source_safe(job.source_device)
             source_fd = open_approved_block_device(
                 source_approved, source_current, role="Server source",
             )
