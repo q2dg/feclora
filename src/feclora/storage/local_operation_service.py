@@ -242,7 +242,8 @@ def execute(operation_id: str) -> int:
                 key: value for key, value in result.items()
                 if key in {"image_id", "image_type", "source_image_id", "target",
                            "source", "bytes_copied", "verified", "encrypted",
-                           "artifact_count", "repository_path",
+                           "artifact_count", "repository_path", "output_path",
+                           "virtual_size_bytes", "file_size_bytes",
                            "artifacts_verified", "published", "manifest_sha256"}
                 and isinstance(value, (str, int, bool, type(None)))
             }
