@@ -43,6 +43,7 @@ _OPERATION_DEFAULT_PHASE = {
     "clone_disk": "cloning",
     "clone_partition": "cloning",
     "extract_partition_image": "reading",
+    "capture_p2v": "capturing",
 }
 
 
