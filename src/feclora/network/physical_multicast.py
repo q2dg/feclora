@@ -60,6 +60,85 @@ def _device_record(value: Mapping[str, Any], role: str) -> dict[str, Any]:
     return record
 
 
+def build_physical_device_record(
+    device: Mapping[str, Any],
+    devices: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...],
+    *,
+    sysfs_root: str = "/sys",
+) -> dict[str, Any]:
+    """Build fail-closed physical identity/use metadata from one lsblk record.
+
+    sysfs_root is injectable so tests can model kernel metadata without touching
+    host block devices. Any missing geometry or sysfs identity is a hard error.
+    """
+    if not isinstance(device, Mapping):
+        raise PhysicalMulticastError("selected block-device inventory record is invalid")
+    path = device.get("path")
+    major_minor = device.get("major_minor")
+    if not isinstance(path, str) or not _DEVICE_PATH.fullmatch(path):
+        raise PhysicalMulticastError("selected block-device path is invalid")
+    if not isinstance(major_minor, str) or not re.fullmatch(r"[0-9]+:[0-9]+", major_minor):
+        raise PhysicalMulticastError("selected block device has no kernel major/minor identity")
+    sysfs_device = os.path.join(sysfs_root, "dev", "block", major_minor)
+    if not os.path.exists(sysfs_device):
+        raise PhysicalMulticastError("selected block device has no sysfs identity")
+    sysfs_path = os.path.realpath(sysfs_device)
+    queue = os.path.join(sysfs_path, "queue")
+    try:
+        with open(os.path.join(queue, "physical_block_size"), encoding="ascii") as stream:
+            physical_sector = int(stream.read().strip())
+        holders_path = os.path.join(sysfs_path, "holders")
+        holders = sorted(os.listdir(holders_path))
+    except (OSError, ValueError) as exc:
+        raise PhysicalMulticastError(f"cannot read selected block-device sysfs metadata: {exc}") from exc
+    mountpoints = device.get("mountpoints")
+    if not isinstance(mountpoints, (list, tuple)) or any(
+        not isinstance(item, str) or not item for item in mountpoints
+    ):
+        raise PhysicalMulticastError("selected block-device mount inventory is incomplete")
+
+    def subtree_has_system_mount(item: Mapping[str, Any]) -> bool:
+        points = item.get("mountpoints", [])
+        if isinstance(points, (list, tuple)) and any(
+            point == "/" or point.startswith(("/boot", "/efi")) for point in points
+        ):
+            return True
+        children = item.get("children", [])
+        return isinstance(children, (list, tuple)) and any(
+            isinstance(child, Mapping) and subtree_has_system_mount(child)
+            for child in children
+        )
+
+    backs_system = subtree_has_system_mount(device)
+    # A device is considered busy if it or any descendant is mounted/held.
+    def subtree_busy(item: Mapping[str, Any]) -> bool:
+        points = item.get("mountpoints", [])
+        if isinstance(points, (list, tuple)) and points:
+            return True
+        children = item.get("children", [])
+        return isinstance(children, (list, tuple)) and any(
+            isinstance(child, Mapping) and subtree_busy(child)
+            for child in children
+        )
+
+    record = {
+        "path": path,
+        "major_minor": major_minor,
+        "sysfs_path": sysfs_path,
+        "wwn": device.get("wwn"),
+        "serial": device.get("serial"),
+        "size_bytes": device.get("size_bytes"),
+        "logical_sector_size": device.get("logical_sector_size"),
+        "physical_sector_size": physical_sector,
+        "read_only": device.get("read_only"),
+        "mountpoints": list(mountpoints),
+        "holders": holders,
+        "backs_system": backs_system,
+        "busy": bool(mountpoints or holders or backs_system or subtree_busy(device)),
+    }
+    return _device_record(record, "Selected")
+
+
 def validate_physical_multicast_pair(
     source: Mapping[str, Any],
     destination: Mapping[str, Any],
