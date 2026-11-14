@@ -37,7 +37,7 @@ from feclora.network.tls import accept_tls, connect_tls
 from feclora.network.remote_clone import build_remote_clone_header, send_remote_disk
 
 MAX_CONTROL_FRAME = 16 * 1024
-_CONTROL_TYPES = {"hello", "inspect", "job", "ready", "start", "result", "cancel", "error", "transfer_offer", "transfer_ready", "progress"}
+_CONTROL_TYPES = {"hello", "inspect", "job", "ready", "start", "result", "cancel", "error", "transfer_offer", "transfer_ready", "progress", "physical_ready"}
 
 
 class DeploymentControlError(RuntimeError):
@@ -110,6 +110,7 @@ class LocalTargetApproval:
     description: str
     confirmation: str
     physical_identity: Mapping[str, Any] | None = None
+    physical_stream: Mapping[str, Any] | None = None
 
 
 class DeploymentControlServer:
@@ -401,7 +402,7 @@ class DeploymentControlServer:
                 accepted.close()
             raise
 
-    def arm_and_start(self) -> tuple[str, ...]:
+    def arm_and_start(self, *, physical_stream: Mapping[str, Any] | None = None) -> tuple[str, ...]:
         """Arm only through the coordinator, then notify every READY Client."""
         self.coordinator.arm()
         started: list[str] = []
@@ -410,11 +411,14 @@ class DeploymentControlServer:
         for mac, tls_socket in sessions:
             try:
                 self.coordinator.mark_running(mac)
-                send_control_message(tls_socket, {
+                start_message = {
                     "type": "start", "job_id": self.coordinator.job.job_id,
                     "operation": self.coordinator.job.operation,
                     "image_id": self.coordinator.job.image_id,
-                })
+                }
+                if physical_stream is not None:
+                    start_message["physical_stream"] = dict(physical_stream)
+                send_control_message(tls_socket, start_message)
                 started.append(mac)
             except (OSError, DeploymentControlError, CoordinatorError) as exc:
                 try:
