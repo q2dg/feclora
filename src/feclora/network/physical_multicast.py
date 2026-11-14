@@ -9,7 +9,9 @@ primitives. Tests use in-memory streams only.
 from __future__ import annotations
 
 import hashlib
+import os
 import re
+import stat
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -108,6 +110,74 @@ def assert_device_identity_unchanged(
         raise PhysicalMulticastError(
             f"{role} identity or safety state changed after approval: {', '.join(changed)}"
         )
+
+
+def open_approved_block_device(
+    approved: Mapping[str, Any],
+    current: Mapping[str, Any],
+    *,
+    role: str,
+) -> int:
+    """Open an already-approved block device with role-specific kernel exclusivity.
+
+    The Server source is opened read-only. A Client destination is opened
+    read/write with O_EXCL so Linux rejects a block device already in use.
+    The descriptor's actual block major/minor is checked after open to close
+    the inventory-to-open path-reuse race.
+    """
+    if role not in {"Server source", "Client destination"}:
+        raise PhysicalMulticastError("block-device role is invalid")
+    assert_device_identity_unchanged(approved, current, role=role)
+    expected_read_only = role == "Server source"
+    if approved.get("read_only") is not expected_read_only:
+        raise PhysicalMulticastError(f"{role} has the wrong read-only state")
+    flags = os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0)
+    flags |= os.O_RDONLY if expected_read_only else os.O_RDWR | os.O_EXCL
+    try:
+        descriptor = os.open(approved["path"], flags)
+    except OSError as exc:
+        detail = "source cannot be opened read-only" if expected_read_only else "destination is busy or cannot be opened exclusively"
+        raise PhysicalMulticastError(f"{role} {detail}: {exc}") from exc
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISBLK(info.st_mode):
+            raise PhysicalMulticastError(f"{role} descriptor is not a block device")
+        actual = f"{os.major(info.st_rdev)}:{os.minor(info.st_rdev)}"
+        if actual != approved["major_minor"]:
+            raise PhysicalMulticastError(f"{role} block identity changed between inventory and open")
+        return descriptor
+    except Exception:
+        os.close(descriptor)
+        raise
+
+
+def block_device_stream_callbacks(descriptor: int):
+    """Return positional write/flush/read-back callbacks for an exclusive disk fd."""
+    if isinstance(descriptor, bool) or not isinstance(descriptor, int) or descriptor < 0:
+        raise PhysicalMulticastError("block-device descriptor is invalid")
+    if not all(callable(getattr(os, name, None)) for name in ("pwrite", "pread", "fsync")):
+        raise PhysicalMulticastError("positional block-device I/O is unavailable")
+    offset = 0
+    read_offset = 0
+
+    def write(view: memoryview) -> int:
+        nonlocal offset
+        written = os.pwrite(descriptor, view, offset)
+        if isinstance(written, int) and not isinstance(written, bool) and written > 0:
+            offset += written
+        return written
+
+    def flush() -> None:
+        os.fsync(descriptor)
+
+    def readback(count: int) -> bytes:
+        nonlocal read_offset
+        chunk = os.pread(descriptor, count, read_offset)
+        if chunk:
+            read_offset += len(chunk)
+        return chunk
+
+    return write, flush, readback
 
 
 def write_and_verify_stream(
