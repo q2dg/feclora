@@ -215,6 +215,55 @@ class S3RepositoryTests(unittest.TestCase):
             self.assertEqual(images[0]["image_type"], "virtual_disk")
             self.assertTrue(images[0]["verified"])
 
+    def test_p2v_download_verifies_qcow2_and_publishes_sidecar_last(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            qcow2 = root / "server.qcow2"
+            payload = b"verified qcow2 export payload"
+            qcow2.write_bytes(payload)
+            metadata = {
+                "schema_version": 1, "image_id": "server", "format": "qcow2",
+                "source_device": "/dev/sda", "virtual_size_bytes": 16384,
+                "file_size_bytes": len(payload), "qcow2_sha256": hashlib.sha256(payload).hexdigest(),
+                "verified": True, "bootability_note": "Guest boot may require driver changes.",
+            }
+            import json
+            sidecar = root / "server.p2v.json"
+            sidecar.write_text(json.dumps(metadata), encoding="utf-8")
+            client = _S3()
+            repository = S3ObjectRepository(_config(), client=client)
+            repository.publish_p2v("server", qcow2, sidecar)
+            destination = root / "export"
+            downloaded_sidecar = repository.download_p2v("server", destination)
+            self.assertEqual((destination / "server.qcow2").read_bytes(), payload)
+            self.assertEqual(downloaded_sidecar.read_bytes(), sidecar.read_bytes())
+            self.assertEqual(sorted(path.name for path in destination.iterdir()),
+                             ["server.p2v.json", "server.qcow2"])
+            # A second verified export is idempotent and does not overwrite files.
+            self.assertEqual(repository.download_p2v("server", destination), downloaded_sidecar)
+
+    def test_p2v_download_rejects_corrupt_remote_payload(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            qcow2 = root / "server.qcow2"
+            payload = b"verified qcow2 export payload"
+            qcow2.write_bytes(payload)
+            metadata = {
+                "schema_version": 1, "image_id": "server", "format": "qcow2",
+                "source_device": "/dev/sda", "virtual_size_bytes": 16384,
+                "file_size_bytes": len(payload), "qcow2_sha256": hashlib.sha256(payload).hexdigest(),
+                "verified": True, "bootability_note": "note",
+            }
+            import json
+            sidecar = root / "server.p2v.json"
+            sidecar.write_text(json.dumps(metadata), encoding="utf-8")
+            client = _S3()
+            repository = S3ObjectRepository(_config(), client=client)
+            repository.publish_p2v("server", qcow2, sidecar)
+            client.objects["server-a/images/server/server.qcow2"] = (b"corrupt", {"sha256": metadata["qcow2_sha256"]})
+            with self.assertRaisesRegex(S3RepositoryError, "size or SHA-256"):
+                repository.download_p2v("server", root / "export")
+
     def test_p2v_publication_rejects_changed_qcow2(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
