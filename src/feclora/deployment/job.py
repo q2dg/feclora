@@ -137,10 +137,8 @@ class DeploymentJob:
             raise JobValidationError("save jobs require unicast transport")
         if operation == "clone" and target_type not in {"disk", "partition"}:
             raise JobValidationError("remote clone supports whole disks or partitions only")
-        if operation == "clone" and (
-            payload.get("transport") != "unicast" or payload.get("start_policy") != "manual"
-        ):
-            raise JobValidationError("clone jobs require unicast transport and manual start policy")
+        if operation == "clone" and payload.get("transport") != "unicast":
+            raise JobValidationError("clone jobs require unicast transport")
 
         clients = payload.get("authorized_clients")
         if not isinstance(clients, list) or not clients:
