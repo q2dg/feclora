@@ -88,7 +88,7 @@ title: Getting started
     <h2>What Feclora does not do</h2>
     <ul>
       <li>The Live root and session credentials are ephemeral; images belong in an external or separately selected repository.</li>
-      <li>Image manifests record size and SHA-256 but are not digitally signed.</li>
+      <li>Image manifests record artifact size and SHA-256; trust depends on repository access controls and authenticated transport.</li>
       <li>Advanced Btrfs multi-device/snapshot imaging and opened-LUKS-mapping image workflows are not complete.</li>
       <li>Feclora does not automatically roll back or resume an interrupted destructive write.</li>
     </ul>
