@@ -62,6 +62,16 @@ class DeploymentCoordinatorTests(unittest.TestCase):
         coordinator.arm()
         self.assertEqual(coordinator.state, JobState.ARMED)
 
+    def test_expected_client_threshold_can_start_with_a_ready_subset(self):
+        coordinator = DeploymentCoordinator(make_job(
+            start_policy="expected_clients", expected_clients=1
+        ))
+        coordinator.register_client("52:54:00:12:34:56")
+        coordinator.mark_ready("52:54:00:12:34:56")
+        self.assertTrue(coordinator.can_start())
+        coordinator.arm()
+        self.assertEqual(coordinator.state, JobState.ARMED)
+
     def test_deadline_policy_uses_injected_clock(self):
         coordinator = DeploymentCoordinator(
             make_job(
