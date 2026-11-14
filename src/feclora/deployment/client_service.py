@@ -8,6 +8,7 @@ import os
 import re
 import signal
 import shutil
+import subprocess
 import stat
 import tempfile
 import threading
@@ -33,6 +34,30 @@ CLIENT_JOB_DIRECTORY = Path("/var/lib/feclora/client-jobs")
 RUNTIME_DIRECTORY = Path("/run/feclora")
 JOB_ID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")
 TERMINAL_PHASES = {"completed", "failed", "cancelled", "interrupted"}
+
+
+def execute_client_post_action(action: str, *, runner=subprocess.run) -> str | None:
+    """Run only the fixed reboot/poweroff actions after a verified successful job."""
+    commands = {
+        "reboot": ["systemctl", "reboot"],
+        "poweroff": ["systemctl", "poweroff"],
+    }
+    if action == "none":
+        return None
+    argv = commands.get(action)
+    if argv is None:
+        return "unsupported post-operation action"
+    try:
+        result = runner(
+            argv, stdin=subprocess.DEVNULL, capture_output=True,
+            text=True, check=False, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"could not request {action}: {exc}"
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        return f"systemctl {action} failed" + (f": {detail[:256]}" if detail else "")
+    return None
 
 
 class ClientJobServiceError(RuntimeError):
@@ -588,6 +613,13 @@ class ClientDeploymentService:
                     "completed" if success else "failed",
                     success=success, detail=detail,
                 )
+                if success and job.post_action != "none":
+                    action_error = execute_client_post_action(job.post_action)
+                    if action_error:
+                        self._set_status(
+                            "completed", success=True,
+                            detail=(detail + "; final action warning: " + action_error)[:1024],
+                        )
             except DeploymentControlError as exc:
                 message = str(exc)
                 phase = "cancelled" if "cancelled" in message.lower() else "failed"
