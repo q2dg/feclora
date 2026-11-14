@@ -43,7 +43,7 @@ device checks, and the Server operator explicitly ARMs the complete READY set.
 - `schema_version`: exactly `1`.
 - `job_id`: canonical UUID identifying one deployment attempt.
 - `operation`: `save`, `restore` or `clone`. Clone is the direct
-  Server-to-Client disk or partition stream and requires unicast/manual start.
+  Server-to-Client disk or partition stream and requires unicast transport.
 - `image_id`: simple repository identifier for save/restore; clone jobs must
   set it to null.
 - `target_type`: `disk`, `partition` or `logical_volume`. Logical-volume
@@ -79,7 +79,12 @@ device checks, and the Server operator explicitly ARMs the complete READY set.
   administratively scoped IPv4 group and an even UDPcast port base.
 - `multicast_group` and `multicast_port`: required only for multicast.
 - `start_policy`: `manual`, `expected_clients` or `deadline`; the latter
-  two require exactly one matching threshold/deadline parameter.
+  two require exactly one matching threshold/deadline parameter. Manual requires
+  every selected Client to be READY. `expected_clients` opens the explicit Server
+  start gate when at least that many selected Clients are READY. `deadline` opens
+  it at or after the UTC timestamp once at least one Client is READY. Neither policy
+  starts disk I/O automatically: the Server operator must still perform the exact
+  job-specific authorization. Clients not READY when the job is armed are excluded.
 - `staging_required_bytes`: optional non-negative capacity requirement used
   only for multicast restore jobs.
 - `source_device`: normalized Server-local /dev path, required only for
