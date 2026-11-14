@@ -9,10 +9,10 @@ reimplementing storage and network protocols.
 |---|---|---|
 | SSHFS | `sshfs` | Host-key verification and protected SSH credentials |
 | NFS | `mount.nfs` | NFSv4.2; server-side export permissions remain external |
-| SMB/CIFS | `mount.cifs` | SMB 3.1.1, signing/encryption and protected credentials |
+| SMB/CIFS | `mount.cifs` | SMB 3.1.1, protocol signing/encryption options and protected credentials |
 | S3 | S3-compatible object API | SigV4, scoped credentials, multipart transfer and manifest-last publication; not a filesystem mount |
 
-Initial S3 transfer primitives use an object-store adapter, not a FUSE mount. The full repository-manager, encrypted-credential, API and Cockpit workflow remains in progress.
+S3 is implemented as an object repository through an HTTPS API, not a FUSE mount. The repository manager, protected credential handling, API and Cockpit workflows are integrated.
 Self-hosted Garage and managed S3-compatible services can expose the same API.
 The endpoint, bucket and prefix are configured per repository.
 
@@ -29,7 +29,7 @@ The endpoint, bucket and prefix are configured per repository.
 - Repository operations must preserve cancellation, progress reporting and
   failure visibility.
 
-## Existing system tools
+## Existing system tools and upstream projects
 
 | Function | Existing tool |
 |---|---|
