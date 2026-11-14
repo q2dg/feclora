@@ -477,6 +477,7 @@ def send_physical_multicast_stream(
     if isinstance(expected_bytes, bool) or not isinstance(expected_bytes, int) or expected_bytes <= 0:
         raise UDPcastError("physical multicast source size must be a positive integer")
     with multicast_firewall_scope(firewall, config.interface, config.portbase):
+        process = None
         try:
             with tempfile.TemporaryFile(mode="w+b") as log:
                 process = runner_popen(
@@ -506,8 +507,22 @@ def send_physical_multicast_stream(
                     raise UDPcastError("udp-sender failed" + (f": {detail}" if detail else ""))
                 return result
         except UDPcastError:
+            if process is not None and process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
             raise
         except (OSError, subprocess.SubprocessError) as exc:
+            if process is not None and process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
             raise UDPcastError(f"physical multicast sender failed: {exc}") from exc
 
 
@@ -531,6 +546,7 @@ def receive_physical_multicast_stream(
     if isinstance(expected_bytes, bool) or not isinstance(expected_bytes, int) or expected_bytes <= 0:
         raise UDPcastError("physical multicast destination size must be a positive integer")
     with multicast_firewall_scope(firewall, config.interface, config.portbase):
+        process = None
         try:
             with tempfile.TemporaryFile(mode="w+b") as log:
                 process = runner_popen(
@@ -564,6 +580,20 @@ def receive_physical_multicast_stream(
                     raise UDPcastError("udp-receiver failed" + (f": {detail}" if detail else ""))
                 return result
         except UDPcastError:
+            if process is not None and process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
             raise
         except (OSError, subprocess.SubprocessError) as exc:
+            if process is not None and process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
             raise UDPcastError(f"physical multicast receiver failed: {exc}") from exc
