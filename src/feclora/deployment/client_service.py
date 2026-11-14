@@ -630,8 +630,10 @@ class ClientDeploymentService:
                             expected_sha256=approval.physical_stream["sha256"],
                             config=udpcast, firewall=PXEFirewall(),
                             ready_callback=acknowledge_receiver_ready,
+                            progress_callback=lambda phase, done, total: report_progress(
+                                "clone-" + phase, done, total, report_remote=True,
+                            ),
                         )
-                        report_progress("clone", result["bytes_verified"], result["bytes_verified"])
                         return True, (
                             f"Physical multicast clone verified: {result['bytes_verified']} bytes; "
                             f"SHA-256 {result['readback_sha256']}."
