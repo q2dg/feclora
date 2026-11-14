@@ -69,6 +69,10 @@ def validate_physical_multicast_pair(
         raise PhysicalMulticastError("source and destination resolve to the same major/minor device")
     if src["sysfs_path"] == dst["sysfs_path"]:
         raise PhysicalMulticastError("source and destination resolve to the same sysfs device")
+    if src.get("wwn") and dst.get("wwn") and src["wwn"] == dst["wwn"]:
+        raise PhysicalMulticastError("source and destination share the same WWN hardware identity")
+    if src.get("serial") and dst.get("serial") and src["serial"] == dst["serial"]:
+        raise PhysicalMulticastError("source and destination share the same hardware serial identity")
     if src["read_only"] is not True:
         raise PhysicalMulticastError("Server source must be hardware/kernel read-only")
     if dst["read_only"] is not False:
