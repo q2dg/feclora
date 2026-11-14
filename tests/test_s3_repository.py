@@ -187,6 +187,51 @@ class S3RepositoryTests(unittest.TestCase):
                 read_only.upload_image_set(root, "lv-one")
 
 
+
+    def test_p2v_publication_commits_qcow2_before_metadata_and_lists_verified_entry(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            qcow2 = root / "server.qcow2"
+            qcow2.write_bytes(b"qcow2-payload")
+            digest = hashlib.sha256(qcow2.read_bytes()).hexdigest()
+            metadata = {
+                "schema_version": 1, "image_id": "server", "format": "qcow2",
+                "source_device": "/dev/sda", "virtual_size_bytes": 8192,
+                "file_size_bytes": qcow2.stat().st_size, "qcow2_sha256": digest,
+                "verified": True, "bootability_note": "Guest boot may require driver changes.",
+            }
+            sidecar = root / "server.p2v.json"
+            import json
+            sidecar.write_text(json.dumps(metadata), encoding="utf-8")
+            client = _S3()
+            repository = S3ObjectRepository(_config(), client=client)
+            result = repository.publish_p2v("server", qcow2, sidecar)
+            self.assertTrue(result["committed"])
+            self.assertEqual([event[1] for event in client.events], [
+                "server-a/images/server/server.qcow2", "server-a/images/server.p2v.json",
+            ])
+            images = repository.list_images()
+            self.assertEqual(len(images), 1)
+            self.assertEqual(images[0]["image_type"], "virtual_disk")
+            self.assertTrue(images[0]["verified"])
+
+    def test_p2v_publication_rejects_changed_qcow2(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            qcow2 = root / "server.qcow2"
+            qcow2.write_bytes(b"modified")
+            sidecar = root / "server.p2v.json"
+            import json
+            sidecar.write_text(json.dumps({
+                "schema_version": 1, "image_id": "server", "format": "qcow2",
+                "source_device": "/dev/sda", "virtual_size_bytes": 8192,
+                "file_size_bytes": 10, "qcow2_sha256": "0" * 64,
+                "verified": True, "bootability_note": "note",
+            }), encoding="utf-8")
+            repository = S3ObjectRepository(_config(), client=_S3())
+            with self.assertRaisesRegex(S3RepositoryError, "does not match"):
+                repository.publish_p2v("server", qcow2, sidecar)
+
     def test_multipart_upload_failure_aborts_incomplete_upload(self):
         class FailingMultipartS3(_S3):
             def upload_part(self, *, Bucket, Key, UploadId, PartNumber, Body):
