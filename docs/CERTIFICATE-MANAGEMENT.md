@@ -9,9 +9,8 @@ not cryptographic proof of a machine's identity.
 
 ## Security model
 
-The TLS trust relationship is one-way: Clients verify the Server. The Server
-does not authenticate individual Clients. There is no Client certificate,
-mutual TLS, per-Client token or credential-enrollment workflow.
+The TLS trust relationship is one-way: Clients verify the Server. Deployment
+sessions are associated with the MAC address reported by each Client.
 
 Image manifests record artifact byte counts and SHA-256 digests. Those checks
 detect artifact changes relative to the manifest, but do not authenticate the
