@@ -1,3 +1,11 @@
+---
+layout: default
+title: One-to-one remote disk and partition cloning
+---
+
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include brand-header.html %}
+
 # One-to-one remote disk and partition cloning
 
 Feclora implements direct whole-disk and partition-to-partition cloning as distinct
