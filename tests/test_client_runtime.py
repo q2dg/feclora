@@ -100,7 +100,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         self.assertEqual(restore.call_args.kwargs["confirmation"], "ERASE /dev/vda")
         self.assertTrue(callable(restore.call_args.kwargs["inventory_provider"]))
 
-    def test_restore_over_mtls_uses_transport_authentication(self):
+    def test_restore_over_server_authenticated_tls(self):
         tls = FakeTLS(control_frame({
             "type": "transfer_offer", "job_id": JOB_ID, "image_id": "golden-image",
         }))
