@@ -1629,7 +1629,7 @@ export default function App() {
               </Tbody></Table></StackItem>
               <StackItem>
                 <Title headingLevel="h2" size="lg">{t("security")}</Title>
-                <p>Generate a local Feclora CA and optional age identity. Private keys remain on this machine; captured images can then be encrypted when selected.</p>
+                <p>{t("Generate a local Feclora CA and optional age identity. Private keys remain on this machine; captured images can then be encrypted when selected.")}</p>
                 <Table aria-label={t("Image security material")} variant="compact"><Thead><Tr><Th>{t("Capability")}</Th><Th>{t("status")}</Th></Tr></Thead><Tbody>
                   {Object.entries(security).map(([name, ready]) => <Tr key={name}><Td>{name.replaceAll("_", " ")}</Td><Td><Label color={ready ? "green" : "orange"}>{ready ? "Ready" : "Not initialized"}</Label></Td></Tr>)}
                 </Tbody></Table>
