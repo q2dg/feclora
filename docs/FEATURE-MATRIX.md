@@ -6,7 +6,7 @@ Status meanings:
 - **Implemented**: code path exists.
 - **Cockpit**: exposed through the primary web interface.
 - **Automated**: covered by hardware-independent tests or CI checks.
-- **Operator validation**: optional checks requiring ISO boot, physical media, network equipment, laboratory machines or live external services; these are not software completion gates.
+- **Operator validation**: maintainer-run checks requiring ISO boot, physical media, network equipment, laboratory machines or live external services. These are separate from software CI, but they are required release-acceptance gates and must be recorded by the repository owner.
 
 | Area | Capability | Implementation | Cockpit | Verification |
 |---|---|---|---|---|
@@ -85,3 +85,6 @@ Feclora does not sign image manifests or use detached signature sidecars. Artifa
 | Internationalization | Partial: persistent independent UI-language preference (14 locale choices) applied to document locale/direction and core Cockpit navigation/status/operation screens; keyboard preference is separately persisted and applied to Linux virtual console plus Cage/Wayland XKB with a controlled kiosk restart. The remaining Cockpit screens and operational messages are not yet fully translated. | Cockpit | Complete translation coverage for every label, validation/error/status string and first-boot screen; verify locale-specific layouts/variants on the shipped Fedora image and browser RTL behavior. |
 | Incremental/differential images | Documentation study only | No implementation authorized |
 | Mountable images / individual-file recovery | Documentation study only | No implementation authorized |
+
+
+Release status note: automated tests and source implementation do not imply BIOS/UEFI, hardware, destructive-media, live-provider, multi-Client or PXE acceptance. The repository owner's remaining hands-on tasks are tracked in [MAINTAINER-ACCEPTANCE.md](MAINTAINER-ACCEPTANCE.md).
