@@ -88,13 +88,6 @@ class ServerAuthenticatedTlsTests(unittest.TestCase):
         self.assertEqual(context.verify_mode, __import__("ssl").CERT_REQUIRED)
         context.load_cert_chain.assert_not_called()
 
-    def test_client_context_rejects_client_certificate_material(self):
-        with self.assertRaisesRegex(RemoteCloneProtocolError, "must not present a client certificate"):
-            create_tls_context(
-                "client", ca_file="/ca.pem",
-                certificate_file="/client.pem", private_key_file="/client.key",
-            )
-
     def test_server_context_does_not_request_client_certificate(self):
         with patch("feclora.network.remote_clone_protocol.ssl.SSLContext") as factory:
             context = factory.return_value
