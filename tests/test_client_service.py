@@ -81,8 +81,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             config = SimpleNamespace(
                 host="192.0.2.10", port=9443, local_identity="URI:client",
                 server_identity=SERVER_IDENTITY, mac_address="52:54:00:12:34:56",
-                ca_file="/ca.crt", certificate_file="/client.crt",
-                private_key_file="/client.key",
+                ca_file="/ca.crt",
                 age_identity_file=None, age_recipients_file=None, repository="/var/lib/feclora/images",
             )
             block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
@@ -152,8 +151,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             config = SimpleNamespace(
                 host="192.0.2.10", port=9443, local_identity="URI:client",
                 server_identity=SERVER_IDENTITY, mac_address="52:54:00:12:34:56",
-                ca_file="/ca.crt", certificate_file="/client.crt",
-                private_key_file="/client.key",
+                ca_file="/ca.crt",
                 age_identity_file="/age.identity", age_recipients_file="/age-recipients.txt",
                 repository="/var/lib/feclora/images",
             )
@@ -219,8 +217,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             config = SimpleNamespace(
                 host="192.0.2.10", port=9443, local_identity="URI:client",
                 server_identity=SERVER_IDENTITY, mac_address="52:54:00:12:34:56",
-                ca_file="/ca.crt", certificate_file="/client.crt",
-                private_key_file="/client.key", trusted_server_public_key="/server.pub",
+                ca_file="/ca.crt", trusted_server_public_key="/server.pub",
                 age_identity_file="/age.identity", age_recipients_file="/age-recipients.txt",
                 repository="/var/lib/feclora/images",
             )
@@ -285,10 +282,9 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 "image_sign": False, "unattended": True,
             }
             config = SimpleNamespace(
-                host="192.0.2.10", port=9443, local_identity="URI:feclora-client-lab",
+                host="192.0.2.10", port=9443,
                 server_identity=SERVER_IDENTITY, mac_address="52:54:00:12:34:56",
-                ca_file="/ca.crt", certificate_file="/client.crt",
-                private_key_file="/client.key",
+                ca_file="/ca.crt",
                 age_identity_file=None, age_recipients_file=None,
                 repository="/var/lib/feclora/images",
             )
