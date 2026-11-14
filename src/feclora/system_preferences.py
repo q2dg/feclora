@@ -86,7 +86,7 @@ def get_keyboard_layout() -> dict[str, Any]:
     return {"layout": selected or keymap, "keymap": keymap, "supported": sorted(KEYMAPS)}
 
 
-def _write_kiosk_keyboard_config(path: Path, layout: str, variant: str) -> None:
+def _write_kiosk_keyboard_config(path: Path, layout_id: str, layout: str, variant: str) -> None:
     parent = path.parent
     parent.mkdir(mode=0o755, parents=True, exist_ok=True)
     parent_info = os.lstat(parent)
@@ -99,7 +99,7 @@ def _write_kiosk_keyboard_config(path: Path, layout: str, variant: str) -> None:
     if info is not None and (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
                              or info.st_size > 4096):
         raise KeyboardLayoutError("kiosk keyboard configuration is not a safe regular file")
-    content = f"FECLORA_KEYBOARD_LAYOUT={layout}\nXKB_DEFAULT_LAYOUT={layout}\nXKB_DEFAULT_VARIANT={variant}\nXKB_DEFAULT_OPTIONS=\n"
+    content = f"FECLORA_KEYBOARD_LAYOUT={layout_id}\nXKB_DEFAULT_LAYOUT={layout}\nXKB_DEFAULT_VARIANT={variant}\nXKB_DEFAULT_OPTIONS=\n"
     fd, temporary = tempfile.mkstemp(prefix=".kiosk-keyboard-", dir=parent)
     try:
         with os.fdopen(fd, "w", encoding="ascii") as stream:
@@ -146,7 +146,7 @@ def set_keyboard_layout(params: dict[str, Any], *, runner=None, config_path: Pat
             detail = (result.stderr or result.stdout or "command failed").strip()[:256]
             raise KeyboardLayoutError(f"could not apply keyboard layout {layout}: {detail}")
     try:
-        _write_kiosk_keyboard_config(config_path, xkb_layout, xkb_variant)
+        _write_kiosk_keyboard_config(config_path, layout, xkb_layout, xkb_variant)
         restart = run(
             ["/usr/bin/systemd-run", "--unit=feclora-keyboard-restart",
              "--on-active=2s", "--collect", "/usr/bin/systemctl", "restart",
