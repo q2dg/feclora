@@ -159,6 +159,10 @@ const localizedKeys = [
   "Partition extraction progress",
   "Partition image published",
   "Verification failed",
+  "Definition only — service not started; no Client contact or disk I/O",
+  "Capture whole disks from Clients to Server",
+  "No limit",
+  "Compression",
 ];
 
 for (const [language] of LANGUAGES) {
