@@ -196,7 +196,7 @@ def _client_server_trust_wizard(config_path: str) -> bool:
     _write_client_config(config_path, config)
     dialog_app._message(
         "Client configured",
-        "Server certificate verification is configured. The Client presents no certificate and has no individual authentication identity.",
+        "Server certificate verification is configured. Deployment jobs select this Client by its reported MAC address.",
     )
     return True
 
