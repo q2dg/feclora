@@ -62,7 +62,8 @@ class RestoreTargetInspectionTests(unittest.TestCase):
         runner, calls = self.make_runner(inventory=inventory)
         with self.assertRaisesRegex(TargetInspectionError, "whole disk"):
             self.inspect(runner)
-        self.assertEqual(calls, [])
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(calls[0][0].endswith("lsblk"))
 
         inventory = json.loads(json.dumps(self.inventory))
         inventory["blockdevices"][0]["children"][0]["type"] = "crypt"
