@@ -28,6 +28,13 @@ LANGUAGES = (
 )
 SUPPORTED_LANGUAGES = {code for code, _label in LANGUAGES}
 
+APPLY_LABELS = {
+    "en": "Apply", "es": "Aplicar", "ca": "Aplica", "gl": "Aplicar",
+    "eu": "Aplikatu", "pt": "Aplicar", "fr": "Appliquer", "de": "Anwenden",
+    "it": "Applica", "zh": "应用", "ja": "適用", "ru": "Применить",
+    "ar": "تطبيق", "tr": "Uygula",
+}
+
 # Keep this first-boot surface self-contained: it runs before the Cockpit
 # application and must not load remote scripts, stylesheets or translation files.
 FIRST_BOOT_TEXT = {
@@ -137,8 +144,9 @@ def render_setup_page(token: str, language: str = "en") -> bytes:
         for code, label in LANGUAGES
     )
     direction = "rtl" if language == "ar" else "ltr"
+    apply_label = APPLY_LABELS[language]
     safe_token = html.escape(token, quote=True)
-    page = f"""<!doctype html><html lang="{language}" dir="{direction}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>{html.escape(welcome)}</title><style>body{{font:16px system-ui,sans-serif;max-width:38rem;margin:8vh auto;padding:0 1.2rem;color:#20242a}}label{{display:block;margin:1.2rem 0 .4rem}}input,select{{box-sizing:border-box;width:100%;padding:.8rem;font:inherit}}button{{margin-top:1.4rem;padding:.8rem 1.2rem;font:inherit}}p{{line-height:1.5}}form{{margin-top:1rem}}</style></head><body><h1>{html.escape(welcome)}</h1><p>{html.escape(intro)}</p><p>{html.escape(privacy)}</p><form method="get" action="/"><label for="language">{html.escape(language_label)}</label><select id="language" name="lang">{options}</select><button type="submit">Apply</button></form><form method="post" action="/setup"><input type="hidden" name="token" value="{safe_token}"><input type="hidden" name="language" value="{language}"><label for="password">{html.escape(password_label)}</label><input id="password" name="password" type="password" minlength="14" maxlength="128" autocomplete="new-password" required><label for="confirmation">{html.escape(confirm_label)}</label><input id="confirmation" name="confirmation" type="password" minlength="14" maxlength="128" autocomplete="new-password" required><button type="submit">{html.escape(submit)}</button></form></body></html>"""
+    page = f"""<!doctype html><html lang="{language}" dir="{direction}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>{html.escape(welcome)}</title><style>body{{font:16px system-ui,sans-serif;max-width:38rem;margin:8vh auto;padding:0 1.2rem;color:#20242a}}label{{display:block;margin:1.2rem 0 .4rem}}input,select{{box-sizing:border-box;width:100%;padding:.8rem;font:inherit}}button{{margin-top:1.4rem;padding:.8rem 1.2rem;font:inherit}}p{{line-height:1.5}}form{{margin-top:1rem}}</style></head><body><h1>{html.escape(welcome)}</h1><p>{html.escape(intro)}</p><p>{html.escape(privacy)}</p><form method="get" action="/"><label for="language">{html.escape(language_label)}</label><select id="language" name="lang">{options}</select><button type="submit">{html.escape(apply_label)}</button></form><form method="post" action="/setup"><input type="hidden" name="token" value="{safe_token}"><input type="hidden" name="language" value="{language}"><label for="password">{html.escape(password_label)}</label><input id="password" name="password" type="password" minlength="14" maxlength="128" autocomplete="new-password" required><label for="confirmation">{html.escape(confirm_label)}</label><input id="confirmation" name="confirmation" type="password" minlength="14" maxlength="128" autocomplete="new-password" required><button type="submit">{html.escape(submit)}</button></form></body></html>"""
     return page.encode("utf-8")
 
 
