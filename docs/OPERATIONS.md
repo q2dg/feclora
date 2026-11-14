@@ -91,8 +91,6 @@ sharing an ISO:
   "release-accepted";
 - do not claim a checksum proves publisher authenticity; use a trusted,
   authenticated distribution channel;
-- do not claim a detached signature exists unless a signing and verification
-  process has actually been introduced and its public-key trust model documented.
 
 The image-manifest integrity model is byte count plus SHA-256. Feclora does not
 currently sign image manifests or detached sidecars.
