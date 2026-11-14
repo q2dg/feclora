@@ -607,6 +607,7 @@ class ClientDeploymentService:
                             approval.physical_identity, current_identity,
                             role="Client destination",
                         )
+                        check_capture_source_safe(approval.device_path)
                         descriptor = open_approved_block_device(
                             approval.physical_identity, current_identity,
                             role="Client destination",
