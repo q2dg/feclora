@@ -69,6 +69,20 @@ def _read_keymap() -> str:
 def get_keyboard_layout() -> dict[str, Any]:
     keymap = _read_keymap()
     selected = next((name for name, value in KEYMAPS.items() if value == keymap), None)
+    try:
+        info = os.lstat(KIOSK_KEYBOARD_CONFIG)
+        if (stat.S_ISREG(info.st_mode) and not stat.S_ISLNK(info.st_mode)
+                and info.st_uid == 0 and info.st_size <= 4096):
+            content = KIOSK_KEYBOARD_CONFIG.read_text(encoding="ascii")
+            for line in content.splitlines():
+                match = re.fullmatch(r"FECLORA_KEYBOARD_LAYOUT=([a-z-]{2,8})", line)
+                if match and match.group(1) in KEYMAPS:
+                    selected = match.group(1)
+                    break
+    except FileNotFoundError:
+        pass
+    except (OSError, UnicodeError) as exc:
+        raise KeyboardLayoutError(f"cannot read kiosk keyboard preference: {exc}") from exc
     return {"layout": selected or keymap, "keymap": keymap, "supported": sorted(KEYMAPS)}
 
 
@@ -85,7 +99,7 @@ def _write_kiosk_keyboard_config(path: Path, layout: str, variant: str) -> None:
     if info is not None and (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
                              or info.st_size > 4096):
         raise KeyboardLayoutError("kiosk keyboard configuration is not a safe regular file")
-    content = f"XKB_DEFAULT_LAYOUT={layout}\\nXKB_DEFAULT_VARIANT={variant}\\nXKB_DEFAULT_OPTIONS=\\n"
+    content = f"FECLORA_KEYBOARD_LAYOUT={layout}\\nXKB_DEFAULT_LAYOUT={layout}\\nXKB_DEFAULT_VARIANT={variant}\\nXKB_DEFAULT_OPTIONS=\\n"
     fd, temporary = tempfile.mkstemp(prefix=".kiosk-keyboard-", dir=parent)
     try:
         with os.fdopen(fd, "w", encoding="ascii") as stream:
