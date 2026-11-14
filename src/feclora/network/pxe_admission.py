@@ -219,6 +219,7 @@ class PXEAdmission:
         if event_id != event["event_id"] or operation_id != event["operation_id"]:
             raise PXEAdmissionError("PXE report event identifiers must be canonical UUIDs")
         if (event["operation"] != "restore_disk"
+                or not isinstance(event["status"], str)
                 or event["status"] not in {"started", "progress", "completed", "failed", "cancelled"}
                 or not isinstance(event["timestamp"], str) or len(event["timestamp"]) > 40
                 or not isinstance(event["target"], str) or len(event["target"]) > 256
