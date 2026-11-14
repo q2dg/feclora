@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from feclora.kiosk_bootstrap import (
-    APPLY_LABELS, LANGUAGES, BootstrapError, normalize_language, preferred_language, render_setup_page,
+    APPLY_LABELS, FIRST_BOOT_ERROR_TEXT, LANGUAGES, BootstrapError, normalize_language, preferred_language, render_setup_page,
     set_admin_password, validate_password,
 )
 
@@ -34,6 +34,8 @@ class KioskBootstrapTests(unittest.TestCase):
                 page = render_setup_page("test-token", language).decode("utf-8")
                 self.assertIn(f'<html lang="{language}"', page)
                 self.assertIn(APPLY_LABELS[language], page)
+                self.assertIn("Could not set the administrator password.", FIRST_BOOT_ERROR_TEXT[language])
+                self.assertIn("Could not finalize first-boot setup.", FIRST_BOOT_ERROR_TEXT[language])
         self.assertIn('dir="rtl"', render_setup_page("test-token", "ar").decode("utf-8"))
 
     def test_password_requires_confirmation_and_minimum_length(self):
