@@ -82,6 +82,33 @@ class LocalControlProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(LocalControlError, "exactly job_id"):
             local_control_request("/unused/socket", "arm", {"job_id": "not-enough"})
 
+    def test_client_timeout_setup_error_does_not_escape_server_worker(self):
+        server = LocalControlServer("/run/feclora/test.sock", lambda *_args: {})
+        connection = mock.MagicMock()
+        connection.__enter__.return_value = connection
+        connection.settimeout.side_effect = OSError("timeout setup failed")
+        listener = mock.Mock()
+        calls = 0
+
+        def accept():
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return connection, None
+            server._stop.set()
+            raise OSError("listener stopped")
+
+        listener.accept.side_effect = accept
+        server._listener = listener
+        server._serve()
+
+        connection.sendall.assert_called_once()
+        sent = connection.sendall.call_args.args[0]
+        size = struct.unpack("!I", sent[:4])[0]
+        response = json.loads(sent[4:4 + size])
+        self.assertFalse(response["ok"])
+        self.assertIn("timeout setup failed", response["error"])
+
     def test_listener_thread_start_failure_closes_socket_and_resets_state(self):
         server = LocalControlServer("/run/feclora/test.sock", lambda *_args: {})
         listener = mock.Mock()
