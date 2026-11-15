@@ -118,7 +118,7 @@ class ImageBrowserTests(unittest.TestCase):
 
     def test_qcow2_header_rejects_backing_file_before_qemu_inspection(self):
         header = bytearray(104)
-        header[:4] = b"QFI\\xfb"
+        header[:4] = b"QFI\xfb"
         struct.pack_into(">I", header, 4, 3)
         struct.pack_into(">Q", header, 8, 104)
         struct.pack_into(">I", header, 16, 12)
@@ -128,7 +128,7 @@ class ImageBrowserTests(unittest.TestCase):
 
     def test_qcow2_header_rejects_external_data_file_feature(self):
         header = bytearray(104)
-        header[:4] = b"QFI\\xfb"
+        header[:4] = b"QFI\xfb"
         struct.pack_into(">I", header, 4, 3)
         struct.pack_into(">Q", header, 72, 0x4)
         self.image_path.write_bytes(header)
