@@ -512,6 +512,23 @@ class DeploymentService:
                     "message": "Unarmed job cancelled; no storage operation was started."}
         raise DeploymentServiceError("unsupported deployment service action")
 
+    def _maybe_auto_arm(self) -> bool:
+        """Arm unattended jobs once every selected Client has reached READY."""
+        if self.job.start_policy != "automatic":
+            return False
+        with self._worker_lock:
+            if (self._arm_requested or self.coordinator.state is not JobState.CREATED
+                    or not self.coordinator.can_start()):
+                return False
+            self._arm_requested = True
+            self._worker = threading.Thread(
+                target=self._run_job,
+                name="feclora-deployment-auto-job",
+                daemon=True,
+            )
+            self._worker.start()
+            return True
+
     def _run_job(self) -> None:
         self._last_error = None
         try:
@@ -606,18 +623,7 @@ class DeploymentService:
             )
             self.ipc.start()
             while not self._stop_event.wait(0.5):
-                if self.job.start_policy == "automatic":
-                    with self._worker_lock:
-                        if (not self._arm_requested
-                                and self.coordinator.state is JobState.CREATED
-                                and self.coordinator.can_start()):
-                            self._arm_requested = True
-                            self._worker = threading.Thread(
-                                target=self._run_job,
-                                name="feclora-deployment-auto-job",
-                                daemon=True,
-                            )
-                            self._worker.start()
+                self._maybe_auto_arm()
         finally:
             try:
                 self.ipc.stop()
