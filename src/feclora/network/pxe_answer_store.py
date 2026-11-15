@@ -154,9 +154,12 @@ def publish_pxe_answer(
         # Publication is one logical operation: if the stable DHCP alias
         # cannot be updated, do not leave a job-scoped answer reachable at a
         # URL that the caller was told had failed to publish.
-        cleanup_error = None
+        cleanup_errors = []
         try:
             _remove_current_answer_alias(root, destination / "answer.json")
+        except Exception as cleanup_exc:
+            cleanup_errors.append(cleanup_exc)
+        try:
             os.chmod(destination, 0o700)
             answer_path = destination / "answer.json"
             if answer_path.exists():
@@ -168,7 +171,8 @@ def publish_pxe_answer(
             finally:
                 os.close(directory_fd)
         except Exception as cleanup_exc:
-            cleanup_error = cleanup_exc
+            cleanup_errors.append(cleanup_exc)
+        cleanup_error = "; ".join(str(item) for item in cleanup_errors) or None
         if cleanup_error is not None:
             raise PXEAnswerStoreError(
                 f"cannot publish PXE answer ({exc}); rollback also failed ({cleanup_error})"
