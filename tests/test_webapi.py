@@ -1898,6 +1898,34 @@ if __name__ == "__main__":
 
 
 class P2VWebAPITests(unittest.TestCase):
+    def test_p2v_import_operation_uses_selected_filesystem_repository(self):
+        from contextlib import contextmanager
+        from types import SimpleNamespace
+        from feclora.webapi import _execute_operation
+
+        params = {
+            "source_image_id": "physical-source",
+            "image_id": "physical-native",
+            "repository_id": "primary",
+        }
+        manifest = SimpleNamespace(
+            image_id="physical-native", image_type="disk",
+            artifacts=(object(), object()),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            @contextmanager
+            def repository_context(*args, **kwargs):
+                self.assertEqual(kwargs.get("image_id"), "physical-source")
+                yield Path(directory)
+
+            with patch("feclora.webapi._operation_repository_context", repository_context), \
+                 patch("feclora.storage.s3_repository_manager.S3RepositoryManager.list", return_value=[]), \
+                 patch("feclora.storage.p2v_import.import_p2v_qcow2", return_value=manifest) as importer:
+                result = _execute_operation("import_p2v", params, "p2v-import-test")
+        self.assertTrue(result["verified"])
+        self.assertEqual(result["image_id"], "physical-native")
+        importer.assert_called_once_with(Path(directory), "physical-source", "physical-native")
+
     def test_p2v_operation_publishes_qcow2_and_metadata_to_filesystem_repository(self):
         from feclora.webapi import _execute_operation
         with tempfile.TemporaryDirectory() as root:
