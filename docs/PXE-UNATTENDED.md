@@ -28,7 +28,7 @@ New unattended PXE deployments use the same schema-v1 DeploymentJob JSON contrac
 - target_bindings maps every client MAC to a stable disk WWN and/or serial number. The client checks that binding before restore and revalidates the disk identity immediately before writing.
 - repository_id references a repository already configured on the Live client; credentials are never embedded in the JSON.
 
-The Cockpit PXE panel can generate this JSON, let the operator review and save it, or import a JSON document from local upload, HTTP(S), a configured remote repository, or SCP. The same file is validated by DeploymentJob.from_dict() and published as the job-scoped PXE document. The legacy schema-v2 PXE answer remains readable for compatibility, but new jobs should use the shared schema.
+Both the authenticated ISO/Client runtime and the PXE Live adapter call the shared manifest-backed restore dispatcher at src/feclora/deployment/restore_execution.py. Boot admission, target selection and transfer differ by mode; the actual disk/partition/logical-volume restore engines are selected through this common dispatcher.\n\nThe Cockpit PXE panel can generate this JSON, let the operator review and save it, or import a JSON document from local upload, HTTP(S), a configured remote repository, or SCP. The same file is validated by DeploymentJob.from_dict() and published as the job-scoped PXE document. The legacy schema-v2 PXE answer remains readable for compatibility, but new jobs should use the shared schema.
 
 The Feclora PXE Server is the single deployment component containing DHCP,
 Caddy and the services needed to distribute Live boot assets and publish
