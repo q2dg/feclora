@@ -146,18 +146,30 @@ class LocalControlServer:
         self._thread = threading.Thread(target=self._serve, name="feclora-local-control", daemon=True)
         try:
             self._thread.start()
-        except Exception:
+        except Exception as start_error:
             self._thread = None
+            try:
+                listener.close()
+            except OSError as close_error:
+                # Keep ownership state so stop() can retry closing and unlinking.
+                self._listener = listener
+                self._socket_identity = bound_identity
+                raise LocalControlError(
+                    f"IPC worker failed to start and listener close failed: {close_error}"
+                ) from start_error
             self._listener = None
-            self._socket_identity = None
-            listener.close()
             try:
                 info = os.lstat(self.path)
                 if (stat.S_ISSOCK(info.st_mode)
                         and (info.st_dev, info.st_ino) == bound_identity):
                     os.unlink(self.path)
-            except OSError:
-                pass
+            except OSError as cleanup_error:
+                # The listener is closed, but retain the inode identity for stop() to retry.
+                self._socket_identity = bound_identity
+                raise LocalControlError(
+                    f"IPC worker failed to start and socket cleanup failed: {cleanup_error}"
+                ) from start_error
+            self._socket_identity = None
             raise
 
     def _serve(self) -> None:
