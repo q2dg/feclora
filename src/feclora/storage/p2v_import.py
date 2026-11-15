@@ -212,12 +212,12 @@ def import_p2v_qcow2(
             if not re.fullmatch(r"/dev/loop[0-9]+", loop_device):
                 raise P2VImportError("losetup did not return a valid loop-device path")
             dump_result = _run([sfdisk, "--dump", loop_device], runner)
-            table_text = (getattr(dump_result, "stdout", "") or "").strip() + "\\n"
-            label_match = re.search(r"^label:\\s*(gpt|dos)\\s*$", table_text, re.MULTILINE | re.IGNORECASE)
+            table_text = (getattr(dump_result, "stdout", "") or "").strip() + "\n"
+            label_match = re.search(r"^label:\s*(gpt|dos)\s*$", table_text, re.MULTILINE | re.IGNORECASE)
             if not label_match:
                 raise P2VImportError("P2V disk must contain an inspectable GPT or MBR partition table")
             partition_table = "gpt" if label_match.group(1).lower() == "gpt" else "mbr"
-            sector_match = re.search(r"^sector-size:\\s*(\\d+)\\s*$", table_text, re.MULTILINE)
+            sector_match = re.search(r"^sector-size:\s*(\d+)\s*$", table_text, re.MULTILINE)
             if sector_match and int(sector_match.group(1)) != logical_sector_size:
                 raise P2VImportError("partition-table sector size disagrees with P2V source geometry")
             from feclora.storage.partition_range import parse_sfdisk_dump, PartitionRangeError
