@@ -425,6 +425,19 @@ class DeploymentJobTests(unittest.TestCase):
         with self.assertRaisesRegex(JobValidationError, "post_action"):
             DeploymentJob.from_dict(valid_job(post_action="shell"))
 
+    def test_from_json_rejects_duplicate_fields_at_every_level(self):
+        duplicate_top_level = (
+            '{"schema_version":1,"schema_version":1}'
+        )
+        duplicate_nested = (
+            '{"schema_version":1,"target_bindings":'
+            '{"52:54:00:12:34:56":{"wwn":"first","wwn":"second"}}}'
+        )
+        for document in (duplicate_top_level, duplicate_nested):
+            with self.subTest(document=document):
+                with self.assertRaisesRegex(JobValidationError, "Duplicate job field"):
+                    DeploymentJob.from_json(document)
+
     def test_rejects_invalid_json_and_unsupported_schema(self):
         with self.assertRaisesRegex(JobValidationError, "valid JSON"):
             DeploymentJob.from_json("{")
