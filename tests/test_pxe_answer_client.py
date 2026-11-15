@@ -147,6 +147,41 @@ class PXEAnswerClientTests(unittest.TestCase):
                 text=True, check=False, timeout=10,
             )
 
+
+    def test_shared_multicast_deployment_job_uses_one_group_answer(self):
+        from feclora.network.pxe_answer import parse_pxe_answer
+        shared_job = {
+            "schema_version": 1, "job_id": JOB, "operation": "restore",
+            "image_id": "golden", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56", "52:54:00:12:34:57"],
+            "network_interface": "auto", "transport": "multicast",
+            "multicast_group": "239.10.10.10", "multicast_port": 5000,
+            "start_policy": "automatic", "expected_clients": None, "start_deadline": None,
+            "repository_id": "nas-images", "boot_method": "pxe",
+            "confirm_destructive": True,
+            "target_bindings": {
+                "52:54:00:12:34:56": {"wwn": "wwn-first", "serial": None},
+                "52:54:00:12:34:57": {"wwn": "wwn-second", "serial": None},
+            },
+        }
+        encoded = json.dumps(shared_job).encode()
+        parsed = parse_pxe_answer(encoded)
+        self.assertEqual(parsed["authorized_clients"], shared_job["authorized_clients"])
+        self.assertEqual(parsed["target_bindings"], shared_job["target_bindings"])
+        self.assertEqual(parsed["transport"], "multicast")
+        for mac in shared_job["authorized_clients"]:
+            with tempfile.TemporaryDirectory() as root:
+                command = (
+                    f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB} "
+                    f"feclora.pxe_answer_url={URL} feclora.pxe_client_mac={mac}"
+                )
+                result = fetch_live_pxe_answer(
+                    command, destination=Path(root) / "answer.json",
+                    downloader=lambda _url: encoded,
+                )
+                self.assertEqual(result["target_bindings"], shared_job["target_bindings"])
+                self.assertEqual(result["_client_mac"], mac)
+
     def test_report_callback_posts_job_scoped_client_events_best_effort(self):
         import uuid
         from unittest.mock import MagicMock, Mock
