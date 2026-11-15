@@ -17,6 +17,19 @@ PXE is a network boot method for the **same Feclora Fedora Live environment**
 used by the ISO. It is not a separate thin client, installer, or per-machine
 provisioning workflow.
 
+## Shared DeploymentJob JSON for PXE
+
+New unattended PXE deployments use the same schema-v1 DeploymentJob JSON contract as Feclora's ISO/Client deployment workflow. The PXE-specific differences are represented in the job itself:
+
+- boot_method: pxe identifies network boot; it is independent of transport: unicast or multicast.
+- network_interface: auto means the PXE Live client retains the DHCP network configuration established during boot.
+- start_policy: automatic and confirm_destructive: true explicitly opt in to unattended execution.
+- authorized_clients lists the expected client MAC addresses. MAC addresses are operational selectors, not authentication credentials.
+- target_bindings maps every client MAC to a stable disk WWN and/or serial number. The client checks that binding before restore and revalidates the disk identity immediately before writing.
+- repository_id references a repository already configured on the Live client; credentials are never embedded in the JSON.
+
+The Cockpit PXE panel can generate this JSON, let the operator review and save it, or import a JSON document from local upload, HTTP(S), a configured remote repository, or SCP. The same file is validated by DeploymentJob.from_dict() and published as the job-scoped PXE document. The legacy schema-v2 PXE answer remains readable for compatibility, but new jobs should use the shared schema.
+
 The Feclora PXE Server is the single deployment component containing DHCP,
 Caddy and the services needed to distribute Live boot assets and publish
 answer files. DHCP and Caddy are internal parts of this server, not external

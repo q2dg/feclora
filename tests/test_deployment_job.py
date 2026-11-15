@@ -68,6 +68,7 @@ class DeploymentJobTests(unittest.TestCase):
             network_interface="auto",
             repository_id="nas-images",
             boot_method="pxe",
+            confirm_destructive=True,
             start_policy="automatic",
             target_bindings={
                 "52:54:00:12:34:56": {"wwn": "wwn-client-1", "serial": None},
