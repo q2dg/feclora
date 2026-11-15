@@ -203,6 +203,71 @@ def probe_ntfs_minimum_size(
     return minimum_bytes
 
 
+
+def check_xfs_read_only(
+    device_path: str,
+    *,
+    filesystem_type: str = "xfs",
+    executables: dict[str, str | None] | None = None,
+    runner: Callable[..., Any] | None = None,
+    which: Callable[[str], str | None] | None = None,
+    device_validator: Callable[[str], bool] | None = None,
+    safety_check: Callable[[str], None] | None = None,
+    effective_uid: Callable[[], int] | None = None,
+) -> int:
+    """Run xfs_repair -n against an offline XFS block device and return capacity."""
+    if not isinstance(device_path, str) or not device_path.startswith("/dev/") or "\\x00" in device_path:
+        raise FilesystemProbeError("filesystem check target must be an absolute /dev/ path")
+    if filesystem_type.lower() != "xfs":
+        raise FilesystemProbeError("read-only XFS check supports xfs only")
+    validator = device_validator or (lambda path: stat.S_ISBLK(os.stat(path).st_mode))
+    try:
+        if not validator(device_path):
+            raise FilesystemProbeError("filesystem check target is not an accessible block device")
+    except OSError as exc:
+        raise FilesystemProbeError(f"cannot inspect filesystem check target: {exc}") from exc
+    run = runner or subprocess.run
+    resolve = which or shutil.which
+    available = executables or {}
+    required = {
+        name: available.get(name) or resolve(name)
+        for name in ("blkid", "xfs_repair", "blockdev")
+    }
+    missing = [name for name, executable in required.items() if not executable]
+    if missing:
+        raise FilesystemProbeError("required filesystem check tools are missing: " + ", ".join(missing))
+    try:
+        if safety_check is None:
+            check_capture_source_safe(device_path, runner=run, which=resolve)
+        else:
+            safety_check(device_path)
+    except SourceSafetyError as exc:
+        raise FilesystemProbeError(f"filesystem must be offline and unused: {exc}") from exc
+    uid = effective_uid or os.geteuid
+
+    def invoke(name: str, args: list[str]) -> Any:
+        try:
+            argv = privileged_argv([required[name], *args], effective_uid=uid)
+            return run(argv, check=True, capture_output=True, text=True, timeout=120)
+        except (OSError, subprocess.SubprocessError, PrivilegeError) as exc:
+            raise FilesystemProbeError(f"{name} read-only check failed: {exc}") from exc
+
+    detected = invoke("blkid", ["-p", "-s", "TYPE", "-o", "value", device_path]).stdout.strip().lower()
+    if detected != "xfs":
+        raise FilesystemProbeError(
+            f"filesystem type mismatch: expected xfs, detected {detected or 'unknown'}"
+        )
+    invoke("xfs_repair", ["-n", device_path])
+    capacity_result = invoke("blockdev", ["--getsize64", device_path])
+    try:
+        capacity = int(capacity_result.stdout.strip())
+    except (TypeError, ValueError) as exc:
+        raise FilesystemProbeError("blockdev returned an invalid device capacity") from exc
+    if capacity <= 0:
+        raise FilesystemProbeError("blockdev returned a non-positive device capacity")
+    return capacity
+
+
 def build_proportional_gpt_plan(
     partitions: Sequence[Mapping[str, object]],
     *,
