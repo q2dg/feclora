@@ -2072,6 +2072,8 @@ class CaptureFilesystemPreflightAPITests(unittest.TestCase):
             })
         probe.assert_called_once_with("/dev/sdd1", filesystem_type="xfs")
         self.assertEqual(result["checker"], "xfs_repair -n")
+        self.assertEqual(result["checked_size_bytes"], 10_000)
+        self.assertNotIn("minimum_size_bytes", result)
         self.assertTrue(result["read_only"])
 
     def test_rejects_extra_parameters(self):
