@@ -337,7 +337,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             self.assertTrue(status["success"])
 
 
-    def test_unattended_pxe_multicast_resolves_shared_mac_target_binding(self):
+    def test_unattended_shared_answer_multicast_resolves_mac_target_binding(self):
         from feclora.deployment.job import DeploymentJob
         from feclora.deployment.client_service import _select_unattended_multicast_interface
         payload = {
@@ -366,6 +366,9 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 job, "52:54:00:12:34:57",
             )
         self.assertEqual(resolved["path"], DEVICE)
+        # Multicast and unicast use the same locally validated destructive
+        # confirmation; Server identity is authenticated by the TLS channel.
+        self.assertEqual("ERASE " + resolved["path"], "ERASE " + DEVICE)
         with mock.patch("feclora.deployment.client_service.subprocess.run", return_value=SimpleNamespace(
             returncode=0, stdout="239.10.10.10 dev enp2s0 src 192.0.2.22\\n",
         )) as route:
