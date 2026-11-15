@@ -364,8 +364,15 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 "detail": "restoring", "progress": {"completed_bytes": 4096},
             }), encoding="utf-8")
             status_path.chmod(0o600)
+            info = os.stat(status_path, follow_symlinks=False)
+            root_owned_info = SimpleNamespace(
+                st_mode=info.st_mode, st_uid=0, st_size=info.st_size,
+                st_dev=info.st_dev, st_ino=info.st_ino,
+            )
             with mock.patch("feclora.deployment.client_service.CLIENT_JOB_DIRECTORY", root), \
-                 mock.patch("feclora.deployment.client_service._ensure_directory"):
+                 mock.patch("feclora.deployment.client_service._ensure_directory"), \
+                 mock.patch("feclora.deployment.client_service.os.lstat", return_value=root_owned_info), \
+                 mock.patch("feclora.deployment.client_service.os.fstat", return_value=root_owned_info):
                 mark_client_job_interrupted(JOB_ID)
             status = json.loads(status_path.read_text(encoding="utf-8"))
             self.assertEqual(status["phase"], "interrupted")
@@ -384,8 +391,15 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             }
             status_path.write_text(json.dumps(original), encoding="utf-8")
             status_path.chmod(0o600)
+            info = os.stat(status_path, follow_symlinks=False)
+            root_owned_info = SimpleNamespace(
+                st_mode=info.st_mode, st_uid=0, st_size=info.st_size,
+                st_dev=info.st_dev, st_ino=info.st_ino,
+            )
             with mock.patch("feclora.deployment.client_service.CLIENT_JOB_DIRECTORY", root), \
-                 mock.patch("feclora.deployment.client_service._ensure_directory"):
+                 mock.patch("feclora.deployment.client_service._ensure_directory"), \
+                 mock.patch("feclora.deployment.client_service.os.lstat", return_value=root_owned_info), \
+                 mock.patch("feclora.deployment.client_service.os.fstat", return_value=root_owned_info):
                 mark_client_job_interrupted(JOB_ID)
             self.assertEqual(json.loads(status_path.read_text(encoding="utf-8")), original)
 
