@@ -82,6 +82,58 @@ class LocalOperationStoreTests(unittest.TestCase):
         with self.assertRaisesRegex(LocalOperationError, "normalized"):
             validate_definition(definition)
 
+    def test_shared_deployment_bundle_is_a_valid_durable_operation(self):
+        job = {
+            "schema_version": 1, "job_id": "00000000-0000-4000-8000-000000000010",
+            "operation": "restore", "image_id": "fleet-image", "target_type": "disk",
+            "authorized_clients": ["02:00:00:00:00:01", "02:00:00:00:00:02"],
+            "network_interface": "enp2s0", "transport": "multicast",
+            "multicast_group": "239.10.10.10", "multicast_port": 9000,
+            "start_policy": "automatic", "repository_id": "primary",
+            "target_bindings": {
+                "02:00:00:00:00:01": {"wwn": "naa.00000001", "serial": "disk-1"},
+                "02:00:00:00:00:02": {"wwn": "naa.00000002", "serial": "disk-2"},
+            },
+            "confirm_destructive": True,
+        }
+        definition = {
+            "schema_version": 1, "operation_id": "00000000-0000-4000-8000-000000000011",
+            "action": "build_deployment_bundle",
+            "params": {
+                "base_iso_path": "/var/tmp/feclora-live.iso",
+                "image_id": "fleet-image", "deployment_job": job,
+                "bundle_name": "fleet-bundle", "repository_id": "primary",
+            },
+        }
+        validated = validate_definition(definition)
+        self.assertEqual(validated["action"], "build_deployment_bundle")
+        self.assertEqual(validated["params"]["deployment_job"]["job_id"], job["job_id"])
+
+    def test_shared_deployment_bundle_rejects_job_for_another_repository(self):
+        job = {
+            "schema_version": 1, "job_id": "00000000-0000-4000-8000-000000000012",
+            "operation": "restore", "image_id": "fleet-image", "target_type": "disk",
+            "authorized_clients": ["02:00:00:00:00:01", "02:00:00:00:00:02"],
+            "network_interface": "enp2s0", "transport": "multicast",
+            "multicast_group": "239.10.10.10", "multicast_port": 9000,
+            "start_policy": "automatic", "repository_id": "other",
+            "target_bindings": {
+                "02:00:00:00:00:01": {"wwn": "naa.00000001", "serial": "disk-1"},
+                "02:00:00:00:00:02": {"wwn": "naa.00000002", "serial": "disk-2"},
+            },
+            "confirm_destructive": True,
+        }
+        with self.assertRaisesRegex(LocalOperationError, "selected image and repository"):
+            validate_definition({
+                "schema_version": 1, "operation_id": "00000000-0000-4000-8000-000000000013",
+                "action": "build_deployment_bundle",
+                "params": {
+                    "base_iso_path": "/var/tmp/feclora-live.iso",
+                    "image_id": "fleet-image", "deployment_job": job,
+                    "bundle_name": "fleet-bundle", "repository_id": "primary",
+                },
+            })
+
     def test_enforces_state_machine_and_hash_chain(self):
         with tempfile.TemporaryDirectory() as root:
             store = LocalOperationStore(os.path.join(root, "jobs"))
