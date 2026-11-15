@@ -185,7 +185,8 @@ def import_p2v_qcow2(
             info = json.loads(info_result.stdout)
         except (TypeError, json.JSONDecodeError) as exc:
             raise P2VImportError("qemu-img returned invalid source metadata") from exc
-        format_data = (info.get("format-specific") or {}).get("data", {}) if isinstance(info, dict) else {}
+        format_specific = info.get("format-specific") if isinstance(info, dict) else None
+        format_data = format_specific.get("data", {}) if isinstance(format_specific, dict) else {}
         external_data_file = info.get("data-file") if isinstance(info, dict) else None
         if isinstance(format_data, dict):
             external_data_file = external_data_file or format_data.get("data-file")
