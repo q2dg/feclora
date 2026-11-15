@@ -967,10 +967,13 @@ class DeploymentControlServer:
         return self.collect_results(timeout=result_timeout)
 
     def collect_results(self, *, timeout: float = 86400) -> dict[str, str]:
-        results: dict[str, str] = {}
+        """Collect each Client result independently, without serial socket waits."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         with self._lock:
             sessions = tuple(self._sessions.items())
-        for mac, tls_socket in sessions:
+
+        def collect_one(mac: str, tls_socket: Any) -> tuple[str, str]:
             record = next(
                 (item for item in self.coordinator.clients() if item.mac_address == mac), None,
             )
@@ -978,8 +981,7 @@ class DeploymentControlServer:
                 ClientState.SUCCEEDED, ClientState.FAILED, ClientState.DISCONNECTED,
             }:
                 tls_socket.close()
-                results[mac] = record.state.value
-                continue
+                return mac, record.state.value
             try:
                 tls_socket.settimeout(timeout)
                 message = receive_control_message(tls_socket)
@@ -998,15 +1000,24 @@ class DeploymentControlServer:
                 if not isinstance(detail, str) or len(detail) > 512:
                     raise DeploymentControlError("client result detail is invalid")
                 self.coordinator.report_result(mac, success=message["success"], detail=detail)
-                results[mac] = "succeeded" if message["success"] else "failed"
+                return mac, "succeeded" if message["success"] else "failed"
             except (OSError, DeploymentControlError, CoordinatorError, TimeoutError) as exc:
                 try:
                     self.coordinator.disconnect_client(mac, f"result not received: {exc}")
                 except CoordinatorError:
                     pass
-                results[mac] = "disconnected"
+                return mac, "disconnected"
             finally:
                 tls_socket.close()
+
+        results: dict[str, str] = {}
+        if not sessions:
+            return results
+        with ThreadPoolExecutor(max_workers=len(sessions), thread_name_prefix="feclora-results") as pool:
+            futures = [pool.submit(collect_one, mac, tls_socket) for mac, tls_socket in sessions]
+            for future in as_completed(futures):
+                mac, result = future.result()
+                results[mac] = result
         return results
 
     def cancel(self) -> None:
