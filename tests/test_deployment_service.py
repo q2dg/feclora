@@ -313,6 +313,46 @@ class DeploymentServiceCommandTests(unittest.TestCase):
             os.fstat(lease_fd)
 
 
+    def test_remote_repository_disappearing_after_lease_prevents_service_start(self):
+        lease_fd = os.open(os.devnull, os.O_RDONLY)
+        self.addCleanup(lambda: os.close(lease_fd) if _fd_is_open(lease_fd) else None)
+        service = make_service()
+        service.job.repository_id = "images"
+        service.config = SimpleNamespace(bind_address="192.0.2.10", port=9443)
+        service._lock_fd = None
+        service._pxe_state = None
+        service.firewall = SimpleNamespace(on_change=None)
+        service._firewall_changed = lambda _state: None
+        service._write_firewall_state = lambda _state: None
+        service.journal = mock.Mock()
+        service._acquire_instance_lock = lambda: None
+        service.ipc = mock.Mock()
+        service.control = mock.Mock()
+        manager = mock.Mock()
+        manager.acquire_usage_lock.return_value = lease_fd
+        manager.resolve.side_effect = FileNotFoundError("remote mount disappeared")
+
+        with mock.patch(
+            "feclora.storage.repository_manager.RemoteRepositoryManager",
+            return_value=manager,
+        ), mock.patch(
+            "feclora.deployment.service.recover_stale_runtime_artifacts",
+        ):
+            with self.assertRaisesRegex(
+                DeploymentServiceError,
+                "cannot be leased and verified for this restore",
+            ):
+                service.run()
+
+        manager.acquire_usage_lock.assert_called_once_with("images")
+        manager.resolve.assert_called_once_with("images", write=False)
+        service.control.start.assert_not_called()
+        service.ipc.start.assert_not_called()
+        service.control.stop.assert_called_once()
+        service.ipc.stop.assert_called_once()
+        with self.assertRaises(OSError):
+            os.fstat(lease_fd)
+
     def test_stale_private_root_socket_is_removed_after_lock_is_held(self):
         info = SimpleNamespace(
             st_mode=stat.S_IFSOCK | 0o600, st_uid=0, st_dev=12, st_ino=34,
