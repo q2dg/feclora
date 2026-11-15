@@ -18,6 +18,7 @@ from feclora.deployment.artifact_transfer import (
  )
 from feclora.deployment.control import LocalTargetApproval, receive_control_message, send_control_message
 from feclora.deployment.job import DeploymentJob
+from feclora.deployment.restore_execution import execute_restore
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
 from feclora.storage.disk_restore import DiskRestoreError, restore_disk
 from feclora.storage.partition_restore import PartitionRestoreError, restore_partition
@@ -92,19 +93,14 @@ def execute_client_image_job(
                 tls_socket, repository, expected_image_id=job.image_id,
                 progress_callback=transfer_progress_callback,
             )
-            restore_function = (restore_logical_volume if job.target_type == "logical_volume" else restore_partition if job.target_type == "partition" else restore_disk)
-            restore_kwargs = {
-                "confirmation": f"ERASE {local_device_path}",
-                "age_identity_file": age_identity_file,
-                "progress_callback": progress_callback,
-                "executables": executables,
-            }
-            if job.target_type == "disk" and pre_write_callback is not None:
-                restore_kwargs["pre_write_callback"] = pre_write_callback
-            if job.target_type == "logical_volume":
-                restore_kwargs["inventory_provider"] = collect_inventory
-            restore_function(
-                manifest_path, repository, local_device_path, **restore_kwargs,
+            execute_restore(
+                manifest_path, repository, local_device_path,
+                target_type=job.target_type,
+                confirmation=f"ERASE {local_device_path}",
+                age_identity_file=age_identity_file,
+                progress_callback=progress_callback,
+                pre_write_callback=pre_write_callback,
+                executables=executables,
             )
             return True, f"image {job.image_id} restored and destination read-back verified"
         except (ImageTransferError, DiskRestoreError, PartitionRestoreError, LogicalVolumeRestoreError, OSError) as exc:

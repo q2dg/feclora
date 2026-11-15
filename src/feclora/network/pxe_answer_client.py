@@ -22,7 +22,7 @@ from feclora.network.pxe_answer import MAX_ANSWER_BYTES, PXEAnswerError, parse_p
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.restore_profile import RestoreTargetSelector
 from feclora.storage.inventory import collect_inventory
-from feclora.storage.disk_restore import restore_disk
+from feclora.deployment.restore_execution import execute_restore, RestoreExecutionError
 from feclora.storage.operation_log import operation_record, record_progress
 from feclora.network.pxe_boot_request import (
     PXEBootRequestError,
@@ -478,14 +478,15 @@ def execute_live_pxe_restore(
                     _revalidate_target(selector, target_path)
 
                 try:
-                    restore_disk(
+                    execute_restore(
                         str(manifest_path), str(repository), target_path,
+                        target_type="disk",
                         confirmation=f"ERASE {target_path}",
                         age_passphrase=age_passphrase,
                         progress_callback=record_progress,
                         pre_write_callback=before_write,
                     )
-                except Exception as exc:
+                except (RestoreExecutionError, Exception) as exc:
                     raise PXEAnswerClientError(f"PXE whole-disk restore failed: {exc}") from exc
         finally:
             age_passphrase = None
