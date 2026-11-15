@@ -383,7 +383,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             if job.transport == "multicast":
                 operation = lambda progress: execute_multicast_restore(
                     job, tls_socket, approval,
-                    server_identity=config.server_identity,
+                    
                     repository=config.repository,
                     firewall=PXEFirewall(),
                     network_interface=state.get("multicast_interface"),
@@ -410,7 +410,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 level = None
             operation = lambda progress: execute_client_image_job(
                 job, tls_socket, approval,
-                server_identity=config.server_identity,
+                
                 repository=config.repository,
                 age_identity_file=config.age_identity_file,
                 age_recipients_file=state.get("age_recipients_file"),
@@ -436,7 +436,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
 
         job, success, detail = join_deployment(
             config.host, config.port, context,
-            expected_server_identity=config.server_identity,
+            expected_
             mac_address=config.mac_address,
             job_id=job_id,
             prepare_local_target=prepare_local_target,
