@@ -98,14 +98,13 @@ the publisher.
 
 ## Quality and localization status
 
-The frontend's direct dependencies are pinned to exact versions in
-`webui/package.json`, and CI runs an npm dependency audit. A committed
-`webui/package-lock.json` is still required to pin the complete transitive
-dependency graph and make frontend installation fully reproducible; until
-that file exists, `build/build-webui.sh` falls back to `npm install` and
-builds are not fully dependency-reproducible. Generate and review the lockfile
-with the project's supported Node/npm toolchain, then verify `npm ci` from a
-clean checkout before removing the fallback.
+The frontend's direct dependencies are pinned in `webui/package.json`, and
+the complete transitive dependency graph is committed in
+`webui/package-lock.json` (lockfile version 3). CI and
+`build/build-webui.sh` install from that lockfile with `npm ci`; the build
+script fails if the lockfile is missing rather than silently resolving a new
+dependency graph. Keep the lockfile synchronized with intentional dependency
+changes and verify clean-checkout `npm ci` builds.
 
 Dependabot proposes updates for npm dependencies and GitHub Actions. CodeQL
 runs scheduled and on changes for Python and JavaScript/TypeScript. These
