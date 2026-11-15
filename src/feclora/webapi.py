@@ -1436,7 +1436,7 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
             validated_answer = report["job"]
             raw_answer = (json.dumps(
                 validated_answer, sort_keys=True, separators=(",", ":"),
-            ) + "\\n").encode("utf-8")
+            ) + "\n").encode("utf-8")
         except Exception as exc:
             raise WebAPIError(f"cannot reload canonical shared DeploymentJob for publication: {exc}") from exc
     manager = _pxe_service_manager()
