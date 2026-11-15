@@ -14,8 +14,8 @@ journal and may send best-effort operational telemetry to the Server; those
 reports are not authenticated proof of a restore result.
 
 The canonical remote deployment definition is a schema-v1 DeploymentJob
-JSON document. Multicast jobs created from the ISO/Live workflow and new
-unattended PXE jobs use this same contract. The schema keeps boot method and
+JSON document. Interactive ISO/Live jobs and unattended shared-answer jobs
+use this same contract. The schema keeps boot method and
 data transport as separate concepts: `boot_method` describes how the Live
 system started, while `transport` describes how image data is delivered.
 The shared schema-v1 answer path submits each Client to the same persistent
