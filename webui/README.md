@@ -27,8 +27,7 @@ No arbitrary shell or argv is exposed by the Feclora API.
 Remote whole-disk and partition cloning are available as distinct unicast jobs in the
 existing persistent Server/Client lifecycle. The Server selects a read-only
 source disk and selects the Client MAC for this job; the Client selects and
-confirms its local destination. The Client verifies the Server certificate;
-the Client verifies the Server certificate. Deployment jobs use the reported
+confirms its local destination. The Client verifies the Server certificate. Deployment jobs use the reported
 Client MAC address for selection and status association, alongside the durable job journal and managed
 services. Clone streams directly between block devices through the existing
 bounded remote-clone engine; it does not use UDPcast or create a second
