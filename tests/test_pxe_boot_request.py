@@ -127,13 +127,17 @@ class PXEBootRequestTests(unittest.TestCase):
                 f"feclora.pxe_mode=interactive feclora.pxe_job_id={JOB_ID}"
             )
 
-    def test_normal_boot_script_offers_interactive_and_answer_modes_only(self):
+    def test_normal_boot_script_starts_interactive_live_directly(self):
         script = render_ipxe_script("192.0.2.10", 8080)
-        self.assertIn("item interactive", script)
-        self.assertIn("item unattended", script)
-        self.assertIn("unattended-answer.ipxe", script)
+        self.assertIn("dhcp\\n", script)
+        self.assertIn("kernel http://192.0.2.10:8080/live/vmlinuz", script)
+        self.assertIn("root=live:http://192.0.2.10:8080/live/squashfs.img", script)
         self.assertIn("feclora.pxe_mode=interactive", script)
-        self.assertNotIn("feclora.pxe_control_port=", script)
+        self.assertIn("initrd http://192.0.2.10:8080/live/initrd.img", script)
+        self.assertTrue(script.rstrip().endswith("boot"))
+        self.assertNotIn("menu ", script)
+        self.assertNotIn("unattended", script)
+        self.assertNotIn("chain ", script)
 
     def test_answer_boot_script_contains_only_job_and_answer_url(self):
         script = render_unattended_answer_ipxe_script(
