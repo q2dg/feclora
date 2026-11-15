@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 import uuid
 from pathlib import Path
 
@@ -41,6 +42,20 @@ class PXEAnswerStoreTests(unittest.TestCase):
             self.assertTrue(revoke_pxe_answer(tmp, self.JOB_ID))
             self.assertFalse(current.exists())
             self.assertFalse(revoke_pxe_answer(tmp, self.JOB_ID))
+
+    def test_alias_publication_failure_rolls_back_job_answer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            os.chmod(tmp, 0o755)
+            with patch(
+                "feclora.network.pxe_answer_store._set_current_answer_alias",
+                side_effect=PXEAnswerStoreError("alias update failed"),
+            ):
+                with self.assertRaisesRegex(PXEAnswerStoreError, "alias update failed"):
+                    publish_pxe_answer(
+                        tmp, self.JOB_ID, self.answer(), address="192.0.2.10",
+                    )
+            self.assertFalse((Path(tmp) / "answers" / self.JOB_ID).exists())
+            self.assertFalse((Path(tmp) / "unattended-answer.json").exists())
 
     def test_rejects_invalid_answer_and_noncanonical_job_id(self):
         with tempfile.TemporaryDirectory() as tmp:
