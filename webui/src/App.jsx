@@ -62,6 +62,7 @@ export default function App() {
   const [extractPartitionResult, setExtractPartitionResult] = useState(null);
   const [extractLayout, setExtractLayout] = useState(null);
   const [browsePath, setBrowsePath] = useState("/");
+  const [browseSessionId, setBrowseSessionId] = useState("");
   const [browseResult, setBrowseResult] = useState(null);
   const [restoreLayoutPreview, setRestoreLayoutPreview] = useState(null);
   const [images, setImages] = useState([]);
@@ -446,7 +447,7 @@ export default function App() {
 
   const selectImageRepository = async (id) => {
     setSelectedRepositoryId(id); setRepositoryImages([]); setImageVerification({});
-    setExtractLayout(null); setExtractPartitionSelector(""); setExtractPartitionResult(null); setBrowsePath("/"); setBrowseResult(null);
+    setExtractLayout(null); setExtractPartitionSelector(""); setExtractPartitionResult(null); setBrowsePath("/"); setBrowseResult(null); setBrowseSessionId("");
     setRestoreLayoutPreview(null);
     if (!id) return;
     setBusy(true); setError(""); setNotice("");
@@ -606,8 +607,10 @@ export default function App() {
     try {
       const result = await callFeclora("browse_image", {
         image_id: extractImageId, partition_index: partitionIndex, path,
+        ...(browseSessionId ? { session_id: browseSessionId } : {}),
         ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
       });
+      setBrowseSessionId(result.session_id);
       setBrowsePath(result.path);
       setBrowseResult(result);
     } catch (err) { setError(err?.message || String(err)); }
@@ -621,6 +624,7 @@ export default function App() {
     try {
       const result = await callFeclora("browse_image", {
         image_id: extractImageId, partition_index: partitionIndex, path, download: true,
+        ...(browseSessionId ? { session_id: browseSessionId } : {}),
         ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
       });
       const binary = Uint8Array.from(atob(result.content_base64), (character) => character.charCodeAt(0));
