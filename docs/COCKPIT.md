@@ -328,7 +328,7 @@ artifacts are checked for digest, virtual capacity and external backing/data
 dependencies before inspection. Filesystem access uses the isolated libguestfs
 appliance with read-only drives and read-only mounts. Feclora does not attach a
 host loop/NBD device or mount guest filesystems in the host namespace. Symbolic
-links are not followed; directory listings are bounded to 1000 entries.
+links are not followed; directory listings are bounded to 1000 entries. Decoded RAW images are cached in a private root-owned session directory so navigation does not repeatedly decompress the whole disk; inactive sessions and their cached data are removed by systemd-tmpfiles after 24 hours.
 Supported filesystem types are ext2/3/4, XFS, NTFS, FAT variants, exFAT and
 Btrfs, subject to the filesystem drivers available inside libguestfs. LVM,
 LUKS-encrypted partitions, multi-device Btrfs and unsupported filesystem
