@@ -10,6 +10,13 @@ from feclora.storage.qcow2_disk_capture import capture_qcow2_disk
 
 
 class QCOW2DiskCaptureTests(unittest.TestCase):
+    def test_rejects_path_like_image_identifier_before_conversion(self):
+        with tempfile.TemporaryDirectory() as repository:
+            with patch("feclora.storage.qcow2_disk_capture.convert_block_device_to_qcow2") as convert:
+                with self.assertRaisesRegex(ValueError, "safe identifier"):
+                    capture_qcow2_disk("/dev/fake", "../outside", repository)
+            convert.assert_not_called()
+
     def test_capture_publishes_qcow2_as_a_normal_disk_image_set(self):
         with tempfile.TemporaryDirectory() as repository:
             def convert(_source, output, **_kwargs):
