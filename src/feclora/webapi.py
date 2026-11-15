@@ -1387,9 +1387,9 @@ def _import_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     # the actual UUID is parsed and validated from the document itself.
     reader_params = {"job_id": "00000000-0000-4000-8000-000000000000", **params}
     raw = _read_pxe_answer_source(reader_params)
+    from feclora.deployment.job import DeploymentJob, JobValidationError
     try:
         document = json.loads(raw.decode("utf-8"), object_pairs_hook=_reject_duplicates)
-        from feclora.deployment.job import DeploymentJob, JobValidationError
         job = DeploymentJob.from_dict(document)
     except (UnicodeDecodeError, json.JSONDecodeError, JobValidationError, WebAPIError) as exc:
         raise WebAPIError(f"DeploymentJob import validation failed: {exc}") from exc
