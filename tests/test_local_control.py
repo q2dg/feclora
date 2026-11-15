@@ -44,6 +44,10 @@ class LocalControlProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(LocalControlError, "unsupported"):
             _receive(FakeSocket(frame({"action": "exec", "params": {"command": "id"}})))
 
+    def test_rejects_unhashable_action(self):
+        with self.assertRaisesRegex(LocalControlError, "unsupported"):
+            _receive(FakeSocket(frame({"action": [], "params": {}})))
+
     def test_rejects_extra_request_fields(self):
         with self.assertRaisesRegex(LocalControlError, "exactly"):
             _receive(FakeSocket(frame({"action": "status", "params": {}, "uid": 0})))
@@ -69,6 +73,10 @@ class LocalControlProtocolTests(unittest.TestCase):
     def test_client_rejects_non_string_action_before_connecting(self):
         with self.assertRaisesRegex(LocalControlError, "unsupported"):
             local_control_request("/unused/socket", [], {})
+
+    def test_client_rejects_falsey_non_dict_parameters_before_connecting(self):
+        with self.assertRaisesRegex(LocalControlError, "unsupported"):
+            local_control_request("/unused/socket", "status", [])
 
     def test_client_enforces_exact_arm_parameters_before_connecting(self):
         with self.assertRaisesRegex(LocalControlError, "exactly job_id"):
