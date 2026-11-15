@@ -880,7 +880,6 @@ class CoordinatorControlTests(unittest.TestCase):
 
     def test_client_disconnect_before_terminal_result_is_recorded_as_disconnected(self):
         coordinator, server, fake = self._server(make_job(image_id="golden"))
-        coordinator.mark_running(MAC)
         fake.settimeout = Mock()
         fake.close = Mock()
         with patch(
