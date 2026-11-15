@@ -140,6 +140,8 @@ class P2VConversionTests(unittest.TestCase):
         def runner(argv, **kwargs):
             if argv[1:3] == ["--getsize64", "/dev/feclora-test"]:
                 return SimpleNamespace(returncode=0, stdout="4096", stderr="")
+            if argv[1:3] == ["--getss", "/dev/feclora-test"]:
+                return SimpleNamespace(returncode=0, stdout="512", stderr="")
             if argv[1] == "convert":
                 with open(argv[-1], "wb") as stream:
                     stream.write(b"payload")
