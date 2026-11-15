@@ -1860,5 +1860,30 @@ class ConcurrentResultCollectionTests(unittest.TestCase):
         self.assertEqual(states[mac2], ClientState.SUCCEEDED)
 
 
+class CancelControlTests(unittest.TestCase):
+    def test_socket_close_failure_does_not_skip_peer_cancellation(self):
+        coordinator = Mock()
+        coordinator.job = SimpleNamespace(job_id=JOB_ID)
+
+        class CloseFailureSocket:
+            def close(self):
+                raise OSError("socket already closed")
+
+        first = CloseFailureSocket()
+        second = Mock()
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server._lock = threading.RLock()
+        server._sessions = {MAC: first, "52:54:00:12:34:57": second}
+
+        with patch("feclora.deployment.control.send_control_message") as send:
+            server.cancel()
+
+        coordinator.cancel.assert_called_once_with()
+        self.assertEqual(send.call_count, 2)
+        second.close.assert_called_once_with()
+
+
+
 if __name__ == "__main__":
     unittest.main()
