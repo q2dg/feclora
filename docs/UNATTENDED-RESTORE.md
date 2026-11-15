@@ -9,7 +9,9 @@ DHCP and Caddy are not external infrastructure in this architecture.
 
 The PXE Server serves the Live kernel, initramfs and squashfs and publishes
 the JSON answer file through Caddy. It does not mount repositories, proxy
-image data, execute restoration, or receive client operation results.
+image data or execute restoration. The Live Client retains its local operation
+journal and may send best-effort operational telemetry to the Server; those
+reports are not authenticated proof of a restore result.
 
 The canonical remote deployment definition is a schema-v1 DeploymentJob
 JSON document. Multicast jobs created from the ISO/Live workflow and new
