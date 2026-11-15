@@ -41,6 +41,65 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _read_sidecar(path: Path) -> dict[str, Any]:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags)
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 64 * 1024:
+            raise P2VImportError("P2V metadata must be a regular file no larger than 64 KiB")
+        with os.fdopen(fd, "r", encoding="utf-8") as stream:
+            fd = -1
+            value = json.load(stream)
+    except P2VImportError:
+        raise
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise P2VImportError("cannot safely read P2V metadata") from exc
+    finally:
+        if "fd" in locals() and fd >= 0:
+            os.close(fd)
+    if not isinstance(value, dict):
+        raise P2VImportError("P2V metadata must be a JSON object")
+    return value
+
+
+def _copy_verified_source(source: Path, destination: Path, expected_size: int, expected_digest: str) -> None:
+    source_fd = None
+    destination_fd = None
+    digest = hashlib.sha256()
+    size = 0
+    try:
+        source_fd = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        source_info = os.fstat(source_fd)
+        if not stat.S_ISREG(source_info.st_mode) or source_info.st_size != expected_size:
+            raise P2VImportError("P2V source changed or is not a regular file")
+        destination_fd = os.open(
+            destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600,
+        )
+        with os.fdopen(source_fd, "rb") as incoming, os.fdopen(destination_fd, "wb") as outgoing:
+            source_fd = destination_fd = None
+            while True:
+                chunk = incoming.read(1024 * 1024)
+                if not chunk:
+                    break
+                outgoing.write(chunk)
+                digest.update(chunk)
+                size += len(chunk)
+            outgoing.flush()
+            os.fsync(outgoing.fileno())
+    except P2VImportError:
+        raise
+    except OSError as exc:
+        raise P2VImportError(f"cannot stage P2V source safely: {exc}") from exc
+    finally:
+        if source_fd is not None:
+            os.close(source_fd)
+        if destination_fd is not None:
+            os.close(destination_fd)
+    if size != expected_size or digest.hexdigest() != expected_digest:
+        raise P2VImportError("P2V source changed or failed SHA-256 verification while staging")
+
+
 def import_p2v_qcow2(
     repository: str | os.PathLike[str],
     source_image_id: str,
@@ -73,15 +132,9 @@ def import_p2v_qcow2(
     source = repo / f"{source_image_id}.qcow2"
     sidecar = repo / f"{source_image_id}.p2v.json"
     try:
-        for path in (source, sidecar):
-            info = os.lstat(path)
-            if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
-                raise P2VImportError("P2V source and metadata must be regular files")
-        metadata = json.loads(sidecar.read_text(encoding="utf-8"))
+        metadata = _read_sidecar(sidecar)
     except P2VImportError:
         raise
-    except (OSError, json.JSONDecodeError) as exc:
-        raise P2VImportError("cannot read committed P2V image and metadata") from exc
     required_metadata = {
         "schema_version", "image_id", "format", "source_device", "virtual_size_bytes",
         "logical_sector_size", "file_size_bytes", "qcow2_sha256", "verified", "bootability_note",
@@ -93,8 +146,10 @@ def import_p2v_qcow2(
             or not isinstance(metadata.get("source_device"), str)
             or not metadata["source_device"].startswith("/dev/")
             or not isinstance(metadata.get("bootability_note"), str)
-            or metadata.get("file_size_bytes") != source.stat().st_size
-            or metadata.get("qcow2_sha256") != _sha256(source)):
+            or isinstance(metadata.get("file_size_bytes"), bool)
+            or not isinstance(metadata.get("file_size_bytes"), int) or metadata.get("file_size_bytes") <= 0
+            or not isinstance(metadata.get("qcow2_sha256"), str)
+            or len(metadata.get("qcow2_sha256")) != 64):
         raise P2VImportError("P2V sidecar does not match the QCOW2 source")
     virtual_size = metadata.get("virtual_size_bytes")
     if isinstance(virtual_size, bool) or not isinstance(virtual_size, int) or virtual_size <= 0:
@@ -112,14 +167,16 @@ def import_p2v_qcow2(
         available_bytes = shutil.disk_usage(repo).free
     except OSError as exc:
         raise P2VImportError(f"cannot check P2V import repository capacity: {exc}") from exc
-    required_bytes = virtual_size + 64 * 1024 * 1024
+    required_bytes = metadata["file_size_bytes"] + virtual_size + 64 * 1024 * 1024
     if available_bytes < required_bytes:
         raise P2VImportError(f"insufficient repository capacity: need {required_bytes} bytes, have {available_bytes}")
     stage = Path(tempfile.mkdtemp(prefix=".feclora-p2v-import-", dir=repo))
     os.chmod(stage, 0o700)
     try:
-        _run([qemu_img, "check", "-f", "qcow2", str(source)], runner)
-        info_result = _run([qemu_img, "info", "--output=json", str(source)], runner)
+        staged_source = stage / "source.qcow2"
+        _copy_verified_source(source, staged_source, metadata["file_size_bytes"], metadata["qcow2_sha256"])
+        _run([qemu_img, "check", "-f", "qcow2", str(staged_source)], runner)
+        info_result = _run([qemu_img, "info", "--output=json", str(staged_source)], runner)
         try:
             info = json.loads(info_result.stdout)
         except (TypeError, json.JSONDecodeError) as exc:
@@ -130,7 +187,7 @@ def import_p2v_qcow2(
                 or info.get("data-file") or info.get("encrypted") is True):
             raise P2VImportError("QCOW2 format, dependencies or virtual capacity disagree with its sidecar")
         raw_path = stage / names[0]
-        _run([qemu_img, "convert", "-p", "-f", "qcow2", "-O", "raw", str(source), str(raw_path)], runner)
+        _run([qemu_img, "convert", "-p", "-f", "qcow2", "-O", "raw", str(staged_source), str(raw_path)], runner)
         raw_info = os.lstat(raw_path)
         if not stat.S_ISREG(raw_info.st_mode) or stat.S_ISLNK(raw_info.st_mode) or raw_info.st_size != virtual_size:
             raise P2VImportError("raw conversion did not preserve the declared virtual disk capacity")
