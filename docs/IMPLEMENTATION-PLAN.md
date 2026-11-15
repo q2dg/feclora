@@ -444,7 +444,7 @@ not implementation authorization.
   workflow, not an ISO build performed by the assistant or an implicit
   persistence target.
 
-### Documentation studies only — do not implement yet
+### Follow-up implementation scope
 
 - [ ] **Incremental and differential images:** research block-level change
   tracking, dependency-chain integrity, retention, chain compaction, crash
