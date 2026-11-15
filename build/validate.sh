@@ -59,7 +59,7 @@ for action in check_capture_filesystem verify_image inspect_image_layout export_
   if ! grep -q "$action" "$ROOT_DIR/kickstart/feclora-live.ks"; then
     fail "Kickstart Cockpit API wrapper does not allow the $action action."
   fi
-  if ! grep -q "\\"$action\\"" "$ROOT_DIR/webui/src/api.js"; then
+  if ! grep -Fq '"'"$action"'"' "$ROOT_DIR/webui/src/api.js"; then
     fail "Cockpit API client does not expose the $action action."
   fi
 done
