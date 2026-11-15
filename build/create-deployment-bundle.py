@@ -69,7 +69,7 @@ def create_bundle(
         raise BundleWorkflowError("image repository and bundle output must be absolute; output parent must be a real directory")
     if output.exists() or output.is_symlink():
         raise BundleWorkflowError("bundle output already exists")
-    if not re_identifier(repository_id) or not re_identifier(image_id):
+    if not re_identifier(repository_id) or not image_identifier(image_id):
         raise BundleWorkflowError("repository_id or image_id is invalid")
 
     try:
@@ -152,6 +152,11 @@ def create_bundle(
 def re_identifier(value: str) -> bool:
     import re
     return isinstance(value, str) and bool(re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", value))
+
+
+def image_identifier(value: str) -> bool:
+    import re
+    return isinstance(value, str) and bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", value))
 
 
 def main() -> int:
