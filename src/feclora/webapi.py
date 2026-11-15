@@ -1632,6 +1632,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "capture_p2v": {"source", "image_id", "repository_id"},
         "export_p2v_s3": {"image_id", "source_repository_id", "destination_repository_id"},
         "build_recovery_iso": {"base_iso_path", "image_id", "target_wwn", "target_serial", "confirm_build", "repository_id"},
+        "build_deployment_bundle": {"base_iso_path", "image_id", "deployment_job", "bundle_name", "repository_id"},
     }
     if action not in allowed:
         raise WebAPIError("operation parameters do not match the selected operation")
@@ -1649,6 +1650,46 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         raise WebAPIError("operation parameters do not match the selected operation")
     started = time.monotonic()
     _emit({"event": "started", "operation_id": operation_id, "operation": action})
+    if action == "build_deployment_bundle":
+        from feclora.deployment.job import DeploymentJob, JobValidationError
+        from feclora.storage.deployment_bundle import build_deployment_bundle
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        bundle_name = _text(params, "bundle_name", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        base_iso = params.get("base_iso_path")
+        if (not isinstance(base_iso, str) or not os.path.isabs(base_iso)
+                or os.path.normpath(base_iso) != base_iso or len(base_iso) > 4096
+                or not base_iso.lower().endswith(".iso")):
+            raise WebAPIError("base_iso_path must be an absolute path to a Live .iso file")
+        try:
+            job = DeploymentJob.from_dict(params.get("deployment_job"))
+        except JobValidationError as exc:
+            raise WebAPIError(f"deployment_job is invalid: {exc}") from exc
+        repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}")
+        if (job.operation != "restore" or job.image_id != image_id
+                or job.repository_id != repository_id or job.start_policy != "automatic"):
+            raise WebAPIError("deployment_job must be an automatic restore for the selected image and repository")
+        from feclora.storage.s3_repository_manager import S3RepositoryManager
+        if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
+            raise WebAPIError("deployment bundles require a writable filesystem repository; S3 object storage is not supported")
+        params = dict(params)
+        params["repository_id"] = repository_id
+        with _operation_repository_context(params, write=True, image_id=image_id) as repository:
+            manifest_path = _image_manifest(image_id, repository)
+            with tempfile.TemporaryDirectory(prefix="feclora-bundle-answer-") as temporary:
+                os.chmod(temporary, 0o700)
+                answer_path = Path(temporary) / "answer.json"
+                fd = os.open(answer_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+                with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                    stream.write(job.to_json())
+                    stream.write("\\n")
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                output_path = repository / bundle_name
+                result = build_deployment_bundle(
+                    base_iso, str(repository), str(manifest_path), str(answer_path),
+                    str(output_path),
+                )
+        result["output_directory"] = str(output_path)
     if action == "build_recovery_iso":
         from feclora.storage.recovery_iso import build_recovery_iso
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
@@ -3441,7 +3482,7 @@ def dispatch(request: Any) -> dict[str, Any]:
     if action == "local_operations":
         return _local_operations(params)
     if action in {"capture_disk", "capture_partition", "capture_p2v", "export_p2v_s3", "restore_disk", "restore_partition", "restore_logical_volume",
-                  "clone_disk", "clone_partition", "extract_partition_image", "build_recovery_iso"}:
+                  "clone_disk", "clone_partition", "extract_partition_image", "build_recovery_iso", "build_deployment_bundle"}:
         return _submit_local_operation({"operation": action, "operation_params": params})
     raise WebAPIError("unsupported Cockpit API action")
 
