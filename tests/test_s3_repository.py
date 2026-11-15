@@ -201,6 +201,33 @@ class S3RepositoryTests(unittest.TestCase):
 
 
 
+    def test_p2v_inventory_and_download_reject_duplicate_metadata_keys(self):
+        payload = b"qcow2-payload"
+        digest = hashlib.sha256(payload).hexdigest()
+        metadata = (
+            '{"schema_version":1,"schema_version":1,"image_id":"server",'
+            '"format":"qcow2","source_device":"/dev/sda","virtual_size_bytes":8192,'
+            '"logical_sector_size":512,"file_size_bytes":13,'
+            '"qcow2_sha256":"' + digest + '","verified":true,"bootability_note":"note"}'
+        ).encode("utf-8")
+        client = _S3()
+        client.objects["server-a/images/server/server.qcow2"] = (
+            payload, {"sha256": digest},
+        )
+        client.objects["server-a/images/server.p2v.json"] = (metadata, {})
+        repository = S3ObjectRepository(_config(), client=client)
+        self.assertEqual(repository.list_p2v_images(), [])
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(S3RepositoryError, "unavailable or invalid"):
+                repository.download_p2v("server", Path(temporary) / "export")
+
+    def test_p2v_inventory_rejects_oversized_metadata(self):
+        client = _S3()
+        client.objects["server-a/images/server.p2v.json"] = (b" " * (64 * 1024 + 1), {})
+        repository = S3ObjectRepository(_config(), client=client)
+        with self.assertRaisesRegex(S3RepositoryError, "cannot read P2V metadata"):
+            repository.list_p2v_images()
+
     def test_p2v_inventory_and_download_reject_metadata_without_geometry(self):
         payload = b"qcow2-payload"
         digest = hashlib.sha256(payload).hexdigest()
