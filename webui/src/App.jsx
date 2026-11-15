@@ -1181,7 +1181,16 @@ export default function App() {
                       <Field t={t} label={t("Bundle directory name")} help="A new directory is created in the selected repository. Existing directories are never overwritten.">
                         <input className="pf-v6-c-form-control" value={bundleName} onChange={(e) => setBundleName(e.target.value)} maxLength={128} required />
                       </Field>
-                      <Field t={t} label={t("Shared schema-v1 DeploymentJob JSON")} help="Paste the exact shared automatic restore answer. It must reference the selected image and repository and contain one stable target binding for every authorized Client.">
+                      <Button type="button" variant="secondary" isDisabled={!pxeJobJson || busy} onClick={() => {
+                        try {
+                          const job = JSON.parse(pxeJobJson);
+                          setBundleJobJSON(pxeJobJson);
+                          setImageId(job.image_id || "");
+                          if (job.repository_id) selectImageRepository(job.repository_id);
+                          setNotice("Copied the generated shared DeploymentJob into the bundle form. Verify the selected repository and image match.");
+                        } catch (err) { setError(err?.message || String(err)); }
+                      }}>{t("Use generated shared answer")}</Button>
+                      <Field t={t} label={t("Shared schema-v1 DeploymentJob JSON")} help="Use the generated shared answer above or paste the exact automatic restore JSON. It must reference the selected image and repository and contain one stable target binding for every authorized Client.">
                         <textarea className="pf-v6-c-form-control" rows={9} value={bundleJobJSON} onChange={(e) => setBundleJobJSON(e.target.value)} required />
                       </Field>
                     </>}
