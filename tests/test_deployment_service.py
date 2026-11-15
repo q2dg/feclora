@@ -205,6 +205,17 @@ class DeploymentServiceCommandTests(unittest.TestCase):
         self.assertEqual(len(FakeThread.instances), 1)
         self.assertTrue(FakeThread.instances[0].started)
 
+    def test_automatic_arm_is_rejected_after_shutdown_begins(self):
+        client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
+        service = make_service(clients=(client,))
+        service.job.start_policy = "automatic"
+        service._stop_event.set()
+        with mock.patch("feclora.deployment.service.threading.Thread", FakeThread):
+            self.assertFalse(service._maybe_auto_arm())
+        self.assertFalse(service._arm_requested)
+        self.assertIsNone(service._worker)
+        self.assertEqual(FakeThread.instances, [])
+
     def test_automatic_worker_start_failure_is_retryable(self):
         client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
         service = make_service(clients=(client,))
