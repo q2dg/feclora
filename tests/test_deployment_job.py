@@ -64,7 +64,7 @@ class DeploymentJobTests(unittest.TestCase):
         missing_binding["target_bindings"] = {
             "52:54:00:12:34:56": {"wwn": "wwn-client-1", "serial": None}
         }
-        with self.assertRaisesRegex(JobValidationError, "every authorized Client"):
+        with self.assertRaisesRegex(JobValidationError, "every selected Client"):
             DeploymentJob.from_dict(missing_binding)
         manual = dict(base)
         manual["start_policy"] = "manual"
