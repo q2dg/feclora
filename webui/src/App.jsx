@@ -83,8 +83,6 @@ export default function App() {
   const [remoteMulticastPort, setRemoteMulticastPort] = useState("9000");
   const [remoteInterface, setRemoteInterface] = useState("");
   const [remoteJobResult, setRemoteJobResult] = useState(null);
-  const [remoteJobFile, setRemoteJobFile] = useState(null);
-  const [remoteJobJson, setRemoteJobJson] = useState("");
   const [remoteJobId, setRemoteJobId] = useState(crypto.randomUUID());
   const [remoteTargetBindings, setRemoteTargetBindings] = useState("");
   const [operations, setOperations] = useState([]);
@@ -852,8 +850,6 @@ export default function App() {
       setSelectedRepositoryId(job.repository_id || "");
       setRemoteTargetBindings(Object.entries(job.target_bindings || {}).map(([mac, selector]) => [mac, selector.wwn || "", selector.serial || ""].join("|")).join("\\n"));
       setRemoteJobId(crypto.randomUUID());
-      setRemoteJobJson("");
-      setRemoteJobFile(file);
       setNotice(job.boot_method === "pxe" ? "PXE DeploymentJob imported. Its automatic PXE start and DHCP interface were converted to safe ISO/Client defaults; select the Server interface and review transport before saving." : "DeploymentJob imported. Review all fields and the destination network interface before saving.");
       setError("");
     } catch (err) { setError(err?.message || String(err)); }
@@ -862,7 +858,6 @@ export default function App() {
   const downloadRemoteJobDefinition = () => {
     try {
       const json = JSON.stringify(buildRemoteJobPayload(), null, 2) + "\\n";
-      setRemoteJobJson(json);
       const blob = new Blob([json], { type: "application/json" });
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement("a");
@@ -878,7 +873,7 @@ export default function App() {
     try {
       const job = buildRemoteJobPayload();
       const result = await callFeclora("create_deployment_job", { job });
-      setRemoteJobResult(result); setNotice(result.message); await refresh();
+      setRemoteJobResult(result); setRemoteJobId(crypto.randomUUID()); setNotice(result.message); await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -1291,7 +1286,7 @@ export default function App() {
                 </CardBody></Card>
                 <Card><CardBody><form onSubmit={createRemoteJob}>
                   <Field t={t} label={t("operation")}>
-                    <select className="pf-v6-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); if (e.target.value === "save" || e.target.value === "clone") { setRemoteTransport("unicast"); setRemoteTargetType("disk"); } }}>
+                    <select className="pf-v6-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); setRemoteTargetBindings(""); if (e.target.value === "save" || e.target.value === "clone") { setRemoteTransport("unicast"); setRemoteTargetType("disk"); } }}>
                       <option value="restore">Restore a Server image to Clients</option>
                       <option value="save">{t("Capture whole disks from Clients to Server")}</option>
                       <option value="clone">Clone a Server disk or partition directly to multiple Clients</option>
