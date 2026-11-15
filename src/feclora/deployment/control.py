@@ -1013,7 +1013,12 @@ class DeploymentControlServer:
                     pass
                 return mac, "disconnected"
             finally:
-                tls_socket.close()
+                try:
+                    tls_socket.close()
+                except OSError:
+                    # Socket cleanup is best-effort and must not discard this
+                    # Client's result or prevent collection from its peers.
+                    pass
 
         results: dict[str, str] = {}
         if not sessions:
