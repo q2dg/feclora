@@ -30,6 +30,19 @@ authenticated TLS; UDPcast multicast restore; remote disk/partition cloning;
 P2V conversion/export; interactive PXE; and an unattended PXE whole-disk
 answer workflow.
 
+Keep the PXE and deployment contracts distinct:
+
+- **Interactive PXE** boots the same Feclora Live runtime used by the ISO and
+  opens the normal Cockpit interface. The operator selects the repository,
+  image and target Clients in the usual deployment workflow.
+- **Unattended PXE** is a separate answer-file workflow with its own admission,
+  target-binding and operation limitations. Its repository ID is resolved by
+  the Live Client through the normal repository managers; the PXE Server does
+  not proxy image data.
+- **Multicast deployment** remains its own Server/Client deployment transport
+  and coordinator path. The unattended PXE adapter is not a multicast
+  implementation and must not be described as one.
+
 These are source/integration statements, not a claim of production acceptance.
 Image artifacts record byte count and SHA-256. The digest detects artifact
 corruption relative to the manifest; repository access controls and
@@ -52,11 +65,19 @@ authenticated transport form the trust boundary. Age encryption is optional.
   coverage for SSHFS/NFS/SMB and S3, including stale mounts, provider outages,
   interrupted publication, cleanup and service restart. Do not conflate
   provider integration with acceptance against live services.
-- **PXE:** improve unattended answer failure-path coverage and any remaining
-  Server-side result reconciliation only if the product contract requires it.
-  The Live Client keeps its operation history and sends best-effort operational
-  telemetry to the PXE Server. The Server serves boot assets and answer JSON;
-  it does not mount or proxy image repositories or store image data.
+- **PXE and multi-Client deployment:** preserve the separate interactive
+  Live/Cockpit, unattended answer-file and multicast deployment workflows.
+  Expand unattended answer failure-path tests and Server-side result
+  reconciliation only where the product contract requires it. The Live Client
+  keeps its operation history and sends best-effort operational telemetry to
+  the PXE Server. The Server serves boot assets and answer JSON; it does not
+  mount or proxy image repositories or store image data.
+- **Cross-component failure tests:** add automated coverage for a Client
+  disconnecting during restore, service restart during an active operation,
+  remote repository disappearance, loss of connection before receiver
+  confirmation, and partial per-Client multicast outcomes. Keep these as
+  software tests; physical network and multi-host acceptance remains
+  maintainer-owned.
 - **Quality and distribution:** frontend direct dependencies and the
   transitive dependency graph are pinned in `webui/package.json` and
   `webui/package-lock.json`; CI and the ISO frontend build use `npm ci`.
