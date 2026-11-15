@@ -184,6 +184,7 @@ def fetch_live_pxe_answer(
         if request.client_mac not in answer.get("authorized_clients", []):
             raise PXEAnswerClientError("this PXE client MAC is not authorized by the DeploymentJob")
         answer["_client_mac"] = request.client_mac
+        answer["_server_address"] = request.server_address
     _publish_runtime_answer(raw, destination)
     return answer
 
@@ -493,6 +494,75 @@ def execute_live_pxe_restore(
     return target_path
 
 
+def _start_shared_deployment_job(answer: dict[str, Any]) -> str:
+    """Hand the shared answer to the authenticated persistent Client runtime."""
+    from feclora.deployment.runtime_config import load_client_runtime_config
+
+    job_id = answer.get("job_id")
+    host = answer.get("_server_address")
+    if not isinstance(job_id, str) or not isinstance(host, str) or not host:
+        raise PXEAnswerClientError("shared PXE DeploymentJob is missing its job ID or Server address")
+    config = load_client_runtime_config("/etc/feclora/deployment-client.json")
+    request_directory = Path("/var/lib/feclora/client-jobs")
+    try:
+        request_directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        info = os.lstat(request_directory)
+        if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != 0 or info.st_mode & 0o077):
+            raise PXEAnswerClientError("Client job directory must be a private root-owned directory")
+        request_path = request_directory / f"{job_id}.request.json"
+        request = {
+            "schema_version": 1,
+            "job_id": job_id,
+            "host": host,
+            "port": config.port,
+            "device_path": None,
+            "confirmation": None,
+            "compression": "none",
+            "network_interface": None,
+            "igmp_confirmed": False,
+            "image_encrypt": False,
+            "image_sign": False,
+            "unattended": True,
+        }
+        fd = os.open(
+            request_path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+        )
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            import json
+            json.dump(request, stream, sort_keys=True, separators=(",", ":"))
+            stream.write("\\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        directory_fd = os.open(request_directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except FileExistsError as exc:
+        raise PXEAnswerClientError("this shared DeploymentJob already has a local Client request") from exc
+    except OSError as exc:
+        raise PXEAnswerClientError(f"cannot persist shared Client deployment request: {exc}") from exc
+
+    unit = f"feclora-client@{job_id}.service"
+    try:
+        result = subprocess.run(
+            ["/usr/bin/systemctl", "start", "--no-block", unit],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        request_path.unlink(missing_ok=True)
+        raise PXEAnswerClientError(f"cannot start authenticated Client deployment service: {exc}") from exc
+    if result.returncode != 0:
+        request_path.unlink(missing_ok=True)
+        detail = (result.stderr or result.stdout or "systemd rejected the Client job").strip()[:256]
+        raise PXEAnswerClientError(f"cannot start authenticated Client deployment service: {detail}")
+    return unit
+
+
 def main() -> int:
     try:
         _clear_stale_age_passphrase_files()
@@ -503,6 +573,10 @@ def main() -> int:
     if answer is None:
         return 0
     try:
+        if answer.get("schema_version") == 1 and answer.get("boot_method") == "pxe":
+            unit = _start_shared_deployment_job(answer)
+            print(f"Shared unattended DeploymentJob submitted to authenticated Client runtime: {unit}")
+            return 0
         target = execute_live_pxe_restore(answer, client_mac=answer.get("_client_mac"))
     except (PXEAnswerClientError, OSError, RuntimeError, subprocess.SubprocessError) as exc:
         print(f"feclora-pxe-answer: {exc}", file=sys.stderr)
