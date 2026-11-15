@@ -31,7 +31,7 @@ Unattended execution is independent of the boot method. The same schema-v1 Deplo
 - target_bindings maps every client MAC to a stable disk WWN and/or serial number. The client checks that binding before restore and revalidates the disk identity immediately before writing.
 - repository_id references a repository already configured on the Live client; credentials are never embedded in the JSON.
 
-The Live answer downloader submits schema-v1 jobs to the persistent authenticated Client runtime rather than restoring directly. For multicast, each Live Client independently resolves its local interface route to the shared multicast group, validates its own MAC-to-WWN/serial target binding, stages and verifies the same image artifacts, then invokes the shared manifest-backed restore dispatcher at `src/feclora/deployment/restore_execution.py`. The Server starts the single multicast transmission automatically only after every authorized Client is READY. PXE is only the boot/answer transport; the Server sends image data directly to multicast receivers.
+The Live answer downloader submits schema-v1 jobs to the persistent authenticated Client runtime rather than restoring directly. For multicast, each Live Client independently resolves its local interface route to the shared multicast group, validates its own MAC-to-WWN/serial target binding, stages and verifies the same image artifacts, then invokes the shared manifest-backed restore dispatcher at `src/feclora/deployment/restore_execution.py`. The Server starts the single multicast transmission automatically only after every authorized Client is READY. PXE is only an optional Live boot transport; answer discovery also works from ISO/USB through DHCP option 224. The Server sends image data directly to multicast receivers.
 
 The Cockpit PXE panel can generate this JSON, let the operator review and save it, or import a JSON document from local upload, HTTP(S), a configured remote repository, or SCP. The ISO/Client deployment panel can import the same schema-v1 document from a local file, HTTP(S), a mounted and verified repository, S3, or SCP through saved SSH credentials. Both import paths validate the document with `DeploymentJob.from_dict()` before the operator reviews and creates or publishes the job. The legacy schema-v2 PXE answer remains readable for compatibility and retains its original local unicast restore path. New schema-v1 PXE jobs use the shared authenticated deployment control plane and support whole-disk unicast or multicast restore. All clients fetch the same published JSON; `target_bindings` is a shared MAC-to-stable-disk map, not a set of per-client answer files.
 
@@ -47,7 +47,7 @@ the upstream authoritative DHCP server. PXE iPXE handoff passes the
 job-specific answer URL directly to the same Live client.
 
 The PXE Server publishes the Live kernel, initramfs and squashfs and the
-answer JSON through Caddy. It does not proxy storage access, mount remote
+shared answer JSON through Caddy. It does not proxy storage access, mount remote
 repositories or execute restoration. Admitted Live clients can send bounded
 start, progress and terminal restore events back to the Server over the same
 plain-HTTP service. Both ISO and PXE enter the same Live answer-fetch service,
