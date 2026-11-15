@@ -1102,7 +1102,7 @@ export default function App() {
       && bundleJobDefinition.authorized_clients.every((mac) => Boolean(bundleJobDefinition.target_bindings?.[mac]))
       && (bundleJobDefinition.transport !== "multicast" || bundleJobDefinition.authorized_clients.length >= 2))
     : isCapture
-    ? Boolean(source && imageId && (!selectedRepository?.read_only) && (operation !== "capture_partition" || (partitionId || imageId))
+    ? Boolean(source && imageId && (!selectedRepository?.read_only) && (operation !== "capture_partition" || (partitionId || imageId)))
     : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation && (!isDisk || !restoreLayoutPreview || !restoreTargetDevice || restoreTargetDevice.size_bytes >= restoreLayoutPreview.source_size_bytes))
       : Boolean(source && target && source !== target && confirmation === expectedConfirmation);
 
