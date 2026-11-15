@@ -1042,7 +1042,11 @@ class DeploymentControlServer:
                 })
             except (OSError, DeploymentControlError):
                 pass
-            tls_socket.close()
+            try:
+                tls_socket.close()
+            except OSError:
+                # One stale peer must not prevent cancellation cleanup for others.
+                pass
 
 
 
