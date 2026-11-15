@@ -104,6 +104,13 @@ class P2VImportTests(unittest.TestCase):
                 losetup="/usr/bin/losetup", sfdisk="/usr/sbin/sfdisk", runner=boolean_size,
             )
 
+
+    def test_rejects_non_integer_logical_sector_size(self):
+        self.metadata["logical_sector_size"] = 512.0
+        (self.repo / "physical.p2v.json").write_text(json.dumps(self.metadata))
+        with self.assertRaisesRegex(P2VImportError, "logical sector size"):
+            import_p2v_qcow2(self.repo, "physical", "imported", runner=self.runner)
+
     def test_rejects_qcow2_with_external_backing_file(self):
         def backed_image(argv, **kwargs):
             if argv[1] == "check":
