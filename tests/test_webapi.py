@@ -65,6 +65,53 @@ class PXEOperationHistoryTests(unittest.TestCase):
 
 
 class WebAPITests(unittest.TestCase):
+    def test_deployment_bundle_worker_uses_one_validated_shared_answer(self):
+        from contextlib import contextmanager
+        from feclora.webapi import _execute_operation
+
+        job = {
+            "schema_version": 1, "job_id": "00000000-0000-4000-8000-000000000020",
+            "operation": "restore", "image_id": "fleet-image", "target_type": "disk",
+            "authorized_clients": ["02:00:00:00:00:01", "02:00:00:00:00:02"],
+            "network_interface": "enp2s0", "transport": "multicast",
+            "multicast_group": "239.10.10.10", "multicast_port": 9000,
+            "start_policy": "automatic", "repository_id": "primary",
+            "target_bindings": {
+                "02:00:00:00:00:01": {"wwn": "naa.00000001", "serial": "disk-1"},
+                "02:00:00:00:00:02": {"wwn": "naa.00000002", "serial": "disk-2"},
+            },
+            "confirm_destructive": True,
+        }
+        params = {
+            "base_iso_path": "/var/tmp/feclora-live.iso", "image_id": "fleet-image",
+            "deployment_job": job, "bundle_name": "fleet-bundle",
+            "repository_id": "primary",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "fleet-image.manifest.json"
+            manifest.write_text("{}")
+
+            @contextmanager
+            def repository_context(*args, **kwargs):
+                yield root
+
+            def build(*args):
+                answer_path = Path(args[3])
+                answer = json.loads(answer_path.read_text())
+                self.assertEqual(answer["job_id"], job["job_id"])
+                self.assertEqual(answer["target_bindings"], job["target_bindings"])
+                return {"published": True, "output_directory": args[4]}
+
+            with patch("feclora.webapi._operation_repository_context", repository_context), \
+                 patch("feclora.webapi._image_manifest", return_value=manifest), \
+                 patch("feclora.storage.s3_repository_manager.S3RepositoryManager.list", return_value=[]), \
+                 patch("feclora.storage.deployment_bundle.build_deployment_bundle", side_effect=build), \
+                 patch("feclora.webapi._emit"):
+                result = _execute_operation("build_deployment_bundle", params, "bundle-operation")
+        self.assertTrue(result["published"])
+        self.assertTrue(result["output_directory"].endswith("fleet-bundle"))
+
     def test_deployment_bundle_action_is_submitted_to_durable_worker(self):
         params = {
             "base_iso_path": "/var/tmp/feclora-live.iso",
