@@ -36,6 +36,29 @@ JOB_ID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]
 TERMINAL_PHASES = {"completed", "failed", "cancelled", "interrupted"}
 
 
+def _select_unattended_multicast_interface(group: str) -> str:
+    """Resolve the local egress interface for the shared multicast group."""
+    try:
+        result = subprocess.run(
+            ["ip", "-o", "route", "get", group],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ClientJobServiceError(f"cannot resolve multicast route: {exc}") from exc
+    if result.returncode != 0:
+        raise ClientJobServiceError("no route is available for the unattended multicast group")
+    tokens = result.stdout.split()
+    try:
+        index = tokens.index("dev")
+        interface = tokens[index + 1]
+    except (ValueError, IndexError) as exc:
+        raise ClientJobServiceError("multicast route does not identify a local interface") from exc
+    if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,15}", interface):
+        raise ClientJobServiceError("multicast route returned an invalid interface name")
+    return interface
+
+
 def execute_client_post_action(action: str, *, runner=subprocess.run) -> str | None:
     """Run only the fixed reboot/poweroff actions after a verified successful job."""
     commands = {
@@ -294,8 +317,8 @@ class ClientDeploymentService:
     @staticmethod
     def _find_unattended_disk(job: Any, mac_address: str) -> dict[str, Any]:
         """Resolve exactly one whole disk using the job's stable per-Client selector."""
-        if job.operation != "restore" or job.transport != "unicast" or job.target_type != "disk":
-            raise ClientJobServiceError("unattended PXE currently supports unicast whole-disk restore only")
+        if job.operation != "restore" or job.transport not in {"unicast", "multicast"} or job.target_type != "disk":
+            raise ClientJobServiceError("unattended deployment supports unicast or multicast whole-disk restore only")
         selector = next(
             ((wwn, serial) for mac, wwn, serial in job.target_bindings if mac == mac_address.lower()),
             None,
@@ -411,16 +434,24 @@ class ClientDeploymentService:
             self._set_status("connecting", detail="Connecting to the Server and verifying its TLS certificate; no local disk operation has started.")
 
             def prepare_local_target(job):
-                nonlocal device_path, confirmation
+                nonlocal device_path, confirmation, network_interface, igmp_confirmed
                 if unattended:
-                    if job.operation != "restore" or job.transport != "unicast" or job.target_type != "disk":
-                        raise DeploymentControlError("unattended PXE currently supports unicast whole-disk restore only")
+                    if job.operation != "restore" or job.transport not in {"unicast", "multicast"} or job.target_type != "disk":
+                        raise DeploymentControlError("unattended deployment supports unicast or multicast whole-disk restore only")
                     try:
                         resolved = self._find_unattended_disk(job, config.mac_address)
                     except ClientJobServiceError as exc:
                         raise DeploymentControlError(str(exc)) from exc
                     device_path = resolved["path"]
-                    confirmation = f"ERASE {device_path}"
+                    if job.transport == "multicast":
+                        try:
+                            network_interface = _select_unattended_multicast_interface(job.multicast_group)
+                        except ClientJobServiceError as exc:
+                            raise DeploymentControlError(str(exc)) from exc
+                        igmp_confirmed = True
+                        confirmation = f"ERASE {device_path} FROM {config.server_identity}"
+                    else:
+                        confirmation = f"ERASE {device_path}"
                 if job.operation != "save" and (image_encrypt or image_sign):
                     raise DeploymentControlError("per-image encryption/signing selections are valid only for a save job")
                 if job.job_id != self.job_id or job.transport not in {"unicast", "multicast"}:
