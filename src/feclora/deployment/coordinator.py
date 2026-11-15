@@ -206,6 +206,13 @@ class DeploymentCoordinator:
                 return True
             if self.job.start_policy == "expected_clients":
                 return ready >= int(self.job.expected_clients or 0)
+            if self.job.start_policy == "automatic":
+                selected = {mac.lower() for mac in self.job.authorized_clients}
+                ready_clients = {
+                    mac for mac, record in self._clients.items()
+                    if record.state is ClientState.READY
+                }
+                return ready_clients == selected
             current = now or self._clock()
             if current.tzinfo is None or current.utcoffset() is None:
                 raise CoordinatorError("Clock must return a timezone-aware datetime")
