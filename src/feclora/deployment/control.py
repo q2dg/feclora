@@ -197,19 +197,36 @@ class DeploymentControlServer:
                         "added_ports": list(self._firewall_added),
                     })
         except Exception as exc:
-            listener.close()
+            # Roll back every acquired resource independently. A failure while
+            # closing the listener or restoring firewalld must not prevent the
+            # remaining cleanup or hide the startup failure.
+            cleanup_errors = []
+            try:
+                listener.close()
+            except OSError as cleanup_exc:
+                cleanup_errors.append(f"listener close failed: {cleanup_exc}")
             if self._firewall_added and self.firewall is not None:
-                self.firewall.remove_ports(self.interface, self._firewall_added)
-                self._firewall_added = ()
+                try:
+                    self.firewall.remove_ports(self.interface, self._firewall_added)
+                except Exception as cleanup_exc:
+                    cleanup_errors.append(f"firewall port rollback failed: {cleanup_exc}")
+                else:
+                    self._firewall_added = ()
             if self._firewall_opened and self.firewall is not None:
-                self.firewall.close(self.interface)
-                self._firewall_opened = False
+                try:
+                    self.firewall.close(self.interface)
+                except Exception as cleanup_exc:
+                    cleanup_errors.append(f"firewall zone rollback failed: {cleanup_exc}")
+                else:
+                    self._firewall_opened = False
             if firewall_state_callback is not None:
                 try:
                     firewall_state_callback(None)
-                except Exception:
-                    pass
+                except Exception as cleanup_exc:
+                    cleanup_errors.append(f"firewall state callback cleanup failed: {cleanup_exc}")
             self._firewall_state_callback = None
+            for cleanup_error in cleanup_errors:
+                self._record_listener_error(cleanup_error)
             raise DeploymentControlError(f"cannot bind deployment control listener: {exc}") from exc
         self._listener = listener
         self._stop_event.clear()
