@@ -64,8 +64,9 @@ def create_bundle(
             import stat
             if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
                 raise BundleWorkflowError(f"{label} must be a regular file")
-    if not output.is_absolute() or not output.parent.is_dir() or output.parent.is_symlink():
-        raise BundleWorkflowError("bundle output must have an existing real parent directory")
+    if (not repo.is_absolute() or not output.is_absolute()
+            or not output.parent.is_dir() or output.parent.is_symlink()):
+        raise BundleWorkflowError("image repository and bundle output must be absolute; output parent must be a real directory")
     if output.exists() or output.is_symlink():
         raise BundleWorkflowError("bundle output already exists")
     if not re_identifier(repository_id) or not re_identifier(image_id):
@@ -97,7 +98,7 @@ def create_bundle(
         raise BundleWorkflowError("selected image must be a Feclora whole-disk image with the requested ID")
 
     output.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix=".feclora-bundle-iso-", dir=output.parent) as temporary:
+    with tempfile.TemporaryDirectory(prefix="feclora-bundle-iso-") as temporary:
         iso_output = Path(temporary)
         environment = os.environ.copy()
         environment.update({
