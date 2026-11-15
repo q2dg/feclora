@@ -100,7 +100,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                 patch("feclora.deployment.multicast_runtime.ImageManifest.from_json", return_value=manifest),
                 patch("feclora.deployment.multicast_runtime.receive_multicast_artifact_to_staging", side_effect=fake_receive),
                 patch("feclora.deployment.multicast_runtime.verify_staged_multicast_artifact"),
-                patch("feclora.deployment.multicast_runtime.restore_disk") as restore,
+                patch("feclora.deployment.restore_execution.restore_disk") as restore,
             ):
                 result = execute_multicast_restore(
                     job, tls, approval,
@@ -150,8 +150,8 @@ class MulticastRuntimeTests(unittest.TestCase):
                 patch("feclora.deployment.multicast_runtime.ImageManifest.from_json", return_value=manifest),
                 patch("feclora.deployment.multicast_runtime.receive_multicast_artifact_to_staging", side_effect=fake_receive),
                 patch("feclora.deployment.multicast_runtime.verify_staged_multicast_artifact"),
-                patch("feclora.deployment.multicast_runtime.restore_partition") as restore_partition,
-                patch("feclora.deployment.multicast_runtime.restore_disk") as restore_disk,
+                patch("feclora.deployment.restore_execution.restore_partition") as restore_partition,
+                patch("feclora.deployment.restore_execution.restore_disk") as restore_disk,
             ):
                 result = execute_multicast_restore(
                     job, tls, approval, server_identity="URI:feclora-server",
@@ -198,7 +198,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                 patch("feclora.deployment.multicast_runtime.ImageManifest.from_json", return_value=manifest),
                 patch("feclora.deployment.multicast_runtime.receive_multicast_artifact_to_staging", side_effect=fake_receive),
                 patch("feclora.deployment.multicast_runtime.verify_staged_multicast_artifact"),
-                patch("feclora.deployment.multicast_runtime.restore_logical_volume") as restore_lv,
+                patch("feclora.deployment.restore_execution.restore_logical_volume") as restore_lv,
                 patch("feclora.deployment.multicast_runtime.collect_inventory") as inventory,
             ):
                 result = execute_multicast_restore(

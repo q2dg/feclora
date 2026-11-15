@@ -19,14 +19,11 @@ from feclora.deployment.control import (
     DeploymentControlError, LocalTargetApproval, receive_control_message,
 )
 from feclora.deployment.job import DeploymentJob
+from feclora.deployment.restore_execution import execute_restore, RestoreExecutionError
 from feclora.network.udpcast import (
     UDPcastConfig, UDPcastError, receive_multicast_artifact_to_staging,
     verify_staged_multicast_artifact,
 )
-from feclora.storage.disk_restore import DiskRestoreError, restore_disk
-from feclora.storage.partition_restore import PartitionRestoreError, restore_partition
-from feclora.storage.logical_volume_restore import LogicalVolumeRestoreError, restore_logical_volume
-from feclora.storage.inventory import collect_inventory
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 
 
@@ -153,21 +150,20 @@ def execute_multicast_restore(
             verify_staged_multicast_artifact(
                 destination, manifest_path, artifact.filename,
             )
-        # The restore function re-verifies artifact hashes and
+        # The common restore dispatcher re-verifies artifact hashes and
         # optional age decryption before opening the selected block device.
-        restore_function = (restore_logical_volume if manifest.image_type == "logical_volume" else restore_partition if manifest.image_type == "partition" else restore_disk)
-        restore_function(
+        execute_restore(
             manifest_path, workdir, approval.device_path,
+            target_type=manifest.image_type,
             confirmation=f"ERASE {approval.device_path}",
             age_identity_file=age_identity_file,
             progress_callback=progress_callback,
             executables=executables,
-            **({"inventory_provider": collect_inventory} if manifest.image_type == "logical_volume" else {}),
         )
         return True, f"multicast image {job.image_id} restored and destination read-back verified"
     except (
         OSError, ValueError, ManifestValidationError,
-        DiskRestoreError, PartitionRestoreError, LogicalVolumeRestoreError, UDPcastError,
+        RestoreExecutionError, UDPcastError,
     ) as exc:
         raise MulticastDeploymentError(f"multicast restore failed: {exc}") from exc
     finally:
