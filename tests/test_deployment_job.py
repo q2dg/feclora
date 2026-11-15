@@ -34,7 +34,10 @@ class DeploymentJobTests(unittest.TestCase):
         payload = valid_job(
             transport="unicast", network_interface="auto", repository_id="nas-images",
             boot_method="pxe", start_policy="automatic",
-            target_bindings={"52:54:00:12:34:56": {"wwn": "wwn-client-1", "serial": None}},
+            target_bindings={
+                "52:54:00:12:34:56": {"wwn": "wwn-client-1", "serial": None},
+                "52:54:00:12:34:57": {"wwn": "wwn-client-2", "serial": None},
+            },
         )
         with self.assertRaisesRegex(JobValidationError, "confirm_destructive=true"):
             DeploymentJob.from_dict(payload)

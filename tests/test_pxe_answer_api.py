@@ -51,7 +51,7 @@ class PXEAnswerAPITests(unittest.TestCase):
             "confirm_destructive": True,
             "target_bindings": {"52:54:00:12:34:56": {"wwn": "0x5000abcd", "serial": None}},
         }
-        self.assertEqual(parse_pxe_answer(job)["job_id"], self.JOB_ID)
+        self.assertEqual(parse_pxe_answer(json.dumps(job))["job_id"], self.JOB_ID)
 
     def test_http_source_downloads_without_redirects_and_checks_size(self):
         raw = self.answer()

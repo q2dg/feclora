@@ -96,7 +96,7 @@ class PXEAnswerClientTests(unittest.TestCase):
             "confirm_destructive": True,
             "target_bindings": {"52:54:00:12:34:56": {"wwn": "wwn-first", "serial": None}},
         }
-        parsed = parse_pxe_answer(job)
+        parsed = parse_pxe_answer(json.dumps(job))
         self.assertEqual(parsed["job_id"], JOB)
         self.assertEqual(parsed["target_bindings"]["52:54:00:12:34:56"]["wwn"], "wwn-first")
         with tempfile.TemporaryDirectory() as root:
