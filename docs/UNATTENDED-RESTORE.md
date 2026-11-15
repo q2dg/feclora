@@ -133,7 +133,7 @@ PXE Server does not connect to, proxy or receive data from these repositories.
 ## Current implementation status
 
 - [x] PXE boots the same Fedora Live kernel, initramfs and squashfs as the ISO.
-- [x] PXE unattended handoff downloads a bounded, validated Caddy answer.
+- [x] ISO/USB DHCP discovery and optional PXE iPXE handoff download the same bounded, validated Caddy answer.
 - [x] ISO and PXE share the same Live answer-fetch service and parser;
       ISO discovers the stable current-answer URL through DHCP option 224.
 - [x] Whole-disk restore resolves WWN/serial, rechecks the target before writing
@@ -144,9 +144,9 @@ PXE Server does not connect to, proxy or receive data from these repositories.
       mode and document upstream DHCP configuration for ProxyDHCP networks.
 - [x] Resolve answer repository IDs through the normal SSHFS, NFS, SMB/CIFS
       and S3 repository managers, without adding a second credential system.
-- [x] Use one schema-v1 DeploymentJob contract for PXE and ISO/Live remote jobs.
-- [x] Route PXE, authenticated unicast and multicast restores through the shared
-      manifest-backed restore dispatcher.
+- [x] Use one schema-v1 DeploymentJob contract for interactive and unattended jobs, independent of ISO/USB or PXE boot.
+- [x] Route unattended shared-answer unicast/multicast and interactive authenticated
+      restores through the shared manifest-backed restore dispatcher.
 - [x] Preserve legacy schema-v2 PXE answer compatibility during migration.
 - [ ] Run physical ISO/PXE acceptance with DHCP, repository credentials,
       target ambiguity/swap, interruption and post-write verification.
