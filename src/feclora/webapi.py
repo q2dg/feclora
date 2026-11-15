@@ -2990,7 +2990,7 @@ def _deployment_unit_is_active(job_id: str) -> bool:
     if result.returncode != 0:
         raise WebAPIError("cannot establish deployment service state; journal reconciliation is blocked")
     state = result.stdout.strip()
-    if state in {"active", "activating", "deactivating"}:
+    if state in {"active", "activating", "deactivating", "reloading"}:
         return True
     if state in {"inactive", "failed"}:
         return False
