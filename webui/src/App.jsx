@@ -848,7 +848,7 @@ export default function App() {
     setRemoteStartDeadline(job.start_deadline ? job.start_deadline.slice(0, 16) : "");
     setRemotePostAction(job.post_action || "none");
     setSelectedRepositoryId(job.repository_id || "");
-    setRemoteTargetBindings(Object.entries(job.target_bindings || {}).map(([mac, selector]) => [mac, selector.wwn || "", selector.serial || ""].join("|")).join("\\n"));
+    setRemoteTargetBindings(Object.entries(job.target_bindings || {}).map(([mac, selector]) => [mac, selector.wwn || "", selector.serial || ""].join("|")).join("\n"));
     setRemoteJobId(crypto.randomUUID());
     setNotice(job.boot_method === "pxe" ? "PXE DeploymentJob imported. Its automatic PXE start and DHCP interface were converted to safe ISO/Client defaults; select the Server interface and review transport before saving." : "DeploymentJob imported. Review all fields and the destination network interface before saving.");
     setError("");
@@ -891,7 +891,7 @@ export default function App() {
 
   const downloadRemoteJobDefinition = () => {
     try {
-      const json = JSON.stringify(buildRemoteJobPayload(), null, 2) + "\\n";
+      const json = JSON.stringify(buildRemoteJobPayload(), null, 2) + "\n";
       const blob = new Blob([json], { type: "application/json" });
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement("a");
