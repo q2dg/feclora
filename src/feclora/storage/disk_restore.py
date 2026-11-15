@@ -188,8 +188,8 @@ def _restore_qcow2_disk(
     artifact = artifacts[0]
     if artifact.compression != "none" or artifact.encryption != "none":
         raise DiskRestoreError("QCOW2 disk artifacts cannot use separate compression or age encryption")
-    if age_identity_file is not None or age_passphrase is not None:
-        raise DiskRestoreError("QCOW2 disk artifacts do not accept an age decryption identity or passphrase")
+    if age_passphrase is not None:
+        raise DiskRestoreError("QCOW2 disk artifacts do not accept an age passphrase")
     run = runner or subprocess.run
     with tempfile.TemporaryDirectory(prefix="feclora-qcow2-restore-") as temporary:
         required_bytes = artifact.size_bytes + manifest.source_size_bytes + 64 * 1024 * 1024
