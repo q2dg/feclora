@@ -1889,6 +1889,12 @@ class WebAPITests(unittest.TestCase):
             (repository / "vm.p2v.json").write_text(json.dumps(metadata), encoding="utf-8")
             images = _filesystem_images(repository)
             self.assertEqual(images[0]["image_type"], "virtual_disk")
+            self.assertFalse(images[0]["importable"])
+            metadata["logical_sector_size"] = 512
+            (repository / "vm.p2v.json").write_text(json.dumps(metadata), encoding="utf-8")
+            images = _filesystem_images(repository)
+            self.assertTrue(images[0]["importable"])
+            self.assertEqual(images[0]["logical_sector_size"], 512)
             (repository / "vm.qcow2").write_bytes(b"tampered")
             self.assertEqual(_filesystem_images(repository), [])
 
