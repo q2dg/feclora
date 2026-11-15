@@ -1910,17 +1910,11 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                     "verified": bool(s3_result.get("committed")),
                 }
             else:
-                os.link(staged_output, output_path)
-                try:
-                    os.link(metadata_tmp, metadata_path)
-                except Exception:
-                    os.unlink(output_path)
-                    raise
-                directory_fd = os.open(repository, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-                try:
-                    os.fsync(directory_fd)
-                finally:
-                    os.close(directory_fd)
+                from feclora.storage.image_publication import publish_image_set
+                publish_image_set(
+                    repository, temporary_directory,
+                    [output_path.name, metadata_path.name],
+                )
                 result = {
                     "image_id": image_id, "output_path": str(output_path),
                     "virtual_size_bytes": converted["virtual_size_bytes"],
