@@ -85,7 +85,9 @@ class DeploymentBundleTests(unittest.TestCase):
         self.assertEqual(result["client_count"], 2)
         self.assertEqual((self.output / "feclora-live.iso").read_bytes(), self.iso.read_bytes())
         answer = (self.output / "answer.json").read_text()
-        self.assertEqual(answer, json.dumps(json.loads(self.answer.read_text()), sort_keys=True, separators=(",", ":")) + "\n")
+        from feclora.deployment.job import DeploymentJob
+        expected_answer = DeploymentJob.from_dict(json.loads(self.answer.read_text())).to_json() + "\n"
+        self.assertEqual(answer, expected_answer)
         bundle = json.loads((self.output / "bundle-manifest.json").read_text())
         self.assertEqual(bundle["files"]["images/disk.raw"]["path"], "images/disk.raw")
         self.assertEqual(bundle["files"]["feclora-live.iso"]["path"], "feclora-live.iso")
