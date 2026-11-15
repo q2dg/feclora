@@ -97,6 +97,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "capture_p2v": {"source", "image_id", "repository_id"},
         "export_p2v_s3": {"image_id", "source_repository_id", "destination_repository_id"},
         "build_recovery_iso": {"base_iso_path", "image_id", "target_wwn", "target_serial", "confirm_build", "repository_id"},
+        "build_deployment_bundle": {"base_iso_path", "image_id", "deployment_job", "bundle_name", "repository_id"},
     }
     if not isinstance(action, str) or action not in fields or not isinstance(params, dict):
         raise LocalOperationError("unsupported local storage operation")
@@ -109,7 +110,23 @@ def validate_definition(value: Any) -> dict[str, Any]:
         accepted = accepted + tuple(item - {"encrypt_passphrase"} for item in accepted)
     if set(params) not in accepted:
         raise LocalOperationError("operation parameters do not match the selected operation")
-    if action == "build_recovery_iso":
+    if action == "build_deployment_bundle":
+        from feclora.deployment.job import DeploymentJob, JobValidationError
+        try:
+            job = DeploymentJob.from_dict(params.get("deployment_job"))
+        except JobValidationError as exc:
+            raise LocalOperationError(f"deployment_job is invalid: {exc}") from exc
+        if (job.operation != "restore" or job.image_id != params.get("image_id")
+                or job.repository_id != params.get("repository_id")
+                or job.start_policy != "automatic"):
+            raise LocalOperationError("deployment_job must be an automatic restore for the selected image and repository")
+        if not isinstance(params.get("bundle_name"), str) or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", params["bundle_name"]
+        ):
+            raise LocalOperationError("bundle_name is invalid")
+        if len(job.to_json().encode("utf-8")) > 65536:
+            raise LocalOperationError("deployment_job exceeds the answer-file size limit")
+    if action in {"build_recovery_iso", "build_deployment_bundle"}:
         path = params.get("base_iso_path")
         if (not isinstance(path, str) or not path.startswith("/") or len(path) > 4096
                 or "\x00" in path or os.path.normpath(path) != path):
