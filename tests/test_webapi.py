@@ -465,6 +465,17 @@ class WebAPITests(unittest.TestCase):
             Path("/etc/feclora/pki/age-recipients.txt"),
         )
 
+    def test_browse_image_is_exposed_as_read_only_action(self):
+        expected = {"partition": "/dev/sda1", "filesystem": "ext4", "path": "/", "entries": []}
+        with patch("feclora.webapi._browse_image", return_value=expected) as browse:
+            result = dispatch({"action": "browse_image", "params": {
+                "image_id": "source", "partition_index": 1, "path": "/",
+            }})
+        browse.assert_called_once_with({
+            "image_id": "source", "partition_index": 1, "path": "/",
+        })
+        self.assertEqual(result, expected)
+
     def test_inspect_image_layout_is_exposed_as_read_only_action(self):
         with patch("feclora.webapi._inspect_image_layout", return_value={"partitions": []}) as inspect:
             result = dispatch({"action": "inspect_image_layout", "params": {"image_id": "source"}})
