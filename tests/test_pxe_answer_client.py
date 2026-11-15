@@ -127,17 +127,19 @@ class PXEAnswerClientTests(unittest.TestCase):
                 "52:54:00:12:34:57": {"wwn": "wwn-second", "serial": None},
             },
         }
-        config = SimpleNamespace(mac_address="52:54:00:12:34:57")
-        with tempfile.TemporaryDirectory() as root, \\
-             patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config):
-            result = fetch_live_pxe_answer(
-                "quiet ro", destination=Path(root) / "answer.json",
-                downloader=lambda _url: json.dumps(shared_job).encode(),
-                dhcp_url_provider=lambda: "http://192.0.2.10:8080/unattended-answer.json",
-            )
-        self.assertEqual(result["_client_mac"], "52:54:00:12:34:57")
-        self.assertEqual(result["_server_address"], "192.0.2.10")
-        self.assertEqual(result["target_bindings"], shared_job["target_bindings"])
+        encoded = json.dumps(shared_job).encode()
+        for mac in shared_job["authorized_clients"]:
+            config = SimpleNamespace(mac_address=mac)
+            with tempfile.TemporaryDirectory() as root, \\
+                 patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config):
+                result = fetch_live_pxe_answer(
+                    "quiet ro", destination=Path(root) / "answer.json",
+                    downloader=lambda _url: encoded,
+                    dhcp_url_provider=lambda: "http://192.0.2.10:8080/unattended-answer.json",
+                )
+            self.assertEqual(result["_client_mac"], mac)
+            self.assertEqual(result["_server_address"], "192.0.2.10")
+            self.assertEqual(result["target_bindings"], shared_job["target_bindings"])
 
     def test_shared_multicast_answer_starts_authenticated_client_job(self):
         job = {
