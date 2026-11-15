@@ -450,12 +450,14 @@ not implementation authorization.
   tracking, dependency-chain integrity, retention, chain compaction, crash
   consistency and full-chain restore/verification semantics. No incremental
   or differential capture, manifest schema, API or UI is authorized yet.
-- [ ] **Mountable images and file-level recovery:** research a safe random-
-  access image/container format and read-only partition/filesystem exposure,
-  including encrypted/compressed artifacts, loop/device-mapper integration,
-  namespace isolation, symlink/hardlink handling and selective extraction.
-  No image mounting, FUSE export or individual-file restore implementation is
-  authorized yet.
+- [x] **Initial read-only image browser:** Cockpit can browse partitions
+  from manifest-backed RAW/QCOW2 whole-disk images through the isolated
+  libguestfs appliance and download individual regular files (16 MiB limit).
+  RAW compression/age encryption is decoded into private temporary storage;
+  QCOW2 external backing/data dependencies are rejected. No host loop/NBD
+  devices or host-namespace mounts are used. LVM, LUKS, multi-device Btrfs,
+  directory export and individual-file restore remain out of scope. Real-image
+  and shipped-Live acceptance remains operator validation.
 
 Delivery rule: do not mark a new item complete from documentation or a helper
 primitive alone. Require runtime/API/Cockpit integration, failure-path tests,
