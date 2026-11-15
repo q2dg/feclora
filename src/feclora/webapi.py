@@ -1431,7 +1431,7 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         for item in _network_interfaces()
     ):
         raise WebAPIError("active Caddy address is no longer assigned to the PXE interface")
-    if validated_answer.get("boot_method") == "pxe":
+    if validated_answer.get("start_policy") == "automatic":
         from feclora.deployment.runtime_config import load_server_runtime_config
         try:
             server_config = load_server_runtime_config("/etc/feclora/deployment-server.json")
@@ -1442,7 +1442,7 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
                 "shared PXE deployment requires the authenticated Server control listener "
                 "to use the same address as the PXE answer service"
             )
-    if validated_answer.get("boot_method") == "pxe":
+    if validated_answer.get("start_policy") == "automatic":
         if validated_answer.get("job_id") != job_id:
             raise WebAPIError("published job_id must match the UUID inside the shared DeploymentJob JSON")
         # A shared answer is also the canonical Server job definition. Persist
@@ -1487,10 +1487,11 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
             http_root, job_id, raw_answer, address=address, http_port=port,
         )
         answer_published = True
-        publish_unattended_answer_ipxe_script(
-            http_root, address, job_id,
-            published["answer_url"], port,
-        )
+        if validated_answer.get("boot_method") == "pxe":
+            publish_unattended_answer_ipxe_script(
+                http_root, address, job_id,
+                published["answer_url"], port,
+            )
     except Exception as exc:
         if answer_published:
             try:
@@ -1505,7 +1506,9 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
     return {
         "job_id": job_id,
         "answer_url": published["answer_url"],
-        "boot_script_url": f"http://{address}:{port}/unattended-answer.ipxe",
+        **({
+            "boot_script_url": f"http://{address}:{port}/unattended-answer.ipxe",
+        } if validated_answer.get("boot_method") == "pxe" else {}),
         "message": "Answer validated and published over HTTP with an identity-free iPXE handoff. The answer was imported from the selected source and validated before publication.",
     }
 
