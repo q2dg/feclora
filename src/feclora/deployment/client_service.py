@@ -324,7 +324,7 @@ class ClientDeploymentService:
             None,
         )
         if selector is None or selector == (None, None):
-            raise ClientJobServiceError("unattended PXE job must bind this Client to a WWN and/or serial number")
+            raise ClientJobServiceError("unattended job must bind this Client to a WWN and/or serial number")
         wwn, serial = selector
         inventory = collect_inventory()
         matches: list[dict[str, Any]] = []
@@ -400,9 +400,9 @@ class ClientDeploymentService:
                         or network_interface is not None or source_address is not None
                         or igmp_confirmed is not False or image_encrypt or image_sign
                         or compression != "none"):
-                    raise ClientJobServiceError("unattended PXE request contains interactive, multicast or save-only options")
+                    raise ClientJobServiceError("unattended shared-answer request contains interactive, multicast or save-only options")
                 if isinstance(control_port, bool) or not isinstance(control_port, int) or not 1024 <= control_port <= 65535:
-                    raise ClientJobServiceError("unattended PXE control port is invalid")
+                    raise ClientJobServiceError("unattended Client control port is invalid")
             else:
                 if (not isinstance(device_path, str) or not device_path.startswith("/dev/")
                         or len(device_path) > 256 or os.path.normpath(device_path) != device_path):
