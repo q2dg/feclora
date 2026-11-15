@@ -251,7 +251,10 @@ def _restore_qcow2_disk(
         qemu([qemu_img, "check", "-f", "qcow2", staged_source])
         raw_path = os.path.join(temporary, "disk.raw")
         qemu([qemu_img, "convert", "-p", "-f", "qcow2", "-O", "raw", staged_source, raw_path])
-        raw_info = os.lstat(raw_path)
+        try:
+            raw_info = os.lstat(raw_path)
+        except OSError as exc:
+            raise DiskRestoreError(f"QCOW2 conversion did not create a RAW staging file: {exc}") from exc
         if not stat.S_ISREG(raw_info.st_mode) or stat.S_ISLNK(raw_info.st_mode) or raw_info.st_size != manifest.source_size_bytes:
             raise DiskRestoreError("QCOW2 conversion did not preserve the declared disk capacity")
         os.chmod(raw_path, 0o600)
@@ -260,11 +263,11 @@ def _restore_qcow2_disk(
             "filename": "disk.raw", "format": "raw", "compression": "none",
             "size_bytes": raw_info.st_size,
         })
-        raw_artifact["sha256"] = hashlib.sha256()
+        raw_digest = hashlib.sha256()
         with open(raw_path, "rb") as raw_stream:
             for chunk in iter(lambda: raw_stream.read(1024 * 1024), b""):
-                raw_artifact["sha256"].update(chunk)
-        raw_artifact["sha256"] = raw_artifact["sha256"].hexdigest()
+                raw_digest.update(chunk)
+        raw_artifact["sha256"] = raw_digest.hexdigest()
         raw_manifest_value = manifest.to_dict()
         raw_manifest_value["artifacts"] = [
             raw_artifact if item.role == "disk-image" else item.to_dict()
