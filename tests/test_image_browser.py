@@ -82,16 +82,17 @@ class ImageBrowserTests(unittest.TestCase):
         self.image_path = self.repository / "prepared.raw"
         self.image_path.write_bytes(b"image")
 
-    def _browse(self, *, path="/", download=False):
+    def _browse(self, *, path="/", download=False, session_id=None):
         fake = FakeGuestFS()
         module = types.ModuleType("guestfs")
         module.GuestFS = lambda **kwargs: fake
         with patch.dict(sys.modules, {"guestfs": module}), patch(
             "feclora.storage.image_browser._prepare_image",
             return_value=(self.image_path, "raw"),
-        ):
+        ), patch("feclora.storage.image_browser._CACHE_PARENT", self.repository / "cache"):
             result = image_browser.browse_image(
                 self.manifest_path, self.repository, 1, path, download=download,
+                session_id=session_id,
             )
         return result, fake
 
@@ -103,6 +104,12 @@ class ImageBrowserTests(unittest.TestCase):
         self.assertEqual(guest.drive_options[1]["readonly"], 1)
         self.assertEqual(guest.mounted, ("/dev/sda1", "/"))
         self.assertTrue(guest.closed)
+
+    def test_browser_session_is_reused_for_directory_navigation(self):
+        first, _ = self._browse()
+        second, _ = self._browse(path="/docs", session_id=first["session_id"])
+        self.assertEqual(second["session_id"], first["session_id"])
+        self.assertEqual(second["path"], "/docs")
 
     def test_downloads_only_regular_files_and_returns_bounded_content(self):
         result, _ = self._browse(path="/hello.txt", download=True)
