@@ -354,8 +354,21 @@ def send_multicast_artifact(
     job = coordinator.job
     if coordinator.state not in {JobState.ARMED, JobState.RUNNING}:
         raise UDPcastError("Deployment job must be explicitly armed before multicast transmission")
-    if job.transport != "multicast" or job.network_interface != config.interface:
-        raise UDPcastError("UDPcast configuration does not match the deployment job")
+    interface_matches = job.network_interface == config.interface
+    # PXE jobs may deliberately use "auto": the control-plane Server has
+    # already resolved that selector to its concrete interface before it
+    # constructs UDPcastConfig. Keep the lower-level sender compatible with
+    # that resolved value without weakening explicit ISO/USB interface checks.
+    if (
+        not interface_matches
+        and getattr(job, "boot_method", None) == "pxe"
+        and job.network_interface == "auto"
+        and isinstance(config.interface, str)
+        and bool(config.interface)
+    ):
+        interface_matches = True
+    if job.transport != "multicast" or not interface_matches:
+        raise UDPcastError("UDPcast configuration does not match the deployment job interface")
     if job.multicast_group != config.data_group or job.multicast_port != config.portbase:
         raise UDPcastError("UDPcast group/port do not match the deployment job")
     ready_count = sum(
