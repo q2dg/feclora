@@ -65,8 +65,9 @@ device checks, and the Server operator explicitly ARMs the complete READY set.
   LVM topology before reporting READY.
 - `authorized_clients`: non-empty allowlist of unique unicast MAC addresses.
   MAC is the operational identifier used to select and track each Client in the job.
-- `target_bindings`: optional object for whole-disk restore jobs, keyed by an
-  selected Client MAC. If present, it must bind every selected Client.
+- `target_bindings`: optional object for interactive whole-disk restore jobs,
+  keyed by selected Client MAC. For `start_policy: automatic`, it is mandatory
+  and must bind every authorized Client.
   Each value contains exactly `wwn` and `serial`; at least one must be supplied.
   The Client compares every supplied identifier with its own current device
   inventory before READY. A mismatch or missing identifier rejects the
@@ -76,7 +77,8 @@ device checks, and the Server operator explicitly ARMs the complete READY set.
   supported because those targets require local topology-aware selection. This is a preflight constraint: it does not yet
   provide unattended target discovery or replace the Client's local target
   selection and typed confirmation.
-- `network_interface`: explicit Linux interface name; no implicit default.
+- `network_interface`: explicit Linux interface name for ISO/USB workflows;
+  `auto` is reserved for PXE-booted Live clients that already have DHCP networking.
 - `transport`: `unicast` or `multicast`. Multicast requires an
   administratively scoped IPv4 group and an even UDPcast port base.
 - `multicast_group` and `multicast_port`: required only for multicast.
@@ -125,8 +127,11 @@ traffic uses TLS with Server-certificate verification by the Client only. The
 The Server associates each session with the MAC address reported by the
 Client and checks it against the active job's selected MAC list.
 The Client checks its own selected target and reports READY only after local
-preflight and typed confirmation. The Server requires the complete authorized
-READY set and a separate explicit ARM action before it sends START.
+preflight and typed confirmation. The Server requires the complete authorized READY set and a separate explicit
+ARM action for interactive jobs before it sends START. The narrowly scoped
+`automatic` answer-file policy is the exception: it requires every authorized
+Client READY and explicit destructive opt-in in the validated job, then starts
+the existing authenticated control workflow without a manual ARM.
 
 The existing Remote jobs workflow uses Server-authenticated TLS, job-scoped
 MAC selection and its READY/ARM lifecycle. That workflow is separate from the new shared
