@@ -921,7 +921,15 @@ class DeploymentControlServer:
         expected_macs = tuple(sorted(item.mac_address for item in clients))
         started = self.arm_and_start()
         if tuple(sorted(started)) != expected_macs:
-            raise DeploymentControlError("not every selected Client accepted the multicast START")
+            detail = "not every selected Client accepted the multicast START; multicast data was not sent"
+            # A Client that accepted START is already RUNNING and waiting for
+            # its transfer offer. Close it as a failed operation rather than
+            # leaving it blocked indefinitely while the cohort is aborted.
+            for mac in started:
+                self._record_transfer_failure(
+                    mac, f"multicast restore aborted before data transfer: {detail}",
+                )
+            raise DeploymentControlError(detail)
         offer = {
             "type": "transfer_offer",
             "job_id": job.job_id,
