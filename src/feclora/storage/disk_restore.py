@@ -230,7 +230,6 @@ def _restore_qcow2_disk(
                 raise DiskRestoreError("qemu-img failed" + (f": {detail[:512]}" if detail else ""))
             return result
 
-        qemu([qemu_img, "check", "-f", "qcow2", staged_source])
         info_result = qemu([qemu_img, "info", "--output=json", staged_source])
         try:
             info = json.loads(info_result.stdout)
@@ -249,6 +248,7 @@ def _restore_qcow2_disk(
                 or external_data_file or info.get("encrypted") is True
                 or (isinstance(format_data, dict) and format_data.get("encrypted") is True)):
             raise DiskRestoreError("QCOW2 format, dependencies or virtual capacity disagree with the image manifest")
+        qemu([qemu_img, "check", "-f", "qcow2", staged_source])
         raw_path = os.path.join(temporary, "disk.raw")
         qemu([qemu_img, "convert", "-p", "-f", "qcow2", "-O", "raw", staged_source, raw_path])
         raw_info = os.lstat(raw_path)
