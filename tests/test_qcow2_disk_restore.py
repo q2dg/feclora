@@ -53,7 +53,8 @@ class QCOW2DiskRestoreTests(unittest.TestCase):
         with patch("feclora.storage.disk_restore.restore_disk", side_effect=inspect_raw_restore) as restore:
             result = _restore_qcow2_disk(
                 self.manifest, str(self.repository), "/dev/fake",
-                confirmation="ERASE /dev/fake", executables={"qemu-img": "/usr/bin/qemu-img"},
+                confirmation="ERASE /dev/fake", initial_device_number=None,
+                executables={"qemu-img": "/usr/bin/qemu-img"},
                 device_validator=None, runner=self.runner, popen_factory=None,
                 target_safety_check=None, effective_uid=None, progress_callback=None,
                 age_identity_file="/keys/client.age", age_passphrase=None, pre_write_callback=None,
@@ -81,7 +82,8 @@ class QCOW2DiskRestoreTests(unittest.TestCase):
             with self.assertRaisesRegex(DiskRestoreError, "dependencies"):
                 _restore_qcow2_disk(
                     self.manifest, str(self.repository), "/dev/fake",
-                    confirmation="ERASE /dev/fake", executables={"qemu-img": "/usr/bin/qemu-img"},
+                    confirmation="ERASE /dev/fake", initial_device_number=None,
+                    executables={"qemu-img": "/usr/bin/qemu-img"},
                     device_validator=None, runner=backing_runner, popen_factory=None,
                     target_safety_check=None, effective_uid=None, progress_callback=None,
                     age_identity_file=None, age_passphrase=None, pre_write_callback=None,
@@ -103,7 +105,8 @@ class QCOW2DiskRestoreTests(unittest.TestCase):
             with self.assertRaisesRegex(DiskRestoreError, "virtual capacity"):
                 _restore_qcow2_disk(
                     self.manifest, str(self.repository), "/dev/fake",
-                    confirmation="ERASE /dev/fake", executables={"qemu-img": "/usr/bin/qemu-img"},
+                    confirmation="ERASE /dev/fake", initial_device_number=None,
+                    executables={"qemu-img": "/usr/bin/qemu-img"},
                     device_validator=None, runner=bad_runner, popen_factory=None,
                     target_safety_check=None, effective_uid=None, progress_callback=None,
                     age_identity_file=None, age_passphrase=None, pre_write_callback=None,
