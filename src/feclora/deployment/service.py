@@ -467,7 +467,7 @@ class DeploymentService:
             if self.job.transport == "multicast":
                 try:
                     preflight = inspect_multicast_interface(
-                        self.job.network_interface, self.job.multicast_group, role="sender",
+                        self.server_interface, self.job.multicast_group, role="sender",
                     )
                 except Exception as exc:
                     raise DeploymentServiceError(f"multicast Server interface preflight failed: {exc}") from exc
