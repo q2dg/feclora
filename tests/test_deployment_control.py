@@ -878,6 +878,22 @@ class CoordinatorControlTests(unittest.TestCase):
         self.assertEqual(saved["progress"]["phase"], "transfer")
         self.assertEqual(saved["progress"]["completed_bytes"], 8192)
 
+    def test_client_disconnect_before_terminal_result_is_recorded_as_disconnected(self):
+        coordinator, server, fake = self._server(make_job(image_id="golden"))
+        coordinator.mark_running(MAC)
+        fake.settimeout = Mock()
+        fake.close = Mock()
+        with patch(
+            "feclora.deployment.control.receive_control_message",
+            side_effect=ConnectionResetError("peer closed before result"),
+        ):
+            results = server.collect_results(timeout=5)
+
+        self.assertEqual(results, {MAC: "disconnected"})
+        self.assertEqual(coordinator.clients()[0].state, ClientState.DISCONNECTED)
+        self.assertIn("result not received", coordinator.clients()[0].detail)
+        fake.close.assert_called_once()
+
     def test_save_server_receives_job_bound_transfer_and_publishes(self):
         coordinator, server, fake = self._server(make_job(operation="save", image_id="golden"))
         fake.incoming.extend(frame({
