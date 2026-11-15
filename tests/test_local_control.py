@@ -160,6 +160,42 @@ class LocalControlProtocolTests(unittest.TestCase):
         self.assertIsNone(server._thread)
         self.assertIsNone(server._socket_identity)
 
+    def test_thread_start_and_listener_close_failure_preserve_resources_for_retry(self):
+        server = LocalControlServer("/run/feclora/test.sock", lambda *_args: {})
+        listener = mock.Mock()
+        listener.close.side_effect = [OSError("close failed"), None]
+        info = mock.Mock(
+            st_mode=stat.S_IFSOCK | 0o600, st_uid=os.geteuid(), st_dev=1, st_ino=2,
+        )
+        parent_info = mock.Mock(st_mode=stat.S_IFDIR | 0o755, st_uid=0)
+
+        class BrokenThread:
+            def __init__(self, **_kwargs):
+                pass
+            def start(self):
+                raise RuntimeError("thread start failed")
+
+        with mock.patch("feclora.deployment.local_control.os.lstat", side_effect=[
+            parent_info, FileNotFoundError, info, info,
+        ]), mock.patch("feclora.deployment.local_control.socket.socket", return_value=listener), \\
+             mock.patch("feclora.deployment.local_control.os.chmod"), \\
+             mock.patch("feclora.deployment.local_control.os.unlink") as unlink, \\
+             mock.patch("feclora.deployment.local_control.threading.Thread", BrokenThread):
+            with mock.patch.object(listener, "bind"), mock.patch.object(listener, "listen"), \\
+                 mock.patch.object(listener, "settimeout"):
+                with self.assertRaisesRegex(LocalControlError, "worker failed to start.*close failed"):
+                    server.start()
+
+        self.assertIs(server._listener, listener)
+        self.assertIsNone(server._thread)
+        self.assertEqual(server._socket_identity, (1, 2))
+        with mock.patch("feclora.deployment.local_control.os.lstat", return_value=info), \\
+             mock.patch("feclora.deployment.local_control.os.unlink") as retry_unlink:
+            server.stop()
+        self.assertIsNone(server._listener)
+        self.assertIsNone(server._socket_identity)
+        retry_unlink.assert_called_once_with(server.path)
+
     def test_stop_retains_listener_thread_and_socket_after_join_timeout(self):
         server = LocalControlServer("/run/feclora/test.sock", lambda *_args: {})
         server._listener = mock.Mock()
