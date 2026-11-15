@@ -337,6 +337,85 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             self.assertTrue(status["success"])
 
 
+
+    def test_unattended_shared_answer_multicast_uses_control_plane_confirmation(self):
+        from feclora.deployment.job import DeploymentJob
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path = root / (JOB_ID + ".request.json")
+            request_path.write_text("{}", encoding="utf-8")
+            request_path.chmod(0o600)
+            service = ClientDeploymentService(JOB_ID)
+            service.request_path = request_path
+            service.status_path = root / (JOB_ID + ".status.json")
+            service.lock_path = root / (JOB_ID + ".lock")
+            request = {
+                "schema_version": 1, "job_id": JOB_ID, "host": "192.0.2.10",
+                "port": 9555, "device_path": None, "confirmation": None,
+                "compression": "none", "network_interface": None,
+                "igmp_confirmed": False, "image_encrypt": False,
+                "image_sign": False, "unattended": True,
+            }
+            config = SimpleNamespace(
+                host="192.0.2.10", port=9443, server_identity=SERVER_IDENTITY,
+                mac_address="52:54:00:12:34:56", ca_file="/ca.crt",
+                age_identity_file=None, age_recipients_file=None,
+                repository="/var/lib/feclora/images",
+            )
+            selected = {
+                "type": "disk", "path": DEVICE, "wwn": "wwn-01",
+                "serial": "serial-01", "model": "Test disk", "size_bytes": 1024,
+            }
+            job = DeploymentJob.from_dict({
+                "schema_version": 1, "job_id": JOB_ID, "operation": "restore",
+                "image_id": "golden-image", "target_type": "disk",
+                "authorized_clients": ["52:54:00:12:34:56", "52:54:00:12:34:57"],
+                "network_interface": "enp1s0", "transport": "multicast",
+                "multicast_group": "239.10.10.10", "multicast_port": 9000,
+                "staging_required_bytes": 1024, "start_policy": "automatic",
+                "expected_clients": None, "start_deadline": None,
+                "repository_id": "nas-images", "confirm_destructive": True,
+                "target_bindings": {
+                    "52:54:00:12:34:56": {"wwn": "wwn-01", "serial": "serial-01"},
+                    "52:54:00:12:34:57": {"wwn": "wwn-02", "serial": None},
+                },
+            })
+            block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
+            real_stat = os.stat
+
+            def fake_join(host, port, context, **kwargs):
+                approval = kwargs["prepare_local_target"](job)
+                self.assertEqual(approval.device_path, DEVICE)
+                self.assertEqual(approval.confirmation, "ERASE " + DEVICE)
+                success, detail = kwargs["execute_job"](job, object(), approval)
+                return job, success, detail
+
+            with mock.patch.object(service, "_acquire_lock"), \\
+                 mock.patch("feclora.deployment.service.recover_stale_runtime_artifacts"), \\
+                 mock.patch("feclora.deployment.client_service.CLIENT_JOB_DIRECTORY", root), \\
+                 mock.patch("feclora.deployment.client_service._ensure_directory"), \\
+                 mock.patch("feclora.deployment.client_service._read_private_json", return_value=request), \\
+                 mock.patch("feclora.deployment.client_service._write_private_json", side_effect=lambda path, value: Path(path).write_text(json.dumps(value), encoding="utf-8")), \\
+                 mock.patch("feclora.deployment.client_service.load_client_runtime_config", return_value=config), \\
+                 mock.patch("feclora.deployment.client_service.create_tls_context", return_value=object()), \\
+                 mock.patch.object(ClientDeploymentService, "_find_unattended_disk", return_value=selected) as resolve_target, \\
+                 mock.patch("feclora.deployment.client_service._select_unattended_multicast_interface", return_value="enp1s0"), \\
+                 mock.patch("feclora.deployment.client_service.inspect_multicast_interface", return_value=SimpleNamespace(warnings=())), \\
+                 mock.patch("feclora.deployment.client_service.shutil.disk_usage", return_value=SimpleNamespace(free=1024 * 1024 * 1024)), \\
+                 mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \\
+                 mock.patch("feclora.deployment.client_service.os.stat", side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == DEVICE else real_stat(path, *args, **kwargs)), \\
+                 mock.patch("feclora.deployment.client_service.execute_multicast_restore", return_value=(True, "multicast restore completed")) as execute, \\
+                 mock.patch("feclora.deployment.client_service.join_deployment", side_effect=fake_join) as join:
+                service.run()
+
+            join.assert_called_once()
+            self.assertEqual(resolve_target.call_count, 2)
+            execute.assert_called_once()
+            self.assertEqual(execute.call_args.kwargs["network_interface"], "enp1s0")
+            status = json.loads(service.status_path.read_text(encoding="utf-8"))
+            self.assertEqual(status["phase"], "completed")
+            self.assertTrue(status["success"])
+
     def test_unattended_shared_answer_multicast_resolves_mac_target_binding(self):
         from feclora.deployment.job import DeploymentJob
         from feclora.deployment.client_service import _select_unattended_multicast_interface
