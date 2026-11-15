@@ -403,9 +403,15 @@ class DeploymentControlServer:
                 if tls_socket is not None:
                     self._pending_sockets.discard(tls_socket)
             if tls_socket is not None:
-                tls_socket.close()
+                try:
+                    tls_socket.close()
+                except OSError:
+                    pass
             else:
-                accepted.close()
+                try:
+                    accepted.close()
+                except OSError:
+                    pass
             raise
 
     def arm_and_start(self, *, physical_stream: Mapping[str, Any] | None = None) -> tuple[str, ...]:
