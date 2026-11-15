@@ -44,7 +44,7 @@ Keep the PXE and deployment contracts distinct:
   and coordinator path. The unattended PXE adapter is not a multicast
   implementation and must not be described as one.
 
-P2V now supports explicit `import_p2v`: it verifies the QCOW2 and sidecar, converts to raw sectors, preserves logical sector geometry and publishes a separate Feclora manifest-backed whole-disk image. The imported disk is restorable, but partition-table metadata is marked unknown and conversion/import does not repair guest boot dependencies or prove VM bootability. The separate recovery-ISO builder embeds an image and target-bound answer, but its boot-time embedded-image discovery and restore dispatch remain unfinished. Neither is the coordinated generic ISO + restorable image + shared-answer bundle workflow. See [deployment artifact bundle](DEPLOYMENT-ARTIFACT-BUNDLE.md).
+P2V now supports explicit `import_p2v`: it verifies the QCOW2 and sidecar, converts to raw sectors, preserves logical sector geometry and publishes a separate Feclora manifest-backed whole-disk image. The imported disk is restorable; GPT/MBR layout is inspected through a read-only loop device and recorded in the manifest. Unpartitioned disks are rejected. Conversion/import does not repair guest boot dependencies or prove VM bootability. The separate recovery-ISO builder embeds an image and target-bound answer, but its boot-time embedded-image discovery and restore dispatch remain unfinished. Neither is the coordinated generic ISO + restorable image + shared-answer bundle workflow. See [deployment artifact bundle](DEPLOYMENT-ARTIFACT-BUNDLE.md).
 
 These are source/integration statements, not a claim of production acceptance.
 Image artifacts record byte count and SHA-256. The digest detects artifact
