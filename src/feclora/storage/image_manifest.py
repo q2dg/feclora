@@ -271,6 +271,8 @@ class ImageManifest:
         if not isinstance(raw_artifacts, list) or not raw_artifacts:
             raise ManifestValidationError("artifacts must be a non-empty list")
         artifacts = tuple(ImageArtifact.from_dict(item) for item in raw_artifacts)
+        if image_type != "disk" and any(item.format == "qcow2" for item in artifacts):
+            raise ManifestValidationError("QCOW2 artifacts are only valid in whole-disk images")
         filenames = [item.filename for item in artifacts]
         if len(set(filenames)) != len(filenames):
             raise ManifestValidationError("Artifact filenames must be unique")
