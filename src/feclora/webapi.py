@@ -1793,7 +1793,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         compression = _text(params, "compression", pattern=r"(?:none|gzip|xz|zstd|lz4)")
         image_format = params.get("image_format", "raw")
-        if image_format not in {"raw", "qcow2"}:
+        if not isinstance(image_format, str) or image_format not in {"raw", "qcow2"}:
             raise WebAPIError("whole-disk image_format must be raw or qcow2")
         encrypt = params["encrypt"]
         if not isinstance(encrypt, bool):
