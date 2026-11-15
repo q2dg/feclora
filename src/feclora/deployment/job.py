@@ -44,6 +44,7 @@ _ALLOWED_FIELDS = {
     "repository_id",
     "target_bindings",
     "post_action",
+    "boot_method",
 }
 
 
@@ -70,6 +71,7 @@ class DeploymentJob:
     repository_id: str | None = None
     target_bindings: tuple[tuple[str, str | None, str | None], ...] = ()
     post_action: str = "none"
+    boot_method: str = "iso"
 
     @property
     def minimum_ready_clients(self) -> int:
@@ -86,7 +88,7 @@ class DeploymentJob:
             raise JobValidationError("Job document must be a JSON object")
         unknown = set(payload) - _ALLOWED_FIELDS
         missing = _ALLOWED_FIELDS - set(payload) - {
-            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type", "staging_required_bytes", "source_device", "repository_id", "target_bindings", "post_action", "source_identity"
+            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type", "staging_required_bytes", "source_device", "repository_id", "target_bindings", "post_action", "source_identity", "boot_method"
         }
         if unknown:
             raise JobValidationError(f"Unknown job fields: {', '.join(sorted(unknown))}")
@@ -103,6 +105,10 @@ class DeploymentJob:
             job_id = str(UUID(job_id))
         except ValueError as exc:
             raise JobValidationError("job_id must be a valid UUID") from exc
+
+        boot_method = payload.get("boot_method", "iso")
+        if not isinstance(boot_method, str) or boot_method not in {"iso", "pxe"}:
+            raise JobValidationError("boot_method must be iso or pxe")
 
         operation = payload.get("operation")
         if not isinstance(operation, str) or operation not in {"save", "restore", "clone"}:
@@ -222,7 +228,16 @@ class DeploymentJob:
             raise JobValidationError("stable WWN/serial target bindings currently require whole-disk restore jobs")
 
         interface = payload.get("network_interface")
-        if not isinstance(interface, str) or not _INTERFACE_RE.fullmatch(interface):
+        if boot_method == "pxe":
+            if operation != "restore" or transport != "unicast":
+                raise JobValidationError("PXE boot currently requires a unicast restore job")
+            if interface != "auto":
+                raise JobValidationError("PXE boot jobs must use network_interface=auto; the Live client already has DHCP networking")
+            if repository_id is None:
+                raise JobValidationError("PXE boot restore jobs require repository_id")
+            if not bindings or len(bindings) != len(normalized_clients):
+                raise JobValidationError("PXE boot restore jobs require a stable target binding for every authorized Client")
+        elif not isinstance(interface, str) or not _INTERFACE_RE.fullmatch(interface):
             raise JobValidationError("network_interface must be a valid Linux interface name")
 
         transport = payload.get("transport")
@@ -257,8 +272,10 @@ class DeploymentJob:
             raise JobValidationError("staging_required_bytes is only valid for multicast restore jobs")
 
         policy = payload.get("start_policy")
-        if not isinstance(policy, str) or policy not in {"manual", "expected_clients", "deadline"}:
-            raise JobValidationError("start_policy must be manual, expected_clients, or deadline")
+        if not isinstance(policy, str) or policy not in {"manual", "expected_clients", "deadline", "automatic"}:
+            raise JobValidationError("start_policy must be manual, expected_clients, deadline, or automatic")
+        if (boot_method == "pxe") != (policy == "automatic"):
+            raise JobValidationError("automatic start_policy is reserved for PXE boot jobs; PXE jobs must start automatically")
 
         expected = payload.get("expected_clients")
         deadline = payload.get("start_deadline")
@@ -303,6 +320,7 @@ class DeploymentJob:
             repository_id=repository_id,
             target_bindings=tuple(sorted(bindings)),
             post_action=post_action,
+            boot_method=boot_method,
         )
 
     @classmethod
@@ -341,6 +359,8 @@ class DeploymentJob:
             document["repository_id"] = self.repository_id
         if self.post_action != "none":
             document["post_action"] = self.post_action
+        if self.boot_method != "iso":
+            document["boot_method"] = self.boot_method
         if self.target_bindings:
             document["target_bindings"] = {
                 mac: {"wwn": wwn, "serial": serial}
