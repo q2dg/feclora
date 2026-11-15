@@ -874,7 +874,10 @@ class WebAPITests(unittest.TestCase):
                 "timestamp": "2026-11-08T12:00:00+00:00", "job_id": job_id,
                 "event": "service_started", "job_state": "created",
             })
-            with patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)):
+            with patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), \
+                 patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+                     returncode=0, stdout="inactive",
+                 )):
                 with self.assertRaisesRegex(WebAPIError, "confirmation does not match"):
                     dispatch({"action": "reconcile_deployment_job", "params": {
                         "job_id": job_id, "confirmation": "RECONCILE wrong",
@@ -1026,9 +1029,9 @@ class WebAPITests(unittest.TestCase):
 
     def test_reconcile_rejects_a_job_owned_by_the_live_service(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-        with patch("feclora.deployment.local_control.local_control_request", return_value={
-            "job_id": job_id, "job_state": "created",
-        }):
+        with patch("feclora.webapi.subprocess.run", return_value=SimpleNamespace(
+            returncode=0, stdout="active",
+        )):
             with self.assertRaisesRegex(WebAPIError, "stop the active deployment service"):
                 dispatch({"action": "reconcile_deployment_job", "params": {
                     "job_id": job_id, "confirmation": "RECONCILE " + job_id,
