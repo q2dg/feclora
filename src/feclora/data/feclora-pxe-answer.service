@@ -24,7 +24,7 @@ ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
-ReadWritePaths=/var/lib/feclora/pxe
+ReadWritePaths=/var/lib/feclora/pxe /var/lib/feclora/client-jobs /run/feclora
 
 [Install]
 WantedBy=multi-user.target
