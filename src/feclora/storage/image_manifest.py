@@ -22,7 +22,7 @@ _IMAGE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
 _PARTITION_ID_RE = re.compile(r"^[A-Za-z0-9_.+-]{1,64}$")
 _ARTIFACT_ROLES = {"disk-image", "disk-metadata", "partition-table", "boot-area", "partition-image", "logical-volume-image"}
-_ARTIFACT_FORMATS = {"raw", "partclone"}
+_ARTIFACT_FORMATS = {"raw", "partclone", "qcow2"}
 _COMPRESSIONS = {"none", "gzip", "zstd", "xz", "lz4"}
 
 
@@ -185,6 +185,10 @@ class ImageArtifact:
 
         if image_format == "partclone" and role not in {"partition-image", "logical-volume-image"}:
             raise ManifestValidationError("Partclone format is only valid for partition or logical-volume image artifacts")
+        if image_format == "qcow2" and (
+            role != "disk-image" or compression != "none" or encryption != "none"
+        ):
+            raise ManifestValidationError("QCOW2 is only valid for an uncompressed, unencrypted whole-disk image artifact")
         if role not in {"partition-image", "logical-volume-image"} and filesystem is not None:
             raise ManifestValidationError("filesystem is only valid for partition or logical-volume image artifacts")
         return cls(filename, role, image_format, compression, size, digest, partition_id, filesystem, encryption, compression_level)
@@ -285,9 +289,9 @@ class ImageManifest:
         if image_type == "logical_volume" and "partition-image" in roles:
             raise ManifestValidationError("Logical-volume manifests cannot contain partition-image artifacts")
         if "disk-image" in roles and any(
-            item.role == "disk-image" and item.format != "raw" for item in artifacts
+            item.role == "disk-image" and item.format not in {"raw", "qcow2"} for item in artifacts
         ):
-            raise ManifestValidationError("Whole-disk artifacts must use raw format")
+            raise ManifestValidationError("Whole-disk artifacts must use raw or qcow2 format")
         if image_type in {"partition", "logical_volume"} and any(
             role in {"partition-table", "disk-metadata", "boot-area"} for role in roles
         ):
