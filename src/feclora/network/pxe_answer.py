@@ -43,9 +43,13 @@ def validate_pxe_answer(value: object) -> dict[str, object]:
         except JobValidationError as exc:
             raise PXEAnswerError(f"invalid shared DeploymentJob: {exc}") from exc
         if (job.boot_method != "pxe" or job.operation != "restore"
-                or job.transport != "unicast" or job.start_policy != "automatic"
+                or job.transport not in {"unicast", "multicast"}
+                or job.start_policy != "automatic"
                 or job.confirm_destructive is not True):
-            raise PXEAnswerError("PXE requires an explicitly confirmed automatic unicast restore DeploymentJob")
+            raise PXEAnswerError(
+                "PXE answer requires an explicitly confirmed automatic image restore "
+                "DeploymentJob using unicast or multicast transport"
+            )
         return job.to_dict()
     required = {
         "schema_version", "operation", "image_id", "repository_id",
