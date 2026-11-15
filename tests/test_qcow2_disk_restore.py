@@ -56,7 +56,7 @@ class QCOW2DiskRestoreTests(unittest.TestCase):
                 confirmation="ERASE /dev/fake", executables={"qemu-img": "/usr/bin/qemu-img"},
                 device_validator=None, runner=self.runner, popen_factory=None,
                 target_safety_check=None, effective_uid=None, progress_callback=None,
-                age_identity_file=None, age_passphrase=None, pre_write_callback=None,
+                age_identity_file="/keys/client.age", age_passphrase=None, pre_write_callback=None,
             )
         self.assertEqual(result.image_id, "qcow2-image")
         restore.assert_called_once()
