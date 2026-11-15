@@ -147,6 +147,38 @@ class ListenerShutdownRaceTests(unittest.TestCase):
 
 
 class ListenerErrorTests(unittest.TestCase):
+    def test_stop_retains_listener_thread_when_join_times_out_and_can_retry(self):
+        class SlowThread:
+            def __init__(self):
+                self.alive = True
+                self.join_timeouts = []
+
+            def join(self, timeout):
+                self.join_timeouts.append(timeout)
+
+            def is_alive(self):
+                return self.alive
+
+        server = DeploymentControlServer(
+            DeploymentCoordinator(make_job()),
+            ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER),
+            local_identity="URI:feclora-server",
+        )
+        listener_thread = SlowThread()
+        server._listener_thread = listener_thread
+
+        with self.assertRaisesRegex(DeploymentControlError, "did not stop within 3 seconds"):
+            server.stop()
+
+        self.assertIs(server._listener_thread, listener_thread)
+        self.assertEqual(listener_thread.join_timeouts, [3])
+        self.assertTrue(any("did not stop" in item for item in server.listener_errors))
+
+        listener_thread.alive = False
+        server.stop()
+        self.assertIsNone(server._listener_thread)
+        self.assertEqual(listener_thread.join_timeouts, [3, 3])
+
     def test_listener_error_history_is_bounded_and_truncated(self):
         server = object.__new__(DeploymentControlServer)
         server._lock = threading.RLock()
