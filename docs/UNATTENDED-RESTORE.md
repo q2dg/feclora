@@ -98,6 +98,15 @@ before the first write. Ambiguous or missing targets fail closed. Image
 artifacts are checked against manifest size and SHA-256 metadata and the
 restore engine performs its configured post-write verification.
 
+For unattended multicast, the Server publishes **one answer document for the
+entire client group**. Every Client downloads that same JSON. Its MAC address
+selects one entry in the shared `target_bindings` map; it does not receive a
+customized answer. All selected Clients independently validate their own
+destination and report READY over the existing authenticated control channel.
+The Server starts one UDPcast image transmission only after every authorized
+Client is READY. Each Client stages and verifies the artifacts before its local
+restore dispatcher writes to the bound disk.
+
 Because the answer authorizes destructive writes, only publish it after
 reviewing the target and image. The current answer transport is plain HTTP:
 the deployment explicitly trusts its configured Caddy network and does not
