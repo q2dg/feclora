@@ -176,8 +176,6 @@ def validate_definition(value: Any) -> dict[str, Any]:
             raise LocalOperationError("unsupported compression")
         if not isinstance(params.get("encrypt"), bool):
             raise LocalOperationError("encrypt must be boolean")
-        if action == "capture_logical_volume" and "encrypt_passphrase" in params:
-            raise LocalOperationError("passphrase encryption is currently supported only for whole-disk capture")
         if "encrypt_passphrase" in params:
             if not isinstance(params["encrypt_passphrase"], bool):
                 raise LocalOperationError("encrypt_passphrase must be boolean")
