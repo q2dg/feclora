@@ -88,6 +88,8 @@ class P2VImportTests(unittest.TestCase):
             import_p2v_qcow2(self.repo, "physical", "imported", qemu_img="/usr/bin/qemu-img", losetup="/usr/bin/losetup", sfdisk="/usr/sbin/sfdisk", runner=wrong_size)
 
     def test_rejects_boolean_qcow2_virtual_size(self):
+        self.metadata["virtual_size_bytes"] = 1
+        (self.repo / "physical.p2v.json").write_text(json.dumps(self.metadata))
         def boolean_size(argv, **kwargs):
             if argv[1] == "check":
                 return SimpleNamespace(returncode=0, stdout="", stderr="")
