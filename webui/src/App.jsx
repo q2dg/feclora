@@ -12,9 +12,6 @@ import { LANGUAGES, useLanguagePreference } from "./i18n.js";
 
 const OPERATION_LABELS = {
   capture_disk: "opCaptureDisk",
-  capture_p2v: "opCaptureP2v",
-  export_p2v_s3: "opExportP2v",
-  import_p2v: "Import P2V into Feclora image",
   build_recovery_iso: "opRecoveryIso",
   build_deployment_bundle: "Deployment bundle",
   capture_partition: "opCapturePartition",
@@ -199,6 +196,7 @@ export default function App() {
   const [imageId, setImageId] = useState("");
   const [partitionId, setPartitionId] = useState("");
   const [compression, setCompression] = useState("zstd");
+  const [diskImageFormat, setDiskImageFormat] = useState("raw");
   const [confirmation, setConfirmation] = useState("");
   const [progress, setProgress] = useState(null);
   const [operationResult, setOperationResult] = useState(null);
@@ -339,11 +337,9 @@ export default function App() {
       ? `ERASE ${clientRemoteTarget}`
       : `READ ${clientRemoteTarget} TO ${clientRemoteInspection.server_identity}`)
     : "";
-  const isExportP2V = operation === "export_p2v_s3";
-  const isImportP2V = operation === "import_p2v";
   const isCapture = operation.startsWith("capture_");
   const isRestore = operation.startsWith("restore_");
-  const isDisk = operation.endsWith("_disk") || operation === "capture_p2v";
+  const isDisk = operation.endsWith("_disk");
   const isLogicalVolume = operation === "capture_logical_volume" || operation === "restore_logical_volume";
   const deviceOptions = isDisk ? disks : isLogicalVolume ? logicalVolumes : partitions;
   const selectedRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId) || s3Repositories.find((repo) => repo.id === selectedRepositoryId);
@@ -352,7 +348,7 @@ export default function App() {
     : remoteRepositories.find((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified) || s3Repositories.find((repo) => repo.id === selectedRepositoryId);
   const availableImages = selectedRepositoryId ? repositoryImages : images;
   const remoteAvailableImages = remoteSelectedRepository ? repositoryImages : images;
-  const matchingImages = availableImages.filter((item) => item.image_type === (isExportP2V ? "virtual_disk" : isDisk ? "disk" : isLogicalVolume ? "logical_volume" : "partition"));
+  const matchingImages = availableImages.filter((item) => item.image_type === (isDisk ? "disk" : isLogicalVolume ? "logical_volume" : "partition"));
   const expectedConfirmation = operation === "clone_partition"
     ? (source && target ? `ERASE ${target} FROM ${source}` : "")
     : (isRestore || operation.startsWith("clone_")) && target ? `ERASE ${target}` : "";
@@ -377,15 +373,7 @@ export default function App() {
     try {
       let params;
       
-      if (operation === "import_p2v") params = {
-        source_image_id: p2vSourceImageId, image_id: imageId,
-        ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
-      };
-      else if (operation === "export_p2v_s3") params = {
-        image_id: imageId, source_repository_id: selectedRepositoryId,
-        ...(exportDestinationRepositoryId ? { destination_repository_id: exportDestinationRepositoryId } : {})
-      };
-      else if (operation === "build_recovery_iso") params = {
+      if (operation === "build_recovery_iso") params = {
         base_iso_path: recoveryBaseISO, image_id: imageId,
         target_wwn: recoveryTargetWWN.trim() || null,
         target_serial: recoveryTargetSerial.trim() || null,
@@ -400,10 +388,15 @@ export default function App() {
           repository_id: selectedRepositoryId
         };
       }
-      else if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt: encrypt || encryptPassphraseMode, ...(encryptPassphraseMode ? { encrypt_passphrase: true } : {}), ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
+      else if (operation === "capture_disk") params = {
+        source, image_id: imageId, image_format: diskImageFormat,
+        compression: diskImageFormat === "qcow2" ? "none" : compression,
+        encrypt: diskImageFormat === "qcow2" ? false : (encrypt || encryptPassphraseMode),
+        ...(diskImageFormat !== "qcow2" && encryptPassphraseMode ? { encrypt_passphrase: true } : {}),
+        ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
+      };
       else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else if (operation === "capture_logical_volume") params = { source, image_id: imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
-      else if (operation === "capture_p2v") params = { source, image_id: imageId, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else if (isRestore) {
         params = {
           image_id: imageId, target, confirmation,
@@ -1095,16 +1088,7 @@ export default function App() {
   const recoveryExpectedConfirmation = imageId ? `BUILD ${imageId}` : "";
   const bundleJobDefinition = (() => { try { return JSON.parse(bundleJobJSON); } catch { return null; } })();
   const bundleRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified && !repo.read_only);
-  const operationReady = operation === "import_p2v"
-    ? Boolean(p2vSourceImageId && imageId && p2vSourceImageId !== imageId
-      && /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(imageId)
-      && (!selectedRepositoryId || remoteRepositories.some((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified && !repo.read_only))
-      && (selectedRepositoryId ? repositoryImages : images).some((item) => item.image_id === p2vSourceImageId && item.image_type === "virtual_disk" && item.importable === true))
-    : operation === "export_p2v_s3"
-    ? Boolean(imageId && repositoryImages.some((item) => item.image_id === imageId && item.image_type === "virtual_disk")
-      && s3Repositories.some((repo) => repo.id === selectedRepositoryId)
-      && (!exportDestinationRepositoryId || remoteRepositories.some((repo) => repo.id === exportDestinationRepositoryId && repo.mounted && repo.verified && !repo.read_only)))
-    : operation === "build_recovery_iso"
+  const operationReady = operation === "build_recovery_iso"
     ? Boolean(recoveryBaseISO.trim() && imageId && (recoveryTargetWWN.trim() || recoveryTargetSerial.trim())
       && confirmation === recoveryExpectedConfirmation && !recoveryRepositoryIsS3 && !selectedRepository?.read_only)
     : operation === "build_deployment_bundle"
@@ -1163,49 +1147,6 @@ export default function App() {
                         {Object.entries(OPERATION_LABELS).map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
                       </select>
                     </Field>
-                    {isImportP2V && <>
-                      <Alert variant="info" title={t("Import P2V as a Feclora disk image")} isInline>
-                        Convert a committed QCOW2 and its verified .p2v.json sidecar into Feclora's native raw whole-disk image set. The QCOW2 is retained unchanged. Partition-table type is recorded as unknown; this conversion does not repair guest drivers, initramfs, UEFI/BIOS boot configuration or prove that the VM boots. Use a new image identifier and validate the resulting VM separately.
-                      </Alert>
-                      <Field t={t} label={t("Filesystem repository")}>
-                        <select className="pf-v6-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => { setP2vSourceImageId(""); setImageId(""); selectImageRepository(e.target.value); }}>
-                          <option value="">{t("Local repository")}</option>
-                          {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
-                        </select>
-                      </Field>
-                      <Field t={t} label={t("Committed P2V QCOW2 image")}>
-                        <select className="pf-v6-c-form-control" value={p2vSourceImageId} disabled={busy} onChange={(e) => setP2vSourceImageId(e.target.value)} required>
-                          <option value="">{t("Select a QCOW2 image…")}</option>
-                          {(selectedRepositoryId ? repositoryImages : images).filter((item) => item.image_type === "virtual_disk" && item.importable === true).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
-                        </select>
-                      </Field>
-                      <Field t={t} label={t("New Feclora disk image identifier")} help="The imported image is published as a separate raw whole-disk image set; the original QCOW2 remains intact.">
-                        <input className="pf-v6-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)} maxLength={128} required />
-                      </Field>
-                    </>}
-                    {isExportP2V && <>
-                      <Alert variant="info" title={t("Verified S3 P2V export")} isInline>
-                        Select an S3 source repository and a committed QCOW2. Feclora downloads the object to private staging, verifies its size and SHA-256 against the committed metadata, then publishes the QCOW2 and metadata sidecar to a filesystem repository. The sidecar is linked last; existing files are never overwritten.
-                      </Alert>
-                      <Field t={t} label={t("S3 source repository")}>
-                        <select className="pf-v6-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => { setImageId(""); selectImageRepository(e.target.value); }} required>
-                          <option value="">{t("Select an S3 repository…")}</option>
-                          {s3Repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · S3{repo.read_only ? " · read-only" : ""}</option>)}
-                        </select>
-                      </Field>
-                      <Field t={t} label={t("Committed P2V image")}>
-                        <select className="pf-v6-c-form-control" value={imageId} disabled={busy || !selectedRepositoryId} onChange={(e) => setImageId(e.target.value)} required>
-                          <option value="">{t("Select a QCOW2 image…")}</option>
-                          {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
-                        </select>
-                      </Field>
-                      <Field t={t} label={t("Filesystem destination repository")} help="Local is the default. Remote destinations must already be mounted, verified and writable. S3 cannot be selected as the destination for this export operation.">
-                        <select className="pf-v6-c-form-control" value={exportDestinationRepositoryId} disabled={busy} onChange={(e) => setExportDestinationRepositoryId(e.target.value)}>
-                          <option value="">{t("Local repository")}</option>
-                          {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
-                        </select>
-                      </Field>
-                    </>}
                     {operation === "build_deployment_bundle" && <>
                       <Alert variant="info" title={t("Coordinated deployment bundle")} isInline>
                         Assemble an existing generic Feclora Live ISO, a verified whole-disk image and one shared automatic DeploymentJob answer. Generate the schema-v1 answer in the Remote Jobs / shared-answer editor, then paste that exact JSON here. The same answer file contains all authorized MACs and target_bindings; no per-client answers or credentials are created. Output requires a mounted, verified, writable filesystem repository; S3 is not supported.
@@ -1297,12 +1238,18 @@ export default function App() {
                         <input className="pf-v6-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)} maxLength={128} required />
                       </Field>
                       {operation === "capture_partition" && <Field t={t} label={t("Partition identifier")}><input className="pf-v6-c-form-control" value={partitionId} onChange={(e) => setPartitionId(e.target.value)} maxLength={128} placeholder={imageId || "e.g. rootfs"} /></Field>}
-                      {operation !== "capture_p2v" && <Field t={t} label={t("Compression")}>
+                      {operation === "capture_disk" && <Field t={t} label="Whole-disk image format">
+                        <select className="pf-v6-c-form-control" value={diskImageFormat} onChange={(e) => { setDiskImageFormat(e.target.value); if (e.target.value === "qcow2") { setEncrypt(false); setEncryptPassphraseMode(false); setCapturePassphrase(""); } }}>
+                          <option value="raw">Feclora RAW (optional compression and age encryption)</option>
+                          <option value="qcow2">QCOW2 (P2V / virtual disk)</option>
+                        </select>
+                      </Field>}
+                      {!(operation === "capture_disk" && diskImageFormat === "qcow2") && <Field t={t} label={t("Compression")}>
                         <select className="pf-v6-c-form-control" value={compression} onChange={(e) => setCompression(e.target.value)}>
                           <option value="zstd">Zstandard (recommended)</option><option value="lz4">LZ4 (fast)</option><option value="gzip">Gzip</option><option value="xz">XZ</option><option value="none">None</option>
                         </select>
                       </Field>}
-                      {operation !== "capture_p2v" && <Field t={t} label={t("Image security")}>
+                      {!(operation === "capture_disk" && diskImageFormat === "qcow2") && <Field t={t} label={t("Image security")}>
                         <label><input type="checkbox" checked={encrypt} disabled={!security.age_encryption_available && !security.age_executable_available} onChange={(e) => { setEncrypt(e.target.checked); if (!e.target.checked) { setEncryptPassphraseMode(false); setCapturePassphrase(""); } }} /> {t("Encrypt artifacts with age")}</label>
                         {operation === "capture_disk" && encrypt && security.age_executable_available && <>
                           <br />
@@ -1314,7 +1261,6 @@ export default function App() {
                         <br />
                         {!security.age_encryption_available && !security.age_executable_available ? <p className="pf-v6-u-color-200">Optional image protection is provisioned during Server setup when the relevant tools are installed. Without them, ordinary capture and restore remain available.</p> : null}
                       </Field>}
-                      {operation === "capture_p2v" && <Alert variant="info" title={t("P2V output")} isInline>Creates a verified QCOW2 disk file and a .p2v.json metadata sidecar in the selected filesystem repository, or publishes both to S3 with the metadata sidecar as the commit marker. Direct VM boot remediation is not included. The source disk is read-only; the guest may still need drivers or initramfs changes to boot.</Alert>}
                     </>}
                     {isRestore && <>
                       <Field t={t} label={isDisk ? "Disk image" : isLogicalVolume ? "Logical-volume image" : "Partition image"}>
