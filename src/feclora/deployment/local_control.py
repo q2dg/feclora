@@ -130,27 +130,18 @@ class LocalControlServer:
             os.chmod(self.path, 0o600)
             listener.listen(8)
             listener.settimeout(0.5)
-        except Exception as start_error:
+        except Exception:
             try:
                 listener.close()
-            except OSError as close_error:
-                self._listener = listener
-                self._socket_identity = bound_identity
-                raise LocalControlError(
-                    f"IPC listener setup failed and socket close failed: {close_error}"
-                ) from start_error
+            except OSError:
+                pass
             if bound_identity is not None:
                 try:
                     info = os.lstat(self.path)
                     if stat.S_ISSOCK(info.st_mode) and (info.st_dev, info.st_ino) == bound_identity:
                         os.unlink(self.path)
-                except FileNotFoundError:
+                except OSError:
                     pass
-                except OSError as cleanup_error:
-                    self._socket_identity = bound_identity
-                    raise LocalControlError(
-                        f"IPC listener setup failed and socket cleanup failed: {cleanup_error}"
-                    ) from start_error
             raise
         self._socket_identity = bound_identity
         self._listener = listener
@@ -158,31 +149,21 @@ class LocalControlServer:
         self._thread = threading.Thread(target=self._serve, name="feclora-local-control", daemon=True)
         try:
             self._thread.start()
-        except Exception as start_error:
+        except Exception:
             self._thread = None
-            try:
-                listener.close()
-            except OSError as close_error:
-                # Keep ownership state so stop() can retry closing and unlinking.
-                self._listener = listener
-                self._socket_identity = bound_identity
-                raise LocalControlError(
-                    f"IPC worker failed to start and listener close failed: {close_error}"
-                ) from start_error
             self._listener = None
             try:
-                info = os.lstat(self.path)
-                if (stat.S_ISSOCK(info.st_mode)
-                        and (info.st_dev, info.st_ino) == bound_identity):
-                    os.unlink(self.path)
-            except FileNotFoundError:
+                listener.close()
+            except OSError:
                 pass
-            except OSError as cleanup_error:
-                # The listener is closed, but retain the inode identity for stop() to retry.
-                self._socket_identity = bound_identity
-                raise LocalControlError(
-                    f"IPC worker failed to start and socket cleanup failed: {cleanup_error}"
-                ) from start_error
+            if bound_identity is not None:
+                try:
+                    info = os.lstat(self.path)
+                    if (stat.S_ISSOCK(info.st_mode)
+                            and (info.st_dev, info.st_ino) == bound_identity):
+                        os.unlink(self.path)
+                except OSError:
+                    pass
             self._socket_identity = None
             raise
 
