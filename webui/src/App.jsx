@@ -1084,7 +1084,7 @@ export default function App() {
     ? Boolean(p2vSourceImageId && imageId && p2vSourceImageId !== imageId
       && /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(imageId)
       && (!selectedRepositoryId || remoteRepositories.some((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified && !repo.read_only))
-      && (selectedRepositoryId ? repositoryImages : images).some((item) => item.image_id === p2vSourceImageId && item.image_type === "virtual_disk"))
+      && (selectedRepositoryId ? repositoryImages : images).some((item) => item.image_id === p2vSourceImageId && item.image_type === "virtual_disk" && item.importable === true))
     : operation === "export_p2v_s3"
     ? Boolean(imageId && repositoryImages.some((item) => item.image_id === imageId && item.image_type === "virtual_disk")
       && s3Repositories.some((repo) => repo.id === selectedRepositoryId)
@@ -1161,7 +1161,7 @@ export default function App() {
                       <Field t={t} label={t("Committed P2V QCOW2 image")}>
                         <select className="pf-v6-c-form-control" value={p2vSourceImageId} disabled={busy} onChange={(e) => setP2vSourceImageId(e.target.value)} required>
                           <option value="">{t("Select a QCOW2 image…")}</option>
-                          {(selectedRepositoryId ? repositoryImages : images).filter((item) => item.image_type === "virtual_disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
+                          {(selectedRepositoryId ? repositoryImages : images).filter((item) => item.image_type === "virtual_disk" && item.importable === true).map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                         </select>
                       </Field>
                       <Field t={t} label={t("New Feclora disk image identifier")} help="The imported image is published as a separate raw whole-disk image set; the original QCOW2 remains intact.">
