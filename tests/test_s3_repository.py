@@ -201,6 +201,32 @@ class S3RepositoryTests(unittest.TestCase):
 
 
 
+    def test_p2v_publication_requires_complete_geometry_and_integer_schema_version(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            qcow2 = root / "server.qcow2"
+            payload = b"qcow2-payload"
+            qcow2.write_bytes(payload)
+            import json
+            digest = hashlib.sha256(payload).hexdigest()
+            base = {
+                "schema_version": 1, "image_id": "server", "format": "qcow2",
+                "source_device": "/dev/sda", "virtual_size_bytes": 8192,
+                "logical_sector_size": 512, "file_size_bytes": len(payload),
+                "qcow2_sha256": digest, "verified": True, "bootability_note": "note",
+            }
+            repository = S3ObjectRepository(_config(), client=_S3())
+            for invalid in (
+                {key: value for key, value in base.items() if key != "logical_sector_size"},
+                {**base, "schema_version": True},
+                {**base, "logical_sector_size": True},
+            ):
+                sidecar = root / "server.p2v.json"
+                sidecar.write_text(json.dumps(invalid), encoding="utf-8")
+                with self.subTest(metadata=invalid):
+                    with self.assertRaisesRegex(S3RepositoryError, "schema or identity"):
+                        repository.publish_p2v("server", qcow2, sidecar)
+
     def test_p2v_publication_commits_qcow2_before_metadata_and_lists_verified_entry(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -238,6 +264,7 @@ class S3RepositoryTests(unittest.TestCase):
             metadata = {
                 "schema_version": 1, "image_id": "server", "format": "qcow2",
                 "source_device": "/dev/sda", "virtual_size_bytes": 16384,
+                "logical_sector_size": 512,
                 "file_size_bytes": len(payload), "qcow2_sha256": hashlib.sha256(payload).hexdigest(),
                 "verified": True, "bootability_note": "Guest boot may require driver changes.",
             }
@@ -288,6 +315,7 @@ class S3RepositoryTests(unittest.TestCase):
             sidecar.write_text(json.dumps({
                 "schema_version": 1, "image_id": "server", "format": "qcow2",
                 "source_device": "/dev/sda", "virtual_size_bytes": 8192,
+                "logical_sector_size": 512,
                 "file_size_bytes": 10, "qcow2_sha256": "0" * 64,
                 "verified": True, "bootability_note": "note",
             }), encoding="utf-8")
