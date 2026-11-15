@@ -97,6 +97,19 @@ class LocalOperationStoreTests(unittest.TestCase):
         self.assertEqual(validated["action"], "import_p2v")
         self.assertEqual(validated["params"]["source_image_id"], "physical-source")
 
+    def test_p2v_import_requires_new_destination_identifier(self):
+        with self.assertRaisesRegex(LocalOperationError, "new image identifier"):
+            validate_definition({
+                "schema_version": 1,
+                "operation_id": "00000000-0000-4000-8000-000000000015",
+                "action": "import_p2v",
+                "params": {
+                    "source_image_id": "same-image",
+                    "image_id": "same-image",
+                    "repository_id": "primary",
+                },
+            })
+
     def test_shared_deployment_bundle_is_a_valid_durable_operation(self):
         job = {
             "schema_version": 1, "job_id": "00000000-0000-4000-8000-000000000010",
