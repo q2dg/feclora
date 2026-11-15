@@ -29,7 +29,7 @@ SSHFS/NFS/SMB and S3 repositories; persistent Server/Client jobs over
 authenticated TLS; UDPcast multicast restore; remote disk/partition cloning;
 P2V conversion/export; interactive PXE; and a shared-answer unattended restore
 workflow usable from ISO/USB Live or optional PXE boot. A coordinated ISO+image+
-answer bundle generator is a planned integration, not an implemented feature.
+answer bundle workflow has an initial backend/Cockpit assembly operation: it validates and atomically packages an existing generic Live ISO, a selected Feclora disk image and one shared unattended DeploymentJob answer. Building/capturing the inputs and generating the answer still happen in separate preparation steps; removable-media answer discovery and complete end-to-end orchestration remain planned.
 
 Keep the PXE and deployment contracts distinct:
 
