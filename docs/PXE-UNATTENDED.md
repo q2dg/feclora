@@ -199,7 +199,7 @@ image-set download path. The PXE Server never accesses these repositories.
       execution through the existing verified whole-disk restore engine.
 - [ ] Execute the automated repository-manager integration tests and add Live acceptance coverage for private credentials, provider mount failures and interrupted restore cleanup.
 - [x] Use the operator-selected HTTP trust assumption; no cryptographic integrity mechanism is provided.
-- [ ] Run the automated tests and add coverage for tampered answers, repository errors, ambiguous targets, target swaps and interrupted restore. BIOS/UEFI boot, Caddy against real networks and physical restore are optional operator acceptance, not software completion gates.
+- [ ] Run the automated tests and add coverage for tampered answers, repository errors, ambiguous targets, target swaps and interrupted restore. BIOS/UEFI boot, Caddy on real networks and physical restore are mandatory maintainer-run release acceptance, separate from software completion gates.
 
 Each Live PXE restore writes start, progress and terminal events to
 `/var/lib/feclora/pxe/operations.jsonl` and sends best-effort copies to the
