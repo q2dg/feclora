@@ -221,15 +221,31 @@ class DeploymentService:
                 "journal already contains Client session history; this service will not recreate or resume sessions"
             )
         self.job = DeploymentJob.from_dict(report["job"])
-        if self.job.network_interface not in {name for _index, name in socket.if_nameindex()}:
-            raise DeploymentServiceError("job network interface is no longer present")
         from feclora.network.interface_discovery import discover_interface_addresses
-        try:
-            interface_addresses = discover_interface_addresses(self.job.network_interface)
-        except Exception as exc:
-            raise DeploymentServiceError(f"cannot validate the job's Server interface: {exc}") from exc
-        if self.config.bind_address not in {item.address for item in interface_addresses}:
-            raise DeploymentServiceError("configured Server bind address is not assigned to the job interface")
+        if self.job.boot_method == "pxe" and self.job.network_interface == "auto":
+            candidates = []
+            for _index, name in socket.if_nameindex():
+                try:
+                    addresses = discover_interface_addresses(name)
+                except Exception:
+                    continue
+                if self.config.bind_address in {item.address for item in addresses}:
+                    candidates.append(name)
+            if len(candidates) != 1:
+                raise DeploymentServiceError(
+                    "PXE deployment Server bind address must identify exactly one local interface"
+                )
+            self.server_interface = candidates[0]
+        else:
+            self.server_interface = self.job.network_interface
+            if self.server_interface not in {name for _index, name in socket.if_nameindex()}:
+                raise DeploymentServiceError("job network interface is no longer present")
+            try:
+                interface_addresses = discover_interface_addresses(self.server_interface)
+            except Exception as exc:
+                raise DeploymentServiceError(f"cannot validate the job's Server interface: {exc}") from exc
+            if self.config.bind_address not in {item.address for item in interface_addresses}:
+                raise DeploymentServiceError("configured Server bind address is not assigned to the job interface")
         if (self.job.transport == "unicast" and len(self.job.authorized_clients) != 1
                 and self.job.operation != "clone"):
             raise DeploymentServiceError("persistent unicast save/restore service requires exactly one selected Client")
@@ -240,7 +256,7 @@ class DeploymentService:
         if self.job.transport == "multicast":
             try:
                 inspect_multicast_interface(
-                    self.job.network_interface, self.job.multicast_group, role="sender",
+                    self.server_interface, self.job.multicast_group, role="sender",
                 )
             except Exception as exc:
                 raise DeploymentServiceError(f"multicast Server interface preflight failed: {exc}") from exc
@@ -280,7 +296,7 @@ class DeploymentService:
         # deployment listener adds/removes only its own TCP port.
         pxe_manager = PXEServiceManager(firewall=self.firewall)
         self._pxe_state = pxe_manager._read_state()
-        if self._pxe_state is not None and self._pxe_state["interface"] == self.job.network_interface:
+        if self._pxe_state is not None and self._pxe_state["interface"] == self.server_interface:
             self._base_firewall_ports = set(self._pxe_state["firewall"]["ports"])
             self._base_firewall_protocols = set(self._pxe_state["firewall"].get("protocols", []))
         else:
@@ -295,7 +311,7 @@ class DeploymentService:
             self.coordinator, context,
             local_identity=self.config.local_identity,
             firewall=self.firewall,
-            interface=self.job.network_interface,
+            interface=self.server_interface,
             progress_event_sink=self.journal,
         )
         self.ipc = LocalControlServer(str(IPC_SOCKET), self._handle_ipc, allowed_uid=0)
@@ -501,7 +517,7 @@ class DeploymentService:
         try:
             if self.job.operation == "clone" and self.job.transport == "multicast":
                 udpcast = udpcast_config_for_job(
-                    self.job, min_receivers=len(self.job.authorized_clients),
+                    self.job, min_receivers=len(self.job.authorized_clients), network_interface=self.server_interface,
                 )
                 self.control.run_physical_multicast_clone_job(
                     udpcast_config=udpcast,
@@ -512,7 +528,7 @@ class DeploymentService:
                 )
             elif self.job.transport == "multicast":
                 udpcast = udpcast_config_for_job(
-                    self.job, min_receivers=self.job.minimum_ready_clients,
+                    self.job, min_receivers=self.job.minimum_ready_clients, network_interface=self.server_interface,
                 )
                 results = self.control.run_multicast_restore_job(
                     self.repository_path, self.manifest_path,
@@ -574,7 +590,7 @@ class DeploymentService:
             recover_stale_runtime_artifacts(lock_held=True)
             if (self._pxe_state is not None
                     and self._pxe_state["interface"] == self.job.network_interface):
-                self.firewall.adopt(self.job.network_interface, self._pxe_state["firewall"])
+                self.firewall.adopt(self.server_interface, self._pxe_state["firewall"])
             self.journal({
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "job_id": self.job.job_id,
@@ -590,7 +606,18 @@ class DeploymentService:
             )
             self.ipc.start()
             while not self._stop_event.wait(0.5):
-                pass
+                if self.job.start_policy == "automatic":
+                    with self._worker_lock:
+                        if (not self._arm_requested
+                                and self.coordinator.state is JobState.CREATED
+                                and self.coordinator.can_start()):
+                            self._arm_requested = True
+                            self._worker = threading.Thread(
+                                target=self._run_job,
+                                name="feclora-deployment-auto-job",
+                                daemon=True,
+                            )
+                            self._worker.start()
         finally:
             try:
                 self.ipc.stop()
