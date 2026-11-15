@@ -106,6 +106,8 @@ def import_p2v_qcow2(
     image_id: str,
     *,
     qemu_img: str | None = None,
+    losetup: str | None = None,
+    sfdisk: str | None = None,
     runner: Callable[..., Any] = subprocess.run,
 ) -> ImageManifest:
     """Convert a committed P2V QCOW2 into a manifest-backed raw disk image.
@@ -161,8 +163,10 @@ def import_p2v_qcow2(
     if any(os.path.lexists(repo / name) for name in names):
         raise P2VImportError("imported Feclora image identifier already exists")
     qemu_img = qemu_img or shutil.which("qemu-img")
-    if not qemu_img:
-        raise P2VImportError("qemu-img is required for P2V import")
+    losetup = losetup or shutil.which("losetup")
+    sfdisk = sfdisk or shutil.which("sfdisk")
+    if not qemu_img or not losetup or not sfdisk:
+        raise P2VImportError("qemu-img, losetup and sfdisk are required for P2V import")
     try:
         available_bytes = shutil.disk_usage(repo).free
     except OSError as exc:
@@ -198,10 +202,35 @@ def import_p2v_qcow2(
             filename=names[0], role="disk-image", format="raw", compression="none",
             size_bytes=raw_info.st_size, sha256=_sha256(raw_path),
         )
-        table_text = (
-            "# Imported from a verified P2V QCOW2; partition-table type is not independently inspected.\n"
-            "# Raw sectors are preserved. Guest boot repair and BIOS/UEFI compatibility require separate validation.\n"
-        )
+        loop_device = None
+        try:
+            attached = _run(
+                [losetup, "--find", "--show", "--partscan", "--read-only", str(raw_path)], runner,
+            )
+            loop_device = (getattr(attached, "stdout", "") or "").strip()
+            import re
+            if not re.fullmatch(r"/dev/loop[0-9]+", loop_device):
+                raise P2VImportError("losetup did not return a valid loop-device path")
+            dump_result = _run([sfdisk, "--dump", loop_device], runner)
+            table_text = (getattr(dump_result, "stdout", "") or "").strip() + "\\n"
+            label_match = re.search(r"^label:\\s*(gpt|dos)\\s*$", table_text, re.MULTILINE | re.IGNORECASE)
+            if not label_match:
+                raise P2VImportError("P2V disk must contain an inspectable GPT or MBR partition table")
+            partition_table = "gpt" if label_match.group(1).lower() == "gpt" else "mbr"
+            sector_match = re.search(r"^sector-size:\\s*(\\d+)\\s*$", table_text, re.MULTILINE)
+            if sector_match and int(sector_match.group(1)) != logical_sector_size:
+                raise P2VImportError("partition-table sector size disagrees with P2V source geometry")
+            from feclora.storage.partition_range import parse_sfdisk_dump, PartitionRangeError
+            try:
+                parse_sfdisk_dump(
+                    table_text, image_size_bytes=virtual_size,
+                    default_sector_size=logical_sector_size,
+                )
+            except PartitionRangeError as exc:
+                raise P2VImportError(f"P2V partition table is invalid: {exc}") from exc
+        finally:
+            if loop_device:
+                _run([losetup, "--detach", loop_device], runner)
         import io
         from feclora.storage.artifact_writer import write_artifact
         table_artifact = write_artifact(
@@ -211,7 +240,7 @@ def import_p2v_qcow2(
         manifest = ImageManifest.from_dict({
             "schema_version": 1, "image_id": image_id, "image_type": "disk",
             "source_size_bytes": virtual_size, "logical_sector_size": logical_sector_size,
-            "partition_table": "unknown",
+            "partition_table": partition_table,
             "artifacts": [disk_artifact.to_dict(), table_artifact.to_dict()],
         })
         manifest_path = stage / names[2]
