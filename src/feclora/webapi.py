@@ -1681,7 +1681,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 fd = os.open(answer_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
                 with os.fdopen(fd, "w", encoding="utf-8") as stream:
                     stream.write(job.to_json())
-                    stream.write("\\n")
+                    stream.write("\n")
                     stream.flush()
                     os.fsync(stream.fileno())
                 output_path = repository / bundle_name
@@ -1690,7 +1690,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                     str(output_path),
                 )
         result["output_directory"] = str(output_path)
-    if action == "build_recovery_iso":
+    elif action == "build_recovery_iso":
         from feclora.storage.recovery_iso import build_recovery_iso
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         base_iso = params.get("base_iso_path")
