@@ -135,12 +135,14 @@ ARM action for interactive jobs before it sends START. The narrowly scoped
 Client READY and explicit destructive opt-in in the validated job, then starts
 the existing authenticated control workflow without a manual ARM.
 
-The existing Remote jobs workflow uses Server-authenticated TLS, job-scoped
-MAC selection and its READY/ARM lifecycle. That workflow is separate from the new shared
-PXE answer-file design. The answer-file publication path validates a declarative
-restore answer on the Server and serves it through Caddy over HTTP without
-without per-Client credentials. The Live answer downloader, NFS read-only mount, unique WWN/serial target
-resolution, pre-write revalidation and whole-disk restore engine are connected.
+The shared answer-file workflow uses the same Server-authenticated TLS
+control plane and persistent deployment runtime as interactive Remote jobs.
+One schema-v1 JSON document is published once and consumed identically by every
+Client; each Client selects its own stable target binding by its local MAC.
+The answer is served through Caddy over the existing HTTP service, without
+per-Client answer variants or credentials. The Live downloader, repository
+resolution, target preflight and pre-write identity revalidation feed the
+existing whole-disk restore engine.
 Other repository providers, replay/expiry controls and Cockpit result reconciliation
 remain software backlog; physical/network acceptance is optional. Do not infer authorization from PXE boot,
 a DHCP lease, a URL or a job UUID.
