@@ -34,9 +34,11 @@ refuse mounted, busy, root-backed or otherwise unverifiable devices. The API
 returns the estimated minimum filesystem size for ext/NTFS or the checked
 partition capacity for XFS, and identifies the read-only probe used. It never repairs or writes to the source.
 
-This is a backend/API capability, not yet a dedicated Cockpit pre-capture
-screen. XFS, FAT, exFAT, F2FS and Btrfs are not silently checked by unrelated
-utilities; their dedicated pre-capture checks remain pending. A clean probe
+The Cockpit partition-capture form now requires a successful read-only preflight
+for detected ext2/3/4, NTFS/ntfs3 and XFS sources before enabling capture. The
+selected source and filesystem are bound to the result; changing the source
+invalidates the check. Unsupported or unknown filesystem types are explicitly
+identified and are not passed to an unrelated checker. A clean probe
 does not provide application-level snapshot consistency.
 
 ## Process and publication safety
