@@ -14,7 +14,7 @@ This checklist records the remaining hands-on validation owned by the maintainer
 - [ ] Validate deployment with multiple Clients, including unicast and multicast where applicable. Record Client count, network topology, IGMP/switch configuration, per-Client results and failures.
 - [ ] Test interactive and unattended PXE in an isolated network, including DHCP/ProxyDHCP, BIOS/UEFI, answer publication/revocation, client admission limits, repository resolution and restore failure paths.
 - [ ] After runtime acceptance, add version-matched real screenshots where useful. Three illustrative SVG mockups are already published; keep their mockup labels and never present them as runtime evidence.
-- [ ] Generate and review `webui/package-lock.json` using the supported Node/npm toolchain; verify a clean `npm ci` build before claiming fully reproducible frontend dependencies.
+- [ ] Verify that a clean checkout installs and builds successfully with `npm ci` using the committed `webui/package-lock.json`; update the lockfile only when intentionally changing frontend dependencies.
 - [ ] Review all visible UI strings and complete/verify the 14 advertised locale dictionaries; record any intentionally untranslated text rather than silently claiming full localization.
 - [ ] Review Dependabot proposals and resolve high-severity npm audit and CodeQL findings before a release.
 
