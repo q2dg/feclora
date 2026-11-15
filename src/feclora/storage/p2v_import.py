@@ -92,6 +92,9 @@ def import_p2v_qcow2(
     virtual_size = metadata.get("virtual_size_bytes")
     if isinstance(virtual_size, bool) or not isinstance(virtual_size, int) or virtual_size <= 0:
         raise P2VImportError("P2V sidecar has an invalid virtual disk size")
+    logical_sector_size = metadata.get("logical_sector_size")
+    if isinstance(logical_sector_size, bool) or logical_sector_size not in {512, 4096}:
+        raise P2VImportError("P2V sidecar has an invalid or missing logical sector size")
     names = [f"{image_id}.disk.raw", f"{image_id}.sfdisk", f"{image_id}.manifest.json"]
     if any(os.path.lexists(repo / name) for name in names):
         raise P2VImportError("imported Feclora image identifier already exists")
@@ -108,8 +111,10 @@ def import_p2v_qcow2(
         except (TypeError, json.JSONDecodeError) as exc:
             raise P2VImportError("qemu-img returned invalid source metadata") from exc
         if (not isinstance(info, dict) or info.get("format") != "qcow2"
-                or info.get("virtual-size") != virtual_size):
-            raise P2VImportError("QCOW2 format or virtual capacity disagrees with its sidecar")
+                or info.get("virtual-size") != virtual_size
+                or info.get("backing-filename") or info.get("full-backing-filename")
+                or info.get("data-file") or info.get("encrypted") is True):
+            raise P2VImportError("QCOW2 format, dependencies or virtual capacity disagree with its sidecar")
         raw_path = stage / f"{image_id}.raw.tmp"
         _run([qemu_img, "convert", "-p", "-f", "qcow2", "-O", "raw", str(source), str(raw_path)], runner)
         raw_info = os.lstat(raw_path)
@@ -132,7 +137,7 @@ def import_p2v_qcow2(
         )
         manifest = ImageManifest.from_dict({
             "schema_version": 1, "image_id": image_id, "image_type": "disk",
-            "source_size_bytes": virtual_size, "logical_sector_size": 512,
+            "source_size_bytes": virtual_size, "logical_sector_size": logical_sector_size,
             "partition_table": "unknown",
             "artifacts": [disk_artifact.to_dict(), table_artifact.to_dict()],
         })
