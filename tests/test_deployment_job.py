@@ -89,6 +89,29 @@ class DeploymentJobTests(unittest.TestCase):
         with self.assertRaisesRegex(JobValidationError, "PXE jobs must start automatically"):
             DeploymentJob.from_dict(manual)
 
+
+    def test_pxe_boot_job_accepts_automatic_multicast_image_restore(self):
+        payload = valid_job(
+            transport="multicast",
+            network_interface="auto",
+            multicast_group="239.10.10.10",
+            multicast_port=5000,
+            staging_required_bytes=4096,
+            repository_id="nas-images",
+            boot_method="pxe",
+            confirm_destructive=True,
+            start_policy="automatic",
+            target_bindings={
+                "52:54:00:12:34:56": {"wwn": "wwn-client-1", "serial": None},
+                "52:54:00:12:34:57": {"wwn": "wwn-client-2", "serial": None},
+            },
+        )
+        job = DeploymentJob.from_dict(payload)
+        self.assertEqual(job.boot_method, "pxe")
+        self.assertEqual(job.transport, "multicast")
+        self.assertEqual(job.minimum_ready_clients, 2)
+        self.assertEqual(DeploymentJob.from_json(job.to_json()), job)
+
     def test_json_round_trip_is_canonical(self):
         job = DeploymentJob.from_dict(valid_job())
         decoded = DeploymentJob.from_json(job.to_json())
