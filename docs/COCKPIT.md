@@ -79,7 +79,7 @@ LAN access is intentionally unavailable in this kiosk profile.
 
 The Operations wizard provides:
 - whole-disk, partition and active LVM logical-volume image capture;
-- physical-disk-to-QCOW2 (P2V) conversion through a durable local worker. It writes a verified `.qcow2` file and `.p2v.json` metadata sidecar to a local or mounted filesystem repository (SSHFS/NFS/SMB) or an S3 object repository. S3 publishes the QCOW2 payload first, verifies its size and SHA-256 metadata, then publishes the sidecar as the commit marker. The source is read-only and must pass source-safety checks. QCOW2 preserves disk sectors and partition metadata, but does not guarantee guest bootability; OS-specific drivers or initramfs changes may still be required.
+- whole-disk capture with a selectable image format: Feclora RAW (with optional compression and age encryption) or QCOW2. Both formats are stored as ordinary manifest-backed disk images in local, mounted filesystem or S3 repositories. QCOW2 is the P2V format; restore accepts either RAW or QCOW2 directly and converts QCOW2 to private RAW staging before writing the selected physical disk. QCOW2 preserves disk sectors and partition metadata, but does not guarantee guest bootability; OS-specific drivers, initramfs or firmware changes may still be required.
 - whole-disk, partition and existing-LV image restoration;
 - whole-disk and partition-to-partition cloning;
 - device discovery, image selection, compression selection and typed
