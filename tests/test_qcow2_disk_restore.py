@@ -61,6 +61,33 @@ class QCOW2DiskRestoreTests(unittest.TestCase):
         self.assertEqual(result.image_id, "qcow2-image")
         restore.assert_called_once()
 
+    def test_backing_file_is_rejected_before_qcow2_check_or_conversion(self):
+        commands = []
+        def backing_runner(command, **_kwargs):
+            commands.append(command[1])
+            if command[1] == "info":
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout=json.dumps({
+                        "format": "qcow2", "virtual-size": 4096,
+                        "backing-filename": "/etc/passwd",
+                    }),
+                    stderr="",
+                )
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with patch("feclora.storage.disk_restore.restore_disk") as restore:
+            with self.assertRaisesRegex(DiskRestoreError, "dependencies"):
+                _restore_qcow2_disk(
+                    self.manifest, str(self.repository), "/dev/fake",
+                    confirmation="ERASE /dev/fake", executables={"qemu-img": "/usr/bin/qemu-img"},
+                    device_validator=None, runner=backing_runner, popen_factory=None,
+                    target_safety_check=None, effective_uid=None, progress_callback=None,
+                    age_identity_file=None, age_passphrase=None, pre_write_callback=None,
+                )
+        self.assertEqual(commands, ["info"])
+        restore.assert_not_called()
+
     def test_qcow2_virtual_size_mismatch_is_rejected_before_restore(self):
         def bad_runner(command, **_kwargs):
             if command[1] == "info":
