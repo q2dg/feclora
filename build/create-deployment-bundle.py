@@ -43,6 +43,7 @@ def create_bundle(
     output_directory: str,
     capture_source: str | None = None,
     releasever: str = "45",
+    work_directory: str | None = None,
     runner: Callable[..., Any] = subprocess.run,
 ) -> dict[str, Any]:
     """Build the generic Live ISO, optionally capture a disk, then bundle once."""
@@ -69,6 +70,15 @@ def create_bundle(
         raise BundleWorkflowError("image repository and bundle output must be absolute; output parent must be a real directory")
     if output.exists() or output.is_symlink():
         raise BundleWorkflowError("bundle output already exists")
+    work_parent = Path(work_directory) if work_directory else None
+    if work_parent is not None:
+        try:
+            work_info = os.lstat(work_parent)
+        except OSError as exc:
+            raise BundleWorkflowError(f"ISO work directory is unavailable: {exc}") from exc
+        import stat
+        if not work_parent.is_absolute() or not stat.S_ISDIR(work_info.st_mode) or stat.S_ISLNK(work_info.st_mode):
+            raise BundleWorkflowError("ISO work directory must be an absolute real directory on local build storage")
     if not re_identifier(repository_id) or not image_identifier(image_id):
         raise BundleWorkflowError("repository_id or image_id is invalid")
 
@@ -98,7 +108,7 @@ def create_bundle(
         raise BundleWorkflowError("selected image must be a Feclora whole-disk image with the requested ID")
 
     output.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="feclora-bundle-iso-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="feclora-bundle-iso-", dir=str(work_parent) if work_parent else None) as temporary:
         iso_output = Path(temporary)
         environment = os.environ.copy()
         environment.update({
@@ -169,6 +179,7 @@ def main() -> int:
     parser.add_argument("--output", required=True, help="New bundle directory; it must not already exist")
     parser.add_argument("--capture-source", help="Optional offline source block device to capture before building the bundle")
     parser.add_argument("--releasever", default="45", help="Fedora release version (default: 45)")
+    parser.add_argument("--work-directory", help="Optional local directory with sufficient free space for the Live ISO build (defaults to the system temporary directory)")
     args = parser.parse_args()
     if os.geteuid() != 0:
         parser.error("run as root on a Fedora x86_64 build host with KVM and ISO build dependencies")
@@ -178,6 +189,7 @@ def main() -> int:
             repository_id=args.repository_id, image_id=args.image_id,
             answer_file=args.answer_file, output_directory=args.output,
             capture_source=args.capture_source, releasever=args.releasever,
+            work_directory=args.work_directory,
         )
     except BundleWorkflowError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
