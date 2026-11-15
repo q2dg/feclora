@@ -130,15 +130,27 @@ class LocalControlServer:
             os.chmod(self.path, 0o600)
             listener.listen(8)
             listener.settimeout(0.5)
-        except Exception:
-            listener.close()
+        except Exception as start_error:
+            try:
+                listener.close()
+            except OSError as close_error:
+                self._listener = listener
+                self._socket_identity = bound_identity
+                raise LocalControlError(
+                    f"IPC listener setup failed and socket close failed: {close_error}"
+                ) from start_error
             if bound_identity is not None:
                 try:
                     info = os.lstat(self.path)
                     if stat.S_ISSOCK(info.st_mode) and (info.st_dev, info.st_ino) == bound_identity:
                         os.unlink(self.path)
-                except OSError:
+                except FileNotFoundError:
                     pass
+                except OSError as cleanup_error:
+                    self._socket_identity = bound_identity
+                    raise LocalControlError(
+                        f"IPC listener setup failed and socket cleanup failed: {cleanup_error}"
+                    ) from start_error
             raise
         self._socket_identity = bound_identity
         self._listener = listener
