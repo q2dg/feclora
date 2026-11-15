@@ -21,14 +21,16 @@ provisioning workflow.
 
 New unattended PXE deployments use the same schema-v1 DeploymentJob JSON contract as Feclora's ISO/Client deployment workflow. The PXE-specific differences are represented in the job itself:
 
-- boot_method: pxe identifies network boot; it is independent of transport: unicast or multicast.
+- `boot_method: pxe` identifies network boot. The shared DeploymentJob schema also models multicast, but the unattended PXE adapter currently supports unicast restore only.
 - network_interface: auto means the PXE Live client retains the DHCP network configuration established during boot.
 - start_policy: automatic and confirm_destructive: true explicitly opt in to unattended execution.
 - authorized_clients lists the expected client MAC addresses. MAC addresses are operational selectors, not authentication credentials.
 - target_bindings maps every client MAC to a stable disk WWN and/or serial number. The client checks that binding before restore and revalidates the disk identity immediately before writing.
 - repository_id references a repository already configured on the Live client; credentials are never embedded in the JSON.
 
-The authenticated unicast Client runtime, the multicast receiver and the PXE Live adapter all call the shared manifest-backed restore dispatcher at src/feclora/deployment/restore_execution.py. Boot admission, target selection and transfer differ by mode; the actual disk/partition/logical-volume restore engines are selected through this common dispatcher.\n\nThe Cockpit PXE panel can generate this JSON, let the operator review and save it, or import a JSON document from local upload, HTTP(S), a configured remote repository, or SCP. The same file is validated by DeploymentJob.from_dict() and published as the job-scoped PXE document. The legacy schema-v2 PXE answer remains readable for compatibility, but new jobs should use the shared schema. The current unattended PXE adapter executes whole-disk restore over unicast; multicast still uses the same DeploymentJob contract and restore dispatcher through the ISO/Live Client workflow. PXE-to-multicast boot handoff is not yet enabled.
+The authenticated unicast Client runtime, the multicast receiver and the PXE Live adapter all call the shared manifest-backed restore dispatcher at `src/feclora/deployment/restore_execution.py`. Boot admission, target selection and transfer differ by mode; the actual disk/partition/logical-volume restore engines are selected through this common dispatcher.
+
+The Cockpit PXE panel can generate this JSON, let the operator review and save it, or import a JSON document from local upload, HTTP(S), a configured remote repository, or SCP. The ISO/Client deployment panel can import the same schema-v1 document from a local file, HTTP(S), a mounted and verified repository, S3, or SCP through saved SSH credentials. Both import paths validate the document with `DeploymentJob.from_dict()` before the operator reviews and creates or publishes the job. The legacy schema-v2 PXE answer remains readable for compatibility, but new jobs should use the shared schema. The current unattended PXE adapter executes whole-disk restore over unicast; multicast remains available through the authenticated ISO/Live Client workflow. PXE-to-multicast handoff is not yet enabled.
 
 The Feclora PXE Server is the single deployment component containing DHCP,
 Caddy and the services needed to distribute Live boot assets and publish
