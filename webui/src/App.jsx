@@ -376,7 +376,7 @@ export default function App() {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setProgress(null); setOperationResult(null);
     try {
       let params;
-      if (operation === "capture_partition" && capturePreflightSupported && !(capturePreflight?.checked && capturePreflight.source === source && capturePreflight.filesystem === captureFilesystem)) throw new Error("Run a successful read-only filesystem preflight for this source before capturing the partition.");
+      
       if (operation === "import_p2v") params = {
         source_image_id: p2vSourceImageId, image_id: imageId,
         ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
@@ -1118,7 +1118,7 @@ export default function App() {
       && bundleJobDefinition.authorized_clients.every((mac) => Boolean(bundleJobDefinition.target_bindings?.[mac]))
       && (bundleJobDefinition.transport !== "multicast" || bundleJobDefinition.authorized_clients.length >= 2))
     : isCapture
-    ? Boolean(source && imageId && (!selectedRepository?.read_only) && (operation !== "capture_partition" || ((partitionId || imageId) && (!capturePreflightSupported || (capturePreflight?.checked && !capturePreflight.loading && capturePreflight.source === source && capturePreflight.filesystem === captureFilesystem))))
+    ? Boolean(source && imageId && (!selectedRepository?.read_only) && (operation !== "capture_partition" || (partitionId || imageId))
     : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation && (!isDisk || !restoreLayoutPreview || !restoreTargetDevice || restoreTargetDevice.size_bytes >= restoreLayoutPreview.source_size_bytes))
       : Boolean(source && target && source !== target && confirmation === expectedConfirmation);
 
@@ -1283,11 +1283,11 @@ export default function App() {
                       </Field>
                       {operation === "capture_partition" && source && (capturePreflightSupported
                         ? <div className="pf-v6-u-mb-md">
-                            <Alert variant={capturePreflight?.checked ? "success" : "info"} title={capturePreflight?.checked ? t("Filesystem preflight passed") : t("Read-only filesystem preflight")} isInline>
-                              {t("The source must be offline. This check never repairs or writes to it.")} {t("Detected filesystem")}: <strong>{captureFilesystem}</strong>.
+                            <Alert variant={capturePreflight?.checked ? "success" : "info"} title={capturePreflight?.checked ? t("Filesystem preflight passed") : t("Optional read-only filesystem preflight")} isInline>
+                              {t("This optional check runs only when you request it. The source must be offline; it never repairs or writes to it.")} {t("Detected filesystem")}: <strong>{captureFilesystem}</strong>.
                               {capturePreflight?.checked && capturePreflight.source === source && capturePreflight.filesystem === captureFilesystem
                                 ? <> {t("Read-only check passed.")} {t("Checker")}: {capturePreflight.checker}. {capturePreflight.minimum_size_bytes != null ? t("Estimated minimum filesystem size") + ": " + formatBytes(capturePreflight.minimum_size_bytes) + "." : capturePreflight.checked_size_bytes != null ? t("Checked device capacity") + ": " + formatBytes(capturePreflight.checked_size_bytes) + "." : ""}</>
-                                : " " + t("Run the check before starting partition capture.")}
+                                : " " + t("You can run this check now, or continue without it.")}
                             </Alert>
                             {capturePreflight?.error && <Alert variant="danger" title={t("Preflight failed")} isInline>{capturePreflight.error}</Alert>}
                             <Button type="button" variant="secondary" isDisabled={busy} isLoading={Boolean(capturePreflight?.loading)} onClick={checkCapturePreflight}>{t("Check filesystem (read-only)")}</Button>
