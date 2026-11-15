@@ -12,6 +12,7 @@ from unittest.mock import patch
 from feclora.network.pxe_answer_client import (
     PXEAnswerClientError, _discover_dhcp_answer_url, _managed_repository,
     _wait_for_age_passphrase, _pxe_report_callback, execute_live_pxe_restore, fetch_live_pxe_answer,
+    _start_shared_deployment_job,
 )
 
 
@@ -107,6 +108,43 @@ class PXEAnswerClientTests(unittest.TestCase):
                     destination=Path(root) / "answer.json",
                     downloader=lambda _url: json.dumps(job).encode(),
                 )
+
+
+    def test_shared_multicast_answer_starts_authenticated_client_job(self):
+        job = {
+            "schema_version": 1, "job_id": JOB, "operation": "restore",
+            "image_id": "golden", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56", "52:54:00:12:34:57"],
+            "network_interface": "auto", "transport": "multicast",
+            "multicast_group": "239.10.10.10", "multicast_port": 5000,
+            "start_policy": "automatic", "expected_clients": None, "start_deadline": None,
+            "repository_id": "nas-images", "boot_method": "pxe",
+            "confirm_destructive": True,
+            "target_bindings": {
+                "52:54:00:12:34:56": {"wwn": "wwn-first", "serial": None},
+                "52:54:00:12:34:57": {"wwn": "wwn-second", "serial": None},
+            },
+        }
+        with tempfile.TemporaryDirectory() as root:
+            request_dir = Path(root) / "client-jobs"
+            config = SimpleNamespace(port=9555)
+            with patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config), \\
+                 patch("feclora.network.pxe_answer_client.Path", side_effect=lambda value: request_dir if value == "/var/lib/feclora/client-jobs" else Path(value)), \\
+                 patch("feclora.network.pxe_answer_client.subprocess.run", return_value=SimpleNamespace(returncode=0, stderr="", stdout="")) as run:
+                unit = _start_shared_deployment_job({
+                    **job, "_server_address": "192.0.2.10",
+                })
+            self.assertEqual(unit, f"feclora-client@{JOB}.service")
+            payload = json.loads((request_dir / f"{JOB}.request.json").read_text())
+            self.assertEqual(payload["host"], "192.0.2.10")
+            self.assertEqual(payload["port"], 9555)
+            self.assertTrue(payload["unattended"])
+            self.assertIsNone(payload["network_interface"])
+            run.assert_called_once_with(
+                ["/usr/bin/systemctl", "start", "--no-block", unit],
+                stdin=__import__("subprocess").DEVNULL, capture_output=True,
+                text=True, check=False, timeout=10,
+            )
 
     def test_report_callback_posts_job_scoped_client_events_best_effort(self):
         import uuid
