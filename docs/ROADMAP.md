@@ -80,8 +80,10 @@ authenticated transport form the trust boundary. Age encryption is optional.
   its usage lease is acquired but before it can be resolved for restore,
   a Client connection resetting before its terminal result is received, and
   durable per-Client outcomes for a partially failed multicast restore.
-  Continue with service restart during an active operation and repository
-  disappearance during the actual image-transfer phase. These are software
+  A new fault-injection test also covers repository I/O failure after multicast
+  START and checks that every participating Client is marked failed. Execute
+  the expanded suite on the exact commit; continue with service restart during
+  an active operation and real two-host receiver-loss acceptance. These are software
   tests; physical network and multi-host acceptance remains maintainer-owned.
 - **Quality and distribution:** frontend direct dependencies and the
   transitive dependency graph are pinned in `webui/package.json` and
