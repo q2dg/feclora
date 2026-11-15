@@ -187,7 +187,6 @@ def import_p2v_qcow2(
     try:
         staged_source = stage / "source.qcow2"
         _copy_verified_source(source, staged_source, metadata["file_size_bytes"], metadata["qcow2_sha256"])
-        _run([qemu_img, "check", "-f", "qcow2", str(staged_source)], runner)
         info_result = _run([qemu_img, "info", "--output=json", str(staged_source)], runner)
         try:
             info = json.loads(info_result.stdout)
@@ -206,6 +205,7 @@ def import_p2v_qcow2(
                 or external_data_file or info.get("encrypted") is True
                 or (isinstance(format_data, dict) and format_data.get("encrypted") is True)):
             raise P2VImportError("QCOW2 format, dependencies or virtual capacity disagree with its sidecar")
+        _run([qemu_img, "check", "-f", "qcow2", str(staged_source)], runner)
         raw_path = stage / names[0]
         _run([qemu_img, "convert", "-p", "-f", "qcow2", "-O", "raw", str(staged_source), str(raw_path)], runner)
         raw_info = os.lstat(raw_path)
