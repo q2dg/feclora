@@ -12,10 +12,11 @@ publication are explicit operations. Cockpit Terminal provides system
 administration and diagnostic shell access.
 
 Build the frontend from the repository root with
-`bash build/build-webui.sh`. The script installs dependencies and runs the
-Vite production build; it uses `npm ci` when a `webui/package-lock.json`
-exists and currently falls back to `npm install` because the repository does
-not yet commit that lockfile. The ISO build copies `webui/dist/` into
+`bash build/build-webui.sh`. The script requires the committed
+`webui/package-lock.json`, installs the pinned dependency graph with
+`npm ci`, runs the dependency-pin check and creates the Vite production
+build. It fails rather than falling back to an unlocked `npm install` if the
+lockfile is absent. The ISO build copies `webui/dist/` into
 `/usr/share/cockpit/feclora`.
 
 The frontend invokes only fixed actions through the root-owned
