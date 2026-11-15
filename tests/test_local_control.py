@@ -60,6 +60,11 @@ class LocalControlProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(LocalControlError, "does not accept"):
             _receive(FakeSocket(frame({"action": "status", "params": {"anything": True}})))
 
+    def test_rejects_non_finite_json_numbers(self):
+        payload = b'{"action":"arm","params":{"job_id":"job","confirmation":"yes","value":NaN}}'
+        with self.assertRaisesRegex(LocalControlError, "non-finite"):
+            _receive(FakeSocket(struct.pack("!I", len(payload)) + payload))
+
     def test_rejects_duplicate_fields(self):
         payload = b'{"action":"status","action":"cancel","params":{}}'
         with self.assertRaisesRegex(LocalControlError, "duplicate"):
@@ -77,6 +82,13 @@ class LocalControlProtocolTests(unittest.TestCase):
     def test_client_rejects_falsey_non_dict_parameters_before_connecting(self):
         with self.assertRaisesRegex(LocalControlError, "unsupported"):
             local_control_request("/unused/socket", "status", [])
+
+    def test_client_rejects_non_finite_parameter_values_before_connecting(self):
+        with self.assertRaisesRegex(LocalControlError, "not serializable"):
+            local_control_request(
+                "/unused/socket", "arm",
+                {"job_id": "job", "confirmation": "yes", "extra": float("nan")},
+            )
 
     def test_client_enforces_exact_arm_parameters_before_connecting(self):
         with self.assertRaisesRegex(LocalControlError, "exactly job_id"):
