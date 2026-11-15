@@ -13,7 +13,6 @@ import shutil
 import stat
 import struct
 import subprocess
-import tempfile
 import uuid
 from pathlib import Path
 from typing import Any
@@ -174,6 +173,7 @@ def _session_directory(
             }
             if metadata != expected:
                 raise ImageBrowserError("browser session does not match the selected image and partition")
+            os.utime(metadata_path, None)
         os.utime(directory, None)
         return session_id, directory, created
     except ImageBrowserError:
@@ -298,6 +298,8 @@ def browse_image(
         image_path, image_format = _prepare_image(
             manifest, repo, session_directory, age_identity_file,
         )
+        if image_path.parent == session_directory:
+            os.utime(image_path, None)
         try:
             import guestfs as guestfs_module
         except ImportError as exc:
