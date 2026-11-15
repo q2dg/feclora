@@ -259,6 +259,52 @@ class DeploymentJournalTests(unittest.TestCase):
                 recovered.arm()
             self.assertEqual(len(reopened.events), 5)
 
+
+    def test_multiclient_recovery_preserves_each_terminal_and_inflight_result(self):
+        second_mac = "52:54:00:12:34:57"
+        job = DeploymentJob.from_dict({
+            **make_job().to_dict(),
+            "authorized_clients": [MAC, second_mac],
+        })
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            coordinator = DeploymentCoordinator(job, event_sink=journal)
+            for mac in (MAC, second_mac):
+                coordinator.register_client(mac)
+                coordinator.mark_ready(mac)
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+            coordinator.mark_running(second_mac)
+            coordinator.report_result(MAC, success=True, detail="image verified")
+            journal({
+                "timestamp": "2026-11-08T12:00:03+00:00",
+                "job_id": JOB_ID, "event": "client_progress", "job_state": "running",
+                "client_mac": second_mac, "client_state": "running",
+                "progress": {
+                    "phase": "restore", "completed_bytes": 2048,
+                    "total_bytes": 8192, "bytes_per_second": 256.0,
+                    "updated_at": "2026-11-08T12:00:03+00:00",
+                },
+            })
+
+            reopened = DeploymentJournal.inspect(path)
+            report = reopened.recovery_report()
+            recovered = DeploymentCoordinator.from_journal(job, reopened)
+
+            self.assertTrue(report["interrupted"])
+            self.assertFalse(report["automatic_resume"])
+            self.assertEqual(report["job_state"], "running")
+            self.assertEqual(report["clients"][MAC]["state"], "succeeded")
+            self.assertEqual(report["clients"][second_mac]["state"], "running")
+            self.assertEqual(report["progress"][second_mac]["completed_bytes"], 2048)
+            recovered_clients = {item.mac_address: item.state for item in recovered.clients()}
+            self.assertEqual(recovered_clients[MAC], ClientState.SUCCEEDED)
+            self.assertEqual(recovered_clients[second_mac], ClientState.RUNNING)
+            with self.assertRaisesRegex(CoordinatorError, "newly created"):
+                recovered.arm()
+            self.assertEqual(len(reopened.events), report["event_count"])
+
     def test_coordinator_rejects_journal_for_another_job(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "job.jsonl")
