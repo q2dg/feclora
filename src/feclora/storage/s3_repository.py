@@ -419,9 +419,9 @@ class S3ObjectRepository:
                         body = response["Body"]
                         try:
                             metadata_bytes = body.read(_P2V_METADATA_MAX_BYTES + 1)
-                        if len(metadata_bytes) > _P2V_METADATA_MAX_BYTES:
-                            raise ValueError("P2V metadata exceeds the supported size limit")
-                        metadata = _load_p2v_metadata(metadata_bytes.decode("utf-8"))
+                            if len(metadata_bytes) > _P2V_METADATA_MAX_BYTES:
+                                raise ValueError("P2V metadata exceeds the supported size limit")
+                            metadata = _load_p2v_metadata(metadata_bytes.decode("utf-8"))
                         finally:
                             body.close()
                     except Exception as exc:
