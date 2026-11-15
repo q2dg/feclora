@@ -89,6 +89,7 @@ def execute_multicast_restore(
     network_interface: str | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
     progress_callback: Callable[[int, int | None], None] | None = None,
+    pre_write_callback: Callable[[], None] | None = None,
     executables: dict[str, str | None] | None = None,
 ) -> tuple[bool, str]:
     """Receive artifacts privately, verify manifest and digests, then restore one local target."""
@@ -158,6 +159,7 @@ def execute_multicast_restore(
             confirmation=f"ERASE {approval.device_path}",
             age_identity_file=age_identity_file,
             progress_callback=progress_callback,
+            pre_write_callback=pre_write_callback,
             executables=executables,
         )
         return True, f"multicast image {job.image_id} restored and destination read-back verified"
