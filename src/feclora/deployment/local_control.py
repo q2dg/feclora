@@ -137,7 +137,21 @@ class LocalControlServer:
         self._listener = listener
         self._stop.clear()
         self._thread = threading.Thread(target=self._serve, name="feclora-local-control", daemon=True)
-        self._thread.start()
+        try:
+            self._thread.start()
+        except Exception:
+            self._thread = None
+            self._listener = None
+            self._socket_identity = None
+            listener.close()
+            try:
+                info = os.lstat(self.path)
+                if (stat.S_ISSOCK(info.st_mode)
+                        and (info.st_dev, info.st_ino) == bound_identity):
+                    os.unlink(self.path)
+            except OSError:
+                pass
+            raise
 
     def _serve(self) -> None:
         assert self._listener is not None
@@ -177,6 +191,8 @@ class LocalControlServer:
             listener.close()
         if self._thread is not None:
             self._thread.join(timeout=3)
+            if self._thread.is_alive():
+                raise LocalControlError("IPC listener thread did not stop before timeout")
             self._thread = None
         try:
             info = os.lstat(self.path)
