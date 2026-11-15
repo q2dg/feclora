@@ -1381,9 +1381,11 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
     raw_answer = _read_pxe_answer_source(params)
     from feclora.network.pxe_answer import parse_pxe_answer, PXEAnswerError
     try:
-        parse_pxe_answer(raw_answer)
+        validated_answer = parse_pxe_answer(raw_answer)
     except PXEAnswerError as exc:
         raise WebAPIError(f"PXE answer validation failed: {exc}") from exc
+    if validated_answer.get("boot_method") == "pxe" and validated_answer.get("job_id") != job_id:
+        raise WebAPIError("published job_id must match the UUID inside the shared DeploymentJob JSON")
     manager = _pxe_service_manager()
     status = manager.status()
     if status.get("active") is not True or not status.get("interface"):

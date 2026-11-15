@@ -128,7 +128,7 @@ def parse_pxe_boot_request(command_line: str) -> PXEBootRequest:
     if mode != "unattended-answer":
         raise PXEBootRequestError("PXE mode must be interactive or unattended-answer")
     required = {"feclora.pxe_mode", "feclora.pxe_job_id", "feclora.pxe_answer_url"}
-    if set(values) != required:
+    if not required.issubset(values) or set(values) - required - {"feclora.pxe_client_mac"}:
         raise PXEBootRequestError("unattended answer PXE boot requires job ID and answer URL")
     job_id = values["feclora.pxe_job_id"]
     try:

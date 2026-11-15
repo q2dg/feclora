@@ -177,6 +177,8 @@ def fetch_live_pxe_answer(
     except PXEAnswerError as exc:
         raise PXEAnswerClientError(f"invalid PXE answer document: {exc}") from exc
     if answer.get("boot_method") == "pxe":
+        if answer.get("job_id") != request.job_id:
+            raise PXEAnswerClientError("downloaded DeploymentJob UUID does not match the iPXE handoff")
         if not request.client_mac:
             raise PXEAnswerClientError("shared PXE DeploymentJob requires the client MAC from the iPXE handoff")
         if request.client_mac not in answer.get("authorized_clients", []):

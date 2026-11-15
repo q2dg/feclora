@@ -275,6 +275,14 @@ class PXEAdmission:
                         or info.st_uid != os.geteuid() or info.st_mode & 0o022
                         or info.st_size > 65536):
                     raise PXEAdmissionError("published PXE answer is unsafe")
+                try:
+                    document = json.loads(answer.read_text(encoding="utf-8"))
+                except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                    raise PXEAdmissionError("published PXE answer cannot be parsed for report authorization") from exc
+                if isinstance(document, dict) and document.get("schema_version") == 1 and document.get("boot_method") == "pxe":
+                    allowed_clients = document.get("authorized_clients")
+                    if not isinstance(allowed_clients, list) or mac.lower() not in allowed_clients:
+                        raise PXEAdmissionError("PXE client MAC is not authorized by the published DeploymentJob")
             elif not known_started:
                 raise PXEAdmissionError("PXE restore report has no previously received start event")
             record = {
