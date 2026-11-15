@@ -1374,6 +1374,27 @@ def _read_pxe_answer_source(params: dict[str, Any]) -> bytes:
     return raw
 
 
+
+def _import_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
+    """Fetch and validate a shared DeploymentJob document from a remote source."""
+    if not isinstance(params, dict) or "source" not in params:
+        raise WebAPIError("import_deployment_job requires a source")
+    source = params.get("source")
+    if source not in {"url", "repository", "scp"}:
+        raise WebAPIError("DeploymentJob import supports HTTP(S), repository or SCP sources")
+    # Reuse the same bounded, redirect-free, credential-safe readers as PXE
+    # publication. The synthetic UUID is only an internal reader parameter;
+    # the actual UUID is parsed and validated from the document itself.
+    reader_params = {"job_id": "00000000-0000-4000-8000-000000000000", **params}
+    raw = _read_pxe_answer_source(reader_params)
+    try:
+        document = json.loads(raw.decode("utf-8"), object_pairs_hook=_reject_duplicates)
+        from feclora.deployment.job import DeploymentJob, JobValidationError
+        job = DeploymentJob.from_dict(document)
+    except (UnicodeDecodeError, json.JSONDecodeError, JobValidationError, WebAPIError) as exc:
+        raise WebAPIError(f"DeploymentJob import validation failed: {exc}") from exc
+    return {"job": job.to_dict(), "message": "DeploymentJob downloaded and validated. Review all fields before creating the job."}
+
 def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(params, dict) or "job_id" not in params or "source" not in params:
         raise WebAPIError("publish_pxe_answer requires job_id and source")
@@ -3288,6 +3309,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         if params:
             raise WebAPIError("stop_pxe_services does not accept parameters")
         return _stop_pxe_services()
+    if action == "import_deployment_job":
+        return _import_deployment_job(params)
     if action == "publish_pxe_answer":
         return _publish_pxe_answer(params)
     if action == "revoke_pxe_answer":
