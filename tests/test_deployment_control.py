@@ -1392,6 +1392,60 @@ class MulticastControlTests(unittest.TestCase):
         self.assertEqual(multicast_send.call_args.kwargs["firewall"], server.firewall)
 
 
+    def test_multicast_restore_marks_every_client_failed_if_repository_disappears_during_send(self):
+        mac2 = "52:54:00:12:34:57"
+        job = make_job(
+            transport="multicast", authorized_clients=[MAC, mac2],
+            multicast_group="239.10.10.1", multicast_port=9000,
+        )
+        coordinator = Mock()
+        coordinator.job = job
+        coordinator.clients.return_value = [
+            SimpleNamespace(mac_address=MAC, state=ClientState.READY),
+            SimpleNamespace(mac_address=mac2, state=ClientState.READY),
+        ]
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server.interface = "enp1s0"
+        server._lock = threading.RLock()
+        server._sessions = {MAC: Mock(), mac2: Mock()}
+        server.firewall = Mock()
+        server._record_transfer_failure = Mock()
+        config = UDPcastConfig(
+            "enp1s0", "239.10.10.1", "239.10.10.2",
+            portbase=9000, min_receivers=2,
+        )
+        manifest = SimpleNamespace(
+            image_id="golden-image", image_type="disk",
+            artifacts=(SimpleNamespace(filename="image.raw", encryption="none"),),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            manifest_path = os.path.join(directory, "golden-image.manifest.json")
+            with open(manifest_path, "wb") as stream:
+                stream.write(b"{}")
+            with open(os.path.join(directory, "image.raw"), "wb") as stream:
+                stream.write(b"payload")
+            with (
+                patch("feclora.deployment.control.ImageManifest.from_json", return_value=manifest),
+                patch("feclora.deployment.control.verify_artifact_file"),
+                patch("feclora.deployment.control.send_control_message"),
+                patch("feclora.deployment.control.send_multicast_artifact",
+                      side_effect=OSError("repository disappeared during send")),
+                patch.object(server, "arm_and_start", return_value=(MAC, mac2)),
+            ):
+                with self.assertRaisesRegex(DeploymentControlError, "multicast restore transfer failed"):
+                    server.run_multicast_restore_job(
+                        directory, manifest_path, udpcast_config=config,
+                    )
+
+        self.assertEqual(server._record_transfer_failure.call_count, 2)
+        self.assertEqual(
+            {call.args[0] for call in server._record_transfer_failure.call_args_list},
+            {MAC, mac2},
+        )
+        self.assertTrue(all("repository disappeared" in call.args[1]
+                            for call in server._record_transfer_failure.call_args_list))
+
     def test_pxe_auto_interface_uses_resolved_server_interface_for_multicast(self):
         job = make_job(
             boot_method="pxe", network_interface="auto", transport="multicast",
