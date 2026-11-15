@@ -64,6 +64,9 @@ fi
 if ! grep -q '"capture_p2v"' "$ROOT_DIR/webui/src/api.js" || ! grep -q 'capture_p2v' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "P2V operation is not exposed through the Cockpit API wrapper."
 fi
+if ! grep -q '"import_p2v"' "$ROOT_DIR/webui/src/api.js" || ! grep -q 'import_p2v' "$ROOT_DIR/kickstart/feclora-live.ks"; then
+  fail "P2V import operation is not exposed through the Cockpit API wrapper."
+fi
 if ! grep -q '"build_deployment_bundle"' "$ROOT_DIR/webui/src/api.js" || ! grep -q 'build_deployment_bundle' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Deployment bundle operation is not exposed through the Cockpit API wrapper."
 fi
