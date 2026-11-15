@@ -282,7 +282,7 @@ def build_deployment_bundle(
         bundle_path = staging / "bundle-manifest.json"
         bundle_path.write_bytes(bundle_manifest_bytes)
         os.chmod(bundle_path, 0o600)
-        with bundle_path.open("rb") as stream:
+        with bundle_path.open("rb+") as stream:
             os.fsync(stream.fileno())
         for directory in (staging / "images", staging):
             directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
