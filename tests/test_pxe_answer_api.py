@@ -54,7 +54,7 @@ class PXEAnswerAPITests(unittest.TestCase):
             })
         self.assertEqual(result["job"]["job_id"], self.JOB_ID)
         self.assertEqual(result["job"]["transport"], "multicast")
-        self.assertIn("review", result["message"])
+        self.assertIn("Review", result["message"])
         self.assertEqual(reader.call_args.args[0]["source"], "url")
         self.assertIn("job_id", reader.call_args.args[0])
 
