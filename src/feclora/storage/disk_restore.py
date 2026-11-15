@@ -281,9 +281,17 @@ def _restore_qcow2_disk(
         raw_manifest_path = os.path.join(temporary, "image.manifest.json")
         with open(raw_manifest_path, "x", encoding="utf-8") as stream:
             stream.write(raw_manifest.to_json())
+        restore_validator = device_validator
+        if initial_device_number is not None:
+            def restore_validator(path: str) -> bool:
+                try:
+                    info = os.stat(path)
+                except OSError:
+                    return False
+                return stat.S_ISBLK(info.st_mode) and info.st_rdev == initial_device_number
         restore_disk(
             raw_manifest_path, temporary, target_path, confirmation=confirmation,
-            executables=executables, device_validator=device_validator, runner=runner,
+            executables=executables, device_validator=restore_validator, runner=runner,
             popen_factory=popen_factory, target_safety_check=target_safety_check,
             effective_uid=effective_uid, progress_callback=progress_callback,
             pre_write_callback=pre_write_callback,
