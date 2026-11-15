@@ -124,7 +124,10 @@ class LocalControlProtocolTests(unittest.TestCase):
         server._thread = mock.Mock()
         server._thread.is_alive.return_value = False
         server._socket_identity = (1, 2)
-        with mock.patch("feclora.deployment.local_control.os.lstat") as lstat, \
+        socket_info = mock.Mock(
+            st_mode=stat.S_IFSOCK | 0o600, st_uid=os.geteuid(), st_dev=1, st_ino=2,
+        )
+        with mock.patch("feclora.deployment.local_control.os.lstat", return_value=socket_info) as lstat, \
              mock.patch("feclora.deployment.local_control.os.unlink") as unlink:
             with self.assertRaisesRegex(LocalControlError, "cannot close"):
                 server.stop()
