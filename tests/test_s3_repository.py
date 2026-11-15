@@ -290,6 +290,7 @@ class S3RepositoryTests(unittest.TestCase):
                 {key: value for key, value in base.items() if key != "logical_sector_size"},
                 {**base, "schema_version": True},
                 {**base, "logical_sector_size": True},
+                {**base, "logical_sector_size": 512.0},
             ):
                 sidecar = root / "server.p2v.json"
                 sidecar.write_text(json.dumps(invalid), encoding="utf-8")
