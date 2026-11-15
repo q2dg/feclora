@@ -129,7 +129,7 @@ class PXEBootRequestTests(unittest.TestCase):
 
     def test_normal_boot_script_starts_interactive_live_directly(self):
         script = render_ipxe_script("192.0.2.10", 8080)
-        self.assertIn("dhcp\\n", script)
+        self.assertIn("dhcp\n", script)
         self.assertIn("kernel http://192.0.2.10:8080/live/vmlinuz", script)
         self.assertIn("root=live:http://192.0.2.10:8080/live/squashfs.img", script)
         self.assertIn("feclora.pxe_mode=interactive", script)
