@@ -102,8 +102,8 @@ class DeploymentCoordinatorTests(unittest.TestCase):
 
     def test_automatic_policy_arms_only_after_every_authorized_client_is_ready(self):
         coordinator = DeploymentCoordinator(make_job(
-            boot_method="pxe", confirm_destructive=True,
-            network_interface="auto", transport="multicast",
+            boot_method="iso", confirm_destructive=True,
+            network_interface="enp1s0", transport="multicast",
             multicast_group="239.10.10.10", multicast_port=5000,
             repository_id="nas-images", start_policy="automatic",
             target_bindings={
