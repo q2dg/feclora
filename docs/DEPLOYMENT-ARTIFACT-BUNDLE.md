@@ -37,6 +37,7 @@ The bundle generator must make answer delivery explicit: either include the shar
 
 Already present in source:
 - Fedora Live ISO build inputs and `build/build-iso.sh`.
+- A build-host coordinator, `build/create-deployment-bundle.py`, that runs the Live ISO build, optionally captures an offline source disk or selects an existing image, validates one shared automatic answer, and invokes the atomic bundle publisher. It requires a prepared shared schema-v1 DeploymentJob JSON and does not build the answer's MAC/target settings itself.
 - Feclora disk/partition image capture, manifest validation and repository publication.
 - P2V QCOW2 conversion, sidecar publication, S3-to-filesystem export and explicit QCOW2-to-native-disk import. Import validates the QCOW2 and sidecar, rejects backing/data-file dependencies, converts to raw sectors, records source logical sector geometry, writes a standard Feclora disk manifest and atomically publishes without overwriting. It records partition-table type as unknown and does not repair guest drivers, initramfs, bootloader or UEFI/BIOS configuration.
 - Shared schema-v1 unattended answer and ISO/USB/PXE Client runtime, including one-job multicast coordination.
@@ -49,14 +50,14 @@ Implemented bundle engine and durable Cockpit operation:
 - Automated unit tests cover bundle assembly, cross-reference failures, corrupt artifacts, missing bindings, existing outputs and worker/API validation; execution/CI status must be checked separately.
 
 Still not implemented:
-- Full guided source preparation: the current Cockpit operation selects an existing ISO and native disk image, while image capture/import and shared-answer generation remain separate steps. It does not invoke `build/build-iso.sh` or capture a physical source as part of the same wizard.
+- A single Cockpit wizard that invokes the full build-host workflow is not implemented. The new build-host CLI coordinates ISO creation, optional physical capture, image selection, and final bundle publication in one command; Cockpit still assembles prebuilt inputs. Shared answer JSON is prepared separately and passed as one input.
 - A supported answer-file import/discovery mechanism for a bundle carried on USB/removable media, or a fully orchestrated publication through the existing answer endpoint.
 - End-to-end integration/fault-injection coverage for interrupted staging, concurrent publication, stale repository/image references and actual multicast deployment.
 - The imported native image is now eligible for this builder after its manifest and artifacts pass normal validation. VM boot repair and hypervisor acceptance remain separate.
 
 ## Acceptance criteria
 
-- One operator action creates a complete bundle from compatible inputs and reports each artifact path and digest.
+- The build-host coordinator creates a complete bundle from the Fedora installer ISO, selected/captured Feclora disk image and one shared answer, then reports the published bundle and manifest digests.
 - No partial bundle is visible after any failure; an existing bundle is never silently overwritten.
 - The ISO is generic and contains no repository secrets or deployment-specific destructive target data.
 - Exactly one answer file is generated and all Clients receive byte-identical JSON.
