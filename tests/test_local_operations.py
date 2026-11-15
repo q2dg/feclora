@@ -251,6 +251,24 @@ class LocalOperationStoreTests(unittest.TestCase):
                 },
             })
 
+    def test_partition_clone_requires_confirmation_bound_to_source_and_target(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000031",
+            "action": "clone_partition",
+            "params": {
+                "source": "/dev/sda1", "target": "/dev/sdb1",
+                "confirmation": "ERASE /dev/sdb1 FROM /dev/sda1",
+            },
+        }
+        self.assertEqual(validate_definition(definition)["action"], "clone_partition")
+        definition["params"]["confirmation"] = "ERASE /dev/sdb1"
+        with self.assertRaisesRegex(LocalOperationError, "confirmation"):
+            validate_definition(definition)
+        definition["params"]["confirmation"] = "ERASE /dev/sdb1 FROM /dev/sdc1"
+        with self.assertRaisesRegex(LocalOperationError, "confirmation"):
+            validate_definition(definition)
+
     def test_rejects_unknown_fields_and_actions(self):
         payload = {
             "schema_version": 1, "operation_id": "00000000-0000-4000-8000-000000000001",
