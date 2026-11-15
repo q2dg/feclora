@@ -56,11 +56,11 @@ authenticated transport form the trust boundary. Age encryption is optional.
   Server-side result reconciliation only if the product contract requires it.
   The current answer workflow keeps operation history on the Live Client and
   the PXE Server serves boot assets and answer JSON only.
-- **Quality and distribution:** frontend direct dependencies are pinned;
-  CI runs npm audit; Dependabot and CodeQL are configured. A committed npm
-  lockfile is still missing, so transitive frontend resolution is not yet
-  reproducible. Complete clean-checkout `npm ci`, resolve scanner findings,
-  finish locale coverage, and maintain the backup/upgrade/rollback and release
+- **Quality and distribution:** frontend direct dependencies and the
+  transitive dependency graph are pinned in `webui/package.json` and
+  `webui/package-lock.json`; CI and the ISO frontend build use `npm ci`.
+  Keep clean-checkout lockfile validation, resolve scanner findings, finish
+  locale coverage, and maintain the backup/upgrade/rollback and release
   evidence runbook.
 
 ## Maintainer-run release acceptance
