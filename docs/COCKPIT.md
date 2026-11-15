@@ -162,6 +162,13 @@ avoid concurrent use of the staging filesystem during deployment.
 The Server can require every selected Client, a configured minimum READY count, or a UTC deadline with at least one READY Client. The deadline opens the start gate but never starts disk I/O automatically: the Server operator must still enter the exact job-specific authorization. Only Clients READY at arm time are dispatched. Each Client stages
 and verifies every artifact's manifest/digest and any configured encryption
 before writing its local disk.
+
+The Cockpit Remote jobs panel remains an operator-driven workflow. Unattended
+multicast restore is a separate answer-file workflow: every Live Client downloads
+the same schema-v1 DeploymentJob, selects its own WWN/serial target binding by
+MAC and reports READY. With `start_policy: automatic`, the Server starts the
+single multicast transmission only after every authorized Client is READY; the
+job must carry explicit destructive confirmation and a managed repository ID.
 Confirm switch IGMP snooping and an active querier on the same VLAN before
 arming. UDPcast data packets themselves are not encrypted or authenticated;
 Server-authenticated TLS protects the control channel, not the multicast payload. Multicast
