@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import tempfile
 import unittest
 from contextlib import contextmanager
@@ -129,11 +130,11 @@ class PXEAnswerClientTests(unittest.TestCase):
             request_dir = Path(root) / "client-jobs"
             config = SimpleNamespace(port=9555)
             with patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config), \\
-                 patch("feclora.network.pxe_answer_client.Path", side_effect=lambda value: request_dir if value == "/var/lib/feclora/client-jobs" else Path(value)), \\
+                 patch("feclora.network.pxe_answer_client.os.lstat", return_value=SimpleNamespace(st_mode=stat.S_IFDIR, st_uid=0)), \\
                  patch("feclora.network.pxe_answer_client.subprocess.run", return_value=SimpleNamespace(returncode=0, stderr="", stdout="")) as run:
                 unit = _start_shared_deployment_job({
                     **job, "_server_address": "192.0.2.10",
-                })
+                }, request_directory=request_dir)
             self.assertEqual(unit, f"feclora-client@{JOB}.service")
             payload = json.loads((request_dir / f"{JOB}.request.json").read_text())
             self.assertEqual(payload["host"], "192.0.2.10")
