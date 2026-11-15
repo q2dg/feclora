@@ -3382,17 +3382,21 @@ def dispatch(request: Any) -> dict[str, Any]:
         if set(params) != {"source", "filesystem"}:
             raise WebAPIError("check_capture_filesystem requires exactly source and filesystem")
         source = _device(params["source"], "source")
-        filesystem = _text(params, "filesystem", pattern=r"(?:ext2|ext3|ext4|ntfs|ntfs3)")
+        filesystem = _text(params, "filesystem", pattern=r"(?:ext2|ext3|ext4|ntfs|ntfs3|xfs)")
         from feclora.storage.filesystem_probe import (
             FilesystemProbeError, probe_ext_minimum_size, probe_ntfs_minimum_size,
+            check_xfs_read_only,
         )
         try:
             if filesystem in {"ext2", "ext3", "ext4"}:
                 minimum_bytes = probe_ext_minimum_size(source, filesystem_type=filesystem)
                 checker = "e2fsck -f -n"
-            else:
+            elif filesystem in {"ntfs", "ntfs3"}:
                 minimum_bytes = probe_ntfs_minimum_size(source, filesystem_type=filesystem)
                 checker = "ntfsresize --info"
+            else:
+                minimum_bytes = check_xfs_read_only(source, filesystem_type=filesystem)
+                checker = "xfs_repair -n"
         except FilesystemProbeError as exc:
             raise WebAPIError(f"read-only pre-capture check failed: {exc}") from exc
         return {
