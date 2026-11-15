@@ -212,7 +212,6 @@ def browse_image(
             guestfs = guestfs_module.GuestFS(python_return_dict=True)
             guestfs.add_drive_opts(
                 str(image_path), readonly=1, format=image_format,
-                discard="disable", cachemode="unsafe",
             )
             guestfs.launch()
             partitions = guestfs.list_partitions()
