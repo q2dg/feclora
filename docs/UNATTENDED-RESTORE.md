@@ -18,11 +18,12 @@ JSON document. Multicast jobs created from the ISO/Live workflow and new
 unattended PXE jobs use this same contract. The schema keeps boot method and
 data transport as separate concepts: `boot_method` describes how the Live
 system started, while `transport` describes how image data is delivered.
-The shared schema-v1 PXE answer path now submits each Client to the same
-persistent authenticated DeploymentJob runtime. It supports whole-disk image
-restore over unicast or multicast; for multicast, all authorized Clients must
-reach READY before the Server automatically starts the single UDPcast image
-transmission. PXE remains only the optional Live boot and answer-file handoff.
+The shared schema-v1 answer path submits each Client to the same persistent
+authenticated DeploymentJob runtime, regardless of whether Live started from
+USB/ISO or PXE. It supports whole-disk image restore over unicast or multicast;
+for multicast, all authorized Clients must reach READY before the Server
+automatically starts the single UDPcast image transmission. PXE is only an
+optional way to boot Live and locate the same shared answer file.
 
 - ISO/Live: the operator selects the Server network interface and configures
   each Client's network before joining a deployment.
@@ -32,10 +33,12 @@ transmission. PXE remains only the optional Live boot and answer-file handoff.
   lookup.
 
 For compatibility, the older schema-v2 unattended answer remains accepted
-by the ISO/PXE answer downloader. New PXE jobs should use the shared
-DeploymentJob schema and include `boot_method: "pxe"`, automatic start,
-explicit destructive confirmation, an authorized client list and a stable
-WWN/serial target binding for each client. The ISO/Client deployment form can
+by the Live answer downloader. New unattended jobs use the shared DeploymentJob
+schema, `start_policy: "automatic"`, explicit destructive confirmation, an
+authorized client list and a stable WWN/serial target binding for every client.
+The same JSON is downloaded by all clients; each client selects its own entry
+from `target_bindings`. The boot method does not select the data transport or
+a separate answer-file format. The ISO/Client deployment form can
 import that same JSON from a local file, HTTP(S), a configured mounted
 filesystem repository, S3, or SCP using a saved SSH key and pinned known_hosts.
 Remote documents are downloaded with a 64 KiB bound and validated on the
