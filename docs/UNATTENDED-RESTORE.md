@@ -18,9 +18,11 @@ JSON document. Multicast jobs created from the ISO/Live workflow and new
 unattended PXE jobs use this same contract. The schema keeps boot method and
 data transport as separate concepts: `boot_method` describes how the Live
 system started, while `transport` describes how image data is delivered.
-The current PXE unattended adapter is limited to whole-disk unicast restore;
-multicast restore is supported through the authenticated ISO/Live Client
-service, not yet through PXE boot.
+The shared schema-v1 PXE answer path now submits each Client to the same
+persistent authenticated DeploymentJob runtime. It supports whole-disk image
+restore over unicast or multicast; for multicast, all authorized Clients must
+reach READY before the Server automatically starts the single UDPcast image
+transmission. PXE remains only the optional Live boot and answer-file handoff.
 
 - ISO/Live: the operator selects the Server network interface and configures
   each Client's network before joining a deployment.
