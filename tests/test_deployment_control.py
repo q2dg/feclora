@@ -489,6 +489,72 @@ class TLSContextTests(unittest.TestCase):
         self.assertIsNone(server._firewall_state_callback)
         self.assertTrue(server._firewall_opened)
 
+    def test_listener_startup_rollback_attempts_all_cleanup_and_preserves_original_error(self):
+        class Firewall:
+            def __init__(self):
+                self.removal_attempted = False
+
+            def is_open(self, interface):
+                return True
+
+            def add_ports(self, interface, ports):
+                return tuple(ports)
+
+            def remove_ports(self, interface, ports):
+                self.removal_attempted = True
+                raise RuntimeError("firewalld port rollback failed")
+
+        class Listener:
+            def __init__(self):
+                self.closed = False
+
+            def setsockopt(self, *args):
+                pass
+
+            def bind(self, address):
+                pass
+
+            def listen(self, backlog):
+                pass
+
+            def settimeout(self, timeout):
+                pass
+
+            def getsockname(self):
+                return ("127.0.0.1", 9443)
+
+            def close(self):
+                self.closed = True
+
+        listener = Listener()
+        firewall = Firewall()
+        callback_values = []
+
+        def state_callback(value):
+            callback_values.append(value)
+            if value is not None:
+                raise RuntimeError("state persistence failed")
+
+        server = DeploymentControlServer(
+            DeploymentCoordinator(make_job()),
+            ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER),
+            local_identity="URI:feclora-server",
+            firewall=firewall, interface="enp1s0",
+        )
+        with patch("feclora.deployment.control.socket.socket", return_value=listener):
+            with self.assertRaisesRegex(
+                DeploymentControlError, "cannot bind deployment control listener: state persistence failed",
+            ):
+                server.start("127.0.0.1", 0, firewall_state_callback=state_callback)
+
+        self.assertTrue(listener.closed)
+        self.assertTrue(firewall.removal_attempted)
+        self.assertEqual(server._firewall_added, ("9443/tcp",))
+        self.assertIsNone(server._firewall_state_callback)
+        self.assertEqual(callback_values[-1], None)
+        self.assertTrue(any("firewall port rollback failed" in item for item in server.listener_errors))
+
+
     def test_listener_persists_and_clears_firewall_ownership_callback(self):
         class Firewall:
             def __init__(self):
