@@ -13,9 +13,12 @@ image data, execute restoration, or receive client operation results.
 
 The canonical remote deployment definition is a schema-v1 DeploymentJob
 JSON document. Multicast jobs created from the ISO/Live workflow and new
-unattended PXE jobs use this same contract. The boot method and data transport
-are separate fields: boot_method describes how the Live system started, while
-transport describes how image data is delivered.
+unattended PXE jobs use this same contract. The schema keeps boot method and
+data transport as separate concepts: `boot_method` describes how the Live
+system started, while `transport` describes how image data is delivered.
+The current PXE unattended adapter is limited to whole-disk unicast restore;
+multicast restore is supported through the authenticated ISO/Live Client
+service, not yet through PXE boot.
 
 - ISO/Live: the operator selects the Server network interface and configures
   each Client's network before joining a deployment.
@@ -26,9 +29,14 @@ transport describes how image data is delivered.
 
 For compatibility, the older schema-v2 unattended answer remains accepted
 by the ISO/PXE answer downloader. New PXE jobs should use the shared
-DeploymentJob schema and include boot_method: "pxe", automatic start,
+DeploymentJob schema and include `boot_method: "pxe"`, automatic start,
 explicit destructive confirmation, an authorized client list and a stable
-WWN/serial target binding for each client.
+WWN/serial target binding for each client. The ISO/Client deployment form can
+import that same JSON from a local file, HTTP(S), a configured mounted
+filesystem repository, S3, or SCP using a saved SSH key and pinned known_hosts.
+Remote documents are downloaded with a 64 KiB bound and validated on the
+Server before their fields are populated in the form; the operator must review
+the resulting job before creating it.
 
 After the data has been staged and verified, the TLS unicast Client runtime,
 the multicast receiver and the PXE Live adapter all call the same
