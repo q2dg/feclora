@@ -38,6 +38,21 @@ class PXEAnswerAPITests(unittest.TestCase):
         })
         self.assertEqual(result, raw)
 
+    def test_shared_deployment_job_is_accepted_by_the_pxe_validator(self):
+        from feclora.network.pxe_answer import parse_pxe_answer
+        job = {
+            "schema_version": 1, "job_id": self.JOB_ID, "operation": "restore",
+            "image_id": "fedora", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56"],
+            "network_interface": "auto", "transport": "unicast",
+            "multicast_group": None, "multicast_port": None,
+            "start_policy": "automatic", "expected_clients": None, "start_deadline": None,
+            "repository_id": "nas-images", "boot_method": "pxe",
+            "confirm_destructive": True,
+            "target_bindings": {"52:54:00:12:34:56": {"wwn": "0x5000abcd", "serial": None}},
+        }
+        self.assertEqual(parse_pxe_answer(job)["job_id"], self.JOB_ID)
+
     def test_http_source_downloads_without_redirects_and_checks_size(self):
         raw = self.answer()
         response = MagicMock()

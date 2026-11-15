@@ -30,12 +30,26 @@ class DeploymentJobTests(unittest.TestCase):
         self.assertTrue(job.authorizes_client("52:54:00:12:34:AB"))
         self.assertFalse(job.authorizes_client("52:54:00:12:34:AC"))
 
+    def test_pxe_boot_job_requires_explicit_destructive_confirmation(self):
+        payload = valid_job(
+            transport="unicast", network_interface="auto", repository_id="nas-images",
+            boot_method="pxe", start_policy="automatic",
+            target_bindings={"52:54:00:12:34:56": {"wwn": "wwn-client-1", "serial": None}},
+        )
+        with self.assertRaisesRegex(JobValidationError, "confirm_destructive=true"):
+            DeploymentJob.from_dict(payload)
+        payload["confirm_destructive"] = True
+        job = DeploymentJob.from_dict(payload)
+        self.assertTrue(job.confirm_destructive)
+        self.assertTrue(DeploymentJob.from_json(job.to_json()).confirm_destructive)
+
     def test_pxe_boot_job_uses_auto_network_and_per_client_stable_targets(self):
         payload = valid_job(
             transport="unicast",
             network_interface="auto",
             repository_id="nas-images",
             boot_method="pxe",
+            confirm_destructive=True,
             start_policy="automatic",
             target_bindings={
                 "52:54:00:12:34:56": {"wwn": "wwn-client-1", "serial": None},

@@ -44,6 +44,20 @@ class PXEBootRequestTests(unittest.TestCase):
         self.assertEqual(request.http_port, 8080)
         self.assertEqual(request.answer_url, ANSWER_URL)
 
+    def test_unattended_pxe_handoff_carries_and_normalizes_client_mac(self):
+        request = parse_pxe_boot_request(
+            f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB_ID} "
+            f"feclora.pxe_answer_url={ANSWER_URL} feclora.pxe_client_mac=52:54:00:12:34:56"
+        )
+        self.assertEqual(request.client_mac, "52:54:00:12:34:56")
+
+    def test_unattended_pxe_handoff_rejects_invalid_client_mac(self):
+        with self.assertRaisesRegex(PXEBootRequestError, "client MAC"):
+            parse_pxe_boot_request(
+                f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB_ID} "
+                f"feclora.pxe_answer_url={ANSWER_URL} feclora.pxe_client_mac=not-a-mac"
+            )
+
     def test_dhcp_answer_url_uses_stable_caddy_endpoint(self):
         request = parse_dhcp_answer_url("http://192.0.2.10:8080/unattended-answer.json")
         self.assertEqual(request.mode, "unattended-answer")

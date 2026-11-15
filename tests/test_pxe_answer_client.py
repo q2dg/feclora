@@ -83,6 +83,31 @@ class PXEAnswerClientTests(unittest.TestCase):
             self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
             self.assertEqual(destination.parent.stat().st_mode & 0o777, 0o700)
 
+    def test_shared_deployment_job_is_validated_and_client_bound(self):
+        from feclora.network.pxe_answer import parse_pxe_answer
+        job = {
+            "schema_version": 1, "job_id": JOB, "operation": "restore",
+            "image_id": "golden", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56"],
+            "network_interface": "auto", "transport": "unicast",
+            "multicast_group": None, "multicast_port": None,
+            "start_policy": "automatic", "expected_clients": None, "start_deadline": None,
+            "repository_id": "nas-images", "boot_method": "pxe",
+            "confirm_destructive": True,
+            "target_bindings": {"52:54:00:12:34:56": {"wwn": "wwn-first", "serial": None}},
+        }
+        parsed = parse_pxe_answer(job)
+        self.assertEqual(parsed["job_id"], JOB)
+        self.assertEqual(parsed["target_bindings"]["52:54:00:12:34:56"]["wwn"], "wwn-first")
+        with tempfile.TemporaryDirectory() as root:
+            with self.assertRaisesRegex(PXEAnswerClientError, "not authorized"):
+                fetch_live_pxe_answer(
+                    f"feclora.pxe_mode=unattended-answer feclora.pxe_job_id={JOB} "
+                    f"feclora.pxe_answer_url={URL} feclora.pxe_client_mac=52:54:00:12:34:99",
+                    destination=Path(root) / "answer.json",
+                    downloader=lambda _url: json.dumps(job).encode(),
+                )
+
     def test_report_callback_posts_job_scoped_client_events_best_effort(self):
         import uuid
         from unittest.mock import MagicMock, Mock
