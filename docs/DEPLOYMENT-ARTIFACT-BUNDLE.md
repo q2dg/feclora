@@ -42,11 +42,16 @@ Already present in source:
 - Shared schema-v1 unattended answer and ISO/USB/PXE Client runtime, including one-job multicast coordination.
 - A separate recovery-ISO builder that embeds an existing image and a target-bound, single-machine recovery answer under `/FECLORA/RECOVERY`; boot-time discovery and restore dispatch for that recovery format remain unfinished. This legacy recovery answer is not the shared schema-v1 `DeploymentJob` used for unattended fleet restore and must not be substituted for it. The coordinated bundle workflow must generate the one shared answer unchanged for every Client, with per-MAC target bindings inside that same document.
 
-Not yet implemented as one workflow:
-- A coordinator that builds/selects the ISO, selects or captures a compatible image, generates the shared answer and publishes a single validated bundle.
-- A versioned bundle manifest tying the ISO digest, image manifest/artifact digests, answer digest, repository/image identifiers and source revision together.
-- A supported answer-file import/discovery mechanism for a bundle carried on USB/removable media, or a clearly orchestrated publication through the existing answer endpoint.
-- End-to-end tests for mismatched inputs, missing image artifacts, interrupted publication, stale answer references and multicast target-binding completeness.
+Implemented engine component (not yet a complete Cockpit workflow):
+- `src/feclora/storage/deployment_bundle.py` assembles an already-built generic Live ISO, an existing Feclora whole-disk image set and one schema-v1 automatic `DeploymentJob` answer. It validates the El Torito boot catalog, manifest, every artifact size/SHA-256, image/job identity, repository reference, destructive confirmation, multicast receiver count and complete MAC-to-target bindings.
+- The builder canonicalizes the shared answer once, copies it byte-identically for every Client, emits a versioned `bundle-manifest.json` with file digests and optional source revision, stages privately, and publishes the completed directory with atomic no-replace rename. Existing output is never overwritten.
+- Automated unit tests have been added in `tests/test_deployment_bundle.py`; execution/CI status must be checked separately.
+
+Still not implemented:
+- Cockpit/API worker integration that builds or selects the ISO, image and answer and invokes the bundle engine as one operator workflow. The current builder consumes pre-existing inputs; it does not run `build/build-iso.sh`, capture an image or create repository records.
+- A supported answer-file import/discovery mechanism for a bundle carried on USB/removable media, or a fully orchestrated publication through the existing answer endpoint.
+- End-to-end integration/fault-injection coverage for interrupted staging, concurrent publication, stale repository/image references and actual multicast deployment.
+- QCOW2-to-Feclora-image import remains a separate prerequisite; P2V output cannot be passed to this builder as a restore image.
 
 ## Acceptance criteria
 
