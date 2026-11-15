@@ -48,9 +48,16 @@ def _read_sidecar(path: Path) -> dict[str, Any]:
         info = os.fstat(fd)
         if not stat.S_ISREG(info.st_mode) or info.st_size > 64 * 1024:
             raise P2VImportError("P2V metadata must be a regular file no larger than 64 KiB")
+        def unique_pairs(pairs):
+            result = {}
+            for key, item in pairs:
+                if key in result:
+                    raise P2VImportError(f"duplicate P2V metadata field: {key}")
+                result[key] = item
+            return result
         with os.fdopen(fd, "r", encoding="utf-8") as stream:
             fd = -1
-            value = json.load(stream)
+            value = json.load(stream, object_pairs_hook=unique_pairs)
     except P2VImportError:
         raise
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
