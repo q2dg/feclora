@@ -980,7 +980,12 @@ class DeploymentControlServer:
             if record is not None and record.state in {
                 ClientState.SUCCEEDED, ClientState.FAILED, ClientState.DISCONNECTED,
             }:
-                tls_socket.close()
+                try:
+                    tls_socket.close()
+                except OSError:
+                    # A terminal coordinator state is authoritative; a stale
+                    # socket close must not abort collection for other Clients.
+                    pass
                 return mac, record.state.value
             try:
                 tls_socket.settimeout(timeout)
