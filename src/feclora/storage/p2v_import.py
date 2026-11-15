@@ -202,7 +202,7 @@ def import_p2v_qcow2(
         if not stat.S_ISREG(raw_info.st_mode) or stat.S_ISLNK(raw_info.st_mode) or raw_info.st_size != virtual_size:
             raise P2VImportError("raw conversion did not preserve the declared virtual disk capacity")
         os.chmod(raw_path, 0o600)
-        with raw_path.open("rb") as stream:
+        with raw_path.open("rb+") as stream:
             os.fsync(stream.fileno())
         disk_artifact = ImageArtifact(
             filename=names[0], role="disk-image", format="raw", compression="none",
