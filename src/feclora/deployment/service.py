@@ -496,7 +496,14 @@ class DeploymentService:
                 self._worker = threading.Thread(
                     target=self._run_job, name="feclora-deployment-job", daemon=True,
                 )
-                self._worker.start()
+                try:
+                    self._worker.start()
+                except Exception as exc:
+                    self._worker = None
+                    self._arm_requested = False
+                    raise DeploymentServiceError(
+                        f"cannot start deployment worker: {exc}"
+                    ) from exc
             return {"job_id": self.job.job_id, "accepted": True,
                     "message": "Explicit arm accepted; the existing deployment engine is executing in the service."}
         if action == "cancel":
@@ -526,7 +533,13 @@ class DeploymentService:
                 name="feclora-deployment-auto-job",
                 daemon=True,
             )
-            self._worker.start()
+            try:
+                self._worker.start()
+            except Exception as exc:
+                self._worker = None
+                self._arm_requested = False
+                self._last_error = f"cannot start automatic deployment worker: {exc}"[:512]
+                return False
             return True
 
     def _run_job(self) -> None:
