@@ -305,10 +305,6 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 kwargs["pre_write_callback"]()
                 return True, "restore completed"
 
-            def fake_multicast(*args, **kwargs):
-                kwargs["pre_write_callback"]()
-                return True, "multicast restore completed"
-
             def fake_join(host, port, context, **kwargs):
                 approval = kwargs["prepare_local_target"](job)
                 self.assertEqual(approval.device_path, DEVICE)
@@ -386,6 +382,10 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             })
             block_info = SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
             real_stat = os.stat
+
+            def fake_multicast(*args, **kwargs):
+                kwargs["pre_write_callback"]()
+                return True, "multicast restore completed"
 
             def fake_join(host, port, context, **kwargs):
                 approval = kwargs["prepare_local_target"](job)
