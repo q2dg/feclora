@@ -172,8 +172,8 @@ class LocalControlProtocolTests(unittest.TestCase):
 
         with mock.patch("feclora.deployment.local_control.os.lstat", side_effect=[
             parent_info, FileNotFoundError, info, info,
-        ]), mock.patch("feclora.deployment.local_control.socket.socket", return_value=listener), \\
-             mock.patch("feclora.deployment.local_control.os.chmod"), \\
+        ]), mock.patch("feclora.deployment.local_control.socket.socket", return_value=listener), \
+             mock.patch("feclora.deployment.local_control.os.chmod"), \
              mock.patch("feclora.deployment.local_control.os.unlink") as unlink:
             with mock.patch.object(listener, "bind"), mock.patch.object(listener, "settimeout"):
                 with self.assertRaisesRegex(LocalControlError, "setup failed.*close failed"):
