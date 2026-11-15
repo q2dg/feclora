@@ -894,7 +894,7 @@ class WebAPITests(unittest.TestCase):
 
     def test_reconcile_refuses_active_or_starting_systemd_unit_even_without_ipc(self):
         job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-        for state in ("active", "activating", "deactivating"):
+        for state in ("active", "activating", "deactivating", "reloading"):
             with self.subTest(state=state), patch(
                 "feclora.webapi.subprocess.run",
                 return_value=SimpleNamespace(returncode=0, stdout=state),
