@@ -184,6 +184,13 @@ image-set download path. The PXE Server never accesses these repositories.
       script; serve the latter only after the Server has registered the MAC.
 - [x] Add a Live boot-time HTTP answer downloader and schema validator; store the
       validated JSON in the root-only Live runtime directory.
+- [x] Publish one shared schema-v1 DeploymentJob answer for every selected
+      Client; each Client selects only its own target from the common
+      `target_bindings` map. No per-Client answer files are generated.
+- [x] Route schema-v1 PXE clients through the authenticated persistent Client
+      runtime and create/start the matching Server job from the published
+      answer. Automatic multicast waits for every authorized Client to reach
+      READY before the Server sends the image once.
 - [x] Advertise the stable current-answer URL as DHCP option 224 in
       authoritative DHCP mode and the PXE-specific proxy response; discover it
       from the Live NetworkManager lease on ISO boots.
