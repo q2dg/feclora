@@ -72,7 +72,7 @@ class P2VImportTests(unittest.TestCase):
     def test_rejects_sidecar_digest_mismatch(self):
         self.metadata["qcow2_sha256"] = "0" * 64
         (self.repo / "physical.p2v.json").write_text(json.dumps(self.metadata))
-        with self.assertRaisesRegex(P2VImportError, "does not match"):
+        with self.assertRaisesRegex(P2VImportError, "SHA-256 verification"):
             import_p2v_qcow2(self.repo, "physical", "imported", runner=self.runner)
 
     def test_rejects_virtual_capacity_mismatch(self):
