@@ -25,6 +25,7 @@ class ImageBrowserError(RuntimeError):
 
 _MAX_DIRECTORY_ENTRIES = 1000
 _MAX_DOWNLOAD_BYTES = 16 * 1024 * 1024
+_SUPPORTED_FILESYSTEMS = {"btrfs", "ext2", "ext3", "ext4", "exfat", "fat", "fat12", "fat16", "fat32", "ntfs", "ntfs3", "vfat", "xfs"}
 
 
 def _guest_path(value: Any) -> str:
@@ -35,6 +36,22 @@ def _guest_path(value: Any) -> str:
     if normalized != path or any(part in {".", ".."} for part in path.split("/")):
         raise ImageBrowserError("guest path must be normalized and must not traverse parent directories")
     return path
+
+
+
+def _lstat_without_symlink_traversal(guestfs: Any, path: str) -> dict[str, Any]:
+    current = "/"
+    components = [part for part in path.split("/") if part]
+    metadata = guestfs.lstat("/")
+    for index, component in enumerate(components):
+        current = posixpath.join(current, component)
+        metadata = guestfs.lstat(current)
+        mode = metadata.get("mode", 0)
+        if stat.S_ISLNK(mode):
+            raise ImageBrowserError("symbolic links are not followed while browsing an image")
+        if index < len(components) - 1 and not stat.S_ISDIR(mode):
+            raise ImageBrowserError("a path component is not a directory")
+    return metadata
 
 
 def _qcow2_info(path: Path, expected_size: int) -> None:
@@ -164,10 +181,10 @@ def browse_image(
             device = partitions[partition_index - 1]
             filesystems = guestfs.list_filesystems()
             filesystem = filesystems.get(device)
-            if not filesystem or filesystem == "unknown":
+            if not filesystem or filesystem not in _SUPPORTED_FILESYSTEMS:
                 raise ImageBrowserError("selected partition has no supported, recognizable filesystem")
             guestfs.mount_ro(device, "/")
-            metadata = guestfs.lstat(path)
+            metadata = _lstat_without_symlink_traversal(guestfs, path)
             mode = metadata.get("mode", 0)
             if download:
                 if not stat.S_ISREG(mode):
@@ -196,7 +213,7 @@ def browse_image(
             for name in names:
                 child = posixpath.join(path, name)
                 try:
-                    child_info = guestfs.lstat(child)
+                    child_info = _lstat_without_symlink_traversal(guestfs, child)
                 except Exception:
                     continue
                 child_mode = child_info.get("mode", 0)
