@@ -45,6 +45,7 @@ _ALLOWED_FIELDS = {
     "target_bindings",
     "post_action",
     "boot_method",
+    "confirm_destructive",
 }
 
 
@@ -72,6 +73,7 @@ class DeploymentJob:
     target_bindings: tuple[tuple[str, str | None, str | None], ...] = ()
     post_action: str = "none"
     boot_method: str = "iso"
+    confirm_destructive: bool = False
 
     @property
     def minimum_ready_clients(self) -> int:
@@ -88,7 +90,7 @@ class DeploymentJob:
             raise JobValidationError("Job document must be a JSON object")
         unknown = set(payload) - _ALLOWED_FIELDS
         missing = _ALLOWED_FIELDS - set(payload) - {
-            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type", "staging_required_bytes", "source_device", "repository_id", "target_bindings", "post_action", "source_identity", "boot_method"
+            "multicast_group", "multicast_port", "expected_clients", "start_deadline", "target_type", "staging_required_bytes", "source_device", "repository_id", "target_bindings", "post_action", "source_identity", "boot_method", "confirm_destructive"
         }
         if unknown:
             raise JobValidationError(f"Unknown job fields: {', '.join(sorted(unknown))}")
@@ -109,6 +111,11 @@ class DeploymentJob:
         boot_method = payload.get("boot_method", "iso")
         if not isinstance(boot_method, str) or boot_method not in {"iso", "pxe"}:
             raise JobValidationError("boot_method must be iso or pxe")
+        confirm_destructive = payload.get("confirm_destructive", False)
+        if not isinstance(confirm_destructive, bool):
+            raise JobValidationError("confirm_destructive must be a boolean")
+        if boot_method == "pxe" and confirm_destructive is not True:
+            raise JobValidationError("PXE jobs require explicit confirm_destructive=true")
 
         operation = payload.get("operation")
         if not isinstance(operation, str) or operation not in {"save", "restore", "clone"}:
@@ -321,6 +328,7 @@ class DeploymentJob:
             target_bindings=tuple(sorted(bindings)),
             post_action=post_action,
             boot_method=boot_method,
+            confirm_destructive=confirm_destructive,
         )
 
     @classmethod
@@ -361,6 +369,8 @@ class DeploymentJob:
             document["post_action"] = self.post_action
         if self.boot_method != "iso":
             document["boot_method"] = self.boot_method
+        if self.confirm_destructive:
+            document["confirm_destructive"] = True
         if self.target_bindings:
             document["target_bindings"] = {
                 mac: {"wwn": wwn, "serial": serial}

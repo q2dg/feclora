@@ -24,6 +24,7 @@ class PXEBootRequest:
     server_address: str | None = None
     http_port: int | None = None
     answer_url: str | None = None
+    client_mac: str | None = None
 
 
 def _answer_endpoint(value: str, job_id: str) -> tuple[str, int]:
@@ -73,7 +74,7 @@ def parse_pxe_boot_request(command_line: str) -> PXEBootRequest:
         raise PXEBootRequestError("kernel command line contains invalid quoting") from exc
     keys = {
         "feclora.pxe_mode", "feclora.pxe_job_id", "feclora.pxe_answer_url",
-        "feclora.unattended_url",
+        "feclora.unattended_url", "feclora.pxe_client_mac",
     }
     values: dict[str, str] = {}
     for argument in arguments:
@@ -87,6 +88,13 @@ def parse_pxe_boot_request(command_line: str) -> PXEBootRequest:
         if not value or any(ord(char) < 33 or ord(char) > 126 for char in value):
             raise PXEBootRequestError(f"invalid PXE handoff value: {key}")
         values[key] = value
+
+    client_mac = values.get("feclora.pxe_client_mac")
+    if client_mac is not None:
+        import re
+        if not re.fullmatch(r"(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}", client_mac):
+            raise PXEBootRequestError("PXE client MAC parameter is invalid")
+        client_mac = client_mac.lower()
 
     # ISO and PXE boots use the same Live service and answer contract. The ISO
     # needs only the public Caddy URL; PXE keeps its existing explicit job
@@ -109,7 +117,7 @@ def parse_pxe_boot_request(command_line: str) -> PXEBootRequest:
         address, port = _answer_endpoint(answer_url, job_id)
         return PXEBootRequest(
             mode="unattended-answer", job_id=job_id, server_address=address,
-            http_port=port, answer_url=answer_url,
+            http_port=port, answer_url=answer_url, client_mac=client_mac,
         )
 
     mode = values.get("feclora.pxe_mode", "interactive")
@@ -133,4 +141,5 @@ def parse_pxe_boot_request(command_line: str) -> PXEBootRequest:
     return PXEBootRequest(
         mode="unattended-answer", job_id=job_id, server_address=address,
         http_port=port, answer_url=values["feclora.pxe_answer_url"],
+        client_mac=client_mac,
     )

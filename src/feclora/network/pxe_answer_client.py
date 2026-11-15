@@ -176,6 +176,12 @@ def fetch_live_pxe_answer(
         answer = parse_pxe_answer(raw)
     except PXEAnswerError as exc:
         raise PXEAnswerClientError(f"invalid PXE answer document: {exc}") from exc
+    if answer.get("boot_method") == "pxe":
+        if not request.client_mac:
+            raise PXEAnswerClientError("shared PXE DeploymentJob requires the client MAC from the iPXE handoff")
+        if request.client_mac not in answer.get("authorized_clients", []):
+            raise PXEAnswerClientError("this PXE client MAC is not authorized by the DeploymentJob")
+        answer["_client_mac"] = request.client_mac
     _publish_runtime_answer(raw, destination)
     return answer
 
@@ -195,8 +201,16 @@ def _flatten_devices(devices: Any) -> list[dict[str, Any]]:
     return flattened
 
 
-def _resolve_target(answer: dict[str, Any]) -> dict[str, Any]:
-    selector = RestoreTargetSelector(**answer["target"])
+def _resolve_target(answer: dict[str, Any], client_mac: str | None = None) -> dict[str, Any]:
+    if answer.get("boot_method") == "pxe":
+        if not client_mac:
+            raise PXEAnswerClientError("PXE DeploymentJob target resolution requires the client MAC")
+        selector_data = answer.get("target_bindings", {}).get(client_mac)
+        if not isinstance(selector_data, dict):
+            raise PXEAnswerClientError("PXE DeploymentJob has no target binding for this client MAC")
+    else:
+        selector_data = answer["target"]
+    selector = RestoreTargetSelector(**selector_data)
     try:
         inventory = collect_inventory()
     except Exception as exc:
@@ -415,13 +429,22 @@ def execute_live_pxe_restore(
     *,
     operation_log: str | os.PathLike[str] = "/var/lib/feclora/pxe/operations.jsonl",
     passphrase_provider: Any = _wait_for_age_passphrase,
+    client_mac: str | None = None,
 ) -> str:
     """Restore from a repository selected through Feclora's normal managers."""
     repository_id = answer.get("repository_id")
     if not isinstance(repository_id, str):
         raise PXEAnswerClientError("PXE answer has no managed repository ID")
-    selector = RestoreTargetSelector(**answer["target"])
-    target = _resolve_target(answer)
+    if client_mac is None:
+        client_mac = answer.get("_client_mac")
+    if answer.get("boot_method") == "pxe" and client_mac not in answer.get("authorized_clients", []):
+        raise PXEAnswerClientError("PXE client is not authorized by the DeploymentJob")
+    selector_data = (answer.get("target_bindings", {}).get(client_mac)
+                     if answer.get("boot_method") == "pxe" else answer["target"])
+    if not isinstance(selector_data, dict):
+        raise PXEAnswerClientError("PXE DeploymentJob has no stable target binding for this client")
+    selector = RestoreTargetSelector(**selector_data)
+    target = _resolve_target(answer, client_mac=client_mac)
     target_path = target["path"]
 
     with _managed_repository(repository_id, answer["image_id"]) as repository:
@@ -477,7 +500,7 @@ def main() -> int:
     if answer is None:
         return 0
     try:
-        target = execute_live_pxe_restore(answer)
+        target = execute_live_pxe_restore(answer, client_mac=answer.get("_client_mac"))
     except (PXEAnswerClientError, OSError, RuntimeError, subprocess.SubprocessError) as exc:
         print(f"feclora-pxe-answer: {exc}", file=sys.stderr)
         return 1

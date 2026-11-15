@@ -34,6 +34,19 @@ def validate_pxe_answer(value: object) -> dict[str, object]:
     """Validate the version-1 unattended whole-disk restore answer."""
     if not isinstance(value, dict):
         raise PXEAnswerError("PXE answer document must be a JSON object")
+    # Canonical schema: the same DeploymentJob JSON used by ISO/multicast.
+    # The old schema-v2 answer remains accepted during the compatibility window.
+    if value.get("schema_version") == 1 and "boot_method" in value:
+        from feclora.deployment.job import DeploymentJob, JobValidationError
+        try:
+            job = DeploymentJob.from_dict(value)
+        except JobValidationError as exc:
+            raise PXEAnswerError(f"invalid shared DeploymentJob: {exc}") from exc
+        if (job.boot_method != "pxe" or job.operation != "restore"
+                or job.transport != "unicast" or job.start_policy != "automatic"
+                or job.confirm_destructive is not True):
+            raise PXEAnswerError("PXE requires an explicitly confirmed automatic unicast restore DeploymentJob")
+        return job.to_dict()
     required = {
         "schema_version", "operation", "image_id", "repository_id",
         "target", "confirm_destructive", "start",
