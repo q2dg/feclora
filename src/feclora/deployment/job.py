@@ -281,8 +281,16 @@ class DeploymentJob:
         policy = payload.get("start_policy")
         if not isinstance(policy, str) or policy not in {"manual", "expected_clients", "deadline", "automatic"}:
             raise JobValidationError("start_policy must be manual, expected_clients, deadline, or automatic")
-        if (boot_method == "pxe") != (policy == "automatic"):
-            raise JobValidationError("automatic start_policy is reserved for PXE boot jobs; PXE jobs must start automatically")
+        if boot_method == "pxe" and policy != "automatic":
+            raise JobValidationError("PXE boot jobs must use automatic start_policy")
+        if policy == "automatic":
+            if (operation != "restore" or confirm_destructive is not True
+                    or repository_id is None or not bindings
+                    or len(bindings) != len(normalized_clients)):
+                raise JobValidationError(
+                    "automatic unattended restores require explicit destructive confirmation, "
+                    "a managed repository and stable target bindings for every authorized Client"
+                )
 
         expected = payload.get("expected_clients")
         deadline = payload.get("start_deadline")
