@@ -5,7 +5,7 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
-from feclora.webapi import WebAPIError, _publish_pxe_answer, _provide_pxe_age_passphrase, _read_pxe_answer_source
+from feclora.webapi import WebAPIError, _import_deployment_job, _publish_pxe_answer, _provide_pxe_age_passphrase, _read_pxe_answer_source
 
 
 class PXEAnswerAPITests(unittest.TestCase):
@@ -37,6 +37,33 @@ class PXEAnswerAPITests(unittest.TestCase):
             "answer_base64": base64.b64encode(raw).decode("ascii"),
         })
         self.assertEqual(result, raw)
+
+    def test_remote_deployment_job_import_validates_and_normalizes_schema(self):
+        job = {
+            "schema_version": 1, "job_id": self.JOB_ID, "operation": "restore",
+            "image_id": "fedora", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56"],
+            "network_interface": "auto", "transport": "multicast",
+            "multicast_group": "239.10.10.10", "multicast_port": 9000,
+            "start_policy": "manual", "expected_clients": None, "start_deadline": None,
+        }
+        with patch("feclora.webapi._read_pxe_answer_source",
+                   return_value=json.dumps(job).encode("utf-8")) as reader:
+            result = _import_deployment_job({
+                "source": "url", "url": "https://jobs.example.test/restore.json",
+            })
+        self.assertEqual(result["job"]["job_id"], self.JOB_ID)
+        self.assertEqual(result["job"]["transport"], "multicast")
+        self.assertIn("review", result["message"])
+        self.assertEqual(reader.call_args.args[0]["source"], "url")
+        self.assertIn("job_id", reader.call_args.args[0])
+
+    def test_remote_deployment_job_import_rejects_invalid_documents(self):
+        for raw in (b"not-json", b'{"schema_version":1,"job_id":"invalid"}'):
+            with self.subTest(raw=raw), patch(
+                "feclora.webapi._read_pxe_answer_source", return_value=raw,
+            ), self.assertRaisesRegex(WebAPIError, "import validation failed"):
+                _import_deployment_job({"source": "url", "url": "https://jobs.example.test/job.json"})
 
     def test_shared_deployment_job_is_accepted_by_the_pxe_validator(self):
         from feclora.network.pxe_answer import parse_pxe_answer
