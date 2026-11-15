@@ -66,7 +66,7 @@ class MulticastRuntimeTests(unittest.TestCase):
         job = multicast_job()
         approval = LocalTargetApproval(
             "/dev/feclora-test", "Disposable test disk",
-            "ERASE /dev/feclora-test FROM URI:feclora-server",
+            "ERASE /dev/feclora-test",
         )
         artifact = ImageArtifact(
             "golden-image.raw", "disk-image", "raw", "none", 3,
@@ -119,7 +119,7 @@ class MulticastRuntimeTests(unittest.TestCase):
         job = multicast_job(target_type="partition")
         approval = LocalTargetApproval(
             "/dev/feclora-test-partition", "Disposable test partition",
-            "ERASE /dev/feclora-test-partition FROM URI:feclora-server",
+            "ERASE /dev/feclora-test-partition",
         )
         artifact = ImageArtifact(
             "golden-image_sda1.img", "partition-image", "raw", "none", 3,
@@ -166,7 +166,7 @@ class MulticastRuntimeTests(unittest.TestCase):
         job = multicast_job(target_type="logical_volume")
         approval = LocalTargetApproval(
             "/dev/vg0/lv-data", "Disposable logical volume",
-            "ERASE /dev/vg0/lv-data FROM URI:feclora-server",
+            "ERASE /dev/vg0/lv-data",
         )
         artifact = ImageArtifact(
             "golden-image.raw", "logical-volume-image", "raw", "none", 3,
