@@ -14,6 +14,7 @@ from feclora.storage.partition_restore import PartitionRestoreError, restore_par
 from feclora.storage.logical_volume_restore import (
     LogicalVolumeRestoreError, restore_logical_volume,
 )
+from feclora.storage.inventory import collect_inventory
 
 
 class RestoreExecutionError(RuntimeError):
@@ -61,7 +62,6 @@ def execute_restore(
     if target_type == "disk" and pre_write_callback is not None:
         kwargs["pre_write_callback"] = pre_write_callback
     if target_type == "logical_volume":
-        from feclora.storage.inventory import collect_inventory
         kwargs["inventory_provider"] = collect_inventory
     try:
         restore_function(manifest_path, repository, target_path, **kwargs)

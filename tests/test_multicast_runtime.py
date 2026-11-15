@@ -199,7 +199,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                 patch("feclora.deployment.multicast_runtime.receive_multicast_artifact_to_staging", side_effect=fake_receive),
                 patch("feclora.deployment.multicast_runtime.verify_staged_multicast_artifact"),
                 patch("feclora.deployment.restore_execution.restore_logical_volume") as restore_lv,
-                patch("feclora.deployment.multicast_runtime.collect_inventory") as inventory,
+                patch("feclora.deployment.restore_execution.collect_inventory") as inventory,
             ):
                 result = execute_multicast_restore(
                     job, tls, approval, server_identity="URI:feclora-server",
