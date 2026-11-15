@@ -30,6 +30,21 @@ _OBJECT_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.=-]{0,254}$")
 _CHUNK = 1024 * 1024
 _DEFAULT_PART_SIZE = 64 * 1024 * 1024
 _MULTIPART_THRESHOLD = 64 * 1024 * 1024
+_P2V_METADATA_MAX_BYTES = 64 * 1024
+
+
+def _unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON field: {key}")
+        result[key] = value
+    return result
+
+
+def _load_p2v_metadata(document: str | bytes):
+    import json
+    return json.loads(document, object_pairs_hook=_unique_json_object)
 
 
 @dataclass(frozen=True)
@@ -333,9 +348,11 @@ class S3ObjectRepository:
         qcow2, metadata_file = Path(qcow2_path), Path(metadata_path)
         self._require_regular_file(qcow2)
         self._require_regular_file(metadata_file)
-        import json
         try:
-            metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
+            metadata_bytes = metadata_file.read_bytes()
+            if len(metadata_bytes) > _P2V_METADATA_MAX_BYTES:
+                raise ValueError("P2V metadata exceeds the supported size limit")
+            metadata = _load_p2v_metadata(metadata_bytes.decode("utf-8"))
         except Exception as exc:
             raise S3RepositoryError("P2V metadata is invalid") from exc
         required = {
@@ -384,7 +401,6 @@ class S3ObjectRepository:
 
     def list_p2v_images(self) -> list[dict[str, Any]]:
         """List only P2V entries whose metadata and QCOW2 object agree."""
-        import json
         prefix = f"{self.prefix}/" if self.prefix else ""
         paginator = self.client.get_paginator("list_objects_v2")
         result = []
@@ -402,7 +418,10 @@ class S3ObjectRepository:
                         response = self.client.get_object(Bucket=self.config.bucket, Key=key)
                         body = response["Body"]
                         try:
-                            metadata = json.loads(body.read().decode("utf-8"))
+                            metadata_bytes = body.read(_P2V_METADATA_MAX_BYTES + 1)
+                        if len(metadata_bytes) > _P2V_METADATA_MAX_BYTES:
+                            raise ValueError("P2V metadata exceeds the supported size limit")
+                        metadata = _load_p2v_metadata(metadata_bytes.decode("utf-8"))
                         finally:
                             body.close()
                     except Exception as exc:
@@ -445,7 +464,6 @@ class S3ObjectRepository:
 
     def download_p2v(self, image_id: str, destination: str | os.PathLike[str]) -> Path:
         """Download a committed QCOW2 and its sidecar, verifying both before publication."""
-        import json
         if not isinstance(image_id, str) or not _IMAGE_ID.fullmatch(image_id):
             raise S3RepositoryError("P2V image identifier is invalid")
         root = Path(destination)
@@ -465,9 +483,9 @@ class S3ObjectRepository:
                 metadata_bytes = metadata_body.read(64 * 1024 + 1)
             finally:
                 metadata_body.close()
-            if len(metadata_bytes) > 64 * 1024:
+            if len(metadata_bytes) > _P2V_METADATA_MAX_BYTES:
                 raise S3RepositoryError("P2V metadata exceeds the supported size limit")
-            metadata = json.loads(metadata_bytes.decode("utf-8"))
+            metadata = _load_p2v_metadata(metadata_bytes.decode("utf-8"))
         except S3RepositoryError:
             raise
         except Exception as exc:
