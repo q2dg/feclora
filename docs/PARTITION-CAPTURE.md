@@ -25,11 +25,10 @@ Partclone.
 ## Optional read-only pre-capture filesystem preflight
 
 The privileged Cockpit API exposes `check_capture_filesystem` with exactly
-`source` and `filesystem` parameters. It currently supports offline ext2/3/4
-and NTFS/ntfs3 sources only. ext uses `blkid`, `e2fsck -f -n`,
+`source` and `filesystem` parameters. It currently supports offline ext2/3/4, NTFS/ntfs3 and XFS sources. ext uses `blkid`, `e2fsck -f -n`,
 `dumpe2fs`, `resize2fs -P` and `blockdev`; NTFS uses `blkid`,
 `ntfsresize --info` and `blockdev`; XFS uses `blkid`, `xfs_repair -n` and
-`blockdev`. Both reuse the source-safety checks and
+`blockdev`. All three reuse the source-safety checks and
 refuse mounted, busy, root-backed or otherwise unverifiable devices. The API
 returns the estimated minimum filesystem size for ext/NTFS or the checked
 partition capacity for XFS, and identifies the read-only probe used. It never repairs or writes to the source.
