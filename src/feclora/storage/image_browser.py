@@ -99,6 +99,12 @@ def _prepare_image(
     if artifact.format == "qcow2":
         if artifact.compression != "none" or artifact.encryption != "none":
             raise ImageBrowserError("QCOW2 artifact must not use separate compression or encryption")
+        from .disk_restore import _open_artifact, _verify_stored_artifact
+        try:
+            with _open_artifact(str(repository), artifact) as stream:
+                _verify_stored_artifact(stream, artifact)
+        except Exception as exc:
+            raise ImageBrowserError(f"QCOW2 image integrity verification failed: {exc}") from exc
         _qcow2_info(source, manifest.source_size_bytes)
         return source, "qcow2"
 
@@ -109,6 +115,8 @@ def _prepare_image(
                 _verify_stored_artifact(stream, artifact)
         except Exception as exc:
             raise ImageBrowserError(f"RAW image integrity verification failed: {exc}") from exc
+        if info.st_size != manifest.source_size_bytes:
+            raise ImageBrowserError("RAW image size does not match the manifest source capacity")
         return source, "raw"
 
     from .disk_restore import _decoded_stream, _preflight_decoded_size, _verified_artifact_stream
