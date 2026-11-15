@@ -11,6 +11,7 @@ import os
 import posixpath
 import shutil
 import stat
+import struct
 import subprocess
 import tempfile
 from pathlib import Path
@@ -52,6 +53,33 @@ def _lstat_without_symlink_traversal(guestfs: Any, path: str) -> dict[str, Any]:
         if index < len(components) - 1 and not stat.S_ISDIR(mode):
             raise ImageBrowserError("a path component is not a directory")
     return metadata
+
+
+
+def _qcow2_header_is_self_contained(path: Path) -> None:
+    """Reject backing files and external data files before invoking qemu-img."""
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags)
+        with os.fdopen(fd, "rb") as stream:
+            header = stream.read(104)
+    except OSError as exc:
+        raise ImageBrowserError(f"cannot safely read QCOW2 header: {exc}") from exc
+    if len(header) < 72 or header[:4] != b"QFI\\xfb":
+        raise ImageBrowserError("QCOW2 header is invalid or truncated")
+    version = struct.unpack_from(">I", header, 4)[0]
+    backing_offset = struct.unpack_from(">Q", header, 8)[0]
+    backing_size = struct.unpack_from(">I", header, 16)[0]
+    if version not in {2, 3}:
+        raise ImageBrowserError("unsupported QCOW2 header version")
+    if backing_offset or backing_size:
+        raise ImageBrowserError("QCOW2 images with external backing files cannot be browsed")
+    if version == 3:
+        if len(header) < 104:
+            raise ImageBrowserError("QCOW2 v3 header is truncated")
+        incompatible_features = struct.unpack_from(">Q", header, 72)[0]
+        if incompatible_features & 0x4:
+            raise ImageBrowserError("QCOW2 images with external data files cannot be browsed")
 
 
 def _qcow2_info(path: Path, expected_size: int) -> None:
@@ -105,6 +133,7 @@ def _prepare_image(
                 _verify_stored_artifact(stream, artifact)
         except Exception as exc:
             raise ImageBrowserError(f"QCOW2 image integrity verification failed: {exc}") from exc
+        _qcow2_header_is_self_contained(source)
         _qcow2_info(source, manifest.source_size_bytes)
         return source, "qcow2"
 
@@ -120,6 +149,8 @@ def _prepare_image(
         return source, "raw"
 
     from .disk_restore import _decoded_stream, _preflight_decoded_size, _verified_artifact_stream
+    if shutil.disk_usage(temporary).free < manifest.source_size_bytes:
+        raise ImageBrowserError("insufficient temporary storage to decode the RAW image")
     staged = temporary / "disk.raw"
     try:
         with _verified_artifact_stream(str(repository), artifact, age_identity_file) as stored:
