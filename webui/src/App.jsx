@@ -202,6 +202,7 @@ export default function App() {
   const [confirmation, setConfirmation] = useState("");
   const [progress, setProgress] = useState(null);
   const [operationResult, setOperationResult] = useState(null);
+  const [capturePreflight, setCapturePreflight] = useState(null);
   const [recoveryBaseISO, setRecoveryBaseISO] = useState("");
   const [recoveryTargetWWN, setRecoveryTargetWWN] = useState("");
   const [recoveryTargetSerial, setRecoveryTargetSerial] = useState("");
@@ -358,10 +359,24 @@ export default function App() {
 
   useEffect(() => { setConfirmation(""); setProgress(null); setOperationResult(null); if (operation !== "capture_disk") { setEncryptPassphraseMode(false); setCapturePassphrase(""); } }, [operation, source, target, imageId]);
 
+  const selectedCaptureDevice = devices.find((device) => device.path === source);
+  const captureFilesystem = String(selectedCaptureDevice?.filesystem || '').toLowerCase();
+  const capturePreflightSupported = ['ext2', 'ext3', 'ext4', 'ntfs', 'ntfs3', 'xfs'].includes(captureFilesystem);
+  const checkCapturePreflight = async () => {
+    if (!source || !capturePreflightSupported) return;
+    setBusy(true); setError(''); setNotice(''); setCapturePreflight({ loading: true, source, filesystem: captureFilesystem });
+    try {
+      const result = await callFeclora('check_capture_filesystem', { source, filesystem: captureFilesystem });
+      setCapturePreflight({ ...result, loading: false });
+    } catch (err) {
+      setCapturePreflight({ loading: false, source, filesystem: captureFilesystem, error: err?.message || String(err) });
+    } finally { setBusy(false); }
+  };
   const runOperation = async (event) => {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setProgress(null); setOperationResult(null);
     try {
       let params;
+      if (operation === "capture_partition" && capturePreflightSupported && !(capturePreflight?.checked && capturePreflight.source === source && capturePreflight.filesystem === captureFilesystem)) throw new Error("Run a successful read-only filesystem preflight for this source before capturing the partition.");
       if (operation === "import_p2v") params = {
         source_image_id: p2vSourceImageId, image_id: imageId,
         ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
@@ -1103,7 +1118,7 @@ export default function App() {
       && bundleJobDefinition.authorized_clients.every((mac) => Boolean(bundleJobDefinition.target_bindings?.[mac]))
       && (bundleJobDefinition.transport !== "multicast" || bundleJobDefinition.authorized_clients.length >= 2))
     : isCapture
-    ? Boolean(source && imageId && (!selectedRepository?.read_only) && (operation !== "capture_partition" || partitionId || imageId))
+    ? Boolean(source && imageId && (!selectedRepository?.read_only) && (operation !== "capture_partition" || ((partitionId || imageId) && (!capturePreflightSupported || (capturePreflight?.checked && !capturePreflight.loading && capturePreflight.source === source && capturePreflight.filesystem === captureFilesystem))))
     : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation && (!isDisk || !restoreLayoutPreview || !restoreTargetDevice || restoreTargetDevice.size_bytes >= restoreLayoutPreview.source_size_bytes))
       : Boolean(source && target && source !== target && confirmation === expectedConfirmation);
 
@@ -1261,11 +1276,23 @@ export default function App() {
                     </>}
                     {isCapture && <>
                       <Field t={t} label={isDisk ? "Source disk" : isLogicalVolume ? "Source logical volume" : "Source partition"}>
-                        <select className="pf-v6-c-form-control" value={source} onChange={(e) => setSource(e.target.value)}>
+                        <select className="pf-v6-c-form-control" value={source} onChange={(e) => { setSource(e.target.value); setCapturePreflight(null); }}>
                           <option value="">{t("Select a source device…")}</option>
                           {deviceOptions.map((d) => <option key={d.path} value={d.path}>{d.path}{d.lvm_name ? ` · ${d.lvm_name} (${d.lvm_path})` : ""} · {formatBytes(d.size_bytes)} · {d.model || d.filesystem || d.type}</option>)}
                         </select>
                       </Field>
+                      {operation === "capture_partition" && source && (capturePreflightSupported
+                        ? <div className="pf-v6-u-mb-md">
+                            <Alert variant="info" title={t("Read-only filesystem preflight")} isInline>
+                              {t("The source must be offline. This check never repairs or writes to it.")} {t("Detected filesystem")}: <strong>{captureFilesystem}</strong>.
+                              {capturePreflight?.checked && capturePreflight.source === source && capturePreflight.filesystem === captureFilesystem
+                                ? <> {t("Checker")}: {capturePreflight.checker}. {capturePreflight.minimum_size_bytes != null ? t("Estimated minimum filesystem size") + ": " + formatBytes(capturePreflight.minimum_size_bytes) + "." : ""}</>
+                                : " " + t("Run the check before starting partition capture.")}
+                            </Alert>
+                            {capturePreflight?.error && <Alert variant="danger" title={t("Preflight failed")} isInline>{capturePreflight.error}</Alert>}
+                            <Button type="button" variant="secondary" isDisabled={busy} isLoading={Boolean(capturePreflight?.loading)} onClick={checkCapturePreflight}>{t("Check filesystem (read-only)")}</Button>
+                          </div>
+                        : <Alert variant="warning" title={t("No dedicated preflight available")} isInline>{t("No dedicated offline checker is configured for this filesystem; capture still uses the storage engine source-safety checks.")}</Alert>)}
                       <Field t={t} label={t("Image identifier")} help="Use letters, numbers, dots, underscores or hyphens.">
                         <input className="pf-v6-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)} maxLength={128} required />
                       </Field>
