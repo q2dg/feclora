@@ -131,6 +131,29 @@ class DiskRestoreTests(unittest.TestCase):
             self.restore()
         self.assertEqual(self.started, [])
 
+    def test_wrong_age_passphrase_fails_before_authorization_or_dd(self):
+        from feclora.storage.image_security import ImageSecurityError
+
+        with open(self.manifest, encoding="utf-8") as stream:
+            manifest = json.load(stream)
+        manifest["artifacts"][0]["encryption"] = "age"
+        with open(self.manifest, "w", encoding="utf-8") as stream:
+            json.dump(manifest, stream)
+
+        authorization = []
+        with patch(
+            "feclora.storage.disk_restore.decrypt_artifact_stream_with_passphrase_to_temp",
+            side_effect=ImageSecurityError("incorrect passphrase"),
+        ):
+            with self.assertRaisesRegex(DiskRestoreError, "decryption/authentication failed"):
+                self.restore(
+                    age_passphrase="wrong passphrase",
+                    pre_write_callback=lambda: authorization.append("authorized"),
+                )
+
+        self.assertEqual(authorization, [])
+        self.assertEqual(self.started, [])
+
     def test_pre_write_callback_runs_after_successful_preflight(self):
         calls = []
         self.restore(pre_write_callback=lambda: calls.append("authorized"))
