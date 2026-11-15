@@ -1391,6 +1391,55 @@ class MulticastControlTests(unittest.TestCase):
         self.assertEqual(multicast_send.call_args.args[0], coordinator)
         self.assertEqual(multicast_send.call_args.kwargs["firewall"], server.firewall)
 
+
+    def test_pxe_auto_interface_uses_resolved_server_interface_for_multicast(self):
+        job = make_job(
+            boot_method="pxe", network_interface="auto", transport="multicast",
+            multicast_group="239.10.10.1", multicast_port=9000,
+            target_type="disk", repository_id="nas-images",
+            confirm_destructive=True, start_policy="automatic",
+            target_bindings={
+                MAC: {"wwn": "wwn-client-1", "serial": None},
+            },
+        )
+        coordinator = Mock()
+        coordinator.job = job
+        coordinator.clients.return_value = [
+            SimpleNamespace(mac_address=MAC, state=ClientState.READY),
+        ]
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server.interface = "enp2s0"
+        server._lock = threading.RLock()
+        server._sessions = {MAC: Mock()}
+        server.firewall = Mock()
+        config = UDPcastConfig(
+            "enp2s0", "239.10.10.1", "239.10.10.2",
+            portbase=9000, min_receivers=1,
+        )
+        manifest = SimpleNamespace(
+            image_id="golden-image", image_type="disk",
+            artifacts=(SimpleNamespace(filename="image.raw", encryption="none"),),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            manifest_path = os.path.join(directory, "golden-image.manifest.json")
+            with open(manifest_path, "wb") as stream:
+                stream.write(b"{}")
+            with open(os.path.join(directory, "image.raw"), "wb") as stream:
+                stream.write(b"payload")
+            with (
+                patch("feclora.deployment.control.ImageManifest.from_json", return_value=manifest),
+                patch("feclora.deployment.control.verify_artifact_file"),
+                patch("feclora.deployment.control.send_control_message"),
+                patch("feclora.deployment.control.send_multicast_artifact"),
+                patch.object(server, "arm_and_start", return_value=(MAC,)),
+                patch.object(server, "collect_results", return_value={MAC: "succeeded"}),
+            ):
+                results = server.run_multicast_restore_job(
+                    directory, manifest_path, udpcast_config=config,
+                )
+        self.assertEqual(results, {MAC: "succeeded"})
+
     def test_server_rejects_multicast_job_until_every_selected_client_is_ready(self):
         mac2 = "52:54:00:12:34:57"
         job = make_job(
