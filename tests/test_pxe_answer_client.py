@@ -13,7 +13,7 @@ from unittest.mock import patch
 from feclora.network.pxe_answer_client import (
     PXEAnswerClientError, _discover_dhcp_answer_url, _managed_repository,
     _wait_for_age_passphrase, _pxe_report_callback, execute_live_pxe_restore, fetch_live_pxe_answer,
-    _start_shared_deployment_job,
+    _start_shared_deployment_job, main as pxe_answer_main,
 )
 
 
@@ -211,6 +211,18 @@ class PXEAnswerClientTests(unittest.TestCase):
                 )
                 self.assertEqual(result["target_bindings"], shared_job["target_bindings"])
                 self.assertEqual(result["_client_mac"], mac)
+
+
+    def test_main_dispatches_iso_shared_answer_to_persistent_client_runtime(self):
+        answer = {
+            "schema_version": 1, "start_policy": "automatic",
+            "job_id": JOB, "transport": "multicast",
+        }
+        with patch("feclora.network.pxe_answer_client._clear_stale_age_passphrase_files"), \\
+             patch("feclora.network.pxe_answer_client.fetch_live_pxe_answer", return_value=answer), \\
+             patch("feclora.network.pxe_answer_client._start_shared_deployment_job", return_value=f"feclora-client@{JOB}.service") as start:
+            self.assertEqual(pxe_answer_main(), 0)
+        start.assert_called_once_with(answer)
 
     def test_report_callback_posts_job_scoped_client_events_best_effort(self):
         import uuid
