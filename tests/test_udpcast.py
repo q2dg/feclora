@@ -164,6 +164,41 @@ class UDPcastConfigTests(unittest.TestCase):
                 )
             run.assert_called_once()
 
+    def test_sender_accepts_resolved_interface_for_pxe_auto_job(self):
+        job = SimpleNamespace(
+            transport="multicast", boot_method="pxe", network_interface="auto",
+            multicast_group="239.10.10.1", multicast_port=9000,
+            image_id="golden-image",
+        )
+        coordinator = Mock()
+        coordinator.job = job
+        coordinator.state = JobState.RUNNING
+        coordinator.clients.return_value = [
+            SimpleNamespace(state=ClientState.RUNNING),
+            SimpleNamespace(state=ClientState.RUNNING),
+        ]
+        manifest = SimpleNamespace(
+            image_id="golden-image",
+            artifacts=[SimpleNamespace(filename="disk.img")],
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            source = os.path.join(directory, "disk.img")
+            manifest_path = os.path.join(directory, "image.manifest.json")
+            for path in (source, manifest_path):
+                with open(path, "wb") as stream:
+                    stream.write(b"x")
+            with (
+                patch("feclora.network.udpcast._load_manifest", return_value=manifest),
+                patch("feclora.network.udpcast.verify_artifact_file"),
+                patch("feclora.network.udpcast.shutil.which", return_value="/usr/bin/udp-sender"),
+                patch("feclora.network.udpcast.multicast_firewall_scope", return_value=nullcontext()),
+                patch("feclora.network.udpcast._run_process") as run,
+            ):
+                send_multicast_artifact(
+                    coordinator, source, manifest_path, self.config, firewall=Mock(),
+                )
+            run.assert_called_once()
+
     def test_staging_preflight_rejects_insufficient_space(self):
         artifact = ImageArtifact(
             "disk.img", "disk-image", "raw", "none", 1024,
