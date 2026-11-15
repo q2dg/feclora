@@ -490,6 +490,8 @@ def _filesystem_images(
             continue
         items.append({
             "image_id": manifest.image_id, "image_type": manifest.image_type,
+            "image_format": next((artifact.format for artifact in manifest.artifacts
+                                  if artifact.role in {"disk-image", "partition-image", "logical-volume-image"}), None),
             "source_size_bytes": manifest.source_size_bytes,
             "logical_sector_size": manifest.logical_sector_size,
             "encrypted": bool(manifest.artifacts) and all(
