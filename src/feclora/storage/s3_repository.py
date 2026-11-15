@@ -338,16 +338,22 @@ class S3ObjectRepository:
             metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
         except Exception as exc:
             raise S3RepositoryError("P2V metadata is invalid") from exc
-        required = {"schema_version", "image_id", "format", "source_device", "virtual_size_bytes",
-                    "file_size_bytes", "qcow2_sha256", "verified", "bootability_note"}
-        required_with_geometry = required | {"logical_sector_size"}
-        if (not isinstance(metadata, dict) or frozenset(metadata) not in {frozenset(required), frozenset(required_with_geometry)}
-                or metadata.get("schema_version") != 1 or metadata.get("image_id") != image_id
-                or metadata.get("format") != "qcow2" or metadata.get("verified") is not True
+        required = {
+            "schema_version", "image_id", "format", "source_device", "virtual_size_bytes",
+            "logical_sector_size", "file_size_bytes", "qcow2_sha256", "verified",
+            "bootability_note",
+        }
+        if (not isinstance(metadata, dict) or set(metadata) != required
+                or isinstance(metadata.get("schema_version"), bool) or metadata.get("schema_version") != 1
+                or metadata.get("image_id") != image_id or metadata.get("format") != "qcow2"
+                or metadata.get("verified") is not True
                 or not isinstance(metadata.get("source_device"), str)
                 or not metadata["source_device"].startswith("/dev/")
                 or not isinstance(metadata.get("bootability_note"), str)
-                or ("logical_sector_size" in metadata and (isinstance(metadata["logical_sector_size"], bool) or metadata["logical_sector_size"] not in {512, 4096}))
+                or isinstance(metadata.get("logical_sector_size"), bool)
+                or metadata.get("logical_sector_size") not in {512, 4096}
+                or isinstance(metadata.get("file_size_bytes"), bool)
+                or not isinstance(metadata.get("file_size_bytes"), int) or metadata["file_size_bytes"] <= 0
                 or isinstance(metadata.get("virtual_size_bytes"), bool)
                 or not isinstance(metadata.get("virtual_size_bytes"), int) or metadata["virtual_size_bytes"] <= 0):
             raise S3RepositoryError("P2V metadata schema or identity is invalid")
