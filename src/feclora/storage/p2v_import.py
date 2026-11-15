@@ -198,6 +198,7 @@ def import_p2v_qcow2(
         if isinstance(format_data, dict):
             external_data_file = external_data_file or format_data.get("data-file")
         if (not isinstance(info, dict) or info.get("format") != "qcow2"
+                or isinstance(info.get("virtual-size"), bool)
                 or info.get("virtual-size") != virtual_size
                 or info.get("backing-filename") or info.get("full-backing-filename")
                 or external_data_file or info.get("encrypted") is True
