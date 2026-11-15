@@ -104,7 +104,7 @@ class MulticastRuntimeTests(unittest.TestCase):
             ):
                 result = execute_multicast_restore(
                     job, tls, approval,
-                    server_identity="URI:feclora-server",
+                    
                     repository=repository,
                     firewall=Mock(),
                     network_interface="enp1s0", age_identity_file="/pki/client.age",
@@ -154,7 +154,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                 patch("feclora.deployment.restore_execution.restore_disk") as restore_disk,
             ):
                 result = execute_multicast_restore(
-                    job, tls, approval, server_identity="URI:feclora-server",
+                    job, tls, approval, 
                     repository=repository, 
                     firewall=Mock(), network_interface="enp1s0", age_identity_file="/pki/client.age",
                 )
@@ -202,7 +202,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                 patch("feclora.deployment.restore_execution.collect_inventory") as inventory,
             ):
                 result = execute_multicast_restore(
-                    job, tls, approval, server_identity="URI:feclora-server",
+                    job, tls, approval, 
                     repository=repository,
                     firewall=Mock(), network_interface="enp1s0",
                 )
@@ -229,7 +229,7 @@ class MulticastRuntimeTests(unittest.TestCase):
                 with self.assertRaisesRegex(MulticastDeploymentError, "confirmation"):
                     execute_multicast_restore(
                         job, Mock(), approval,
-                        server_identity="URI:feclora-server",
+                        
                         repository=repository,
                         firewall=Mock(),
                         network_interface="enp1s0",
