@@ -1283,10 +1283,10 @@ export default function App() {
                       </Field>
                       {operation === "capture_partition" && source && (capturePreflightSupported
                         ? <div className="pf-v6-u-mb-md">
-                            <Alert variant="info" title={t("Read-only filesystem preflight")} isInline>
+                            <Alert variant={capturePreflight?.checked ? "success" : "info"} title={capturePreflight?.checked ? t("Filesystem preflight passed") : t("Read-only filesystem preflight")} isInline>
                               {t("The source must be offline. This check never repairs or writes to it.")} {t("Detected filesystem")}: <strong>{captureFilesystem}</strong>.
                               {capturePreflight?.checked && capturePreflight.source === source && capturePreflight.filesystem === captureFilesystem
-                                ? <> {t("Checker")}: {capturePreflight.checker}. {capturePreflight.minimum_size_bytes != null ? t("Estimated minimum filesystem size") + ": " + formatBytes(capturePreflight.minimum_size_bytes) + "." : capturePreflight.checked_size_bytes != null ? t("Checked device capacity") + ": " + formatBytes(capturePreflight.checked_size_bytes) + "." : ""}</>
+                                ? <> {t("Read-only check passed.")} {t("Checker")}: {capturePreflight.checker}. {capturePreflight.minimum_size_bytes != null ? t("Estimated minimum filesystem size") + ": " + formatBytes(capturePreflight.minimum_size_bytes) + "." : capturePreflight.checked_size_bytes != null ? t("Checked device capacity") + ": " + formatBytes(capturePreflight.checked_size_bytes) + "." : ""}</>
                                 : " " + t("Run the check before starting partition capture.")}
                             </Alert>
                             {capturePreflight?.error && <Alert variant="danger" title={t("Preflight failed")} isInline>{capturePreflight.error}</Alert>}
