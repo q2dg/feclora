@@ -551,7 +551,8 @@ class TLSContextTests(unittest.TestCase):
         self.assertTrue(firewall.removal_attempted)
         self.assertEqual(server._firewall_added, ("9443/tcp",))
         self.assertIsNone(server._firewall_state_callback)
-        self.assertEqual(callback_values[-1], None)
+        self.assertEqual(len(callback_values), 1)
+        self.assertIsNotNone(callback_values[0])
         self.assertTrue(any("firewall port rollback failed" in item for item in server.listener_errors))
 
 
