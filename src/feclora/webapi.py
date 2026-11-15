@@ -1380,8 +1380,8 @@ def _import_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(params, dict) or "source" not in params:
         raise WebAPIError("import_deployment_job requires a source")
     source = params.get("source")
-    if source not in {"url", "repository", "scp"}:
-        raise WebAPIError("DeploymentJob import supports HTTP(S), repository or SCP sources")
+    if source not in {"upload", "url", "repository", "scp"}:
+        raise WebAPIError("DeploymentJob import supports upload, HTTP(S), repository or SCP sources")
     # Reuse the same bounded, redirect-free, credential-safe readers as PXE
     # publication. The synthetic UUID is only an internal reader parameter;
     # the actual UUID is parsed and validated from the document itself.
