@@ -164,5 +164,38 @@ class P2VConversionTests(unittest.TestCase):
             self.assertFalse(os.path.exists(output))
 
 
+    def test_rejects_boolean_qcow2_virtual_size(self):
+        def boolean_size(argv, **kwargs):
+            if argv[1:3] == ["--getsize64", "/dev/feclora-test"]:
+                return SimpleNamespace(returncode=0, stdout="1", stderr="")
+            if argv[1:3] == ["--getss", "/dev/feclora-test"]:
+                return SimpleNamespace(returncode=0, stdout="512", stderr="")
+            if argv[1] == "convert":
+                with open(argv[-1], "wb") as stream:
+                    stream.write(b"payload")
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if argv[1] == "check":
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if argv[1:3] == ["info", "--output=json"]:
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout='{"format":"qcow2","virtual-size":true}',
+                    stderr="",
+                )
+            raise AssertionError(argv)
+
+        with tempfile.TemporaryDirectory() as directory:
+            os.chmod(directory, 0o700)
+            output = os.path.join(directory, "disk.qcow2")
+            with self.assertRaisesRegex(P2VError, "capacity"):
+                convert_block_device_to_qcow2(
+                    "/dev/feclora-test", output, qemu_img="/usr/bin/qemu-img",
+                    blockdev="/usr/sbin/blockdev", runner=boolean_size,
+                    stat_device=self.stat_device, source_safety_check=self.source_safety,
+                )
+            self.assertFalse(os.path.lexists(output))
+            self.assertEqual(os.listdir(directory), [])
+
+
 if __name__ == "__main__":
     unittest.main()
