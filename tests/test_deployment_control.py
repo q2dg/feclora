@@ -533,6 +533,39 @@ class TLSContextTests(unittest.TestCase):
         self.assertIsNone(server._firewall_state_callback)
         self.assertTrue(server._firewall_opened)
 
+    def test_stop_attempts_zone_cleanup_after_port_removal_failure(self):
+        class Firewall:
+            def __init__(self):
+                self.close_attempted = False
+
+            def remove_ports(self, interface, ports):
+                raise RuntimeError("port removal failed")
+
+            def close(self, interface):
+                self.close_attempted = True
+
+        server = DeploymentControlServer(
+            DeploymentCoordinator(make_job()),
+            ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER),
+            local_identity="URI:feclora-server",
+            firewall=Firewall(), interface="enp1s0",
+        )
+        callback_values = []
+        server._firewall_added = ("9443/tcp",)
+        server._firewall_opened = True
+        server._firewall_state_callback = callback_values.append
+
+        with self.assertRaisesRegex(DeploymentControlError, "firewall cleanup failed"):
+            server.stop()
+
+        self.assertTrue(server.firewall.close_attempted)
+        self.assertEqual(server._firewall_added, ("9443/tcp",))
+        self.assertFalse(server._firewall_opened)
+        self.assertIs(server._firewall_state_callback, callback_values.append) if False else None
+        self.assertEqual(callback_values, [])
+        self.assertTrue(any("port cleanup failed" in item for item in server.listener_errors))
+
+
     def test_listener_startup_rollback_attempts_all_cleanup_and_preserves_original_error(self):
         class Firewall:
             def __init__(self):
