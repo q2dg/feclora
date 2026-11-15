@@ -27,7 +27,7 @@ from feclora.network.remote_clone_protocol import create_tls_context
 from feclora.network.multicast_preflight import inspect_multicast_interface
 from feclora.network.firewall import PXEFirewall
 from feclora.storage.inventory import InventoryError, collect_inventory
-from feclora.ui import dialog_app
+from feclora.ui import dialog
 
 
 CONFIG_PATH = "/etc/feclora/deployment-client.json"
@@ -56,7 +56,7 @@ def _local_target_confirmation(job: Any, path: str, target_kind: str) -> tuple[s
 def _elevate() -> int:
     sudo = shutil.which("sudo")
     if not sudo:
-        dialog_app._message(
+        dialog._message(
             "Client mode requires root",
             "sudo is required to inspect and restore local block devices and manage multicast firewall rules.",
         )
@@ -82,7 +82,7 @@ def _capture_image_security_options(config: ClientRuntimeConfig) -> str | None:
     choices = [("none", "No encryption")]
     if age_ready:
         choices.append(("age", "Encrypt this image with age"))
-    selected = dialog_app._menu(
+    selected = dialog._menu(
         "Image encryption",
         "Choose optional encryption for this image. SHA-256 integrity verification is always applied.",
         choices,
@@ -125,13 +125,13 @@ def _sha256_file(path: str) -> str:
 
 def _client_server_trust_wizard(config_path: str) -> bool:
     """Configure Server trust; Clients do not enroll or present certificates."""
-    host = dialog_app._input("Feclora Server address", "Enter the Server IPv4 address or hostname:")
+    host = dialog._input("Feclora Server address", "Enter the Server IPv4 address or hostname:")
     if not host:
         return False
-    mac = dialog_app._input("Client MAC address", "Enter this Client's unicast MAC address:")
+    mac = dialog._input("Client MAC address", "Enter this Client's unicast MAC address:")
     if not mac:
         return False
-    bundle = dialog_app._input(
+    bundle = dialog._input(
         "Server trust bundle",
         "Path to a directory containing the Server CA certificate (ca.crt) and optionally age-recipients.txt:",
     )
@@ -141,13 +141,13 @@ def _client_server_trust_wizard(config_path: str) -> bool:
     if not os.path.isfile(ca_source) or os.path.islink(ca_source):
         raise PKIError("Server trust bundle must contain ca.crt")
     fingerprint = _sha256_file(ca_source)
-    expected = dialog_app._input(
+    expected = dialog._input(
         "Verify Server CA fingerprint",
         "Compare the SHA-256 fingerprint with the value shown by the Server, then type it exactly:\n" + fingerprint,
     )
     if expected is None or expected.replace(":", "").lower() != fingerprint.lower():
         raise PKIError("Server CA fingerprint did not match")
-    server_identity = dialog_app._input(
+    server_identity = dialog._input(
         "Server certificate identity",
         "Expected SAN identity of the Server certificate (normally URI:feclora-server):",
     ) or "URI:feclora-server"
@@ -194,7 +194,7 @@ def _client_server_trust_wizard(config_path: str) -> bool:
         "repository": repository,
     }
     _write_client_config(config_path, config)
-    dialog_app._message(
+    dialog._message(
         "Client configured",
         "Server certificate verification is configured. Deployment jobs select this Client by its reported MAC address.",
     )
@@ -204,7 +204,7 @@ def _client_server_trust_wizard(config_path: str) -> bool:
 def _refresh_client_age_recipients(config: ClientRuntimeConfig) -> None:
     if not config.age_identity_file or not config.age_recipients_file:
         raise PKIError("this Client has no configured age identity/recipient inventory")
-    bundle = dialog_app._input(
+    bundle = dialog._input(
         "Updated age recipient inventory",
         "Path to a removable-media directory containing age-recipients.txt exported by the Server:",
     )
@@ -240,7 +240,7 @@ def _refresh_client_age_recipients(config: ClientRuntimeConfig) -> None:
         except OSError:
             pass
         raise
-    dialog_app._message(
+    dialog._message(
         "Age recipient inventory refreshed",
         "This Client can now encrypt new images for the current enrolled recipient set. Existing encrypted images are unchanged.",
     )
@@ -259,7 +259,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
         if config.age_identity_file and config.age_recipients_file:
             identity_choices.append(("refresh-age", "Refresh age recipient inventory"))
         identity_choices.append(("cancel", "Cancel"))
-        identity_action = dialog_app._menu(
+        identity_action = dialog._menu(
             "Client",
             "This Client verifies the Server certificate; the Server identifies job participants by their reported MAC address.",
             identity_choices,
@@ -269,7 +269,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
         if identity_action == "refresh-age":
             _refresh_client_age_recipients(config)
             return 0
-        job_id = dialog_app._input(
+        job_id = dialog._input(
             "Join deployment job",
             "Enter the job UUID shown by the Feclora Server operator:",
         )
@@ -287,7 +287,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                     ]
                 except OSError as exc:
                     raise DeploymentControlError(f"cannot enumerate local network interfaces: {exc}") from exc
-                selected_interface = dialog_app._menu(
+                selected_interface = dialog._menu(
                     "Client multicast interface",
                     "Select this Client's local interface for receiving the multicast image. "
                     "It may have a different name from the Server interface.",
@@ -298,7 +298,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 preflight = inspect_multicast_interface(
                     selected_interface, job.multicast_group, role="receiver",
                 )
-                dialog_app._message(
+                dialog._message(
                     "Client multicast preflight",
                     f"Interface: {preflight.interface} ({preflight.ipv4_address})\nKernel route: {preflight.route_interface}\n\n"
                     + "\n".join(preflight.warnings),
@@ -321,7 +321,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                     (lv["path"], f"{group.get('name')}/{lv.get('name')} | {lv.get('size_bytes') or '?'} bytes | {lv.get('segment_type')}")
                     for lv, group in lv_items
                 ]
-                selected_path = dialog_app._menu(
+                selected_path = dialog._menu(
                     "Local deployment logical volume",
                     "Choose an existing active LV. It must be unmounted, healthy and large enough; Feclora will not create or resize LVM metadata.",
                     choices,
@@ -337,7 +337,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                     if target_kind == "partition" else
                     "Select the whole disk for this job. Root, mounted or busy disks will be rejected before any write."
                 )
-                selected = dialog_app._select_device(inventory, target_kind, target_label, target_help)
+                selected = dialog._select_device(inventory, target_kind, target_label, target_help)
                 if selected is None:
                     raise DeploymentControlError("local disk selection cancelled")
             path = selected.get("path")
@@ -349,8 +349,8 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                     "Type the exact confirmation phrase:",
                     "You will choose optional age encryption for this image in the next step. Type the exact confirmation phrase:",
                 )
-            dialog_app._message("Selected local target", dialog_app.device_details(selected))
-            typed = dialog_app._input("Explicit local authorization", f"{prompt}\n\n{phrase}")
+            dialog._message("Selected local target", dialog.device_details(selected))
+            typed = dialog._input("Explicit local authorization", f"{prompt}\n\n{phrase}")
             if typed != phrase:
                 raise DeploymentControlError("local typed confirmation did not match; no disk operation was started")
             description = " ".join(
@@ -363,7 +363,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 "Selected local whole disk"
             )
             if job.operation == "save":
-                compression_choice = dialog_app._menu(
+                compression_choice = dialog._menu(
                     "Capture compression", "Choose image compression for the selected disk or logical volume.",
                     [("none", "None"), ("gzip", "gzip (balanced)"), ("xz", "xz (smaller, slower)"),
                      ("zstd", "zstd (fast, balanced)"), ("lz4", "lz4 (fastest)")],
@@ -390,7 +390,7 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                     age_identity_file=config.age_identity_file,
                     progress_callback=progress,
                 )
-                return dialog_app._run_restore_gauge(
+                return dialog._run_restore_gauge(
                     "Multicast image restore",
                     "Receiving image artifacts into private staging, verifying SHA-256 digests, then restoring the locally approved target.",
                     operation,
@@ -420,16 +420,16 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
                 progress_callback=progress,
             )
             if job.operation == "restore":
-                return dialog_app._run_restore_gauge(
+                return dialog._run_restore_gauge(
                     "Network image restore", "Receiving and verifying the image set with SHA-256, then restoring the selected target.",
                     operation,
                 )
             if job.operation == "clone":
-                return dialog_app._run_restore_gauge(
+                return dialog._run_restore_gauge(
                     "Remote block-device clone", "Receiving the Server block-device stream, writing the selected local target, and verifying the complete read-back.",
                     operation,
                 )
-            return dialog_app._run_capture_gauge(
+            return dialog._run_capture_gauge(
                 "Network image capture", "Capturing, optionally encrypting and transferring the selected disk or logical-volume image.",
                 operation,
             )
@@ -443,13 +443,13 @@ def run_client_ui(*, config_path: str = CONFIG_PATH) -> int:
             execute_job=execute_job,
             timeout=120,
         )
-        dialog_app._message(
+        dialog._message(
             "Deployment succeeded" if success else "Deployment failed",
             f"Job: {job.job_id}\nOperation: {job.operation}\nImage: {job.image_id}\n\n{detail}",
         )
         return 0 if success else 1
     except Exception as exc:
-        dialog_app._message("Client deployment failed", str(exc))
+        dialog._message("Client deployment failed", str(exc))
         return 1
 
 
