@@ -40,5 +40,34 @@ class HandshakeCleanupTests(unittest.TestCase):
         self.assertEqual(server._pending_sockets, set())
 
 
+    def test_accepted_socket_close_failure_does_not_mask_tls_handshake_error(self):
+        class AcceptedCloseFailureSocket:
+            def settimeout(self, _value):
+                pass
+
+            def close(self):
+                raise OSError("accepted socket already closed")
+
+        accepted = AcceptedCloseFailureSocket()
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server._lock = threading.RLock()
+        server._pending_sockets = set()
+        server._stop_event = threading.Event()
+        server.tls_context = object()
+        listener = type(
+            "Listener", (),
+            {"accept": lambda _self: (accepted, ("192.0.2.10", 40000))},
+        )()
+
+        with patch(
+            "feclora.deployment.control.accept_tls",
+            side_effect=DeploymentControlError("TLS negotiation failed"),
+        ):
+            with self.assertRaisesRegex(DeploymentControlError, "TLS negotiation failed"):
+                server.accept_ready_client(listener)
+
+        self.assertEqual(server._pending_sockets, set())
+
+
 if __name__ == "__main__":
     unittest.main()
