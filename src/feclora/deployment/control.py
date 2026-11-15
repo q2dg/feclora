@@ -219,7 +219,9 @@ class DeploymentControlServer:
                     cleanup_errors.append(f"firewall zone rollback failed: {cleanup_exc}")
                 else:
                     self._firewall_opened = False
-            if firewall_state_callback is not None:
+            # Keep the persisted ownership record if any resource rollback
+            # failed; startup recovery still needs to know what may be open.
+            if not cleanup_errors and firewall_state_callback is not None:
                 try:
                     firewall_state_callback(None)
                 except Exception as cleanup_exc:
