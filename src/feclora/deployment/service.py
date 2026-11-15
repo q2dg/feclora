@@ -524,7 +524,9 @@ class DeploymentService:
         if self.job.start_policy != "automatic":
             return False
         with self._worker_lock:
-            if (self._arm_requested or self.coordinator.state is not JobState.CREATED
+            if (self._stop_event.is_set()
+                    or self._arm_requested
+                    or self.coordinator.state is not JobState.CREATED
                     or not self.coordinator.can_start()):
                 return False
             self._arm_requested = True
