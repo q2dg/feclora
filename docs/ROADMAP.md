@@ -72,12 +72,14 @@ authenticated transport form the trust boundary. Age encryption is optional.
   keeps its operation history and sends best-effort operational telemetry to
   the PXE Server. The Server serves boot assets and answer JSON; it does not
   mount or proxy image repositories or store image data.
-- **Cross-component failure tests:** add automated coverage for a Client
-  disconnecting during restore, service restart during an active operation,
-  remote repository disappearance, loss of connection before receiver
-  confirmation, and partial per-Client multicast outcomes. Keep these as
-  software tests; physical network and multi-host acceptance remains
-  maintainer-owned.
+- **Cross-component failure tests:** automated regression cases now cover
+  a partial multi-Client disconnect, a remote repository disappearing after
+  its usage lease is acquired but before it can be resolved for restore,
+  a Client connection resetting before its terminal result is received, and
+  durable per-Client outcomes for a partially failed multicast restore.
+  Continue with service restart during an active operation and repository
+  disappearance during the actual image-transfer phase. These are software
+  tests; physical network and multi-host acceptance remains maintainer-owned.
 - **Quality and distribution:** frontend direct dependencies and the
   transitive dependency graph are pinned in `webui/package.json` and
   `webui/package-lock.json`; CI and the ISO frontend build use `npm ci`.
