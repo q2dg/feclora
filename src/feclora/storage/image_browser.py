@@ -27,6 +27,7 @@ class ImageBrowserError(RuntimeError):
 _MAX_DIRECTORY_ENTRIES = 1000
 _MAX_DOWNLOAD_BYTES = 16 * 1024 * 1024
 _SUPPORTED_FILESYSTEMS = {"btrfs", "ext2", "ext3", "ext4", "exfat", "fat", "fat12", "fat16", "fat32", "ntfs", "ntfs3", "vfat", "xfs"}
+_CACHE_PARENT = Path("/var/cache/feclora")
 
 
 def _guest_path(value: Any) -> str:
@@ -126,18 +127,18 @@ def _session_directory(
             raise ImageBrowserError("browser session identifier is invalid")
         created = False
 
-    parent = Path("/var/cache/feclora")
+    parent = _CACHE_PARENT
     cache_root = parent / "image-browser"
     try:
         parent.mkdir(mode=0o700, parents=False, exist_ok=True)
         parent_info = os.lstat(parent)
         if (not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode)
-                or parent_info.st_uid != 0 or parent_info.st_mode & 0o077):
+                or parent_info.st_uid != os.geteuid() or parent_info.st_mode & 0o077):
             raise ImageBrowserError("image browser cache parent must be a private root-owned directory")
         cache_root.mkdir(mode=0o700, exist_ok=True)
         root_info = os.lstat(cache_root)
         if (not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode)
-                or root_info.st_uid != 0 or root_info.st_mode & 0o077):
+                or root_info.st_uid != os.geteuid() or root_info.st_mode & 0o077):
             raise ImageBrowserError("image browser cache must be a private root-owned directory")
         directory = cache_root / session_id
         if created:
@@ -157,12 +158,12 @@ def _session_directory(
         else:
             directory_info = os.lstat(directory)
             if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
-                    or directory_info.st_uid != 0 or directory_info.st_mode & 0o077):
+                    or directory_info.st_uid != os.geteuid() or directory_info.st_mode & 0o077):
                 raise ImageBrowserError("browser session directory is unavailable or unsafe")
             metadata_path = directory / "session.json"
             metadata_info = os.lstat(metadata_path)
             if (not stat.S_ISREG(metadata_info.st_mode) or stat.S_ISLNK(metadata_info.st_mode)
-                    or metadata_info.st_uid != 0 or metadata_info.st_mode & 0o077):
+                    or metadata_info.st_uid != os.geteuid() or metadata_info.st_mode & 0o077):
                 raise ImageBrowserError("browser session metadata is unavailable or unsafe")
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
             expected = {
@@ -228,7 +229,7 @@ def _prepare_image(
     try:
         if os.path.lexists(staged):
             cached = os.lstat(staged)
-            if (stat.S_ISREG(cached.st_mode) and cached.st_uid == 0
+            if (stat.S_ISREG(cached.st_mode) and cached.st_uid == os.geteuid()
                     and cached.st_size == manifest.source_size_bytes):
                 return staged, "raw"
             os.unlink(staged)
