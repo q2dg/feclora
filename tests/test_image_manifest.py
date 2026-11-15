@@ -126,6 +126,52 @@ class ImageManifestTests(unittest.TestCase):
         ]))
         self.assertEqual(manifest.artifacts[0].role, "disk-image")
 
+    def test_whole_disk_qcow2_artifact_is_supported(self):
+        manifest = ImageManifest.from_dict(disk_manifest(artifacts=[
+            artifact(
+                filename="disk.qcow2", role="disk-image", format="qcow2",
+                compression="none", partition_id=None,
+            ),
+            artifact(
+                filename="partition-table.sfdisk", role="partition-table",
+                format="raw", compression="none", partition_id=None,
+            ),
+        ]))
+        self.assertEqual(manifest.artifacts[0].format, "qcow2")
+        self.assertEqual(ImageManifest.from_json(manifest.to_json()), manifest)
+
+    def test_qcow2_requires_uncompressed_unencrypted_whole_disk_artifact(self):
+        for changes in (
+            {"role": "partition-image", "partition_id": "1"},
+            {"compression": "gzip"},
+            {"encryption": "age"},
+        ):
+            with self.subTest(changes=changes):
+                value = artifact(
+                    filename="disk.qcow2", role="disk-image", format="qcow2",
+                    compression="none", partition_id=None,
+                )
+                value.update(changes)
+                with self.assertRaises(ManifestValidationError):
+                    ImageManifest.from_dict(disk_manifest(artifacts=[
+                        value,
+                        artifact(
+                            filename="partition-table.sfdisk", role="partition-table",
+                            format="raw", compression="none", partition_id=None,
+                        ),
+                    ]))
+
+    def test_qcow2_is_rejected_for_non_disk_manifests(self):
+        with self.assertRaisesRegex(ManifestValidationError, "only valid in whole-disk"):
+            ImageManifest.from_dict({
+                "schema_version": 1, "image_id": "partition-qcow2", "image_type": "partition",
+                "source_size_bytes": 4096, "logical_sector_size": 512, "partition_table": "none",
+                "artifacts": [artifact(
+                    filename="partition.qcow2", role="disk-image", format="qcow2",
+                    compression="none", partition_id=None,
+                )],
+            })
+
     def test_disk_manifest_requires_data_artifact(self):
         with self.assertRaisesRegex(ManifestValidationError, "data artifact"):
             ImageManifest.from_dict(disk_manifest(artifacts=[
