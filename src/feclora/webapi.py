@@ -1509,7 +1509,7 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         **({
             "boot_script_url": f"http://{address}:{port}/unattended-answer.ipxe",
         } if validated_answer.get("boot_method") == "pxe" else {}),
-        "message": "Answer validated and published over HTTP with an identity-free iPXE handoff. The answer was imported from the selected source and validated before publication.",
+        "message": "One shared answer validated and published over HTTP for every authorized Live Client. PXE boot-script publication is optional and depends on boot_method.",
     }
 
 
