@@ -134,7 +134,7 @@ def convert_block_device_to_qcow2(
             check_capture_source_safe(source_path)
         else:
             source_safety_check(source_path)
-        with temporary.open("rb") as stream:
+        with temporary.open("rb+") as stream:
             os.fsync(stream.fileno())
         # Hard-link publication is atomic and fails if another worker has
         # created the destination since the initial existence check. os.replace
