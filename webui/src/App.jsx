@@ -1787,7 +1787,7 @@ export default function App() {
                   {pxeAnswerPublished && <Alert variant="success" title={t("Answer published")} isInline className="pf-v6-u-mt-md">
                     <p>Job: {pxeAnswerPublished.job_id}</p>
                     <p>Answer: <a href={pxeAnswerPublished.answer_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.answer_url}</a></p>
-                    <p>iPXE handoff: <a href={pxeAnswerPublished.boot_script_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.boot_script_url}</a></p>
+                    {pxeAnswerPublished.boot_script_url && <p>iPXE handoff: <a href={pxeAnswerPublished.boot_script_url} target="_blank" rel="noreferrer">{pxeAnswerPublished.boot_script_url}</a></p>}
                     <p>{pxeAnswerPublished.message}</p>
                     <Button variant="danger" size="sm" onClick={revokePXEAnswer} isLoading={busy} isDisabled={busy}>{t("Revoke published answer")}</Button>
                   </Alert>}
