@@ -7,7 +7,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from feclora.deployment.client_service import ClientDeploymentService, ClientJobServiceError
+from feclora.deployment.client_service import (
+    ClientDeploymentService, ClientJobServiceError, mark_client_job_interrupted,
+)
 
 
 JOB_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
@@ -351,6 +353,49 @@ class ClientDeploymentServiceTests(unittest.TestCase):
         from feclora.deployment.client_service import ClientJobServiceError, _job_paths
         with self.assertRaisesRegex(ClientJobServiceError, "canonical UUID"):
             _job_paths("../unsafe")
+
+    def test_process_exit_marks_nonterminal_client_job_interrupted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            status_path = root / f"{JOB_ID}.status.json"
+            status_path.write_text(json.dumps({
+                "schema_version": 1, "job_id": JOB_ID,
+                "phase": "running", "success": None,
+                "detail": "restoring", "progress": {"completed_bytes": 4096},
+            }), encoding="utf-8")
+            status_path.chmod(0o600)
+            with mock.patch("feclora.deployment.client_service.CLIENT_JOB_DIRECTORY", root), \
+                 mock.patch("feclora.deployment.client_service._ensure_directory"):
+                mark_client_job_interrupted(JOB_ID)
+            status = json.loads(status_path.read_text(encoding="utf-8"))
+            self.assertEqual(status["phase"], "interrupted")
+            self.assertFalse(status["success"])
+            self.assertIn("No automatic reconnect or storage resume", status["detail"])
+            self.assertEqual(status["progress"], {"completed_bytes": 4096})
+
+    def test_process_exit_preserves_terminal_client_job_status(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            status_path = root / f"{JOB_ID}.status.json"
+            original = {
+                "schema_version": 1, "job_id": JOB_ID,
+                "phase": "completed", "success": True,
+                "detail": "verified", "progress": {"completed_bytes": 8192},
+            }
+            status_path.write_text(json.dumps(original), encoding="utf-8")
+            status_path.chmod(0o600)
+            with mock.patch("feclora.deployment.client_service.CLIENT_JOB_DIRECTORY", root), \
+                 mock.patch("feclora.deployment.client_service._ensure_directory"):
+                mark_client_job_interrupted(JOB_ID)
+            self.assertEqual(json.loads(status_path.read_text(encoding="utf-8")), original)
+
+    def test_process_exit_without_client_status_is_a_noop(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with mock.patch("feclora.deployment.client_service.CLIENT_JOB_DIRECTORY", root), \
+                 mock.patch("feclora.deployment.client_service._ensure_directory"):
+                mark_client_job_interrupted(JOB_ID)
+            self.assertEqual(list(root.iterdir()), [])
 
 
 if __name__ == "__main__":
