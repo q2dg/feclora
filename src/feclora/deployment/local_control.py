@@ -187,14 +187,25 @@ class LocalControlServer:
 
     def stop(self) -> None:
         self._stop.set()
-        listener, self._listener = self._listener, None
+        listener = self._listener
+        close_error = None
         if listener is not None:
-            listener.close()
+            try:
+                listener.close()
+            except OSError as exc:
+                close_error = exc
+            else:
+                self._listener = None
         if self._thread is not None:
             self._thread.join(timeout=3)
             if self._thread.is_alive():
-                raise LocalControlError("IPC listener thread did not stop before timeout")
+                detail = "IPC listener thread did not stop before timeout"
+                if close_error is not None:
+                    detail += f"; listener close also failed: {close_error}"
+                raise LocalControlError(detail) from close_error
             self._thread = None
+        if close_error is not None:
+            raise LocalControlError(f"cannot close IPC listener: {close_error}") from close_error
         try:
             info = os.lstat(self.path)
             if (stat.S_ISSOCK(info.st_mode) and info.st_uid == os.geteuid()
@@ -202,7 +213,9 @@ class LocalControlServer:
                 os.unlink(self.path)
         except FileNotFoundError:
             pass
-        finally:
+        except OSError as exc:
+            raise LocalControlError(f"cannot remove IPC socket path: {exc}") from exc
+        else:
             self._socket_identity = None
 
 
