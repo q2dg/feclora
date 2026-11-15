@@ -522,6 +522,9 @@ def _filesystem_images(
             items.append({
                 "image_id": image_id, "image_type": "virtual_disk", "format": "qcow2",
                 "source_size_bytes": metadata.get("virtual_size_bytes"),
+                "logical_sector_size": metadata.get("logical_sector_size"),
+                "importable": (not isinstance(metadata.get("logical_sector_size"), bool)
+                               and metadata.get("logical_sector_size") in {512, 4096}),
                 "artifact_bytes": metadata.get("file_size_bytes"), "artifact_count": 1,
                 "encrypted": False, "verified": True,
             })
