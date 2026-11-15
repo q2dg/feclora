@@ -85,7 +85,7 @@ class P2VImportTests(unittest.TestCase):
                 }), stderr="")
             raise AssertionError(argv)
         with self.assertRaisesRegex(P2VImportError, "disagrees"):
-            import_p2v_qcow2(self.repo, "physical", "imported", losetup="/usr/bin/losetup", sfdisk="/usr/sbin/sfdisk", runner=wrong_size)
+            import_p2v_qcow2(self.repo, "physical", "imported", qemu_img="/usr/bin/qemu-img", losetup="/usr/bin/losetup", sfdisk="/usr/sbin/sfdisk", runner=wrong_size)
 
     def test_rejects_qcow2_with_external_backing_file(self):
         def backed_image(argv, **kwargs):
