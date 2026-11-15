@@ -163,6 +163,8 @@ class LocalControlServer:
                 if (stat.S_ISSOCK(info.st_mode)
                         and (info.st_dev, info.st_ino) == bound_identity):
                     os.unlink(self.path)
+            except FileNotFoundError:
+                pass
             except OSError as cleanup_error:
                 # The listener is closed, but retain the inode identity for stop() to retry.
                 self._socket_identity = bound_identity
