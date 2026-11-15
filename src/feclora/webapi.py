@@ -752,8 +752,9 @@ def _inspect_image_layout_from_repository(params: dict[str, Any], repository: Pa
 
 def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
     required = {"image_id", "partition_index", "path"}
-    if set(params) not in (required, required | {"repository_id"}, required | {"download"}, required | {"repository_id", "download"}):
-        raise WebAPIError("browse_image requires image_id, partition_index and path, with optional repository_id and download")
+    optional = {"repository_id", "download", "session_id"}
+    if not required.issubset(params) or set(params) - required - optional:
+        raise WebAPIError("browse_image requires image_id, partition_index and path, with optional repository_id, download and session_id")
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
     partition_index = params.get("partition_index")
     if isinstance(partition_index, bool) or not isinstance(partition_index, int) or not 1 <= partition_index <= 256:
@@ -804,6 +805,7 @@ def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
                     download=download,
                     expected_partition_count=len(verified_layout["partitions"]),
                     age_identity_file=identity_file,
+                    session_id=params.get("session_id"),
                 )
             except ImageBrowserError as exc:
                 raise WebAPIError(str(exc)) from exc
