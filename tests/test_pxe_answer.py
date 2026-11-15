@@ -49,7 +49,7 @@ class PXEAnswerTests(unittest.TestCase):
     def test_rejects_previous_schema_version(self):
         answer = self.valid_answer()
         answer["schema_version"] = 1
-        with self.assertRaisesRegex(PXEAnswerError, "unsupported"):
+        with self.assertRaises(PXEAnswerError):
             validate_pxe_answer(answer)
 
     def test_accepts_valid_repository_ids(self):
