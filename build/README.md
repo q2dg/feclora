@@ -52,6 +52,46 @@ Results and logs are written under `out/`; inspect the complete result
 directory before treating the build as successful.
 
 
+## Coordinated deployment bundle
+
+For a single build-host workflow that builds the generic Feclora Live ISO,
+selects or captures a Feclora whole-disk image, and publishes one shared
+unattended answer with the image into a versioned bundle, use:
+
+```bash
+sudo python3 build/create-deployment-bundle.py \
+  --fedora-iso /path/to/Fedora-45-x86_64-DVD.iso \
+  --repository /mnt/feclora-images \
+  --repository-id primary \
+  --image-id fleet-image \
+  --answer-file /path/to/shared-deployment-job.json \
+  --output /mnt/feclora-images/fleet-bundle
+```
+
+The image ID must already exist in the selected repository. To capture a new
+offline physical source before building the ISO and bundle, add
+`--capture-source /dev/disk/by-id/...` and use a new image ID. The capture
+engine performs its normal source-safety checks and never writes to the source.
+
+The answer file is one schema-v1 automatic whole-disk `DeploymentJob` for the
+entire Client group. Its repository/image IDs must match the command, and it
+must contain all authorized MAC addresses and their stable target bindings.
+The workflow canonicalizes this one answer once; it does not create per-client
+answer files or embed repository credentials in the ISO.
+
+The command runs the existing `build/build-iso.sh` in a private temporary
+directory, then validates and atomically publishes the bundle. It requires the
+same Fedora x86_64 build host, root privileges, KVM and ISO build dependencies
+as the ordinary ISO build. The output directory must not already exist. The
+ISO is included in the bundle; the temporary standalone ISO build directory is
+removed afterwards. A P2V QCOW2 must first be imported with the Cockpit
+`import_p2v` operation into a native Feclora disk image.
+
+This is a build-host workflow, not a Live Cockpit ISO builder. The Cockpit
+bundle operation remains available for assembling already-built inputs. ISO
+boot, target hardware, repository-provider and real multicast acceptance are
+still maintainer-run tasks.
+
 ## Important limitations
 
 - The recovery-media workflow is exposed in Cockpit and runs as a durable local operation. It uses the Live runtime's `xorriso` package to replay El Torito boot metadata while adding a validated image set and target-bound restore answer under `/FECLORA/RECOVERY`; output is a separate ISO in a local or mounted filesystem repository. Boot-time embedded-image discovery and restore dispatch are still pending. See [Recovery ISO operator procedure](../docs/RECOVERY-ISO.md) for the documented xorriso command sequence, inspection and optional BIOS/UEFI acceptance. Repository development and CI never build the ISO.
