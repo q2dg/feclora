@@ -310,7 +310,16 @@ class DeploymentControlServer:
             except OSError:
                 pass
         if self._listener_thread is not None:
-            self._listener_thread.join(timeout=3)
+            listener_thread = self._listener_thread
+            listener_thread.join(timeout=3)
+            if listener_thread.is_alive():
+                error = DeploymentControlError(
+                    "control listener thread did not stop within 3 seconds"
+                )
+                self._record_listener_error(str(error))
+                # Keep the thread reference and firewall ownership intact so a
+                # later stop() can retry after the blocked operation unwinds.
+                raise error
             self._listener_thread = None
         with self._lock:
             sessions = tuple(self._sessions.items())
