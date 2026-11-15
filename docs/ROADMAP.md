@@ -27,8 +27,9 @@ partition capture, restore and cloning; eligible logical-volume capture and
 restore; storage inventory and operation history; optional age encryption;
 SSHFS/NFS/SMB and S3 repositories; persistent Server/Client jobs over
 authenticated TLS; UDPcast multicast restore; remote disk/partition cloning;
-P2V conversion/export; interactive PXE; and an unattended PXE whole-disk
-answer workflow.
+P2V conversion/export; interactive PXE; and a shared-answer unattended restore
+workflow usable from ISO/USB Live or optional PXE boot. A coordinated ISO+image+
+answer bundle generator is a planned integration, not an implemented feature.
 
 Keep the PXE and deployment contracts distinct:
 
@@ -42,6 +43,8 @@ Keep the PXE and deployment contracts distinct:
 - **Multicast deployment** remains its own Server/Client deployment transport
   and coordinator path. The unattended PXE adapter is not a multicast
   implementation and must not be described as one.
+
+P2V currently produces QCOW2 plus metadata; conversion does not repair guest boot dependencies and QCOW2 is not yet interchangeable with Feclora's manifest-backed restore image formats. The separate recovery-ISO builder embeds an image and target-bound answer, but its boot-time embedded-image discovery and restore dispatch remain unfinished. Neither is the coordinated generic ISO + restorable image + shared-answer bundle workflow. See [deployment artifact bundle](DEPLOYMENT-ARTIFACT-BUNDLE.md).
 
 These are source/integration statements, not a claim of production acceptance.
 Image artifacts record byte count and SHA-256. The digest detects artifact
