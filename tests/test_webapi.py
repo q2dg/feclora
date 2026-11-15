@@ -1997,6 +1997,7 @@ class P2VWebAPITests(unittest.TestCase):
 
     def test_p2v_publication_rolls_back_both_files_when_directory_sync_fails(self):
         from feclora.webapi import _execute_operation
+        from feclora.storage.image_publication import ImagePublicationError
         with tempfile.TemporaryDirectory() as root:
             repository = Path(root)
             def fake_convert(source, output):
@@ -2009,7 +2010,7 @@ class P2VWebAPITests(unittest.TestCase):
             with patch("feclora.webapi._operation_repository", return_value=repository), \\
                  patch("feclora.storage.p2v.convert_block_device_to_qcow2", side_effect=fake_convert), \\
                  patch("feclora.storage.image_publication.os.fsync", side_effect=OSError("sync failed")):
-                with self.assertRaises(Exception):
+                with self.assertRaises(ImagePublicationError):
                     _execute_operation(
                         "capture_p2v", {"source": "/dev/sda", "image_id": "vm-disk"}, "p2v-test"
                     )
