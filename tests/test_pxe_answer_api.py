@@ -122,7 +122,7 @@ class PXEAnswerAPITests(unittest.TestCase):
         }
         canonical = DeploymentJob.from_dict(payload).to_dict()
         report = {"job": canonical, "job_state": "created", "interrupted": False}
-        caddy = 'http://192.0.2.10:8080 {\\n    root * "/srv/feclora/http"\\n'
+        caddy = 'http://192.0.2.10:8080 {\n    root * "/srv/feclora/http"\n'
         manager = MagicMock()
         manager.status.return_value = {"active": True, "interface": "enp1s0"}
         with tempfile.TemporaryDirectory() as directory, \\
@@ -144,7 +144,7 @@ class PXEAnswerAPITests(unittest.TestCase):
         create_job.assert_called_once_with({"job": canonical})
         start_service.assert_called_once_with({"job_id": self.JOB_ID})
         publish_ipxe.assert_not_called()
-        self.assertEqual(publish.call_args.args[2], (json.dumps(canonical, sort_keys=True, separators=(",", ":")) + "\\n").encode())
+        self.assertEqual(publish.call_args.args[2], (json.dumps(canonical, sort_keys=True, separators=(",", ":")) + "\n").encode())
 
     def test_http_source_downloads_without_redirects_and_checks_size(self):
         raw = self.answer()
