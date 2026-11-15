@@ -4,7 +4,7 @@ import stat
 import tempfile
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from feclora.storage.p2v import P2VError, convert_block_device_to_qcow2
 
@@ -79,6 +79,28 @@ class P2VConversionTests(unittest.TestCase):
                 )
             with open(output, "rb") as stream:
                 self.assertEqual(stream.read(), b"keep")
+
+    def test_atomic_publication_never_overwrites_concurrent_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            os.chmod(directory, 0o700)
+            output = os.path.join(directory, "physical-machine.qcow2")
+
+            def concurrent_creator(_temporary, destination):
+                with open(destination, "wb") as stream:
+                    stream.write(b"another worker's output")
+                raise FileExistsError(destination)
+
+            with patch("feclora.storage.p2v.os.link", side_effect=concurrent_creator):
+                with self.assertRaises(FileExistsError):
+                    convert_block_device_to_qcow2(
+                        "/dev/feclora-test", output, qemu_img="/usr/bin/qemu-img",
+                        blockdev="/usr/sbin/blockdev", runner=self.runner,
+                        stat_device=self.stat_device, source_safety_check=self.source_safety,
+                    )
+
+            with open(output, "rb") as stream:
+                self.assertEqual(stream.read(), b"another worker's output")
+            self.assertEqual(os.listdir(directory), ["physical-machine.qcow2"])
 
     def test_rejects_source_device_identity_change_without_publishing_output(self):
         changed = SimpleNamespace(
