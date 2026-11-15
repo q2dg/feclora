@@ -171,11 +171,13 @@ def validate_definition(value: Any) -> dict[str, Any]:
             action == "clone_partition" and params.get("confirmation") == f"ERASE {target} FROM {params.get('source')}"
         ):
             raise LocalOperationError("destructive operation confirmation does not match its target")
-    if action in {"capture_disk", "capture_partition"}:
-        if params.get("compression") not in {"none", "gzip", "zstd", "lz4"}:
+    if action in {"capture_disk", "capture_partition", "capture_logical_volume"}:
+        if params.get("compression") not in {"none", "gzip", "xz", "zstd", "lz4"}:
             raise LocalOperationError("unsupported compression")
         if not isinstance(params.get("encrypt"), bool):
             raise LocalOperationError("encrypt must be boolean")
+        if action == "capture_logical_volume" and "encrypt_passphrase" in params:
+            raise LocalOperationError("passphrase encryption is currently supported only for whole-disk capture")
         if "encrypt_passphrase" in params:
             if not isinstance(params["encrypt_passphrase"], bool):
                 raise LocalOperationError("encrypt_passphrase must be boolean")
