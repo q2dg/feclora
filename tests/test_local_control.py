@@ -1,9 +1,13 @@
 import json
+import os
+import stat
 import struct
+import threading
 import unittest
+from unittest import mock
 
 from feclora.deployment.local_control import (
-    MAX_FRAME, LocalControlError, _receive, _send, local_control_request,
+    MAX_FRAME, LocalControlError, LocalControlServer, _receive, _send, local_control_request,
 )
 
 
@@ -69,6 +73,49 @@ class LocalControlProtocolTests(unittest.TestCase):
     def test_client_enforces_exact_arm_parameters_before_connecting(self):
         with self.assertRaisesRegex(LocalControlError, "exactly job_id"):
             local_control_request("/unused/socket", "arm", {"job_id": "not-enough"})
+
+    def test_listener_thread_start_failure_closes_socket_and_resets_state(self):
+        server = LocalControlServer("/run/feclora/test.sock", lambda *_args: {})
+        listener = mock.Mock()
+        identity = (1, 2)
+        info = mock.Mock(st_mode=stat.S_IFSOCK | 0o600, st_dev=1, st_ino=2)
+        class BrokenThread:
+            def __init__(self, **_kwargs):
+                pass
+            def start(self):
+                raise RuntimeError("thread start failed")
+        with mock.patch("feclora.deployment.local_control.os.lstat", side_effect=[
+            mock.Mock(st_mode=stat.S_IFDIR, st_uid=0, st_mode=stat.S_IFDIR | 0o755),
+            info, info,
+        ]), mock.patch("feclora.deployment.local_control.socket.socket", return_value=listener), \
+             mock.patch("feclora.deployment.local_control.os.chmod"), \
+             mock.patch("feclora.deployment.local_control.os.unlink") as unlink, \
+             mock.patch("feclora.deployment.local_control.threading.Thread", BrokenThread):
+            listener.getsockopt.return_value = 0
+            with mock.patch.object(listener, "bind"), mock.patch.object(listener, "listen"), \
+                 mock.patch.object(listener, "settimeout"):
+                with self.assertRaisesRegex(RuntimeError, "thread start failed"):
+                    server.start()
+        listener.close.assert_called_once()
+        unlink.assert_called_once_with(server.path)
+        self.assertIsNone(server._listener)
+        self.assertIsNone(server._thread)
+        self.assertIsNone(server._socket_identity)
+
+    def test_stop_retains_listener_thread_and_socket_after_join_timeout(self):
+        server = LocalControlServer("/run/feclora/test.sock", lambda *_args: {})
+        server._listener = mock.Mock()
+        server._thread = mock.Mock()
+        server._thread.is_alive.return_value = True
+        server._socket_identity = (1, 2)
+        with mock.patch("feclora.deployment.local_control.os.lstat") as lstat, \
+             mock.patch("feclora.deployment.local_control.os.unlink") as unlink:
+            with self.assertRaisesRegex(LocalControlError, "did not stop"):
+                server.stop()
+        self.assertIsNotNone(server._thread)
+        self.assertEqual(server._socket_identity, (1, 2))
+        lstat.assert_not_called()
+        unlink.assert_not_called()
 
     def test_client_rejects_status_parameters_before_connecting(self):
         with self.assertRaisesRegex(LocalControlError, "does not accept"):
