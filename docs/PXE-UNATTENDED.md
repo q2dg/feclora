@@ -15,7 +15,10 @@ For the common ISO/PXE answer-file contract and dynamic URL discovery, see
 
 PXE is a network boot method for the **same Feclora Fedora Live environment**
 used by the ISO. It is not a separate thin client, installer, or per-machine
-provisioning workflow.
+provisioning workflow. The default `boot.ipxe` starts that Live environment
+directly in interactive mode; it does not display a menu or launch a restore.
+The answer-file handoff described below is a separate, explicitly configured
+unattended path.
 
 ## Shared DeploymentJob JSON for PXE
 
@@ -212,4 +215,4 @@ true. The Server validates event schemas, bounds payload sizes, rejects
 reports from MACs not admitted for the current session, and ignores duplicate
 event IDs.
 
-The managed repository-manager whole-disk software path and age passphrase handoff are connected. Automated software tests are the release gate; BIOS/UEFI PXE boot and physical restore remain optional operator acceptance.
+The managed repository-manager whole-disk software path and age passphrase handoff are connected. Automated tests gate software correctness, but they do not establish real PXE boot or restore behavior. BIOS/UEFI PXE boot, DHCP behavior, repository access and destructive restore on disposable targets remain mandatory maintainer-run release acceptance; record them in [MAINTAINER-ACCEPTANCE.md](MAINTAINER-ACCEPTANCE.md).
