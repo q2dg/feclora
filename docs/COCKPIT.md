@@ -317,6 +317,24 @@ the control plane uses Server-authenticated TLS; Clients are not authenticated i
 When age encryption is enabled, the Server trust panel can export the current public `age-recipients.txt` to mounted removable media without overwriting an existing file. Each remaining Client verifies that the inventory includes its own age identity before refreshing the local recipient list. Private identities remain local. This workflow is optional; deployments that do not use age do not need recipient inventories.
 
 ## Partition extraction
+## Read-only image browsing
+
+The image repository panel also provides **Explore image files** for whole-disk
+RAW and QCOW2 images. After selecting a partition from the verified layout
+preview, the operator can browse directories and download individual regular
+files up to 16 MiB. RAW artifacts are checked against their manifest and
+decrypted/decompressed into private temporary storage when required; QCOW2
+artifacts are checked for digest, virtual capacity and external backing/data
+dependencies before inspection. Filesystem access uses the isolated libguestfs
+appliance with read-only drives and read-only mounts. Feclora does not attach a
+host loop/NBD device or mount guest filesystems in the host namespace. Symbolic
+links are not followed; directory listings are bounded to 1000 entries.
+Supported filesystem types are ext2/3/4, XFS, NTFS, FAT variants, exFAT and
+Btrfs, subject to the filesystem drivers available inside libguestfs. LVM,
+LUKS-encrypted partitions, multi-device Btrfs and unsupported filesystem
+layouts are not exposed by this initial browser. Browsing never modifies the
+source image.
+
 
 The image repository panel also exposes extraction of a selected partition from a whole-disk image. The operator selects a disk image, reviews a verified read-only partition-table preview (including start sectors and sizes), and selects the unambiguous partition node from the preview (the underlying engine also accepts PARTUUID and PARTLABEL selectors). Feclora verifies the source manifest and any configured authenticity evidence, decrypts and decompresses the disk artifact as needed, extracts the exact byte range, and publishes a separate partition manifest/artifact transactionally. If the source artifact was age-encrypted, the extracted partition artifact is re-encrypted only when the optional age feature is enabled and recipients are configured. The source image is never modified.
 
