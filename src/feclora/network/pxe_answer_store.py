@@ -148,7 +148,32 @@ def publish_pxe_answer(
             os.chmod(temporary, 0o700)
             shutil.rmtree(temporary, ignore_errors=True)
 
-    _set_current_answer_alias(root, destination / "answer.json")
+    try:
+        _set_current_answer_alias(root, destination / "answer.json")
+    except Exception as exc:
+        # Publication is one logical operation: if the stable DHCP alias
+        # cannot be updated, do not leave a job-scoped answer reachable at a
+        # URL that the caller was told had failed to publish.
+        cleanup_error = None
+        try:
+            _remove_current_answer_alias(root, destination / "answer.json")
+            os.chmod(destination, 0o700)
+            answer_path = destination / "answer.json"
+            if answer_path.exists():
+                os.chmod(answer_path, 0o600)
+            shutil.rmtree(destination)
+            directory_fd = os.open(answers, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except Exception as cleanup_exc:
+            cleanup_error = cleanup_exc
+        if cleanup_error is not None:
+            raise PXEAnswerStoreError(
+                f"cannot publish PXE answer ({exc}); rollback also failed ({cleanup_error})"
+            ) from exc
+        raise PXEAnswerStoreError(f"cannot publish PXE answer: {exc}") from exc
     base = f"http://{parsed_address}:{http_port}/answers/{canonical_job_id}"
     return {"answer_url": base + "/answer.json", "directory": str(destination)}
 
