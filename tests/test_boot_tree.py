@@ -13,12 +13,19 @@ from feclora.network.boot_tree import (
 class LiveBootTreeTests(unittest.TestCase):
     def test_renders_http_live_boot_script(self):
         script = render_ipxe_script("192.0.2.10", 8080)
-        self.assertIn("set live_base http://192.0.2.10:8080/live", script)
-        self.assertIn("root=live:${live_base}/squashfs.img", script)
+        self.assertIn("dhcp\n", script)
+        self.assertIn(
+            "kernel http://192.0.2.10:8080/live/vmlinuz "
+            "root=live:http://192.0.2.10:8080/live/squashfs.img ro rd.live.image",
+            script,
+        )
         self.assertIn("feclora.pxe_mode=interactive", script)
-        self.assertIn("item unattended", script)
         self.assertIn("rd.neednet=1", script)
-        self.assertIn("initrd ${live_base}/initrd.img", script)
+        self.assertIn("initrd http://192.0.2.10:8080/live/initrd.img", script)
+        self.assertTrue(script.rstrip().endswith("boot"))
+        self.assertNotIn("menu ", script)
+        self.assertNotIn("unattended", script)
+        self.assertNotIn("chain ", script)
 
     def test_unattended_handoff_passes_job_and_admitted_mac_to_live(self):
         job_id = "123e4567-e89b-12d3-a456-426614174000"
