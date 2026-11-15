@@ -65,6 +65,21 @@ class PXEOperationHistoryTests(unittest.TestCase):
 
 
 class WebAPITests(unittest.TestCase):
+    def test_deployment_bundle_action_is_submitted_to_durable_worker(self):
+        params = {
+            "base_iso_path": "/var/tmp/feclora-live.iso",
+            "image_id": "fleet-image",
+            "deployment_job": {"schema_version": 1},
+            "bundle_name": "fleet-bundle",
+            "repository_id": "primary",
+        }
+        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "bundle-job"}) as submit:
+            result = dispatch({"action": "build_deployment_bundle", "params": params})
+        self.assertEqual(result["operation_id"], "bundle-job")
+        submit.assert_called_once_with({
+            "operation": "build_deployment_bundle", "operation_params": params,
+        })
+
     def test_recovery_iso_action_is_submitted_to_durable_worker(self):
         from feclora.webapi import dispatch
         params = {
