@@ -70,26 +70,15 @@ def render_ipxe_script(address: str, http_port: int = 8080) -> str:
     if isinstance(http_port, bool) or not isinstance(http_port, int) or not 1 <= http_port <= 65535:
         raise LiveBootAssetError("PXE HTTP port is invalid")
     base = f"http://{parsed}:{http_port}/live"
-    unattended = f"http://{parsed}:{http_port}/unattended-answer.ipxe"
+    # PXE is only an alternative way to start the exact Feclora Live image.
+    # Deployment selection happens after the normal Live Cockpit interface starts.
     return (
         "#!ipxe\n"
         "dhcp\n"
-        "set live_base " + base + "\n"
-        "menu Feclora Live PXE\n"
-        "item interactive Boot interactive Feclora Live session\n"
-        "item unattended Unattended answer-file restore\n"
-        "choose pxe_mode || exit\n"
-        "goto ${pxe_mode}\n"
-        ":interactive\n"
-        "kernel ${live_base}/vmlinuz root=live:${live_base}/squashfs.img ro rd.live.image "
+        f"kernel {base}/vmlinuz root=live:{base}/squashfs.img ro rd.live.image "
         "ip=dhcp rd.neednet=1 feclora.pxe_mode=interactive\n"
-        "initrd ${live_base}/initrd.img\n"
+        f"initrd {base}/initrd.img\n"
         "boot\n"
-        ":unattended\n"
-        f"chain {unattended} || goto unattended_missing\n"
-        ":unattended_missing\n"
-        "echo No active signed unattended answer-file handoff is published by this Server.\n"
-        "shell\n"
     )
 
 
