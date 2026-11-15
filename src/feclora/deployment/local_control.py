@@ -260,6 +260,7 @@ def local_control_request(
         try:
             response = json.loads(
                 _recv_exact(connection, size).decode("utf-8"),
+                object_pairs_hook=_unique_object,
                 parse_constant=_reject_json_constant,
             )
         except (UnicodeError, json.JSONDecodeError) as exc:
