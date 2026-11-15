@@ -5,6 +5,8 @@ capture a disk, import P2V QCOW2 or publish repository credentials.
 """
 from __future__ import annotations
 
+import ctypes
+import errno
 import hashlib
 import json
 import os
@@ -25,6 +27,24 @@ class DeploymentBundleError(ValueError):
 
 _MAX_ANSWER_BYTES = 64 * 1024
 _MAX_MANIFEST_BYTES = 1024 * 1024
+
+
+def _rename_noreplace(source: Path, destination: Path) -> None:
+    """Atomically publish a directory without replacing any existing path."""
+    try:
+        renameat2 = ctypes.CDLL(None, use_errno=True).renameat2
+    except AttributeError as exc:
+        raise DeploymentBundleError("atomic no-replace directory publication is unavailable") from exc
+    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    renameat2.restype = ctypes.c_int
+    result = renameat2(-100, os.fsencode(source), -100, os.fsencode(destination), 1)
+    if result != 0:
+        error = ctypes.get_errno()
+        if error == errno.EEXIST:
+            raise FileExistsError(error, os.strerror(error), str(destination))
+        if error in {errno.ENOSYS, errno.EINVAL, errno.ENOTSUP}:
+            raise DeploymentBundleError("filesystem/kernel does not support atomic no-replace directory publication")
+        raise OSError(error, os.strerror(error), str(destination))
 
 
 def _regular_file(path: Path, label: str) -> os.stat_result:
@@ -270,7 +290,7 @@ def build_deployment_bundle(
                 os.fsync(directory_fd)
             finally:
                 os.close(directory_fd)
-        os.rename(staging, output)
+        _rename_noreplace(staging, output)
         staging = None
         parent_fd = os.open(output.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
