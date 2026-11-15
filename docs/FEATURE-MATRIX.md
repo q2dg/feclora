@@ -20,6 +20,7 @@ Status meanings:
 |---|---|---|---|---|
 | Boot | x86_64 BIOS | Build configuration present | N/A | Operator validation |
 | Boot | x86_64 UEFI | Build configuration present | N/A | Operator validation |
+| Deployment packaging | Coordinated Live ISO + restorable image + shared answer bundle | Planned; existing ISO build, Feclora image capture/manifests, shared unattended DeploymentJob answer and separate recovery-ISO builder are independent workflows today. No single coordinator validates and atomically publishes all three artifacts. P2V QCOW2 is not accepted as a restore image without an explicit conversion/import path. | Not yet exposed | Bundle generator, cross-artifact manifest, answer delivery/import path and failure-injection tests pending; ISO build/boot and real deployment remain operator validation |
 | Boot/UI | Fedora Server Live kiosk | Fedora Server product environment; Cage + Firefox kiosk, unprivileged kiosk user, locked admin with local first-boot password setup, localhost CA/certificate, Firefox WebsiteFilter and systemd loopback-only network filters implemented | Cockpit + Firefox kiosk | Unit tests written and static checks wired; BIOS/UEFI, packaged Firefox TLS trust and physical escape-path acceptance pending; credentials, local CA and temporary configuration are intentionally session-local; no persistence requirement |
 | Storage | Block-device and partition inventory | Implemented | Cockpit | Automated tests |
 | Imaging | Whole-disk capture/restore | Implemented | Cockpit | Automated tests; operator validation |
