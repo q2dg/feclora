@@ -65,7 +65,7 @@ def _qcow2_header_is_self_contained(path: Path) -> None:
             header = stream.read(104)
     except OSError as exc:
         raise ImageBrowserError(f"cannot safely read QCOW2 header: {exc}") from exc
-    if len(header) < 72 or header[:4] != b"QFI\\xfb":
+    if len(header) < 72 or header[:4] != b"QFI\xfb":
         raise ImageBrowserError("QCOW2 header is invalid or truncated")
     version = struct.unpack_from(">I", header, 4)[0]
     backing_offset = struct.unpack_from(">Q", header, 8)[0]
