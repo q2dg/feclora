@@ -39,7 +39,7 @@ Do not mark end-to-end software paths complete from isolated unit tests alone; r
 3. Destructive operations fail closed, require explicit authorization and verify results.
 4. Never persist passwords, private keys or `age` identities in profiles, journals, logs or browser storage. Age encryption is optional; artifact integrity is checked with SHA-256 and repository/transport trust controls access to manifests.
 5. Interrupted writes are never silently resumed; affected destinations remain untrusted until verified or restored.
-6. Keep local rescue and Server/Client fleet orchestration separate while sharing storage engines.
+6. Keep Server/Client fleet orchestration separate from privileged storage engines. The obsolete terminal rescue entry point has been retired; shared terminal-dialog helpers are isolated in `feclora.ui.dialog` and must not become an alternate path for destructive storage operations.
 7. Treat kiosk confinement as defense in depth; never use it as a replacement for Cockpit authentication, OS account separation or backend authorization.
 8. Never claim hardware/PXE/switch acceptance from unit tests alone.
 
