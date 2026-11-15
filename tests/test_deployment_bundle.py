@@ -19,7 +19,7 @@ class DeploymentBundleTests(unittest.TestCase):
         self.iso = self.root / "feclora-live.iso"
         self.iso.write_bytes(b"generic live iso")
         self.xorriso = self.root / "xorriso"
-        self.xorriso.write_text("#!/bin/sh\\nexit 0\\n")
+        self.xorriso.write_text("#!/bin/sh\nexit 0\n")
         self.xorriso.chmod(0o755)
         self.images = self.root / "images"
         self.images.mkdir()
@@ -66,7 +66,7 @@ class DeploymentBundleTests(unittest.TestCase):
         }))
 
     def runner(self, argv, **kwargs):
-        return SimpleNamespace(returncode=0, stdout="El Torito boot catalog\\n", stderr="")
+        return SimpleNamespace(returncode=0, stdout="El Torito boot catalog\n", stderr="")
 
     def build(self, **overrides):
         args = {
@@ -85,7 +85,7 @@ class DeploymentBundleTests(unittest.TestCase):
         self.assertEqual(result["client_count"], 2)
         self.assertEqual((self.output / "feclora-live.iso").read_bytes(), self.iso.read_bytes())
         answer = (self.output / "answer.json").read_text()
-        self.assertEqual(answer, json.dumps(json.loads(self.answer.read_text()), sort_keys=True, separators=(",", ":")) + "\\n")
+        self.assertEqual(answer, json.dumps(json.loads(self.answer.read_text()), sort_keys=True, separators=(",", ":")) + "\n")
         bundle = json.loads((self.output / "bundle-manifest.json").read_text())
         self.assertEqual(bundle["files"]["images/disk.raw"]["path"], "images/disk.raw")
         self.assertEqual(bundle["files"]["feclora-live.iso"]["path"], "feclora-live.iso")
