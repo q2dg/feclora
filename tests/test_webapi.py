@@ -2030,3 +2030,43 @@ class P2VS3ExportWebAPITests(unittest.TestCase):
             result = _execute_operation("export_p2v_s3", params, "operation-1")
         self.assertTrue(result["verified"])
         export.assert_called_once_with(params)
+
+
+class CaptureFilesystemPreflightAPITests(unittest.TestCase):
+    def test_ext_check_is_explicitly_read_only_and_returns_probe_metadata(self):
+        with patch("feclora.storage.filesystem_probe.probe_ext_minimum_size", return_value=4096000) as probe:
+            result = dispatch({
+                "action": "check_capture_filesystem",
+                "params": {"source": "/dev/sdb2", "filesystem": "ext4"},
+            })
+        probe.assert_called_once_with("/dev/sdb2", filesystem_type="ext4")
+        self.assertTrue(result["checked"])
+        self.assertTrue(result["read_only"])
+        self.assertEqual(result["minimum_size_bytes"], 4096000)
+        self.assertEqual(result["checker"], "e2fsck -f -n")
+
+    def test_ntfs_check_uses_information_only_probe(self):
+        with patch("feclora.storage.filesystem_probe.probe_ntfs_minimum_size", return_value=8192) as probe:
+            result = dispatch({
+                "action": "check_capture_filesystem",
+                "params": {"source": "/dev/sdc1", "filesystem": "ntfs3"},
+            })
+        probe.assert_called_once_with("/dev/sdc1", filesystem_type="ntfs3")
+        self.assertEqual(result["checker"], "ntfsresize --info")
+        self.assertTrue(result["read_only"])
+
+    def test_rejects_unsupported_filesystem_without_running_checker(self):
+        with patch("feclora.storage.filesystem_probe.probe_ext_minimum_size") as probe:
+            with self.assertRaises(WebAPIError):
+                dispatch({
+                    "action": "check_capture_filesystem",
+                    "params": {"source": "/dev/sdb2", "filesystem": "xfs"},
+                })
+        probe.assert_not_called()
+
+    def test_rejects_extra_parameters(self):
+        with self.assertRaisesRegex(WebAPIError, "exactly source and filesystem"):
+            dispatch({
+                "action": "check_capture_filesystem",
+                "params": {"source": "/dev/sdb2", "filesystem": "ext4", "repair": True},
+            })
