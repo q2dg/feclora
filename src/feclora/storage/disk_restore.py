@@ -190,9 +190,17 @@ def _restore_qcow2_disk(
         raise DiskRestoreError("QCOW2 disk artifacts cannot use separate compression or age encryption")
     if age_identity_file is not None or age_passphrase is not None:
         raise DiskRestoreError("QCOW2 disk artifacts do not accept an age decryption identity or passphrase")
-    source_path = os.path.join(repository, artifact.filename)
     run = runner or subprocess.run
     with tempfile.TemporaryDirectory(prefix="feclora-qcow2-restore-") as temporary:
+        required_bytes = artifact.size_bytes + manifest.source_size_bytes + 64 * 1024 * 1024
+        try:
+            available_bytes = shutil.disk_usage(temporary).free
+        except OSError as exc:
+            raise DiskRestoreError(f"cannot check QCOW2 restore staging capacity: {exc}") from exc
+        if available_bytes < required_bytes:
+            raise DiskRestoreError(
+                f"insufficient QCOW2 restore staging space: need {required_bytes} bytes, have {available_bytes}"
+            )
         staged_source = os.path.join(temporary, "source.qcow2")
         digest = hashlib.sha256()
         copied = 0
@@ -299,7 +307,7 @@ def restore_disk(
     age_passphrase: str | None = None,
     pre_write_callback: Callable[[], None] | None = None,
 ) -> ImageManifest:
-    """Restore a verified raw whole-disk image to a whole-disk block device.
+    """Restore a verified RAW or QCOW2 whole-disk image to a whole-disk block device.
 
     confirmation must equal the exact phrase ERASE followed by target_path.
     """
