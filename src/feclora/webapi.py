@@ -1885,6 +1885,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
             metadata = {
                 "schema_version": 1, "image_id": image_id, "format": "qcow2",
                 "source_device": source, "virtual_size_bytes": converted["virtual_size_bytes"],
+                "logical_sector_size": converted["logical_sector_size"],
                 "file_size_bytes": converted["file_size_bytes"], "qcow2_sha256": digest.hexdigest(),
                 "verified": True,
                 "bootability_note": "QCOW2 conversion preserves disk sectors and partition metadata; guest boot may require driver or initramfs changes.",
