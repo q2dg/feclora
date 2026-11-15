@@ -620,6 +620,8 @@ class S3ObjectRepository:
                     result.append({
                         "image_id": manifest.image_id,
                         "image_type": manifest.image_type,
+                        "image_format": next((artifact.format for artifact in manifest.artifacts
+                                              if artifact.role in {"disk-image", "partition-image", "logical-volume-image"}), None),
                         "source_size_bytes": manifest.source_size_bytes,
                         "artifact_bytes": sum(artifact.size_bytes for artifact in manifest.artifacts),
                         "logical_sector_size": manifest.logical_sector_size,
