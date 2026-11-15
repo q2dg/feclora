@@ -80,9 +80,13 @@ refuses to overwrite an existing answer. The answer contains no credentials.
 
 ## Coordinated deployment bundle
 
-For a single build-host workflow that builds the generic Feclora Live ISO,
-selects or captures a Feclora whole-disk image, and publishes the shared
-unattended answer with the image into a versioned bundle, use:
+This is a separate consumer of the answer file, not an extension of the
+answer generator. First create the shared answer with
+`build/generate-shared-answer.py` (or prepare it in Cockpit). Then pass that
+existing file to the bundle coordinator. The coordinator builds the generic
+Live ISO, selects or captures a Feclora whole-disk image, validates the answer
+against those inputs, and publishes the versioned bundle. It never generates
+or edits the answer file:
 
 ```bash
 sudo python3 build/create-deployment-bundle.py \
@@ -102,8 +106,9 @@ engine performs its normal source-safety checks and never writes to the source.
 The answer file is one schema-v1 automatic whole-disk `DeploymentJob` for the
 entire Client group. Its repository/image IDs must match the command, and it
 must contain all authorized MAC addresses and their stable target bindings.
-The workflow canonicalizes this one answer once; it does not create per-client
-answer files or embed repository credentials in the ISO.
+The coordinator validates and packages this supplied shared answer; it does
+not regenerate it, split it, or create per-client answer files. The ISO never
+contains repository credentials.
 
 The command runs the existing `build/build-iso.sh` in a private temporary
 directory, then validates and atomically publishes the bundle. If `/tmp` lacks
