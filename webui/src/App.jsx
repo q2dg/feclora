@@ -364,7 +364,7 @@ export default function App() {
       let params;
       if (operation === "import_p2v") params = {
         source_image_id: p2vSourceImageId, image_id: imageId,
-        repository_id: selectedRepositoryId
+        ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
       };
       else if (operation === "export_p2v_s3") params = {
         image_id: imageId, source_repository_id: selectedRepositoryId,
@@ -1083,8 +1083,8 @@ export default function App() {
   const operationReady = operation === "import_p2v"
     ? Boolean(p2vSourceImageId && imageId && p2vSourceImageId !== imageId
       && /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(imageId)
-      && remoteRepositories.some((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified && !repo.read_only)
-      && repositoryImages.some((item) => item.image_id === p2vSourceImageId && item.image_type === "virtual_disk"))
+      && (!selectedRepositoryId || remoteRepositories.some((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified && !repo.read_only))
+      && (selectedRepositoryId ? repositoryImages : images).some((item) => item.image_id === p2vSourceImageId && item.image_type === "virtual_disk"))
     : operation === "export_p2v_s3"
     ? Boolean(imageId && repositoryImages.some((item) => item.image_id === imageId && item.image_type === "virtual_disk")
       && s3Repositories.some((repo) => repo.id === selectedRepositoryId)
@@ -1153,15 +1153,15 @@ export default function App() {
                         Convert a committed QCOW2 and its verified .p2v.json sidecar into Feclora's native raw whole-disk image set. The QCOW2 is retained unchanged. Partition-table type is recorded as unknown; this conversion does not repair guest drivers, initramfs, UEFI/BIOS boot configuration or prove that the VM boots. Use a new image identifier and validate the resulting VM separately.
                       </Alert>
                       <Field t={t} label={t("Filesystem repository")}>
-                        <select className="pf-v6-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => { setP2vSourceImageId(""); setImageId(""); selectImageRepository(e.target.value); }} required>
-                          <option value="">{t("Select a mounted repository…")}</option>
+                        <select className="pf-v6-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => { setP2vSourceImageId(""); setImageId(""); selectImageRepository(e.target.value); }}>
+                          <option value="">{t("Local repository")}</option>
                           {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
                         </select>
                       </Field>
                       <Field t={t} label={t("Committed P2V QCOW2 image")}>
-                        <select className="pf-v6-c-form-control" value={p2vSourceImageId} disabled={busy || !selectedRepositoryId} onChange={(e) => setP2vSourceImageId(e.target.value)} required>
+                        <select className="pf-v6-c-form-control" value={p2vSourceImageId} disabled={busy} onChange={(e) => setP2vSourceImageId(e.target.value)} required>
                           <option value="">{t("Select a QCOW2 image…")}</option>
-                          {repositoryImages.filter((item) => item.image_type === "virtual_disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
+                          {(selectedRepositoryId ? repositoryImages : images).filter((item) => item.image_type === "virtual_disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                         </select>
                       </Field>
                       <Field t={t} label={t("New Feclora disk image identifier")} help="The imported image is published as a separate raw whole-disk image set; the original QCOW2 remains intact.">
