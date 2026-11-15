@@ -11,8 +11,7 @@ import subprocess
 import tempfile
 from typing import Any, Callable
 
-from feclora.storage.artifact_writer import write_artifact
-from feclora.storage.image_manifest import ImageManifest
+from feclora.storage.image_manifest import ImageArtifact, ImageManifest
 from feclora.storage.image_publication import publish_image_set
 
 
@@ -109,6 +108,13 @@ def import_p2v_qcow2(
     qemu_img = qemu_img or shutil.which("qemu-img")
     if not qemu_img:
         raise P2VImportError("qemu-img is required for P2V import")
+    try:
+        available_bytes = shutil.disk_usage(repo).free
+    except OSError as exc:
+        raise P2VImportError(f"cannot check P2V import repository capacity: {exc}") from exc
+    required_bytes = virtual_size + 64 * 1024 * 1024
+    if available_bytes < required_bytes:
+        raise P2VImportError(f"insufficient repository capacity: need {required_bytes} bytes, have {available_bytes}")
     stage = Path(tempfile.mkdtemp(prefix=".feclora-p2v-import-", dir=repo))
     os.chmod(stage, 0o700)
     try:
@@ -123,22 +129,24 @@ def import_p2v_qcow2(
                 or info.get("backing-filename") or info.get("full-backing-filename")
                 or info.get("data-file") or info.get("encrypted") is True):
             raise P2VImportError("QCOW2 format, dependencies or virtual capacity disagree with its sidecar")
-        raw_path = stage / f"{image_id}.raw.tmp"
+        raw_path = stage / names[0]
         _run([qemu_img, "convert", "-p", "-f", "qcow2", "-O", "raw", str(source), str(raw_path)], runner)
         raw_info = os.lstat(raw_path)
         if not stat.S_ISREG(raw_info.st_mode) or stat.S_ISLNK(raw_info.st_mode) or raw_info.st_size != virtual_size:
             raise P2VImportError("raw conversion did not preserve the declared virtual disk capacity")
+        os.chmod(raw_path, 0o600)
         with raw_path.open("rb") as stream:
             os.fsync(stream.fileno())
-        with raw_path.open("rb") as stream:
-            disk_artifact = write_artifact(
-                stage, names[0], stream, role="disk-image", image_format="raw",
-            )
+        disk_artifact = ImageArtifact(
+            filename=names[0], role="disk-image", format="raw", compression="none",
+            size_bytes=raw_info.st_size, sha256=_sha256(raw_path),
+        )
         table_text = (
             "# Imported from a verified P2V QCOW2; partition-table type is not independently inspected.\n"
             "# Raw sectors are preserved. Guest boot repair and BIOS/UEFI compatibility require separate validation.\n"
         )
         import io
+        from feclora.storage.artifact_writer import write_artifact
         table_artifact = write_artifact(
             stage, names[1], io.BytesIO(table_text.encode("utf-8")),
             role="partition-table", image_format="raw",
