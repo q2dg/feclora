@@ -63,6 +63,7 @@ qemu-img
 xorriso
 
 # Storage and inspection tools
+python3-libguestfs
 # Remote image repository mounts (enabled only by explicit Cockpit action)
 fuse-sshfs
 nfs-utils
