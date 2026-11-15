@@ -40,7 +40,7 @@ Already present in source:
 - Feclora disk/partition image capture, manifest validation and repository publication.
 - P2V QCOW2 conversion, sidecar publication and S3-to-filesystem export. Conversion alone does not repair guest drivers, initramfs or boot configuration.
 - Shared schema-v1 unattended answer and ISO/USB/PXE Client runtime, including one-job multicast coordination.
-- A separate recovery-ISO builder that embeds an existing image and a target-bound answer under `/FECLORA/RECOVERY`; boot-time discovery and restore dispatch for that recovery format remain unfinished.
+- A separate recovery-ISO builder that embeds an existing image and a target-bound, single-machine recovery answer under `/FECLORA/RECOVERY`; boot-time discovery and restore dispatch for that recovery format remain unfinished. This legacy recovery answer is not the shared schema-v1 `DeploymentJob` used for unattended fleet restore and must not be substituted for it. The coordinated bundle workflow must generate the one shared answer unchanged for every Client, with per-MAC target bindings inside that same document.
 
 Not yet implemented as one workflow:
 - A coordinator that builds/selects the ISO, selects or captures a compatible image, generates the shared answer and publishes a single validated bundle.
