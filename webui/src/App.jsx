@@ -713,7 +713,7 @@ export default function App() {
         request.source = "upload";
         request.answer_base64 = encodeJSON(pxeJobJson);
       } else if (pxeAnswerSource === "upload") {
-        if (!pxeAnswerFile) throw new Error("Select a local JSON DeploymentJob or legacy PXE answer file.");
+        if (!pxeAnswerFile) throw new Error("Select a local JSON DeploymentJob or legacy unattended answer file.");
         if (pxeAnswerFile.size < 1 || pxeAnswerFile.size > 64 * 1024) throw new Error("The JSON file must be between 1 byte and 64 KiB.");
         const answerBuffer = await pxeAnswerFile.arrayBuffer();
         const answerText = await pxeAnswerFile.text();
@@ -1698,7 +1698,7 @@ export default function App() {
                 <Card><CardBody>
                   <Title headingLevel="h3" size="lg">{t("Publish shared unattended answer")}</Title>
                   <p>Import or generate one schema-v1 DeploymentJob JSON document for every Client. The same answer works with ISO/USB Live or PXE boot; boot method and data transport are independent. The Server validates the document before publishing it through Caddy over HTTP. The file contains no credentials or secrets.</p>
-                  <Alert variant="warning" title={t("Destructive operation guard")} isInline>The shared PXE DeploymentJob explicitly confirms unattended destructive restore and binds each authorized client MAC to a stable WWN and/or serial number. MAC addresses are operational identifiers, not authentication credentials. The Live client resolves the selected repository through its normal Feclora managers and rechecks the disk identity immediately before writing. Images may be age-encrypted; the passphrase is entered locally in Live Cockpit. Test only with disposable target disks.</Alert>
+                  <Alert variant="warning" title={t("Destructive operation guard")} isInline>The shared unattended DeploymentJob explicitly confirms destructive restore and binds each authorized client MAC to a stable WWN and/or serial number. MAC addresses are operational identifiers, not authentication credentials. The Live client resolves the selected repository through its normal Feclora managers and rechecks the disk identity immediately before writing. Images may be age-encrypted; the passphrase is entered locally in Live Cockpit. Test only with disposable target disks.</Alert>
                   <Field t={t} label={t("Answer file source")}>
                     <select className="pf-v6-c-form-control" value={pxeAnswerSource} onChange={(event) => { setPxeAnswerSource(event.target.value); setPxeAnswerRepositoryId(""); setPxeAnswerPublished(null); }}>
                       <option value="editor">{t("Build shared DeploymentJob")}</option>
