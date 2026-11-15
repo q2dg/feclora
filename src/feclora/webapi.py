@@ -759,7 +759,7 @@ def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
     if isinstance(partition_index, bool) or not isinstance(partition_index, int) or not 1 <= partition_index <= 256:
         raise WebAPIError("partition_index must be an integer between 1 and 256")
     guest_path = params.get("path")
-    if not isinstance(guest_path, str) or len(guest_path) > 4096 or "\\x00" in guest_path:
+    if not isinstance(guest_path, str) or len(guest_path) > 4096 or "\x00" in guest_path:
         raise WebAPIError("path must be a string of at most 4096 characters")
     download = params.get("download", False)
     if not isinstance(download, bool):
@@ -788,7 +788,7 @@ def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
             if identity_context:
                 identity_file = Path(identity_context.name) / "identities.txt"
                 identity_file.write_text(
-                    "\\n".join(item.read_text(encoding="ascii").strip() for item in identity_paths) + "\\n",
+                    "\n".join(item.read_text(encoding="ascii").strip() for item in identity_paths) + "\n",
                     encoding="ascii",
                 )
                 os.chmod(identity_file, 0o600)
