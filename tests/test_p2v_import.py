@@ -87,6 +87,21 @@ class P2VImportTests(unittest.TestCase):
         with self.assertRaisesRegex(P2VImportError, "disagree"):
             import_p2v_qcow2(self.repo, "physical", "imported", qemu_img="/usr/bin/qemu-img", losetup="/usr/bin/losetup", sfdisk="/usr/sbin/sfdisk", runner=wrong_size)
 
+    def test_rejects_boolean_qcow2_virtual_size(self):
+        def boolean_size(argv, **kwargs):
+            if argv[1] == "check":
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if argv[1:3] == ["info", "--output=json"]:
+                return SimpleNamespace(returncode=0, stdout=json.dumps({
+                    "format": "qcow2", "virtual-size": True,
+                }), stderr="")
+            raise AssertionError(argv)
+        with self.assertRaisesRegex(P2VImportError, "disagree"):
+            import_p2v_qcow2(
+                self.repo, "physical", "imported", qemu_img="/usr/bin/qemu-img",
+                losetup="/usr/bin/losetup", sfdisk="/usr/sbin/sfdisk", runner=boolean_size,
+            )
+
     def test_rejects_qcow2_with_external_backing_file(self):
         def backed_image(argv, **kwargs):
             if argv[1] == "check":
