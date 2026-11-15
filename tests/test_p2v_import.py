@@ -29,6 +29,16 @@ class P2VImportTests(unittest.TestCase):
         self.directory.cleanup()
 
     def runner(self, argv, **kwargs):
+        if argv[0] == "/usr/bin/losetup" and argv[1:2] == ["--find"]:
+            return SimpleNamespace(returncode=0, stdout="/dev/loop0\\n", stderr="")
+        if argv[0] == "/usr/bin/losetup" and argv[1:2] == ["--detach"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if argv[0] == "/usr/sbin/sfdisk" and argv[1:2] == ["--dump"]:
+            return SimpleNamespace(
+                returncode=0,
+                stdout="label: gpt\\nunit: sectors\\nsector-size: 4096\\n\\n/dev/loop0p1 : start=0, size=1, type=Linux filesystem\\n",
+                stderr="",
+            )
         if argv[1] == "check":
             return SimpleNamespace(returncode=0, stdout="", stderr="")
         if argv[1:3] == ["info", "--output=json"]:
@@ -45,10 +55,10 @@ class P2VImportTests(unittest.TestCase):
     def test_imports_qcow2_as_native_manifest_backed_raw_disk_image(self):
         manifest = import_p2v_qcow2(
             self.repo, "physical", "physical-imported",
-            qemu_img="/usr/bin/qemu-img", runner=self.runner,
+            qemu_img="/usr/bin/qemu-img", losetup="/usr/bin/losetup", sfdisk="/usr/sbin/sfdisk", runner=self.runner,
         )
         self.assertEqual(manifest.image_type, "disk")
-        self.assertEqual(manifest.partition_table, "unknown")
+        self.assertEqual(manifest.partition_table, "gpt")
         self.assertEqual(manifest.source_size_bytes, 4096)
         self.assertEqual(manifest.logical_sector_size, 4096)
         self.assertEqual([item.role for item in manifest.artifacts], ["disk-image", "partition-table"])
@@ -75,7 +85,7 @@ class P2VImportTests(unittest.TestCase):
                 }), stderr="")
             raise AssertionError(argv)
         with self.assertRaisesRegex(P2VImportError, "disagrees"):
-            import_p2v_qcow2(self.repo, "physical", "imported", runner=wrong_size)
+            import_p2v_qcow2(self.repo, "physical", "imported", losetup="/usr/bin/losetup", sfdisk="/usr/sbin/sfdisk", runner=wrong_size)
 
     def test_rejects_qcow2_with_external_backing_file(self):
         def backed_image(argv, **kwargs):
@@ -88,7 +98,7 @@ class P2VImportTests(unittest.TestCase):
                 }), stderr="")
             raise AssertionError(argv)
         with self.assertRaisesRegex(P2VImportError, "dependencies"):
-            import_p2v_qcow2(self.repo, "physical", "imported", runner=backed_image)
+            import_p2v_qcow2(self.repo, "physical", "imported", losetup="/usr/bin/losetup", sfdisk="/usr/sbin/sfdisk", runner=backed_image)
 
     def test_never_overwrites_existing_native_image(self):
         (self.repo / "imported.disk.raw").write_bytes(b"keep")
