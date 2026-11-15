@@ -111,6 +111,34 @@ class PXEAnswerClientTests(unittest.TestCase):
                 )
 
 
+
+    def test_iso_dhcp_answer_uses_local_mac_for_the_same_shared_job(self):
+        shared_job = {
+            "schema_version": 1, "job_id": JOB, "operation": "restore",
+            "image_id": "golden", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56", "52:54:00:12:34:57"],
+            "network_interface": "enp1s0", "transport": "multicast",
+            "multicast_group": "239.10.10.10", "multicast_port": 5000,
+            "start_policy": "automatic", "expected_clients": None,
+            "start_deadline": None, "repository_id": "nas-images",
+            "confirm_destructive": True,
+            "target_bindings": {
+                "52:54:00:12:34:56": {"wwn": "wwn-first", "serial": None},
+                "52:54:00:12:34:57": {"wwn": "wwn-second", "serial": None},
+            },
+        }
+        config = SimpleNamespace(mac_address="52:54:00:12:34:57")
+        with tempfile.TemporaryDirectory() as root, \\
+             patch("feclora.deployment.runtime_config.load_client_runtime_config", return_value=config):
+            result = fetch_live_pxe_answer(
+                "quiet ro", destination=Path(root) / "answer.json",
+                downloader=lambda _url: json.dumps(shared_job).encode(),
+                dhcp_url_provider=lambda: "http://192.0.2.10:8080/unattended-answer.json",
+            )
+        self.assertEqual(result["_client_mac"], "52:54:00:12:34:57")
+        self.assertEqual(result["_server_address"], "192.0.2.10")
+        self.assertEqual(result["target_bindings"], shared_job["target_bindings"])
+
     def test_shared_multicast_answer_starts_authenticated_client_job(self):
         job = {
             "schema_version": 1, "job_id": JOB, "operation": "restore",
