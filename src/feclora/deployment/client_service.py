@@ -512,7 +512,9 @@ class ClientDeploymentService:
                 except SourceSafetyError as exc:
                     raise DeploymentControlError(f"selected local target is unsafe or in use: {exc}") from exc
                 required = (
-                    f"ERASE {device_path}"
+                    f"ERASE {device_path} FROM {config.server_identity}"
+                    if unattended and job.transport == "multicast"
+                    else f"ERASE {device_path}"
                     if job.operation in {"restore", "clone"}
                     else f"READ {device_path}"
                 )
@@ -692,6 +694,7 @@ class ClientDeploymentService:
                         network_interface=network_interface,
                         age_identity_file=config.age_identity_file,
                         progress_callback=progress,
+                        pre_write_callback=recheck_unattended_target if unattended else None,
                     )
                 return execute_client_image_job(
                     job, tls_socket, approval,
