@@ -1405,8 +1405,40 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         validated_answer = parse_pxe_answer(raw_answer)
     except PXEAnswerError as exc:
         raise WebAPIError(f"PXE answer validation failed: {exc}") from exc
-    if validated_answer.get("boot_method") == "pxe" and validated_answer.get("job_id") != job_id:
-        raise WebAPIError("published job_id must match the UUID inside the shared DeploymentJob JSON")
+    if validated_answer.get("boot_method") == "pxe":
+        if validated_answer.get("job_id") != job_id:
+            raise WebAPIError("published job_id must match the UUID inside the shared DeploymentJob JSON")
+        # A shared answer is also the canonical Server job definition. Persist
+        # it once and start the existing authenticated control service before
+        # publishing the answer that Clients will consume.
+        from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
+        journal_path = _deployment_journal_directory(create=True) / f"{job_id}.jsonl"
+        if journal_path.exists():
+            try:
+                report = DeploymentJournal.inspect(journal_path).recovery_report()
+            except (OSError, DeploymentJournalError) as exc:
+                raise WebAPIError(f"cannot inspect existing shared deployment job: {exc}") from exc
+            stored = report.get("job")
+            incoming = dict(validated_answer)
+            stored_compare = dict(stored) if isinstance(stored, dict) else {}
+            incoming_compare = dict(incoming)
+            stored_compare.pop("staging_required_bytes", None)
+            incoming_compare.pop("staging_required_bytes", None)
+            if stored_compare != incoming_compare:
+                raise WebAPIError("published shared answer does not match the existing Server DeploymentJob")
+            if report.get("job_state") != "created" or report.get("interrupted"):
+                raise WebAPIError("shared DeploymentJob is not fresh and cannot be started for unattended clients")
+        else:
+            _create_deployment_job({"job": validated_answer})
+        _start_deployment_service({"job_id": job_id})
+        try:
+            report = DeploymentJournal.inspect(journal_path).recovery_report()
+            validated_answer = report["job"]
+            raw_answer = (json.dumps(
+                validated_answer, sort_keys=True, separators=(",", ":"),
+            ) + "\\n").encode("utf-8")
+        except Exception as exc:
+            raise WebAPIError(f"cannot reload canonical shared DeploymentJob for publication: {exc}") from exc
     manager = _pxe_service_manager()
     status = manager.status()
     if status.get("active") is not True or not status.get("interface"):
@@ -2926,7 +2958,11 @@ def _create_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         config = load_server_runtime_config(config_path)
     except RuntimeConfigError as exc:
         raise WebAPIError(f"configure the Feclora Server before creating jobs: {exc}") from exc
-    if job.network_interface not in {name for _, name in socket.if_nameindex()}:
+    if job.boot_method == "pxe" and job.network_interface == "auto":
+        # PXE Live retains DHCP on each Client; the Server interface is resolved
+        # from its configured bind address by DeploymentService.
+        pass
+    elif job.network_interface not in {name for _, name in socket.if_nameindex()}:
         raise WebAPIError("selected network interface does not exist")
     if job.transport == "multicast" and job.operation not in {"restore", "clone"}:
         raise WebAPIError("multicast transport supports restore or whole-disk physical clone only")
