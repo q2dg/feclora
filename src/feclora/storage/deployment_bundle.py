@@ -239,8 +239,8 @@ def build_deployment_bundle(
             destination = staging / relative
             destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             entry = _copy_verified(source, destination, size, digest)
-        entry["path"] = relative
-        files[relative] = entry
+            entry["path"] = relative
+            files[relative] = entry
 
         copy_entry(iso, "feclora-live.iso", iso_info.st_size, _sha256(iso))
         manifest_bytes = (json.dumps(manifest.to_dict(), sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
