@@ -77,16 +77,15 @@ class LocalControlProtocolTests(unittest.TestCase):
     def test_listener_thread_start_failure_closes_socket_and_resets_state(self):
         server = LocalControlServer("/run/feclora/test.sock", lambda *_args: {})
         listener = mock.Mock()
-        identity = (1, 2)
         info = mock.Mock(st_mode=stat.S_IFSOCK | 0o600, st_dev=1, st_ino=2)
+        parent_info = mock.Mock(st_mode=stat.S_IFDIR | 0o755, st_uid=0)
         class BrokenThread:
             def __init__(self, **_kwargs):
                 pass
             def start(self):
                 raise RuntimeError("thread start failed")
         with mock.patch("feclora.deployment.local_control.os.lstat", side_effect=[
-            mock.Mock(st_mode=stat.S_IFDIR, st_uid=0, st_mode=stat.S_IFDIR | 0o755),
-            info, info,
+            parent_info, FileNotFoundError, info, info,
         ]), mock.patch("feclora.deployment.local_control.socket.socket", return_value=listener), \
              mock.patch("feclora.deployment.local_control.os.chmod"), \
              mock.patch("feclora.deployment.local_control.os.unlink") as unlink, \
