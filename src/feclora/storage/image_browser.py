@@ -179,7 +179,7 @@ def _session_directory(
         return session_id, directory, created
     except ImageBrowserError:
         raise
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         raise ImageBrowserError(f"cannot create or open private image browser session: {exc}") from exc
 
 
