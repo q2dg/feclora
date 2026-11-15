@@ -628,7 +628,7 @@ export default function App() {
       const link = document.createElement("a");
       link.href = url; link.download = result.filename;
       document.body.appendChild(link); link.click(); link.remove();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       setNotice("File downloaded from the read-only image.");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
