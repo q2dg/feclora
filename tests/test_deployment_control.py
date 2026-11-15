@@ -1732,5 +1732,60 @@ class PartialMultiClientResultTests(unittest.TestCase):
         self.assertTrue(all(sock.closed for sock in sockets.values()))
 
 
+class ConcurrentResultCollectionTests(unittest.TestCase):
+    def test_slow_client_does_not_delay_collection_of_peer_result(self):
+        mac2 = "52:54:00:12:34:57"
+        coordinator = DeploymentCoordinator(make_job(authorized_clients=[MAC, mac2]))
+        for mac in (MAC, mac2):
+            coordinator.register_client(mac)
+            coordinator.mark_ready(mac)
+        coordinator.arm()
+        for mac in (MAC, mac2):
+            coordinator.mark_running(mac)
+
+        fast_closed = threading.Event()
+        release_slow = threading.Event()
+
+        class FastSocket(FakeSocket):
+            def close(self):
+                super().close()
+                fast_closed.set()
+
+        class SlowSocket(FakeSocket):
+            def recv(self, count):
+                release_slow.wait(2)
+                return b""
+
+        success = frame({
+            "type": "result", "job_id": JOB_ID,
+            "success": True, "detail": "restore verified",
+        })
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server._lock = threading.RLock()
+        server._sessions = {
+            MAC: FastSocket(success),
+            mac2: SlowSocket(),
+        }
+        server._progress = {}
+        server._last_persisted_progress = {}
+        server._progress_event_sink = None
+        collected = {}
+        worker = threading.Thread(
+            target=lambda: collected.update(server.collect_results(timeout=2)),
+        )
+        worker.start()
+        try:
+            self.assertTrue(fast_closed.wait(1), "fast Client result was blocked by slow peer")
+            states = {record.mac_address: record.state for record in coordinator.clients()}
+            self.assertEqual(states[MAC], ClientState.SUCCEEDED)
+            self.assertEqual(states[mac2], ClientState.RUNNING)
+        finally:
+            release_slow.set()
+            worker.join(3)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(collected, {MAC: "succeeded", mac2: "disconnected"})
+
+
 if __name__ == "__main__":
     unittest.main()
