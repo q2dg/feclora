@@ -218,7 +218,9 @@ def build_deployment_bundle(
         def copy_entry(source: Path, relative: str, size: int, digest: str) -> None:
             destination = staging / relative
             destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            files[relative] = _copy_verified(source, destination, size, digest)
+            entry = _copy_verified(source, destination, size, digest)
+        entry["path"] = relative
+        files[relative] = entry
 
         copy_entry(iso, "feclora-live.iso", iso_info.st_size, _sha256(iso))
         manifest_bytes = (json.dumps(manifest.to_dict(), sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
@@ -262,11 +264,12 @@ def build_deployment_bundle(
         os.chmod(bundle_path, 0o600)
         with bundle_path.open("rb") as stream:
             os.fsync(stream.fileno())
-        directory_fd = os.open(staging, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
+        for directory in (staging / "images", staging):
+            directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
         os.rename(staging, output)
         staging = None
         parent_fd = os.open(output.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
