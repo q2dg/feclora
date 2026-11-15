@@ -119,6 +119,7 @@ def convert_block_device_to_qcow2(
             raise P2VError("qemu-img returned invalid QCOW2 metadata") from exc
         if (not isinstance(info, dict) or info.get("format") != "qcow2"
                 or isinstance(info.get("virtual-size"), bool)
+                or not isinstance(info.get("virtual-size"), int)
                 or info.get("virtual-size") != source_size):
             raise P2VError("QCOW2 virtual capacity does not match the physical source")
         output_info = os.lstat(temporary)
