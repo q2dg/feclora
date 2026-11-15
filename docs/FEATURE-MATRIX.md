@@ -67,7 +67,7 @@ creation and laboratory validation are operator-owned steps.
 
 | Area | Capability | Implementation | Cockpit | Verification |
 |---|---|---|---|---|
-| Repositories | S3 object storage | Implemented as a separate object API, never a filesystem mount; distributed restore fetches and verifies objects on the Server before TLS delivery, and distributed Client capture publishes to S3 only after a verified TLS receive. | Cockpit local and distributed image workflows | Automated failure-injection coverage is a software gate; live S3-compatible provider acceptance is optional operator validation |
+| Repositories | S3 object storage | Implemented as a separate object API, never a filesystem mount; distributed restore fetches and verifies objects on the Server before TLS delivery, and distributed Client capture publishes to S3 only after a verified TLS receive. | Cockpit local and distributed image workflows | Automated failure-injection coverage is a software gate; live S3-compatible provider acceptance is required maintainer validation |
 
 Artifact byte counts and SHA-256 digests are recorded in the manifest and verified before restore/publication. Repository access controls and authenticated transport provide the trust boundary.
 
