@@ -364,6 +364,38 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class QCOW2LocalOperationSchemaTests(unittest.TestCase):
+    def test_whole_disk_capture_accepts_qcow2_without_extra_compression_or_encryption(self):
+        import uuid
+        definition = {
+            "schema_version": 1, "operation_id": str(uuid.uuid4()),
+            "action": "capture_disk",
+            "params": {
+                "source": "/dev/sda", "image_id": "qcow2-disk",
+                "image_format": "qcow2", "compression": "none", "encrypt": False,
+            },
+        }
+        self.assertEqual(validate_definition(definition)["params"]["image_format"], "qcow2")
+
+    def test_qcow2_capture_rejects_separate_compression_and_encryption(self):
+        import uuid
+        base = {
+            "schema_version": 1, "operation_id": str(uuid.uuid4()),
+            "action": "capture_disk",
+            "params": {
+                "source": "/dev/sda", "image_id": "qcow2-disk",
+                "image_format": "qcow2", "compression": "none", "encrypt": False,
+            },
+        }
+        for changes in ({"compression": "gzip"}, {"encrypt": True}, {"image_format": []}):
+            with self.subTest(changes=changes):
+                invalid = dict(base)
+                invalid["operation_id"] = str(uuid.uuid4())
+                invalid["params"] = {**base["params"], **changes}
+                with self.assertRaises(LocalOperationError):
+                    validate_definition(invalid)
+
+
 class P2VLocalOperationSchemaTests(unittest.TestCase):
     def test_p2v_capture_definition_accepts_only_source_image_and_optional_repository(self):
         import uuid
