@@ -14,6 +14,7 @@ import stat
 import struct
 import subprocess
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -109,6 +110,78 @@ def _qcow2_info(path: Path, expected_size: int) -> None:
         raise ImageBrowserError("QCOW2 images with external backing or data files cannot be browsed")
 
 
+
+def _session_directory(
+    manifest: ImageManifest, artifact: Any, partition_index: int,
+    session_id: str | None,
+) -> tuple[str, Path, bool]:
+    if session_id is None:
+        session_id = str(uuid.uuid4())
+        created = True
+    else:
+        try:
+            normalized = str(uuid.UUID(session_id))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ImageBrowserError("browser session identifier is invalid") from exc
+        if normalized != session_id:
+            raise ImageBrowserError("browser session identifier is invalid")
+        created = False
+
+    parent = Path("/var/cache/feclora")
+    cache_root = parent / "image-browser"
+    try:
+        parent.mkdir(mode=0o700, parents=False, exist_ok=True)
+        parent_info = os.lstat(parent)
+        if (not stat.S_ISDIR(parent_info.st_mode) or stat.S_ISLNK(parent_info.st_mode)
+                or parent_info.st_uid != 0 or parent_info.st_mode & 0o077):
+            raise ImageBrowserError("image browser cache parent must be a private root-owned directory")
+        cache_root.mkdir(mode=0o700, exist_ok=True)
+        root_info = os.lstat(cache_root)
+        if (not stat.S_ISDIR(root_info.st_mode) or stat.S_ISLNK(root_info.st_mode)
+                or root_info.st_uid != 0 or root_info.st_mode & 0o077):
+            raise ImageBrowserError("image browser cache must be a private root-owned directory")
+        directory = cache_root / session_id
+        if created:
+            directory.mkdir(mode=0o700)
+            metadata = {
+                "schema_version": 1, "image_id": manifest.image_id,
+                "artifact_sha256": artifact.sha256,
+                "source_size_bytes": manifest.source_size_bytes,
+                "partition_index": partition_index,
+            }
+            fd = os.open(directory / "session.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                json.dump(metadata, stream, sort_keys=True, separators=(",", ":"))
+                stream.write("\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+        else:
+            directory_info = os.lstat(directory)
+            if (not stat.S_ISDIR(directory_info.st_mode) or stat.S_ISLNK(directory_info.st_mode)
+                    or directory_info.st_uid != 0 or directory_info.st_mode & 0o077):
+                raise ImageBrowserError("browser session directory is unavailable or unsafe")
+            metadata_path = directory / "session.json"
+            metadata_info = os.lstat(metadata_path)
+            if (not stat.S_ISREG(metadata_info.st_mode) or stat.S_ISLNK(metadata_info.st_mode)
+                    or metadata_info.st_uid != 0 or metadata_info.st_mode & 0o077):
+                raise ImageBrowserError("browser session metadata is unavailable or unsafe")
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            expected = {
+                "schema_version": 1, "image_id": manifest.image_id,
+                "artifact_sha256": artifact.sha256,
+                "source_size_bytes": manifest.source_size_bytes,
+                "partition_index": partition_index,
+            }
+            if metadata != expected:
+                raise ImageBrowserError("browser session does not match the selected image and partition")
+        os.utime(directory, None)
+        return session_id, directory, created
+    except ImageBrowserError:
+        raise
+    except OSError as exc:
+        raise ImageBrowserError(f"cannot create or open private image browser session: {exc}") from exc
+
+
 def _prepare_image(
     manifest: ImageManifest, repository: Path, temporary: Path,
     age_identity_file: str | os.PathLike[str] | None,
@@ -153,11 +226,18 @@ def _prepare_image(
         raise ImageBrowserError("insufficient temporary storage to decode the RAW image")
     staged = temporary / "disk.raw"
     try:
+        if os.path.lexists(staged):
+            cached = os.lstat(staged)
+            if (stat.S_ISREG(cached.st_mode) and cached.st_uid == 0
+                    and cached.st_size == manifest.source_size_bytes):
+                return staged, "raw"
+            os.unlink(staged)
+        partial = temporary / f"disk.raw.{uuid.uuid4().hex}.partial"
         with _verified_artifact_stream(str(repository), artifact, age_identity_file) as stored:
             _preflight_decoded_size(stored, artifact, manifest.source_size_bytes)
             decoded = _decoded_stream(stored, artifact.compression)
             try:
-                with staged.open("xb") as output:
+                with partial.open("xb") as output:
                     shutil.copyfileobj(decoded, output, 1024 * 1024)
                     output.flush()
                     os.fsync(output.fileno())
@@ -166,11 +246,21 @@ def _prepare_image(
             finally:
                 if decoded is not stored:
                     decoded.close()
+        if partial.stat().st_size != manifest.source_size_bytes:
+            raise ImageBrowserError("decoded RAW image size does not match the manifest")
+        os.chmod(partial, 0o600)
+        os.replace(partial, staged)
     except Exception as exc:
+        try:
+            if "partial" in locals():
+                partial.unlink(missing_ok=True)
+        except OSError:
+            pass
+        if isinstance(exc, ImageBrowserError):
+            raise
         raise ImageBrowserError(f"cannot prepare verified RAW image for browsing: {exc}") from exc
-    if staged.stat().st_size != manifest.source_size_bytes:
-        raise ImageBrowserError("decoded RAW image size does not match the manifest")
     return staged, "raw"
+
 
 
 def browse_image(
@@ -182,12 +272,12 @@ def browse_image(
     download: bool = False,
     expected_partition_count: int | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
-    """List one directory or return one bounded regular file from a disk image."""
+    """Browse one directory or download one bounded regular file in a cached session."""
     repo = Path(repository)
     try:
-        raw_manifest = Path(manifest_path).read_text(encoding="utf-8")
-        manifest = ImageManifest.from_json(raw_manifest)
+        manifest = ImageManifest.from_json(Path(manifest_path).read_text(encoding="utf-8"))
     except Exception as exc:
         raise ImageBrowserError(f"cannot load image manifest: {exc}") from exc
     if manifest.image_type != "disk":
@@ -195,89 +285,96 @@ def browse_image(
     if isinstance(partition_index, bool) or not isinstance(partition_index, int) or partition_index < 1:
         raise ImageBrowserError("partition index must be a positive integer")
     path = _guest_path(guest_path)
+    disks = [item for item in manifest.artifacts if item.role == "disk-image"]
+    if len(disks) != 1:
+        raise ImageBrowserError("browsing requires exactly one whole-disk artifact")
+    session_id, session_directory, created_session = _session_directory(
+        manifest, disks[0], partition_index, session_id,
+    )
 
     guestfs = None
+    download_path = None
     try:
-        import guestfs as guestfs_module
-    except ImportError as exc:
-        raise ImageBrowserError("python3-libguestfs is required for image browsing") from exc
-
-    with tempfile.TemporaryDirectory(prefix="feclora-image-browser-") as temporary_name:
-        temporary = Path(temporary_name)
-        os.chmod(temporary, 0o700)
         image_path, image_format = _prepare_image(
-            manifest, repo, temporary, age_identity_file,
+            manifest, repo, session_directory, age_identity_file,
         )
         try:
-            guestfs = guestfs_module.GuestFS(python_return_dict=True)
-            guestfs.add_drive_opts(
-                str(image_path), readonly=1, format=image_format,
-            )
-            guestfs.launch()
-            partitions = guestfs.list_partitions()
-            if expected_partition_count is not None and len(partitions) != expected_partition_count:
-                raise ImageBrowserError("guest partition enumeration does not match the verified partition table")
-            if partition_index > len(partitions):
-                raise ImageBrowserError("selected partition does not exist in the image")
-            device = partitions[partition_index - 1]
-            filesystems = guestfs.list_filesystems()
-            filesystem = filesystems.get(device)
-            if not filesystem or filesystem not in _SUPPORTED_FILESYSTEMS:
-                raise ImageBrowserError("selected partition has no supported, recognizable filesystem")
-            guestfs.mount_ro(device, "/")
-            metadata = _lstat_without_symlink_traversal(guestfs, path)
-            mode = metadata.get("mode", 0)
-            if download:
-                if not stat.S_ISREG(mode):
-                    raise ImageBrowserError("only regular files can be downloaded; directories and symbolic links are not followed")
-                size = metadata.get("size")
-                if isinstance(size, bool) or not isinstance(size, int) or size < 0 or size > _MAX_DOWNLOAD_BYTES:
-                    raise ImageBrowserError("file exceeds the 16 MiB per-download limit")
-                destination = temporary / "download.bin"
-                guestfs.download(path, str(destination))
-                data = destination.read_bytes()
-                if len(data) != size:
-                    raise ImageBrowserError("downloaded file size changed during extraction")
-                return {
-                    "partition": device, "filesystem": filesystem,
-                    "path": path, "size_bytes": size,
-                    "filename": posixpath.basename(path) or "image-file",
-                    "content_base64": base64.b64encode(data).decode("ascii"),
-                }
-
-            if not stat.S_ISDIR(mode):
-                raise ImageBrowserError("selected path is not a directory")
-            names = sorted(name for name in guestfs.ls(path) if name not in {".", ".."})
-            if len(names) > _MAX_DIRECTORY_ENTRIES:
-                raise ImageBrowserError("directory contains more than 1000 entries; open a narrower directory")
-            entries = []
-            for name in names:
-                child = posixpath.join(path, name)
-                try:
-                    child_info = _lstat_without_symlink_traversal(guestfs, child)
-                except Exception:
-                    continue
-                child_mode = child_info.get("mode", 0)
-                kind = (
-                    "directory" if stat.S_ISDIR(child_mode) else
-                    "file" if stat.S_ISREG(child_mode) else
-                    "symlink" if stat.S_ISLNK(child_mode) else "other"
-                )
-                entries.append({
-                    "name": name, "path": child, "kind": kind,
-                    "size_bytes": child_info.get("size", 0) if kind == "file" else None,
-                })
+            import guestfs as guestfs_module
+        except ImportError as exc:
+            raise ImageBrowserError("python3-libguestfs is required for image browsing") from exc
+        guestfs = guestfs_module.GuestFS(python_return_dict=True)
+        guestfs.add_drive_opts(str(image_path), readonly=1, format=image_format)
+        guestfs.launch()
+        partitions = guestfs.list_partitions()
+        if expected_partition_count is not None and len(partitions) != expected_partition_count:
+            raise ImageBrowserError("guest partition enumeration does not match the verified partition table")
+        if partition_index > len(partitions):
+            raise ImageBrowserError("selected partition does not exist in the image")
+        device = partitions[partition_index - 1]
+        filesystems = guestfs.list_filesystems()
+        filesystem = filesystems.get(device)
+        if not filesystem or filesystem not in _SUPPORTED_FILESYSTEMS:
+            raise ImageBrowserError("selected partition has no supported, recognizable filesystem")
+        guestfs.mount_ro(device, "/")
+        metadata = _lstat_without_symlink_traversal(guestfs, path)
+        mode = metadata.get("mode", 0)
+        if download:
+            if not stat.S_ISREG(mode):
+                raise ImageBrowserError("only regular files can be downloaded; directories and symbolic links are not followed")
+            size = metadata.get("size")
+            if isinstance(size, bool) or not isinstance(size, int) or size < 0 or size > _MAX_DOWNLOAD_BYTES:
+                raise ImageBrowserError("file exceeds the 16 MiB per-download limit")
+            download_path = session_directory / f".download-{uuid.uuid4().hex}"
+            guestfs.download(path, str(download_path))
+            data = download_path.read_bytes()
+            if len(data) != size:
+                raise ImageBrowserError("downloaded file size changed during extraction")
             return {
-                "partition": device, "filesystem": filesystem,
-                "path": path, "entries": entries,
+                "session_id": session_id, "partition": device,
+                "filesystem": filesystem, "path": path, "size_bytes": size,
+                "filename": posixpath.basename(path) or "image-file",
+                "content_base64": base64.b64encode(data).decode("ascii"),
             }
-        except ImageBrowserError:
-            raise
-        except Exception as exc:
-            raise ImageBrowserError(f"read-only filesystem inspection failed: {exc}") from exc
-        finally:
-            if guestfs is not None:
-                try:
-                    guestfs.shutdown()
-                finally:
-                    guestfs.close()
+
+        if not stat.S_ISDIR(mode):
+            raise ImageBrowserError("selected path is not a directory")
+        names = sorted(name for name in guestfs.ls(path) if name not in {".", ".."})
+        if len(names) > _MAX_DIRECTORY_ENTRIES:
+            raise ImageBrowserError("directory contains more than 1000 entries; open a narrower directory")
+        entries = []
+        for name in names:
+            child = posixpath.join(path, name)
+            try:
+                child_info = _lstat_without_symlink_traversal(guestfs, child)
+            except Exception:
+                continue
+            child_mode = child_info.get("mode", 0)
+            kind = (
+                "directory" if stat.S_ISDIR(child_mode) else
+                "file" if stat.S_ISREG(child_mode) else
+                "symlink" if stat.S_ISLNK(child_mode) else "other"
+            )
+            entries.append({
+                "name": name, "path": child, "kind": kind,
+                "size_bytes": child_info.get("size", 0) if kind == "file" else None,
+            })
+        return {
+            "session_id": session_id, "partition": device,
+            "filesystem": filesystem, "path": path, "entries": entries,
+        }
+    except ImageBrowserError:
+        if created_session:
+            shutil.rmtree(session_directory, ignore_errors=True)
+        raise
+    except Exception as exc:
+        if created_session:
+            shutil.rmtree(session_directory, ignore_errors=True)
+        raise ImageBrowserError(f"read-only filesystem inspection failed: {exc}") from exc
+    finally:
+        if download_path is not None:
+            download_path.unlink(missing_ok=True)
+        if guestfs is not None:
+            try:
+                guestfs.shutdown()
+            finally:
+                guestfs.close()
