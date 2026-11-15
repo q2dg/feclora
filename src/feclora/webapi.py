@@ -1405,6 +1405,10 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
         validated_answer = parse_pxe_answer(raw_answer)
     except PXEAnswerError as exc:
         raise WebAPIError(f"PXE answer validation failed: {exc}") from exc
+    manager = _pxe_service_manager()
+    status = manager.status()
+    if status.get("active") is not True or not status.get("interface"):
+        raise WebAPIError("start and verify the PXE services before publishing an unattended answer")
     if validated_answer.get("boot_method") == "pxe":
         if validated_answer.get("job_id") != job_id:
             raise WebAPIError("published job_id must match the UUID inside the shared DeploymentJob JSON")
@@ -1439,10 +1443,6 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
             ) + "\n").encode("utf-8")
         except Exception as exc:
             raise WebAPIError(f"cannot reload canonical shared DeploymentJob for publication: {exc}") from exc
-    manager = _pxe_service_manager()
-    status = manager.status()
-    if status.get("active") is not True or not status.get("interface"):
-        raise WebAPIError("start and verify the PXE services before publishing an unattended answer")
     config_file = Path("/run/feclora/pxe/Caddyfile")
     try:
         info = os.lstat(config_file)
