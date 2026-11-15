@@ -164,6 +164,7 @@ def _restore_qcow2_disk(
     target_path: str,
     *,
     confirmation: str,
+    initial_device_number: int | None,
     executables: dict[str, str | None] | None,
     device_validator: Callable[[str], bool] | None,
     runner: Callable[..., Any] | None,
@@ -262,6 +263,13 @@ def _restore_qcow2_disk(
             for item in manifest.artifacts
         ]
         raw_manifest = ImageManifest.from_dict(raw_manifest_value)
+        try:
+            if device_validator is not None and not device_validator(target_path):
+                raise DiskRestoreError("target device is no longer valid after QCOW2 conversion")
+            if initial_device_number is not None and os.stat(target_path).st_rdev != initial_device_number:
+                raise DiskRestoreError("target block-device identity changed during QCOW2 conversion")
+        except OSError as exc:
+            raise DiskRestoreError(f"cannot revalidate target after QCOW2 conversion: {exc}") from exc
         raw_manifest_path = os.path.join(temporary, "image.manifest.json")
         with open(raw_manifest_path, "x", encoding="utf-8") as stream:
             stream.write(raw_manifest.to_json())
@@ -337,6 +345,7 @@ def restore_disk(
     if disk_artifacts[0].format == "qcow2":
         return _restore_qcow2_disk(
             manifest, repo, target_path, confirmation=confirmation,
+            initial_device_number=initial_device_number,
             executables=executables, device_validator=device_validator, runner=runner,
             popen_factory=popen_factory, target_safety_check=target_safety_check,
             effective_uid=effective_uid, progress_callback=progress_callback,
