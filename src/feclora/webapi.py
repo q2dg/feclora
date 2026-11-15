@@ -1409,6 +1409,39 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
     status = manager.status()
     if status.get("active") is not True or not status.get("interface"):
         raise WebAPIError("start and verify the PXE services before publishing an unattended answer")
+    config_file = Path("/run/feclora/pxe/Caddyfile")
+    try:
+        info = os.lstat(config_file)
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_size > 8192:
+            raise WebAPIError("active Caddy configuration is not a safe root-owned regular file")
+        caddy_config = config_file.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise WebAPIError("active Caddy configuration is unavailable") from exc
+    match = re.match(r'^http://([0-9.]+):([0-9]+) \{\n    root \* "(/srv/feclora/http)"\n', caddy_config)
+    if not match:
+        raise WebAPIError("active Caddy configuration does not use the expected Feclora HTTP document root")
+    address, port_text, http_root = match.groups()
+    try:
+        port = int(port_text)
+        parsed_address = ipaddress.ip_address(address)
+    except ValueError as exc:
+        raise WebAPIError("active Caddy listener address is invalid") from exc
+    if parsed_address.version != 4 or not any(
+        item["interface"] == status["interface"] and item["address"] == address
+        for item in _network_interfaces()
+    ):
+        raise WebAPIError("active Caddy address is no longer assigned to the PXE interface")
+    if validated_answer.get("boot_method") == "pxe":
+        from feclora.deployment.runtime_config import load_server_runtime_config
+        try:
+            server_config = load_server_runtime_config("/etc/feclora/deployment-server.json")
+        except Exception as exc:
+            raise WebAPIError(f"cannot load Server control endpoint configuration: {exc}") from exc
+        if server_config.bind_address != address:
+            raise WebAPIError(
+                "shared PXE deployment requires the authenticated Server control listener "
+                "to use the same address as the PXE answer service"
+            )
     if validated_answer.get("boot_method") == "pxe":
         if validated_answer.get("job_id") != job_id:
             raise WebAPIError("published job_id must match the UUID inside the shared DeploymentJob JSON")
@@ -1443,28 +1476,6 @@ def _publish_pxe_answer(params: dict[str, Any]) -> dict[str, Any]:
             ) + "\n").encode("utf-8")
         except Exception as exc:
             raise WebAPIError(f"cannot reload canonical shared DeploymentJob for publication: {exc}") from exc
-    config_file = Path("/run/feclora/pxe/Caddyfile")
-    try:
-        info = os.lstat(config_file)
-        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_size > 8192:
-            raise WebAPIError("active Caddy configuration is not a safe root-owned regular file")
-        caddy_config = config_file.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise WebAPIError("active Caddy configuration is unavailable") from exc
-    match = re.match(r'^http://([0-9.]+):([0-9]+) \{\n    root \* "(/srv/feclora/http)"\n', caddy_config)
-    if not match:
-        raise WebAPIError("active Caddy configuration does not use the expected Feclora HTTP document root")
-    address, port_text, http_root = match.groups()
-    try:
-        port = int(port_text)
-        parsed_address = ipaddress.ip_address(address)
-    except ValueError as exc:
-        raise WebAPIError("active Caddy listener address is invalid") from exc
-    if parsed_address.version != 4 or not any(
-        item["interface"] == status["interface"] and item["address"] == address
-        for item in _network_interfaces()
-    ):
-        raise WebAPIError("active Caddy address is no longer assigned to the PXE interface")
     from feclora.network.pxe_answer_store import publish_pxe_answer, revoke_pxe_answer
     from feclora.network.boot_tree import (
         publish_unattended_answer_ipxe_script, revoke_unattended_answer_ipxe_script,
