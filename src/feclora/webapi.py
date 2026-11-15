@@ -808,13 +808,6 @@ def _verify_image_from_repository(params: dict[str, Any], repository: Path) -> d
                         str(repository), artifact, identity_file, shutil.which("age"),
                     ) as verified_stream, staged.open("xb") as output:
                         shutil.copyfileobj(verified_stream, output, 1024 * 1024)
-                    check = subprocess.run(
-                        [qemu_img, "check", "-f", "qcow2", str(staged)],
-                        stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                        check=False, timeout=24 * 60 * 60,
-                    )
-                    if check.returncode != 0:
-                        raise WebAPIError("qemu-img check rejected the QCOW2 artifact")
                     info_result = subprocess.run(
                         [qemu_img, "info", "--output=json", str(staged)],
                         stdin=subprocess.DEVNULL, capture_output=True, text=True,
@@ -839,6 +832,13 @@ def _verify_image_from_repository(params: dict[str, Any], repository: Path) -> d
                             or external_data_file or info.get("encrypted") is True
                             or (isinstance(format_data, dict) and format_data.get("encrypted") is True)):
                         raise WebAPIError("QCOW2 dependencies or virtual capacity disagree with the manifest")
+                    check = subprocess.run(
+                        [qemu_img, "check", "-f", "qcow2", str(staged)],
+                        stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                        check=False, timeout=24 * 60 * 60,
+                    )
+                    if check.returncode != 0:
+                        raise WebAPIError("qemu-img check rejected the QCOW2 artifact")
                 decoded_bytes = manifest.source_size_bytes
             else:
                 with _verified_artifact_stream(
