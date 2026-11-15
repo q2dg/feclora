@@ -1489,5 +1489,42 @@ class MultiClientRemoteCloneTests(unittest.TestCase):
         arm.assert_not_called()
 
 
+class PartialMultiClientResultTests(unittest.TestCase):
+    def test_collect_results_preserves_partial_multiclient_restore_outcomes(self):
+        mac2 = "52:54:00:12:34:57"
+        coordinator = DeploymentCoordinator(make_job(authorized_clients=[MAC, mac2]))
+        for mac in (MAC, mac2):
+            coordinator.register_client(mac)
+            coordinator.mark_ready(mac)
+        coordinator.arm()
+        for mac in (MAC, mac2):
+            coordinator.mark_running(mac)
+
+        successful_result = frame({
+            "type": "result", "job_id": JOB_ID,
+            "success": True, "detail": "image verified",
+        })
+        sockets = {
+            MAC: FakeSocket(successful_result),
+            mac2: FakeSocket(),
+        }
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server._lock = threading.RLock()
+        server._sessions = sockets
+        server._progress = {}
+        server._last_persisted_progress = {}
+        server._progress_event_sink = None
+
+        results = server.collect_results(timeout=1)
+
+        self.assertEqual(results, {MAC: "succeeded", mac2: "disconnected"})
+        states = {record.mac_address: record.state for record in coordinator.clients()}
+        self.assertEqual(states[MAC], ClientState.SUCCEEDED)
+        self.assertEqual(states[mac2], ClientState.DISCONNECTED)
+        self.assertEqual(coordinator.state, JobState.FAILED)
+        self.assertTrue(all(sock.closed for sock in sockets.values()))
+
+
 if __name__ == "__main__":
     unittest.main()
