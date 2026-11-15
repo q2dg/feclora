@@ -1786,6 +1786,42 @@ class ConcurrentResultCollectionTests(unittest.TestCase):
         self.assertFalse(worker.is_alive())
         self.assertEqual(collected, {MAC: "succeeded", mac2: "disconnected"})
 
+    def test_active_socket_close_failure_does_not_abort_peer_collection(self):
+        mac2 = "52:54:00:12:34:57"
+        coordinator = DeploymentCoordinator(make_job(authorized_clients=[MAC, mac2]))
+        for mac in (MAC, mac2):
+            coordinator.register_client(mac)
+            coordinator.mark_ready(mac)
+        coordinator.arm()
+        for mac in (MAC, mac2):
+            coordinator.mark_running(mac)
+
+        class CloseFailureSocket(FakeSocket):
+            def close(self):
+                raise OSError("socket close failed after result")
+
+        success = frame({
+            "type": "result", "job_id": JOB_ID,
+            "success": True, "detail": "restore verified",
+        })
+        server = DeploymentControlServer.__new__(DeploymentControlServer)
+        server.coordinator = coordinator
+        server._lock = threading.RLock()
+        server._sessions = {
+            MAC: CloseFailureSocket(success),
+            mac2: FakeSocket(success),
+        }
+        server._progress = {}
+        server._last_persisted_progress = {}
+        server._progress_event_sink = None
+
+        results = server.collect_results(timeout=1)
+
+        self.assertEqual(results, {MAC: "succeeded", mac2: "succeeded"})
+        states = {record.mac_address: record.state for record in coordinator.clients()}
+        self.assertEqual(states[MAC], ClientState.SUCCEEDED)
+        self.assertEqual(states[mac2], ClientState.SUCCEEDED)
+
     def test_stale_terminal_socket_close_does_not_abort_peer_collection(self):
         mac2 = "52:54:00:12:34:57"
         coordinator = DeploymentCoordinator(make_job(authorized_clients=[MAC, mac2]))
