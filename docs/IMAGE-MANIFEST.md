@@ -8,7 +8,7 @@ It is not an executable restore plan and never authorizes a target write.
 
 | Manifest image type | Meaning | Capture status | Restore status |
 |---|---|---|---|
-| `disk` | Complete block-device byte stream plus partition-table metadata | Implemented in local Cockpit workflow | Implemented for an existing whole-disk target |
+| `disk` | Complete block-device image plus partition-table metadata | Implemented in local Cockpit workflow as compressed/encrypted RAW or QCOW2 | Implemented for an existing whole-disk target; QCOW2 is verified and converted to private RAW staging before writing |
 | `partition` | One existing partition, captured with Partclone when supported or raw bytes otherwise | Implemented in local Cockpit workflow; requires current storage inventory | Implemented for an existing partition target |
 | `logical_volume` | One active LVM logical volume in a healthy VG | Implemented in local Cockpit workflow for uniquely identified, non-hidden, non-snapshot LVs | Not implemented |
 
@@ -71,10 +71,18 @@ Artifact roles include:
 - `partition-table`: textual partition-table metadata (not a block image).
 - `disk-metadata`: descriptive source metadata.
 - `boot-area`: raw boot-area bytes where explicitly captured.
-- `disk-image`: raw whole-disk stream.
+- `disk-image`: raw whole-disk stream or QCOW2 virtual-disk container.
 - `partition-image`: Partclone stream or raw partition byte stream.
 - `logical-volume-image`: Partclone stream or raw LV byte stream; valid only
   for `logical_volume` manifests and requires storage metadata.
+
+For whole-disk images, the `disk-image` format may be `raw` or `qcow2`.
+QCOW2 artifacts must be uncompressed and unencrypted; the manifest's
+`source_size_bytes` is the QCOW2 virtual capacity, not the stored file length.
+Restore verifies the stored digest, runs `qemu-img check`, rejects backing or
+external data-file dependencies, checks the virtual capacity, and converts
+to a private RAW staging file before using the normal whole-disk writer.
+No guest driver, initramfs or firmware repair is performed.
 
 Each artifact records a safe basename, role, encoding, compression,
 encryption, stored byte length and SHA-256 digest. Partition-image and
