@@ -176,14 +176,27 @@ def fetch_live_pxe_answer(
         answer = parse_pxe_answer(raw)
     except PXEAnswerError as exc:
         raise PXEAnswerClientError(f"invalid PXE answer document: {exc}") from exc
-    if answer.get("boot_method") == "pxe":
-        if answer.get("job_id") != request.job_id:
-            raise PXEAnswerClientError("downloaded DeploymentJob UUID does not match the iPXE handoff")
-        if not request.client_mac:
-            raise PXEAnswerClientError("shared PXE DeploymentJob requires the client MAC from the iPXE handoff")
-        if request.client_mac not in answer.get("authorized_clients", []):
-            raise PXEAnswerClientError("this PXE client MAC is not authorized by the DeploymentJob")
-        answer["_client_mac"] = request.client_mac
+    if answer.get("schema_version") == 1 and answer.get("start_policy") == "automatic":
+        if request.job_id is not None and answer.get("job_id") != request.job_id:
+            raise PXEAnswerClientError("downloaded DeploymentJob UUID does not match the boot handoff")
+        client_mac = request.client_mac
+        if client_mac is None:
+            try:
+                from feclora.deployment.runtime_config import load_client_runtime_config
+                client_mac = load_client_runtime_config(
+                    "/etc/feclora/deployment-client.json",
+                ).mac_address
+            except Exception as exc:
+                raise PXEAnswerClientError(
+                    f"cannot determine this Live Client's MAC for the shared answer: {exc}"
+                ) from exc
+        if not isinstance(client_mac, str) or client_mac.lower() not in {
+            item.lower() for item in answer.get("authorized_clients", [])
+        }:
+            raise PXEAnswerClientError("this Live Client MAC is not authorized by the shared DeploymentJob")
+        if not request.server_address:
+            raise PXEAnswerClientError("shared answer URL does not identify its Server address")
+        answer["_client_mac"] = client_mac.lower()
         answer["_server_address"] = request.server_address
     _publish_runtime_answer(raw, destination)
     return answer
@@ -576,7 +589,7 @@ def main() -> int:
     if answer is None:
         return 0
     try:
-        if answer.get("schema_version") == 1 and answer.get("boot_method") == "pxe":
+        if answer.get("schema_version") == 1 and answer.get("start_policy") == "automatic":
             unit = _start_shared_deployment_job(answer)
             print(f"Shared unattended DeploymentJob submitted to authenticated Client runtime: {unit}")
             return 0
