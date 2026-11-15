@@ -881,10 +881,15 @@ class DeploymentControlServer:
         job = self.coordinator.job
         if job.transport != "multicast" or job.operation != "restore":
             raise DeploymentControlError("multicast runtime supports restore jobs only")
-        if (udpcast_config.interface != job.network_interface
+        expected_interface = (
+            self.interface
+            if job.boot_method == "pxe" and job.network_interface == "auto"
+            else job.network_interface
+        )
+        if (not expected_interface or udpcast_config.interface != expected_interface
                 or udpcast_config.data_group != job.multicast_group
                 or udpcast_config.portbase != job.multicast_port):
-            raise DeploymentControlError("UDPcast configuration does not match the job")
+            raise DeploymentControlError("UDPcast configuration does not match the job's resolved Server interface and multicast settings")
         clients = [
             item for item in self.coordinator.clients()
             if item.state is ClientState.READY
