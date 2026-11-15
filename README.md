@@ -4,13 +4,13 @@
 
 ... a tool for cloning whole local disks (or partitions) through network nodes (in a _1 source <-> 1 destination_ "unicast" mode or in _1 source <-> N destinations_ "multicast" mode)
 
-... a tool for creating images, which can be saved locally or in a remote SSHFS, NFS, SMB/CIFS or S3 storage server. These images are compressed, their integrity is verifiable using SHA-256 and they can be optionally encrypted using Chacha20-Poly1305 
+... a tool for creating images, which can be saved locally or in a remote SSHFS, NFS, SMB/CIFS or S3 storage server. These images are compressed, their integrity is verifiable using SHA-256 and they can be optionally encrypted using ChaCha20-Poly1305 
 
-... a tool for restoring images from a local or remote (SSHFS, NFS, SMB/CIFS os S3) storage. Notice these remote servers should be implemented by you independently. Restoration can be "unicast" ( _1 source <-> 1 destination_ ) or "multicast" (_1 source <-> N destinations_)
+... a tool for restoring images from local or remote SSHFS, NFS, SMB/CIFS or S3 repositories. These external storage services are provisioned independently. Restores can use the supported unicast or multicast deployment workflows.
 
-... a tool for running a PXE environment in order to boot network clients to be restored without having to boot them using any locally-inserted Feclora ISO. Once the client has been started, the procedure is similar to the network restoration methods mentioned previously
+... a PXE service that boots network clients into the same Feclora Fedora Live environment used by the ISO. PXE starts the normal interactive Cockpit interface; the operator selects the image, repository and destination through the usual Feclora workflow. PXE serves boot assets, not image data.
 
-... a tool for run unattended restorations (whether locally or over the a network via "unicast" or "multicast", with or without PXE) through a JSON answer file
+... optional unattended restore workflows using validated JSON answer files. The PXE unattended adapter is a separate, explicitly configured path and currently supports whole-disk unicast restore only; it is not the default PXE boot workflow.
 
 ...a Live ISO running on a Fedora Server 45 (x86_64) system which automatically launches a Cockpit-based web interface inside a locked-down Firefox kiosk. The Live session is ephemeral, so credentials, certificates and temporary configuration are regenerated at boot
 
