@@ -404,7 +404,7 @@ class DeploymentService:
             "operation": self.job.operation,
             "image_id": self.job.image_id,
             "transport": self.job.transport,
-            "network_interface": self.job.network_interface,
+            "network_interface": self.server_interface,
             "clients": [
                 {
                     "mac_address": item.mac_address, "state": item.state.value,
@@ -423,7 +423,7 @@ class DeploymentService:
         if self.job.transport == "multicast":
             try:
                 preflight = inspect_multicast_interface(
-                    self.job.network_interface, self.job.multicast_group, role="sender",
+                    self.server_interface, self.job.multicast_group, role="sender",
                 )
                 result["multicast_preflight"] = {
                     "interface": preflight.interface,
@@ -471,7 +471,7 @@ class DeploymentService:
                     )
                 except Exception as exc:
                     raise DeploymentServiceError(f"multicast Server interface preflight failed: {exc}") from exc
-                if preflight.route_interface != self.job.network_interface:
+                if preflight.route_interface != self.server_interface:
                     raise DeploymentServiceError("multicast route does not use the selected deployment interface")
             with self._worker_lock:
                 if self._stop_event.is_set():
@@ -589,7 +589,7 @@ class DeploymentService:
                     ) from exc
             recover_stale_runtime_artifacts(lock_held=True)
             if (self._pxe_state is not None
-                    and self._pxe_state["interface"] == self.job.network_interface):
+                    and self._pxe_state["interface"] == self.server_interface):
                 self.firewall.adopt(self.server_interface, self._pxe_state["firewall"])
             self.journal({
                 "timestamp": datetime.now(timezone.utc).isoformat(),
