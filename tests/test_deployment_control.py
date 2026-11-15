@@ -445,6 +445,50 @@ class TransferFailureTests(unittest.TestCase):
 
 
 class TLSContextTests(unittest.TestCase):
+    def test_listener_thread_start_failure_closes_listener_and_resets_state(self):
+        class Listener:
+            def __init__(self):
+                self.closed = False
+
+            def setsockopt(self, *args):
+                pass
+
+            def bind(self, address):
+                pass
+
+            def listen(self, backlog):
+                pass
+
+            def settimeout(self, timeout):
+                pass
+
+            def getsockname(self):
+                return ("127.0.0.1", 9443)
+
+            def close(self):
+                self.closed = True
+
+        listener = Listener()
+        server = DeploymentControlServer(
+            DeploymentCoordinator(make_job()),
+            ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER),
+            local_identity="URI:feclora-server",
+        )
+        with (
+            patch("feclora.deployment.control.socket.socket", return_value=listener),
+            patch("feclora.deployment.control.threading.Thread.start",
+                  side_effect=RuntimeError("thread creation failed")),
+        ):
+            with self.assertRaisesRegex(
+                DeploymentControlError, "cannot start deployment control listener: thread creation failed",
+            ):
+                server.start("127.0.0.1", 0)
+
+        self.assertTrue(listener.closed)
+        self.assertIsNone(server._listener)
+        self.assertIsNone(server._listener_thread)
+
+
     def test_server_accepts_context_without_client_identity_credentials(self):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         self.assertEqual(context.verify_mode, ssl.CERT_NONE)
