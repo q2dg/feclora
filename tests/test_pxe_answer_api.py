@@ -99,6 +99,7 @@ class PXEAnswerAPITests(unittest.TestCase):
 
 
     def test_iso_shared_answer_creates_server_job_without_publishing_ipxe_script(self):
+        import os
         import stat
         import tempfile
         from pathlib import Path
@@ -123,13 +124,18 @@ class PXEAnswerAPITests(unittest.TestCase):
         canonical = DeploymentJob.from_dict(payload).to_dict()
         report = {"job": canonical, "job_state": "created", "interrupted": False}
         caddy = 'http://192.0.2.10:8080 {\n    root * "/srv/feclora/http"\n'
+        real_lstat = os.lstat
+        def fake_lstat(candidate, *args, **kwargs):
+            if os.fspath(candidate) == "/run/feclora/pxe/Caddyfile":
+                return SimpleNamespace(st_mode=stat.S_IFREG, st_uid=0, st_size=100)
+            return real_lstat(candidate, *args, **kwargs)
         manager = MagicMock()
         manager.status.return_value = {"active": True, "interface": "enp1s0"}
         with tempfile.TemporaryDirectory() as directory, \\
              patch("feclora.webapi._read_pxe_answer_source", return_value=json.dumps(payload).encode()), \\
              patch("feclora.webapi._pxe_service_manager", return_value=manager), \\
              patch("feclora.webapi.Path.read_text", return_value=caddy), \\
-             patch("feclora.webapi.os.lstat", return_value=MagicMock(st_mode=stat.S_IFREG, st_uid=0, st_size=100)), \\
+             patch("feclora.webapi.os.lstat", side_effect=fake_lstat), \\
              patch("feclora.webapi._network_interfaces", return_value=[{"interface": "enp1s0", "address": "192.0.2.10"}]), \\
              patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=SimpleNamespace(bind_address="192.0.2.10")), \\
              patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), \\
