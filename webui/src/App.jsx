@@ -655,6 +655,7 @@ export default function App() {
       }
       const clients = Object.keys(bindings).sort();
       if (!clients.length) throw new Error("Add at least one client and its stable target-disk identity.");
+      if (pxeJobTransport === "multicast" && clients.length < 2) throw new Error("Multicast restore requires at least two authorized clients.");
       const selectedInterface = networkInterfaces.find((item) => item.binding === pxeJobServerInterface);
       if (pxeJobBootMethod === "iso" && !selectedInterface) throw new Error("Select the Server interface used by the ISO/USB Live deployment.");
       let multicastGroup = null;
