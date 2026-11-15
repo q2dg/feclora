@@ -247,7 +247,7 @@ def build_deployment_bundle(
         manifest_destination = staging / "image-manifest.json"
         manifest_destination.write_bytes(manifest_bytes)
         os.chmod(manifest_destination, 0o600)
-        with manifest_destination.open("rb") as stream:
+        with manifest_destination.open("rb+") as stream:
             os.fsync(stream.fileno())
         files["image-manifest.json"] = {
             "path": "image-manifest.json", "size_bytes": len(manifest_bytes),
