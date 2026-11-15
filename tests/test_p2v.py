@@ -80,6 +80,37 @@ class P2VConversionTests(unittest.TestCase):
             with open(output, "rb") as stream:
                 self.assertEqual(stream.read(), b"keep")
 
+    def test_rejects_source_device_identity_change_without_publishing_output(self):
+        changed = SimpleNamespace(
+            st_mode=stat.S_IFBLK | 0o600, st_rdev=2050, st_ino=78,
+        )
+        self.stat_device.side_effect = [self.source_info, changed]
+        with tempfile.TemporaryDirectory() as directory:
+            os.chmod(directory, 0o700)
+            output = os.path.join(directory, "physical-machine.qcow2")
+            with self.assertRaisesRegex(P2VError, "identity changed"):
+                convert_block_device_to_qcow2(
+                    "/dev/feclora-test", output, qemu_img="/usr/bin/qemu-img",
+                    blockdev="/usr/sbin/blockdev", runner=self.runner,
+                    stat_device=self.stat_device, source_safety_check=self.source_safety,
+                )
+            self.assertFalse(os.path.lexists(output))
+            self.assertEqual(os.listdir(directory), [])
+
+    def test_rejects_source_that_becomes_unsafe_before_publication(self):
+        self.source_safety.side_effect = [None, RuntimeError("source became mounted")]
+        with tempfile.TemporaryDirectory() as directory:
+            os.chmod(directory, 0o700)
+            output = os.path.join(directory, "physical-machine.qcow2")
+            with self.assertRaisesRegex(RuntimeError, "source became mounted"):
+                convert_block_device_to_qcow2(
+                    "/dev/feclora-test", output, qemu_img="/usr/bin/qemu-img",
+                    blockdev="/usr/sbin/blockdev", runner=self.runner,
+                    stat_device=self.stat_device, source_safety_check=self.source_safety,
+                )
+            self.assertFalse(os.path.lexists(output))
+            self.assertEqual(os.listdir(directory), [])
+
     def test_rejects_qcow2_with_wrong_virtual_capacity(self):
         def runner(argv, **kwargs):
             if argv[1:3] == ["--getsize64", "/dev/feclora-test"]:
