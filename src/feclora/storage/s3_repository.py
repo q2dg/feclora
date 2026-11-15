@@ -341,7 +341,7 @@ class S3ObjectRepository:
         required = {"schema_version", "image_id", "format", "source_device", "virtual_size_bytes",
                     "file_size_bytes", "qcow2_sha256", "verified", "bootability_note"}
         required_with_geometry = required | {"logical_sector_size"}
-        if (not isinstance(metadata, dict) or set(metadata) not in {frozenset(required), frozenset(required_with_geometry)}
+        if (not isinstance(metadata, dict) or frozenset(metadata) not in {frozenset(required), frozenset(required_with_geometry)}
                 or metadata.get("schema_version") != 1 or metadata.get("image_id") != image_id
                 or metadata.get("format") != "qcow2" or metadata.get("verified") is not True
                 or not isinstance(metadata.get("source_device"), str)
