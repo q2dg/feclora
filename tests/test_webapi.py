@@ -889,6 +889,29 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(report["last_event"], "operator_reconciled")
         self.assertFalse(report["automatic_resume"])
 
+    def test_reconcile_refuses_active_or_starting_systemd_unit_even_without_ipc(self):
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        for state in ("active", "activating", "deactivating"):
+            with self.subTest(state=state), patch(
+                "feclora.webapi.subprocess.run",
+                return_value=SimpleNamespace(returncode=0, stdout=state),
+            ):
+                with self.assertRaisesRegex(WebAPIError, "stop the active deployment service"):
+                    dispatch({"action": "reconcile_deployment_job", "params": {
+                        "job_id": job_id, "confirmation": "RECONCILE " + job_id,
+                    }})
+
+    def test_reconcile_fails_closed_when_systemd_state_cannot_be_verified(self):
+        job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        with patch(
+            "feclora.webapi.subprocess.run",
+            return_value=SimpleNamespace(returncode=1, stdout=""),
+        ):
+            with self.assertRaisesRegex(WebAPIError, "reconciliation is blocked"):
+                dispatch({"action": "reconcile_deployment_job", "params": {
+                    "job_id": job_id, "confirmation": "RECONCILE " + job_id,
+                }})
+
     def test_reconcile_deployment_job_rejects_extra_parameters(self):
         with self.assertRaisesRegex(WebAPIError, "exactly job_id and confirmation"):
             dispatch({"action": "reconcile_deployment_job", "params": {
