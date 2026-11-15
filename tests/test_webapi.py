@@ -112,6 +112,20 @@ class WebAPITests(unittest.TestCase):
         self.assertTrue(result["published"])
         self.assertTrue(result["output_directory"].endswith("fleet-bundle"))
 
+    def test_logical_volume_capture_action_is_submitted_to_durable_worker(self):
+        params = {
+            "source": "/dev/vg0/data",
+            "image_id": "logical-volume",
+            "compression": "zstd",
+            "encrypt": False,
+        }
+        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "lv-capture"}) as submit:
+            result = dispatch({"action": "capture_logical_volume", "params": params})
+        self.assertEqual(result["operation_id"], "lv-capture")
+        submit.assert_called_once_with({
+            "operation": "capture_logical_volume", "operation_params": params,
+        })
+
     def test_p2v_import_action_is_submitted_to_durable_worker(self):
         params = {
             "source_image_id": "physical-source",
