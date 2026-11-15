@@ -613,7 +613,7 @@ export default function App() {
       setBrowseSessionId(result.session_id);
       setBrowsePath(result.path);
       setBrowseResult(result);
-    } catch (err) { setError(err?.message || String(err)); }
+    } catch (err) { setBrowseSessionId(""); setBrowseResult(null); setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
 
@@ -634,7 +634,7 @@ export default function App() {
       document.body.appendChild(link); link.click(); link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       setNotice("File downloaded from the read-only image.");
-    } catch (err) { setError(err?.message || String(err)); }
+    } catch (err) { setBrowseSessionId(""); setBrowseResult(null); setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
 
