@@ -180,6 +180,7 @@ def browse_image(
     guest_path: str = "/",
     *,
     download: bool = False,
+    expected_partition_count: int | None = None,
     age_identity_file: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     """List one directory or return one bounded regular file from a disk image."""
@@ -215,6 +216,8 @@ def browse_image(
             )
             guestfs.launch()
             partitions = guestfs.list_partitions()
+            if expected_partition_count is not None and len(partitions) != expected_partition_count:
+                raise ImageBrowserError("guest partition enumeration does not match the verified partition table")
             if partition_index > len(partitions):
                 raise ImageBrowserError("selected partition does not exist in the image")
             device = partitions[partition_index - 1]
