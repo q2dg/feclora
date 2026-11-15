@@ -1399,7 +1399,7 @@ export default function App() {
                     </select>
                   </Field>
                   <Button variant="primary" onClick={extractPartitionFromImage} isLoading={busy} isDisabled={busy || selectedRepository?.read_only || !extractImageId || !extractLayout || !extractPartitionSelector}>Extract partition image</Button>
-                  <Divider className="pf-v6-u-my-md" />
+                  <hr className="pf-v6-u-my-md" />
                   <Title headingLevel="h4" size="md">Explore image files (read-only)</Title>
                   <p>Browse the selected partition without mounting it on the host. Filesystem inspection runs in the isolated libguestfs appliance. Individual regular files up to 16 MiB can be downloaded; symbolic links are not followed.</p>
                   <Button variant="secondary" onClick={() => browseImageDirectory("/")} isLoading={busy} isDisabled={busy || !extractImageId || !extractPartitionSelector || !extractLayout}>Open selected partition</Button>
