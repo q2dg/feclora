@@ -14,6 +14,7 @@ const OPERATION_LABELS = {
   capture_disk: "opCaptureDisk",
   capture_p2v: "opCaptureP2v",
   export_p2v_s3: "opExportP2v",
+  import_p2v: "Import P2V into Feclora image",
   build_recovery_iso: "opRecoveryIso",
   build_deployment_bundle: "Deployment bundle",
   capture_partition: "opCapturePartition",
@@ -207,6 +208,7 @@ export default function App() {
   const [bundleBaseISO, setBundleBaseISO] = useState("");
   const [bundleName, setBundleName] = useState("fleet-deployment-bundle");
   const [bundleJobJSON, setBundleJobJSON] = useState("");
+  const [p2vSourceImageId, setP2vSourceImageId] = useState("");
 
   const applyNetworkProfile = async (event) => {
     event.preventDefault();
@@ -337,6 +339,7 @@ export default function App() {
       : `READ ${clientRemoteTarget} TO ${clientRemoteInspection.server_identity}`)
     : "";
   const isExportP2V = operation === "export_p2v_s3";
+  const isImportP2V = operation === "import_p2v";
   const isCapture = operation.startsWith("capture_");
   const isRestore = operation.startsWith("restore_");
   const isDisk = operation.endsWith("_disk") || operation === "capture_p2v";
@@ -359,7 +362,11 @@ export default function App() {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setProgress(null); setOperationResult(null);
     try {
       let params;
-      if (operation === "export_p2v_s3") params = {
+      if (operation === "import_p2v") params = {
+        source_image_id: p2vSourceImageId, image_id: imageId,
+        repository_id: selectedRepositoryId
+      };
+      else if (operation === "export_p2v_s3") params = {
         image_id: imageId, source_repository_id: selectedRepositoryId,
         ...(exportDestinationRepositoryId ? { destination_repository_id: exportDestinationRepositoryId } : {})
       };
@@ -1073,7 +1080,12 @@ export default function App() {
   const recoveryExpectedConfirmation = imageId ? `BUILD ${imageId}` : "";
   const bundleJobDefinition = (() => { try { return JSON.parse(bundleJobJSON); } catch { return null; } })();
   const bundleRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified && !repo.read_only);
-  const operationReady = operation === "export_p2v_s3"
+  const operationReady = operation === "import_p2v"
+    ? Boolean(p2vSourceImageId && imageId && p2vSourceImageId !== imageId
+      && /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(imageId)
+      && remoteRepositories.some((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified && !repo.read_only)
+      && repositoryImages.some((item) => item.image_id === p2vSourceImageId && item.image_type === "virtual_disk"))
+    : operation === "export_p2v_s3"
     ? Boolean(imageId && repositoryImages.some((item) => item.image_id === imageId && item.image_type === "virtual_disk")
       && s3Repositories.some((repo) => repo.id === selectedRepositoryId)
       && (!exportDestinationRepositoryId || remoteRepositories.some((repo) => repo.id === exportDestinationRepositoryId && repo.mounted && repo.verified && !repo.read_only)))
@@ -1136,6 +1148,26 @@ export default function App() {
                         {Object.entries(OPERATION_LABELS).map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
                       </select>
                     </Field>
+                    {isImportP2V && <>
+                      <Alert variant="info" title={t("Import P2V as a Feclora disk image")} isInline>
+                        Convert a committed QCOW2 and its verified .p2v.json sidecar into Feclora's native raw whole-disk image set. The QCOW2 is retained unchanged. Partition-table type is recorded as unknown; this conversion does not repair guest drivers, initramfs, UEFI/BIOS boot configuration or prove that the VM boots. Use a new image identifier and validate the resulting VM separately.
+                      </Alert>
+                      <Field t={t} label={t("Filesystem repository")}>
+                        <select className="pf-v6-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => { setP2vSourceImageId(""); setImageId(""); selectImageRepository(e.target.value); }} required>
+                          <option value="">{t("Select a mounted repository…")}</option>
+                          {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
+                        </select>
+                      </Field>
+                      <Field t={t} label={t("Committed P2V QCOW2 image")}>
+                        <select className="pf-v6-c-form-control" value={p2vSourceImageId} disabled={busy || !selectedRepositoryId} onChange={(e) => setP2vSourceImageId(e.target.value)} required>
+                          <option value="">{t("Select a QCOW2 image…")}</option>
+                          {repositoryImages.filter((item) => item.image_type === "virtual_disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
+                        </select>
+                      </Field>
+                      <Field t={t} label={t("New Feclora disk image identifier")} help="The imported image is published as a separate raw whole-disk image set; the original QCOW2 remains intact.">
+                        <input className="pf-v6-c-form-control" value={imageId} onChange={(e) => setImageId(e.target.value)} maxLength={128} required />
+                      </Field>
+                    </>}
                     {isExportP2V && <>
                       <Alert variant="info" title={t("Verified S3 P2V export")} isInline>
                         Select an S3 source repository and a committed QCOW2. Feclora downloads the object to private staging, verifies its size and SHA-256 against the committed metadata, then publishes the QCOW2 and metadata sidecar to a filesystem repository. The sidecar is linked last; existing files are never overwritten.
