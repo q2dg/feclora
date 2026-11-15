@@ -97,6 +97,55 @@ class PXEAnswerAPITests(unittest.TestCase):
         }
         self.assertEqual(parse_pxe_answer(json.dumps(job))["job_id"], self.JOB_ID)
 
+
+    def test_iso_shared_answer_creates_server_job_without_publishing_ipxe_script(self):
+        import stat
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from feclora.deployment.job import DeploymentJob
+        from feclora.deployment.journal import DeploymentJournal
+
+        payload = {
+            "schema_version": 1, "job_id": self.JOB_ID, "operation": "restore",
+            "image_id": "fedora", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56", "52:54:00:12:34:57"],
+            "network_interface": "enp1s0", "transport": "multicast",
+            "multicast_group": "239.10.10.10", "multicast_port": 9000,
+            "start_policy": "automatic", "expected_clients": None,
+            "start_deadline": None, "repository_id": "nas-images",
+            "confirm_destructive": True,
+            "target_bindings": {
+                "52:54:00:12:34:56": {"wwn": "wwn-1", "serial": None},
+                "52:54:00:12:34:57": {"wwn": "wwn-2", "serial": None},
+            },
+        }
+        canonical = DeploymentJob.from_dict(payload).to_dict()
+        report = {"job": canonical, "job_state": "created", "interrupted": False}
+        caddy = 'http://192.0.2.10:8080 {\\n    root * "/srv/feclora/http"\\n'
+        manager = MagicMock()
+        manager.status.return_value = {"active": True, "interface": "enp1s0"}
+        with tempfile.TemporaryDirectory() as directory, \\
+             patch("feclora.webapi._read_pxe_answer_source", return_value=json.dumps(payload).encode()), \\
+             patch("feclora.webapi._pxe_service_manager", return_value=manager), \\
+             patch("feclora.webapi.Path.read_text", return_value=caddy), \\
+             patch("feclora.webapi.os.lstat", return_value=MagicMock(st_mode=stat.S_IFREG, st_uid=0, st_size=100)), \\
+             patch("feclora.webapi._network_interfaces", return_value=[{"interface": "enp1s0", "address": "192.0.2.10"}]), \\
+             patch("feclora.deployment.runtime_config.load_server_runtime_config", return_value=SimpleNamespace(bind_address="192.0.2.10")), \\
+             patch("feclora.webapi._deployment_journal_directory", return_value=Path(directory)), \\
+             patch("feclora.webapi._create_deployment_job") as create_job, \\
+             patch("feclora.webapi._start_deployment_service") as start_service, \\
+             patch.object(DeploymentJournal, "inspect", return_value=SimpleNamespace(recovery_report=lambda: report)), \\
+             patch("feclora.network.pxe_answer_store.publish_pxe_answer", return_value={"answer_url": "http://192.0.2.10:8080/answers/" + self.JOB_ID + "/answer.json"}) as publish, \\
+             patch("feclora.network.boot_tree.publish_unattended_answer_ipxe_script") as publish_ipxe:
+            result = _publish_pxe_answer({"job_id": self.JOB_ID, "source": "upload"})
+        self.assertEqual(result["job_id"], self.JOB_ID)
+        self.assertNotIn("boot_script_url", result)
+        create_job.assert_called_once_with({"job": canonical})
+        start_service.assert_called_once_with({"job_id": self.JOB_ID})
+        publish_ipxe.assert_not_called()
+        self.assertEqual(publish.call_args.kwargs["raw_answer"], json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode() + b"\\n")
+
     def test_http_source_downloads_without_redirects_and_checks_size(self):
         raw = self.answer()
         response = MagicMock()
