@@ -61,6 +61,8 @@ export default function App() {
   const [extractPartitionSelector, setExtractPartitionSelector] = useState("");
   const [extractPartitionResult, setExtractPartitionResult] = useState(null);
   const [extractLayout, setExtractLayout] = useState(null);
+  const [browsePath, setBrowsePath] = useState("/");
+  const [browseResult, setBrowseResult] = useState(null);
   const [restoreLayoutPreview, setRestoreLayoutPreview] = useState(null);
   const [images, setImages] = useState([]);
   const [journals, setJournals] = useState([]);
@@ -595,6 +597,42 @@ export default function App() {
     finally { setBusy(false); setProgress(null); }
   };
 
+
+
+  const browseImageDirectory = async (path = "/") => {
+    const partitionIndex = (extractLayout?.partitions || []).findIndex((part) => part.selector === extractPartitionSelector) + 1;
+    if (!extractImageId || partitionIndex < 1) return;
+    setBusy(true); setError(""); setBrowseResult(null);
+    try {
+      const result = await callFeclora("browse_image", {
+        image_id: extractImageId, partition_index: partitionIndex, path,
+        ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
+      });
+      setBrowsePath(result.path);
+      setBrowseResult(result);
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
+
+  const downloadImageFile = async (path) => {
+    const partitionIndex = (extractLayout?.partitions || []).findIndex((part) => part.selector === extractPartitionSelector) + 1;
+    if (!extractImageId || partitionIndex < 1) return;
+    setBusy(true); setError("");
+    try {
+      const result = await callFeclora("browse_image", {
+        image_id: extractImageId, partition_index: partitionIndex, path, download: true,
+        ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
+      });
+      const binary = Uint8Array.from(atob(result.content_base64), (character) => character.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([binary]));
+      const link = document.createElement("a");
+      link.href = url; link.download = result.filename;
+      document.body.appendChild(link); link.click(); link.remove();
+      URL.revokeObjectURL(url);
+      setNotice("File downloaded from the read-only image.");
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  };
 
   const exportServerAgeRecipients = async () => {
     setBusy(true); setError(""); setNotice(""); setAgeRecipientExport(null);
@@ -1361,6 +1399,22 @@ export default function App() {
                     </select>
                   </Field>
                   <Button variant="primary" onClick={extractPartitionFromImage} isLoading={busy} isDisabled={busy || selectedRepository?.read_only || !extractImageId || !extractLayout || !extractPartitionSelector}>Extract partition image</Button>
+                  <Divider className="pf-v6-u-my-md" />
+                  <Title headingLevel="h4" size="md">Explore image files (read-only)</Title>
+                  <p>Browse the selected partition without mounting it on the host. Filesystem inspection runs in the isolated libguestfs appliance. Individual regular files up to 16 MiB can be downloaded; symbolic links are not followed.</p>
+                  <Button variant="secondary" onClick={() => browseImageDirectory("/")} isLoading={busy} isDisabled={busy || !extractImageId || !extractPartitionSelector || !extractLayout}>Open selected partition</Button>
+                  {browseResult && <>
+                    <p><strong>{browseResult.partition}</strong> · {browseResult.filesystem} · <code>{browsePath}</code></p>
+                    {browsePath !== "/" && <Button variant="link" isDisabled={busy} onClick={() => browseImageDirectory(browsePath.slice(0, browsePath.lastIndexOf("/")) || "/")}>Parent directory</Button>}
+                    <Table aria-label="Image directory contents" variant="compact">
+                      <Thead><Tr><Th>Name</Th><Th>Type</Th><Th>Size</Th><Th>Action</Th></Tr></Thead>
+                      <Tbody>{browseResult.entries.map((entry) => <Tr key={entry.path}>
+                        <Td>{entry.name}</Td><Td>{entry.kind}</Td><Td>{entry.kind === "file" ? formatBytes(entry.size_bytes) : "—"}</Td>
+                        <Td>{entry.kind === "directory" ? <Button variant="link" isDisabled={busy} onClick={() => browseImageDirectory(entry.path)}>Open</Button> : entry.kind === "file" ? <Button variant="link" isDisabled={busy || entry.size_bytes > 16 * 1024 * 1024} onClick={() => downloadImageFile(entry.path)}>Download</Button> : "—"}</Td>
+                      </Tr>)}</Tbody>
+                    </Table>
+                    {!browseResult.entries.length && <p>This directory is empty.</p>}
+                  </>}
                   {busy && progress && <Progress value={progress.bytes_total ? Math.min(100, progress.bytes_done / progress.bytes_total * 100) : 0} title={t("Partition extraction progress")} measureLocation="outside" label={formatBytes(progress.bytes_done) + " / " + formatBytes(progress.bytes_total)} />}
                   {extractPartitionResult && <Alert variant="success" title={t("Partition image published")} isInline>
                     Source: {extractPartitionResult.source_image_id} · New image: {extractPartitionResult.image_id} · {extractPartitionResult.encrypted ? "age-encrypted" : "unencrypted"}
