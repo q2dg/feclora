@@ -236,8 +236,8 @@ class DeploymentJob:
 
         interface = payload.get("network_interface")
         if boot_method == "pxe":
-            if operation != "restore" or payload.get("transport") != "unicast":
-                raise JobValidationError("PXE boot currently requires a unicast restore job")
+            if operation != "restore" or payload.get("transport") not in {"unicast", "multicast"}:
+                raise JobValidationError("PXE boot currently requires an image restore over unicast or multicast transport")
             if interface != "auto":
                 raise JobValidationError("PXE boot jobs must use network_interface=auto; the Live client already has DHCP networking")
             if repository_id is None:
