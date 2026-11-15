@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from feclora.storage.image_manifest import ImageManifest
 
@@ -106,7 +106,7 @@ class CoordinatedBundleWorkflowTests(unittest.TestCase):
 
     def test_rejects_answer_for_a_different_image_before_building_iso(self):
         self.answer.write_text(json.dumps(_job("another-image")), encoding="utf-8")
-        runner = unittest.mock.Mock()
+        runner = Mock()
         with self.assertRaisesRegex(WORKFLOW.BundleWorkflowError, "repository and image"):
             WORKFLOW.create_bundle(
                 fedora_iso=str(self.fedora_iso), repository=str(self.repository),
