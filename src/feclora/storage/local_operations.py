@@ -112,8 +112,6 @@ def validate_definition(value: Any) -> dict[str, Any]:
     if set(params) not in accepted:
         raise LocalOperationError("operation parameters do not match the selected operation")
     if action == "import_p2v":
-        if "repository_id" not in params:
-            raise LocalOperationError("P2V import requires an explicit filesystem repository")
         if params.get("source_image_id") == params.get("image_id"):
             raise LocalOperationError("P2V import must publish under a new image identifier")
     if action == "build_deployment_bundle":
