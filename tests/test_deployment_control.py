@@ -533,6 +533,46 @@ class TLSContextTests(unittest.TestCase):
         self.assertIsNone(server._firewall_state_callback)
         self.assertTrue(server._firewall_opened)
 
+    def test_stop_retains_firewall_callback_when_persisted_state_clear_fails(self):
+        class Firewall:
+            def is_open(self, interface):
+                return False
+
+            def open(self, interface, ports, include_tftp=False):
+                pass
+
+            def export_state(self, interface):
+                return {"zone": "feclora-pxe-12345678", "restore_zone": "public",
+                        "ports": ["9443/tcp"]}
+
+            def close(self, interface):
+                pass
+
+        attempts = []
+        def state_callback(value):
+            attempts.append(value)
+            if value is None and attempts.count(None) == 1:
+                raise RuntimeError("journal temporarily unavailable")
+
+        server = DeploymentControlServer(
+            DeploymentCoordinator(make_job()),
+            ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER),
+            local_identity="URI:feclora-server",
+            firewall=Firewall(), interface="enp1s0",
+        )
+        server._firewall_state_callback = state_callback
+        server._firewall_opened = True
+
+        with self.assertRaisesRegex(DeploymentControlError, "could not clear persisted"):
+            server.stop()
+
+        self.assertTrue(server._firewall_opened is False)
+        self.assertIs(server._firewall_state_callback, state_callback)
+        server.stop()
+        self.assertEqual(attempts.count(None), 2)
+        self.assertIsNone(server._firewall_state_callback)
+
+
     def test_stop_attempts_zone_cleanup_after_port_removal_failure(self):
         class Firewall:
             def __init__(self):
