@@ -107,7 +107,6 @@ export default function App() {
   const [repositoryId, setRepositoryId] = useState("");
   const [repositoryEditing, setRepositoryEditing] = useState(false);
   const [selectedRepositoryId, setSelectedRepositoryId] = useState("");
-  const [exportDestinationRepositoryId, setExportDestinationRepositoryId] = useState("");
   const [repositoryImages, setRepositoryImages] = useState([]);
   const [repositoryProvider, setRepositoryProvider] = useState("sshfs");
   const [repositoryHost, setRepositoryHost] = useState("");
@@ -207,7 +206,6 @@ export default function App() {
   const [bundleBaseISO, setBundleBaseISO] = useState("");
   const [bundleName, setBundleName] = useState("fleet-deployment-bundle");
   const [bundleJobJSON, setBundleJobJSON] = useState("");
-  const [p2vSourceImageId, setP2vSourceImageId] = useState("");
 
   const applyNetworkProfile = async (event) => {
     event.preventDefault();
