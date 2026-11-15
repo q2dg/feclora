@@ -494,7 +494,10 @@ def execute_live_pxe_restore(
     return target_path
 
 
-def _start_shared_deployment_job(answer: dict[str, Any]) -> str:
+def _start_shared_deployment_job(
+    answer: dict[str, Any], *,
+    request_directory: str | os.PathLike[str] = "/var/lib/feclora/client-jobs",
+) -> str:
     """Hand the shared answer to the authenticated persistent Client runtime."""
     from feclora.deployment.runtime_config import load_client_runtime_config
 
@@ -503,7 +506,7 @@ def _start_shared_deployment_job(answer: dict[str, Any]) -> str:
     if not isinstance(job_id, str) or not isinstance(host, str) or not host:
         raise PXEAnswerClientError("shared PXE DeploymentJob is missing its job ID or Server address")
     config = load_client_runtime_config("/etc/feclora/deployment-client.json")
-    request_directory = Path("/var/lib/feclora/client-jobs")
+    request_directory = Path(request_directory)
     try:
         request_directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         info = os.lstat(request_directory)
