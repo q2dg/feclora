@@ -19,6 +19,47 @@ class LocalOperationStoreTests(unittest.TestCase):
             self.assertEqual(status["events"][0]["sequence"], 1)
             self.assertEqual(store.definition(operation_id)["params"]["source"], "/dev/sda")
 
+    def test_xz_compression_is_valid_for_all_capture_types(self):
+        cases = {
+            "capture_disk": {
+                "source": "/dev/sda", "image_id": "disk-image",
+                "compression": "xz", "encrypt": False,
+            },
+            "capture_partition": {
+                "source": "/dev/sda1", "image_id": "partition-image",
+                "partition_id": "root", "compression": "xz", "encrypt": False,
+            },
+            "capture_logical_volume": {
+                "source": "/dev/mapper/vg-root", "image_id": "lv-image",
+                "compression": "xz", "encrypt": False,
+            },
+        }
+        for index, (action, params) in enumerate(cases.items(), start=20):
+            with self.subTest(action=action):
+                validated = validate_definition({
+                    "schema_version": 1,
+                    "operation_id": f"00000000-0000-4000-8000-{index:012d}",
+                    "action": action, "params": params,
+                })
+                self.assertEqual(validated["params"]["compression"], "xz")
+
+    def test_logical_volume_capture_rejects_unsupported_compression_and_non_boolean_encryption(self):
+        params = {
+            "source": "/dev/mapper/vg-root", "image_id": "lv-image",
+            "compression": "invalid", "encrypt": False,
+        }
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000030",
+            "action": "capture_logical_volume", "params": params,
+        }
+        with self.assertRaisesRegex(LocalOperationError, "compression"):
+            validate_definition(definition)
+        params["compression"] = "zstd"
+        params["encrypt"] = "false"
+        with self.assertRaisesRegex(LocalOperationError, "encrypt"):
+            validate_definition(definition)
+
     def test_logical_volume_capture_is_a_valid_durable_operation(self):
         definition = {
             "schema_version": 1,
