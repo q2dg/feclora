@@ -80,6 +80,7 @@ def make_service(transport="unicast", clients=()):
     )
     service.coordinator = FakeCoordinator(clients=clients, job=service.job)
     service.control = FakeControl(service.coordinator)
+    service.server_interface = "enp1s0"
     service._worker = None
     service._worker_lock = threading.RLock()
     service._stop_event = threading.Event()
