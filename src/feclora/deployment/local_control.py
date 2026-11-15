@@ -168,8 +168,8 @@ class LocalControlServer:
                     continue
                 break
             with connection:
-                connection.settimeout(5)
                 try:
+                    connection.settimeout(5)
                     if not hasattr(socket, "SO_PEERCRED"):
                         raise LocalControlError("platform does not support Unix peer credentials")
                     credentials = connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12)
