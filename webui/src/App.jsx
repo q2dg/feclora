@@ -633,7 +633,7 @@ export default function App() {
       if (!pxeJobImageId.trim() || !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(pxeJobImageId.trim())) throw new Error("Enter a valid image ID.");
       if (!pxeJobRepositoryId || !/^[a-z0-9][a-z0-9-]{0,47}$/.test(pxeJobRepositoryId)) throw new Error("Select a configured repository ID.");
       const bindings = {};
-      for (const [index, line] of pxeJobTargetBindings.split(/\\r?\\n/).entries()) {
+      for (const [index, line] of pxeJobTargetBindings.split(/\r?\n/).entries()) {
         if (!line.trim()) continue;
         const [rawMac, rawWwn, rawSerial, ...extra] = line.split("|").map((value) => value.trim());
         const mac = rawMac?.toLowerCase();
@@ -652,7 +652,7 @@ export default function App() {
         repository_id: pxeJobRepositoryId, boot_method: "pxe", confirm_destructive: true,
         target_bindings: bindings,
       };
-      setPxeJobJson(JSON.stringify(job, null, 2) + "\\n");
+      setPxeJobJson(JSON.stringify(job, null, 2) + "\n");
       setPxeAnswerJobId(job.job_id);
       setPxeAnswerSource("editor");
       setPxeAnswerPublished(null);
