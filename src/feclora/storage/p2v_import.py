@@ -164,7 +164,8 @@ def import_p2v_qcow2(
     if isinstance(virtual_size, bool) or not isinstance(virtual_size, int) or virtual_size <= 0:
         raise P2VImportError("P2V sidecar has an invalid virtual disk size")
     logical_sector_size = metadata.get("logical_sector_size")
-    if isinstance(logical_sector_size, bool) or logical_sector_size not in {512, 4096}:
+    if (isinstance(logical_sector_size, bool) or not isinstance(logical_sector_size, int)
+            or logical_sector_size not in {512, 4096}):
         raise P2VImportError("P2V sidecar has an invalid or missing logical sector size")
     names = [f"{image_id}.disk.raw", f"{image_id}.sfdisk", f"{image_id}.manifest.json"]
     if any(os.path.lexists(repo / name) for name in names):
