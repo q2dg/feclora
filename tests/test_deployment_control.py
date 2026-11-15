@@ -1392,7 +1392,7 @@ class MulticastControlTests(unittest.TestCase):
         self.assertEqual(multicast_send.call_args.kwargs["firewall"], server.firewall)
 
 
-    def test_partial_multicast_start_fails_clients_already_started(self):
+    def test_partial_multicast_start_continues_for_clients_that_started(self):
         mac2 = "52:54:00:12:34:57"
         job = make_job(
             transport="multicast", authorized_clients=[MAC, mac2],
@@ -1428,19 +1428,21 @@ class MulticastControlTests(unittest.TestCase):
             with (
                 patch("feclora.deployment.control.ImageManifest.from_json", return_value=manifest),
                 patch("feclora.deployment.control.verify_artifact_file"),
+                patch("feclora.deployment.control.send_control_message") as send_offer,
+                patch("feclora.deployment.control.send_multicast_artifact") as send_data,
                 patch.object(server, "arm_and_start", return_value=(MAC,)),
-                patch.object(server, "collect_results") as collect,
+                patch.object(server, "collect_results", return_value={MAC: "succeeded", mac2: "disconnected"}) as collect,
             ):
-                with self.assertRaisesRegex(DeploymentControlError, "not every selected Client"):
-                    server.run_multicast_restore_job(
-                        directory, manifest_path, udpcast_config=config,
-                    )
-        server._record_transfer_failure.assert_called_once()
-        self.assertEqual(server._record_transfer_failure.call_args.args[0], MAC)
-        self.assertIn("before data transfer", server._record_transfer_failure.call_args.args[1])
-        collect.assert_not_called()
+                results = server.run_multicast_restore_job(
+                    directory, manifest_path, udpcast_config=config,
+                )
+        self.assertEqual(results[MAC], "succeeded")
+        send_offer.assert_called_once()
+        send_data.assert_called_once()
+        self.assertEqual(send_data.call_args.args[3].min_receivers, 1)
+        collect.assert_called_once()
 
-    def test_multicast_restore_fails_entire_cohort_if_client_disconnects_before_offer(self):
+    def test_multicast_restore_continues_when_one_client_disconnects_before_offer(self):
         mac2 = "52:54:00:12:34:57"
         job = make_job(
             transport="multicast", authorized_clients=[MAC, mac2],
@@ -1480,19 +1482,18 @@ class MulticastControlTests(unittest.TestCase):
                       side_effect=[None, OSError("Client control channel disconnected")]),
                 patch("feclora.deployment.control.send_multicast_artifact") as send_data,
                 patch.object(server, "arm_and_start", return_value=(MAC, mac2)),
+                patch.object(server, "collect_results", return_value={MAC: "succeeded", mac2: "failed"}) as collect,
             ):
-                with self.assertRaisesRegex(DeploymentControlError, "multicast restore transfer failed"):
-                    server.run_multicast_restore_job(
-                        directory, manifest_path, udpcast_config=config,
-                    )
-        self.assertEqual(server._record_transfer_failure.call_count, 2)
-        self.assertEqual(
-            {call.args[0] for call in server._record_transfer_failure.call_args_list},
-            {MAC, mac2},
-        )
-        self.assertTrue(all("control channel disconnected" in call.args[1]
-                            for call in server._record_transfer_failure.call_args_list))
-        send_data.assert_not_called()
+                results = server.run_multicast_restore_job(
+                    directory, manifest_path, udpcast_config=config,
+                )
+        self.assertEqual(results[MAC], "succeeded")
+        self.assertEqual(server._record_transfer_failure.call_count, 1)
+        self.assertEqual(server._record_transfer_failure.call_args.args[0], mac2)
+        self.assertIn("control channel disconnected", server._record_transfer_failure.call_args.args[1])
+        send_data.assert_called_once()
+        self.assertEqual(send_data.call_args.args[3].min_receivers, 1)
+        collect.assert_called_once()
 
     def test_multicast_restore_marks_every_client_failed_if_repository_disappears_during_send(self):
         mac2 = "52:54:00:12:34:57"
