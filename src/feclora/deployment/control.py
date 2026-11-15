@@ -328,24 +328,32 @@ class DeploymentControlServer:
                 tls_socket.close()
             except OSError:
                 pass
-        cleanup_error = None
+        cleanup_errors = []
         if self.firewall is not None and self.interface:
-            try:
-                if self._firewall_added:
+            if self._firewall_added:
+                try:
                     self.firewall.remove_ports(self.interface, self._firewall_added)
+                except Exception as exc:
+                    cleanup_errors.append(exc)
+                    self._record_listener_error(f"firewall port cleanup failed: {exc}")
+                else:
                     self._firewall_added = ()
-                if self._firewall_opened:
+            if self._firewall_opened:
+                try:
                     self.firewall.close(self.interface)
+                except Exception as exc:
+                    cleanup_errors.append(exc)
+                    self._record_listener_error(f"firewall zone cleanup failed: {exc}")
+                else:
                     self._firewall_opened = False
-            except Exception as exc:
-                cleanup_error = exc
-                self._record_listener_error(f"firewall cleanup failed: {exc}")
         callback = self._firewall_state_callback
+        if cleanup_errors:
+            # Keep the persisted ownership record while any firewall resource
+            # may still be active; recovery needs the original ownership data.
+            raise DeploymentControlError(
+                f"control firewall cleanup failed: {cleanup_errors[0]}"
+            ) from cleanup_errors[0]
         self._firewall_state_callback = None
-        if cleanup_error is not None:
-            # Keep the persisted ownership record on disk when cleanup failed:
-            # recovery must still know that this service may own an open zone.
-            raise DeploymentControlError(f"control firewall cleanup failed: {cleanup_error}") from cleanup_error
         if callback is not None:
             callback(None)
 
