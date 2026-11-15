@@ -27,7 +27,7 @@ from feclora.network.pxe_config import PXENetworkConfig
 from feclora.storage.image_manifest import ImageManifest, ManifestValidationError
 from feclora.storage.inventory import collect_inventory
 from feclora.storage.source_safety import check_capture_source_safe, SourceSafetyError
-from feclora.ui import dialog_app
+from feclora.ui import dialog
 
 
 CONFIG_PATH = "/etc/feclora/deployment-server.json"
@@ -59,7 +59,7 @@ def _flatten_devices(devices: Any) -> list[dict[str, Any]]:
 def _choose_job(
     config: ServerRuntimeConfig, interface: str,
 ) -> tuple[DeploymentJob, str | None, list[str]]:
-    transport = dialog_app._menu(
+    transport = dialog._menu(
         "Deployment transport",
         "Choose unicast or one-to-many multicast restore. Multicast supports whole-disk and partition images, including raw LUKS2 containers.",
         [
@@ -78,7 +78,7 @@ def _choose_job(
             ("clone", "Clone a Server disk or partition directly to one Client"),
         ]
     )
-    operation = dialog_app._menu(
+    operation = dialog._menu(
         "Deployment operation", "Choose the image operation.", operation_choices,
     )
     if operation is None:
@@ -93,7 +93,7 @@ def _choose_job(
             (manifest.image_id, f"{manifest.image_id} | {manifest.image_type} | {manifest.source_size_bytes:,} bytes")
             for _filename, manifest in images
         ]
-        image_id = dialog_app._menu(
+        image_id = dialog._menu(
             "Select image", "Images are checked against their manifest and SHA-256 digests before transfer.", choices,
         )
         if image_id is None:
@@ -107,7 +107,7 @@ def _choose_job(
             raise DeploymentControlError("selected image is no longer available")
         manifest_path = os.path.join(config.repository, selected_manifest)
     elif operation == "clone":
-        target_type = dialog_app._menu(
+        target_type = dialog._menu(
             "Clone source type", "Choose the Server-local source block-device type.",
             [("disk", "Whole disk"), ("partition", "Partition")],
         )
@@ -124,7 +124,7 @@ def _choose_job(
             raise DeploymentControlError(
                 f"no read-only Server {target_type} source is available for remote cloning"
             )
-        source_device = dialog_app._menu(
+        source_device = dialog._menu(
             "Server clone source",
             "Choose a source already marked read-only. Feclora will also check geometry and in-use state.",
             [(item["path"], f'{item["path"]} | {item.get("model") or expected_type} | {item.get("size_bytes", "?")} bytes') for item in sources],
@@ -137,13 +137,13 @@ def _choose_job(
             raise DeploymentControlError(f"clone source is unsafe or in use: {exc}") from exc
         image_id = None
     else:
-        target_type = dialog_app._menu(
+        target_type = dialog._menu(
             "Client capture source type", "Choose the source type to capture on the selected Client.",
             [("disk", "Whole disk"), ("logical_volume", "Logical volume")],
         )
         if target_type is None:
             raise DeploymentControlError("Client capture source type selection cancelled")
-        image_id = dialog_app._input("New image identifier", "Enter a unique image identifier:")
+        image_id = dialog._input("New image identifier", "Enter a unique image identifier:")
         if image_id is None:
             raise DeploymentControlError("image creation cancelled")
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
@@ -151,7 +151,7 @@ def _choose_job(
         if os.path.lexists(os.path.join(config.repository, image_id + ".manifest.json")):
             raise DeploymentControlError("an image with this identifier already exists")
 
-    mac_text = dialog_app._input(
+    mac_text = dialog._input(
         "Client MAC addresses",
         "Enter one unicast MAC address per line. MAC addresses identify job participants but are not credentials:",
     )
@@ -168,7 +168,7 @@ def _choose_job(
 
     target_bindings: dict[str, dict[str, str | None]] = {}
     if operation == "restore" and target_type == "disk":
-        bind_choice = dialog_app._menu(
+        bind_choice = dialog._menu(
             "Stable Client target binding",
             "Optional for this Remote jobs workflow. Bind each selected Client to its physical target by WWN and/or serial; transient /dev names are never used as identity.",
             [("bind", "Bind stable target identity for every selected Client"),
@@ -180,13 +180,13 @@ def _choose_job(
             raise DeploymentControlError("stable target-binding choice is invalid")
         if bind_choice == "bind":
             for mac in selected_macs:
-                wwn = dialog_app._input(
+                wwn = dialog._input(
                     "Client target WWN",
                     f"Enter the expected target WWN for Client {mac}; leave blank only if unavailable:",
                 )
                 if wwn is None:
                     raise DeploymentControlError("stable target binding was cancelled")
-                serial = dialog_app._input(
+                serial = dialog._input(
                     "Client target serial number",
                     f"Enter the expected target serial for Client {mac}; leave blank only if unavailable:",
                 )
@@ -203,12 +203,12 @@ def _choose_job(
     group = None
     port = None
     if transport == "multicast":
-        group = dialog_app._input(
+        group = dialog._input(
             "Multicast data group",
             "Enter an administratively scoped IPv4 multicast group (recommended 239.0.0.0/8):",
             "239.10.10.1",
         )
-        port_text = dialog_app._input(
+        port_text = dialog._input(
             "UDPcast port base",
             "Enter an even UDP port base between 1024 and 65534:",
             "9000",
@@ -293,7 +293,7 @@ def _review_previous_journals(directory: str) -> None:
                 "deployment journal " + path.name + " is corrupt or unsafe; refusing new jobs: " + str(exc)
             ) from exc
     for journal_path, job_id in interrupted:
-        choice = dialog_app._menu(
+        choice = dialog._menu(
             "Interrupted deployment recovery",
             f"Job {job_id} was interrupted. Feclora has replayed its verified journal, "
             "but deliberately has not recreated a session or resumed disk I/O. "
@@ -306,7 +306,7 @@ def _review_previous_journals(directory: str) -> None:
         )
         if choice != "reconcile":
             continue
-        confirmation = dialog_app._input(
+        confirmation = dialog._input(
             "Confirm manual recovery",
             f"Type exactly: RECONCILE {job_id}",
         )
@@ -335,7 +335,7 @@ def _review_previous_journals(directory: str) -> None:
             "refusing to arm a new job: " + ", ".join(pending)
         )
     if summaries:
-        dialog_app._message(
+        dialog._message(
             "Previous deployment journal review",
             "Journal events and per-client states were replayed from verified hash chains. "
             "Interrupted jobs are never resumed automatically. An operator reconciliation "
@@ -359,7 +359,7 @@ def run_deployment_server_ui(
         config = load_server_runtime_config(config_path)
         if created:
             fingerprint = ca_fingerprint(config.ca_file)
-            dialog_app._message(
+            dialog._message(
                 "Feclora deployment CA created",
                 "A local deployment CA and Server identity have been created. Record and verify this SHA-256 fingerprint; install the CA certificate and Server identity on each Client:\n\n"
                 + fingerprint + "\n\nThe CA private key stays on this Server. Back it up encrypted and offline. "
@@ -384,12 +384,12 @@ def run_deployment_server_ui(
             preflight = inspect_multicast_interface(
                 multicast_config.interface, multicast_config.data_group, role="sender",
             )
-            dialog_app._message(
+            dialog._message(
                 "Local multicast preflight",
                 f"Interface: {preflight.interface} ({preflight.ipv4_address})\nKernel route: {preflight.route_interface}\n\n"
                 + "\n".join(preflight.warnings),
             )
-            dialog_app._message(
+            dialog._message(
                 "Multicast network preflight",
                 f"Data group: {multicast_config.data_group}\n"
                 f"Rendezvous group: {multicast_config.rendezvous_group}\n"
@@ -403,7 +403,7 @@ def run_deployment_server_ui(
                 "Age encryption is optional and should be enabled when artifact confidentiality is required. The Server-authenticated TLS control session protects the manifest in transit. UDPcast itself does not encrypt or authenticate datagrams, so an on-path attacker can still observe metadata or cause denial of service. "
                 "Feclora will temporarily open only the two UDPcast ports and IGMP on this interface.",
             )
-            confirmation = dialog_app._input(
+            confirmation = dialog._input(
                 "Confirm multicast network readiness",
                 f"Type exactly: MULTICAST READY {job.job_id}",
             )
@@ -430,7 +430,7 @@ def run_deployment_server_ui(
             if job.operation == "clone"
             else f"Image: {job.image_id}"
         )
-        dialog_app._message(
+        dialog._message(
             "Deployment listener",
             f"Job: {job.job_id}\nOperation: {job.operation}\n{source_summary}\n"
             f"Selected Client MACs: {selected_mac_text}\nTransport: {job.transport}\nControl endpoint: {bound_address}:{port}\nJournal: {journal_path}\n"
@@ -446,7 +446,7 @@ def run_deployment_server_ui(
             ) or "No Client has connected yet."
             if control.listener_errors:
                 state_text += "\nRecent listener errors: " + " | ".join(control.listener_errors[-3:])
-            choice = dialog_app._menu(
+            choice = dialog._menu(
                 "Deployment job",
                 f"Job state: {coordinator.state.value}\n{state_text}\n\n"
                 f"Refresh to wait for {len(selected_macs)} selected Client(s), or explicitly arm the job.",
@@ -463,7 +463,7 @@ def run_deployment_server_ui(
             if choice == "arm":
                 expected_clients = len(job.authorized_clients)
                 if len(ready) != expected_clients or len(clients) != expected_clients:
-                    dialog_app._message(
+                    dialog._message(
                         "Clients not ready",
                         f"All {expected_clients} selected Client(s) must be READY before arming.",
                     )
@@ -478,18 +478,18 @@ def run_deployment_server_ui(
                     results = _run_unicast_job(
                         control, config, job, selected_macs[0], manifest_path,
                     )
-                dialog_app._message(
+                dialog._message(
                     "Deployment result",
                     f"Job state: {coordinator.state.value}\n"
                     + "\n".join(f"{mac}: {state}" for mac, state in results.items()),
                 )
                 return 0
     except Exception as exc:
-        dialog_app._message("Deployment setup failed", str(exc))
+        dialog._message("Deployment setup failed", str(exc))
         return 1
     finally:
         if control is not None:
             try:
                 control.stop()
             except DeploymentControlError as exc:
-                dialog_app._message("Control firewall cleanup warning", str(exc))
+                dialog._message("Control firewall cleanup warning", str(exc))
