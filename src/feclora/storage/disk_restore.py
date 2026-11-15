@@ -281,13 +281,14 @@ def _restore_qcow2_disk(
         raw_manifest_path = os.path.join(temporary, "image.manifest.json")
         with open(raw_manifest_path, "x", encoding="utf-8") as stream:
             stream.write(raw_manifest.to_json())
-        return restore_disk(
+        restore_disk(
             raw_manifest_path, temporary, target_path, confirmation=confirmation,
             executables=executables, device_validator=device_validator, runner=runner,
             popen_factory=popen_factory, target_safety_check=target_safety_check,
             effective_uid=effective_uid, progress_callback=progress_callback,
             pre_write_callback=pre_write_callback,
         )
+        return manifest
 
 
 def restore_disk(
