@@ -11,20 +11,36 @@ The PXE Server serves the Live kernel, initramfs and squashfs and publishes
 the JSON answer file through Caddy. It does not mount repositories, proxy
 image data, execute restoration, or receive client operation results.
 
-Both boot methods use the same answer schema, downloader, validator and Live
-restore client. The current answer URL is supplied dynamically:
+The canonical remote deployment definition is a schema-v1 DeploymentJob
+JSON document. Multicast jobs created from the ISO/Live workflow and new
+unattended PXE jobs use this same contract. The boot method and data transport
+are separate fields: boot_method describes how the Live system started, while
+transport describes how image data is delivered.
 
-- ISO: NetworkManager reads DHCP private option 224 from its active IPv4
-  lease. The ISO contains no Caddy address and needs no rebuild when the
-  server address or port changes.
-- PXE: the iPXE handoff passes the job-scoped answer URL directly to the same
-  Live service. The PXE DHCP proxy also advertises option 224 in its
-  PXE-specific response.
+- ISO/Live: the operator selects the Server network interface and configures
+  each Client's network before joining a deployment.
+- PXE: DHCP configures the Client network during boot, represented by
+  network_interface: "auto". The iPXE handoff supplies the job-specific HTTP
+  answer URL and the Client MAC used for authorization and stable target
+  lookup.
 
-The Live service runs after network-online on both ISO and PXE boots. It
-prefers an explicit PXE/kernel handoff; otherwise it looks for option 224.
-If no answer URL is supplied, it exits without changing the normal
-interactive Feclora session.
+For compatibility, the older schema-v2 unattended answer remains accepted
+by the ISO/PXE answer downloader. New PXE jobs should use the shared
+DeploymentJob schema and include boot_method: "pxe", automatic start,
+explicit destructive confirmation, an authorized client list and a stable
+WWN/serial target binding for each client.
+
+After the data has been staged and verified, the TLS unicast Client runtime,
+the multicast receiver and the PXE Live adapter all call the same
+manifest-backed restore dispatcher at
+src/feclora/deployment/restore_execution.py. Boot admission, target selection
+and transfer remain mode-specific; the disk/partition/logical-volume restore
+engines and their post-write verification are shared.
+
+The legacy ISO option-224 locator remains available for existing deployments.
+The PXE iPXE handoff passes its job-scoped answer URL directly to the Live
+service. If no unattended answer is supplied, the Live system remains in the
+normal interactive Feclora session.
 
 ## Caddy answer URL
 
@@ -104,10 +120,13 @@ PXE Server does not connect to, proxy or receive data from these repositories.
       mode and document upstream DHCP configuration for ProxyDHCP networks.
 - [x] Resolve answer repository IDs through the normal SSHFS, NFS, SMB/CIFS
       and S3 repository managers, without adding a second credential system.
-- [ ] Unify answer-driven execution with durable local operation history and
-      the normal unattended restore-profile safety/replay policy.
-- [ ] Run the automated test suite and add Live acceptance coverage for ISO/PXE
-      handoff, private repository credentials, target ambiguity/swap, interruption
-      and post-write verification.
+- [x] Use one schema-v1 DeploymentJob contract for PXE and ISO/Live remote jobs.
+- [x] Route PXE, authenticated unicast and multicast restores through the shared
+      manifest-backed restore dispatcher.
+- [x] Preserve legacy schema-v2 PXE answer compatibility during migration.
+- [ ] Run physical ISO/PXE acceptance with DHCP, repository credentials,
+      target ambiguity/swap, interruption and post-write verification.
 
-No test suite or ISO build has been run as part of these source changes.
+Automated Python tests and frontend build run in GitHub Actions. These tests do
+not replace acceptance on real PXE firmware, physical NICs, repositories and
+block devices; no physical-device deployment has been claimed as tested.
