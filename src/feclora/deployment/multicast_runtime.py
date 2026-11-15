@@ -83,7 +83,6 @@ def execute_multicast_restore(
     tls_socket: Any,
     approval: LocalTargetApproval,
     *,
-    server_identity: str,
     repository: str | os.PathLike[str],
     firewall: Any,
     network_interface: str | None = None,
