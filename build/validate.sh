@@ -169,6 +169,10 @@ for package in python3-libguestfs; do
   grep -qx "$package" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include $package."
 done
 
+grep -q '"browse_image"' "$ROOT_DIR/webui/src/api.js" || fail "Cockpit API action allowlist is missing browse_image."
+grep -q 'inspect_image_layout|browse_image' "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Privileged Cockpit wrapper is missing browse_image."
+grep -q 'if action == "browse_image"' "$ROOT_DIR/src/feclora/webapi.py" || fail "Read-only image browser API dispatch is missing."
+
 grep -qx "qemu-img" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include qemu-img."
 grep -qx "qemu-img" "$ROOT_DIR/kickstart/feclora-live.ks" || fail "Kickstart does not include qemu-img."
 grep -qx "xorriso" "$ROOT_DIR/packages/base.txt" || fail "Runtime package list does not include xorriso."
