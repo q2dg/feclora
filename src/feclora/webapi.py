@@ -702,8 +702,8 @@ def _inspect_image_layout_from_repository(params: dict[str, Any], repository: Pa
     if manifest.image_type != "disk":
         raise WebAPIError("layout inspection requires a whole-disk image")
     disk_artifacts = [item for item in manifest.artifacts if item.role == "disk-image"]
-    if len(disk_artifacts) != 1 or disk_artifacts[0].format != "raw":
-        raise WebAPIError("whole-disk image must contain exactly one raw disk-image artifact")
+    if len(disk_artifacts) != 1 or disk_artifacts[0].format not in {"raw", "qcow2"}:
+        raise WebAPIError("whole-disk image must contain exactly one raw or QCOW2 disk-image artifact")
     table_artifacts = [item for item in manifest.artifacts if item.role == "partition-table"]
     if len(table_artifacts) != 1 or table_artifacts[0].format != "raw":
         raise WebAPIError("whole-disk image must contain exactly one raw partition-table artifact")
@@ -798,21 +798,64 @@ def _verify_image_from_repository(params: dict[str, Any], repository: Path) -> d
             else:
                 identity_file = identities[0] if artifact.encryption == "age" else None
             decoded_bytes = 0
-            with _verified_artifact_stream(
-                str(repository), artifact, identity_file, shutil.which("age"),
-            ) as verified_stream:
-                decoded_stream = _decoded_stream(verified_stream, artifact.compression)
-                try:
-                    while True:
-                        chunk = decoded_stream.read(1024 * 1024)
-                        if not chunk:
-                            break
-                        decoded_bytes += len(chunk)
-                    if hasattr(decoded_stream, "finish"):
-                        decoded_stream.finish()
-                finally:
-                    if decoded_stream is not verified_stream:
-                        decoded_stream.close()
+            if artifact.format == "qcow2":
+                qemu_img = shutil.which("qemu-img")
+                if not qemu_img or artifact.role != "disk-image":
+                    raise WebAPIError("qemu-img is required to verify a QCOW2 whole-disk artifact")
+                with tempfile.TemporaryDirectory(prefix="feclora-verify-qcow2-") as temporary:
+                    staged = Path(temporary) / "image.qcow2"
+                    with _verified_artifact_stream(
+                        str(repository), artifact, identity_file, shutil.which("age"),
+                    ) as verified_stream, staged.open("xb") as output:
+                        shutil.copyfileobj(verified_stream, output, 1024 * 1024)
+                    check = subprocess.run(
+                        [qemu_img, "check", "-f", "qcow2", str(staged)],
+                        stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                        check=False, timeout=24 * 60 * 60,
+                    )
+                    if check.returncode != 0:
+                        raise WebAPIError("qemu-img check rejected the QCOW2 artifact")
+                    info_result = subprocess.run(
+                        [qemu_img, "info", "--output=json", str(staged)],
+                        stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                        check=False, timeout=60,
+                    )
+                    if info_result.returncode != 0:
+                        raise WebAPIError("qemu-img info could not inspect the QCOW2 artifact")
+                    try:
+                        info = json.loads(info_result.stdout)
+                    except (TypeError, json.JSONDecodeError) as exc:
+                        raise WebAPIError("qemu-img returned invalid QCOW2 metadata") from exc
+                    format_specific = info.get("format-specific") if isinstance(info, dict) else None
+                    format_data = format_specific.get("data", {}) if isinstance(format_specific, dict) else {}
+                    external_data_file = info.get("data-file") if isinstance(info, dict) else None
+                    if isinstance(format_data, dict):
+                        external_data_file = external_data_file or format_data.get("data-file")
+                    if (not isinstance(info, dict) or info.get("format") != "qcow2"
+                            or isinstance(info.get("virtual-size"), bool)
+                            or not isinstance(info.get("virtual-size"), int)
+                            or info.get("virtual-size") != manifest.source_size_bytes
+                            or info.get("backing-filename") or info.get("full-backing-filename")
+                            or external_data_file or info.get("encrypted") is True
+                            or (isinstance(format_data, dict) and format_data.get("encrypted") is True)):
+                        raise WebAPIError("QCOW2 dependencies or virtual capacity disagree with the manifest")
+                decoded_bytes = manifest.source_size_bytes
+            else:
+                with _verified_artifact_stream(
+                    str(repository), artifact, identity_file, shutil.which("age"),
+                ) as verified_stream:
+                    decoded_stream = _decoded_stream(verified_stream, artifact.compression)
+                    try:
+                        while True:
+                            chunk = decoded_stream.read(1024 * 1024)
+                            if not chunk:
+                                break
+                            decoded_bytes += len(chunk)
+                        if hasattr(decoded_stream, "finish"):
+                            decoded_stream.finish()
+                    finally:
+                        if decoded_stream is not verified_stream:
+                            decoded_stream.close()
             if (
                 artifact.role == "disk-image"
                 or (artifact.role == "partition-image" and artifact.format == "raw")
@@ -841,7 +884,7 @@ def _verify_image_from_repository(params: dict[str, Any], repository: Path) -> d
         "artifact_count": len(artifact_reports), "total_decoded_bytes": total_decoded,
         "artifacts": artifact_reports,
         "verified": True,
-        "message": "All stored artifact SHA-256 digests, age authentication and compression streams were verified. This is a read-only check.",
+        "message": "All stored artifact SHA-256 digests, age authentication, compression streams and QCOW2 structures were verified. This is a read-only check.",
     }
 
 
