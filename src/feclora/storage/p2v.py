@@ -129,7 +129,11 @@ def convert_block_device_to_qcow2(
             source_safety_check(source_path)
         with temporary.open("rb") as stream:
             os.fsync(stream.fileno())
-        os.replace(temporary, destination)
+        # Hard-link publication is atomic and fails if another worker has
+        # created the destination since the initial existence check. os.replace
+        # would silently overwrite that concurrent output.
+        os.link(temporary, destination)
+        temporary.unlink()
         directory_fd = os.open(destination.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
             os.fsync(directory_fd)
