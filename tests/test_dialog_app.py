@@ -1,6 +1,6 @@
 import unittest
 
-from feclora.ui.dialog_app import device_details
+from feclora.ui.dialog import device_details
 
 
 class DeviceDetailsTests(unittest.TestCase):
