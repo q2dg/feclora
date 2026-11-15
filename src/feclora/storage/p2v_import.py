@@ -211,7 +211,7 @@ def import_p2v_qcow2(
         loop_device = None
         try:
             attached = _run(
-                [losetup, "--find", "--show", "--partscan", "--read-only", str(raw_path)], runner,
+                [losetup, "--find", "--show", "--partscan", "--read-only", "--sector-size", str(logical_sector_size), str(raw_path)], runner,
             )
             loop_device = (getattr(attached, "stdout", "") or "").strip()
             import re
