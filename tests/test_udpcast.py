@@ -36,6 +36,15 @@ class UDPcastConfigTests(unittest.TestCase):
         self.assertIn("/tmp/staged", receiver)
         self.assertNotIn("/dev/sda", receiver)
 
+    def test_sender_requires_configured_receiver_count_before_timeout(self):
+        config = UDPcastConfig(
+            "enp1s0", "239.10.10.1", "239.10.10.2",
+            portbase=9000, min_receivers=4, max_wait_seconds=180,
+        )
+        argv = build_sender_argv("/usr/bin/udp-sender", "/repo/disk.img", config)
+        self.assertEqual(argv[argv.index("--min-receivers") + 1], "4")
+        self.assertEqual(argv[argv.index("--max-wait") + 1], "180")
+
     def test_physical_stream_commands_use_pipes_without_file_or_device_paths(self):
         sender = build_physical_stream_sender_argv("/usr/bin/udp-sender", self.config)
         receiver = build_physical_stream_receiver_argv("/usr/bin/udp-receiver", self.config)
