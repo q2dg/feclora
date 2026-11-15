@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import io
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -38,8 +39,8 @@ def capture_qcow2_disk(
     runner=subprocess.run,
 ) -> ImageManifest:
     """Capture an offline physical disk as a normal Feclora QCOW2 image set."""
-    if not isinstance(image_id, str) or not image_id or len(image_id) > 128:
-        raise QCOW2CaptureError("image_id must be a non-empty safe identifier")
+    if not isinstance(image_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", image_id):
+        raise QCOW2CaptureError("image_id must be a simple safe identifier")
     repo = Path(repository)
     try:
         repo_info = os.lstat(repo)
