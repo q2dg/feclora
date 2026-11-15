@@ -54,8 +54,9 @@ authenticated transport form the trust boundary. Age encryption is optional.
   provider integration with acceptance against live services.
 - **PXE:** improve unattended answer failure-path coverage and any remaining
   Server-side result reconciliation only if the product contract requires it.
-  The current answer workflow keeps operation history on the Live Client and
-  the PXE Server serves boot assets and answer JSON only.
+  The Live Client keeps its operation history and sends best-effort operational
+  telemetry to the PXE Server. The Server serves boot assets and answer JSON;
+  it does not mount or proxy image repositories or store image data.
 - **Quality and distribution:** frontend direct dependencies and the
   transitive dependency graph are pinned in `webui/package.json` and
   `webui/package-lock.json`; CI and the ISO frontend build use `npm ci`.
