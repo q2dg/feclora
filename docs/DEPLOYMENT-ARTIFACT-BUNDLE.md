@@ -13,13 +13,13 @@ The output is a versioned bundle with integrity metadata. The ISO, image and ans
 ## Keep the artifact roles distinct
 
 - The Live ISO contains the generic Feclora runtime. It must not contain repository credentials, age identities, passphrases, private keys or per-machine target data.
-- The image is a Feclora image set with a validated manifest and all referenced artifacts. A P2V QCOW2 plus `.p2v.json` is a separate artifact type today; it is not automatically a Feclora raw/Partclone restore image. Do not silently pass QCOW2 to the disk restore engine. A future explicit QCOW2-to-restore-image conversion/import step must validate guest disk layout and publish a normal Feclora image set.
+- The image is a Feclora image set with a validated manifest and all referenced artifacts. A P2V QCOW2 plus `.p2v.json` is a separate artifact type until the explicit `import_p2v` operation verifies the sidecar and QCOW2, rejects external backing dependencies, converts the virtual disk to raw sectors, preserves the recorded logical sector size, creates a native disk manifest and atomically publishes a new Feclora image set. The imported image is selectable by the existing disk restore engine; guest bootability is still not guaranteed.
 - The answer is one schema-v1 `DeploymentJob` JSON document for every Client. It contains the managed repository/image references, operation and transport, authorized MAC addresses, stable `target_bindings`, and explicit destructive authorization. It contains no credentials, arbitrary commands or per-client answer copies.
 
 ## Target workflow
 
 1. Build or select a Feclora Live ISO from pinned Fedora/Kickstart/application inputs. Record source revision, Fedora release, architecture, build-tool versions and ISO SHA-256.
-2. Select an existing compatible Feclora image or capture one through the existing capture workflow. For P2V, first produce and verify the physical-source QCOW2 and sidecar; only offer it as a deployment image after an explicit, tested conversion/import path has produced a Feclora-restorable image set.
+2. Select an existing compatible Feclora image or capture one through the existing capture workflow. For P2V, first produce and verify the physical-source QCOW2 and sidecar, then run `import_p2v` into a new Feclora disk image ID before selecting it for deployment. The import preserves disk bytes and sector geometry but records the partition-table type as unknown and does not repair guest boot dependencies.
 3. Construct the single shared schema-v1 answer from the selected image manifest and deployment settings. Validate that every authorized MAC has exactly one stable target binding, that the image and repository exist, and that multicast has the required receiver set and configuration.
 4. Validate the ISO, image manifest and all artifacts, answer schema, cross-references, sizes and SHA-256 values. Reject mismatched image IDs, missing artifacts, unsupported image types, incomplete target bindings and unsafe output paths.
 5. Stage the complete output in a private temporary directory. Publish atomically only after all checks succeed. Never overwrite an existing bundle without an explicit, separate replacement workflow.
@@ -38,7 +38,7 @@ The bundle generator must make answer delivery explicit: either include the shar
 Already present in source:
 - Fedora Live ISO build inputs and `build/build-iso.sh`.
 - Feclora disk/partition image capture, manifest validation and repository publication.
-- P2V QCOW2 conversion, sidecar publication and S3-to-filesystem export. Conversion alone does not repair guest drivers, initramfs or boot configuration.
+- P2V QCOW2 conversion, sidecar publication, S3-to-filesystem export and explicit QCOW2-to-native-disk import. Import validates the QCOW2 and sidecar, rejects backing/data-file dependencies, converts to raw sectors, records source logical sector geometry, writes a standard Feclora disk manifest and atomically publishes without overwriting. It records partition-table type as unknown and does not repair guest drivers, initramfs, bootloader or UEFI/BIOS configuration.
 - Shared schema-v1 unattended answer and ISO/USB/PXE Client runtime, including one-job multicast coordination.
 - A separate recovery-ISO builder that embeds an existing image and a target-bound, single-machine recovery answer under `/FECLORA/RECOVERY`; boot-time discovery and restore dispatch for that recovery format remain unfinished. This legacy recovery answer is not the shared schema-v1 `DeploymentJob` used for unattended fleet restore and must not be substituted for it. The coordinated bundle workflow must generate the one shared answer unchanged for every Client, with per-MAC target bindings inside that same document.
 
@@ -49,10 +49,10 @@ Implemented bundle engine and durable Cockpit operation:
 - Automated unit tests cover bundle assembly, cross-reference failures, corrupt artifacts, missing bindings, existing outputs and worker/API validation; execution/CI status must be checked separately.
 
 Still not implemented:
-- Cockpit/API worker integration that builds or selects the ISO, image and answer and invokes the bundle engine as one operator workflow. The current builder consumes pre-existing inputs; it does not run `build/build-iso.sh`, capture an image or create repository records.
+- Full guided source preparation: the current Cockpit operation selects an existing ISO and native disk image, while image capture/import and shared-answer generation remain separate steps. It does not invoke `build/build-iso.sh` or capture a physical source as part of the same wizard.
 - A supported answer-file import/discovery mechanism for a bundle carried on USB/removable media, or a fully orchestrated publication through the existing answer endpoint.
 - End-to-end integration/fault-injection coverage for interrupted staging, concurrent publication, stale repository/image references and actual multicast deployment.
-- QCOW2-to-Feclora-image import remains a separate prerequisite; P2V output cannot be passed to this builder as a restore image.
+- The imported native image is now eligible for this builder after its manifest and artifacts pass normal validation. VM boot repair and hypervisor acceptance remain separate.
 
 ## Acceptance criteria
 
@@ -61,6 +61,6 @@ Still not implemented:
 - The ISO is generic and contains no repository secrets or deployment-specific destructive target data.
 - Exactly one answer file is generated and all Clients receive byte-identical JSON.
 - Every authorized Client has exactly one stable WWN/serial target binding; no device path is embedded in the answer.
-- Image type and manifest are compatible with the selected restore engine. P2V QCOW2 is rejected unless an explicit conversion/import path has completed.
+- Image type and manifest are compatible with the selected restore engine. P2V QCOW2 is rejected; use `import_p2v` to create a new Feclora disk image set first.
 - The answer can be delivered through the existing trusted mechanism without new PXE authentication infrastructure.
 - Unit/fault-injection tests cover all validation and publication failure paths. ISO creation, firmware boot, repository-provider behavior and real multi-host multicast remain separate maintainer-run acceptance tests.
