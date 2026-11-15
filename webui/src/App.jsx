@@ -446,7 +446,7 @@ export default function App() {
 
   const selectImageRepository = async (id) => {
     setSelectedRepositoryId(id); setRepositoryImages([]); setImageVerification({});
-    setExtractLayout(null); setExtractPartitionSelector(""); setExtractPartitionResult(null);
+    setExtractLayout(null); setExtractPartitionSelector(""); setExtractPartitionResult(null); setBrowsePath("/"); setBrowseResult(null);
     setRestoreLayoutPreview(null);
     if (!id) return;
     setBusy(true); setError(""); setNotice("");
