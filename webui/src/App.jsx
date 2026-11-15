@@ -1161,7 +1161,7 @@ export default function App() {
                       <Field t={t} label={t("Whole-disk restore image")}>
                         <select className="pf-v6-c-form-control" value={imageId} disabled={busy || !selectedRepositoryId} onChange={(e) => setImageId(e.target.value)} required>
                           <option value="">{t("Select a disk image…")}</option>
-                          {availableImages.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
+                          {availableImages.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}{item.image_format ? ` · ${item.image_format.toUpperCase()}` : ""}</option>)}
                         </select>
                       </Field>
                       <Field t={t} label={t("Bundle directory name")} help="A new directory is created in the selected repository. Existing directories are never overwritten.">
