@@ -749,6 +749,64 @@ def _inspect_image_layout_from_repository(params: dict[str, Any], repository: Pa
     }
 
 
+
+def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
+    required = {"image_id", "partition_index", "path"}
+    if set(params) not in (required, required | {"repository_id"}, required | {"download"}, required | {"repository_id", "download"}):
+        raise WebAPIError("browse_image requires image_id, partition_index and path, with optional repository_id and download")
+    image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+    partition_index = params.get("partition_index")
+    if isinstance(partition_index, bool) or not isinstance(partition_index, int) or not 1 <= partition_index <= 256:
+        raise WebAPIError("partition_index must be an integer between 1 and 256")
+    guest_path = params.get("path")
+    if not isinstance(guest_path, str) or len(guest_path) > 4096 or "\\x00" in guest_path:
+        raise WebAPIError("path must be a string of at most 4096 characters")
+    download = params.get("download", False)
+    if not isinstance(download, bool):
+        raise WebAPIError("download must be boolean")
+    with _operation_repository_context(params, write=False, image_id=image_id) as repository:
+        manifest_path = _image_manifest(image_id, repository)
+        try:
+            manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise WebAPIError(f"cannot read selected disk image manifest: {exc}") from exc
+        if manifest.image_id != image_id or manifest.image_type != "disk":
+            raise WebAPIError("image browsing requires the selected whole-disk image")
+        encrypted = any(item.role == "disk-image" and item.encryption == "age" for item in manifest.artifacts)
+        identity_paths: list[Path] = []
+        pki = Path("/etc/feclora/pki")
+        security = _security_material()
+        if security["age_decryption_available"]:
+            identity_paths.append(pki / "server.age")
+        client_config = _client_runtime_config()
+        if client_config and client_config.age_identity_file:
+            identity_paths.append(Path(client_config.age_identity_file))
+        if encrypted and not identity_paths:
+            raise WebAPIError("age-encrypted image requires a configured age identity")
+        identity_context = tempfile.TemporaryDirectory(prefix="feclora-image-browser-identities-") if encrypted and len(identity_paths) > 1 else None
+        try:
+            if identity_context:
+                identity_file = Path(identity_context.name) / "identities.txt"
+                identity_file.write_text(
+                    "\\n".join(item.read_text(encoding="ascii").strip() for item in identity_paths) + "\\n",
+                    encoding="ascii",
+                )
+                os.chmod(identity_file, 0o600)
+            else:
+                identity_file = identity_paths[0] if encrypted else None
+            from feclora.storage.image_browser import ImageBrowserError, browse_image
+            try:
+                return browse_image(
+                    manifest_path, repository, partition_index, guest_path,
+                    download=download, age_identity_file=identity_file,
+                )
+            except ImageBrowserError as exc:
+                raise WebAPIError(str(exc)) from exc
+        finally:
+            if identity_context:
+                identity_context.cleanup()
+
+
 def _verify_image(params: dict[str, Any]) -> dict[str, Any]:
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
     with _operation_repository_context(params, write=False, image_id=image_id) as repository:
@@ -3555,6 +3613,8 @@ def dispatch(request: Any) -> dict[str, Any]:
         return {"images": _images(_text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}"))}
     if action == "inspect_image_layout":
         return _inspect_image_layout(params)
+    if action == "browse_image":
+        return _browse_image(params)
     if action == "verify_image":
         return _verify_image(params)
     if action == "operations":
