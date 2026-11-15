@@ -30,6 +30,47 @@ class DeploymentJobTests(unittest.TestCase):
         self.assertTrue(job.authorizes_client("52:54:00:12:34:AB"))
         self.assertFalse(job.authorizes_client("52:54:00:12:34:AC"))
 
+    def test_pxe_boot_job_uses_auto_network_and_per_client_stable_targets(self):
+        payload = valid_job(
+            transport="unicast",
+            network_interface="auto",
+            repository_id="nas-images",
+            boot_method="pxe",
+            start_policy="automatic",
+            target_bindings={
+                "52:54:00:12:34:56": {"wwn": "wwn-client-1", "serial": None},
+                "52:54:00:12:34:57": {"wwn": None, "serial": "client-2-disk"},
+            },
+        )
+        job = DeploymentJob.from_dict(payload)
+        self.assertEqual(job.boot_method, "pxe")
+        self.assertEqual(job.network_interface, "auto")
+        self.assertEqual(DeploymentJob.from_json(job.to_json()), job)
+        self.assertEqual(DeploymentJob.from_json(job.to_json()).to_dict()["boot_method"], "pxe")
+
+    def test_pxe_boot_job_rejects_missing_client_binding_or_nonautomatic_start(self):
+        base = valid_job(
+            transport="unicast",
+            network_interface="auto",
+            repository_id="nas-images",
+            boot_method="pxe",
+            start_policy="automatic",
+            target_bindings={
+                "52:54:00:12:34:56": {"wwn": "wwn-client-1", "serial": None},
+                "52:54:00:12:34:57": {"wwn": "wwn-client-2", "serial": None},
+            },
+        )
+        missing_binding = dict(base)
+        missing_binding["target_bindings"] = {
+            "52:54:00:12:34:56": {"wwn": "wwn-client-1", "serial": None}
+        }
+        with self.assertRaisesRegex(JobValidationError, "every authorized Client"):
+            DeploymentJob.from_dict(missing_binding)
+        manual = dict(base)
+        manual["start_policy"] = "manual"
+        with self.assertRaisesRegex(JobValidationError, "PXE jobs must start automatically"):
+            DeploymentJob.from_dict(manual)
+
     def test_json_round_trip_is_canonical(self):
         job = DeploymentJob.from_dict(valid_job())
         decoded = DeploymentJob.from_json(job.to_json())
