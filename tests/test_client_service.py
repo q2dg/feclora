@@ -305,6 +305,10 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 kwargs["pre_write_callback"]()
                 return True, "restore completed"
 
+            def fake_multicast(*args, **kwargs):
+                kwargs["pre_write_callback"]()
+                return True, "multicast restore completed"
+
             def fake_join(host, port, context, **kwargs):
                 approval = kwargs["prepare_local_target"](job)
                 self.assertEqual(approval.device_path, DEVICE)
@@ -404,7 +408,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                  mock.patch("feclora.deployment.client_service.shutil.disk_usage", return_value=SimpleNamespace(free=1024 * 1024 * 1024)), \\
                  mock.patch("feclora.deployment.client_service.check_capture_source_safe"), \\
                  mock.patch("feclora.deployment.client_service.os.stat", side_effect=lambda path, *args, **kwargs: block_info if os.fspath(path) == DEVICE else real_stat(path, *args, **kwargs)), \\
-                 mock.patch("feclora.deployment.client_service.execute_multicast_restore", return_value=(True, "multicast restore completed")) as execute, \\
+                 mock.patch("feclora.deployment.client_service.execute_multicast_restore", side_effect=fake_multicast) as execute, \\
                  mock.patch("feclora.deployment.client_service.join_deployment", side_effect=fake_join) as join:
                 service.run()
 
