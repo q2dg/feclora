@@ -160,6 +160,11 @@ export default function App() {
   const [pxePreflight, setPxePreflight] = useState(null);
   const [pxeProfile, setPxeProfile] = useState(null);
   const [pxeAnswerFile, setPxeAnswerFile] = useState(null);
+  const [pxeAnswerJobId, setPxeAnswerJobId] = useState("");
+  const [pxeJobImageId, setPxeJobImageId] = useState("");
+  const [pxeJobRepositoryId, setPxeJobRepositoryId] = useState("");
+  const [pxeJobTargetBindings, setPxeJobTargetBindings] = useState("");
+  const [pxeJobJson, setPxeJobJson] = useState("");
   const [pxeAnswerSource, setPxeAnswerSource] = useState("upload");
   const [pxeAnswerURL, setPxeAnswerURL] = useState("");
   const [pxeAnswerRepositoryId, setPxeAnswerRepositoryId] = useState("");
@@ -623,28 +628,81 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const generatePXEDeploymentJob = () => {
+    try {
+      if (!pxeJobImageId.trim() || !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(pxeJobImageId.trim())) throw new Error("Enter a valid image ID.");
+      if (!pxeJobRepositoryId || !/^[a-z0-9][a-z0-9-]{0,47}$/.test(pxeJobRepositoryId)) throw new Error("Select a configured repository ID.");
+      const bindings = {};
+      for (const [index, line] of pxeJobTargetBindings.split(/\\r?\\n/).entries()) {
+        if (!line.trim()) continue;
+        const [rawMac, rawWwn, rawSerial, ...extra] = line.split("|").map((value) => value.trim());
+        const mac = rawMac?.toLowerCase();
+        if (extra.length || !/^(?:[0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(mac || "")) throw new Error("Line " + (index + 1) + ": enter MAC|WWN|SERIAL.");
+        if ((!rawWwn && !rawSerial) || (rawWwn && rawWwn.length > 256) || (rawSerial && rawSerial.length > 256)) throw new Error("Line " + (index + 1) + ": enter a WWN, serial number, or both.");
+        if (bindings[mac]) throw new Error("Duplicate client MAC: " + mac);
+        bindings[mac] = { wwn: rawWwn || null, serial: rawSerial || null };
+      }
+      const clients = Object.keys(bindings).sort();
+      if (!clients.length) throw new Error("Add at least one client and its stable target-disk identity.");
+      const job = {
+        schema_version: 1, job_id: crypto.randomUUID(), operation: "restore",
+        image_id: pxeJobImageId.trim(), target_type: "disk", authorized_clients: clients,
+        network_interface: "auto", transport: "unicast", multicast_group: null, multicast_port: null,
+        start_policy: "automatic", expected_clients: null, start_deadline: null,
+        repository_id: pxeJobRepositoryId, boot_method: "pxe", confirm_destructive: true,
+        target_bindings: bindings,
+      };
+      setPxeJobJson(JSON.stringify(job, null, 2) + "\\n");
+      setPxeAnswerJobId(job.job_id);
+      setPxeAnswerSource("editor");
+      setPxeAnswerPublished(null);
+      setNotice("Shared DeploymentJob JSON generated. Review it, save it if needed, then publish it.");
+      setError("");
+    } catch (err) { setError(err?.message || String(err)); }
+  };
+
+  const downloadPXEDeploymentJob = () => {
+    if (!pxeJobJson) return;
+    const blob = new Blob([pxeJobJson], { type: "application/json" });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "feclora-deployment-job.json";
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   const publishPXEAnswer = async () => {
     setBusy(true); setError(""); setNotice(""); setPxeAnswerPublished(null);
     try {
-      const request = { job_id: crypto.randomUUID(), source: pxeAnswerSource };
-      if (pxeAnswerSource === "upload") {
-        if (!pxeAnswerFile) throw new Error("Select a local JSON answer file.");
-        if (pxeAnswerFile.size < 1 || pxeAnswerFile.size > 64 * 1024) throw new Error("The answer file must be between 1 byte and 64 KiB.");
+      const request = { job_id: pxeAnswerJobId.trim() || crypto.randomUUID(), source: pxeAnswerSource };
+      const encodeJSON = (value) => {
+        const bytes = new TextEncoder().encode(value);
+        let binary = "";
+        for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+        return window.btoa(binary);
+      };
+      if (pxeAnswerSource === "editor") {
+        if (!pxeJobJson.trim()) throw new Error("Generate or import a shared DeploymentJob JSON document first.");
+        const parsed = JSON.parse(pxeJobJson);
+        if (parsed.schema_version !== 1 || parsed.boot_method !== "pxe" || !parsed.job_id) throw new Error("The editor must contain a valid shared PXE DeploymentJob.");
+        request.job_id = parsed.job_id;
+        request.source = "upload";
+        request.answer_base64 = encodeJSON(pxeJobJson);
+      } else if (pxeAnswerSource === "upload") {
+        if (!pxeAnswerFile) throw new Error("Select a local JSON DeploymentJob or legacy PXE answer file.");
+        if (pxeAnswerFile.size < 1 || pxeAnswerFile.size > 64 * 1024) throw new Error("The JSON file must be between 1 byte and 64 KiB.");
         const answerBuffer = await pxeAnswerFile.arrayBuffer();
-        const encode = (buffer) => {
-          const bytes = new Uint8Array(buffer);
-          let binary = "";
-          for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-            binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-          }
-          return window.btoa(binary);
-        };
-        request.answer_base64 = encode(answerBuffer);
+        const answerText = await pxeAnswerFile.text();
+        try { const parsed = JSON.parse(answerText); if (parsed.schema_version === 1 && parsed.boot_method === "pxe") request.job_id = parsed.job_id; } catch { /* server returns the detailed JSON validation error */ }
+        request.answer_base64 = encodeJSON(new TextDecoder().decode(answerBuffer));
       } else if (pxeAnswerSource === "url") {
         if (!pxeAnswerURL.trim()) throw new Error("Enter an HTTP or HTTPS URL.");
+        if (!pxeAnswerJobId.trim()) throw new Error("Enter the DeploymentJob UUID contained in the remote JSON file.");
         request.url = pxeAnswerURL.trim();
       } else if (pxeAnswerSource === "repository" || pxeAnswerSource === "scp") {
         if (!pxeAnswerRepositoryId) throw new Error("Select a configured image repository.");
+        if (!pxeAnswerJobId.trim()) throw new Error("Enter the DeploymentJob UUID contained in the remote JSON file.");
         if (!pxeAnswerRepositoryPath.trim()) throw new Error("Enter the relative path to the JSON answer file.");
         request.repository_id = pxeAnswerRepositoryId;
         request.source_path = pxeAnswerRepositoryPath.trim();
@@ -1497,20 +1555,40 @@ export default function App() {
               <StackItem>
                 <Card><CardBody>
                   <Title headingLevel="h3" size="lg">{t("Publish unattended PXE answer")}</Title>
-                  <p>Upload the prewritten JSON answer. The repository is selected by its <code>repository_id</code> field and must already be configured in the Live client through Feclora's normal repository manager. The Server validates the JSON and publishes it through Caddy over HTTP. The answer contains no URLs, credential references or secrets.</p>
-                  <Alert variant="warning" title={t("Destructive operation guard")} isInline>The PXE Live client trusts the answer delivered by this HTTP server. When a client boots the unattended iPXE entry, a matching whole disk is restored automatically. The Live client resolves the selected repository through its normal Feclora managers: SSHFS, NFS, SMB/CIFS and S3, using credentials already protected in the Live configuration. No credential handoff or per-client identity is introduced. Images may be unencrypted or age-encrypted with a symmetric passphrase entered locally in Live Cockpit. Test only with disposable target disks.</Alert>
+                  <p>Import or generate a shared DeploymentJob JSON document. The same schema is used for PXE and ISO/multicast jobs; PXE changes only the boot method and network preflight. The Server validates the document before publishing it through Caddy over HTTP. The file contains no URLs, credential references or secrets.</p>
+                  <Alert variant="warning" title={t("Destructive operation guard")} isInline>The shared PXE DeploymentJob explicitly confirms unattended destructive restore and binds each authorized client MAC to a stable WWN and/or serial number. MAC addresses are operational identifiers, not authentication credentials. The Live client resolves the selected repository through its normal Feclora managers and rechecks the disk identity immediately before writing. Images may be age-encrypted; the passphrase is entered locally in Live Cockpit. Test only with disposable target disks.</Alert>
                   <Field t={t} label={t("Answer file source")}>
                     <select className="pf-v6-c-form-control" value={pxeAnswerSource} onChange={(event) => { setPxeAnswerSource(event.target.value); setPxeAnswerRepositoryId(""); setPxeAnswerPublished(null); }}>
+                      <option value="editor">{t("Build shared DeploymentJob")}</option>
                       <option value="upload">{t("Local file upload")}</option>
                       <option value="url">{t("HTTP or HTTPS URL")}</option>
                       <option value="repository">{t("Configured image repository")}</option>
                       <option value="scp">{t("SCP over SSH (saved credentials)")}</option>
                     </select>
                   </Field>
+                  {pxeAnswerSource === "editor" && <>
+                    <Field t={t} label={t("Image ID")}><input className="pf-v6-c-form-control" value={pxeJobImageId} onChange={(event) => setPxeJobImageId(event.target.value)} placeholder="fedora-workstation" /></Field>
+                    <Field t={t} label={t("Client image repository")}>
+                      <select className="pf-v6-c-form-control" value={pxeJobRepositoryId} onChange={(event) => setPxeJobRepositoryId(event.target.value)}>
+                        <option value="">{t("Select repository ID")}</option>
+                        {remoteRepositories.map((item) => <option key={item.id} value={item.id}>{item.id} · {item.provider}</option>)}
+                        {s3Repositories.map((item) => <option key={item.id} value={item.id}>{item.id} · S3</option>)}
+                      </select>
+                    </Field>
+                    <Field t={t} label={t("One client per line: MAC|WWN|SERIAL")} help={t("Use the client MAC reported by PXE and a stable disk WWN and/or serial. Leave the unused selector empty, for example MAC|WWN|.")}>
+                      <textarea className="pf-v6-c-form-control" rows="5" value={pxeJobTargetBindings} onChange={(event) => setPxeJobTargetBindings(event.target.value)} placeholder={"52:54:00:12:34:56|0x5000c50012345678|DISK-001"} />
+                    </Field>
+                    <Button variant="secondary" onClick={generatePXEDeploymentJob} isDisabled={busy}>{t("Generate shared DeploymentJob JSON")}</Button>
+                    {pxeJobJson && <>
+                      <Field t={t} label={t("Shared DeploymentJob JSON")}><textarea className="pf-v6-c-form-control" rows="12" value={pxeJobJson} onChange={(event) => setPxeJobJson(event.target.value)} /></Field>
+                      <Button variant="secondary" onClick={downloadPXEDeploymentJob}>{t("Save JSON file")}</Button>
+                    </>}
+                  </>}
                   {pxeAnswerSource === "upload" && <Field t={t} label={t("Prewritten answer file (JSON)")}>
                     <input className="pf-v6-c-form-control" type="file" accept=".json,application/json" onChange={(event) => { setPxeAnswerFile(event.target.files?.[0] || null); setPxeAnswerPublished(null); }} />
                     {pxeAnswerFile && <div className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{pxeAnswerFile.name} · {pxeAnswerFile.size} bytes</div>}
                   </Field>}
+                  {(pxeAnswerSource === "url" || pxeAnswerSource === "repository" || pxeAnswerSource === "scp") && <Field t={t} label={t("DeploymentJob UUID in the remote JSON")}><input className="pf-v6-c-form-control" value={pxeAnswerJobId} onChange={(event) => { setPxeAnswerJobId(event.target.value); setPxeAnswerPublished(null); }} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" /></Field>}
                   {pxeAnswerSource === "url" && <Field t={t} label={t("HTTP(S) answer URL")}>
                     <input className="pf-v6-c-form-control" type="url" value={pxeAnswerURL} placeholder="https://server.example/answers/restore.json" onChange={(event) => { setPxeAnswerURL(event.target.value); setPxeAnswerPublished(null); }} />
                     <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{t("The Feclora Server downloads the file directly. Redirects and embedded URL credentials are not accepted; HTTPS certificates are verified.")}</p>
