@@ -59,6 +59,7 @@ class QCOW2DiskRestoreTests(unittest.TestCase):
                 age_identity_file="/keys/client.age", age_passphrase=None, pre_write_callback=None,
             )
         self.assertEqual(result.image_id, "qcow2-image")
+        self.assertEqual(next(item for item in result.artifacts if item.role == "disk-image").format, "qcow2")
         restore.assert_called_once()
 
     def test_backing_file_is_rejected_before_qcow2_check_or_conversion(self):
