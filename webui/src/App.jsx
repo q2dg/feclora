@@ -1268,7 +1268,7 @@ export default function App() {
                           if (isDisk) inspectRestoreLayout(value); else setRestoreLayoutPreview(null);
                         }}>
                           <option value="">{t("Select an image…")}</option>
-                          {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
+                          {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}{item.image_format ? ` · ${item.image_format.toUpperCase()}${item.image_format === "qcow2" ? " / V2P" : ""}` : ""}</option>)}
                         </select>
                       </Field>
                       <Field t={t} label={isDisk ? "Destination disk" : isLogicalVolume ? "Destination logical volume" : "Destination partition"} help={isLogicalVolume ? "Must be an existing active, unmounted linear or thin LV in a healthy VG. Thin-pool free space is estimated, not reserved. Feclora overwrites LV data but does not create or resize LVM metadata." : undefined}>
