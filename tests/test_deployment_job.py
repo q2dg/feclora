@@ -86,7 +86,7 @@ class DeploymentJobTests(unittest.TestCase):
             DeploymentJob.from_dict(missing_binding)
         manual = dict(base)
         manual["start_policy"] = "manual"
-        with self.assertRaisesRegex(JobValidationError, "PXE jobs must start automatically"):
+        with self.assertRaisesRegex(JobValidationError, "PXE boot jobs must use automatic start_policy"):
             DeploymentJob.from_dict(manual)
 
 
@@ -110,6 +110,29 @@ class DeploymentJobTests(unittest.TestCase):
         self.assertEqual(job.boot_method, "pxe")
         self.assertEqual(job.transport, "multicast")
         self.assertEqual(job.minimum_ready_clients, 2)
+        self.assertEqual(DeploymentJob.from_json(job.to_json()), job)
+
+
+    def test_iso_live_can_run_the_same_automatic_unattended_multicast_job(self):
+        payload = valid_job(
+            transport="multicast",
+            network_interface="enp1s0",
+            multicast_group="239.10.10.10",
+            multicast_port=5000,
+            staging_required_bytes=4096,
+            repository_id="nas-images",
+            confirm_destructive=True,
+            start_policy="automatic",
+            target_bindings={
+                "52:54:00:12:34:56": {"wwn": "wwn-client-1", "serial": None},
+                "52:54:00:12:34:57": {"wwn": "wwn-client-2", "serial": None},
+            },
+        )
+        job = DeploymentJob.from_dict(payload)
+        self.assertEqual(job.boot_method, "iso")
+        self.assertEqual(job.start_policy, "automatic")
+        self.assertEqual(job.transport, "multicast")
+        self.assertEqual(len(job.target_bindings), 2)
         self.assertEqual(DeploymentJob.from_json(job.to_json()), job)
 
     def test_json_round_trip_is_canonical(self):
