@@ -146,7 +146,7 @@ def fetch_live_pxe_answer(
     downloader: Any = _download_answer,
     dhcp_url_provider: Any = _discover_dhcp_answer_url,
 ) -> dict[str, Any] | None:
-    """Fetch/validate the unattended answer; interactive PXE boots are a no-op."""
+    """Fetch the shared unattended answer; ordinary Live boots remain interactive when none is published."""
     if command_line is None:
         try:
             command_line = Path("/proc/cmdline").read_text(encoding="ascii")
@@ -170,7 +170,7 @@ def fetch_live_pxe_answer(
         except PXEBootRequestError as exc:
             raise PXEAnswerClientError(f"invalid Feclora DHCP answer URL: {exc}") from exc
     if not request.answer_url:
-        raise PXEAnswerClientError("unattended PXE boot has no answer URL")
+        raise PXEAnswerClientError("unattended Live boot has no answer URL")
     raw = downloader(request.answer_url)
     try:
         answer = parse_pxe_answer(raw)
