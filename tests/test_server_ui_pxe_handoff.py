@@ -51,8 +51,8 @@ class PXEJobHandoffIntegrationTests(unittest.TestCase):
                  patch("feclora.deployment.server_ui.DeploymentJournal"), \
                  patch("feclora.deployment.server_ui.DeploymentCoordinator", return_value=coordinator), \
                  patch("feclora.deployment.server_ui.DeploymentControlServer", FakeControl), \
-                 patch("feclora.deployment.server_ui.dialog_app._message") as message, \
-                 patch("feclora.deployment.server_ui.dialog_app._menu", return_value="stop"):
+                 patch("feclora.deployment.server_ui.dialog._message") as message, \
+                 patch("feclora.deployment.server_ui.dialog._menu", return_value="stop"):
                 result = run_deployment_server_ui(
                     "enp1s0", "192.0.2.10", firewall=object(), pxe_config=pxe_config,
                 )
