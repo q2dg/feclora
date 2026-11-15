@@ -688,7 +688,7 @@ class ClientDeploymentService:
                 if job.transport == "multicast":
                     return execute_multicast_restore(
                         job, tls_socket, approval,
-                        server_identity=config.server_identity,
+                        
                         repository=config.repository,
                         firewall=PXEFirewall(),
                         network_interface=network_interface,
@@ -698,7 +698,7 @@ class ClientDeploymentService:
                     )
                 return execute_client_image_job(
                     job, tls_socket, approval,
-                    server_identity=config.server_identity,
+                    
                     repository=config.repository,
                     age_identity_file=config.age_identity_file,
                     age_recipients_file=config.age_recipients_file if image_encrypt else None,
@@ -713,7 +713,7 @@ class ClientDeploymentService:
             try:
                 job, success, detail = join_deployment(
                     host, control_port or config.port, context,
-                    expected_server_identity=config.server_identity,
+                    expected_
                     mac_address=config.mac_address,
                     job_id=self.job_id,
                     prepare_local_target=prepare_local_target,
