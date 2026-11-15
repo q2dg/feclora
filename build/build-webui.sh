@@ -7,12 +7,11 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 127
 fi
 cd "${WEB_DIR}"
-if [[ -f package-lock.json ]]; then
-  npm ci --no-audit --no-fund
-else
-  echo "WARNING: webui/package-lock.json is missing; transitive npm dependencies are not reproducibly pinned." >&2
-  npm install --no-audit --no-fund
+if [[ ! -f package-lock.json ]]; then
+  echo "ERROR: webui/package-lock.json is required for reproducible frontend builds." >&2
+  exit 1
 fi
+npm ci --no-audit --no-fund
 npm run test:dependency-pins
 npm run build
 test -s dist/index.html
