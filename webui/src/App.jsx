@@ -15,6 +15,7 @@ const OPERATION_LABELS = {
   capture_p2v: "opCaptureP2v",
   export_p2v_s3: "opExportP2v",
   build_recovery_iso: "opRecoveryIso",
+  build_deployment_bundle: "Deployment bundle",
   capture_partition: "opCapturePartition",
   capture_logical_volume: "opCaptureVolume",
   restore_disk: "opRestoreDisk",
@@ -203,6 +204,9 @@ export default function App() {
   const [recoveryBaseISO, setRecoveryBaseISO] = useState("");
   const [recoveryTargetWWN, setRecoveryTargetWWN] = useState("");
   const [recoveryTargetSerial, setRecoveryTargetSerial] = useState("");
+  const [bundleBaseISO, setBundleBaseISO] = useState("");
+  const [bundleName, setBundleName] = useState("fleet-deployment-bundle");
+  const [bundleJobJSON, setBundleJobJSON] = useState("");
 
   const applyNetworkProfile = async (event) => {
     event.preventDefault();
@@ -366,6 +370,14 @@ export default function App() {
         confirm_build: confirmation,
         ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {})
       };
+      else if (operation === "build_deployment_bundle") {
+        const job = JSON.parse(bundleJobJSON);
+        params = {
+          base_iso_path: bundleBaseISO.trim(), image_id: imageId,
+          deployment_job: job, bundle_name: bundleName.trim(),
+          repository_id: selectedRepositoryId
+        };
+      }
       else if (operation === "capture_disk") params = { source, image_id: imageId, compression, encrypt: encrypt || encryptPassphraseMode, ...(encryptPassphraseMode ? { encrypt_passphrase: true } : {}), ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else if (operation === "capture_partition") params = { source, image_id: imageId, partition_id: partitionId || imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
       else if (operation === "capture_logical_volume") params = { source, image_id: imageId, compression, encrypt, ...(selectedRepositoryId ? { repository_id: selectedRepositoryId } : {}) };
@@ -1059,6 +1071,8 @@ export default function App() {
 
   const recoveryRepositoryIsS3 = s3Repositories.some((repo) => repo.id === selectedRepositoryId);
   const recoveryExpectedConfirmation = imageId ? `BUILD ${imageId}` : "";
+  const bundleJobDefinition = (() => { try { return JSON.parse(bundleJobJSON); } catch { return null; } })();
+  const bundleRepository = remoteRepositories.find((repo) => repo.id === selectedRepositoryId && repo.mounted && repo.verified && !repo.read_only);
   const operationReady = operation === "export_p2v_s3"
     ? Boolean(imageId && repositoryImages.some((item) => item.image_id === imageId && item.image_type === "virtual_disk")
       && s3Repositories.some((repo) => repo.id === selectedRepositoryId)
@@ -1066,6 +1080,16 @@ export default function App() {
     : operation === "build_recovery_iso"
     ? Boolean(recoveryBaseISO.trim() && imageId && (recoveryTargetWWN.trim() || recoveryTargetSerial.trim())
       && confirmation === recoveryExpectedConfirmation && !recoveryRepositoryIsS3 && !selectedRepository?.read_only)
+    : operation === "build_deployment_bundle"
+    ? Boolean(bundleBaseISO.trim() && imageId && /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(bundleName.trim())
+      && bundleRepository && bundleJobDefinition?.schema_version === 1 && bundleJobDefinition.operation === "restore"
+      && bundleJobDefinition.image_id === imageId && bundleJobDefinition.repository_id === selectedRepositoryId
+      && bundleJobDefinition.start_policy === "automatic" && bundleJobDefinition.target_type === "disk"
+      && bundleJobDefinition.confirm_destructive === true && Array.isArray(bundleJobDefinition.authorized_clients)
+      && bundleJobDefinition.authorized_clients.length > 0
+      && Object.keys(bundleJobDefinition.target_bindings || {}).length === bundleJobDefinition.authorized_clients.length
+      && bundleJobDefinition.authorized_clients.every((mac) => Boolean(bundleJobDefinition.target_bindings?.[mac]))
+      && (bundleJobDefinition.transport !== "multicast" || bundleJobDefinition.authorized_clients.length >= 2))
     : isCapture
     ? Boolean(source && imageId && (!selectedRepository?.read_only) && (operation !== "capture_partition" || partitionId || imageId))
     : isRestore ? Boolean(imageId && target && confirmation === expectedConfirmation && (!isDisk || !restoreLayoutPreview || !restoreTargetDevice || restoreTargetDevice.size_bytes >= restoreLayoutPreview.source_size_bytes))
@@ -1133,6 +1157,32 @@ export default function App() {
                           <option value="">{t("Local repository")}</option>
                           {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
                         </select>
+                      </Field>
+                    </>}
+                    {operation === "build_deployment_bundle" && <>
+                      <Alert variant="info" title={t("Coordinated deployment bundle")} isInline>
+                        Assemble an existing generic Feclora Live ISO, a verified whole-disk image and one shared automatic DeploymentJob answer. Generate the schema-v1 answer in the Remote Jobs / shared-answer editor, then paste that exact JSON here. The same answer file contains all authorized MACs and target_bindings; no per-client answers or credentials are created. Output requires a mounted, verified, writable filesystem repository; S3 is not supported.
+                      </Alert>
+                      <Field t={t} label={t("Base Feclora Live ISO path")} help="Absolute path to an existing generic Live .iso file accessible to the Feclora service.">
+                        <input className="pf-v6-c-form-control" value={bundleBaseISO} onChange={(e) => setBundleBaseISO(e.target.value)} placeholder={t("/path/to/feclora-live.iso")} required />
+                      </Field>
+                      <Field t={t} label={t("Writable filesystem repository")}>
+                        <select className="pf-v6-c-form-control" value={selectedRepositoryId} disabled={busy} onChange={(e) => { setImageId(""); selectImageRepository(e.target.value); }} required>
+                          <option value="">{t("Select a mounted repository…")}</option>
+                          {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
+                        </select>
+                      </Field>
+                      <Field t={t} label={t("Whole-disk restore image")}>
+                        <select className="pf-v6-c-form-control" value={imageId} disabled={busy || !selectedRepositoryId} onChange={(e) => setImageId(e.target.value)} required>
+                          <option value="">{t("Select a disk image…")}</option>
+                          {availableImages.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
+                        </select>
+                      </Field>
+                      <Field t={t} label={t("Bundle directory name")} help="A new directory is created in the selected repository. Existing directories are never overwritten.">
+                        <input className="pf-v6-c-form-control" value={bundleName} onChange={(e) => setBundleName(e.target.value)} maxLength={128} required />
+                      </Field>
+                      <Field t={t} label={t("Shared schema-v1 DeploymentJob JSON")} help="Paste the exact shared automatic restore answer. It must reference the selected image and repository and contain one stable target binding for every authorized Client.">
+                        <textarea className="pf-v6-c-form-control" rows={9} value={bundleJobJSON} onChange={(e) => setBundleJobJSON(e.target.value)} required />
                       </Field>
                     </>}
                     {operation === "build_recovery_iso" && <>
