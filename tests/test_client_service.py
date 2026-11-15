@@ -336,6 +336,42 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             self.assertEqual(status["phase"], "completed")
             self.assertTrue(status["success"])
 
+
+    def test_unattended_pxe_multicast_resolves_shared_mac_target_binding(self):
+        from feclora.deployment.job import DeploymentJob
+        from feclora.deployment.client_service import _select_unattended_multicast_interface
+        payload = {
+            "schema_version": 1, "job_id": JOB_ID, "operation": "restore",
+            "image_id": "golden", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56", "52:54:00:12:34:57"],
+            "network_interface": "auto", "transport": "multicast",
+            "multicast_group": "239.10.10.10", "multicast_port": 5000,
+            "start_policy": "automatic", "expected_clients": None, "start_deadline": None,
+            "repository_id": "nas-images", "boot_method": "pxe",
+            "confirm_destructive": True,
+            "target_bindings": {
+                "52:54:00:12:34:56": {"wwn": "wwn-client-1", "serial": None},
+                "52:54:00:12:34:57": {"wwn": "wwn-client-2", "serial": None},
+            },
+        }
+        job = DeploymentJob.from_dict(payload)
+        selected = {
+            "type": "disk", "path": DEVICE, "wwn": "wwn-client-2",
+            "serial": None, "model": "Client disk",
+        }
+        with mock.patch("feclora.deployment.client_service.collect_inventory", return_value={
+            "devices": [selected],
+        }):
+            resolved = ClientDeploymentService._find_unattended_disk(
+                job, "52:54:00:12:34:57",
+            )
+        self.assertEqual(resolved["path"], DEVICE)
+        with mock.patch("feclora.deployment.client_service.subprocess.run", return_value=SimpleNamespace(
+            returncode=0, stdout="239.10.10.10 dev enp2s0 src 192.0.2.22\\n",
+        )) as route:
+            self.assertEqual(_select_unattended_multicast_interface("239.10.10.10"), "enp2s0")
+        route.assert_called_once()
+
     def test_orderly_signal_does_not_interrupt_active_block_device_io(self):
         service = ClientDeploymentService(JOB_ID)
         service._phase = "running"
