@@ -185,10 +185,15 @@ def import_p2v_qcow2(
             info = json.loads(info_result.stdout)
         except (TypeError, json.JSONDecodeError) as exc:
             raise P2VImportError("qemu-img returned invalid source metadata") from exc
+        format_data = (info.get("format-specific") or {}).get("data", {}) if isinstance(info, dict) else {}
+        external_data_file = info.get("data-file") if isinstance(info, dict) else None
+        if isinstance(format_data, dict):
+            external_data_file = external_data_file or format_data.get("data-file")
         if (not isinstance(info, dict) or info.get("format") != "qcow2"
                 or info.get("virtual-size") != virtual_size
                 or info.get("backing-filename") or info.get("full-backing-filename")
-                or info.get("data-file") or info.get("encrypted") is True):
+                or external_data_file or info.get("encrypted") is True
+                or (isinstance(format_data, dict) and format_data.get("encrypted") is True)):
             raise P2VImportError("QCOW2 format, dependencies or virtual capacity disagree with its sidecar")
         raw_path = stage / names[0]
         _run([qemu_img, "convert", "-p", "-f", "qcow2", "-O", "raw", str(staged_source), str(raw_path)], runner)
