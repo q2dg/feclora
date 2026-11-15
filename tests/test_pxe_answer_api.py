@@ -58,6 +58,23 @@ class PXEAnswerAPITests(unittest.TestCase):
         self.assertEqual(reader.call_args.args[0]["source"], "url")
         self.assertIn("job_id", reader.call_args.args[0])
 
+    def test_local_deployment_job_upload_uses_the_same_validated_import_path(self):
+        job = {
+            "schema_version": 1, "job_id": self.JOB_ID, "operation": "restore",
+            "image_id": "fedora", "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56"],
+            "network_interface": "eno1", "transport": "unicast",
+            "multicast_group": None, "multicast_port": None,
+            "start_policy": "manual", "expected_clients": None, "start_deadline": None,
+        }
+        raw = json.dumps(job).encode("utf-8")
+        with patch("feclora.webapi._read_pxe_answer_source", return_value=raw):
+            result = _import_deployment_job({
+                "source": "upload",
+                "answer_base64": base64.b64encode(raw).decode("ascii"),
+            })
+        self.assertEqual(result["job"]["network_interface"], "eno1")
+
     def test_remote_deployment_job_import_rejects_invalid_documents(self):
         for raw in (b"not-json", b'{"schema_version":1,"job_id":"invalid"}'):
             with self.subTest(raw=raw), patch(
