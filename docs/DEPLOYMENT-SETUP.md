@@ -83,8 +83,9 @@ The answer JSON is declarative data, not shell code. It identifies the image,
 managed repository ID and stable whole-disk WWN/serial selector and explicitly requests
 restore/start. The Server validates it before publication. The Live image downloads and validates the answer. The Live client resolves the repository ID through its normal SSHFS, NFS,
 SMB/CIFS or S3 manager, using credentials already protected in its Live
-configuration. The PXE Server does not access remote storage or receive
-operation results. Unique target resolution and immediate pre-write identity
+configuration. The PXE Server does not access remote storage or image data.
+PXE Clients may send it best-effort operational telemetry, which is not
+authenticated proof of a restore result. Unique target resolution and immediate pre-write identity
 revalidation are connected for whole-disk restore; physical acceptance remains
 pending. A URL, DHCP lease, MAC address, job UUID or successful
 download is not authorization by itself.
