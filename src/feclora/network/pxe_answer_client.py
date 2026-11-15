@@ -536,7 +536,7 @@ def _start_shared_deployment_job(
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
             import json
             json.dump(request, stream, sort_keys=True, separators=(",", ":"))
-            stream.write("\\n")
+            stream.write("\n")
             stream.flush()
             os.fsync(stream.fileno())
         directory_fd = os.open(request_directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
