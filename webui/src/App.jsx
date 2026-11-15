@@ -1311,7 +1311,7 @@ export default function App() {
                     </select> : <input className="pf-v6-c-form-control" value={remoteImageId} onChange={(e) => setRemoteImageId(e.target.value)} maxLength={128} required />}
                   </Field>}
                   {(remoteOperation === "save" || remoteOperation === "restore" || remoteOperation === "clone") && <Field t={t} label={remoteOperation === "clone" ? "Clone device type" : remoteOperation === "save" ? "Capture source type" : "Restore target type"}>
-                    <select className="pf-v6-c-form-control" value={remoteTargetType} onChange={(e) => { setRemoteTargetType(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); }}>
+                    <select className="pf-v6-c-form-control" value={remoteTargetType} onChange={(e) => { setRemoteTargetType(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); if (e.target.value !== "disk") setRemoteTargetBindings(""); }}>
                       <option value="disk">{t("Whole disk")}</option>
                       {remoteOperation !== "clone" && <option value="logical_volume">{t("Logical volume")}</option>}
                       {remoteOperation !== "save" && <option value="partition">{t("Partition")}</option>}
@@ -1320,9 +1320,9 @@ export default function App() {
                   <Field t={t} label={t("Selected Client MAC addresses")} help={remoteOperation === "clone" ? "Enter one or more selected Client MAC addresses. Each Client independently selects and confirms its own destination of the selected device type. Transfers are serialized from the Server source; each Client verifies its own write." : "Enter one or more MAC addresses for unicast clone, exactly one for unicast save/restore, or at least two for multicast restore. Server checks that each MAC is selected for this job; MAC is not authentication."}>
                     <textarea className="pf-v6-c-form-control" rows={3} value={remoteClients} onChange={(e) => setRemoteClients(e.target.value)} required placeholder={t("52:54:00:12:34:56")} />
                   </Field>
-                  <Field t={t} label={t("Optional per-Client stable target bindings")} help={t("One line per Client: MAC|WWN|SERIAL. When supplied, every selected Client must have a matching whole-disk WWN and/or serial binding.")}>
+                  {remoteOperation === "restore" && remoteTargetType === "disk" && <Field t={t} label={t("Optional per-Client stable target bindings")} help={t("One line per Client: MAC|WWN|SERIAL. When supplied, every selected Client must have a matching whole-disk WWN and/or serial binding.")}>
                     <textarea className="pf-v6-c-form-control" rows={3} value={remoteTargetBindings} onChange={(event) => setRemoteTargetBindings(event.target.value)} placeholder={"52:54:00:12:34:56|0x5000c50012345678|DISK-001"} />
-                  </Field>
+                  </Field>}
                   <Field t={t} label={t("Server network interface")}>
                     <select className="pf-v6-c-form-control" value={remoteInterface} onChange={(e) => setRemoteInterface(e.target.value)} required>
                       <option value="">Select active Server interface/address…</option>
