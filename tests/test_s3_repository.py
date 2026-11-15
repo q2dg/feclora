@@ -210,6 +210,7 @@ class S3RepositoryTests(unittest.TestCase):
             metadata = {
                 "schema_version": 1, "image_id": "server", "format": "qcow2",
                 "source_device": "/dev/sda", "virtual_size_bytes": 8192,
+                "logical_sector_size": 4096,
                 "file_size_bytes": qcow2.stat().st_size, "qcow2_sha256": digest,
                 "verified": True, "bootability_note": "Guest boot may require driver changes.",
             }
