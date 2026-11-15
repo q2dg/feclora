@@ -449,9 +449,6 @@ class ClientDeploymentServiceTests(unittest.TestCase):
                 job, "52:54:00:12:34:57",
             )
         self.assertEqual(resolved["path"], DEVICE)
-        # Multicast and unicast use the same locally validated destructive
-        # confirmation; Server identity is authenticated by the TLS channel.
-        self.assertEqual("ERASE " + resolved["path"], "ERASE " + DEVICE)
         with mock.patch("feclora.deployment.client_service.subprocess.run", return_value=SimpleNamespace(
             returncode=0, stdout="239.10.10.10 dev enp2s0 src 192.0.2.22\\n",
         )) as route:
