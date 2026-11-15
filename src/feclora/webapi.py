@@ -1749,12 +1749,17 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         source = _device(params["source"], "source")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         compression = _text(params, "compression", pattern=r"(?:none|gzip|xz|zstd|lz4)")
+        image_format = params.get("image_format", "raw")
+        if image_format not in {"raw", "qcow2"}:
+            raise WebAPIError("whole-disk image_format must be raw or qcow2")
         encrypt = params["encrypt"]
         if not isinstance(encrypt, bool):
             raise WebAPIError("encrypt must be a boolean value")
         symmetric = params.get("encrypt_passphrase", False)
         if not isinstance(symmetric, bool) or (symmetric and not encrypt):
             raise WebAPIError("encrypt_passphrase must be boolean and requires encrypt=true")
+        if image_format == "qcow2" and (compression != "none" or encrypt or symmetric):
+            raise WebAPIError("QCOW2 images cannot use separate compression or age encryption")
         security = _security_material()
         if encrypt and symmetric:
             if not shutil.which("age"):
@@ -1770,12 +1775,16 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         with _operation_repository_context(
             params, write=True, create_local=True, upload_image_id=image_id,
         ) as repository:
-            manifest = capture_disk(
-                source, image_id, repository, compression=compression,
-                progress_callback=_progress,
-                age_recipients_file=recipients_file if encrypt and not symmetric else None,
-                age_passphrase=passphrase if symmetric else None,
-            )
+            if image_format == "qcow2":
+                from feclora.storage.qcow2_disk_capture import capture_qcow2_disk
+                manifest = capture_qcow2_disk(source, image_id, repository)
+            else:
+                manifest = capture_disk(
+                    source, image_id, repository, compression=compression,
+                    progress_callback=_progress,
+                    age_recipients_file=recipients_file if encrypt and not symmetric else None,
+                    age_passphrase=passphrase if symmetric else None,
+                )
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
     elif action == "capture_partition":
         from feclora.storage.inventory import collect_inventory
