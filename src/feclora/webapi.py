@@ -1828,7 +1828,10 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                     age_recipients_file=recipients_file if encrypt and not symmetric else None,
                     age_passphrase=passphrase if symmetric else None,
                 )
-        result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
+        result = {
+            "image_id": manifest.image_id, "image_type": manifest.image_type,
+            "image_format": next(item.format for item in manifest.artifacts if item.role == "disk-image"),
+        }
     elif action == "capture_partition":
         from feclora.storage.inventory import collect_inventory
         from feclora.storage.partition_image_capture import capture_partition_image
