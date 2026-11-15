@@ -181,7 +181,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
             raise LocalOperationError("encrypt must be boolean")
         if action == "capture_disk":
             image_format = params.get("image_format", "raw")
-            if image_format not in {"raw", "qcow2"}:
+            if not isinstance(image_format, str) or image_format not in {"raw", "qcow2"}:
                 raise LocalOperationError("whole-disk image_format must be raw or qcow2")
             if image_format == "qcow2" and (params.get("compression") != "none" or params.get("encrypt")):
                 raise LocalOperationError("QCOW2 capture does not support separate compression or age encryption")
