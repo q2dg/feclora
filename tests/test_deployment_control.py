@@ -561,7 +561,6 @@ class TLSContextTests(unittest.TestCase):
         self.assertTrue(server.firewall.close_attempted)
         self.assertEqual(server._firewall_added, ("9443/tcp",))
         self.assertFalse(server._firewall_opened)
-        self.assertIs(server._firewall_state_callback, callback_values.append) if False else None
         self.assertEqual(callback_values, [])
         self.assertTrue(any("port cleanup failed" in item for item in server.listener_errors))
 
