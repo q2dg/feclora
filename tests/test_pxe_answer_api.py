@@ -144,7 +144,7 @@ class PXEAnswerAPITests(unittest.TestCase):
         create_job.assert_called_once_with({"job": canonical})
         start_service.assert_called_once_with({"job_id": self.JOB_ID})
         publish_ipxe.assert_not_called()
-        self.assertEqual(publish.call_args.kwargs["raw_answer"], json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode() + b"\\n")
+        self.assertEqual(publish.call_args.args[2], (json.dumps(canonical, sort_keys=True, separators=(",", ":")) + "\\n").encode())
 
     def test_http_source_downloads_without_redirects_and_checks_size(self):
         raw = self.answer()
