@@ -83,6 +83,10 @@ export default function App() {
   const [remoteMulticastPort, setRemoteMulticastPort] = useState("9000");
   const [remoteInterface, setRemoteInterface] = useState("");
   const [remoteJobResult, setRemoteJobResult] = useState(null);
+  const [remoteJobImportSource, setRemoteJobImportSource] = useState("file");
+  const [remoteJobImportURL, setRemoteJobImportURL] = useState("");
+  const [remoteJobImportRepositoryId, setRemoteJobImportRepositoryId] = useState("");
+  const [remoteJobImportPath, setRemoteJobImportPath] = useState("deployment/feclora-deployment-job.json");
   const [remoteJobId, setRemoteJobId] = useState(crypto.randomUUID());
   const [remoteTargetBindings, setRemoteTargetBindings] = useState("");
   const [operations, setOperations] = useState([]);
@@ -828,31 +832,54 @@ export default function App() {
     };
   };
 
+  const applyRemoteJobDefinition = (job) => {
+    if (job.schema_version !== 1 || !Array.isArray(job.authorized_clients) || !job.operation) throw new Error("The file is not a supported DeploymentJob schema-v1 document.");
+    setRemoteOperation(job.operation);
+    setRemoteImageId(job.image_id || "");
+    setRemoteSourceDevice(job.source_device || "");
+    setRemoteTargetType(job.target_type || "disk");
+    setRemoteClients(job.authorized_clients.join("\n"));
+    setRemoteInterface(job.network_interface === "auto" ? "" : (networkInterfaces.find((item) => item.interface === job.network_interface)?.binding || ""));
+    setRemoteTransport(job.transport || "unicast");
+    setRemoteMulticastGroup(job.multicast_group || "239.10.10.10");
+    setRemoteMulticastPort(String(job.multicast_port || 9000));
+    setRemoteStartPolicy(job.start_policy === "automatic" ? "manual" : (job.start_policy || "manual"));
+    setRemoteExpectedClients(String(job.expected_clients || 2));
+    setRemoteStartDeadline(job.start_deadline ? job.start_deadline.slice(0, 16) : "");
+    setRemotePostAction(job.post_action || "none");
+    setSelectedRepositoryId(job.repository_id || "");
+    setRemoteTargetBindings(Object.entries(job.target_bindings || {}).map(([mac, selector]) => [mac, selector.wwn || "", selector.serial || ""].join("|")).join("\\n"));
+    setRemoteJobId(crypto.randomUUID());
+    setNotice(job.boot_method === "pxe" ? "PXE DeploymentJob imported. Its automatic PXE start and DHCP interface were converted to safe ISO/Client defaults; select the Server interface and review transport before saving." : "DeploymentJob imported. Review all fields and the destination network interface before saving.");
+    setError("");
+  };
+
   const importRemoteJobDefinition = async (file) => {
     if (!file) return;
     try {
       if (file.size < 1 || file.size > 64 * 1024) throw new Error("DeploymentJob JSON must be between 1 byte and 64 KiB.");
-      const job = JSON.parse(await file.text());
-      if (job.schema_version !== 1 || !Array.isArray(job.authorized_clients) || !job.operation) throw new Error("The file is not a supported DeploymentJob schema-v1 document.");
-      setRemoteOperation(job.operation);
-      setRemoteImageId(job.image_id || "");
-      setRemoteSourceDevice(job.source_device || "");
-      setRemoteTargetType(job.target_type || "disk");
-      setRemoteClients(job.authorized_clients.join("\n"));
-      setRemoteInterface(job.network_interface === "auto" ? "" : (networkInterfaces.find((item) => item.interface === job.network_interface)?.binding || ""));
-      setRemoteTransport(job.transport || "unicast");
-      setRemoteMulticastGroup(job.multicast_group || "239.10.10.10");
-      setRemoteMulticastPort(String(job.multicast_port || 9000));
-      setRemoteStartPolicy(job.start_policy === "automatic" ? "manual" : (job.start_policy || "manual"));
-      setRemoteExpectedClients(String(job.expected_clients || 2));
-      setRemoteStartDeadline(job.start_deadline ? job.start_deadline.slice(0, 16) : "");
-      setRemotePostAction(job.post_action || "none");
-      setSelectedRepositoryId(job.repository_id || "");
-      setRemoteTargetBindings(Object.entries(job.target_bindings || {}).map(([mac, selector]) => [mac, selector.wwn || "", selector.serial || ""].join("|")).join("\\n"));
-      setRemoteJobId(crypto.randomUUID());
-      setNotice(job.boot_method === "pxe" ? "PXE DeploymentJob imported. Its automatic PXE start and DHCP interface were converted to safe ISO/Client defaults; select the Server interface and review transport before saving." : "DeploymentJob imported. Review all fields and the destination network interface before saving.");
-      setError("");
+      applyRemoteJobDefinition(JSON.parse(await file.text()));
     } catch (err) { setError(err?.message || String(err)); }
+  };
+
+  const importRemoteJobFromSource = async () => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const request = { source: remoteJobImportSource };
+      if (remoteJobImportSource === "url") {
+        if (!remoteJobImportURL.trim()) throw new Error("Enter an HTTP or HTTPS URL.");
+        request.url = remoteJobImportURL.trim();
+      } else {
+        if (!remoteJobImportRepositoryId) throw new Error("Select a configured image repository.");
+        if (!remoteJobImportPath.trim()) throw new Error("Enter the relative path to the DeploymentJob JSON file.");
+        request.repository_id = remoteJobImportRepositoryId;
+        request.source_path = remoteJobImportPath.trim();
+      }
+      const result = await callFeclora("import_deployment_job", request);
+      applyRemoteJobDefinition(result.job);
+      setNotice(result.message + " " + (result.job.boot_method === "pxe" ? "PXE boot settings were converted to safe ISO/Client defaults." : ""));
+    } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
   };
 
   const downloadRemoteJobDefinition = () => {
@@ -1279,9 +1306,33 @@ export default function App() {
               <StackItem>
                 <Card><CardBody>
                   <Title headingLevel="h3" size="lg">{t("Import or export a shared DeploymentJob JSON")}</Title>
-                  <Field t={t} label={t("Import DeploymentJob JSON file")} help={t("A PXE job can be imported here as a starting point; its automatic PXE start is changed to manual and you must select a Server interface.")}>
-                    <input className="pf-v6-c-form-control" type="file" accept=".json,application/json" onChange={(event) => importRemoteJobDefinition(event.target.files?.[0] || null)} />
+                  <Field t={t} label={t("Import source")}>
+                    <select className="pf-v6-c-form-control" value={remoteJobImportSource} onChange={(event) => setRemoteJobImportSource(event.target.value)}>
+                      <option value="file">{t("Local JSON file")}</option>
+                      <option value="url">{t("HTTP or HTTPS URL")}</option>
+                      <option value="repository">{t("Configured image repository")}</option>
+                      <option value="scp">{t("SCP using saved SSH credentials")}</option>
+                    </select>
                   </Field>
+                  {remoteJobImportSource === "file" && <Field t={t} label={t("Import DeploymentJob JSON file")} help={t("A PXE job can be imported here as a starting point; its automatic PXE start is changed to manual and you must select a Server interface.")}>
+                    <input className="pf-v6-c-form-control" type="file" accept=".json,application/json" onChange={(event) => importRemoteJobDefinition(event.target.files?.[0] || null)} />
+                  </Field>}
+                  {remoteJobImportSource === "url" && <>
+                    <Field t={t} label={t("DeploymentJob HTTP(S) URL")}><input className="pf-v6-c-form-control" type="url" value={remoteJobImportURL} onChange={(event) => setRemoteJobImportURL(event.target.value)} placeholder="https://storage.example/jobs/restore.json" /></Field>
+                    <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{t("The Server downloads the document with certificate verification, rejects redirects and enforces the 64 KiB limit.")}</p>
+                  </>}
+                  {(remoteJobImportSource === "repository" || remoteJobImportSource === "scp") && <>
+                    <Field t={t} label={t("Image repository")}>
+                      <select className="pf-v6-c-form-control" value={remoteJobImportRepositoryId} onChange={(event) => setRemoteJobImportRepositoryId(event.target.value)}>
+                        <option value="">{t("Select a configured repository")}</option>
+                        {remoteRepositories.filter((item) => remoteJobImportSource === "scp" ? item.provider === "sshfs" : item.mounted && item.verified).map((item) => <option key={item.id} value={item.id}>{item.id} · {item.provider}</option>)}
+                        {remoteJobImportSource === "repository" && s3Repositories.map((item) => <option key={item.id} value={item.id}>{item.id} · S3</option>)}
+                      </select>
+                    </Field>
+                    <Field t={t} label={t("Relative path or S3 object key")}><input className="pf-v6-c-form-control" value={remoteJobImportPath} onChange={(event) => setRemoteJobImportPath(event.target.value)} placeholder="deployment/feclora-deployment-job.json" /></Field>
+                    <p className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{remoteJobImportSource === "scp" ? t("Uses the selected SSHFS definition's saved key and pinned known_hosts; strict host-key verification is required.") : t("Filesystem repositories must already be mounted and identity-verified. S3 paths are object keys relative to the configured bucket prefix.")}</p>
+                  </>}
+                  {remoteJobImportSource !== "file" && <Button variant="secondary" onClick={importRemoteJobFromSource} isLoading={busy} isDisabled={busy || (remoteJobImportSource === "url" ? !remoteJobImportURL.trim() : !remoteJobImportRepositoryId || !remoteJobImportPath.trim())}>{t("Download and validate DeploymentJob")}</Button>}
                   <Button variant="secondary" onClick={downloadRemoteJobDefinition} isDisabled={busy}>{t("Export current form as DeploymentJob JSON")}</Button>
                 </CardBody></Card>
                 <Card><CardBody><form onSubmit={createRemoteJob}>
