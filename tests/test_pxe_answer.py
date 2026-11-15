@@ -20,6 +20,27 @@ class PXEAnswerTests(unittest.TestCase):
             "start": True,
         }
 
+
+    def test_accepts_iso_boot_shared_automatic_multicast_job(self):
+        answer = {
+            "schema_version": 1, "job_id": "3b241101-e2bb-4255-8caf-4136c566a962",
+            "operation": "restore", "image_id": "fedora-workstation",
+            "target_type": "disk",
+            "authorized_clients": ["52:54:00:12:34:56"],
+            "network_interface": "enp1s0", "transport": "multicast",
+            "multicast_group": "239.10.10.10", "multicast_port": 5000,
+            "start_policy": "automatic", "expected_clients": None,
+            "start_deadline": None, "repository_id": "nas-images",
+            "confirm_destructive": True,
+            "target_bindings": {
+                "52:54:00:12:34:56": {"wwn": "wwn-client-1", "serial": None},
+            },
+        }
+        result = parse_pxe_answer(json.dumps(answer))
+        self.assertEqual(result["start_policy"], "automatic")
+        self.assertEqual(result["transport"], "multicast")
+        self.assertNotIn("boot_method", result)
+
     def test_accepts_valid_answer(self):
         result = validate_pxe_answer(self.valid_answer())
         self.assertEqual(result["image_id"], "fedora-workstation")
