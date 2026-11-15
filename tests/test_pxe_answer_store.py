@@ -57,6 +57,23 @@ class PXEAnswerStoreTests(unittest.TestCase):
             self.assertFalse((Path(tmp) / "answers" / self.JOB_ID).exists())
             self.assertFalse((Path(tmp) / "unattended-answer.json").exists())
 
+    def test_revoking_old_job_preserves_newer_current_answer_alias(self):
+        newer_job = "f47ac10b-58cc-4372-a567-0e02b2c3d480"
+        with tempfile.TemporaryDirectory() as tmp:
+            os.chmod(tmp, 0o755)
+            old = publish_pxe_answer(
+                tmp, self.JOB_ID, self.answer(), address="192.0.2.10",
+            )
+            current = publish_pxe_answer(
+                tmp, newer_job, self.answer(), address="192.0.2.10",
+            )
+            alias = Path(tmp) / "unattended-answer.json"
+            self.assertTrue(os.path.samefile(alias, Path(current["directory"]) / "answer.json"))
+            self.assertTrue(revoke_pxe_answer(tmp, self.JOB_ID))
+            self.assertTrue(alias.is_file())
+            self.assertTrue(os.path.samefile(alias, Path(current["directory"]) / "answer.json"))
+            self.assertFalse(Path(old["directory"]).exists())
+
     def test_rejects_invalid_answer_and_noncanonical_job_id(self):
         with tempfile.TemporaryDirectory() as tmp:
             os.chmod(tmp, 0o755)
