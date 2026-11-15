@@ -1378,7 +1378,7 @@ export default function App() {
                   <Title headingLevel="h3" size="lg">{t("extractPartition")}</Title>
                   <p>Select a verified whole-disk image and identify one partition by PARTUUID, PARTLABEL or partition node recorded in its partition table. Feclora verifies the source image and publishes a separate partition image; age-encrypted sources are re-encrypted to the current recipient inventory. The source image is not modified.</p>
                   <Field t={t} label={t("Whole-disk source image")}>
-                    <select className="pf-v6-c-form-control" value={extractImageId} disabled={busy} onChange={(event) => { setExtractImageId(event.target.value); inspectImageLayout(event.target.value); }}>
+                    <select className="pf-v6-c-form-control" value={extractImageId} disabled={busy} onChange={(event) => { setExtractImageId(event.target.value); setBrowsePath("/"); setBrowseResult(null); setExtractPartitionSelector(""); inspectImageLayout(event.target.value); }}>
                       <option value="">Select whole-disk image…</option>
                       {availableImages.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}{""}</option>)}
                     </select>
@@ -1393,7 +1393,7 @@ export default function App() {
                     </Table>
                   </>}
                   <Field t={t} label={t("Partition to extract")} help="Choose a partition from the verified table preview. The selector is cleared whenever the source image changes.">
-                    <select className="pf-v6-c-form-control" value={extractPartitionSelector} onChange={(event) => { setExtractPartitionSelector(event.target.value); setExtractPartitionResult(null); }} disabled={!extractLayout || !extractLayout.partitions.length}>
+                    <select className="pf-v6-c-form-control" value={extractPartitionSelector} onChange={(event) => { setExtractPartitionSelector(event.target.value); setExtractPartitionResult(null); setBrowsePath("/"); setBrowseResult(null); }} disabled={!extractLayout || !extractLayout.partitions.length}>
                       <option value="">{t("Select partition…")}</option>
                       {(extractLayout?.partitions || []).map((part) => <option key={part.node} value={part.selector}>{part.node} · {part.uuid || part.name || part.selector} · {formatBytes(part.size_bytes)}</option>)}
                     </select>
