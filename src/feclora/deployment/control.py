@@ -353,9 +353,17 @@ class DeploymentControlServer:
             raise DeploymentControlError(
                 f"control firewall cleanup failed: {cleanup_errors[0]}"
             ) from cleanup_errors[0]
-        self._firewall_state_callback = None
         if callback is not None:
-            callback(None)
+            try:
+                callback(None)
+            except Exception as exc:
+                # Retain the callback so a later stop() can retry clearing
+                # the durable ownership record after persistence recovers.
+                self._record_listener_error(f"firewall state cleanup failed: {exc}")
+                raise DeploymentControlError(
+                    f"could not clear persisted firewall ownership state: {exc}"
+                ) from exc
+        self._firewall_state_callback = None
 
     def accept_ready_client(self, listener: Any) -> ReadyClient | None:
         accepted, _address = listener.accept()
