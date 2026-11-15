@@ -117,8 +117,9 @@ on a local filesystem with the free space required by the normal build. It requi
 same Fedora x86_64 build host, root privileges, KVM and ISO build dependencies
 as the ordinary ISO build. The output directory must not already exist. The
 ISO is included in the bundle; the temporary standalone ISO build directory is
-removed afterwards. A P2V QCOW2 must first be imported with the Cockpit
-`import_p2v` operation into a native Feclora disk image.
+removed afterwards. Whole-disk images may use either the native RAW
+artifact format or QCOW2; both are manifest-backed and can be selected directly
+for local or coordinated restore.
 
 This is a build-host workflow, not a Live Cockpit ISO builder. The Cockpit
 bundle operation remains available for assembling already-built inputs. ISO
