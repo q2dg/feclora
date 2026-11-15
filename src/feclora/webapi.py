@@ -772,6 +772,9 @@ def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
             raise WebAPIError(f"cannot read selected disk image manifest: {exc}") from exc
         if manifest.image_id != image_id or manifest.image_type != "disk":
             raise WebAPIError("image browsing requires the selected whole-disk image")
+        verified_layout = _inspect_image_layout_from_repository({"image_id": image_id}, repository)
+        if partition_index > len(verified_layout["partitions"]):
+            raise WebAPIError("selected partition index is not present in the verified partition table")
         encrypted = any(item.role == "disk-image" and item.encryption == "age" for item in manifest.artifacts)
         identity_paths: list[Path] = []
         pki = Path("/etc/feclora/pki")
@@ -798,7 +801,9 @@ def _browse_image(params: dict[str, Any]) -> dict[str, Any]:
             try:
                 return browse_image(
                     manifest_path, repository, partition_index, guest_path,
-                    download=download, age_identity_file=identity_file,
+                    download=download,
+                    expected_partition_count=len(verified_layout["partitions"]),
+                    age_identity_file=identity_file,
                 )
             except ImageBrowserError as exc:
                 raise WebAPIError(str(exc)) from exc
