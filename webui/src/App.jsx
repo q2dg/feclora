@@ -83,6 +83,10 @@ export default function App() {
   const [remoteMulticastPort, setRemoteMulticastPort] = useState("9000");
   const [remoteInterface, setRemoteInterface] = useState("");
   const [remoteJobResult, setRemoteJobResult] = useState(null);
+  const [remoteJobFile, setRemoteJobFile] = useState(null);
+  const [remoteJobJson, setRemoteJobJson] = useState("");
+  const [remoteJobId, setRemoteJobId] = useState(crypto.randomUUID());
+  const [remoteTargetBindings, setRemoteTargetBindings] = useState("");
   const [operations, setOperations] = useState([]);
   const [cancellingOperationId, setCancellingOperationId] = useState("");
   const [remoteRepositories, setRemoteRepositories] = useState([]);
@@ -797,24 +801,82 @@ export default function App() {
     return "ARM " + job.job_id;
   };
 
+  const buildRemoteJobPayload = () => {
+    const authorizedClients = remoteClients.split(/[\\s,;]+/).map((value) => value.trim()).filter(Boolean);
+    const bindings = {};
+    for (const [index, line] of remoteTargetBindings.split(/\\r?\\n/).entries()) {
+      if (!line.trim()) continue;
+      const [rawMac, rawWwn, rawSerial, ...extra] = line.split("|").map((value) => value.trim());
+      const mac = rawMac?.toLowerCase();
+      if (extra.length || !/^(?:[0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(mac || "")) throw new Error("Target binding line " + (index + 1) + " must be MAC|WWN|SERIAL.");
+      if ((!rawWwn && !rawSerial) || (rawWwn && rawWwn.length > 256) || (rawSerial && rawSerial.length > 256)) throw new Error("Target binding line " + (index + 1) + " needs a WWN and/or serial.");
+      if (bindings[mac]) throw new Error("Duplicate target binding for " + mac);
+      bindings[mac] = { wwn: rawWwn || null, serial: rawSerial || null };
+    }
+    return {
+      schema_version: 1, job_id: remoteJobId || crypto.randomUUID(), operation: remoteOperation,
+      image_id: remoteOperation === "clone" ? null : remoteImageId,
+      ...(remoteOperation === "clone" ? { source_device: remoteSourceDevice, target_type: remoteTargetType } : { target_type: remoteTargetType }),
+      authorized_clients: authorizedClients, network_interface: remoteInterface.split("|")[0],
+      transport: remoteTransport,
+      ...((remoteOperation === "restore" || remoteOperation === "save") && remoteSelectedRepository ? { repository_id: remoteSelectedRepository.id } : {}),
+      multicast_group: remoteTransport === "multicast" ? remoteMulticastGroup : null,
+      multicast_port: remoteTransport === "multicast" ? Number(remoteMulticastPort) : null,
+      start_policy: remoteOperation === "clone" ? "manual" : remoteStartPolicy,
+      expected_clients: remoteOperation !== "clone" && remoteStartPolicy === "expected_clients" ? Number(remoteExpectedClients) : null,
+      start_deadline: remoteOperation !== "clone" && remoteStartPolicy === "deadline" ? new Date(remoteStartDeadline).toISOString() : null,
+      post_action: remoteOperation === "save" ? "none" : remotePostAction,
+      ...(Object.keys(bindings).length ? { target_bindings: bindings } : {}),
+    };
+  };
+
+  const importRemoteJobDefinition = async (file) => {
+    if (!file) return;
+    try {
+      if (file.size < 1 || file.size > 64 * 1024) throw new Error("DeploymentJob JSON must be between 1 byte and 64 KiB.");
+      const job = JSON.parse(await file.text());
+      if (job.schema_version !== 1 || !Array.isArray(job.authorized_clients) || !job.operation) throw new Error("The file is not a supported DeploymentJob schema-v1 document.");
+      setRemoteOperation(job.operation);
+      setRemoteImageId(job.image_id || "");
+      setRemoteSourceDevice(job.source_device || "");
+      setRemoteTargetType(job.target_type || "disk");
+      setRemoteClients(job.authorized_clients.join("\\n"));
+      setRemoteInterface(job.network_interface === "auto" ? "" : (networkInterfaces.find((item) => item.interface === job.network_interface)?.binding || ""));
+      setRemoteTransport(job.transport || "unicast");
+      setRemoteMulticastGroup(job.multicast_group || "239.10.10.10");
+      setRemoteMulticastPort(String(job.multicast_port || 9000));
+      setRemoteStartPolicy(job.start_policy === "automatic" ? "manual" : (job.start_policy || "manual"));
+      setRemoteExpectedClients(String(job.expected_clients || 2));
+      setRemoteStartDeadline(job.start_deadline ? job.start_deadline.slice(0, 16) : "");
+      setRemotePostAction(job.post_action || "none");
+      setSelectedRepositoryId(job.repository_id || "");
+      setRemoteTargetBindings(Object.entries(job.target_bindings || {}).map(([mac, selector]) => [mac, selector.wwn || "", selector.serial || ""].join("|")).join("\\n"));
+      setRemoteJobId(crypto.randomUUID());
+      setRemoteJobJson("");
+      setRemoteJobFile(file);
+      setNotice(job.boot_method === "pxe" ? "PXE DeploymentJob imported. Its automatic PXE start and DHCP interface were converted to safe ISO/Client defaults; select the Server interface and review transport before saving." : "DeploymentJob imported. Review all fields and the destination network interface before saving.");
+      setError("");
+    } catch (err) { setError(err?.message || String(err)); }
+  };
+
+  const downloadRemoteJobDefinition = () => {
+    try {
+      const json = JSON.stringify(buildRemoteJobPayload(), null, 2) + "\\n";
+      setRemoteJobJson(json);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "feclora-deployment-job.json";
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) { setError(err?.message || String(err)); }
+  };
+
   const createRemoteJob = async (event) => {
     event.preventDefault(); setBusy(true); setError(""); setNotice(""); setRemoteJobResult(null);
     try {
-      const authorizedClients = remoteClients.split(/[\s,;]+/).map((value) => value.trim()).filter(Boolean);
-      const job = {
-        schema_version: 1, job_id: crypto.randomUUID(), operation: remoteOperation,
-        image_id: remoteOperation === "clone" ? null : remoteImageId,
-        ...(remoteOperation === "clone" ? { source_device: remoteSourceDevice, target_type: remoteTargetType } : { target_type: remoteTargetType }),
-        authorized_clients: authorizedClients, network_interface: remoteInterface.split("|")[0],
-        transport: remoteTransport,
-        ...((remoteOperation === "restore" || remoteOperation === "save") && remoteSelectedRepository ? { repository_id: remoteSelectedRepository.id } : {}),
-        multicast_group: remoteTransport === "multicast" ? remoteMulticastGroup : null,
-        multicast_port: remoteTransport === "multicast" ? Number(remoteMulticastPort) : null,
-        start_policy: remoteOperation === "clone" ? "manual" : remoteStartPolicy,
-        expected_clients: remoteOperation !== "clone" && remoteStartPolicy === "expected_clients" ? Number(remoteExpectedClients) : null,
-        start_deadline: remoteOperation !== "clone" && remoteStartPolicy === "deadline" ? new Date(remoteStartDeadline).toISOString() : null,
-        post_action: remoteOperation === "save" ? "none" : remotePostAction
-      };
+      const job = buildRemoteJobPayload();
       const result = await callFeclora("create_deployment_job", { job });
       setRemoteJobResult(result); setNotice(result.message); await refresh();
     } catch (err) { setError(err?.message || String(err)); }
@@ -1220,6 +1282,13 @@ export default function App() {
                 </Alert>
               </StackItem>
               <StackItem>
+                <Card><CardBody>
+                  <Title headingLevel="h3" size="lg">{t("Import or export a shared DeploymentJob JSON")}</Title>
+                  <Field t={t} label={t("Import DeploymentJob JSON file")} help={t("A PXE job can be imported here as a starting point; its automatic PXE start is changed to manual and you must select a Server interface.")}>
+                    <input className="pf-v6-c-form-control" type="file" accept=".json,application/json" onChange={(event) => importRemoteJobDefinition(event.target.files?.[0] || null)} />
+                  </Field>
+                  <Button variant="secondary" onClick={downloadRemoteJobDefinition} isDisabled={busy}>{t("Export current form as DeploymentJob JSON")}</Button>
+                </CardBody></Card>
                 <Card><CardBody><form onSubmit={createRemoteJob}>
                   <Field t={t} label={t("operation")}>
                     <select className="pf-v6-c-form-control" value={remoteOperation} onChange={(e) => { setRemoteOperation(e.target.value); setRemoteImageId(""); setRemoteSourceDevice(""); if (e.target.value === "save" || e.target.value === "clone") { setRemoteTransport("unicast"); setRemoteTargetType("disk"); } }}>
@@ -1255,6 +1324,9 @@ export default function App() {
                   </Field>}
                   <Field t={t} label={t("Selected Client MAC addresses")} help={remoteOperation === "clone" ? "Enter one or more selected Client MAC addresses. Each Client independently selects and confirms its own destination of the selected device type. Transfers are serialized from the Server source; each Client verifies its own write." : "Enter one or more MAC addresses for unicast clone, exactly one for unicast save/restore, or at least two for multicast restore. Server checks that each MAC is selected for this job; MAC is not authentication."}>
                     <textarea className="pf-v6-c-form-control" rows={3} value={remoteClients} onChange={(e) => setRemoteClients(e.target.value)} required placeholder={t("52:54:00:12:34:56")} />
+                  </Field>
+                  <Field t={t} label={t("Optional per-Client stable target bindings")} help={t("One line per Client: MAC|WWN|SERIAL. When supplied, every selected Client must have a matching whole-disk WWN and/or serial binding.")}>
+                    <textarea className="pf-v6-c-form-control" rows={3} value={remoteTargetBindings} onChange={(event) => setRemoteTargetBindings(event.target.value)} placeholder={"52:54:00:12:34:56|0x5000c50012345678|DISK-001"} />
                   </Field>
                   <Field t={t} label={t("Server network interface")}>
                     <select className="pf-v6-c-form-control" value={remoteInterface} onChange={(e) => setRemoteInterface(e.target.value)} required>
