@@ -169,6 +169,11 @@ export default function App() {
   const [pxeAnswerJobId, setPxeAnswerJobId] = useState("");
   const [pxeJobImageId, setPxeJobImageId] = useState("");
   const [pxeJobRepositoryId, setPxeJobRepositoryId] = useState("");
+  const [pxeJobBootMethod, setPxeJobBootMethod] = useState("iso");
+  const [pxeJobTransport, setPxeJobTransport] = useState("multicast");
+  const [pxeJobServerInterface, setPxeJobServerInterface] = useState("");
+  const [pxeJobMulticastGroup, setPxeJobMulticastGroup] = useState("239.10.10.10");
+  const [pxeJobMulticastPort, setPxeJobMulticastPort] = useState("9000");
   const [pxeJobTargetBindings, setPxeJobTargetBindings] = useState("");
   const [pxeJobJson, setPxeJobJson] = useState("");
   const [pxeAnswerSource, setPxeAnswerSource] = useState("upload");
@@ -650,12 +655,24 @@ export default function App() {
       }
       const clients = Object.keys(bindings).sort();
       if (!clients.length) throw new Error("Add at least one client and its stable target-disk identity.");
+      const selectedInterface = networkInterfaces.find((item) => item.binding === pxeJobServerInterface);
+      if (pxeJobBootMethod === "iso" && !selectedInterface) throw new Error("Select the Server interface used by the ISO/USB Live deployment.");
+      let multicastGroup = null;
+      let multicastPort = null;
+      if (pxeJobTransport === "multicast") {
+        const octets = pxeJobMulticastGroup.split(".").map(Number);
+        if (octets.length !== 4 || octets.some((value, index) => !Number.isInteger(value) || value < 0 || value > 255 || String(value) !== pxeJobMulticastGroup.split(".")[index]) || octets[0] !== 239) throw new Error("Enter an administratively scoped IPv4 multicast group in 239.0.0.0/8.");
+        multicastPort = Number(pxeJobMulticastPort);
+        if (!Number.isInteger(multicastPort) || multicastPort < 1024 || multicastPort > 65534 || multicastPort % 2 !== 0) throw new Error("UDPcast port base must be an even number from 1024 to 65534.");
+        multicastGroup = pxeJobMulticastGroup;
+      }
       const job = {
         schema_version: 1, job_id: crypto.randomUUID(), operation: "restore",
         image_id: pxeJobImageId.trim(), target_type: "disk", authorized_clients: clients,
-        network_interface: "auto", transport: "unicast", multicast_group: null, multicast_port: null,
+        network_interface: pxeJobBootMethod === "pxe" ? "auto" : selectedInterface.interface,
+        transport: pxeJobTransport, multicast_group: multicastGroup, multicast_port: multicastPort,
         start_policy: "automatic", expected_clients: null, start_deadline: null,
-        repository_id: pxeJobRepositoryId, boot_method: "pxe", confirm_destructive: true,
+        repository_id: pxeJobRepositoryId, boot_method: pxeJobBootMethod, confirm_destructive: true,
         target_bindings: bindings,
       };
       setPxeJobJson(JSON.stringify(job, null, 2) + "\n");
@@ -691,7 +708,7 @@ export default function App() {
       if (pxeAnswerSource === "editor") {
         if (!pxeJobJson.trim()) throw new Error("Generate or import a shared DeploymentJob JSON document first.");
         const parsed = JSON.parse(pxeJobJson);
-        if (parsed.schema_version !== 1 || parsed.boot_method !== "pxe" || !parsed.job_id) throw new Error("The editor must contain a valid shared PXE DeploymentJob.");
+        if (parsed.schema_version !== 1 || parsed.start_policy !== "automatic" || !parsed.job_id) throw new Error("The editor must contain a valid unattended shared DeploymentJob.");
         request.job_id = parsed.job_id;
         request.source = "upload";
         request.answer_base64 = encodeJSON(pxeJobJson);
@@ -700,7 +717,7 @@ export default function App() {
         if (pxeAnswerFile.size < 1 || pxeAnswerFile.size > 64 * 1024) throw new Error("The JSON file must be between 1 byte and 64 KiB.");
         const answerBuffer = await pxeAnswerFile.arrayBuffer();
         const answerText = await pxeAnswerFile.text();
-        try { const parsed = JSON.parse(answerText); if (parsed.schema_version === 1 && parsed.boot_method === "pxe") request.job_id = parsed.job_id; } catch { /* server returns the detailed JSON validation error */ }
+        try { const parsed = JSON.parse(answerText); if (parsed.schema_version === 1 && parsed.start_policy === "automatic") request.job_id = parsed.job_id; } catch { /* server returns the detailed JSON validation error */ }
         request.answer_base64 = encodeJSON(new TextDecoder().decode(answerBuffer));
       } else if (pxeAnswerSource === "url") {
         if (!pxeAnswerURL.trim()) throw new Error("Enter an HTTP or HTTPS URL.");
@@ -1679,8 +1696,8 @@ export default function App() {
               {pxeStatus.configured && <StackItem><Alert variant="warning" title={t("PXE runtime is configured")} isInline>Stop the PXE services when network boot is no longer required, or if the service state is incomplete. <Button variant="danger" onClick={stopPXE} isLoading={busy} isDisabled={busy}>{t("Stop PXE services and restore firewall")}</Button></Alert></StackItem>}
               <StackItem>
                 <Card><CardBody>
-                  <Title headingLevel="h3" size="lg">{t("Publish unattended PXE answer")}</Title>
-                  <p>Import or generate a shared DeploymentJob JSON document. The same schema is used for PXE and ISO/multicast jobs; PXE changes only the boot method and network preflight. The Server validates the document before publishing it through Caddy over HTTP. The file contains no URLs, credential references or secrets.</p>
+                  <Title headingLevel="h3" size="lg">{t("Publish shared unattended answer")}</Title>
+                  <p>Import or generate one schema-v1 DeploymentJob JSON document for every Client. The same answer works with ISO/USB Live or PXE boot; boot method and data transport are independent. The Server validates the document before publishing it through Caddy over HTTP. The file contains no credentials or secrets.</p>
                   <Alert variant="warning" title={t("Destructive operation guard")} isInline>The shared PXE DeploymentJob explicitly confirms unattended destructive restore and binds each authorized client MAC to a stable WWN and/or serial number. MAC addresses are operational identifiers, not authentication credentials. The Live client resolves the selected repository through its normal Feclora managers and rechecks the disk identity immediately before writing. Images may be age-encrypted; the passphrase is entered locally in Live Cockpit. Test only with disposable target disks.</Alert>
                   <Field t={t} label={t("Answer file source")}>
                     <select className="pf-v6-c-form-control" value={pxeAnswerSource} onChange={(event) => { setPxeAnswerSource(event.target.value); setPxeAnswerRepositoryId(""); setPxeAnswerPublished(null); }}>
@@ -1692,6 +1709,32 @@ export default function App() {
                     </select>
                   </Field>
                   {pxeAnswerSource === "editor" && <>
+                    <Field t={t} label={t("Live boot method")}>
+                      <select className="pf-v6-c-form-control" value={pxeJobBootMethod} onChange={(event) => setPxeJobBootMethod(event.target.value)}>
+                        <option value="iso">{t("ISO or USB Live")}</option>
+                        <option value="pxe">{t("Direct PXE/iPXE boot")}</option>
+                      </select>
+                    </Field>
+                    {pxeJobBootMethod === "iso" && <Field t={t} label={t("Server network interface")}>
+                      <select className="pf-v6-c-form-control" value={pxeJobServerInterface} onChange={(event) => setPxeJobServerInterface(event.target.value)}>
+                        <option value="">{t("Select Server interface")}</option>
+                        {networkInterfaces.map((item) => <option key={item.binding} value={item.binding}>{item.interface} · {item.address}</option>)}
+                      </select>
+                    </Field>}
+                    <Field t={t} label={t("Image data transport")}>
+                      <select className="pf-v6-c-form-control" value={pxeJobTransport} onChange={(event) => setPxeJobTransport(event.target.value)}>
+                        <option value="multicast">{t("Multicast (one transmission to all clients)")}</option>
+                        <option value="unicast">{t("Unicast")}</option>
+                      </select>
+                    </Field>
+                    {pxeJobTransport === "multicast" && <>
+                      <Field t={t} label={t("IPv4 multicast group (239.0.0.0/8)")}>
+                        <input className="pf-v6-c-form-control" value={pxeJobMulticastGroup} onChange={(event) => setPxeJobMulticastGroup(event.target.value)} />
+                      </Field>
+                      <Field t={t} label={t("UDPcast even port base (1024–65534)")}>
+                        <input className="pf-v6-c-form-control" type="number" min="1024" max="65534" step="2" value={pxeJobMulticastPort} onChange={(event) => setPxeJobMulticastPort(event.target.value)} />
+                      </Field>
+                    </>}
                     <Field t={t} label={t("Image ID")}><input className="pf-v6-c-form-control" value={pxeJobImageId} onChange={(event) => setPxeJobImageId(event.target.value)} placeholder="fedora-workstation" /></Field>
                     <Field t={t} label={t("Client image repository")}>
                       <select className="pf-v6-c-form-control" value={pxeJobRepositoryId} onChange={(event) => setPxeJobRepositoryId(event.target.value)}>
@@ -1700,7 +1743,7 @@ export default function App() {
                         {s3Repositories.map((item) => <option key={item.id} value={item.id}>{item.id} · S3</option>)}
                       </select>
                     </Field>
-                    <Field t={t} label={t("One client per line: MAC|WWN|SERIAL")} help={t("Use the client MAC reported by PXE and a stable disk WWN and/or serial. Leave the unused selector empty, for example MAC|WWN|.")}>
+                    <Field t={t} label={t("One client per line: MAC|WWN|SERIAL")} help={t("Use each Live client's MAC and a stable disk WWN and/or serial. The same answer is consumed by all clients. Leave the unused selector empty, for example MAC|WWN|.")}>
                       <textarea className="pf-v6-c-form-control" rows="5" value={pxeJobTargetBindings} onChange={(event) => setPxeJobTargetBindings(event.target.value)} placeholder={"52:54:00:12:34:56|0x5000c50012345678|DISK-001"} />
                     </Field>
                     <Button variant="secondary" onClick={generatePXEDeploymentJob} isDisabled={busy}>{t("Generate shared DeploymentJob JSON")}</Button>
