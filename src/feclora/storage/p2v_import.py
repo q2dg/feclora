@@ -83,9 +83,17 @@ def import_p2v_qcow2(
         raise
     except (OSError, json.JSONDecodeError) as exc:
         raise P2VImportError("cannot read committed P2V image and metadata") from exc
-    if (not isinstance(metadata, dict) or metadata.get("schema_version") != 1
+    required_metadata = {
+        "schema_version", "image_id", "format", "source_device", "virtual_size_bytes",
+        "logical_sector_size", "file_size_bytes", "qcow2_sha256", "verified", "bootability_note",
+    }
+    if (not isinstance(metadata, dict) or set(metadata) != required_metadata
+            or isinstance(metadata.get("schema_version"), bool) or metadata.get("schema_version") != 1
             or metadata.get("image_id") != source_image_id or metadata.get("format") != "qcow2"
             or metadata.get("verified") is not True
+            or not isinstance(metadata.get("source_device"), str)
+            or not metadata["source_device"].startswith("/dev/")
+            or not isinstance(metadata.get("bootability_note"), str)
             or metadata.get("file_size_bytes") != source.stat().st_size
             or metadata.get("qcow2_sha256") != _sha256(source)):
         raise P2VImportError("P2V sidecar does not match the QCOW2 source")
