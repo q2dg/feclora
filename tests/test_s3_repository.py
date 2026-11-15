@@ -201,6 +201,49 @@ class S3RepositoryTests(unittest.TestCase):
 
 
 
+    def test_p2v_inventory_and_download_reject_metadata_without_geometry(self):
+        payload = b"qcow2-payload"
+        digest = hashlib.sha256(payload).hexdigest()
+        metadata = {
+            "schema_version": 1, "image_id": "server", "format": "qcow2",
+            "source_device": "/dev/sda", "virtual_size_bytes": 8192,
+            "file_size_bytes": len(payload), "qcow2_sha256": digest,
+            "verified": True, "bootability_note": "note",
+        }
+        import json
+        client = _S3()
+        client.objects["server-a/images/server/server.qcow2"] = (
+            payload, {"sha256": digest},
+        )
+        client.objects["server-a/images/server.p2v.json"] = (
+            json.dumps(metadata).encode("utf-8"), {},
+        )
+        repository = S3ObjectRepository(_config(), client=client)
+        self.assertEqual(repository.list_p2v_images(), [])
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(S3RepositoryError, "metadata schema or identity"):
+                repository.download_p2v("server", Path(temporary) / "export")
+
+    def test_p2v_inventory_rejects_boolean_schema_version(self):
+        payload = b"qcow2-payload"
+        digest = hashlib.sha256(payload).hexdigest()
+        metadata = {
+            "schema_version": True, "image_id": "server", "format": "qcow2",
+            "source_device": "/dev/sda", "virtual_size_bytes": 8192,
+            "logical_sector_size": 512, "file_size_bytes": len(payload),
+            "qcow2_sha256": digest, "verified": True, "bootability_note": "note",
+        }
+        import json
+        client = _S3()
+        client.objects["server-a/images/server/server.qcow2"] = (
+            payload, {"sha256": digest},
+        )
+        client.objects["server-a/images/server.p2v.json"] = (
+            json.dumps(metadata).encode("utf-8"), {},
+        )
+        repository = S3ObjectRepository(_config(), client=client)
+        self.assertEqual(repository.list_p2v_images(), [])
+
     def test_p2v_publication_requires_complete_geometry_and_integer_schema_version(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
