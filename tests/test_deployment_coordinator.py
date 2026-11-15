@@ -122,6 +122,27 @@ class DeploymentCoordinatorTests(unittest.TestCase):
         coordinator.arm()
         self.assertEqual(coordinator.state, JobState.ARMED)
 
+
+    def test_automatic_multicast_does_not_start_if_an_authorized_client_disconnects(self):
+        first, second = "52:54:00:12:34:56", "52:54:00:12:34:57"
+        coordinator = DeploymentCoordinator(make_job(
+            boot_method="iso", confirm_destructive=True,
+            network_interface="enp1s0", transport="multicast",
+            multicast_group="239.10.10.10", multicast_port=5000,
+            repository_id="nas-images", start_policy="automatic",
+            target_bindings={
+                first: {"wwn": "wwn-1", "serial": None},
+                second: {"wwn": "wwn-2", "serial": None},
+            },
+        ))
+        coordinator.register_client(first)
+        coordinator.mark_ready(first)
+        coordinator.register_client(second)
+        coordinator.disconnect_client(second, "lost before receiver READY")
+        self.assertFalse(coordinator.can_start())
+        with self.assertRaisesRegex(CoordinatorError, "start condition"):
+            coordinator.arm()
+
     def test_deadline_policy_uses_injected_clock(self):
         coordinator = DeploymentCoordinator(
             make_job(
