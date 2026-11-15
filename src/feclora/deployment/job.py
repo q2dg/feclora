@@ -20,6 +20,16 @@ class JobValidationError(ValueError):
     """Raised when a deployment job is malformed or unsafe."""
 
 
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject ambiguous duplicate keys at every level of a job document."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise JobValidationError(f"Duplicate job field: {key}")
+        result[key] = value
+    return result
+
+
 _MAC_RE = re.compile(r"^(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$")
 _INTERFACE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,15}$")
 _IMAGE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
@@ -342,7 +352,7 @@ class DeploymentJob:
     @classmethod
     def from_json(cls, document: str) -> "DeploymentJob":
         try:
-            payload = json.loads(document)
+            payload = json.loads(document, object_pairs_hook=_unique_json_object)
         except (TypeError, json.JSONDecodeError) as exc:
             raise JobValidationError("Job document is not valid JSON") from exc
         return cls.from_dict(payload)
