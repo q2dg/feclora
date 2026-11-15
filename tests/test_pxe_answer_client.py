@@ -459,5 +459,57 @@ class PXEAnswerClientTests(unittest.TestCase):
             self.assertEqual(events, [("unmount", "nas-images")])
 
 
+    def test_passphrase_cancellation_releases_remote_repository_lease(self):
+        with tempfile.TemporaryDirectory() as root:
+            repository = Path(root) / "repository"
+            repository.mkdir(mode=0o700)
+            (repository / "golden.manifest.json").write_text("{}", encoding="utf-8")
+            registry = Path(root) / "repositories.json"
+            registry.touch()
+            log_dir = Path(root) / "state"
+            log_dir.mkdir(mode=0o700)
+            lease_fd = os.open(os.devnull, os.O_RDONLY)
+            events = []
+            manager = SimpleNamespace(
+                list=lambda: [{"id": "nas-images"}],
+                ensure_mounted_and_acquire_usage_lock=lambda _identifier: (lease_fd, True),
+                resolve=lambda _identifier, write=False: str(repository),
+                unmount=lambda identifier: events.append(("unmount", identifier)),
+            )
+            manifest = SimpleNamespace(
+                image_id="golden", image_type="disk",
+                artifacts=(SimpleNamespace(encryption="age"),),
+            )
+            target = {
+                "path": "/dev/sdb", "type": "disk",
+                "wwn": "0x5000c50012345678", "serial": None,
+            }
+            with (
+                patch("feclora.storage.s3_repository_manager.REGISTRY", Path(root) / "s3.json"),
+                patch("feclora.storage.s3_repository_manager.S3RepositoryManager",
+                      return_value=SimpleNamespace(list=lambda: [])),
+                patch("feclora.storage.repository_manager.REGISTRY", registry),
+                patch("feclora.storage.repository_manager.RemoteRepositoryManager",
+                      return_value=manager),
+                patch("feclora.network.pxe_answer_client._resolve_target",
+                      return_value=target),
+                patch("feclora.network.pxe_answer_client.ImageManifest.from_json",
+                      return_value=manifest),
+                patch("feclora.deployment.restore_execution.restore_disk") as restore,
+            ):
+                with self.assertRaisesRegex(PXEAnswerClientError, "passphrase unavailable"):
+                    execute_live_pxe_restore({
+                        "image_id": "golden", "repository_id": "nas-images",
+                        "target": {"wwn": "0x5000c50012345678", "serial": None},
+                    }, operation_log=log_dir / "operations.jsonl",
+                       passphrase_provider=lambda: (_ for _ in ()).throw(
+                           PXEAnswerClientError("passphrase unavailable")
+                       ))
+            restore.assert_not_called()
+            with self.assertRaises(OSError):
+                os.fstat(lease_fd)
+            self.assertEqual(events, [("unmount", "nas-images")])
+
+
 if __name__ == "__main__":
     unittest.main()
