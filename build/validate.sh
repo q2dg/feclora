@@ -52,6 +52,17 @@ fi
 if ! grep -q 'def _bootstrap_server' "$ROOT_DIR/src/feclora/webapi.py"; then
   fail "Cockpit backend is missing the Server identity bootstrap implementation."
 fi
+
+# Keep the installed Live wrapper aligned with Cockpit actions that are already
+# exposed by the frontend and implemented by the privileged backend.
+for action in check_capture_filesystem verify_image inspect_image_layout export_server_age_recipients refresh_client_age_recipients renew_server_certificate rotate_server_keypair provide_capture_passphrase restore_logical_volume export_p2v_s3; do
+  if ! grep -q "$action" "$ROOT_DIR/kickstart/feclora-live.ks"; then
+    fail "Kickstart Cockpit API wrapper does not allow the $action action."
+  fi
+  if ! grep -q "\\"$action\\"" "$ROOT_DIR/webui/src/api.js"; then
+    fail "Cockpit API client does not expose the $action action."
+  fi
+done
 if ! grep -q 'local-operation-recovery.service' "$ROOT_DIR/kickstart/feclora-live.ks"; then
   fail "Kickstart does not install local operation recovery."
 fi
