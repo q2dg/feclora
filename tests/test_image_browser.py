@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import stat
+import struct
 import sys
 import tempfile
 import types
@@ -114,6 +115,25 @@ class ImageBrowserTests(unittest.TestCase):
     def test_rejects_parent_directory_traversal(self):
         with self.assertRaisesRegex(image_browser.ImageBrowserError, "normalized"):
             image_browser._guest_path("/docs/../etc")
+
+    def test_qcow2_header_rejects_backing_file_before_qemu_inspection(self):
+        header = bytearray(104)
+        header[:4] = b"QFI\\xfb"
+        struct.pack_into(">I", header, 4, 3)
+        struct.pack_into(">Q", header, 8, 104)
+        struct.pack_into(">I", header, 16, 12)
+        self.image_path.write_bytes(header)
+        with self.assertRaisesRegex(image_browser.ImageBrowserError, "external backing"):
+            image_browser._qcow2_header_is_self_contained(self.image_path)
+
+    def test_qcow2_header_rejects_external_data_file_feature(self):
+        header = bytearray(104)
+        header[:4] = b"QFI\\xfb"
+        struct.pack_into(">I", header, 4, 3)
+        struct.pack_into(">Q", header, 72, 0x4)
+        self.image_path.write_bytes(header)
+        with self.assertRaisesRegex(image_browser.ImageBrowserError, "external data files"):
+            image_browser._qcow2_header_is_self_contained(self.image_path)
 
     def test_qcow2_external_dependencies_are_rejected(self):
         completed = types.SimpleNamespace(
