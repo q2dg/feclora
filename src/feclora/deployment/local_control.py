@@ -18,6 +18,10 @@ class LocalControlError(RuntimeError):
     """Local deployment IPC failed or violated its security policy."""
 
 
+def _reject_json_constant(value: str) -> None:
+    raise LocalControlError(f"non-finite JSON number is not permitted: {value}")
+
+
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
@@ -45,6 +49,7 @@ def _receive(connection: socket.socket) -> dict[str, Any]:
         request = json.loads(
             _recv_exact(connection, size).decode("utf-8"),
             object_pairs_hook=_unique_object,
+            parse_constant=_reject_json_constant,
         )
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise LocalControlError(f"invalid IPC JSON: {exc}") from exc
@@ -238,8 +243,11 @@ def local_control_request(
     if action in {"arm", "cancel"} and set(normalized_params) != {"job_id", "confirmation"}:
         raise LocalControlError("arm and cancel require exactly job_id and confirmation")
     request = {"action": action, "params": normalized_params}
-    encoded = json.dumps(request, sort_keys=True, separators=(",", ":"),
-                         ensure_ascii=True, allow_nan=False).encode("ascii")
+    try:
+        encoded = json.dumps(request, sort_keys=True, separators=(",", ":"),
+                             ensure_ascii=True, allow_nan=False).encode("ascii")
+    except (TypeError, ValueError) as exc:
+        raise LocalControlError(f"IPC request is not serializable: {exc}") from exc
     if len(encoded) > MAX_FRAME:
         raise LocalControlError("IPC request exceeds the frame limit")
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
@@ -250,7 +258,10 @@ def local_control_request(
         if not 1 <= size <= MAX_FRAME:
             raise LocalControlError("invalid IPC response frame length")
         try:
-            response = json.loads(_recv_exact(connection, size).decode("utf-8"))
+            response = json.loads(
+                _recv_exact(connection, size).decode("utf-8"),
+                parse_constant=_reject_json_constant,
+            )
         except (UnicodeError, json.JSONDecodeError) as exc:
             raise LocalControlError(f"invalid IPC response: {exc}") from exc
     if (not isinstance(response, dict)
