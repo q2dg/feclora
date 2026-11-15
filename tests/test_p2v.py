@@ -22,6 +22,8 @@ class P2VConversionTests(unittest.TestCase):
         self.calls.append(argv)
         if argv[1:3] == ["--getsize64", "/dev/feclora-test"]:
             return SimpleNamespace(returncode=0, stdout="4096\n", stderr="")
+        if argv[1:3] == ["--getss", "/dev/feclora-test"]:
+            return SimpleNamespace(returncode=0, stdout="4096\n", stderr="")
         if argv[1] == "convert":
             with open(argv[-1], "wb") as stream:
                 stream.write(b"qcow2-test-payload")
@@ -47,10 +49,11 @@ class P2VConversionTests(unittest.TestCase):
             )
             self.assertTrue(result["verified"])
             self.assertEqual(result["virtual_size_bytes"], 4096)
+            self.assertEqual(result["logical_sector_size"], 4096)
             self.assertEqual(result["format"], "qcow2")
             self.assertTrue(os.path.isfile(output))
             self.assertEqual(os.stat(output).st_mode & 0o777, 0o600)
-            self.assertEqual([call[1] for call in self.calls], ["--getsize64", "convert", "check", "info"])
+            self.assertEqual([call[1] for call in self.calls], ["--getsize64", "--getss", "convert", "check", "info"])
             self.source_safety.assert_called_with("/dev/feclora-test")
             self.assertEqual(self.stat_device.call_count, 2)
 
