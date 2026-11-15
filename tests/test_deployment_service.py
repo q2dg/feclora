@@ -26,6 +26,12 @@ class FakeCoordinator:
             return True
         if self.job.start_policy == "expected_clients":
             return ready >= self.job.minimum_ready_clients
+        if self.job.start_policy == "automatic":
+            ready_macs = {
+                client.mac_address for client in self._clients
+                if client.state is ClientState.READY
+            }
+            return ready_macs == set(self.job.authorized_clients)
         return True
 
 
@@ -109,6 +115,26 @@ class DeploymentServiceCommandTests(unittest.TestCase):
         status = service._status()
         self.assertEqual(status["clients"][0]["progress"]["completed_bytes"], 1024)
         service.control.client_progress.assert_called_once_with()
+
+
+    def test_automatic_service_arms_once_after_all_selected_clients_are_ready(self):
+        first = SimpleNamespace(mac_address="52:54:00:12:34:56", state=ClientState.READY, detail=None)
+        second = SimpleNamespace(mac_address="52:54:00:12:34:57", state=ClientState.CONNECTED, detail=None)
+        service = make_service(clients=(first, second))
+        service.job.start_policy = "automatic"
+        service.job.authorized_clients = (first.mac_address, second.mac_address)
+        with mock.patch("feclora.deployment.service.threading.Thread", FakeThread):
+            self.assertFalse(service._maybe_auto_arm())
+            self.assertFalse(service._arm_requested)
+            service.coordinator._clients = (
+                first,
+                SimpleNamespace(mac_address=second.mac_address, state=ClientState.READY, detail=None),
+            )
+            self.assertTrue(service._maybe_auto_arm())
+            self.assertFalse(service._maybe_auto_arm())
+        self.assertTrue(service._arm_requested)
+        self.assertEqual(len(FakeThread.instances), 1)
+        self.assertTrue(FakeThread.instances[0].started)
 
     def test_arm_requires_exact_job_specific_confirmation(self):
         client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
