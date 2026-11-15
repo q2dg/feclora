@@ -116,6 +116,29 @@ class LocalControlProtocolTests(unittest.TestCase):
         lstat.assert_not_called()
         unlink.assert_not_called()
 
+    def test_stop_retains_listener_when_close_fails_for_retry(self):
+        server = LocalControlServer("/run/feclora/test.sock", lambda *_args: {})
+        listener = mock.Mock()
+        listener.close.side_effect = OSError("close failed")
+        server._listener = listener
+        server._thread = mock.Mock()
+        server._thread.is_alive.return_value = False
+        server._socket_identity = (1, 2)
+        with mock.patch("feclora.deployment.local_control.os.lstat") as lstat, \
+             mock.patch("feclora.deployment.local_control.os.unlink") as unlink:
+            with self.assertRaisesRegex(LocalControlError, "cannot close"):
+                server.stop()
+            self.assertIs(server._listener, listener)
+            self.assertIsNone(server._thread)
+            self.assertEqual(server._socket_identity, (1, 2))
+            lstat.assert_not_called()
+            unlink.assert_not_called()
+            listener.close.side_effect = None
+            server.stop()
+        self.assertIsNone(server._listener)
+        self.assertIsNone(server._socket_identity)
+        unlink.assert_called_once_with(server.path)
+
     def test_client_rejects_status_parameters_before_connecting(self):
         with self.assertRaisesRegex(LocalControlError, "does not accept"):
             local_control_request("/unused/socket", "status", {"unexpected": True})
