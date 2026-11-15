@@ -80,7 +80,9 @@ The workflow canonicalizes this one answer once; it does not create per-client
 answer files or embed repository credentials in the ISO.
 
 The command runs the existing `build/build-iso.sh` in a private temporary
-directory, then validates and atomically publishes the bundle. It requires the
+directory, then validates and atomically publishes the bundle. If `/tmp` lacks
+space for the ISO build, pass `--work-directory /path/to/local-build-scratch`
+on a local filesystem with the free space required by the normal build. It requires the
 same Fedora x86_64 build host, root privileges, KVM and ISO build dependencies
 as the ordinary ISO build. The output directory must not already exist. The
 ISO is included in the bundle; the temporary standalone ISO build directory is
