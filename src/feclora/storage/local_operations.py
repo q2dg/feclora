@@ -85,7 +85,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         raise LocalOperationError("operation_id must use canonical UUID form")
     action, params = value["action"], value["params"]
     fields = {
-        "capture_disk": {"source", "image_id", "compression", "encrypt", "repository_id", "encrypt_passphrase"},
+        "capture_disk": {"source", "image_id", "compression", "encrypt", "image_format", "repository_id", "encrypt_passphrase"},
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
@@ -109,6 +109,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         accepted = (allowed, allowed - {"repository_id"})
     if action == "capture_disk":
         accepted = accepted + tuple(item - {"encrypt_passphrase"} for item in accepted)
+        accepted = accepted + tuple(item - {"image_format"} for item in accepted)
     if set(params) not in accepted:
         raise LocalOperationError("operation parameters do not match the selected operation")
     if action == "import_p2v":
@@ -178,6 +179,12 @@ def validate_definition(value: Any) -> dict[str, Any]:
             raise LocalOperationError("unsupported compression")
         if not isinstance(params.get("encrypt"), bool):
             raise LocalOperationError("encrypt must be boolean")
+        if action == "capture_disk":
+            image_format = params.get("image_format", "raw")
+            if image_format not in {"raw", "qcow2"}:
+                raise LocalOperationError("whole-disk image_format must be raw or qcow2")
+            if image_format == "qcow2" and (params.get("compression") != "none" or params.get("encrypt")):
+                raise LocalOperationError("QCOW2 capture does not support separate compression or age encryption")
         if "encrypt_passphrase" in params:
             if not isinstance(params["encrypt_passphrase"], bool):
                 raise LocalOperationError("encrypt_passphrase must be boolean")
