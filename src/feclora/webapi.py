@@ -1827,10 +1827,12 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         from feclora.storage.p2v_import import import_p2v_qcow2
         source_image_id = _text(params, "source_image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-        repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}")
-        from feclora.storage.s3_repository_manager import S3RepositoryManager
-        if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
-            raise WebAPIError("P2V import requires a mounted filesystem repository; S3 is not supported")
+        repository_id = params.get("repository_id")
+        if repository_id is not None:
+            repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}")
+            from feclora.storage.s3_repository_manager import S3RepositoryManager
+            if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
+                raise WebAPIError("P2V import requires a filesystem repository; S3 is not supported")
         with _operation_repository_context(
             {"repository_id": repository_id}, write=True, image_id=source_image_id,
         ) as repository:
