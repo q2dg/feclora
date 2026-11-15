@@ -349,6 +349,46 @@ class DeploymentJournalTests(unittest.TestCase):
             self.assertEqual(recovered_states[second_mac], ClientState.SUCCEEDED)
             self.assertFalse(report["automatic_resume"])
 
+    def test_multicast_partial_results_are_durable_per_client(self):
+        second_mac = "52:54:00:12:34:57"
+        payload = make_job().to_dict()
+        payload.update({
+            "authorized_clients": [MAC, second_mac],
+            "transport": "multicast",
+            "multicast_group": "239.10.10.10",
+            "multicast_port": 9000,
+        })
+        job = DeploymentJob.from_dict(payload)
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "job.jsonl")
+            journal = DeploymentJournal(path, JOB_ID)
+            coordinator = DeploymentCoordinator(job, event_sink=journal)
+            for mac in (MAC, second_mac):
+                coordinator.register_client(mac)
+                coordinator.mark_ready(mac)
+            coordinator.arm()
+            coordinator.mark_running(MAC)
+            coordinator.mark_running(second_mac)
+            coordinator.report_result(
+                MAC, success=True, detail="multicast image verified",
+            )
+            self.assertEqual(coordinator.state, JobState.RUNNING)
+            coordinator.report_result(
+                second_mac, success=False, detail="receiver read-back mismatch",
+            )
+            self.assertEqual(coordinator.state, JobState.FAILED)
+
+            reopened = DeploymentJournal.inspect(path)
+            report = reopened.recovery_report()
+            recovered = DeploymentCoordinator.from_journal(job, reopened)
+            states = {item.mac_address: item.state for item in recovered.clients()}
+            self.assertEqual(report["job_state"], "failed")
+            self.assertEqual(report["clients"][MAC]["state"], "succeeded")
+            self.assertEqual(report["clients"][second_mac]["state"], "failed")
+            self.assertEqual(states[MAC], ClientState.SUCCEEDED)
+            self.assertEqual(states[second_mac], ClientState.FAILED)
+            self.assertFalse(report["automatic_resume"])
+
     def test_coordinator_rejects_journal_for_another_job(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "job.jsonl")
