@@ -165,12 +165,14 @@ def validate_definition(value: Any) -> dict[str, Any]:
     if "repository_id" in params and (not isinstance(params["repository_id"], str)
             or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}", params["repository_id"])):
         raise LocalOperationError("repository_id is invalid")
-    if action.startswith("restore_") or action.startswith("clone_"):
-        target = params.get("target")
-        if params.get("confirmation") != f"ERASE {target}" and not (
-            action == "clone_partition" and params.get("confirmation") == f"ERASE {target} FROM {params.get('source')}"
-        ):
-            raise LocalOperationError("destructive operation confirmation does not match its target")
+    if action == "clone_partition":
+        expected_confirmation = f"ERASE {params.get('target')} FROM {params.get('source')}"
+    elif action.startswith("restore_") or action == "clone_disk":
+        expected_confirmation = f"ERASE {params.get('target')}"
+    else:
+        expected_confirmation = None
+    if expected_confirmation is not None and params.get("confirmation") != expected_confirmation:
+        raise LocalOperationError("destructive operation confirmation does not match its target and source")
     if action in {"capture_disk", "capture_partition", "capture_logical_volume"}:
         if params.get("compression") not in {"none", "gzip", "xz", "zstd", "lz4"}:
             raise LocalOperationError("unsupported compression")
