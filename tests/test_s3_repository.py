@@ -292,6 +292,7 @@ class S3RepositoryTests(unittest.TestCase):
             metadata = {
                 "schema_version": 1, "image_id": "server", "format": "qcow2",
                 "source_device": "/dev/sda", "virtual_size_bytes": 16384,
+                "logical_sector_size": 512,
                 "file_size_bytes": len(payload), "qcow2_sha256": hashlib.sha256(payload).hexdigest(),
                 "verified": True, "bootability_note": "note",
             }
