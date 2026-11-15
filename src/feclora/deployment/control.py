@@ -21,7 +21,7 @@ import ssl
 import struct
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 
@@ -918,18 +918,9 @@ class DeploymentControlServer:
                 verify_artifact_file(os.path.join(repository, artifact.filename), artifact)
         except (OSError, UnicodeError, ManifestValidationError, UDPcastError) as exc:
             raise DeploymentControlError(f"cannot verify multicast image manifest: {exc}") from exc
-        expected_macs = tuple(sorted(item.mac_address for item in clients))
         started = self.arm_and_start()
-        if tuple(sorted(started)) != expected_macs:
-            detail = "not every selected Client accepted the multicast START; multicast data was not sent"
-            # A Client that accepted START is already RUNNING and waiting for
-            # its transfer offer. Close it as a failed operation rather than
-            # leaving it blocked indefinitely while the cohort is aborted.
-            for mac in started:
-                self._record_transfer_failure(
-                    mac, f"multicast restore aborted before data transfer: {detail}",
-                )
-            raise DeploymentControlError(detail)
+        # A failed START is isolated to that Client. Peers that accepted START
+        # continue with the identical manifest and multicast payload.
         offer = {
             "type": "transfer_offer",
             "job_id": job.job_id,
@@ -937,20 +928,40 @@ class DeploymentControlServer:
             "manifest_b64": base64.b64encode(manifest_bytes).decode("ascii"),
         }
         with self._lock:
-            sessions = tuple((mac, self._sessions.get(mac)) for mac in expected_macs)
-        try:
-            for mac, tls_socket in sessions:
+            sessions = tuple(
+                (mac, self._sessions.get(mac))
+                for mac in sorted(started)
+            )
+        active_sessions: list[tuple[str, Any]] = []
+        for mac, tls_socket in sessions:
+            try:
                 if tls_socket is None:
-                    raise DeploymentControlError(f"Client {mac} lost its control session")
+                    raise DeploymentControlError("control session is unavailable")
                 send_control_message(tls_socket, offer)
+                active_sessions.append((mac, tls_socket))
+            except (OSError, DeploymentControlError) as exc:
+                self._record_transfer_failure(
+                    mac, f"multicast restore offer failed: {exc}",
+                )
+        if not active_sessions:
+            raise DeploymentControlError(
+                "no Client accepted the multicast restore offer; no data was sent"
+            )
+
+        # UDPcast must not require every receiver: a single broken receiver
+        # must not hold up the other Clients that joined the same multicast.
+        resilient_config = replace(udpcast_config, min_receivers=1)
+        try:
             for artifact in manifest.artifacts:
                 source_path = os.path.join(repository, artifact.filename)
                 send_multicast_artifact(
                     self.coordinator, source_path, manifest_path,
-                    udpcast_config, firewall=self.firewall,
+                    resilient_config, firewall=self.firewall,
                 )
         except (OSError, DeploymentControlError, UDPcastError, PXEFirewallError) as exc:
-            for mac, _tls_socket in sessions:
+            # These are sender/repository-wide failures, not receiver-local
+            # failures, so every active receiver necessarily shares the error.
+            for mac, _tls_socket in active_sessions:
                 self._record_transfer_failure(mac, f"multicast restore failed: {exc}")
             raise DeploymentControlError(f"multicast restore transfer failed: {exc}") from exc
         return self.collect_results(timeout=result_timeout)
