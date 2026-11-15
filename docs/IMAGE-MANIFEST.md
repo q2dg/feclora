@@ -79,10 +79,12 @@ Artifact roles include:
 For whole-disk images, the `disk-image` format may be `raw` or `qcow2`.
 QCOW2 artifacts must be uncompressed and unencrypted; the manifest's
 `source_size_bytes` is the QCOW2 virtual capacity, not the stored file length.
-Restore verifies the stored digest, runs `qemu-img check`, rejects backing or
-external data-file dependencies, checks the virtual capacity, and converts
-to a private RAW staging file before using the normal whole-disk writer.
-No guest driver, initramfs or firmware repair is performed.
+Restore verifies the stored digest, rejects backing or external data-file
+dependencies before structural checking, checks the virtual capacity, and
+converts to a private RAW staging file before using the normal whole-disk
+writer. The temporary filesystem needs free space for the stored QCOW2 file,
+the full RAW virtual capacity and a small safety margin. No guest driver,
+initramfs or firmware repair is performed.
 
 Each artifact records a safe basename, role, encoding, compression,
 encryption, stored byte length and SHA-256 digest. Partition-image and
