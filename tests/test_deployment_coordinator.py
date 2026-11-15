@@ -99,6 +99,29 @@ class DeploymentCoordinatorTests(unittest.TestCase):
         coordinator.mark_ready("52:54:00:12:34:57")
         self.assertTrue(coordinator.can_start())
 
+
+    def test_automatic_policy_arms_only_after_every_authorized_client_is_ready(self):
+        coordinator = DeploymentCoordinator(make_job(
+            boot_method="pxe", confirm_destructive=True,
+            network_interface="auto", transport="multicast",
+            multicast_group="239.10.10.10", multicast_port=5000,
+            repository_id="nas-images", start_policy="automatic",
+            target_bindings={
+                "52:54:00:12:34:56": {"wwn": "wwn-1", "serial": None},
+                "52:54:00:12:34:57": {"wwn": "wwn-2", "serial": None},
+            },
+        ))
+        first, second = "52:54:00:12:34:56", "52:54:00:12:34:57"
+        coordinator.register_client(first)
+        coordinator.mark_ready(first)
+        self.assertFalse(coordinator.can_start())
+        coordinator.register_client(second)
+        self.assertFalse(coordinator.can_start())
+        coordinator.mark_ready(second)
+        self.assertTrue(coordinator.can_start())
+        coordinator.arm()
+        self.assertEqual(coordinator.state, JobState.ARMED)
+
     def test_deadline_policy_uses_injected_clock(self):
         coordinator = DeploymentCoordinator(
             make_job(
