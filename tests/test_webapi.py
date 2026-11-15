@@ -1995,6 +1995,26 @@ class P2VWebAPITests(unittest.TestCase):
             self.assertEqual(metadata["format"], "qcow2")
             self.assertEqual(metadata["virtual_size_bytes"], 8192)
 
+    def test_p2v_publication_rolls_back_both_files_when_directory_sync_fails(self):
+        from feclora.webapi import _execute_operation
+        with tempfile.TemporaryDirectory() as root:
+            repository = Path(root)
+            def fake_convert(source, output):
+                Path(output).write_bytes(b"verified-qcow2")
+                return {
+                    "source": source, "output": str(output), "format": "qcow2",
+                    "virtual_size_bytes": 8192, "logical_sector_size": 4096,
+                    "file_size_bytes": 13, "verified": True,
+                }
+            with patch("feclora.webapi._operation_repository", return_value=repository), \\
+                 patch("feclora.storage.p2v.convert_block_device_to_qcow2", side_effect=fake_convert), \\
+                 patch("feclora.storage.image_publication.os.fsync", side_effect=OSError("sync failed")):
+                with self.assertRaises(Exception):
+                    _execute_operation(
+                        "capture_p2v", {"source": "/dev/sda", "image_id": "vm-disk"}, "p2v-test"
+                    )
+            self.assertFalse((repository / "vm-disk.qcow2").exists())
+            self.assertFalse((repository / "vm-disk.p2v.json").exists())
 
 
 class P2VS3ExportWebAPITests(unittest.TestCase):
