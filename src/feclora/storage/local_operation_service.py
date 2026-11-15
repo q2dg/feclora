@@ -247,7 +247,9 @@ def execute(operation_id: str) -> int:
                            "artifact_count", "repository_path", "output_path",
                            "virtual_size_bytes", "file_size_bytes",
                            "artifacts_verified", "published", "manifest_sha256",
-                           "sha256", "payload_size_bytes", "boot_catalog_preserved"}
+                           "sha256", "payload_size_bytes", "boot_catalog_preserved",
+                           "bundle_id", "job_id", "client_count", "transport",
+                           "file_count", "bundle_manifest", "output_directory"}
                 and isinstance(value, (str, int, bool, type(None)))
             }
             store.append(operation_id, "completed", safe_result)
