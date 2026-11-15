@@ -177,6 +177,21 @@ class DeploymentServiceCommandTests(unittest.TestCase):
                 "confirmation": "ARM " + service.job.job_id,
             })
 
+    def test_arm_worker_start_failure_resets_arm_state(self):
+        client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
+        service = make_service(clients=(client,))
+        class BrokenThread(FakeThread):
+            def start(self):
+                raise RuntimeError("thread resources exhausted")
+        with mock.patch("feclora.deployment.service.threading.Thread", BrokenThread):
+            with self.assertRaisesRegex(DeploymentServiceError, "cannot start deployment worker"):
+                service._handle_ipc("arm", {
+                    "job_id": service.job.job_id,
+                    "confirmation": "ARM " + service.job.job_id,
+                })
+        self.assertFalse(service._arm_requested)
+        self.assertIsNone(service._worker)
+
     def test_arm_starts_one_worker_after_all_clients_are_ready(self):
         client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
         service = make_service(clients=(client,))
@@ -189,6 +204,19 @@ class DeploymentServiceCommandTests(unittest.TestCase):
         self.assertTrue(service._arm_requested)
         self.assertEqual(len(FakeThread.instances), 1)
         self.assertTrue(FakeThread.instances[0].started)
+
+    def test_automatic_worker_start_failure_is_retryable(self):
+        client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
+        service = make_service(clients=(client,))
+        service.job.start_policy = "automatic"
+        class BrokenThread(FakeThread):
+            def start(self):
+                raise RuntimeError("thread resources exhausted")
+        with mock.patch("feclora.deployment.service.threading.Thread", BrokenThread):
+            self.assertFalse(service._maybe_auto_arm())
+        self.assertFalse(service._arm_requested)
+        self.assertIsNone(service._worker)
+        self.assertIn("cannot start automatic", service._last_error)
 
     def test_multicast_arm_requires_igmp_verification_phrase(self):
         client = SimpleNamespace(mac_address="02:00:00:00:00:01", state=ClientState.READY, detail=None)
