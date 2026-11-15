@@ -1630,6 +1630,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
         "capture_p2v": {"source", "image_id", "repository_id"},
+        "import_p2v": {"source_image_id", "image_id", "repository_id"},
         "export_p2v_s3": {"image_id", "source_repository_id", "destination_repository_id"},
         "build_recovery_iso": {"base_iso_path", "image_id", "target_wwn", "target_serial", "confirm_build", "repository_id"},
         "build_deployment_bundle": {"base_iso_path", "image_id", "deployment_job", "bundle_name", "repository_id"},
@@ -1822,6 +1823,23 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         result = {"image_id": manifest.image_id, "image_type": manifest.image_type}
     elif action == "export_p2v_s3":
         result = _export_p2v_from_s3(params)
+    elif action == "import_p2v":
+        from feclora.storage.p2v_import import import_p2v_qcow2
+        source_image_id = _text(params, "source_image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}")
+        from feclora.storage.s3_repository_manager import S3RepositoryManager
+        if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
+            raise WebAPIError("P2V import requires a mounted filesystem repository; S3 is not supported")
+        with _operation_repository_context(
+            {"repository_id": repository_id}, write=True, image_id=source_image_id,
+        ) as repository:
+            manifest = import_p2v_qcow2(repository, source_image_id, image_id)
+        result = {
+            "image_id": manifest.image_id, "image_type": manifest.image_type,
+            "artifact_count": len(manifest.artifacts), "verified": True,
+            "repository_path": str(repository),
+        }
     elif action == "capture_p2v":
         from feclora.storage.p2v import convert_block_device_to_qcow2
         source = _device(params["source"], "source")
@@ -3481,7 +3499,7 @@ def dispatch(request: Any) -> dict[str, Any]:
         return _cancel_local_operation(params)
     if action == "local_operations":
         return _local_operations(params)
-    if action in {"capture_disk", "capture_partition", "capture_p2v", "export_p2v_s3", "restore_disk", "restore_partition", "restore_logical_volume",
+    if action in {"capture_disk", "capture_partition", "capture_p2v", "import_p2v", "export_p2v_s3", "restore_disk", "restore_partition", "restore_logical_volume",
                   "clone_disk", "clone_partition", "extract_partition_image", "build_recovery_iso", "build_deployment_bundle"}:
         return _submit_local_operation({"operation": action, "operation_params": params})
     raise WebAPIError("unsupported Cockpit API action")
