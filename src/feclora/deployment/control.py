@@ -226,7 +226,10 @@ class DeploymentControlServer:
                     firewall_state_callback(None)
                 except Exception as cleanup_exc:
                     cleanup_errors.append(f"firewall state callback cleanup failed: {cleanup_exc}")
-            self._firewall_state_callback = None
+                else:
+                    self._firewall_state_callback = None
+            elif not cleanup_errors:
+                self._firewall_state_callback = None
             for cleanup_error in cleanup_errors:
                 self._record_listener_error(cleanup_error)
             raise DeploymentControlError(f"cannot bind deployment control listener: {exc}") from exc
@@ -264,7 +267,10 @@ class DeploymentControlServer:
                     self._firewall_state_callback(None)
                 except Exception as cleanup_exc:
                     cleanup_errors.append(f"firewall state callback cleanup failed: {cleanup_exc}")
-            self._firewall_state_callback = None
+                else:
+                    self._firewall_state_callback = None
+            elif not cleanup_errors:
+                self._firewall_state_callback = None
             for cleanup_error in cleanup_errors:
                 self._record_listener_error(cleanup_error)
             raise DeploymentControlError(
