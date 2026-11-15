@@ -95,6 +95,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "clone_partition": {"source", "target", "confirmation"},
         "extract_partition_image": {"image_id", "selector", "repository_id"},
         "capture_p2v": {"source", "image_id", "repository_id"},
+        "import_p2v": {"source_image_id", "image_id", "repository_id"},
         "export_p2v_s3": {"image_id", "source_repository_id", "destination_repository_id"},
         "build_recovery_iso": {"base_iso_path", "image_id", "target_wwn", "target_serial", "confirm_build", "repository_id"},
         "build_deployment_bundle": {"base_iso_path", "image_id", "deployment_job", "bundle_name", "repository_id"},
