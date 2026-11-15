@@ -55,7 +55,7 @@ fi
 
 # Keep the installed Live wrapper aligned with Cockpit actions that are already
 # exposed by the frontend and implemented by the privileged backend.
-for action in check_capture_filesystem verify_image inspect_image_layout export_server_age_recipients refresh_client_age_recipients renew_server_certificate rotate_server_keypair provide_capture_passphrase restore_logical_volume export_p2v_s3 s3_repositories add_s3_repository update_s3_repository check_s3_repository remove_s3_repository s3_repository_images; do
+for action in check_capture_filesystem verify_image inspect_image_layout export_server_age_recipients refresh_client_age_recipients renew_server_certificate rotate_server_keypair provide_capture_passphrase capture_logical_volume restore_logical_volume export_p2v_s3 s3_repositories add_s3_repository update_s3_repository check_s3_repository remove_s3_repository s3_repository_images; do
   if ! grep -q "$action" "$ROOT_DIR/kickstart/feclora-live.ks"; then
     fail "Kickstart Cockpit API wrapper does not allow the $action action."
   fi
