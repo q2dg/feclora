@@ -51,11 +51,37 @@ Python package and frontend into the installer media, and invokes Lorax.
 Results and logs are written under `out/`; inspect the complete result
 directory before treating the build as successful.
 
+## Generate the one shared unattended answer
+
+Generate the canonical schema-v1 `DeploymentJob` before running the bundle
+coordinator. Supply one `--client` argument per machine; the binding syntax is
+`MAC=WWN|SERIAL`. Either selector may be empty, but not both. The generated
+file is a single fleet-wide answer, not a set of per-client files.
+
+```bash
+python3 build/generate-shared-answer.py \
+  --image-id fleet-image \
+  --repository-id primary \
+  --client '02:00:00:00:00:01=naa.0001|disk-1' \
+  --client '02:00:00:00:00:02=|disk-2' \
+  --network-interface enp2s0 \
+  --transport multicast \
+  --multicast-group 239.10.10.10 \
+  --multicast-port 9000 \
+  --boot-method iso \
+  --output /secure/path/shared-deployment-job.json
+```
+
+For unicast, set `--transport unicast`; multicast settings are omitted from
+the canonical job. For PXE boot, set `--boot-method pxe`; the job uses
+`network_interface=auto`. The generator validates the complete job contract,
+requires at least two authorized Clients for multicast, writes mode 0600, and
+refuses to overwrite an existing answer. The answer contains no credentials.
 
 ## Coordinated deployment bundle
 
 For a single build-host workflow that builds the generic Feclora Live ISO,
-selects or captures a Feclora whole-disk image, and publishes one shared
+selects or captures a Feclora whole-disk image, and publishes the shared
 unattended answer with the image into a versioned bundle, use:
 
 ```bash
@@ -64,7 +90,7 @@ sudo python3 build/create-deployment-bundle.py \
   --repository /mnt/feclora-images \
   --repository-id primary \
   --image-id fleet-image \
-  --answer-file /path/to/shared-deployment-job.json \
+  --answer-file /secure/path/shared-deployment-job.json \
   --output /mnt/feclora-images/fleet-bundle
 ```
 
