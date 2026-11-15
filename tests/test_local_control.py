@@ -83,6 +83,18 @@ class LocalControlProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(LocalControlError, "unsupported"):
             local_control_request("/unused/socket", "status", [])
 
+    def test_client_rejects_duplicate_response_fields(self):
+        payload = b'{"ok":true,"ok":false,"error":"ambiguous"}'
+        connection = mock.MagicMock()
+        connection.__enter__.return_value = connection
+        connection.recv.side_effect = [
+            struct.pack("!I", len(payload)),
+            payload,
+        ]
+        with mock.patch("feclora.deployment.local_control.socket.socket", return_value=connection):
+            with self.assertRaisesRegex(LocalControlError, "duplicate"):
+                local_control_request("/unused/socket", "status")
+
     def test_client_rejects_non_finite_parameter_values_before_connecting(self):
         with self.assertRaisesRegex(LocalControlError, "not serializable"):
             local_control_request(
