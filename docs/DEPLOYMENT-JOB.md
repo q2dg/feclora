@@ -74,21 +74,23 @@ device checks, and the Server operator explicitly ARMs the complete READY set.
   selected device. These hardware fields reduce accidental mis-targeting;
   they are not cryptographic device attestation and may be spoofable. The Server Cockpit whole-disk restore workflow can collect a binding
   for each selected Client; partition- and logical-volume target bindings are not currently
-  supported because those targets require local topology-aware selection. This is a preflight constraint: it does not yet
-  provide unattended target discovery or replace the Client's local target
-  selection and typed confirmation.
+  supported because those targets require local topology-aware selection. The
+  unattended answer workflow uses these bindings to resolve each whole-disk
+  target locally and still performs the normal pre-write identity revalidation.
 - `network_interface`: explicit Linux interface name for ISO/USB workflows;
   `auto` is reserved for PXE-booted Live clients that already have DHCP networking.
 - `transport`: `unicast` or `multicast`. Multicast requires an
   administratively scoped IPv4 group and an even UDPcast port base.
 - `multicast_group` and `multicast_port`: required only for multicast.
-- `start_policy`: `manual`, `expected_clients` or `deadline`; the latter
-  two require exactly one matching threshold/deadline parameter. Physical
+- `start_policy`: `manual`, `expected_clients`, `deadline` or `automatic`; the
+  threshold/deadline policies require exactly one matching parameter. Physical
   multicast clone always uses `manual`: every selected Client must be READY,
-  then must independently revalidate and open its destination and start its
-  UDPcast receiver before the Server sends any data. Other operations retain
-  the configured start-gate behavior. No policy starts disk I/O automatically;
-  the Server operator must still perform the exact job-specific authorization.
+  then independently revalidate and open its destination and start its UDPcast
+  receiver before the Server sends data. `automatic` is reserved for unattended
+  whole-disk restore answer files with explicit destructive confirmation, a
+  managed repository and a stable target binding for every authorized Client.
+  Every authorized Client must reach READY before the Server automatically
+  starts the job; no operator ARM action is expected.
 - `staging_required_bytes`: optional non-negative capacity requirement used
   only for multicast restore jobs.
 - `post_action`: optional `none`, `reboot` or `poweroff` (default `none`);
