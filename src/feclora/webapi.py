@@ -2976,6 +2976,30 @@ def _deployment_jobs() -> list[dict[str, Any]]:
 
 
 
+def _deployment_unit_is_active(job_id: str) -> bool:
+    """Fail closed while the job's systemd unit is active or transitioning."""
+    try:
+        result = subprocess.run(
+            ["/usr/bin/systemctl", "show", "--property=ActiveState", "--value",
+             _deployment_service_unit(job_id)],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=False, timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise WebAPIError(f"cannot establish deployment service state: {exc}") from exc
+    if result.returncode != 0:
+        raise WebAPIError("cannot establish deployment service state; journal reconciliation is blocked")
+    state = result.stdout.strip()
+    if state in {"active", "activating", "deactivating"}:
+        return True
+    if state in {"inactive", "failed"}:
+        return False
+    raise WebAPIError(
+        f"deployment service has an unknown systemd state ({state or 'empty'}); "
+        "journal reconciliation is blocked"
+    )
+
+
 def _reconcile_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
     if set(params) != {"job_id", "confirmation"}:
         raise WebAPIError("reconcile_deployment_job requires exactly job_id and confirmation")
@@ -2988,13 +3012,7 @@ def _reconcile_deployment_job(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError("job_id must be a canonical UUID")
     if not isinstance(confirmation, str) or len(confirmation) > 96:
         raise WebAPIError("operator reconciliation confirmation is invalid")
-    from feclora.deployment.journal import DeploymentJournal, DeploymentJournalError
-    try:
-        from feclora.deployment.local_control import LocalControlError, local_control_request
-        active_service = local_control_request("/run/feclora/deployment.sock", "status")
-    except (OSError, LocalControlError):
-        active_service = None
-    if active_service and active_service.get("job_id") == job_id:
+    if _deployment_unit_is_active(job_id):
         raise WebAPIError("stop the active deployment service before reconciling its journal")
 
     directory = _deployment_journal_directory()
