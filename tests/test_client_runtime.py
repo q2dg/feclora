@@ -65,7 +65,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
              patch("feclora.deployment.client_runtime.os.path.isfile", return_value=True), \
              patch("feclora.deployment.client_runtime.receive_image_set", return_value="/repo/golden-image.manifest.json") as receive, \
-             patch("feclora.deployment.client_runtime.restore_disk") as restore:
+             patch("feclora.deployment.restore_execution.restore_disk") as restore:
             result = execute_client_image_job(
                 make_job("restore"), tls, self.approval,
                 server_identity="URI:feclora-server", repository="/repo",
@@ -88,7 +88,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         with (
             patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device),
             patch("feclora.deployment.client_runtime.receive_image_set", return_value="/repo/golden-image.manifest.json"),
-            patch("feclora.deployment.client_runtime.restore_logical_volume") as restore,
+            patch("feclora.deployment.restore_execution.restore_logical_volume") as restore,
         ):
             result = execute_client_image_job(
                 make_job("restore", "logical_volume"), tls, self.approval,
@@ -106,7 +106,7 @@ class ClientImageRuntimeTests(unittest.TestCase):
         }))
         with patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device), \
              patch("feclora.deployment.client_runtime.receive_image_set", return_value="/repo/golden-image.manifest.json"), \
-             patch("feclora.deployment.client_runtime.restore_disk") as restore:
+             patch("feclora.deployment.restore_execution.restore_disk") as restore:
             result = execute_client_image_job(
                 make_job("restore"), tls, self.approval,
                 server_identity="URI:feclora-server", repository="/repo",
@@ -191,8 +191,8 @@ class ClientImageRuntimeTests(unittest.TestCase):
         with (
             patch("feclora.deployment.client_runtime.os.lstat", return_value=self.block_device),
             patch("feclora.deployment.client_runtime.receive_image_set", return_value="/repo/golden-image.manifest.json"),
-            patch("feclora.deployment.client_runtime.restore_partition") as restore_partition,
-            patch("feclora.deployment.client_runtime.restore_disk") as restore_disk,
+            patch("feclora.deployment.restore_execution.restore_partition") as restore_partition,
+            patch("feclora.deployment.restore_execution.restore_disk") as restore_disk,
         ):
             result = execute_client_image_job(
                 make_job("restore", "partition"), tls, self.approval,

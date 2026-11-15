@@ -18,11 +18,8 @@ from feclora.deployment.artifact_transfer import (
  )
 from feclora.deployment.control import LocalTargetApproval, receive_control_message, send_control_message
 from feclora.deployment.job import DeploymentJob
-from feclora.deployment.restore_execution import execute_restore
+from feclora.deployment.restore_execution import execute_restore, RestoreExecutionError
 from feclora.storage.disk_capture import DiskCaptureError, capture_disk
-from feclora.storage.disk_restore import DiskRestoreError, restore_disk
-from feclora.storage.partition_restore import PartitionRestoreError, restore_partition
-from feclora.storage.logical_volume_restore import LogicalVolumeRestoreError, restore_logical_volume
 from feclora.storage.logical_volume_image_capture import LogicalVolumeImageCaptureError, capture_logical_volume_image
 from feclora.storage.inventory import collect_inventory
 from feclora.network.remote_clone import receive_remote_disk
@@ -103,7 +100,7 @@ def execute_client_image_job(
                 executables=executables,
             )
             return True, f"image {job.image_id} restored and destination read-back verified"
-        except (ImageTransferError, DiskRestoreError, PartitionRestoreError, LogicalVolumeRestoreError, OSError) as exc:
+        except (ImageTransferError, RestoreExecutionError, OSError) as exc:
             raise ClientImageRuntimeError(f"restore failed: {exc}") from exc
 
     if job.operation == "save":

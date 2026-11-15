@@ -486,7 +486,7 @@ def execute_live_pxe_restore(
                         progress_callback=record_progress,
                         pre_write_callback=before_write,
                     )
-                except (RestoreExecutionError, Exception) as exc:
+                except Exception as exc:
                     raise PXEAnswerClientError(f"PXE whole-disk restore failed: {exc}") from exc
         finally:
             age_passphrase = None

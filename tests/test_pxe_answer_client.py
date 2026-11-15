@@ -338,7 +338,7 @@ class PXEAnswerClientTests(unittest.TestCase):
                  patch("feclora.network.pxe_answer_client._resolve_target", return_value=target), \
                  patch("feclora.network.pxe_answer_client._revalidate_target") as revalidate, \
                  patch("feclora.network.pxe_answer_client.ImageManifest.from_json", return_value=manifest), \
-                 patch("feclora.network.pxe_answer_client.restore_disk", side_effect=restore) as restore_call:
+                 patch("feclora.deployment.restore_execution.restore_disk", side_effect=restore) as restore_call:
                 resolved = execute_live_pxe_restore({
                     "image_id": "golden", "repository_id": "nas-images",
                     "target": {"wwn": "0x5000c50012345678", "serial": None},
@@ -370,7 +370,7 @@ class PXEAnswerClientTests(unittest.TestCase):
                  patch("feclora.network.pxe_answer_client._resolve_target", return_value=target), \
                  patch("feclora.network.pxe_answer_client._revalidate_target"), \
                  patch("feclora.network.pxe_answer_client.ImageManifest.from_json", return_value=manifest), \
-                 patch("feclora.network.pxe_answer_client.restore_disk", side_effect=restore) as restore_call:
+                 patch("feclora.deployment.restore_execution.restore_disk", side_effect=restore) as restore_call:
                 execute_live_pxe_restore({
                     "image_id": "golden", "repository_id": "nas-images",
                     "target": {"wwn": "0x5000c50012345678", "serial": None},
