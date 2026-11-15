@@ -158,6 +158,122 @@ def _target_geometry(target_path: str, lsblk: str, runner: Callable[..., Any]) -
         raise DiskRestoreError("target disk geometry is invalid or read-only")
     return size, sector_size
 
+def _restore_qcow2_disk(
+    manifest: ImageManifest,
+    repository: str,
+    target_path: str,
+    *,
+    confirmation: str,
+    executables: dict[str, str | None] | None,
+    device_validator: Callable[[str], bool] | None,
+    runner: Callable[..., Any] | None,
+    popen_factory: Callable[..., Any] | None,
+    target_safety_check: Callable[[str], None] | None,
+    effective_uid: Callable[[], int] | None,
+    progress_callback: Callable[[int, int], None] | None,
+    age_identity_file: str | os.PathLike[str] | None,
+    age_passphrase: str | None,
+    pre_write_callback: Callable[[], None] | None,
+) -> ImageManifest:
+    """Convert a verified QCOW2 artifact to a private RAW staging image, then use the normal restore path."""
+    import json
+    available = executables or {}
+    qemu_img = available.get("qemu-img") or shutil.which("qemu-img")
+    if not qemu_img:
+        raise DiskRestoreError("qemu-img is required to restore a QCOW2 disk image")
+    artifacts = [item for item in manifest.artifacts if item.role == "disk-image"]
+    if len(artifacts) != 1 or artifacts[0].format != "qcow2":
+        raise DiskRestoreError("QCOW2 restore requires exactly one QCOW2 disk-image artifact")
+    artifact = artifacts[0]
+    if artifact.compression != "none" or artifact.encryption != "none":
+        raise DiskRestoreError("QCOW2 disk artifacts cannot use separate compression or age encryption")
+    if age_identity_file is not None or age_passphrase is not None:
+        raise DiskRestoreError("QCOW2 disk artifacts do not accept an age decryption identity or passphrase")
+    source_path = os.path.join(repository, artifact.filename)
+    run = runner or subprocess.run
+    with tempfile.TemporaryDirectory(prefix="feclora-qcow2-restore-") as temporary:
+        staged_source = os.path.join(temporary, "source.qcow2")
+        digest = hashlib.sha256()
+        copied = 0
+        with _open_artifact(repository, artifact) as source, open(staged_source, "xb") as destination:
+            while True:
+                chunk = source.read(1024 * 1024)
+                if not chunk:
+                    break
+                destination.write(chunk)
+                digest.update(chunk)
+                copied += len(chunk)
+            destination.flush()
+            os.fsync(destination.fileno())
+        if copied != artifact.size_bytes or digest.hexdigest() != artifact.sha256:
+            raise DiskRestoreError("stored QCOW2 artifact size or SHA-256 does not match manifest")
+
+        def qemu(argv: list[str]) -> Any:
+            try:
+                result = run(
+                    argv, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                    check=False, timeout=24 * 60 * 60,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                raise DiskRestoreError(f"could not execute qemu-img: {exc}") from exc
+            if result.returncode != 0:
+                detail = (getattr(result, "stderr", "") or getattr(result, "stdout", "") or "").strip()
+                raise DiskRestoreError("qemu-img failed" + (f": {detail[:512]}" if detail else ""))
+            return result
+
+        qemu([qemu_img, "check", "-f", "qcow2", staged_source])
+        info_result = qemu([qemu_img, "info", "--output=json", staged_source])
+        try:
+            info = json.loads(info_result.stdout)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise DiskRestoreError("qemu-img returned invalid QCOW2 metadata") from exc
+        format_specific = info.get("format-specific") if isinstance(info, dict) else None
+        format_data = format_specific.get("data", {}) if isinstance(format_specific, dict) else {}
+        external_data_file = info.get("data-file") if isinstance(info, dict) else None
+        if isinstance(format_data, dict):
+            external_data_file = external_data_file or format_data.get("data-file")
+        if (not isinstance(info, dict) or info.get("format") != "qcow2"
+                or isinstance(info.get("virtual-size"), bool)
+                or not isinstance(info.get("virtual-size"), int)
+                or info.get("virtual-size") != manifest.source_size_bytes
+                or info.get("backing-filename") or info.get("full-backing-filename")
+                or external_data_file or info.get("encrypted") is True
+                or (isinstance(format_data, dict) and format_data.get("encrypted") is True)):
+            raise DiskRestoreError("QCOW2 format, dependencies or virtual capacity disagree with the image manifest")
+        raw_path = os.path.join(temporary, "disk.raw")
+        qemu([qemu_img, "convert", "-p", "-f", "qcow2", "-O", "raw", staged_source, raw_path])
+        raw_info = os.lstat(raw_path)
+        if not stat.S_ISREG(raw_info.st_mode) or stat.S_ISLNK(raw_info.st_mode) or raw_info.st_size != manifest.source_size_bytes:
+            raise DiskRestoreError("QCOW2 conversion did not preserve the declared disk capacity")
+        os.chmod(raw_path, 0o600)
+        raw_artifact = dict(artifact.to_dict())
+        raw_artifact.update({
+            "filename": "disk.raw", "format": "raw", "compression": "none",
+            "size_bytes": raw_info.st_size,
+        })
+        raw_artifact["sha256"] = hashlib.sha256()
+        with open(raw_path, "rb") as raw_stream:
+            for chunk in iter(lambda: raw_stream.read(1024 * 1024), b""):
+                raw_artifact["sha256"].update(chunk)
+        raw_artifact["sha256"] = raw_artifact["sha256"].hexdigest()
+        raw_manifest_value = manifest.to_dict()
+        raw_manifest_value["artifacts"] = [
+            raw_artifact if item.role == "disk-image" else item.to_dict()
+            for item in manifest.artifacts
+        ]
+        raw_manifest = ImageManifest.from_dict(raw_manifest_value)
+        raw_manifest_path = os.path.join(temporary, "image.manifest.json")
+        with open(raw_manifest_path, "x", encoding="utf-8") as stream:
+            stream.write(raw_manifest.to_json())
+        return restore_disk(
+            raw_manifest_path, temporary, target_path, confirmation=confirmation,
+            executables=executables, device_validator=device_validator, runner=runner,
+            popen_factory=popen_factory, target_safety_check=target_safety_check,
+            effective_uid=effective_uid, progress_callback=progress_callback,
+            pre_write_callback=pre_write_callback,
+        )
+
+
 def restore_disk(
     manifest_path: str | os.PathLike[str],
     repository: str | os.PathLike[str],
@@ -216,8 +332,19 @@ def restore_disk(
     if manifest.image_type != "disk":
         raise DiskRestoreError("whole-disk restore requires a disk image manifest")
     disk_artifacts = [item for item in manifest.artifacts if item.role == "disk-image"]
-    if len(disk_artifacts) != 1 or disk_artifacts[0].format != "raw":
-        raise DiskRestoreError("manifest must contain exactly one raw disk-image artifact")
+    if len(disk_artifacts) != 1:
+        raise DiskRestoreError("manifest must contain exactly one disk-image artifact")
+    if disk_artifacts[0].format == "qcow2":
+        return _restore_qcow2_disk(
+            manifest, repo, target_path, confirmation=confirmation,
+            executables=executables, device_validator=device_validator, runner=runner,
+            popen_factory=popen_factory, target_safety_check=target_safety_check,
+            effective_uid=effective_uid, progress_callback=progress_callback,
+            age_identity_file=age_identity_file, age_passphrase=age_passphrase,
+            pre_write_callback=pre_write_callback,
+        )
+    if disk_artifacts[0].format != "raw":
+        raise DiskRestoreError("manifest disk-image artifact must use raw or qcow2 format")
     artifact = disk_artifacts[0]
     if artifact.compression not in {"none", "gzip", "xz", "zstd", "lz4"}:
         raise DiskRestoreError("unsupported restore compression")
