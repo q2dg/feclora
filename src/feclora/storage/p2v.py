@@ -94,6 +94,13 @@ def convert_block_device_to_qcow2(
         raise P2VError("blockdev returned an invalid source capacity") from exc
     if source_size <= 0:
         raise P2VError("P2V source has no readable capacity")
+    sector_result = _run([blockdev, "--getss", source_path], runner)
+    try:
+        logical_sector_size = int(sector_result.stdout.strip())
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise P2VError("blockdev returned an invalid logical sector size") from exc
+    if logical_sector_size not in {512, 4096}:
+        raise P2VError("P2V source logical sector size must be 512 or 4096 bytes")
 
     fd, temporary_name = tempfile.mkstemp(prefix=".feclora-p2v-", suffix=".qcow2", dir=destination.parent)
     os.fchmod(fd, 0o600)
@@ -144,6 +151,7 @@ def convert_block_device_to_qcow2(
             "output": str(destination),
             "format": "qcow2",
             "virtual_size_bytes": source_size,
+            "logical_sector_size": logical_sector_size,
             "file_size_bytes": output_info.st_size,
             "verified": True,
         }
