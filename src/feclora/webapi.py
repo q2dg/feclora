@@ -3399,15 +3399,19 @@ def dispatch(request: Any) -> dict[str, Any]:
                 checker = "xfs_repair -n"
         except FilesystemProbeError as exc:
             raise WebAPIError(f"read-only pre-capture check failed: {exc}") from exc
-        return {
+        result = {
             "source": source, "filesystem": filesystem, "checked": True,
-            "read_only": True, "minimum_size_bytes": minimum_bytes,
-            "checker": checker,
+            "read_only": True, "checker": checker,
             "limitations": (
                 "This is a non-destructive offline consistency and geometry probe, "
                 "not a repair and not a guarantee that capture data is application-consistent."
             ),
         }
+        if filesystem == "xfs":
+            result["checked_size_bytes"] = minimum_bytes
+        else:
+            result["minimum_size_bytes"] = minimum_bytes
+        return result
     if action == "status":
         if params:
             raise WebAPIError("status does not accept parameters")
