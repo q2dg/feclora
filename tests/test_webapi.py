@@ -2064,6 +2064,16 @@ class CaptureFilesystemPreflightAPITests(unittest.TestCase):
                 })
         probe.assert_not_called()
 
+    def test_xfs_check_uses_no_modify_repair_mode(self):
+        with patch("feclora.storage.filesystem_probe.check_xfs_read_only", return_value=10_000) as probe:
+            result = dispatch({
+                "action": "check_capture_filesystem",
+                "params": {"source": "/dev/sdd1", "filesystem": "xfs"},
+            })
+        probe.assert_called_once_with("/dev/sdd1", filesystem_type="xfs")
+        self.assertEqual(result["checker"], "xfs_repair -n")
+        self.assertTrue(result["read_only"])
+
     def test_rejects_extra_parameters(self):
         with self.assertRaisesRegex(WebAPIError, "exactly source and filesystem"):
             dispatch({
