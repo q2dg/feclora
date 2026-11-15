@@ -112,6 +112,19 @@ class WebAPITests(unittest.TestCase):
         self.assertTrue(result["published"])
         self.assertTrue(result["output_directory"].endswith("fleet-bundle"))
 
+    def test_p2v_import_action_is_submitted_to_durable_worker(self):
+        params = {
+            "source_image_id": "physical-source",
+            "image_id": "physical-native",
+            "repository_id": "primary",
+        }
+        with patch("feclora.webapi._submit_local_operation", return_value={"operation_id": "p2v-import"}) as submit:
+            result = dispatch({"action": "import_p2v", "params": params})
+        self.assertEqual(result["operation_id"], "p2v-import")
+        submit.assert_called_once_with({
+            "operation": "import_p2v", "operation_params": params,
+        })
+
     def test_deployment_bundle_action_is_submitted_to_durable_worker(self):
         params = {
             "base_iso_path": "/var/tmp/feclora-live.iso",
