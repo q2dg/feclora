@@ -46,9 +46,10 @@ make webui
 ```
 
 The Python tests use the standard-library unittest runner. The frontend build
-uses the exact dependency versions listed in `webui/package.json`. Until a
-committed npm lockfile is present and CI uses `npm ci`, dependency resolution
-is not fully locked.
+uses the exact direct dependency versions in `webui/package.json` and the
+committed transitive dependency graph in `webui/package-lock.json`. CI and
+the build script use `npm ci`; keep the lockfile synchronized with manifest
+changes and verify clean-checkout installs.
 
 Changes to shell scripts must pass Bash syntax validation and ShellCheck.
 Changes to the frontend must compile successfully. CI must pass on the exact
