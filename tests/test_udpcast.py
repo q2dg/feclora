@@ -195,7 +195,9 @@ class UDPcastConfigTests(unittest.TestCase):
                 patch("feclora.network.udpcast._run_process") as run,
             ):
                 send_multicast_artifact(
-                    coordinator, source, manifest_path, self.config, firewall=Mock(),
+                    coordinator, source, manifest_path,
+                    UDPcastConfig("enp2s0", "239.10.10.1", "239.10.10.2", portbase=9000),
+                    firewall=Mock(),
                 )
             run.assert_called_once()
 
