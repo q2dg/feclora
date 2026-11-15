@@ -856,10 +856,17 @@ export default function App() {
 
   const importRemoteJobDefinition = async (file) => {
     if (!file) return;
+    setBusy(true); setError(""); setNotice("");
     try {
       if (file.size < 1 || file.size > 64 * 1024) throw new Error("DeploymentJob JSON must be between 1 byte and 64 KiB.");
-      applyRemoteJobDefinition(JSON.parse(await file.text()));
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let binary = "";
+      for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+      const result = await callFeclora("import_deployment_job", { source: "upload", answer_base64: window.btoa(binary) });
+      applyRemoteJobDefinition(result.job);
+      setNotice(result.message);
     } catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
   };
 
   const importRemoteJobFromSource = async () => {
