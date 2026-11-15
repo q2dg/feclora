@@ -177,11 +177,11 @@ class LocalControlProtocolTests(unittest.TestCase):
 
         with mock.patch("feclora.deployment.local_control.os.lstat", side_effect=[
             parent_info, FileNotFoundError, info, info,
-        ]), mock.patch("feclora.deployment.local_control.socket.socket", return_value=listener), \\
-             mock.patch("feclora.deployment.local_control.os.chmod"), \\
-             mock.patch("feclora.deployment.local_control.os.unlink") as unlink, \\
+        ]), mock.patch("feclora.deployment.local_control.socket.socket", return_value=listener), \
+             mock.patch("feclora.deployment.local_control.os.chmod"), \
+             mock.patch("feclora.deployment.local_control.os.unlink"), \
              mock.patch("feclora.deployment.local_control.threading.Thread", BrokenThread):
-            with mock.patch.object(listener, "bind"), mock.patch.object(listener, "listen"), \\
+            with mock.patch.object(listener, "bind"), mock.patch.object(listener, "listen"), \
                  mock.patch.object(listener, "settimeout"):
                 with self.assertRaisesRegex(LocalControlError, "worker failed to start.*close failed"):
                     server.start()
@@ -189,7 +189,7 @@ class LocalControlProtocolTests(unittest.TestCase):
         self.assertIs(server._listener, listener)
         self.assertIsNone(server._thread)
         self.assertEqual(server._socket_identity, (1, 2))
-        with mock.patch("feclora.deployment.local_control.os.lstat", return_value=info), \\
+        with mock.patch("feclora.deployment.local_control.os.lstat", return_value=info), \
              mock.patch("feclora.deployment.local_control.os.unlink") as retry_unlink:
             server.stop()
         self.assertIsNone(server._listener)
