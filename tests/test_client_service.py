@@ -266,7 +266,7 @@ class ClientDeploymentServiceTests(unittest.TestCase):
             self.assertIn("insufficient Client staging capacity before READY", status["detail"])
             self.assertNotEqual(status["phase"], "ready")
 
-    def test_unattended_pxe_request_resolves_bound_disk_and_uses_handoff_port(self):
+    def test_unattended_shared_answer_request_resolves_bound_disk_and_uses_handoff_port(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             request_path = root / (JOB_ID + ".request.json")
