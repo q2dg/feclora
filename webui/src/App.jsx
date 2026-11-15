@@ -800,9 +800,9 @@ export default function App() {
   };
 
   const buildRemoteJobPayload = () => {
-    const authorizedClients = remoteClients.split(/[\\s,;]+/).map((value) => value.trim()).filter(Boolean);
+    const authorizedClients = remoteClients.split(/[\s,;]+/).map((value) => value.trim()).filter(Boolean);
     const bindings = {};
-    for (const [index, line] of remoteTargetBindings.split(/\\r?\\n/).entries()) {
+    for (const [index, line] of remoteTargetBindings.split(/\r?\n/).entries()) {
       if (!line.trim()) continue;
       const [rawMac, rawWwn, rawSerial, ...extra] = line.split("|").map((value) => value.trim());
       const mac = rawMac?.toLowerCase();
@@ -838,7 +838,7 @@ export default function App() {
       setRemoteImageId(job.image_id || "");
       setRemoteSourceDevice(job.source_device || "");
       setRemoteTargetType(job.target_type || "disk");
-      setRemoteClients(job.authorized_clients.join("\\n"));
+      setRemoteClients(job.authorized_clients.join("\n"));
       setRemoteInterface(job.network_interface === "auto" ? "" : (networkInterfaces.find((item) => item.interface === job.network_interface)?.binding || ""));
       setRemoteTransport(job.transport || "unicast");
       setRemoteMulticastGroup(job.multicast_group || "239.10.10.10");
