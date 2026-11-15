@@ -3378,6 +3378,32 @@ def dispatch(request: Any) -> dict[str, Any]:
             return set_keyboard_layout(params)
         except KeyboardLayoutError as exc:
             raise WebAPIError(str(exc)) from exc
+    if action == "check_capture_filesystem":
+        if set(params) != {"source", "filesystem"}:
+            raise WebAPIError("check_capture_filesystem requires exactly source and filesystem")
+        source = _device(params["source"], "source")
+        filesystem = _text(params, "filesystem", pattern=r"(?:ext2|ext3|ext4|ntfs|ntfs3)")
+        from feclora.storage.filesystem_probe import (
+            FilesystemProbeError, probe_ext_minimum_size, probe_ntfs_minimum_size,
+        )
+        try:
+            if filesystem in {"ext2", "ext3", "ext4"}:
+                minimum_bytes = probe_ext_minimum_size(source, filesystem_type=filesystem)
+                checker = "e2fsck -f -n"
+            else:
+                minimum_bytes = probe_ntfs_minimum_size(source, filesystem_type=filesystem)
+                checker = "ntfsresize --info"
+        except FilesystemProbeError as exc:
+            raise WebAPIError(f"read-only pre-capture check failed: {exc}") from exc
+        return {
+            "source": source, "filesystem": filesystem, "checked": True,
+            "read_only": True, "minimum_size_bytes": minimum_bytes,
+            "checker": checker,
+            "limitations": (
+                "This is a non-destructive offline consistency and geometry probe, "
+                "not a repair and not a guarantee that capture data is application-consistent."
+            ),
+        }
     if action == "status":
         if params:
             raise WebAPIError("status does not accept parameters")
