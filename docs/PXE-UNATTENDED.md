@@ -20,13 +20,13 @@ directly in interactive mode; it does not display a menu or launch a restore.
 The answer-file handoff described below is a separate, explicitly configured
 unattended path.
 
-## Shared DeploymentJob JSON for PXE
+## Shared unattended answer for ISO and PXE Live
 
-New unattended PXE deployments use the same schema-v1 DeploymentJob JSON contract as Feclora's ISO/Client deployment workflow. The PXE-specific differences are represented in the job itself:
+Unattended execution is independent of the boot method. The same schema-v1 DeploymentJob JSON can be consumed by a generic ISO/USB Live boot or by a PXE boot. `boot_method` describes how Live started; `transport` independently selects unicast or multicast image delivery. For multicast restore, every authorized Client reads the identical answer JSON and joins the same authenticated Server job. Each Client uses its local MAC only to select its own target binding from that shared document.
 
-- `boot_method: pxe` identifies network boot; `transport` independently selects unicast or multicast image delivery. For multicast restore, every authorized Client reads the same answer JSON and joins the same authenticated Server job. Each Client uses its own MAC only to select its target binding from that shared document.
-- network_interface: auto means the PXE Live client retains the DHCP network configuration established during boot.
-- start_policy: automatic and confirm_destructive: true explicitly opt in to unattended execution.
+- `boot_method: iso` is the default for USB/ISO Live; `boot_method: pxe` is used only when iPXE starts Live directly.
+- `network_interface` names the Server interface for ISO/USB workflows; PXE uses `auto` because DHCP already configured Live networking.
+- `start_policy: automatic` and `confirm_destructive: true` explicitly opt in to unattended execution. This policy is not reserved for PXE.
 - authorized_clients lists the expected client MAC addresses. MAC addresses are operational selectors, not authentication credentials.
 - target_bindings maps every client MAC to a stable disk WWN and/or serial number. The client checks that binding before restore and revalidates the disk identity immediately before writing.
 - repository_id references a repository already configured on the Live client; credentials are never embedded in the JSON.
