@@ -50,7 +50,9 @@ def _receive(connection: socket.socket) -> dict[str, Any]:
         raise LocalControlError(f"invalid IPC JSON: {exc}") from exc
     if not isinstance(request, dict) or set(request) != {"action", "params"}:
         raise LocalControlError("IPC request must contain exactly action and params")
-    if request["action"] not in _ALLOWED_ACTIONS or not isinstance(request["params"], dict):
+    if (not isinstance(request["action"], str)
+            or request["action"] not in _ALLOWED_ACTIONS
+            or not isinstance(request["params"], dict)):
         raise LocalControlError("unsupported IPC action or invalid parameters")
     if request["action"] == "status" and request["params"]:
         raise LocalControlError("status does not accept parameters")
@@ -227,9 +229,10 @@ def local_control_request(
     timeout: float = 5,
 ) -> dict[str, Any]:
     """Send one allowlisted command to the root-owned local service."""
-    if not isinstance(action, str) or action not in _ALLOWED_ACTIONS or not isinstance(params or {}, dict):
+    if (not isinstance(action, str) or action not in _ALLOWED_ACTIONS
+            or (params is not None and not isinstance(params, dict))):
         raise LocalControlError("unsupported IPC action or invalid parameters")
-    normalized_params = params or {}
+    normalized_params = {} if params is None else params
     if action == "status" and normalized_params:
         raise LocalControlError("status does not accept parameters")
     if action in {"arm", "cancel"} and set(normalized_params) != {"job_id", "confirmation"}:
