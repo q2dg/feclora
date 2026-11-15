@@ -368,6 +368,7 @@ class S3ObjectRepository:
                 or not metadata["source_device"].startswith("/dev/")
                 or not isinstance(metadata.get("bootability_note"), str)
                 or isinstance(metadata.get("logical_sector_size"), bool)
+                or not isinstance(metadata.get("logical_sector_size"), int)
                 or metadata.get("logical_sector_size") not in {512, 4096}
                 or isinstance(metadata.get("file_size_bytes"), bool)
                 or not isinstance(metadata.get("file_size_bytes"), int) or metadata["file_size_bytes"] <= 0
@@ -441,7 +442,8 @@ class S3ObjectRepository:
                             or isinstance(metadata.get("virtual_size_bytes"), bool)
                             or not isinstance(metadata.get("virtual_size_bytes"), int) or metadata["virtual_size_bytes"] <= 0
                             or isinstance(metadata.get("logical_sector_size"), bool)
-                            or metadata.get("logical_sector_size") not in {512, 4096}
+                            or not isinstance(metadata.get("logical_sector_size"), int)
+                or metadata.get("logical_sector_size") not in {512, 4096}
                             or isinstance(metadata.get("file_size_bytes"), bool)
                             or not isinstance(metadata.get("file_size_bytes"), int) or metadata["file_size_bytes"] <= 0
                             or not isinstance(metadata.get("qcow2_sha256"), str)
@@ -506,6 +508,7 @@ class S3ObjectRepository:
                 or isinstance(metadata.get("virtual_size_bytes"), bool)
                 or not isinstance(metadata.get("virtual_size_bytes"), int) or metadata["virtual_size_bytes"] <= 0
                 or isinstance(metadata.get("logical_sector_size"), bool)
+                or not isinstance(metadata.get("logical_sector_size"), int)
                 or metadata.get("logical_sector_size") not in {512, 4096}
                 or isinstance(metadata.get("file_size_bytes"), bool)
                 or not isinstance(metadata.get("file_size_bytes"), int) or metadata["file_size_bytes"] <= 0
