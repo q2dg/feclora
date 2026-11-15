@@ -407,9 +407,26 @@ class S3ObjectRepository:
                             body.close()
                     except Exception as exc:
                         raise S3RepositoryError(f"cannot read P2V metadata {key}: {exc}") from exc
-                    if (not isinstance(metadata, dict) or metadata.get("schema_version") != 1
+                    required = {
+                        "schema_version", "image_id", "format", "source_device", "virtual_size_bytes",
+                        "logical_sector_size", "file_size_bytes", "qcow2_sha256", "verified",
+                        "bootability_note",
+                    }
+                    if (not isinstance(metadata, dict) or set(metadata) != required
+                            or isinstance(metadata.get("schema_version"), bool) or metadata.get("schema_version") != 1
                             or metadata.get("image_id") != image_id or metadata.get("format") != "qcow2"
-                            or metadata.get("verified") is not True):
+                            or metadata.get("verified") is not True
+                            or not isinstance(metadata.get("source_device"), str)
+                            or not metadata["source_device"].startswith("/dev/")
+                            or not isinstance(metadata.get("bootability_note"), str)
+                            or isinstance(metadata.get("virtual_size_bytes"), bool)
+                            or not isinstance(metadata.get("virtual_size_bytes"), int) or metadata["virtual_size_bytes"] <= 0
+                            or isinstance(metadata.get("logical_sector_size"), bool)
+                            or metadata.get("logical_sector_size") not in {512, 4096}
+                            or isinstance(metadata.get("file_size_bytes"), bool)
+                            or not isinstance(metadata.get("file_size_bytes"), int) or metadata["file_size_bytes"] <= 0
+                            or not isinstance(metadata.get("qcow2_sha256"), str)
+                            or not re.fullmatch(r"[0-9a-f]{64}", metadata["qcow2_sha256"])):
                         continue
                     head = self._head(self._artifact_key(image_id, f"{image_id}.qcow2"))
                     if (head is None or head.get("ContentLength") != metadata.get("file_size_bytes")
@@ -456,16 +473,22 @@ class S3ObjectRepository:
         except Exception as exc:
             raise S3RepositoryError(f"committed P2V metadata is unavailable or invalid: {exc}") from exc
 
-        required = {"schema_version", "image_id", "format", "source_device", "virtual_size_bytes",
-                    "file_size_bytes", "qcow2_sha256", "verified", "bootability_note"}
+        required = {
+            "schema_version", "image_id", "format", "source_device", "virtual_size_bytes",
+            "logical_sector_size", "file_size_bytes", "qcow2_sha256", "verified",
+            "bootability_note",
+        }
         if (not isinstance(metadata, dict) or set(metadata) != required
-                or metadata.get("schema_version") != 1 or metadata.get("image_id") != image_id
-                or metadata.get("format") != "qcow2" or metadata.get("verified") is not True
+                or isinstance(metadata.get("schema_version"), bool) or metadata.get("schema_version") != 1
+                or metadata.get("image_id") != image_id or metadata.get("format") != "qcow2"
+                or metadata.get("verified") is not True
                 or not isinstance(metadata.get("source_device"), str)
                 or not metadata["source_device"].startswith("/dev/")
                 or not isinstance(metadata.get("bootability_note"), str)
                 or isinstance(metadata.get("virtual_size_bytes"), bool)
                 or not isinstance(metadata.get("virtual_size_bytes"), int) or metadata["virtual_size_bytes"] <= 0
+                or isinstance(metadata.get("logical_sector_size"), bool)
+                or metadata.get("logical_sector_size") not in {512, 4096}
                 or isinstance(metadata.get("file_size_bytes"), bool)
                 or not isinstance(metadata.get("file_size_bytes"), int) or metadata["file_size_bytes"] <= 0
                 or not isinstance(metadata.get("qcow2_sha256"), str)
