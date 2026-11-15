@@ -97,7 +97,7 @@ def execute_multicast_restore(
         raise MulticastDeploymentError("multicast runtime currently supports restore jobs only")
     if not network_interface:
         raise MulticastDeploymentError("Client must select its own local multicast receive interface")
-    required = f"ERASE {approval.device_path} FROM {server_identity}"
+    required = f"ERASE {approval.device_path}"
     if approval.confirmation != required:
         raise MulticastDeploymentError("local typed restore confirmation does not match")
     try:
