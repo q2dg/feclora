@@ -154,10 +154,11 @@ class LocalControlServer:
             raise
 
     def _serve(self) -> None:
-        assert self._listener is not None
+        listener = self._listener
+        assert listener is not None
         while not self._stop.is_set():
             try:
-                connection, _ = self._listener.accept()
+                connection, _ = listener.accept()
             except socket.timeout:
                 continue
             except OSError:
