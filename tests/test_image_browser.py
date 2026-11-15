@@ -84,7 +84,8 @@ class ImageBrowserTests(unittest.TestCase):
 
     def _browse(self, *, path="/", download=False):
         fake = FakeGuestFS()
-        module = types.SimpleNamespace(GuestFS=lambda **kwargs: fake)
+        module = types.ModuleType("guestfs")
+        module.GuestFS = lambda **kwargs: fake
         with patch.dict(sys.modules, {"guestfs": module}), patch(
             "feclora.storage.image_browser._prepare_image",
             return_value=(self.image_path, "raw"),
