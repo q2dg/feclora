@@ -151,7 +151,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
             if (not isinstance(device, str) or not DEVICE_RE.fullmatch(device)
                     or ".." in device.split("/") or os.path.normpath(device) != device):
                 raise LocalOperationError(f"{key} must be a normalized /dev device path")
-    for key in ("image_id", "partition_id"):
+    for key in ("image_id", "partition_id", "source_image_id"):
         if key in params and (not isinstance(params[key], str)
                 or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", params[key])):
             raise LocalOperationError(f"{key} is invalid")
