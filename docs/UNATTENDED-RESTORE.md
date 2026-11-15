@@ -89,9 +89,10 @@ must be reachable from the Live environment over the configured network.
 
 ## Answer contents and destructive authorization
 
-The answer is declarative JSON. It describes a restore operation, image ID,
-managed repository ID, stable target identity (WWN and/or serial), and explicit
-destructive-start flags. It must not contain shell commands, arbitrary
+The answer is one declarative schema-v1 DeploymentJob JSON document shared by
+the entire client group. It describes the restore operation, image ID, managed
+repository ID, authorized client MAC list, a per-client stable target identity
+(WWN and/or serial) in `target_bindings`, and explicit destructive-start flags. It must not contain shell commands, arbitrary
 executable arguments, device paths, passwords, private keys, bearer tokens or
 per-client identity material.
 
