@@ -22,6 +22,22 @@ available, it uses generic `dd if=DEVICE bs=4M status=none` and labels the
 artifact as raw. It never guesses that an unsupported filesystem is safe for
 Partclone.
 
+## Optional read-only pre-capture filesystem preflight
+
+The privileged Cockpit API exposes `check_capture_filesystem` with exactly
+`source` and `filesystem` parameters. It currently supports offline ext2/3/4
+and NTFS/ntfs3 sources only. ext uses `blkid`, `e2fsck -f -n`,
+`dumpe2fs`, `resize2fs -P` and `blockdev`; NTFS uses `blkid`,
+`ntfsresize --info` and `blockdev`. Both reuse the source-safety checks and
+refuse mounted, busy, root-backed or otherwise unverifiable devices. The API
+returns the estimated minimum filesystem size and identifies the read-only
+probe used. It never repairs or writes to the source.
+
+This is a backend/API capability, not yet a dedicated Cockpit pre-capture
+screen. XFS, FAT, exFAT, F2FS and Btrfs are not silently checked by unrelated
+utilities; their dedicated pre-capture checks remain pending. A clean probe
+does not provide application-level snapshot consistency.
+
 ## Process and publication safety
 
 - The source must resolve to a block device (unless a test-only validator is
