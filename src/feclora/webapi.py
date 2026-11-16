@@ -1745,6 +1745,7 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_proportional_disk": {"image_id", "source", "target", "source_major_minor", "target_major_minor", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
@@ -2112,6 +2113,119 @@ def _execute_operation(action: str, params: dict[str, Any], operation_id: str) -
                 "image_type": extracted.image_type, "manifest": extracted_manifest,
                 "encrypted": any(item.encryption == "age" for item in extracted.artifacts),
             }
+    elif action == "restore_proportional_disk":
+        from feclora.storage.inventory import collect_inventory
+        from feclora.storage.proportional_restore_workflow import (
+            ProportionalRestoreWorkflowError, require_distinct_block_devices,
+            prepare_from_offline_source_disk,
+        )
+        from feclora.storage.proportional_staging import stage_verified_raw_disk_image
+        from feclora.storage.staged_proportional_restore import restore_staged_proportional_image
+        from feclora.storage.source_safety import check_capture_source_safe
+        image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+        source = _device(params["source"], "source")
+        target = _device(params["target"], "target")
+        expected = f"ERASE {target}"
+        if params["confirmation"] != expected:
+            raise WebAPIError(f"explicit confirmation required: {expected}")
+        inventory = collect_inventory()
+        source_matches = _find_inventory_device(inventory, source, "disk")
+        target_matches = _find_inventory_device(inventory, target, "disk")
+        if len(source_matches) != 1 or len(target_matches) != 1:
+            raise WebAPIError("source and destination must each identify exactly one inventoried whole disk")
+        source_disk, target_disk = source_matches[0], target_matches[0]
+        try:
+            source_identity, target_identity = require_distinct_block_devices(
+                source, target,
+                source_major_minor=params["source_major_minor"],
+                target_major_minor=params["target_major_minor"],
+            )
+        except ProportionalRestoreWorkflowError as exc:
+            raise WebAPIError(str(exc)) from exc
+        if source_disk.get("major_minor") != params["source_major_minor"] or target_disk.get("major_minor") != params["target_major_minor"]:
+            raise WebAPIError("storage inventory changed since source and destination selection")
+        if target_disk.get("read_only"):
+            raise WebAPIError("proportional restore destination is read-only")
+        if target_disk.get("size_bytes", 0) <= 0 or target_disk["size_bytes"] >= source_disk.get("size_bytes", 0):
+            raise WebAPIError("proportional restore requires a destination disk smaller than the source")
+        if source_disk.get("logical_sector_size") != target_disk.get("logical_sector_size"):
+            raise WebAPIError("source and destination logical sector sizes must match")
+        check_capture_source_safe(source)
+        with _operation_repository_context(params, write=False, image_id=image_id) as repository:
+            manifest_path = _image_manifest(image_id, repository)
+            try:
+                manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
+            except Exception as exc:
+                raise WebAPIError(f"cannot read selected disk image manifest: {exc}") from exc
+            if manifest.image_id != image_id or manifest.image_type != "disk":
+                raise WebAPIError("proportional restore requires the selected whole-disk image")
+            if manifest.logical_sector_size != source_disk.get("logical_sector_size"):
+                raise WebAPIError("image logical sector size differs from the selected source disk")
+            if manifest.source_size_bytes != source_disk.get("size_bytes"):
+                raise WebAPIError("selected source disk capacity differs from the verified image")
+            encrypted = any(item.encryption == "age" for item in manifest.artifacts)
+            identity_paths = []
+            server_identity = Path("/etc/feclora/pki/server.age")
+            if server_identity.is_file():
+                identity_paths.append(server_identity)
+            client_config = _client_runtime_config()
+            if client_config and client_config.age_identity_file:
+                identity_paths.append(Path(client_config.age_identity_file))
+            if encrypted and not identity_paths:
+                raise WebAPIError("age-encrypted image requires a configured Client or local age identity")
+            identity_context = tempfile.TemporaryDirectory(prefix="feclora-proportional-identities-") if encrypted and len(identity_paths) > 1 else None
+            try:
+                if identity_context:
+                    identity_file = Path(identity_context.name) / "identities.txt"
+                    identity_file.write_text("\n".join(path.read_text(encoding="ascii").strip() for path in identity_paths) + "\n", encoding="ascii")
+                    os.chmod(identity_file, 0o600)
+                else:
+                    identity_file = identity_paths[0] if encrypted else None
+                with stage_verified_raw_disk_image(
+                    manifest, repository, staging_root="/var/tmp",
+                    age_identity_file=identity_file,
+                ) as staged:
+                    plans = []
+                    def capture_plan(value):
+                        plans.extend(value)
+                        _emit({"event": "progress", "phase": "preflight",
+                               "message": "Filesystem minimum sizes and proportional GPT layout validated",
+                               "bytes_done": 0, "bytes_total": staged.size_bytes})
+                    prepared = prepare_from_offline_source_disk(
+                        staged, source_disk, target_size_bytes=target_disk["size_bytes"],
+                        sector_size=manifest.logical_sector_size,
+                        plan_callback=capture_plan,
+                    )
+                    def revalidate_source():
+                        latest = collect_inventory()
+                        found = _find_inventory_device(latest, source, "disk")
+                        if len(found) != 1 or found[0].get("major_minor") != params["source_major_minor"]:
+                            raise WebAPIError("source disk identity changed before proportional restore write")
+                        if os.stat(source).st_rdev != source_identity:
+                            raise WebAPIError("source physical device changed before proportional restore write")
+                        check_capture_source_safe(source)
+                    digest = restore_staged_proportional_image(
+                        prepared, target, sector_size=manifest.logical_sector_size,
+                        expected_device_identity=target_identity,
+                        confirmation=expected, pre_write_callback=revalidate_source,
+                        cancellation_requested=lambda: False,
+                    )
+            finally:
+                if identity_context:
+                    identity_context.cleanup()
+        result = {
+            "image_id": image_id, "source": source, "target": target,
+            "source_size_bytes": manifest.source_size_bytes,
+            "restored_size_bytes": target_disk["size_bytes"],
+            "filesystem_plan": [
+                {"partuuid": getattr(item, "partuuid", None),
+                 "start_sector": getattr(item, "start_sector", None),
+                 "size_sectors": getattr(item, "size_sectors", None),
+                 "filesystem": getattr(item, "filesystem_type", None)}
+                for item in plans
+            ],
+            "sha256": digest, "verified": True,
+        }
     elif action in {"restore_disk", "restore_partition", "restore_logical_volume"}:
         image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
         target = _device(params["target"], "target")
