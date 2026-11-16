@@ -32,7 +32,9 @@ This procedure copies a **legacy** P2V bundle (QCOW2 plus its `.p2v.json` sideca
 <li>Follow progress and the terminal result in the notification and <strong>Operation log</strong>. On failure, inspect the operation details and destination before retrying.</li>
 </ol>
 
-<AsyncImage query="Cockpit web administration storage repositories S3 object storage configuration panel" alt="Cockpit repository management interface showing object storage configuration" />
+![Illustrative repository configuration mockup](assets/mockups/repository-setup.svg)
+
+*Illustrative mockup, not a live screenshot. The S3 export controls are implemented in Cockpit; the drawing is conceptual.*
 
 ## Verify the result
 
