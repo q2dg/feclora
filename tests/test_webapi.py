@@ -2220,7 +2220,7 @@ class RestoreProfileCockpitAPITests(unittest.TestCase):
                  patch("pathlib.Path.read_text", return_value="{}"), \
                  patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
                  patch("feclora.webapi.collect_inventory", return_value=inventory), \
-                 patch("feclora.webapi.check_capture_source_safe", return_value=None), \
+                 patch("feclora.storage.source_safety.check_capture_source_safe", return_value=None), \
                  patch("feclora.webapi._restore_profile_directory", return_value=profile_dir), \
                  patch("feclora.storage.restore_profile.save_unattended_restore_profile", side_effect=lambda profile, path: path) as save:
                 result = _create_restore_profile({
