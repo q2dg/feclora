@@ -324,6 +324,33 @@ class PhysicalMulticastProcessTests(unittest.TestCase):
         self.assertEqual(result["sha256"], hashlib.sha256(payload).hexdigest())
         self.assertEqual(result["bytes_sent"], len(payload))
 
+    def test_sender_terminates_process_when_progress_callback_fails(self):
+        payload = b"callback-failure-payload"
+        state = {"returncode": None, "terminated": False}
+        class Process:
+            def __init__(self, **kwargs):
+                self.stdin = io.BytesIO()
+            def poll(self):
+                return state["returncode"]
+            def terminate(self):
+                state["terminated"] = True
+                state["returncode"] = -15
+            def wait(self, **kwargs):
+                return state["returncode"]
+            def kill(self):
+                state["returncode"] = -9
+        with self.assertRaisesRegex(RuntimeError, "journal unavailable"):
+            send_physical_multicast_stream(
+                io.BytesIO(payload), len(payload), self.config,
+                udp_sender="/usr/bin/udp-sender",
+                runner_popen=lambda argv, **kwargs: Process(**kwargs),
+                progress_callback=lambda _done, _total: (_ for _ in ()).throw(
+                    RuntimeError("journal unavailable")
+                ),
+                firewall=self.firewall,
+            )
+        self.assertTrue(state["terminated"])
+
     def test_receiver_writes_directly_and_verifies_readback(self):
         payload = b"multicast-to-block-device"
         class Process:
