@@ -85,7 +85,7 @@ class DeploymentJournal:
         return cls(absolute, job_id)
     def _read_and_verify(self, *, acquire_lock: bool = True) -> list[dict[str, Any]]:
         try:
-            fd = os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            fd = os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0))
         except FileNotFoundError:
             return []
         except OSError as exc:
@@ -189,7 +189,7 @@ class DeploymentJournal:
                     self._events.append(record)
                 finally:
                     os.close(fd)
-                parent_fd = os.open(os.path.dirname(self.path), os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+                parent_fd = os.open(os.path.dirname(self.path), os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0))
                 try:
                     os.fsync(parent_fd)
                 finally:
