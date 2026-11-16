@@ -1508,9 +1508,17 @@ export default function App() {
           <Tab eventKey="restore-profiles" title="Restore profiles">
             <Stack hasGutter className="pf-v6-u-pt-lg">
               <StackItem>
+                <Field label="Persistent filesystem repository" help="Profiles, replay ledger and operation audit must live on a dedicated persistent mounted filesystem. Local root-overlay storage and S3 are rejected.">
+                  <select className="pf-v6-c-form-control" value={restoreProfileRepositoryId} disabled={busy} onChange={(event) => selectRestoreProfileRepository(event.target.value)}>
+                    <option value="">Select a mounted persistent repository…</option>
+                    {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
+                  </select>
+                </Field>
+              </StackItem>
+              <StackItem>
                 <Title headingLevel="h2" size="xl">Unattended restore profiles</Title>
                 <Alert variant="warning" title="Explicit, single-use authorization" isInline>
-                  A profile binds a verified local whole-disk image to one uniquely detected disk by WWN and/or serial. It requires read-back verification and expires at the selected time. Saving a profile does not arm the boot service, start a restore, or make the profile replayable. Proportional layout is not available in this workflow.
+                  A profile binds a verified RAW whole-disk image in the selected persistent filesystem repository to one uniquely detected disk by WWN and/or serial. It requires read-back verification, expires at the selected time and is atomically consumed immediately before writing. Execution is an explicit operation requiring a typed ERASE phrase. Proportional layout is not available in this workflow.
                 </Alert>
               </StackItem>
               <StackItem>
@@ -1521,8 +1529,8 @@ export default function App() {
                     </Field>
                     <Field label="Local whole-disk image">
                       <select className="pf-v6-c-form-control" value={restoreProfileImage} onChange={(event) => setRestoreProfileImage(event.target.value)} required>
-                        <option value="">Select a local image…</option>
-                        {images.filter((item) => item.image_type === "disk").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id}</option>)}
+                        <option value="">Select a RAW disk image…</option>
+                        {restoreProfileImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
                       </select>
                     </Field>
                     <Field label="Target whole disk" help="The profile stores stable WWN/serial identity, never a /dev path. The disk must be uniquely detected.">
@@ -1541,10 +1549,14 @@ export default function App() {
               <StackItem>
                 <Title headingLevel="h3" size="lg">Saved profiles</Title>
                 <Table aria-label="Saved restore profiles" variant="compact">
-                  <Thead><Tr><Th>Name</Th><Th>Image manifest</Th><Th>Target identity</Th><Th>Expires</Th><Th>Mode</Th></Tr></Thead>
+                  <Thead><Tr><Th>Name</Th><Th>Image manifest</Th><Th>Target identity</Th><Th>Target path</Th><Th>Expires</Th><Th>Mode</Th><Th>Execution</Th></Tr></Thead>
                   <Tbody>
-                    {restoreProfiles.map((profile) => <Tr key={profile.profile_id}><Td>{profile.name}</Td><Td>{profile.image_manifest}</Td><Td>{profile.target.wwn || "—"} / {profile.target.serial || "—"}</Td><Td>{profile.expires_at || "—"}</Td><Td>{profile.execution_mode} · {profile.single_use ? "single-use" : "reusable"}</Td></Tr>)}
-                    {!restoreProfiles.length && <Tr><Td colSpan={5}>No saved restore profiles.</Td></Tr>}
+                    {restoreProfiles.map((profile) => <Tr key={profile.profile_id}><Td>{profile.name}</Td><Td>{profile.image_manifest}</Td><Td>{profile.target.wwn || "—"} / {profile.target.serial || "—"}</Td><Td>{profile.target_path || "Target not uniquely detected"}</Td><Td>{profile.expires_at || "—"}</Td><Td>{profile.execution_mode} · {profile.single_use ? "single-use" : "reusable"}</Td><Td>
+                      <input className="pf-v6-c-form-control" aria-label={"Confirmation for " + profile.name} value={profileConfirmations[profile.profile_id] || ""} placeholder={profile.target_path ? "ERASE " + profile.target_path : "Target unavailable"} onChange={(event) => setProfileConfirmations((current) => ({ ...current, [profile.profile_id]: event.target.value }))} disabled={!profile.target_path || profile.consumed} />
+                      <Button size="sm" variant="danger" isDisabled={busy || !profile.target_path || profile.consumed || profileConfirmations[profile.profile_id] !== "ERASE " + profile.target_path || (profile.expires_at && new Date(profile.expires_at).getTime() <= Date.now())} onClick={() => executeRestoreProfile(profile)}>Execute once</Button>
+                      {profile.consumed ? "Consumed" : ""}
+                    </Td></Tr>)}
+                    {!restoreProfiles.length && <Tr><Td colSpan={7}>No saved restore profiles.</Td></Tr>}
                   </Tbody>
                 </Table>
               </StackItem>
