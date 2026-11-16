@@ -23,7 +23,7 @@ class _Process:
     def poll(self):
         return self.returncode
     def terminate(self):
-        pass
+        self.returncode = -15
 
 
 class StagedProportionalRestoreTests(unittest.TestCase):
@@ -236,6 +236,41 @@ class StagedProportionalRestoreTests(unittest.TestCase):
         with self.assertRaisesRegex(StagedProportionalRestoreError, "cannot establish destination identity"):
             self._restore(device_identity=identity)
         self.assertEqual(len(self.processes), 1)
+
+
+    @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
+           return_value={"primary_backup_consistent": True})
+    def test_cancellation_before_write_never_opens_destination_writer(self, _gpt):
+        with self.assertRaisesRegex(StagedProportionalRestoreError, "cancelled before destination write"):
+            self._restore(cancellation_requested=lambda: True)
+        self.assertEqual(self.processes, [])
+
+    @patch("feclora.storage.staged_proportional_restore.inspect_gpt_binary",
+           return_value={"primary_backup_consistent": True})
+    def test_cancellation_during_destination_write_terminates_writer_and_reports_partial_disk(self, _gpt):
+        class PendingProcess(_Process):
+            def __init__(self):
+                super().__init__()
+                self.poll_count = 0
+            def poll(self):
+                self.poll_count += 1
+                return self.returncode if self.returncode is not None else None
+            def terminate(self):
+                self.returncode = -15
+
+        calls = []
+        def factory(command, **kwargs):
+            process = PendingProcess()
+            calls.append(process)
+            return process
+        checks = iter([False, True])
+        with self.assertRaisesRegex(StagedProportionalRestoreError, "cancelled during destination write; disk may be partially modified"):
+            self._restore(
+                popen_factory=factory,
+                cancellation_requested=lambda: next(checks, True),
+            )
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0].returncode, -15)
 
 
 if __name__ == "__main__":
