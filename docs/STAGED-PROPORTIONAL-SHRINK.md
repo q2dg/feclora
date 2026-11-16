@@ -150,3 +150,31 @@ At selection time, the live `st_rdev` identities are also compared with the
 `MAJ:MIN` values captured by the storage inventory. A stale inventory (for
 example, a disk removed and replaced between inventory collection and
 selection) is rejected before source probing or destination confirmation.
+
+
+## Cockpit and durable-worker integration
+
+The primary Cockpit imaging wizard now offers **Proportional whole-disk
+restore** as a distinct operation. It requires selection of the verified RAW
+disk image, the original source disk and a strictly smaller destination disk.
+The UI submits both selected kernel MAJ:MIN identities with the durable
+operation; the privileged worker checks these against fresh inventory and
+live block-device identities before staging.
+
+The worker verifies the whole-disk manifest, confirms that the original source
+capacity and logical sector size match the image, and rejects QCOW2 and
+non-RAW artifacts. It requires the source to remain connected, offline and
+unused. Only the final ext2/3/4 or NTFS partition may shrink; all other
+partitions must remain compatible with the validated GPT plan. The filesystem
+shrink and GPT rewrite occur only in private temporary RAW staging outside the
+image repository. The destination writer requires the exact typed
+`ERASE /dev/...` phrase, exact final capacity, matching sector size, a
+captured physical-device identity, immediate pre-write checks and full
+read-back SHA-256 verification.
+
+This is a local restore operation, not an unattended restore-profile mode.
+Restore profiles remain preserve-layout only. The source disk is never a
+write target and the original repository artifact is not modified. The
+operation is not a dry-run preview: once the operator submits the exact
+confirmation, the durable worker proceeds to the destructive write after all
+preflight gates succeed. Unsupported or inconsistent layouts fail closed.
