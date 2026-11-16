@@ -176,8 +176,10 @@ Check all of the following:
 - The base ISO checksum still matches the trusted original checksum.
 
 A successful xorriso command and a directory listing are not sufficient proof
-that the media boots on every firmware. They also do not prove that the
-currently unfinished embedded-image restore runtime works.
+that the media boots on every firmware or that the unattended restore succeeds
+on a particular machine. The boot-time discovery and guarded restore dispatch
+are implemented in source; BIOS/UEFI and destructive-media acceptance remain
+operator responsibilities.
 
 ## BIOS/UEFI acceptance (separate, optional operator activity)
 
