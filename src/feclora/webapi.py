@@ -3623,65 +3623,103 @@ def _remote_repository_action(action: str, params: dict[str, Any]) -> dict[str, 
     raise WebAPIError("unsupported remote repository action")
 
 
-RESTORE_PROFILE_DIRECTORY = Path("/var/lib/feclora/restore-profiles")
+def _persistent_repository(repository: Path) -> None:
+    try:
+        info = os.lstat(repository)
+    except OSError as exc:
+        raise WebAPIError("selected profile repository is unavailable") from exc
+    if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode):
+        raise WebAPIError("restore profiles require a real mounted filesystem repository")
+    findmnt = shutil.which("findmnt")
+    if not findmnt:
+        raise WebAPIError("findmnt is required to verify persistent restore-profile storage")
+    try:
+        result = subprocess.run(
+            [findmnt, "--noheadings", "--output", "FSTYPE,TARGET", "--target", str(repository)],
+            check=True, capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise WebAPIError(f"cannot verify persistent profile storage: {exc}") from exc
+    fields = result.stdout.split()
+    if len(fields) < 2:
+        raise WebAPIError("findmnt did not identify the restore-profile filesystem")
+    filesystem, mountpoint = fields[0].lower(), fields[-1]
+    if filesystem in {"overlay", "tmpfs", "ramfs", "rootfs", "squashfs", "devtmpfs"} or mountpoint == "/":
+        raise WebAPIError("restore profiles require a dedicated persistent mounted filesystem, not the Live root")
 
 
-def _restore_profile_directory(*, create: bool = False) -> Path:
-    state = RESTORE_PROFILE_DIRECTORY.parent
+def _restore_profile_directory(repository: Path, *, create: bool = False) -> Path:
+    _persistent_repository(repository)
+    state = repository / ".feclora"
+    directory = state / "restore-profiles"
     if create:
-        state.mkdir(mode=0o700, parents=True, exist_ok=True)
-    try:
-        state_info = os.lstat(state)
-    except OSError as exc:
-        raise WebAPIError("Feclora state directory is unavailable for restore profiles") from exc
-    if (not stat.S_ISDIR(state_info.st_mode) or stat.S_ISLNK(state_info.st_mode)
-            or state_info.st_uid != 0 or state_info.st_mode & 0o077):
-        raise WebAPIError("restore-profile state directory must be private, root-owned and non-writable")
-    if create:
-        RESTORE_PROFILE_DIRECTORY.mkdir(mode=0o700, exist_ok=True)
-    try:
-        info = os.lstat(RESTORE_PROFILE_DIRECTORY)
-    except FileNotFoundError:
-        if not create:
-            return RESTORE_PROFILE_DIRECTORY
-        raise WebAPIError("restore-profile directory is unavailable")
-    except OSError as exc:
-        raise WebAPIError("restore-profile directory is unavailable") from exc
-    if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
-            or info.st_uid != 0 or info.st_mode & 0o077):
-        raise WebAPIError("restore-profile directory must be private, root-owned and non-writable")
-    return RESTORE_PROFILE_DIRECTORY
+        for path in (state, directory):
+            try:
+                path.mkdir(mode=0o700)
+            except FileExistsError:
+                pass
+    for path in (state, directory):
+        try:
+            info = os.lstat(path)
+        except FileNotFoundError:
+            if not create and path == directory:
+                return directory
+            raise WebAPIError("persistent restore-profile directory is unavailable")
+        except OSError as exc:
+            raise WebAPIError("cannot inspect persistent restore-profile directory") from exc
+        if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or info.st_uid != 0 or info.st_mode & 0o077):
+            raise WebAPIError("restore-profile directories must be root-owned and mode 0700")
+    return directory
+
+
+def _profile_repository(params: dict[str, Any], *, write: bool) -> Path:
+    if set(params) != {"repository_id"}:
+        raise WebAPIError("restore profile action requires a mounted filesystem repository_id")
+    repository_id = _text(params, "repository_id", pattern=r"[a-z0-9][a-z0-9-]{0,47}")
+    from feclora.storage.s3_repository_manager import S3RepositoryManager
+    if any(item["id"] == repository_id for item in S3RepositoryManager().list()):
+        raise WebAPIError("restore profiles require persistent mounted filesystem storage; S3 is not supported")
+    repository = _operation_repository({"repository_id": repository_id}, write=write)
+    _persistent_repository(repository)
+    return repository
 
 
 def _restore_profiles(params: dict[str, Any]) -> dict[str, Any]:
-    if params:
-        raise WebAPIError("restore_profiles does not accept parameters")
-    directory = _restore_profile_directory()
+    if not params:
+        return {"profiles": [], "storage_available": False}
+    repository = _profile_repository(params, write=False)
+    directory = _restore_profile_directory(repository)
     profiles = []
     from feclora.storage.restore_profile import load_restore_profile
+    inventory = collect_inventory()
     for path in sorted(directory.glob("*.json")):
         try:
             profile = load_restore_profile(path)
         except Exception as exc:
             raise WebAPIError(f"restore profile {path.name} is invalid: {exc}") from exc
+        matches = [
+            device for device in inventory.get("devices", [])
+            if isinstance(device, dict) and device.get("type") == "disk" and profile.target.matches(device)
+        ]
         profiles.append({
             "profile_id": profile.profile_id, "name": profile.name,
             "image_manifest": profile.image_manifest, "execution_mode": profile.execution_mode,
             "layout_policy": profile.layout_policy, "target": profile.target.to_dict(),
+            "target_path": matches[0].get("path") if len(matches) == 1 else None,
             "expires_at": profile.expires_at, "single_use": profile.single_use,
-            "path": str(path),
+            "consumed": False,
         })
-    return {"profiles": profiles}
+    return {"profiles": profiles, "storage_available": True}
 
 
 def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
-    required = {"name", "image_id", "target_wwn", "target_serial", "expires_at"}
+    required = {"name", "image_id", "target_wwn", "target_serial", "expires_at", "repository_id"}
     if set(params) != required:
-        raise WebAPIError("create_restore_profile requires exactly name, image_id, target_wwn, target_serial and expires_at")
+        raise WebAPIError("create_restore_profile requires name, image_id, target identity, expiry and repository_id")
     name = _text(params, "name", maximum=80)
     image_id = _text(params, "image_id", pattern=r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
-    wwn = params.get("target_wwn")
-    serial = params.get("target_serial")
+    wwn, serial = params.get("target_wwn"), params.get("target_serial")
     if wwn is not None and (not isinstance(wwn, str) or not wwn or len(wwn) > 256):
         raise WebAPIError("target_wwn must be a non-empty string or null")
     if serial is not None and (not isinstance(serial, str) or not serial or len(serial) > 256):
@@ -3701,6 +3739,7 @@ def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
     )
     import uuid
     try:
+        repository = _profile_repository({"repository_id": params["repository_id"]}, write=True)
         selector = RestoreTargetSelector(wwn=wwn, serial=serial)
         profile = RestoreProfile(
             profile_id=str(uuid.uuid4()), name=name,
@@ -3709,7 +3748,6 @@ def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
             verify_after_restore=True, on_success="none",
             expires_at=expires_at, single_use=True,
         )
-        repository = _repository()
         manifest_path = _image_manifest(image_id, repository)
         manifest = ImageManifest.from_json(manifest_path.read_text(encoding="utf-8"))
         if manifest.image_id != image_id or manifest.image_type != "disk":
@@ -3741,7 +3779,7 @@ def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
             children = item.get("children")
             if isinstance(children, list):
                 pending.extend(child for child in children if isinstance(child, dict))
-        path = _restore_profile_directory(create=True) / f"{profile.profile_id}.json"
+        path = _restore_profile_directory(repository, create=True) / f"{profile.profile_id}.json"
         saved = save_unattended_restore_profile(profile, path)
     except WebAPIError:
         raise
@@ -3749,11 +3787,12 @@ def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
         raise WebAPIError(f"could not create restore profile: {exc}") from exc
     return {
         "profile_id": profile.profile_id, "name": profile.name,
-        "path": str(saved), "image_id": image_id,
+        "path": str(saved), "image_id": image_id, "repository_id": params["repository_id"],
         "target": selector.to_dict(), "execution_mode": "unattended",
         "single_use": True, "layout_policy": "preserve",
-        "message": "Profile saved. It is not armed or executed automatically; boot-time execution remains an explicit operator action.",
+        "message": "Profile saved on persistent storage. It is not armed or executed automatically.",
     }
+
 
 
 def dispatch(request: Any) -> dict[str, Any]:
