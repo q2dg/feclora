@@ -713,7 +713,7 @@ class ClientDeploymentService:
             try:
                 job, success, detail = join_deployment(
                     host, control_port or config.port, context,
-                    expected_
+                    expected_server_identity=config.server_identity,
                     mac_address=config.mac_address,
                     job_id=self.job_id,
                     prepare_local_target=prepare_local_target,
