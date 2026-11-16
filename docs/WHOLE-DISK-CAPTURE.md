@@ -40,7 +40,3 @@ This implementation is read-only with respect to the source device. It checks
 mounted/busy/root-backed sources and revalidates before reading. The Cockpit Operations wizard shows byte-based progress and supports cancellation; a cancelled capture removes its staging data and does not publish a manifest. Power-loss recovery for a crash
 between individual hard-link operations remains pending. The manifest-last convention lets readers
 ignore incomplete image sets without a manifest.
-
-## Cockpit operator procedure
-
-**Screenshots are pending.** Follow the [Cockpit screenshot capture plan](assets/screenshots/README.md). The repository currently has no validated Cockpit screenshot set. Capture each step from a real, version-matched Fedora Live build and store it under `docs/assets/screenshots/`; clearly labeled mockups are acceptable when real screenshots are unavailable; see the screenshot and mockup policy.
