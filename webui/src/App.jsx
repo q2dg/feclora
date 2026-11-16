@@ -1699,12 +1699,12 @@ export default function App() {
                   {s3Repositories.map((repo) => <Tr key={repo.id}><Td>{repo.id}</Td><Td>{repo.endpoint_url || "AWS S3"} · {repo.region}</Td><Td>{repo.bucket}/{repo.prefix}</Td><Td>{repo.read_only ? "Read-only" : "Read/write"}</Td><Td><Button size="sm" variant="secondary" isDisabled={busy} onClick={() => runS3RepositoryAction("check_s3_repository", repo.id)}>{t("Test connection")}</Button>{" "}<Button size="sm" variant="danger" isDisabled={busy} onClick={() => runS3RepositoryAction("remove_s3_repository", repo.id)}>{t("Remove")}</Button></Td></Tr>)}
                   {!s3Repositories.length && <Tr><Td colSpan={5}>{t("No S3 object repositories configured.")}</Td></Tr>}
                 </Tbody></Table>
-                <Title headingLevel="h3" size="md" className="pf-v6-u-mt-lg">Legacy P2V bundle export from S3</Title>
-                <p>Export a legacy QCOW2 plus sidecar bundle from an S3 object repository to the local repository or a mounted filesystem repository. This does not export ordinary manifest-backed QCOW2 captures, which already use the normal image workflow.</p>
+                <Title headingLevel="h3" size="md" className="pf-v6-u-mt-lg">{t("Legacy P2V bundle export from S3")}</Title>
+                <p>{t("Export a legacy QCOW2 plus sidecar bundle from an S3 object repository to the local repository or a mounted filesystem repository. This does not export ordinary manifest-backed QCOW2 captures, which already use the normal image workflow.")}</p>
                 <Card><CardBody><form onSubmit={exportP2VFromS3}>
                   <Field t={t} label="Source S3 repository">
                     <select className="pf-v6-c-form-control" value={p2vExportSourceId} onChange={(e) => setP2vExportSourceId(e.target.value)} required>
-                      <option value="">Select an S3 source…</option>
+                      <option value="">{t("Select an S3 source…")}</option>
                       {s3Repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.bucket}/{repo.prefix}</option>)}
                     </select>
                   </Field>
@@ -1717,7 +1717,7 @@ export default function App() {
                       {remoteRepositories.filter((repo) => repo.mounted && repo.verified && !repo.read_only).map((repo) => <option key={repo.id} value={repo.id}>{repo.id} · {repo.provider}</option>)}
                     </select>
                   </Field>
-                  <Button type="submit" variant="primary" isDisabled={busy || !p2vExportSourceId || !p2vExportImageId.trim()}>Export legacy P2V bundle</Button>
+                  <Button type="submit" variant="primary" isDisabled={busy || !p2vExportSourceId || !p2vExportImageId.trim()}>{t("Export legacy P2V bundle")}</Button>
                 </form></CardBody></Card>
               </StackItem>
               <StackItem><Title headingLevel="h2" size="lg">{t("Configured repositories")}</Title>
