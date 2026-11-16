@@ -3567,6 +3567,13 @@ def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
     if wwn is None and serial is None:
         raise WebAPIError("restore profile requires a WWN and/or serial-number binding")
     expires_at = _text(params, "expires_at", maximum=64)
+    from datetime import datetime, timezone
+    try:
+        expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise WebAPIError("expires_at must be a timezone-aware ISO-8601 timestamp") from exc
+    if expiry.tzinfo is None or expiry.utcoffset() is None or expiry.astimezone(timezone.utc) <= datetime.now(timezone.utc):
+        raise WebAPIError("restore profile expiry must be a future timezone-aware timestamp")
     from feclora.storage.restore_profile import (
         RestoreProfile, RestoreTargetSelector, RestoreProfileError, save_unattended_restore_profile,
     )
@@ -3597,6 +3604,21 @@ def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
         ]
         if len(matches) != 1:
             raise WebAPIError("stable target selector must match exactly one detected whole disk")
+        target = matches[0]
+        if target.get("read_only"):
+            raise WebAPIError("restore profile target disk is read-only")
+        if target.get("size_bytes", 0) < manifest.source_size_bytes:
+            raise WebAPIError("restore profile target disk is smaller than the source image; proportional restore is a separate workflow")
+        if target.get("logical_sector_size") != manifest.logical_sector_size:
+            raise WebAPIError("restore profile target logical sector size differs from the image")
+        pending = [target]
+        while pending:
+            item = pending.pop()
+            if item.get("mountpoints"):
+                raise WebAPIError("restore profile target disk or one of its partitions is mounted or in use")
+            children = item.get("children")
+            if isinstance(children, list):
+                pending.extend(child for child in children if isinstance(child, dict))
         path = _restore_profile_directory(create=True) / f"{profile.profile_id}.json"
         saved = save_unattended_restore_profile(profile, path)
     except WebAPIError:
