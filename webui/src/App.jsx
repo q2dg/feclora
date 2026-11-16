@@ -225,7 +225,7 @@ export default function App() {
   const applyNetworkProfile = async (event) => {
     event.preventDefault();
     const selected = networkProfiles.find((profile) => profile.uuid === networkProfileUuid);
-    if (!selected?.device) { setError("Select an active NetworkManager profile with an associated device."); return; }
+    if (!selected?.device) { setError(t("Select an active NetworkManager profile with an associated device.")); return; }
     setBusy(true); setError(""); setNotice(""); setNetworkApplyResult(null);
     try {
       const result = await callFeclora("apply_network_profile", {
@@ -237,7 +237,7 @@ export default function App() {
         rollback_timeout: 120
       });
       setNetworkApplyResult(result);
-      setNotice("Network profile applied and verified. NetworkManager checkpoint committed.");
+      setNotice(t("Network profile applied and verified. NetworkManager checkpoint committed."));
       await refresh();
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
@@ -285,16 +285,16 @@ export default function App() {
   const createRestoreProfile = async (event) => {
     event.preventDefault();
     if (!restoreProfileRepositoryId) {
-      setError("Select a mounted persistent filesystem repository for restore profiles.");
+      setError(t("Select a mounted persistent filesystem repository for restore profiles."));
       return;
     }
     const selected = disks.find((device) => device.path === restoreProfileTarget);
     if (!selected || (!selected.wwn && !selected.serial)) {
-      setError("Choose a detected whole disk with a WWN and/or serial number.");
+      setError(t("Choose a detected whole disk with a WWN and/or serial number."));
       return;
     }
     if (!restoreProfileExpiry) {
-      setError("Set an expiry time for this single-use unattended profile.");
+      setError(t("Set an expiry time for this single-use unattended profile."));
       return;
     }
     setBusy(true); setError(""); setNotice("");
@@ -307,7 +307,7 @@ export default function App() {
         expires_at: new Date(restoreProfileExpiry).toISOString(),
         repository_id: restoreProfileRepositoryId
       });
-      setNotice("Restore profile saved. It is not armed and will not run automatically. " + result.profile_id);
+      setNotice(t("Restore profile saved. It is not armed and will not run automatically.") + " " + result.profile_id);
       setRestoreProfileName("");
       const listed = await callFeclora("restore_profiles", { repository_id: restoreProfileRepositoryId });
       setRestoreProfiles(listed.profiles || []);
@@ -323,7 +323,7 @@ export default function App() {
     try {
       const imageData = await callFeclora("repository_images", { repository_id: repositoryId });
       setRestoreProfileImages((imageData.images || []).filter((item) => item.image_type === "disk" && item.image_format === "raw"));
-      setNotice("Loaded persistent restore profiles and RAW images from " + repositoryId + ".");
+      setNotice(t("Loaded persistent restore profiles and RAW images from") + " " + repositoryId + ".");
     } catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   };
@@ -331,7 +331,7 @@ export default function App() {
   const executeRestoreProfile = async (profile) => {
     const confirmation = profileConfirmations[profile.profile_id] || "";
     if (!profile.target_path || confirmation !== "ERASE " + profile.target_path) {
-      setError("The detected target must be available and the exact destructive phrase must be entered.");
+      setError(t("The detected target must be available and the exact destructive phrase must be entered."));
       return;
     }
     setBusy(true); setError(""); setNotice(""); setProgress(null);
@@ -340,11 +340,11 @@ export default function App() {
         profile_id: profile.profile_id, target: profile.target_path,
         confirmation, repository_id: restoreProfileRepositoryId
       });
-      setNotice("Restore profile accepted by the durable worker. It will be consumed immediately before the first write.");
+      setNotice(t("Restore profile accepted by the durable worker. It will be consumed immediately before the first write."));
       const result = await waitForLocalOperation(accepted.operation_id, (eventData) => {
         if (eventData.event === "progress") setProgress(eventData);
       });
-      if (result.state === "completed") setNotice("Single-use restore profile completed with read-back verification.");
+      if (result.state === "completed") setNotice(t("Single-use restore profile completed with read-back verification."));
       else setError("Restore profile " + result.state + ": " + (result.details?.error || result.details?.reason || "inspect the operation log."));
       const listed = await callFeclora("restore_profiles", { repository_id: restoreProfileRepositoryId });
       setRestoreProfiles(listed.profiles || []);
@@ -371,7 +371,7 @@ export default function App() {
     anchor.click();
     anchor.remove();
     window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-    setNotice("The most recent local operation history was exported as JSON.");
+    setNotice(t("The most recent local operation history was exported as JSON."));
   };
 
   const cancelLocalOperation = async (operationId) => {
@@ -518,7 +518,7 @@ export default function App() {
         operation_id: accepted.operation_id, action: operation, state: "queued",
         events: [{ state: "queued", timestamp: new Date().toISOString(), details: {} }]
       }, ...current.filter((item) => item.operation_id !== accepted.operation_id)]);
-      setNotice("Operation accepted by the durable worker. It will continue if Cockpit disconnects. Use Operation log to request cancellation.");
+      setNotice(t("Operation accepted by the durable worker. It will continue if Cockpit disconnects. Use Operation log to request cancellation."));
       const result = await waitForLocalOperation(accepted.operation_id, (eventData) => {
         if (eventData.event === "progress") setProgress(eventData);
         if (eventData.event === "state") {
@@ -529,11 +529,11 @@ export default function App() {
       });
       if (result.state === "completed") {
         setOperationResult(result.result);
-        setNotice("Operation completed successfully.");
+        setNotice(t("Operation completed successfully."));
       } else if (result.state === "cancelled") {
         setNotice(result.details?.destination_may_be_partial
-          ? "Operation cancelled. The destination may be partially written; inspect it before using it again."
-          : "Operation cancelled before completing.");
+          ? t("Operation cancelled. The destination may be partially written; inspect it before using it again.")
+          : t("Operation cancelled before completing."));
       } else {
         setError("Local operation " + result.state + ": " + (result.details?.error || result.details?.reason || "inspect the operation log."));
       }
