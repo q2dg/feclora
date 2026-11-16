@@ -555,8 +555,9 @@ class ClientDeploymentService:
                 level = None if compression == "none" else 6
 
                 def recheck_unattended_target() -> None:
-                    if not unattended:
-                        return
+                    # This callback is supplied only for unattended jobs. Once
+                    # invoked by the restore engine, it must never silently skip
+                    # the stable-identity check immediately before the first write.
                     try:
                         current = self._find_unattended_disk(job, config.mac_address)
                     except ClientJobServiceError as exc:
