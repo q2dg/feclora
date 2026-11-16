@@ -1527,7 +1527,7 @@ export default function App() {
                     <Field label="Profile name">
                       <input className="pf-v6-c-form-control" value={restoreProfileName} maxLength={80} onChange={(event) => setRestoreProfileName(event.target.value)} required />
                     </Field>
-                    <Field label="Local whole-disk image">
+                    <Field label="Whole-disk image in selected repository">
                       <select className="pf-v6-c-form-control" value={restoreProfileImage} onChange={(event) => setRestoreProfileImage(event.target.value)} required>
                         <option value="">Select a RAW disk image…</option>
                         {restoreProfileImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}</option>)}
@@ -1542,7 +1542,7 @@ export default function App() {
                     <Field label="Authorization expiry" help="The unattended authorization is single-use and must expire in the future.">
                       <input className="pf-v6-c-form-control" type="datetime-local" value={restoreProfileExpiry} onChange={(event) => setRestoreProfileExpiry(event.target.value)} required />
                     </Field>
-                    <Button type="submit" variant="primary" isDisabled={busy || !restoreProfileName.trim() || !restoreProfileImage || !restoreProfileTarget || !restoreProfileExpiry} isLoading={busy}>Save single-use profile</Button>
+                    <Button type="submit" variant="primary" isDisabled={busy || !restoreProfileRepositoryId || !restoreProfileImages.length || !restoreProfileName.trim() || !restoreProfileImage || !restoreProfileTarget || !restoreProfileExpiry} isLoading={busy}>Save single-use profile</Button>
                   </form>
                 </CardBody></Card>
               </StackItem>
