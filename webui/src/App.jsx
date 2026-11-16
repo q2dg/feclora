@@ -1390,7 +1390,7 @@ export default function App() {
                           if (isDisk && !isProportionalRestore) inspectRestoreLayout(value); else setRestoreLayoutPreview(null);
                         }}>
                           <option value="">{t("Select an image…")}</option>
-                          {matchingImages.map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}{item.image_format ? ` · ${item.image_format.toUpperCase()}${item.image_format === "qcow2" ? " / V2P" : ""}` : ""}</option>)}
+                          {matchingImages.filter((item) => !isProportionalRestore || item.image_format === "raw").map((item) => <option key={item.image_id} value={item.image_id}>{item.image_id} · {formatBytes(item.source_size_bytes)}{item.image_format ? ` · ${item.image_format.toUpperCase()}${item.image_format === "qcow2" ? " / V2P" : ""}` : ""}</option>)}
                         </select>
                       </Field>
                       {isProportionalRestore && <Field t={t} label="Original source disk (must be offline and unused)">
