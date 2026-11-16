@@ -368,6 +368,7 @@ def execute_unattended_restore_profile(
     inventory: dict[str, Any] | None = None,
     restore_function: Any = restore_disk,
     command_runner: Any = subprocess.run,
+    progress_callback: Any | None = None,
 ) -> ImageManifest:
     """Run one root-authorized profile; destructive preflight remains in restore_disk."""
     profile = load_restore_profile(profile_path)
@@ -418,6 +419,7 @@ def execute_unattended_restore_profile(
             confirmation=f"ERASE {target_path}",
             age_identity_file=age_identity_file,
             pre_write_callback=consume_before_write,
+            progress_callback=progress_callback,
         )
     if profile.on_success in {"reboot", "poweroff"}:
         command_runner(privileged_argv(["systemctl", profile.on_success]), check=True, timeout=30)
