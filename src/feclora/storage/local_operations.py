@@ -89,6 +89,7 @@ def validate_definition(value: Any) -> dict[str, Any]:
         "capture_partition": {"source", "image_id", "partition_id", "compression", "encrypt", "repository_id"},
         "capture_logical_volume": {"source", "image_id", "compression", "encrypt", "repository_id"},
         "restore_disk": {"image_id", "target", "confirmation", "repository_id"},
+        "restore_proportional_disk": {"image_id", "source", "target", "source_major_minor", "target_major_minor", "confirmation", "repository_id"},
         "restore_partition": {"image_id", "target", "confirmation", "repository_id"},
         "restore_logical_volume": {"image_id", "target", "confirmation", "repository_id"},
         "clone_disk": {"source", "target", "confirmation"},
@@ -155,6 +156,12 @@ def validate_definition(value: Any) -> dict[str, Any]:
             if (not isinstance(device, str) or not DEVICE_RE.fullmatch(device)
                     or ".." in device.split("/") or os.path.normpath(device) != device):
                 raise LocalOperationError(f"{key} must be a normalized /dev device path")
+    if action == "restore_proportional_disk":
+        for key in ("source_major_minor", "target_major_minor"):
+            if not isinstance(params.get(key), str) or not re.fullmatch(r"[0-9]+:[0-9]+", params[key]):
+                raise LocalOperationError(f"{key} must be a kernel major:minor device identity")
+        if params.get("source") == params.get("target"):
+            raise LocalOperationError("proportional restore source and target must be different paths")
     for key in ("image_id", "partition_id", "source_image_id"):
         if key in params and (not isinstance(params[key], str)
                 or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", params[key])):
