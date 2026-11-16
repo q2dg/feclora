@@ -99,9 +99,10 @@ project work here is to keep that procedure accurate and reproducible; this
 assistant does not build or boot the ISO. The owner must then record BIOS and
 UEFI boots, Cockpit/kiosk behavior on VMs and hardware, restores on disposable
 real disks, live remote-provider behavior, multi-Client deployment, and
-interactive/unattended PXE on an isolated network. The public guides now
-include three explicitly labeled SVG mockups for capture, restore and
-Server/Client deployment. Version-matched real screenshots may replace or
+interactive/unattended PXE on an isolated network. The public operator guides now include task-specific, explicitly labeled
+SVG mockups for partition capture/restore, local cloning, repository setup,
+PXE, multicast and recovery, in addition to capture, restore and
+Server/Client deployment. These mockups explain workflows but are not runtime evidence. Version-matched real screenshots may replace or
 supplement them after maintainer acceptance; mockups are not test evidence.
 
 These tasks are listed individually in
