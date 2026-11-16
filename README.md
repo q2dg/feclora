@@ -1,54 +1,59 @@
-## Feclora is...
+# Feclora
 
-... a tool for cloning whole local disks (or partitions) in a lone computer
+Feclora is a Fedora Server-based Live appliance for disk and partition imaging,
+local and remote cloning, recovery and network deployment. It launches a
+Cockpit-based operator interface in a restricted Firefox kiosk.
 
-... a tool for cloning whole local disks (or partitions) through network nodes (in a _1 source <-> 1 destination_ "unicast" mode or in _1 source <-> N destinations_ "multicast" mode)
+## What it does
 
-... a tool for creating images, which can be saved locally or in a remote SSHFS, NFS, SMB/CIFS or S3 storage server. These images are compressed, their integrity is verifiable using SHA-256 and they can be optionally encrypted using ChaCha20-Poly1305 
+- Capture whole disks (RAW or QCOW2) and supported partitions into manifest-backed images.
+- Restore verified images to compatible disks or existing partitions, with explicit destructive confirmation.
+- Clone local disks and partitions, or deploy to remote Clients using unicast and UDPcast multicast workflows.
+- Use local, SSHFS, NFS, SMB/CIFS and S3-compatible image repositories.
+- Boot the same Live environment through PXE; optional unattended restore uses validated answer files and has a narrower scope than interactive PXE.
+- Optionally encrypt image artifacts with age. Image integrity metadata uses SHA-256.
 
-... a tool for restoring images from local or remote SSHFS, NFS, SMB/CIFS or S3 repositories. These external storage services are provisioned independently. Restores can use the supported unicast or multicast deployment workflows.
+The Live session is ephemeral. Credentials, certificates and temporary
+configuration are regenerated at boot; durable images belong in repositories
+selected by the operator.
 
-... a PXE service that boots network clients into the same Feclora Fedora Live environment used by the ISO. PXE starts the normal interactive Cockpit interface; the operator selects the image, repository and destination through the usual Feclora workflow. PXE serves boot assets, not image data.
+## Important scope limits
 
-... optional unattended restore workflows using validated JSON answer files. The PXE unattended adapter is a separate, explicitly configured path and currently supports whole-disk unicast restore only; it is not the default PXE boot workflow.
+Feclora supports Ext4, XFS, NTFS, FAT32, exFAT and F2FS, plus single-device
+Btrfs partitions, subject to the feature matrix. LVM logical volumes and raw
+LUKS2 containers have documented restrictions. Stratis is inventoried but is
+not a fully supported imaging target. Coordinated multi-device/snapshot Btrfs
+imaging and opened-LUKS-mapping imaging are not implemented. A recovery ISO
+builder exists, but its boot-time embedded-image discovery and restore dispatch
+are unfinished.
 
-...a Live ISO running on a Fedora Server 45 (x86_64) system which automatically launches a Cockpit-based web interface inside a locked-down Firefox kiosk. The Live session is ephemeral, so credentials, certificates and temporary configuration are regenerated at boot
-
-Feclora supports Ext4, XFS, NTFS, FAT32, exFAT and F2FS file systems, plus single-device Btrfs partitions. Unknown or unsupported content is handled as raw where safe. LVM logical volumes and raw LUKS2 containers are supported image sources under documented restrictions; Stratis is inventoried but is not a fully supported imaging target. Coordinated multi-device Btrfs imaging and snapshot-assisted capture are not supported
-
-
-## Built on
-
-Feclora brings together these projects and tools:
-
-* [Fedora Server](https://fedoraproject.org/server/) — Operating system base
-* [Cockpit](https://cockpit-project.org/) — Web-based system administration tool
-* [Firefox](https://www.mozilla.org/firefox/) and [Cage](https://github.com/cage-kiosk/cage) — Locked-down graphical kiosk.
-* [Partclone](https://partclone.org/) — Filesystem-aware partition imaging software
-* [LVM2](https://sourceware.org/lvm2/), [Stratis](https://stratis-storage.github.io/) and [cryptsetup](https://gitlab.com/cryptsetup/cryptsetup) — Storage and encryption-layer support.
-* [NetworkManager](https://networkmanager.dev/) — Network configuration daemon
-* [UDPcast](https://www.udpcast.linux.lu/) — Multicast image distribution software
-* [Dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) and [iPXE](https://ipxe.org/) — Network boot and DHCP/PXE services.
-* [Caddy](https://caddyserver.com/) — HTTP server used for delivery of PXE boot assets and answer files.
-* [age](https://age-encryption.org/) — Optional image encryption tool.
-* [zstd](https://facebook.github.io/zstd/) and [LZ4](https://lz4.github.io/lz4/) — Image compression libraries
-* [Lorax](https://weldr.io/lorax/) — Live ISO construction framework.
-* [QEMU/KVM](https://www.qemu.org/) — Virtualized ISO build and validation accessory tools.
-
+Source integration and automated tests do not establish release acceptance.
+The repository maintainer owns ISO generation and BIOS/UEFI, physical-hardware,
+live-provider and real-network acceptance.
 
 ## Documentation
 
-Start with these [step-by-step "getting started" guides](https://q2dg.github.io/feclora/GETTING-STARTED.html). You can also read these other technical documents:
+Start with the [step-by-step operator guides](https://q2dg.github.io/feclora/GETTING-STARTED.html)
+or browse the [complete guide index](https://q2dg.github.io/feclora/GUIDES.html).
+Technical references:
 
-* [More specific operator guides](docs/GUIDES.md)
-* [Feature matrix](docs/FEATURE-MATRIX.md)
-* [Operational lifecycle runbook](docs/OPERATIONS.md)
-* [Maintainer acceptance checklist](docs/MAINTAINER-ACCEPTANCE.md)
-* [Remaining work](docs/ROADMAP.md).
+- [Feature and compatibility matrix](docs/FEATURE-MATRIX.md)
+- [Operational lifecycle runbook](docs/OPERATIONS.md)
+- [Build and software validation](docs/BUILD.md)
+- [Maintainer acceptance checklist](docs/MAINTAINER-ACCEPTANCE.md)
+- [Engineering roadmap](docs/ROADMAP.md)
 
 ## Build and test
 
-Follow [docs/BUILD.md](docs/BUILD.md) in order to run the necessary commands for generating your Feclora ISO copy and doing the BIOS/UEFI QEMU checks
+Follow [docs/BUILD.md](docs/BUILD.md) for host prerequisites, static validation,
+automated tests, ISO build instructions and disposable QEMU checks. ISO
+generation and hardware/network acceptance are maintainer-run activities.
+
+## Built on
+
+Fedora Server, Cockpit, Firefox, Cage, Partclone, LVM2, cryptsetup,
+NetworkManager, UDPcast, dnsmasq, iPXE, Caddy, age, zstd, LZ4, Lorax and
+QEMU/KVM.
 
 ## License
 
