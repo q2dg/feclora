@@ -278,6 +278,10 @@ export default function App() {
 
   const createRestoreProfile = async (event) => {
     event.preventDefault();
+    if (selectedRepositoryId) {
+      setError("Restore profiles can currently reference only the local image repository.");
+      return;
+    }
     const selected = disks.find((device) => device.path === restoreProfileTarget);
     if (!selected || (!selected.wwn && !selected.serial)) {
       setError("Choose a detected whole disk with a WWN and/or serial number.");
