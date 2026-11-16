@@ -123,5 +123,27 @@ class S3RepositoryManagerTests(unittest.TestCase):
         self.assertEqual(result, client.return_value)
 
 
+    def test_registry_lock_rejects_hard_linked_file(self):
+        self.manager.add("archive", self.definition)
+        lock_path = self.registry.with_suffix(self.registry.suffix + ".lock")
+        alias = Path(self.temp.name) / "lock-alias"
+        os.link(lock_path, alias)
+        with self.assertRaisesRegex(S3RepositoryManagerError, "registry lock is unsafe"):
+            self.manager.add("second", self.definition)
+
+    def test_usage_lock_rejects_hard_linked_file(self):
+        self.manager.add("archive", self.definition)
+        lock_dir = self.registry.parent / "s3-repository-locks"
+        lock_path = lock_dir / "archive.lock"
+        # Create the lock using a successful lease, then close it before
+        # introducing a second hard link to the same inode.
+        fd = self.manager.acquire_usage_lock("archive")
+        os.close(fd)
+        alias = Path(self.temp.name) / "usage-lock-alias"
+        os.link(lock_path, alias)
+        with self.assertRaisesRegex(S3RepositoryManagerError, "usage lock is unsafe"):
+            self.manager.acquire_usage_lock("archive")
+
+
 if __name__ == "__main__":
     unittest.main()
