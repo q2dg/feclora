@@ -446,7 +446,7 @@ class WebAPITests(unittest.TestCase):
         from pathlib import Path
         manifest = SimpleNamespace(
             image_id="source", image_type="disk",
-            artifacts=[SimpleNamespace(encryption="none")],
+            artifacts=[SimpleNamespace(encryption="none", role="disk-image", format="raw")],
         )
         extracted = SimpleNamespace(image_id="source-part-abc123", image_type="partition", artifacts=[])
         with patch("feclora.webapi._image_manifest", return_value=Path("/repo/source.manifest.json")), patch(
