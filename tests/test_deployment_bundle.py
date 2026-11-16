@@ -6,6 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 import uuid
 
 from feclora.storage.deployment_bundle import DeploymentBundleError, build_deployment_bundle
@@ -136,6 +137,49 @@ class DeploymentBundleTests(unittest.TestCase):
         with self.assertRaisesRegex(DeploymentBundleError, "El Torito"):
             self.build(runner=runner)
         self.assertFalse(self.output.exists())
+
+
+    def test_copy_interruption_never_publishes_partial_bundle_and_cleans_staging(self):
+        from feclora.storage import deployment_bundle
+
+        real_copy = deployment_bundle._copy_verified
+
+        def interrupted_copy(source, destination, expected_size, expected_digest):
+            if destination.name == "disk.raw":
+                raise OSError("simulated artifact-copy interruption")
+            return real_copy(source, destination, expected_size, expected_digest)
+
+        with patch("feclora.storage.deployment_bundle._copy_verified", side_effect=interrupted_copy):
+            with self.assertRaisesRegex(DeploymentBundleError, "publication failed"):
+                self.build()
+
+        self.assertFalse(self.output.exists())
+        self.assertFalse((self.root / ".bundle.publish.lock").exists())
+        self.assertEqual(
+            sorted(path.name for path in self.root.glob(".bundle.staging-*")),
+            [],
+        )
+
+    def test_atomic_publish_failure_cleans_complete_staging_without_visible_output(self):
+        from feclora.storage import deployment_bundle
+
+        def fail_final_rename(staging, output):
+            self.assertTrue((staging / "images" / "disk.raw").is_file())
+            self.assertTrue((staging / "image-manifest.json").is_file())
+            self.assertTrue((staging / "answer.json").is_file())
+            bundle_manifest = staging / "bundle-manifest.json"
+            self.assertTrue(bundle_manifest.is_file())
+            metadata = json.loads(bundle_manifest.read_text())
+            self.assertIn("images/disk.raw", metadata["files"])
+            raise OSError("simulated interruption before atomic directory rename")
+
+        with patch("feclora.storage.deployment_bundle._rename_noreplace", side_effect=fail_final_rename):
+            with self.assertRaisesRegex(DeploymentBundleError, "publication failed"):
+                self.build()
+
+        self.assertFalse(self.output.exists())
+        self.assertFalse((self.root / ".bundle.publish.lock").exists())
+        self.assertEqual(list(self.root.glob(".bundle.staging-*")), [])
 
 
 if __name__ == "__main__":
