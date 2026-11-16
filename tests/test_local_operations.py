@@ -474,3 +474,25 @@ class ProportionalRestoreOperationValidationTests(unittest.TestCase):
         }
         with self.assertRaisesRegex(LocalOperationError, "major:minor"):
             validate_definition(definition)
+
+
+class RestoreProfileExecutionOperationTests(unittest.TestCase):
+    def test_profile_execution_requires_repository_and_typed_confirmation(self):
+        definition = {
+            "schema_version": 1,
+            "operation_id": "00000000-0000-4000-8000-000000000093",
+            "action": "execute_restore_profile",
+            "params": {
+                "profile_id": "12f7b67b-44e0-4d0b-a0b2-58b3d02c04e7",
+                "target": "/dev/sdb", "confirmation": "ERASE /dev/sdb",
+                "repository_id": "backup",
+            },
+        }
+        self.assertEqual(validate_definition(definition)["action"], "execute_restore_profile")
+        definition["params"]["confirmation"] = "yes"
+        with self.assertRaisesRegex(LocalOperationError, "confirmation"):
+            validate_definition(definition)
+        definition["params"]["confirmation"] = "ERASE /dev/sdb"
+        del definition["params"]["repository_id"]
+        with self.assertRaisesRegex(LocalOperationError, "persistent filesystem repository"):
+            validate_definition(definition)
