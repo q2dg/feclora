@@ -26,7 +26,7 @@ class ClientDeploymentLockTests(unittest.TestCase):
         )
 
     def test_lock_open_is_close_on_exec(self):
-        info = SimpleNamespace(st_mode=stat.S_IFREG | 0o600, st_uid=0)
+        info = SimpleNamespace(st_mode=stat.S_IFREG | 0o600, st_uid=0, st_nlink=1)
         with self.prepare_directories()[0], self.prepare_directories()[1], \
              patch("feclora.deployment.client_service.os.open", return_value=71) as open_lock, \
              patch("feclora.deployment.client_service.os.fstat", return_value=info), \
@@ -46,6 +46,17 @@ class ClientDeploymentLockTests(unittest.TestCase):
             with self.assertRaisesRegex(ClientJobServiceError, "lock file is unsafe"):
                 self.service._acquire_lock()
         close_fd.assert_called_once_with(72)
+        self.assertIsNone(self.service._lock_fd)
+
+    def test_hard_linked_lock_file_is_rejected_and_closed(self):
+        info = SimpleNamespace(st_mode=stat.S_IFREG | 0o600, st_uid=0, st_nlink=2)
+        with self.prepare_directories()[0], self.prepare_directories()[1], \
+             patch("feclora.deployment.client_service.os.open", return_value=74), \
+             patch("feclora.deployment.client_service.os.fstat", return_value=info), \
+             patch("feclora.deployment.client_service.os.close") as close_fd:
+            with self.assertRaisesRegex(ClientJobServiceError, "lock file is unsafe"):
+                self.service._acquire_lock()
+        close_fd.assert_called_once_with(74)
         self.assertIsNone(self.service._lock_fd)
 
     def test_busy_lock_closes_descriptor(self):
