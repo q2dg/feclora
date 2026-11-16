@@ -14,14 +14,20 @@ identify the feature status (implemented, partial or planned).
 
 ## Published illustrative mockups
 
-The current documentation includes these conceptual screens under
-`docs/assets/mockups/`:
+The current operator guides use task-specific conceptual screens under
+`docs/assets/mockups/`. They are not screenshots of the React interface:
 
 | File | Subject | Purpose |
 |---|---|---|
 | `capture-wizard.svg` | Source disk selection | Explain the capture wizard and read-only source selection |
 | `restore-wizard.svg` | Destination review | Emphasize image/target review and destructive confirmation |
 | `network-deployment.svg` | Server and Clients | Explain per-Client readiness and the explicit ARM barrier |
+| `partition-workflow.svg` | Partition capture/restore | Show single-partition scope and existing-target constraint |
+| `local-clone.svg` | Local disk clone | Contrast source and destructive destination |
+| `repository-setup.svg` | Repository configuration | Compare mounted filesystem and S3 providers |
+| `pxe-workflow.svg` | PXE boot modes | Separate interactive Live from unattended answer flow |
+| `multicast-workflow.svg` | Multicast restore | Explain READY barrier and shared stream |
+| `recovery-workflow.svg` | Recovery media | Show artifact inputs and incomplete boot dispatch |
 
 These SVGs are design illustrations, not captures of the current React UI.
 Sample disk names, capacities, addresses and statuses are fictional. The
