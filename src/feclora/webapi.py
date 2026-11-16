@@ -3777,10 +3777,8 @@ def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
         if manifest.image_id != image_id or manifest.image_type != "disk":
             raise WebAPIError("restore profiles currently require a matching whole-disk image")
         if any(item.encryption == "age" for item in manifest.artifacts):
-            client = _client_runtime_config()
-            identity = client.age_identity_file if client else None
-            if not identity:
-                raise WebAPIError("age-encrypted image requires a separately provisioned Client age identity")
+            if not _security_material().get("age_decryption_available"):
+                raise WebAPIError("age-encrypted image requires a separately provisioned Server or Client age identity")
         inventory = collect_inventory()
         matches = [
             device for device in inventory.get("devices", [])
@@ -3791,6 +3789,11 @@ def _create_restore_profile(params: dict[str, Any]) -> dict[str, Any]:
         target = matches[0]
         if target.get("read_only"):
             raise WebAPIError("restore profile target disk is read-only")
+        from feclora.storage.source_safety import check_capture_source_safe
+        try:
+            check_capture_source_safe(target.get("path"))
+        except Exception as exc:
+            raise WebAPIError(f"restore profile target must be offline and unused: {exc}") from exc
         if target.get("size_bytes", 0) < manifest.source_size_bytes:
             raise WebAPIError("restore profile target disk is smaller than the source image; proportional restore is a separate workflow")
         if target.get("logical_sector_size") != manifest.logical_sector_size:
