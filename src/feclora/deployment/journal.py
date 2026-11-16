@@ -95,7 +95,7 @@ class DeploymentJournal:
                 fcntl.flock(fd, fcntl.LOCK_SH)
             info = os.fstat(fd)
             if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
-                    or info.st_mode & 0o077 or info.st_size > _MAX_JOURNAL_BYTES):
+                    or info.st_nlink != 1 or info.st_mode & 0o077 or info.st_size > _MAX_JOURNAL_BYTES):
                 raise DeploymentJournalError("journal must be a private regular file owned by the service user")
             chunks = []
             remaining = info.st_size
