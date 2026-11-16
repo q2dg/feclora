@@ -49,7 +49,7 @@ def _lstat_without_symlink_traversal(guestfs: Any, path: str) -> dict[str, Any]:
         current = posixpath.join(current, component)
         metadata = guestfs.lstat(current)
         mode = metadata.get("mode", 0)
-        if stat.S_ISLNK(mode):
+        if stat.S_ISLNK(mode) and index < len(components) - 1:
             raise ImageBrowserError("symbolic links are not followed while browsing an image")
         if index < len(components) - 1 and not stat.S_ISDIR(mode):
             raise ImageBrowserError("a path component is not a directory")
@@ -321,6 +321,8 @@ def browse_image(
         guestfs.mount_ro(device, "/")
         metadata = _lstat_without_symlink_traversal(guestfs, path)
         mode = metadata.get("mode", 0)
+        if stat.S_ISLNK(mode):
+            raise ImageBrowserError("symbolic links are not followed while browsing an image")
         if download:
             if not stat.S_ISREG(mode):
                 raise ImageBrowserError("only regular files can be downloaded; directories and symbolic links are not followed")
