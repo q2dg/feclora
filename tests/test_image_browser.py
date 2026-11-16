@@ -83,7 +83,7 @@ class ImageBrowserTests(unittest.TestCase):
         self.image_path = self.repository / "prepared.raw"
         self.image_path.write_bytes(b"image")
 
-    def _browse(self, *, path="/", download=False, session_id=None):
+    def _browse(self, *, path="/", download=False, session_id=None, expected_partition_selector=None):
         fake = FakeGuestFS()
         module = types.ModuleType("guestfs")
         module.GuestFS = lambda **kwargs: fake
@@ -93,7 +93,7 @@ class ImageBrowserTests(unittest.TestCase):
         ), patch("feclora.storage.image_browser._CACHE_PARENT", self.repository / "cache"):
             result = image_browser.browse_image(
                 self.manifest_path, self.repository, 1, path, download=download,
-                session_id=session_id,
+                session_id=session_id, expected_partition_selector=expected_partition_selector,
             )
         return result, fake
 
@@ -105,6 +105,15 @@ class ImageBrowserTests(unittest.TestCase):
         self.assertEqual(guest.drive_options[1]["readonly"], 1)
         self.assertEqual(guest.mounted, ("/dev/sda1", "/"))
         self.assertTrue(guest.closed)
+
+    def test_selects_verified_partition_device_instead_of_assuming_list_order(self):
+        result, guest = self._browse(expected_partition_selector="/dev/sda1")
+        self.assertEqual(result["partition"], "/dev/sda1")
+        self.assertEqual(guest.mounted, ("/dev/sda1", "/"))
+
+    def test_rejects_verified_partition_missing_from_guestfs_inventory(self):
+        with self.assertRaisesRegex(image_browser.ImageBrowserError, "does not match"):
+            self._browse(expected_partition_selector="/dev/sda2")
 
     def test_browser_session_is_reused_for_directory_navigation(self):
         first, _ = self._browse()
