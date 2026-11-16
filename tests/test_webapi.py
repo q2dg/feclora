@@ -2246,7 +2246,7 @@ class RestoreProfileCockpitAPITests(unittest.TestCase):
             {"path": "/dev/sdb", "type": "disk", "serial": "DUPLICATE", "size_bytes": 20_000_000, "logical_sector_size": 512, "mountpoints": [], "children": []},
         ]}
         with tempfile.TemporaryDirectory() as root:
-            with patch("feclora.webapi._repository", return_value=Path(root)), \
+            with patch("feclora.webapi._profile_repository", return_value=Path(root)), \
                  patch("feclora.webapi._image_manifest", return_value=Path(root) / "golden.manifest.json"), \
                  patch("pathlib.Path.read_text", return_value="{}"), \
                  patch("feclora.webapi.ImageManifest.from_json", return_value=manifest), \
@@ -2256,7 +2256,7 @@ class RestoreProfileCockpitAPITests(unittest.TestCase):
                     _create_restore_profile({
                         "name": "Lab image", "image_id": "golden",
                         "target_wwn": None, "target_serial": "DUPLICATE",
-                        "expires_at": "2030-01-01T00:00:00Z",
+                        "expires_at": "2030-01-01T00:00:00Z", "repository_id": "backup",
                     })
         save.assert_not_called()
 
