@@ -78,7 +78,12 @@ class RecoveryBootTests(unittest.TestCase):
         self.assertEqual(writes, [])
 
     def test_discovery_finds_single_recovery_payload(self):
-        self.assertEqual(discover_payload((self.root,)), self.payload)
+        with patch("feclora.storage.recovery_boot.os.path.ismount", return_value=True):
+            self.assertEqual(discover_payload((self.root,)), self.payload)
+
+    def test_discovery_ignores_payload_in_unmounted_directory(self):
+        with patch("feclora.storage.recovery_boot.os.path.ismount", return_value=False):
+            self.assertIsNone(discover_payload((self.root,)))
 
     def test_discovery_returns_none_without_payload(self):
         self.assertIsNone(discover_payload((self.root / "missing",)))
@@ -86,8 +91,9 @@ class RecoveryBootTests(unittest.TestCase):
     def test_discovery_rejects_multiple_recovery_payloads(self):
         other = self.root / "other"
         (other / "FECLORA" / "RECOVERY").mkdir(parents=True)
-        with self.assertRaisesRegex(RecoveryBootError, "multiple"):
-            discover_payload((self.root, other))
+        with patch("feclora.storage.recovery_boot.os.path.ismount", return_value=True):
+            with self.assertRaisesRegex(RecoveryBootError, "multiple"):
+                discover_payload((self.root, other))
 
     def test_valid_answer_requires_stable_target_identity(self):
         self.write_answer()
